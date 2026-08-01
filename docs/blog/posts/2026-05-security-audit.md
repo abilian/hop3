@@ -120,7 +120,7 @@ Not everything was bad. The audit also identified strengths:
 - **Credential encryption**: Fernet (AES-128-CBC + HMAC-SHA256)
 - **Key derivation**: PBKDF2-HMAC-SHA256, 600,000 iterations with a per-install salt (the OWASP baseline)
 
-The key-derivation scheme is versioned. Older installs were written with a static salt and 100,000 iterations; they're still readable, and `hop3 admin reencrypt-credentials` migrates them to the current scheme rather than silently leaving them weak.
+The key-derivation scheme is versioned. Older installs were written with a static salt and 100,000 iterations; they're still readable, and `hop3 admin reencrypt-credentials` migrates them to the current scheme. No credentials linger on the old scheme.
 
 ### Archive Extraction Protection
 
@@ -150,7 +150,7 @@ def _validate_member(member: tarfile.TarInfo, target_dir: Path) -> None:
 
 Protection against:
 - **Tar slip**: paths escaping the destination (`../../../etc/passwd`) are rejected on the resolved path, so they don't escape even through symlinked parents.
-- **Link attacks**: symlink and hardlink entries are refused outright, rather than trusted.
+- **Link attacks**: symlink and hardlink entries are refused outright.
 - **Decompression bombs**: extraction aborts once the running uncompressed total crosses a configurable limit (`HOP3_MAX_EXTRACTED_SIZE`), and once the member count crosses `HOP3_MAX_ARCHIVE_MEMBERS`; neither trusts the archive's own headers.
 
 ### Input Sanitization
@@ -195,9 +195,9 @@ def test_rejects_link_entries():
 
 The findings above are all addressed in the current codebase: command injection is closed by list-based execution, auth endpoints are rate-limited, token lifetime is down to a day, and the bearer-token scheme match is case-insensitive. Alongside those fixes, the audit drew a clear line around what we deliberately have *not* built yet.
 
-Multi-factor authentication is the largest of these. Its design is written down in [ADR 012](https://github.com/abilian/hop3/blob/main/notes/adrs/012-mfa.md) (TOTP first, hardware tokens layered on later), but it is deferred, not implemented. The intended deployment pattern already gives operators a second factor in practice: the CLI reaches the server over an SSH tunnel, so RPC access is gated by the operator's SSH key on the host. MFA hardens the password-login path on top of that, and we'll adopt the ADR's design when account-level MFA becomes a requirement rather than describe it as if it were live.
+Multi-factor authentication is the largest of these. Its design is written down in [ADR 012](https://github.com/abilian/hop3/blob/main/notes/adrs/012-mfa.md) (TOTP first, hardware tokens layered on later), but it is deferred. The intended deployment pattern already gives operators a second factor in practice: the CLI reaches the server over an SSH tunnel, so RPC access is gated by the operator's SSH key on the host. MFA hardens the password-login path on top of that, and we'll adopt the ADR's design when account-level MFA becomes a requirement. Until it ships, it stays on paper.
 
-Two more hardening items remain on the roadmap rather than in the code: a structured audit log of security-relevant events, and CSRF protection for the dashboard's session-cookie flows.
+Two more hardening items remain on the roadmap: a structured audit log of security-relevant events, and CSRF protection for the dashboard's session-cookie flows.
 
 ## Lessons Learned
 

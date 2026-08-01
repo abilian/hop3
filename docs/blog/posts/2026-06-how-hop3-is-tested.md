@@ -3,7 +3,7 @@ date: 2026-06-19
 template: blog_post.html
 series: How Hop3 is Tested
 series_order: 1
-description: A map of how Hop3 tests itself: three runners, three layers, four speed tiers, and why each one exists.
+description: "A map of how Hop3 tests itself: three runners, three layers, four speed tiers, and why each one exists."
 tags:
   - Testing
   - Architecture
@@ -14,11 +14,11 @@ tags:
 
 Hop3 is a Platform-as-a-Service: its whole job is to take someone else's application and *make it run*: build it, wire up a database, put it behind a reverse proxy with TLS, keep it alive. That makes testing unusually hard. A unit test can tell you a function returns the right value; it cannot tell you that a freshly-deployed Flask app is actually reachable over HTTPS, or that nginx is pointing at the port the app is really listening on.
 
-So Hop3 is tested at every level, from pure functions up to real applications deployed onto real servers. This post is the map. Four companion posts go deep on each piece.
+So Hop3 is tested at every level, from pure functions up to real applications deployed onto real servers. Four companion posts go deep on each piece.
 
 ## The philosophy: packaging apps is system-validation work
 
-Before the mechanics, the *why*. Hop3's testing strategy follows from a single conviction, baked into the project's ethos:
+Hop3's testing strategy follows from a single conviction, baked into the project's ethos:
 
 > Every app we package is a deliberate probe of the platform's edges. Each real-world application exposes something the toy fixtures can't — a missing toolchain, an addon that doesn't wire up, an opaque error path, a proxy that points at the wrong port.
 

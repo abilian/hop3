@@ -13,8 +13,6 @@ When we started building Hop3, we faced a familiar dilemma: how do you configure
 
 We chose TOML. It's readable, it has proper data types, and it doesn't have YAML's indentation pitfalls. More importantly, it let us design a configuration that mirrors how developers actually think about their apps: "here's my app, here's how to build it, here's how to run it."
 
-This post walks through every section of `hop3.toml`.
-
 ## The Basic Shape
 
 A minimal `hop3.toml` looks like this:
@@ -169,7 +167,7 @@ Static files can bypass your application entirely:
 
 The left side is the URL path, the right side is the filesystem path relative to your app's source. Nginx serves these directly, which is faster than having Python or Node serve static files.
 
-We debated whether to auto-detect static directories. We decided against it. Explicit configuration is clearer, and it prevents accidental exposure of directories you didn't intend to serve.
+Explicit configuration prevents accidental exposure of directories you didn't intend to serve.
 
 ## `[healthcheck]`: Knowing When Things Break
 
@@ -313,7 +311,7 @@ type = "redis"
 paths = ["media/"]
 ```
 
-It's longer than a `Procfile`, but everything is in one place. No hunting through environment variables or multiple files to understand how the app runs.
+It's longer than a `Procfile`. Everything sits in one place: no hunting through environment variables or multiple files to understand how the app runs.
 
 ## When You Make a Mistake
 

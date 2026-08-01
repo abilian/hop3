@@ -14,7 +14,7 @@ Hop3 0.7 can put a Web Application Firewall in front of any app you deploy: OWAS
 
 The engine behind it is **[LeWAF](https://pypi.org/project/lewaf/)**, a pure-Python, ModSecurity-compatible WAF engine we wrote and released standalone on PyPI under Apache-2.0.
 
-Writing your own security engine is normally a bad idea. This is the case for why it was the right call here, and what it cost.
+Writing your own security engine is normally a bad idea.
 
 ## The two layers
 
@@ -24,7 +24,7 @@ The **network firewall** ([ADR 045](/developers/adrs/045-fixed-port-registry/)) 
 
 The **WAF** decides whether an HTTP request that reached the app's port is acceptable: SQL injection, cross-site scripting, path traversal, remote code execution, and a per-app access policy. It reads the request; it knows nothing about packets.
 
-An app can use either, both, or neither. This post is about the second one.
+An app can use either, both, or neither.
 
 ## Choosing an engine
 
@@ -38,7 +38,7 @@ The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecu
 
 So we wrote LeWAF, and released it on its own as a standalone project. It speaks SecLang and ships the CRS's 681 rules, so nothing about the protection changes.
 
-Coraza remains available. It sits behind the same `WafEngine` interface ([ADR 050](/developers/adrs/050-waf-l7-lewaf/) §6) as a future alternative for operators who want a non-Python engine at higher throughput. The plugin seam exists so that choice stays open rather than being made once, by us, for everyone.
+Coraza remains available. It sits behind the same `WafEngine` interface ([ADR 050](/developers/adrs/050-waf-l7-lewaf/) §6) as a future alternative for operators who want a non-Python engine at higher throughput. The plugin seam keeps that choice open.
 
 ## What LeWAF is
 
@@ -83,7 +83,7 @@ path = "/admin"
 allow = ["office"]
 ```
 
-Named networks (`hop3 network`) resolve to addresses, the gates become SecLang, and the result is validated **before** it is committed. A policy that would not compile is rejected at deploy time with the offending rule named. It is never accepted silently.
+Named networks (`hop3 network`) resolve to addresses, the gates become SecLang, and the result is validated **before** it is committed. A policy that would not compile is rejected at deploy time with the offending rule named.
 
 ## Bans, without a cron job
 
@@ -110,8 +110,6 @@ There is also a false-positive pass. It matters more: a WAF that blocks legitima
 ## What this costs
 
 Pure Python is slower than Go or C. For a single-server PaaS running self-hosted applications (the workload Hop3 is built for), request rates sit far below where that difference decides anything. If your traffic profile says otherwise, the engine interface is there so Coraza can be plugged in behind it.
-
-The trade we made: a component we can read, debug, and fix in the same language as the rest of the platform, against throughput we do not need. For a project whose premise is that you should be able to own your stack, that is the right way round. And if it ever stops being right for your workload, the engine interface is how you change it.
 
 ---
 

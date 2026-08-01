@@ -23,7 +23,7 @@ Before writing code, we established some principles:
 4. **Fail closed:** Invalid tokens are rejected, never ignored
 5. **Multiple access methods:** CLI, web, API should all work
 
-## SSH: The Obvious Choice (That Wasn't Obvious)
+## SSH: The Obvious Choice
 
 When we looked at how developers would actually use Hop3, the CLI dominated. And for CLI access, SSH is already solved.
 
@@ -38,7 +38,7 @@ What happens under the hood:
 3. The server trusts connections from localhost (they came through SSH)
 4. Your SSH key is your identity: no passwords or tokens needed.
 
-If you can SSH to a server, you already have the access Hop3 needs. We're reusing infrastructure that already exists and already works.
+If you can SSH to a server, you already have the access Hop3 needs.
 
 The flow looks like this:
 
@@ -92,13 +92,13 @@ Why JWT instead of session cookies? Simplicity. JWTs are self-contained: the ser
 
 ## The Magic Link Trick
 
-Here's a usability problem: you want to open the web dashboard, but you don't have a password (you've been using SSH). Do you create a password just for web access?
+You want to open the web dashboard, but you don't have a password (you've been using SSH). Do you create a password just for web access?
 
 We took inspiration from Slack and others: magic link login.
 
 ```bash
 # On your machine (with SSH access)
-hop3 login --web
+hop3 auth login --web
 
 # Output:
 # Open this URL in your browser:
@@ -178,7 +178,7 @@ def validate_token(token: str) -> dict:
     return payload
 ```
 
-Revoked tokens are stored in the database, each row carrying the token's original `expires_at`. The timestamp keeps the list bounded: once a revoked token would have expired on its own, its blacklist entry is safe to prune; there's no point tracking tokens that are already invalid.
+Revoked tokens are stored in the database, each row carrying the token's original `expires_at`. The timestamp keeps the list bounded: once a revoked token would have expired on its own, its blacklist entry is safe to prune.
 
 ## Authorization Scopes
 
@@ -191,12 +191,12 @@ VALID_SCOPES = {"authenticated", "admin", "user"}
 
 The `magic_link` scope is deliberately *not* in this set. Magic-link tokens are validated by a separate single-use path, never by the general bearer check: otherwise a redeemable magic link could act as a five-minute bearer token for any RPC command. Keeping the scopes apart makes that guarantee enforceable.
 
-The general scopes let us reason about capability per token: an `admin`-scoped token can do administrative work, while an ordinary `authenticated`/`user` token cannot. As scoped policies grow, the same mechanism lets us issue narrower tokens (for example, a CI token that can deploy but not manage users).
+The general scopes encode capability per token: `admin` for administrative privileges, `authenticated`/`user` for routine operations. The same mechanism extends to scoped tokens as the policy surface grows: deployment-only CI, read-only monitoring.
 
 ## Current Limitations
 
-- **No MFA**: Multi-factor auth is designed but deferred (ADR 012). Today the second factor is the operator's SSH key on the host (CLI access goes CLI → SSH tunnel → RPC), plus per-IP rate limiting on the web login and magic-link endpoints. TOTP gating JWT issuance is the planned first step.
-- **Manual key rotation**: There's no automated rotation policy. Rotating `HOP3_SECRET_KEY` invalidates issued JWTs and sessions; stored addon credentials are re-encrypted with `hop3 admin reencrypt-credentials` rather than lost. Automated rotation is future work (ADR 011).
+- **No MFA**: Multi-factor auth is designed and deferred to a future release (ADR 012). Today the second factor is the operator's SSH key on the host (CLI access goes CLI → SSH tunnel → RPC), plus per-IP rate limiting on the web login and magic-link endpoints. TOTP gating JWT issuance is the planned first step.
+- **Manual key rotation**: There's no automated rotation policy. Rotating `HOP3_SECRET_KEY` invalidates issued JWTs and sessions; stored addon credentials can be re-encrypted afterward with `hop3 admin reencrypt-credentials`. Automated rotation is planned (ADR 011).
 
 Rate limiting on the auth endpoints is already in place: a per-IP sliding-window counter (five attempts per minute) guards both password login and magic-link redemption. It's deliberately in-memory and single-server; multi-server deployments will need a Redis-backed limiter.
 
@@ -216,10 +216,10 @@ Try it:
 
 ```bash
 # SSH-based login
-hop3 login --ssh root@myserver.com
+hop3 auth login --ssh root@myserver.com
 
 # Magic link for browser
-hop3 login --web
+hop3 auth login --web
 
 # Show the current user
 hop3 auth whoami
@@ -227,6 +227,6 @@ hop3 auth whoami
 
 ---
 
-Authentication should be boring: predictable security, no surprises. Ours is secure by default and stays out of your way.
+Authentication should be boring.
 
 *Questions about our security model? [Open an issue](https://github.com/abilian/hop3/issues) or check the [security policy](/reference/policies/security-policy/).*

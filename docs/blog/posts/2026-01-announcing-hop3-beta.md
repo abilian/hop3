@@ -13,7 +13,7 @@ We're excited to announce the first public beta of Hop3, an open-source Platform
 
 ## What is Hop3?
 
-Hop3 is a PaaS that lets you deploy and manage web applications on your own server. Think Heroku, but self-hosted and without the complexity of Kubernetes or Docker Swarm.
+Hop3 is a self-hosted PaaS for deploying and managing web applications on your own server. It brings the deployment experience of platforms like Heroku to your own infrastructure, without the operational overhead of Kubernetes or Docker Swarm.
 
 ```bash
 # Install Hop3 on your server
@@ -61,10 +61,10 @@ Provision databases with a single command:
 
 ```bash
 # Create a PostgreSQL database
-hop3 addons create postgres myapp-db
+hop3 addon create postgres myapp-db
 
 # Attach it to your app (injects DATABASE_URL)
-hop3 addons attach myapp myapp-db
+hop3 addon attach myapp myapp-db
 ```
 
 Supported addons: PostgreSQL, MySQL, Redis.
@@ -77,7 +77,7 @@ Hop3 integrates with Let's Encrypt for automatic certificate provisioning and re
 
 Choose your reverse proxy:
 
-- **Nginx** (default) - Battle-tested, excellent performance
+- **Nginx** (default) - Widely deployed, high performance
 - **Caddy** - Automatic HTTPS, simple configuration
 - **Traefik** - Dynamic configuration, container-native
 

@@ -10,7 +10,7 @@ tags:
 
 # Hop3's Plugin Architecture: Extensibility Without Complexity
 
-When building a PaaS, you face a fundamental tension: you want to support many languages, databases, and deployment patterns, but you don't want a monolithic codebase that's impossible to maintain. Hop3 solves this with a plugin architecture built on [Pluggy](https://pluggy.readthedocs.io/).
+When building a PaaS, you face a fundamental tension: supporting many languages, databases, and deployment patterns while keeping the codebase maintainable. Hop3 resolves this with a plugin architecture built on [Pluggy](https://pluggy.readthedocs.io/).
 
 ## Why Plugins?
 
@@ -22,7 +22,7 @@ A PaaS needs to handle many concerns:
 - **Proxy**: Nginx? Caddy? Traefik? Each with different configuration formats
 - **OS**: Debian uses `apt`, Fedora uses `dnf`, package names differ
 
-Without plugins, you'd have massive switch statements and tightly coupled code. With plugins, each concern is isolated, testable, and replaceable.
+Each concern stays isolated, testable, and replaceable.
 
 ## Plugin Types
 

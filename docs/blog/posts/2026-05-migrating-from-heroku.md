@@ -16,7 +16,7 @@ tags:
     alongside guides for twenty other platforms under
     [Migrating to Hop3](/guides/migration-guide/).
 
-Thinking about leaving Heroku? Whether it's cost predictability, provider independence, or data residency requirements, Hop3 offers a familiar deployment experience on your own infrastructure. This guide helps you migrate existing Heroku apps to Hop3.
+Whether you're motivated by cost predictability, provider independence, or data residency requirements, Hop3 offers a familiar deployment experience on your own infrastructure. This guide helps you migrate existing Heroku apps to Hop3.
 
 ## What's Similar
 
@@ -28,11 +28,11 @@ Hop3 was designed with Heroku workflows in mind:
 | `Procfile` | `Procfile` (compatible) |
 | `heroku config:set` | `hop3 env set` |
 | `heroku addons:create` | `hop3 addon create` |
-| `heroku logs -t` | `hop3 logs` |
+| `heroku logs -t` | `hop3 app logs` |
 
 Your `Procfile` works unchanged. Your deployment workflow stays the same.
 
-One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`), and the app you're targeting is always the `--app` flag rather than a positional argument. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
+One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`), and you always target the app with the `--app` flag. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -44,7 +44,7 @@ One syntactic difference to keep in mind: where Heroku uses a colon (`config:set
 | Review apps | Not yet supported |
 | Pipelines | Not yet supported |
 
-Hop3 is simpler. You manage one server instead of a complex cloud setup.
+Hop3 is simpler. You manage one server.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -64,7 +64,7 @@ hop3-install cli
 Log into your server (this stores its token and makes it the default target):
 
 ```bash
-hop3 login --ssh root@your-server.com
+hop3 auth login --ssh root@your-server.com
 ```
 
 ## Step 2: Export Your Heroku Configuration
@@ -251,11 +251,11 @@ Hop3 doesn't have review apps yet. Workarounds:
 | `heroku apps:info` | `hop3 app status --app X` |
 | `heroku config` | `hop3 env show --app X` |
 | `heroku config:set` | `hop3 env set K=V --app X` |
-| `heroku logs -t` | `hop3 logs --app X` |
+| `heroku logs -t` | `hop3 app logs --app X` |
 | `heroku ps` | `hop3 ps --app X` |
 | `heroku ps:scale` | `hop3 ps scale --app X web=N` |
 | `heroku restart` | `hop3 app restart --app X` |
-| `heroku run` | `hop3 run --app X` |
+| `heroku run` | `hop3 app run --app X` |
 | `heroku addons` | `hop3 addon list` |
 | `heroku pg:info` | `hop3 addon show <name>` |
 | `heroku maintenance:on` | `hop3 app stop --app X` |
