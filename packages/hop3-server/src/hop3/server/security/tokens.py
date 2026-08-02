@@ -356,8 +356,17 @@ def validate_magic_token(token: str) -> dict[str, Any] | None:
     """
     Validate a magic link token and mark it as used.
 
-    This function validates the token and immediately revokes it to ensure
-    single-use behavior.
+    The token is consumed on presentation, not on a successful sign-in. A
+    caller that goes on to reject the redemption (unknown user, disabled
+    account) has still spent the link. That is deliberate: the link cannot be
+    replayed after a state change, and burning one for an account that cannot
+    sign in costs the requester nothing, since a further attempt within the
+    5-minute window would fail the same way.
+
+    The complement is the caller's duty, and it is the reason this cannot be
+    read off the code alone: a precondition the requester *can* fix must be
+    checked **before** calling this (see `AuthController.magic_link`, which
+    refuses plain HTTP up front, and security-model.md §3.7.1).
 
     Args:
         token: The JWT token string to validate

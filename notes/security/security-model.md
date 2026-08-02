@@ -387,6 +387,18 @@ Both routes that can issue the cookie (the login form and magic-link redemption)
 - **The check precedes `validate_magic_token`**, which consumes the token. Refusing afterwards would burn a single-use link to reach a login that still could not work.
 - **`HOP3_DEBUG` is half the predicate.** In debug the cookie is not `Secure`, plain HTTP genuinely works, and local development is unaffected. The refusal fires only on the combination that cannot work.
 
+#### 3.7.2 When a magic link is spent
+
+The bullet above says the transport check precedes consumption. The checks *after* consumption go the other way, and the pair only looks inconsistent until the rule behind it is stated.
+
+`validate_magic_token` revokes the token before the caller has established that the user exists and is active (`server/controllers/auth.py`), so a link presented for a deleted or disabled account is spent without granting anything. **This is the decided behaviour** (F6, decided 2026-08-02; raised in [report-2026-07-29.md](report-2026-07-29.md)), and the rule that decides both cases is:
+
+> Refuse before consuming when the obstacle is one the holder can remove within the token's life; consume when it is not.
+
+Plain HTTP is removable: reach the server over HTTPS and the same link works, so burning it would strand an operator who has no second link. A deleted account is not removable in five minutes by the person holding the link, so keeping the token alive buys nothing and leaves a credential that survives its first presentation — replayable across exactly the state change (an account re-created or re-enabled) that makes replay worth attempting.
+
+Pinned by `tests/a_unit/server/security/test_tokens.py::test_validate_magic_token_is_spent_on_presentation`, because the ordering is invisible at the call site: moving the user lookup three lines earlier would silently reverse the decision.
+
 ### 3.8 Auth rate limiting: one budget, two transports, single worker
 
 `server/security/rate_limit.py` is an in-memory sliding window. Three properties of it are essential, and each was a defect first.
