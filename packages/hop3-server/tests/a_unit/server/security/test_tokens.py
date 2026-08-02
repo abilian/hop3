@@ -16,6 +16,7 @@ from hop3.server.security import tokens as tokens_module
 from hop3.server.security.tokens import (
     MAGIC_LINK_EXPIRY_MINUTES,
     MAGIC_LINK_SCOPE,
+    MIN_SECRET_KEY_BYTES,
     create_magic_token,
     create_token,
     generate_api_key,
@@ -24,6 +25,12 @@ from hop3.server.security.tokens import (
     validate_magic_token,
     validate_token,
 )
+
+# Resolution-order keys. Long enough to pass the minimum-length check, which
+# these tests are not about: each asserts which *source* wins.
+_FILE_KEY = "file-" + "k" * 40
+_ENV_KEY = "env-" + "e" * 40
+_TOML_KEY = "toml-" + "t" * 40
 
 
 @pytest.fixture(autouse=True)
@@ -45,18 +52,18 @@ def setup_secret_key(monkeypatch, tmp_path):
 def test_secret_key_file_takes_precedence(monkeypatch, tmp_path):
     """The canonical secrets-tier file wins over env and config (one source)."""
     key_file = tmp_path / "secret-key"
-    key_file.write_text("file-key\n")
+    key_file.write_text(_FILE_KEY + "\n")
     monkeypatch.setattr("hop3.server.security.tokens.SECRET_KEY_FILE", key_file)
-    monkeypatch.setenv("HOP3_SECRET_KEY", "env-key")
-    assert get_secret_key() == "file-key"
+    monkeypatch.setenv("HOP3_SECRET_KEY", _ENV_KEY)
+    assert get_secret_key() == _FILE_KEY
 
 
 def test_secret_key_falls_back_to_env_when_file_absent(monkeypatch, tmp_path):
     monkeypatch.setattr(
         "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
     )
-    monkeypatch.setenv("HOP3_SECRET_KEY", "env-key")
-    assert get_secret_key() == "env-key"
+    monkeypatch.setenv("HOP3_SECRET_KEY", _ENV_KEY)
+    assert get_secret_key() == _ENV_KEY
 
 
 def test_secret_key_falls_back_to_config_when_file_and_env_absent(
@@ -66,8 +73,42 @@ def test_secret_key_falls_back_to_config_when_file_and_env_absent(
         "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
     )
     monkeypatch.delenv("HOP3_SECRET_KEY", raising=False)
-    monkeypatch.setattr("hop3.config.HOP3_SECRET_KEY", "toml-key")
-    assert get_secret_key() == "toml-key"
+    monkeypatch.setattr("hop3.config.HOP3_SECRET_KEY", _TOML_KEY)
+    assert get_secret_key() == _TOML_KEY
+
+
+def test_secret_key_shorter_than_the_hmac_block_is_refused(monkeypatch, tmp_path):
+    """
+    A weak signing key must stop the server, not warn.
+
+    PyJWT emits `InsecureKeyLengthWarning` and signs anyway, so a short key
+    produced a log line nobody reads while every token the server issued stayed
+    weak. The message has to name the sources, because the key can come from
+    three places and the operator has to know which one to fix.
+    """
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
+    )
+    monkeypatch.setenv("HOP3_SECRET_KEY", "x" * (MIN_SECRET_KEY_BYTES - 1))
+
+    with pytest.raises(ValueError, match="too short") as excinfo:
+        get_secret_key()
+
+    message = str(excinfo.value)
+    assert str(MIN_SECRET_KEY_BYTES - 1) in message  # what they have
+    assert "secrets.token_urlsafe" in message  # how to make a good one
+    assert "HOP3_SECRET_KEY" in message  # where it comes from
+
+
+def test_secret_key_exactly_at_the_minimum_is_accepted(monkeypatch, tmp_path):
+    """The boundary is inclusive: 32 bytes is the documented minimum, not a floor to exceed."""
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
+    )
+    key = "x" * MIN_SECRET_KEY_BYTES
+    monkeypatch.setenv("HOP3_SECRET_KEY", key)
+
+    assert get_secret_key() == key
 
 
 def test_create_token_basic():
@@ -366,8 +407,10 @@ def test_revoke_jwt_rejects_forged_signature(monkeypatch):
     """A token signed with a different key must NOT poison the revocation list."""
     called = []
     monkeypatch.setattr(tokens_module, "revoke_token", lambda *a, **k: called.append(1))
+    # A full-length attacker key: the point is that it is the *wrong* key, and a
+    # short one only added an InsecureKeyLengthWarning about a token we reject.
     forged = jwt.encode(
-        {"jti": "x", "exp": 9999999999}, "attacker-key", algorithm="HS256"
+        {"jti": "x", "exp": 9999999999}, "attacker-" + "k" * 40, algorithm="HS256"
     )
     assert revoke_jwt(forged, reason="web_logout") is False
     assert not called
