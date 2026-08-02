@@ -2,7 +2,7 @@
 
 This directory holds the paper's quantitative evaluation: the protocol (`protocol.yaml`), the raw measurement runs (`*.json`), the orchestration scripts (`scripts/`), and this guide. The measurement code is the **`hop3-bench`** harness in the `hop3-tooling` package (`packages/hop3-tooling/src/hop3_tooling/bench/`).
 
-The benchmark set (G1–G10) is specified in `notes/reports/paper-completion-plan.md` §3; the methodology (pinning, PSS/cgroup mechanics, the like-for-like Nix-vs-Docker boundary, threats to validity) is in `local-notes/plans/05-paper-benchmarks.md`. This README is the operator's runbook.
+The benchmark set (G1–G10) is specified in `notes/reports/paper-completion-plan.md` §3; the methodology (pinning, PSS/cgroup mechanics, the like-for-like Nix-vs-Docker boundary, threats to validity) is in [`../reports/TR-03.md`](../reports/TR-03.md) §6.4. This README is the operator's runbook.
 
 **Every figure quoted in the paper comes from `hop3-bench report`.** No number is hand-transcribed; each traces to the run that produced it.
 

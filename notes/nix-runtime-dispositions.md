@@ -40,7 +40,7 @@ This supersedes the red list carried in earlier planning notes (`easy-appointmen
 ## What this does not cover
 
 - **The corpus beyond the benchmark set.** There are 31 generated recipes and 31 hand-written ones; this run exercised 20 applications. The remaining recipes have no recorded disposition and are the honest gap in M2.3.
-- **`forgejo` and `easy-appointments`**, named as red in earlier notes and absent from this corpus. `forgejo`'s reported symptom was a 180-second health-check timeout, which is the exact signature of the closure guard failing to fire — see [plan 30](../local-notes/plans/30-nix-runtime-1.0.md). Its disposition should not be decided before that guard is confirmed working, or the wrong defect gets fixed.
+- **`forgejo` and `easy-appointments`**, named as red in earlier notes and absent from this corpus. `forgejo`'s reported symptom was a 180-second health-check timeout, which is the exact signature of the closure guard failing to fire. Its disposition should not be decided before that guard is confirmed working, or the wrong defect gets fixed.
 - **Anything about builds.** A running application says nothing about whether its build is reproducible; that is measured separately and reported in the technical report's §6.2.
 
 ## Standing rule

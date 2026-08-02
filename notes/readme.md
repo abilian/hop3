@@ -37,7 +37,7 @@ Four horizons, indexed in [`plans/README.md`](./plans/README.md):
 - [`plans/plan-0.9-plus.md`](./plans/plan-0.9-plus.md) — the queue behind 0.8: designs without dates.
 - [`plans/parked.md`](./plans/parked.md) — five architectural directions deliberately not scheduled.
 
-Shipped release plans live in [`ngi-2024/`](./ngi-2024/); per-topic engineering plans are in `local-notes/plans/`.
+Shipped release plans live in [`ngi-2024/`](./ngi-2024/).
 
 ## `ngi-2024/` — NGI project documents
 

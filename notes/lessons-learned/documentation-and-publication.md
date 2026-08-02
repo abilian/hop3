@@ -4,7 +4,7 @@ Hop3 publishes a lot: a documentation site, a blog, four technical reports, twen
 
 ## Know which tree is public before you write in it
 
-`notes/` is tracked in git and pushed to GitHub **and** to an external GitLab. `local-notes/` is gitignored. The two look identical in an editor.
+`notes/` is tracked in git and pushed to GitHub **and** to an external GitLab. Its internal counterpart is gitignored. The two look identical in an editor, and nothing in the writing experience distinguishes them.
 
 A planning document was drafted in `notes/plans/` that named an undecided funding application, its scope and milestone structure, and the reasoning for holding work back. All of it correct, none of it publishable. It was one commit away from two public remotes. It was caught only because someone asked whether the directory was public.
 

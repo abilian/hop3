@@ -8,7 +8,7 @@ This is the plain-content source for `notes/slides/hop3-0.7-release.html`. Edit 
 - The word/phrase after "→ highlight:" is the part rendered in the green accent colour on a title line.
 - "Status:" tags become the coloured pills (supported / preview / landing).
 
-Prose follows `local-notes/playbooks/writing-style.md`: no em-dash incises, no balanced "X, not Y" contrasts, no narrator.
+Prose rules: no em-dash incises, no balanced "X, not Y" contrasts, no narrator.
 
 ---
 
