@@ -57,7 +57,7 @@ for line in proc.stderr:
 
 ### Path-Style Test Names
 
-Test names like `apps/real-apps-nix/cryptpad` contain slashes. Using them as directory names creates nested dirs instead of flat files:
+Test names like `apps/real-apps-nix/cryptpad` contain slashes. Using them as directory names creates nested dirs. Use the basename to produce a flat file:
 
 ```python
 # BAD - creates apps/real-apps-nix/cryptpad/ (nested)
@@ -76,7 +76,7 @@ Deployed app names have timestamp suffixes (`cryptpad-1774987859`). To find them
 find /home/hop3/apps -maxdepth 1 -name 'cryptpad*' -type d | head -1
 ```
 
-Use the basename of the test name, not the full path.
+Use the basename of the test name.
 
 ## Error Message Format
 
@@ -91,11 +91,11 @@ Examples:
 - `Daemon exited with code 1. Last stderr: ImportError: No module named 'flask'`
 - `Skipped 4 env vars already set: DEBUG, SECRET_KEY (use 'hop3 env set' to update)`
 
-The message should tell the user: what happened, why, and what to do next. Never just say "failed" or "timeout" without context.
+The message should tell the user: what happened, why, and what to do next.
 
 ## The Structured `Diagnosis` Record
 
-Enforce the error-message format with a dataclass rather than ad-hoc string formatting. Every failure point in the deployment pipeline should produce a `Diagnosis(component, action, reason, hint)`:
+Enforce the error-message format with a dataclass. Every failure point in the deployment pipeline should produce a `Diagnosis(component, action, reason, hint)`:
 
 ```python
 @dataclass(frozen=True)
@@ -106,7 +106,7 @@ class Diagnosis:
     hint: str       # what the operator should do next
 ```
 
-Rendering is uniform: `[{component}] can't {action}: {reason}. {hint}.`. The structured record makes two things easy that ad-hoc strings do not:
+Rendering is uniform: `[{component}] can't {action}: {reason}. {hint}.`. The structured record makes two things easy:
 
 1. **Review gate.** A missing `hint` is visible in code review; `raise Abort("deploy failed")` is not.
 2. **Machine-readable failure.** The CLI and the test runner can surface the component and the action to log files and test reports without string-parsing the rendered message.
@@ -146,23 +146,23 @@ When a deploy fails, gather and display (in order):
 4. **Timeout suggestion** (`start-timeout = 120` in hop3.toml)
 5. **Full logs command** (`hop3 app logs --app <app>` for the complete output)
 
-## Verify the running process - "stored" ≠ "what the process sees"
+## Verify the running process: "stored" ≠ "what the process sees"
 
-**Updated 2026-06-25.** When debugging "I changed config X but the app behaves as if I didn't", the question is never what's *stored* - it's what the *live process* sees. `hop3 env show` lists the stored config; it does **not** prove the running worker has it. The definitive check is the process's own environment:
+**Updated 2026-06-25.** When debugging "I changed config X but the app behaves as if I didn't", the question is what the *live process* sees. `hop3 env show` lists the stored config; it does **not** prove the running worker has it. The definitive check is the process's own environment:
 
 ```bash
 ssh root@<host> 'tr "\0" "\n" < /proc/$(pgrep -f "uvicorn <app>")/environ | grep <VAR>'
 ```
 
-Confirmed finding worth keeping: **`hop3 env set` + `hop3 app restart` *does* re-bake env into the uWSGI daemon command** (the `sh -c "export VAR=...; exec uvicorn ..."` that uWSGI runs in no-workers mode) and recycles the process - so for this platform, stored == live after a restart. (See [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) for the attach-daemon env mechanism.)
+**`hop3 env set` + `hop3 app restart` *does* re-bake env into the uWSGI daemon command** (the `sh -c "export VAR=...; exec uvicorn ..."` that uWSGI runs in no-workers mode) and recycles the process. For this platform, stored == live after a restart. (See [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) for the attach-daemon env mechanism.)
 
-The meta-lesson is sharper than the finding: **the moment your own evidence contradicts a hypothesis, drop the hypothesis - don't leave a hedge standing.** During this exact bug I floated "a restart may not re-bake the env" *after* having already shown the new password worked at login (which only happens if the running process sees it). The user's correction - "don't guess, verify" - was right: read `/proc/<pid>/environ`, settle it, move on. A plausible-sounding maybe, left next to evidence that disproves it, is worse than silence.
+**The moment your own evidence contradicts a hypothesis, drop the hypothesis. Don't leave a hedge standing.** During this exact bug I floated "a restart may not re-bake the env" *after* having already shown the new password worked at login (which only happens if the running process sees it). The user's correction ("don't guess, verify") was right: read `/proc/<pid>/environ`, settle it, move on. A plausible-sounding maybe, left next to evidence that disproves it, is worse than silence.
 
 ## A queued user action that nothing advances is a silent failure
 
-**Updated 2026-06-25.** In hop3-testlab, the queue-drain (the dispatch poll that runs UI-triggered builds) was bundled into the **nightly scheduler**, which only starts when `[schedule].enabled`. On a server with the nightly off, a build the user explicitly clicked "Start" on sat `pending` **forever** - nothing would ever pick it up, and nothing said so.
+**Updated 2026-06-25.** In hop3-testlab, the queue-drain (the dispatch poll that runs UI-triggered builds) was bundled into the **nightly scheduler**, which only starts when `[schedule].enabled`. On a server with the nightly off, a build the user explicitly clicked "Start" on sat `pending` **forever**; nothing would ever pick it up, and nothing said so.
 
 Two rules:
 
 - **A user-initiated action must not be gated behind an unrelated background-feature toggle.** Clicking "Start" enqueued the work; whether the *nightly cron* is enabled is irrelevant to whether that manual build runs. Decouple them: the dispatcher runs whenever the app serves for real; only the nightly *enqueue* is gated.
-- **A `pending`/`queued` state that nothing can advance is a silent lie** (CLAUDE.md "fail loud"). Either make it run, or surface *why* it can't (no worker, no credentials, no free target) where the user looks - never leave it sitting with a `-` detail.
+- **A `pending`/`queued` state that nothing can advance is a silent lie** (CLAUDE.md "fail loud"). Either make it run, or surface *why* it can't (no worker available) where the user looks. Never leave it sitting with a `-` detail.

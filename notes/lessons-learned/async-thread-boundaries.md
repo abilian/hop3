@@ -6,7 +6,7 @@ How a background thread talking to an `asyncio` primitive made *every* deploymen
 
 ## The symptom
 
-Every app deployment (trivial static site or real pip build alike) reported almost exactly the same duration (~30–40s). The uniformity was the tell: real work is never that consistent. A no-build static app and a Go build finishing in the same time means a **fixed cost**, not work.
+Every app deployment (trivial static site or real pip build alike) reported almost exactly the same duration (~30–40s). The uniformity was the tell: real work is never that consistent. A no-build static app and a Go build finishing in the same time means a **fixed cost**.
 
 The client showed `Deployment completed successfully in 30.1s`; the deploy *work* on the server was ~2s.
 
@@ -22,7 +22,7 @@ event_type, data = await asyncio.wait_for(queue.get(), timeout=30.0)
 queue.put_nowait(("log", entry))   # ❌ cross-thread
 ```
 
-`asyncio.Queue` is **not thread-safe**. A `put_nowait()` from another thread appends the item, but it does **not** wake the event loop's awaiting `get()` - only operations on the loop's own thread (or `call_soon_threadsafe`) do. So the consumer stayed parked until its `wait_for(..., timeout=30.0)` keepalive fired; on the next iteration the item was finally drained. Result: logs delivered in 30s batches and the completion event ~30s late. The displayed "duration" is computed when the consumer emits completion → a near-exact 30.0s, every time.
+`asyncio.Queue` is **not thread-safe**. A `put_nowait()` from another thread appends the item, but it does **not** wake the event loop's awaiting `get()`; only operations on the loop's own thread (or `call_soon_threadsafe`) do. So the consumer stayed parked until its `wait_for(..., timeout=30.0)` keepalive fired; on the next iteration the item was finally drained. Result: logs delivered in 30s batches and the completion event ~30s late. The displayed "duration" is computed when the consumer emits completion → a near-exact 30.0s, every time.
 
 ## The fix
 
@@ -57,7 +57,7 @@ The whole bug class is "wrong primitive for the boundary". Choose by which side 
 | **thread → coroutine** | `loop.call_soon_threadsafe(...)` or `asyncio.run_coroutine_threadsafe(...)` | explicitly bridges onto the loop |
 | coroutine → thread | a thread-safe object (`queue.Queue`, `threading.Event`) | the thread's blocking wait |
 
-`asyncio.Queue/Event/Future/Condition/Semaphore` are loop-owned: only touch them from the loop thread. The moment a `threading.Thread`, `ThreadPoolExecutor`/`run_in_executor`, an APScheduler job, or a subprocess callback needs to hand data to a coroutine, you need `call_soon_threadsafe`/`run_coroutine_threadsafe` - never a bare `put_nowait`/`set`/`set_result`.
+`asyncio.Queue/Event/Future/Condition/Semaphore` are loop-owned: only touch them from the loop thread. The moment a `threading.Thread`, `ThreadPoolExecutor`/`run_in_executor`, an APScheduler job, or a subprocess callback needs to hand data to a coroutine, you need `call_soon_threadsafe`/`run_coroutine_threadsafe`; never a bare `put_nowait`/`set`/`set_result`.
 
 Litestar/Granian handlers run on the event loop; any `threading.Thread` you spawn does not. That seam is exactly where this bug lives.
 
@@ -65,20 +65,20 @@ Litestar/Granian handlers run on the event loop; any `threading.Thread` you spaw
 
 The first hypothesis was **wrong**: SQLite uses `busy_timeout=30000`, and a blocked writer waits *exactly* 30s - a seductive match for the observed 30.0s. A reproduction even confirmed the mechanism *exists*. But it wasn't the cause.
 
-What actually found it was instrumentation, in order:
-1. Per-phase timing inside `do_deploy` → the deploy work was ~2s, not 30s. (Killed the "slow build/cert/nginx" theories.)
-2. A slow-SQL listener (`before/after_cursor_execute`) logged **nothing** ≥2s → no statement, and  `commit()` is *not* a cursor execute, so a slow commit would have been invisible - but timing the commit showed 0.0s. (Killed the DB-lock theory.)
-3. The HTTP access log: `GET /api/stream 200 30033ms` → the 30s lived in the SSE stream, not the deploy.
+Instrumentation found it, in order:
+1. Per-phase timing inside `do_deploy` → the deploy work was ~2s. (Killed the "slow build/cert/nginx" theories.)
+2. A slow-SQL listener (`before/after_cursor_execute`) logged **nothing** ≥2s → no statement, and  `commit()` is *not* a cursor execute, so a slow commit would have been invisible. Timing the commit showed 0.0s. (Killed the DB-lock theory.)
+3. The HTTP access log: `GET /api/stream 200 30033ms` → the 30s lived in the SSE stream.
 
 Takeaways:
-- **A numeric coincidence (30.0s ≈ a known timeout) is a lead, not a verdict.** Confirm the mechanism is on the actual code path before committing to it.
-- **Measure each phase; don't reason about which is slow.** Every phase here was fast *in isolation*. The cost was in the orchestration/transport, which no single-component probe would reveal.
+- **A numeric coincidence (30.0s ≈ a known timeout) is a lead.** Confirm the mechanism is on the actual code path before committing to it.
+- **Measure each phase.** Every phase here was fast *in isolation*. The cost was in the orchestration/transport, which no single-component probe would reveal.
 - **Know your tool's blind spots.** SQLAlchemy `before/after_cursor_execute` does not fire for `commit()`/`rollback()` (DBAPI-level), so "no slow SQL logged" did not mean "no slow DB op".
 - **Trust the transport timing.** The web server's own access log (request duration) is ground truth and is immune to application-level log buffering, which was actively misleading here (journald batched the app's log lines tens of seconds apart).
 
 ## Auditing for the class
 
-To prove it was fixed *everywhere*, the whole monorepo was swept for the pattern. Useful searches:
+The whole monorepo was swept for the pattern. Useful searches:
 
 ```bash
 # loop-owned primitives - must only be touched on the loop thread
@@ -103,4 +103,4 @@ As of this writing the only `asyncio.Queue` in the codebase is the (now-fixed) `
 - `hop3_testlab` scheduler/worker - APScheduler fires jobs on a worker thread that only touch a **sync** sessionmaker (`check_same_thread=False`) and `subprocess`; no asyncio primitive is shared with the async web handlers.
 - `hop3_installer` `Spinner` - daemon thread signalled by `threading.Event`; the package has no asyncio at all.
 
-The lesson is not "asyncio primitives are dangerous". It's "match the primitive to the boundary, and the one boundary that always needs an explicit bridge is **thread → coroutine**."
+Match the primitive to the boundary, and the one boundary that always needs an explicit bridge is **thread → coroutine**.
