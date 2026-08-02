@@ -28,11 +28,14 @@ See [`reports/README.md`](./reports/README.md) for the series and how it builds.
 - [`TR-02.md`](./reports/TR-02.md) — second interim report (June 2026): the 0.5/0.6 consolidation and operability work.
 - [`TR-03.md`](./reports/TR-03.md) — the final report, doubling as the NGI0 final deliverable: the completed evaluation and the milestone accounting.
 
-## `plans/` — Forward-looking release plans
+## `plans/` — Forward-looking plans
 
-- [`plans/plan-0.7.x.md`](./plans/plan-0.7.x.md) — the 0.7 maintenance tail: the unreleased security payload, catalog presentation, the open security backlog, and the loose ends of 0.7.
+Four horizons, indexed in [`plans/README.md`](./plans/README.md):
+
+- [`plans/plan-0.7.x.md`](./plans/plan-0.7.x.md) — the 0.7 maintenance tail: the unreleased security payload, catalog presentation, the open security backlog.
 - [`plans/plan-0.8.md`](./plans/plan-0.8.md) — 0.8 (September 2026): app isolation, a production PHP runtime, local-source Nix builds, installer composability.
-- [`plans/parked.md`](./plans/parked.md) — **frozen**: work inside the Fediversity proposal's scope, which may not be started before that grant is decided. Read this before adding anything to the two plans above.
+- [`plans/plan-0.9-plus.md`](./plans/plan-0.9-plus.md) — the queue behind 0.8: designs without dates.
+- [`plans/parked.md`](./plans/parked.md) — five architectural directions deliberately not scheduled.
 
 Shipped release plans live in [`ngi-2024/`](./ngi-2024/); per-topic engineering plans are in `local-notes/plans/`.
 

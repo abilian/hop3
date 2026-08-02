@@ -18,7 +18,8 @@ Four fixes are landed and unreleased (`CHANGES.md [Unreleased] § Security`, com
 - [x] Add the Bugsink recipe fix (`5145085e`) to the changelog: two-process deploy via `before-run` plus `[run.workers] snappea`. It was the only non-doc change since the tag that the changelog did not mention.
 - [x] Decide F6 and land it in the same release (§3), so the security section is complete.
 - [x] Changelog closed out as `[0.7.1] - 2026/08/02`, versions bumped across the workspace, lockfile synced. No blog post; this is a patch release, and the changelog section is the release note.
-- [ ] Tag and publish (`make release`). `hop3-tooling` sits at 0.6.2 and is in neither script's package list, deliberately as far as the comments say; worth confirming once rather than rediscovering at each release.
+- [x] `hop3-tooling` was a release behind (0.6.2 at the 0.7.0 tag) because it was absent from *both* release scripts' hardcoded package lists, and nothing checks a package in neither. `bump_version.py` now derives the workspace from `packages/*` rather than mirroring the glob by hand, and `release.py`'s alignment gate covers every member instead of only the published subset.
+- [ ] Tag and publish (`make release`).
 
 **Ship this first:** a released security fix that sits unreleased carries a real cost to users. Everything else in this plan can ship in 0.7.2.
 
@@ -105,7 +106,7 @@ From [`../security/backlog-2026-08-01.md`](../security/backlog-2026-08-01.md). T
 
 - [ ] **Pin runtime dependencies.** Workspace packages still use floors (`litestar[standard]>=2.22.0`). Hop3 is an application; pip's `only-if-needed` strategy has left stale transitive deps on servers, and developer machines drift from production. Shape: a `uv pip compile` lockfile consumed by the installer's pip step, bumped deliberately. Scoped to 0.5 prep originally and never done (`../todo.md`).
 - [ ] **Add `hop3 validate`.** A client-side lint of a project's `hop3.toml`: schema validation, the committed-credential tripwire, host-safety checks, with no server required, for CI gating. Top-level and project-rooted; the app id is `[metadata].id`. While there, decide whether the stale `hop3 config show` / `config export` ideas in ADR 027 are still wanted or should be struck.
-- [ ] **Bring `docs/scripts/` into the linted set**, or decide deliberately that it stays out. `make ruff` covers only `packages/*/src` and `packages/*/tests`; `preprocess_markdown.py` currently carries eight ruff findings nobody sees.
+- [ ] **Bring `docs/scripts/` and `scripts/` into the linted set**, or decide deliberately that they stay out. `make ruff` covers only `packages/*/src` and `packages/*/tests`; `preprocess_markdown.py` carries eight ruff findings nobody sees, and `scripts/{bump_version,release}.py` another 27 — including `subprocess.run` without an explicit `check` in the code that publishes releases.
 
 ## 8. Evaluation and report follow-through
 
