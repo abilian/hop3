@@ -1,6 +1,6 @@
 [project]
 name = "hop3-tooling"
-version = "0.6.2"
+version = "0.7.1"
 description = "Maintainer and operator tooling for Hop3 (ADR 057)"
 readme = "README.md"
 license = "Apache-2.0"

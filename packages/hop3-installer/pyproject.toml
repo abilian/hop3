@@ -3,7 +3,7 @@
 
 [project]
 name = "hop3-installer"
-version = "0.7.0"
+version = "0.7.1"
 description = "Installer scripts for Hop3 CLI and Server"
 readme = "README.md"
 license = "Apache-2.0"
