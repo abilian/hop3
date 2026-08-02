@@ -126,8 +126,6 @@ class PythonToolchain(LanguageToolchain):
         )
 ```
 
-The artifact contains everything needed to run the app.
-
 ## Deployers Consume Artifacts
 
 Deployers accept artifacts based on their `kind`:
@@ -151,8 +149,6 @@ class UWSGIDeployer:
             self.spawn_worker(name, command, env)
 ```
 
-The deployer reads the artifact; all language-specific details live in the artifact.
-
 ## Persistence
 
 Artifacts are serialized to JSON for persistence and debugging:
@@ -174,8 +170,6 @@ def save_artifact(path: Path, artifact: BuildArtifact) -> None:
     #     "metadata": {...},
     # }
 ```
-
-You can inspect `BUILD_ARTIFACT.json` to see exactly what was built:
 
 ```json
 {
@@ -315,8 +309,6 @@ def get_artifact(app: App) -> BuildArtifact:
     # Legacy fallback: detect and create artifact on the fly
     return create_legacy_artifact(app)
 ```
-
-This lets existing deployments continue working while new deployments use proper artifacts.
 
 ## Lessons Learned
 

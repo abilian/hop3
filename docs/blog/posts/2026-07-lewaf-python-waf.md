@@ -30,7 +30,7 @@ An app can use either, both, or neither.
 
 The rules were never in question. The OWASP Core Rule Set is the standard answer for Layer 7, it is expressed in SecLang, and any engine worth using speaks that dialect. The question was which engine.
 
-The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecurity, which is C. Both are good software, and either would have worked. Two things decided it against them.
+The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecurity, which is C. Both are good software, and either would have worked.
 
 **The process model.** Hop3 is Python end to end: the server, the CLI, the toolchains, and an installer written against the standard library alone so it can bootstrap a machine with nothing on it. Introducing a Go binary or a C library means a second build and runtime story running alongside the first: cross-compilation for every architecture, a packaging path per distribution, an independent upgrade cadence, and a failure mode ("the binary won't load on this host") that none of our existing diagnostics understand. That is a real, permanent tax on a platform whose selling point is that one command installs it anywhere.
 

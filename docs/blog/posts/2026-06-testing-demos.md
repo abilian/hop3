@@ -91,7 +91,7 @@ The launcher runs four phases, then summarises pass/fail/skip with timings:
 
 ## Boring reliability
 
-Because a demo is also a test, the launcher has to be *boringly reliable*. Getting there taught lessons that bite any harness that runs real deployments in a loop:
+Because a demo is also a test, the launcher has to be *boringly reliable*.
 
 - **Non-interactive by construction.** The runner has no human to answer a prompt. Destructive commands (`addon destroy`, `app destroy`) pass `-y`, and every command runs with `stdin` closed; a command that *tries* to prompt gets EOF and fails loud. The alternative is a run wedged forever on an invisible "Are you sure?".
 - **Bounded.** Every command has a timeout, so a hung RPC becomes a loud, actionable failure within seconds.
@@ -99,7 +99,7 @@ Because a demo is also a test, the launcher has to be *boringly reliable*. Getti
 - **App-scoped commands take the target as a `--app` flag** (per [ADR 036](/developers/adrs/036-cli-ergonomics/)). The demos are also the first place CLI-ergonomics regressions get caught, because they exercise the command surface the way a user would.
 - **Clean failure output.** In quiet mode each demo is one line (`demo10 (PostgreSQL Addon)... FAIL`) with the actionable cause and a log pointer underneath. The raw multi-line command dump stays out of the progress flow.
 
-All of this exists because a test harness that deploys real apps to real servers has to fail *loudly and legibly* when the platform misbehaves. That is why the demos exist.
+All of this exists because a test harness that deploys real apps to real servers has to fail *loudly and legibly* when the platform misbehaves.
 
 ## How they run in CI
 

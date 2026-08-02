@@ -11,7 +11,7 @@ tags:
 
 When we started building Hop3, we faced a familiar dilemma: how do you configure a deployment without drowning in YAML? Heroku and Piku use environment variables and Procfiles. Kubernetes uses... well, a lot of YAML. We wanted something in between: expressive enough to handle real applications, simple enough to understand at a glance.
 
-We chose TOML. It's readable, it has proper data types, and it doesn't have YAML's indentation pitfalls. More importantly, it let us design a configuration that mirrors how developers actually think about their apps: "here's my app, here's how to build it, here's how to run it."
+We chose TOML. It's readable, it has proper data types, and it doesn't have YAML's indentation pitfalls. It let us design a configuration that mirrors how developers think about their apps: "here's my app, here's how to build it, here's how to run it."
 
 ## The Basic Shape
 
@@ -100,7 +100,7 @@ By default (`auto`), Hop3 builds directly on the server using the native toolcha
 
 ## `[run]`: Keeping Your App Alive
 
-This is where you tell Hop3 how to actually run your application:
+This is where you tell Hop3 how to run your application:
 
 ```toml
 [run]
@@ -116,7 +116,7 @@ worker = "celery -A app worker"
 scheduler = "celery -A app beat"
 ```
 
-The `before-run` commands are one of our most-used features. They run every time the app starts, which makes them perfect for database migrations, static file collection, or cache warming. If any command fails, the deployment stops. No partial deployments or broken state.
+The `before-run` commands run every time the app starts: they handle database migrations, static file collection, and cache warming. If any command fails, the deployment stops.
 
 ### A Note on Workers
 
@@ -130,7 +130,7 @@ scheduler = "celery -A app beat"
 cron = "python manage.py runcrons"
 ```
 
-Workers are managed independently. You can scale them separately (`hop3 ps scale --app worker=3`), restart them individually, and monitor them in isolation. This mirrors how Heroku's dynos work, and it's one of the patterns we explicitly borrowed.
+Workers are managed independently. You can scale them separately (`hop3 ps scale --app worker=3`), restart them individually, and monitor them in isolation.
 
 ## `[env]`: Configuration Without Code Changes
 
@@ -193,7 +193,7 @@ def health():
         return "Database unavailable", 503
 ```
 
-When health checks fail repeatedly, Hop3 can restart your app automatically. This is automation of what you'd do manually when things go wrong.
+When health checks fail repeatedly, Hop3 can restart your app automatically.
 
 ## `[[addons]]`: Databases and Beyond
 
@@ -217,7 +217,7 @@ When you deploy, Hop3 provisions these services and injects connection strings:
 | `mysql` | `DATABASE_URL`, `MYSQL_*` |
 | `redis` | `REDIS_URL` |
 
-We originally used `[[provider]]` for this, but "addon" is clearer. The old syntax still works: we don't break existing configs.
+`[[addons]]` replaced the earlier `[[provider]]` syntax. Existing configs continue to work.
 
 ## The Less Common Sections
 
@@ -334,6 +334,6 @@ We generate a JSON Schema from our Pydantic models. VS Code with the "Even Bette
 
 ---
 
-A well-designed config file saves hours of debugging. `hop3.toml` is designed to be readable six months later.
+`hop3.toml` is designed to be readable six months later.
 
 *See also: [Configuration Validation](2026-03-configuration-validation.md) explains how we catch typos and provide helpful error messages. For a practical walkthrough, check out [Your First Hop3 Deployment](2026-02-deploying-first-app.md).*

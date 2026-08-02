@@ -18,7 +18,7 @@ The question everyone asks about email is the wrong one.
 
 Ask how a self-hosted platform should handle email and the debate arrives pre-shaped: **do you run a mail server, or do you offload to a provider?**
 
-Both answers are defensible. Running your own MTA means no third party sees your mail, no per-message billing, no vendor to be deprecated by. It also means DKIM keys, SPF records, a PTR record your hosting provider may not let you set, a fresh IP with no sending reputation, and blocklists that will treat you as guilty until proven otherwise. Offloading means deliverability that works on day one, and a provider holding your mail and your credential.
+Both answers are defensible. Running your own MTA means no third party sees your mail. It also means DKIM keys, SPF records, a PTR record your hosting provider may not let you set, a fresh IP with no sending reputation, and blocklists that will treat you as guilty until proven otherwise. Offloading means deliverability that works on day one, and a provider holding your mail and your credential.
 
 The trouble is that this framing makes the choice architectural: as though it belongs in the platform's design, permanently, for everyone.
 

@@ -44,7 +44,7 @@ def install_packages(packages: list[str]) -> None:
     subprocess.run(["apt-get", "install", "-y", *packages])
 ```
 
-By passing a list instead of a string with `shell=True`, the arguments are properly escaped. We swept the OS plugins, platform utilities, and certificate handling for the same pattern, and added a shared `run()` helper in `lib/shell.py` that refuses `shell=True` outright so the mistake can't creep back in.
+A list argument to `subprocess.run` keeps each element separate; the shell never interprets them. We swept the OS plugins, platform utilities, and certificate handling for the same pattern, and added a shared `run()` helper in `lib/shell.py` that refuses `shell=True` outright so the mistake can't creep back in.
 
 ### High: No Rate Limiting on Auth Endpoints
 
@@ -215,7 +215,7 @@ subprocess.run(["command", user_input])
 
 ### 2. Security Defaults Matter
 
-A long-lived token and an unthrottled login endpoint are ordinary oversights: defaults nobody revisited. Tightening the token lifetime and adding per-IP rate limiting cost little, and both now ship out of the box. Users shouldn't have to configure security; the secure choice should be the one they get for free.
+A long-lived token and an unthrottled login endpoint are ordinary oversights: defaults nobody revisited. Tightening the token lifetime and adding per-IP rate limiting cost little, and both now ship out of the box. The secure choice is the one users get for free.
 
 ### 3. Test Security Explicitly
 

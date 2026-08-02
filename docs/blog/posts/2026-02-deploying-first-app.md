@@ -13,7 +13,7 @@ Remember the first time you deployed something to Heroku? `git push heroku main`
 
 The difference: your code runs on your own server, with the same simplicity and full control.
 
-Let's deploy a Flask app from scratch. By the end of this post, you'll have a production-ready application with a database, custom domain, and SSL, all on a server you own.
+Let's deploy a Flask app from scratch. An application with a database, custom domain, and SSL, on a server you own.
 
 ## What You'll Need
 
@@ -32,7 +32,7 @@ ssh root@your-server.com
 curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 ```
 
-The installer takes a few minutes. Grab a coffee while you wait. It creates a `hop3` user, installs Python, Node, nginx, and sets up the hop3-server service. When it finishes, you'll see a success message.
+The installer takes a few minutes. It creates a `hop3` user, installs Python, Node, nginx, and sets up the hop3-server service. When it finishes, you'll see a success message.
 
 ## Installing the CLI
 
@@ -64,11 +64,11 @@ Test the connection:
 hop3 app list
 ```
 
-You should see an empty list. That won't last.
+You should see an empty list.
 
 ## Building a Flask App
 
-Let's create something simple but real: an app that tracks page visits. Nothing fancy, but it'll exercise the full deployment pipeline.
+Let's create something simple but real: an app that tracks page visits. It'll exercise the full deployment pipeline.
 
 ```bash
 mkdir myapp && cd myapp
@@ -116,7 +116,7 @@ id = "myapp"
 path = "/health"
 ```
 
-Four files, maybe 30 lines total.
+All told, about 30 lines across four files.
 
 ## The Moment of Truth
 
@@ -125,8 +125,6 @@ Deploy:
 ```bash
 hop3 deploy myapp
 ```
-
-Watch the magic happen:
 
 ```
 -> Uploading source (3 files, 1.2 KB)
@@ -353,6 +351,6 @@ Check our [guides](/guides/) for details on each of these.
 
 ---
 
-Code, deploy, iterate. No infrastructure PhD required.
+Code, deploy, iterate.
 
 *For deeper configuration options, see [Designing hop3.toml](2026-02-hop3-toml-reference.md). Questions? Hit a snag? [Open an issue](https://github.com/abilian/hop3/issues) and we'll help you out.*
