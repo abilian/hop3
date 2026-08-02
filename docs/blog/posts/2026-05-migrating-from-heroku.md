@@ -16,7 +16,7 @@ tags:
     alongside guides for twenty other platforms under
     [Migrating to Hop3](/guides/migration-guide/).
 
-Whether you're motivated by cost predictability, provider independence, or data residency requirements, Hop3 offers a familiar deployment experience on your own infrastructure. This guide helps you migrate existing Heroku apps to Hop3.
+Hop3 offers a familiar deployment experience on your own infrastructure: predictable costs, full provider independence, and data residency on your terms. This guide walks through migrating an existing Heroku app.
 
 ## What's Similar
 
@@ -168,7 +168,7 @@ Once Let's Encrypt is configured on the server, Hop3 requests a certificate for 
 
 ### Buildpacks vs Toolchains
 
-Heroku uses buildpacks; Hop3 uses toolchains. Most apps work unchanged, but some differences:
+Heroku uses buildpacks; Hop3 uses toolchains. Most apps work unchanged. Differences to note:
 
 | Heroku Buildpack | Hop3 Toolchain |
 |------------------|----------------|

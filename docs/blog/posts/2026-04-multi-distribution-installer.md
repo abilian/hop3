@@ -66,7 +66,7 @@ arch.py                            → Arch, Manjaro, EndeavourOS
 bsd.py, macos.py                   → BSD and macOS targets
 ```
 
-A strategy detects its family from `/etc/os-release` and installs the base system (nginx, certbot, Python, the language toolchains, PostgreSQL). The distro-specific package juggling for Docker, backports, and external repositories lives alongside the server installer (`hop3-installer`'s `server_installer/deps_*.py`), which is where the examples below come from.
+A strategy detects its family from `/etc/os-release` and installs the base system (nginx, certbot, Python, the language toolchains, PostgreSQL). The distro-specific package juggling for Docker, backports, and external repositories lives in the server installer (`hop3-installer`'s `server_installer/deps_*.py`). The examples below draw from those modules.
 
 Each handler implements the same interface:
 

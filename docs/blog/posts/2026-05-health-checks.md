@@ -44,7 +44,7 @@ Status: ⚠ 2 warnings
 
 One glance tells you what's healthy, what's degraded, and what's broken. The identity header up top (host, IP, version, uptime) tells you which server you are looking at before the checks tell you whether it is OK.
 
-The severity legend is `✓` ok, `⚠` warning, `✗` failure. Optional services like Redis get `⚠` when unreachable, so a server without Redis reads as *degraded*. That is the right call: an optional service you never configured is not a failure. The bottom-line summary rolls everything up to the worst severity seen.
+The severity legend is `✓` ok, `⚠` warning, `✗` failure. Optional services like Redis get `⚠` when unreachable, so a server without Redis reads as *degraded*. An optional service you never configured is not a failure. The bottom-line summary rolls everything up to the worst severity seen.
 
 ## Each Service Knows Its Own Health
 
@@ -101,7 +101,7 @@ class HealthCheck(Protocol):
     def check(self) -> HealthCheckResult: ...
 ```
 
-A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That mechanism is what turns an unreachable Redis into a yellow warning on an otherwise green board.
+A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That mechanism turns an unreachable Redis into a yellow warning on an otherwise green board.
 
 `is_configured()` is the other half of keeping the report accurate: a check that doesn't apply to this server says so, and is skipped, so it never generates a spurious failure.
 

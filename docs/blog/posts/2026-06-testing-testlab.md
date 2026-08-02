@@ -57,11 +57,11 @@ flowchart LR
 | **Datastore** | queryable results + trends | PostgreSQL |
 | **Artifact store** | per-test diagnostic bundles | filesystem volume now, object storage later |
 
-The same UI/stack as the hop3-server dashboard (Litestar + HTMX), so a single approach covers every Hop3 web surface.
+It reuses the hop3-server dashboard stack (Litestar + HTMX).
 
 ## Dogfooded, and itself a probe
 
-The Test Lab **runs on a Hop3 server and is deployed by Hop3**: it's a real app in the catalog. This goes beyond dogfooding: a Litestar + Postgres + background-scheduler app is a demanding workload, so deploying the Lab *is itself* a platform probe.
+The Test Lab **runs on a Hop3 server and is deployed by Hop3**: it's a real app in the catalog. A Litestar + Postgres + background-scheduler app is a demanding workload: deploying the Lab exercises the platform at a level the simpler fixtures cannot.
 
 It then **remote-controls Hetzner**: the runner provisions a *pool* of ephemeral targets, deploys Hop3 to each, and shards the catalog across them. Targets are torn down at run end for cost control (unless `--keep` is set for debugging).
 
@@ -72,8 +72,6 @@ A nightly result is only trustworthy if it doesn't depend on what ran before it.
 - It needs a registered SSH key and a **dedicated, disposable** server to rebuild; the rebuild **wipes the box**, so it must never point at anything you care about.
 - If it can't reach a true blank slate, it **aborts loudly**, refusing to run against leftover state. (A silent "SKIPPED" against a dirty server is the cardinal sin the whole testing rework was meant to kill.)
 - Trigger logs land in `~/.hop3/testlab-logs/` so a run that dies during provisioning still leaves a breadcrumb.
-
-This takes the *non-reproducibility* failure mode seriously.
 
 ## What you see in the morning
 

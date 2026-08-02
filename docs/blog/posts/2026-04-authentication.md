@@ -25,7 +25,7 @@ Before writing code, we established some principles:
 
 ## SSH: The Obvious Choice
 
-When we looked at how developers would actually use Hop3, the CLI dominated. And for CLI access, SSH is already solved.
+When we looked at how developers would actually use Hop3, the CLI dominated. And for CLI access, SSH is already solved: the protocol handles authentication, encryption, and key management without any help from us.
 
 ```bash
 hop3 app list
@@ -36,9 +36,7 @@ What happens under the hood:
 1. The CLI opens an SSH connection using your existing keys or agent
 2. An SSH tunnel forwards JSON-RPC traffic to `hop3-server`
 3. The server trusts connections from localhost (they came through SSH)
-4. Your SSH key is your identity: no passwords or tokens needed.
-
-If you can SSH to a server, you already have the access Hop3 needs.
+4. Your SSH key is your identity: no passwords or tokens needed; if you can SSH to a server, you already have the access Hop3 needs.
 
 The flow looks like this:
 
@@ -145,7 +143,7 @@ def encrypt_credential(plaintext: str) -> str:
     return fernet.encrypt(plaintext.encode()).decode()
 ```
 
-Fernet provides authenticated encryption: both confidentiality (can't read it) and integrity (can't tamper with it). The encryption key is derived from `HOP3_SECRET_KEY` with PBKDF2-HMAC-SHA256, which brings us to...
+Fernet provides authenticated encryption: both confidentiality (can't read it) and integrity (can't tamper with it). The encryption key is derived from `HOP3_SECRET_KEY` with PBKDF2-HMAC-SHA256.
 
 ## The One Secret to Rule Them All
 
@@ -226,7 +224,5 @@ hop3 auth whoami
 ```
 
 ---
-
-Authentication should be boring.
 
 *Questions about our security model? [Open an issue](https://github.com/abilian/hop3/issues) or check the [security policy](/reference/policies/security-policy/).*

@@ -9,7 +9,7 @@ tags:
 
 # Announcing Hop3 0.4 Beta: A Modern Open-Source PaaS
 
-We're excited to announce the first public beta of Hop3, an open-source Platform as a Service designed for simplicity, security, and strategic autonomy.
+Hop3 0.4, an open-source Platform as a Service for self-hosted deployments, is now available as a public beta.
 
 ## What is Hop3?
 
@@ -28,8 +28,6 @@ Your app is live with automatic SSL, reverse proxy configuration, and process ma
 ## Why We Built Hop3
 
 Modern deployment platforms tend toward two extremes: managed services that lock you in (Heroku, Render, Railway) or container orchestrators that require dedicated operations teams (Kubernetes, Nomad).
-
-We wanted something in between:
 
 - **Simple**: One server, one command to deploy
 - **Sovereign**: Your code runs on your infrastructure
@@ -143,7 +141,7 @@ hop3 deploy myapp
 
 ## What's Coming
 
-Hop3 is in active development. Here's what we're working on:
+Hop3 is in active development:
 
 - **Web Dashboard**: Browser-based management UI
 - **More Addons**: MongoDB, Elasticsearch, RabbitMQ
@@ -159,11 +157,11 @@ Hop3 is open source under the Apache 2.0 license.
 - **Documentation**: [hop3.cloud](https://hop3.cloud)
 - **Issues**: Report bugs and request features on GitHub
 
-We'd love your feedback. Try deploying an app and let us know how it goes!
+Try deploying an app and let us know how it goes.
 
 ## Acknowledgments
 
-Hop3 development is supported by [NGI Zero](https://nlnet.nl/NGI0/) through the European Commission's Next Generation Internet program. We're grateful for their support of open-source infrastructure.
+Hop3 development is supported by [NGI Zero](https://nlnet.nl/NGI0/) through the European Commission's Next Generation Internet program.
 
 ---
 

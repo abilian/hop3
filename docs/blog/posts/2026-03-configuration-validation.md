@@ -9,7 +9,7 @@ tags:
 
 # Configuration Validation with Pydantic
 
-A single typo in a configuration file can cause hours of debugging. Users reported deployment failures with helpful messages like "502 Bad Gateway." The root cause? `post-deploy` instead of `before-run` in their `hop3.toml`.
+A single typo in a configuration file can cause hours of debugging. Users reported deployment failures with helpful messages like "502 Bad Gateway." The root cause? A `post-deploy` key where `before-run` was expected in their `hop3.toml`.
 
 ## The Problem
 
@@ -239,7 +239,7 @@ The worst bugs are silent failures. `extra="forbid"` turns silent ignores into c
 
 ### 2. Context in Error Messages
 
-Generic errors like "validation failed" aren't helpful. Include:
+Every error message should identify:
 - What field was wrong
 - What was expected
 - Where to find documentation
