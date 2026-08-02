@@ -13,9 +13,14 @@ import subprocess
 import sys
 from pathlib import Path
 
-# Packages published to PyPI. NOTE: hop3-testlab is intentionally excluded —
-# it's an internal app (its version is still kept in sync by scripts/bump_version.py,
-# which covers the *whole* workspace, not just the published subset).
+from bump_version import workspace_packages
+
+# Packages published to PyPI. hop3-testlab and hop3-tooling are intentionally
+# excluded: they are internal, and what to publish is an editorial choice, so
+# this list stays explicit. Their *versions* are still held in lockstep — the
+# alignment check below covers every workspace member rather than this subset,
+# because a package in neither list is one nothing checks (which is how
+# hop3-tooling reached 0.7.0 still numbered 0.6.2).
 PACKAGES = [
     "hop3-cli",
     "hop3-installer",
@@ -97,7 +102,7 @@ def check_and_display_versions() -> tuple[str, dict[str, str]]:
 def get_all_versions() -> tuple[str, dict[str, str]]:
     """Get root version and all package versions."""
     root_version = get_version()
-    package_versions = {pkg: get_version(pkg) for pkg in PACKAGES}
+    package_versions = {pkg: get_version(pkg) for pkg in workspace_packages()}
     return root_version, package_versions
 
 
