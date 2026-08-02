@@ -60,6 +60,11 @@ VALID_SCOPES = {"authenticated", "admin", "user"}
 MAGIC_LINK_SCOPE = "magic_link"
 MAGIC_LINK_EXPIRY_MINUTES = 5
 
+# HMAC-SHA256 keys shorter than the 256-bit block are weaker than the algorithm
+# they are used with (RFC 7518 §3.2). `secrets.token_urlsafe(32)` yields 43.
+MIN_SECRET_KEY_BYTES = 32
+_GENERATE_KEY_HINT = "python3 -c 'import secrets; print(secrets.token_urlsafe(32))'"
+
 
 def get_secret_key() -> str:
     """
@@ -73,7 +78,8 @@ def get_secret_key() -> str:
         The secret key.
 
     Raises:
-        ValueError: If no secret key is configured in any source.
+        ValueError: If no secret key is configured in any source, or if the one
+            that is configured is too short to sign with.
     """
     # 1. Canonical secrets-tier file (ADR 048): one source read by both the
     #    running service and the su-hop3 CLI.
@@ -92,9 +98,24 @@ def get_secret_key() -> str:
     if not secret:
         msg = (
             "HOP3_SECRET_KEY must be set in configuration or environment. "
-            "Generate one with: python -c 'import secrets; print(secrets.token_urlsafe(32))'"
+            f"Generate one with: {_GENERATE_KEY_HINT}"
         )
         raise ValueError(msg)
+
+    # A key shorter than the HMAC-SHA256 block reduces the signature's strength
+    # (RFC 7518 §3.2). PyJWT only warns, and the warning lands in a log nobody
+    # reads while every token the server issues stays weak, so refuse instead.
+    if len(secret.encode("utf-8")) < MIN_SECRET_KEY_BYTES:
+        msg = (
+            f"HOP3_SECRET_KEY is too short: {len(secret.encode('utf-8'))} bytes, "
+            f"minimum {MIN_SECRET_KEY_BYTES} (RFC 7518 §3.2 for HMAC-SHA256). "
+            f"Replace it with: {_GENERATE_KEY_HINT}\n"
+            f"Hop3 reads it from {SECRET_KEY_FILE}, then $HOP3_SECRET_KEY, then "
+            "hop3-server.toml. Replacing it invalidates existing web sessions "
+            "and CLI tokens, so everyone signs in again."
+        )
+        raise ValueError(msg)
+
     return secret
 
 
