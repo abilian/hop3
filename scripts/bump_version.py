@@ -7,23 +7,34 @@ Uses `uv version` to read and update versions across the workspace.
 import argparse
 import subprocess
 import sys
+from pathlib import Path
 
-# Every workspace package — versions are kept in lockstep across ALL of them,
-# including the internal hop3-testlab (synced here but NOT published; the
-# published subset is the separate PACKAGES list in scripts/release.py).
-PACKAGES = [
-    "hop3-cli",
-    "hop3-installer",
-    "hop3-rootd",
-    "hop3-server",
-    "hop3-testing",
-    "hop3-testlab",
-    "hop3-tui",
-]
+PACKAGES_DIR = Path(__file__).parent.parent / "packages"
 
 
 class Error(Exception):
     pass
+
+
+def workspace_packages() -> list[str]:
+    """Every workspace member, read from the filesystem.
+
+    Versions are kept in lockstep across ALL members, including the ones that
+    are never published (the published subset is the separate PACKAGES list in
+    scripts/release.py). The root pyproject declares members as a glob,
+    `packages/*`, so a hand-kept list here mirrors a glob and drifts the moment
+    a package is added: hop3-tooling sat a release behind for exactly that
+    reason, and nothing failed, because it was absent from both lists.
+
+    The directory name is the package name for every member. If that ever
+    stops holding, `uv version --package <name>` fails loudly rather than
+    skipping the package silently.
+    """
+    return sorted(
+        path.name
+        for path in PACKAGES_DIR.iterdir()
+        if (path / "pyproject.toml").is_file()
+    )
 
 
 def run_uv_version(*args: str) -> str:
@@ -60,7 +71,7 @@ def sync_versions(dry_run: bool = False):
     print()
     print("Syncing subpackages:")
 
-    for package in PACKAGES:
+    for package in workspace_packages():
         current_version = get_package_version(package)
         if current_version == root_version:
             print(f"  {package}: already at {root_version}")
@@ -95,7 +106,7 @@ def bump_version(bump_type: str, dry_run: bool = False):
 
     # Sync to all packages
     print("Syncing subpackages:")
-    for package in PACKAGES:
+    for package in workspace_packages():
         current_version = get_package_version(package)
         if current_version == new_version:
             print(f"  {package}: already at {new_version}")
