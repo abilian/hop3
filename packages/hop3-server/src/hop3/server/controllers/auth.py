@@ -269,6 +269,9 @@ class AuthController(Controller):
 
             user = user_repo.get_by_username(username)
 
+            # Both branches leave the link spent, by decision (F6, 2026-08-02):
+            # neither condition is one the holder can fix inside the token's
+            # 5-minute life, and a token presented once must not be replayable.
             if not user:
                 return Redirect(path="/auth/login?error=User not found.")
 

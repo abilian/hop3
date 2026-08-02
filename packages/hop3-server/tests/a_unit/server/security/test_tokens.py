@@ -252,6 +252,32 @@ def test_validate_magic_token_invalid():
     assert result is None
 
 
+def test_validate_magic_token_is_spent_on_presentation(monkeypatch):
+    """
+    The link is consumed by validation, before any caller checks the user.
+
+    Decided 2026-08-02 (F6): a caller that then rejects the redemption —
+    unknown user, disabled account — has still spent the token, so it cannot
+    be replayed after a state change. Moving consumption after the user check
+    would reopen that, which is why this is pinned rather than left to the
+    reading of `validate_magic_token`.
+    """
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.is_token_revoked",
+        lambda jti, scopes=None: False,
+    )
+    revocations = []
+    monkeypatch.setattr(
+        "hop3.server.security.tokens.revoke_token",
+        lambda jti, exp, reason: revocations.append((jti, reason)),
+    )
+
+    result = validate_magic_token(create_magic_token("nobody-checked-yet"))
+
+    assert result is not None
+    assert [reason for _jti, reason in revocations] == ["magic_link_used"]
+
+
 def test_validate_magic_token_wrong_scope(monkeypatch):
     """Test that regular tokens cannot be validated as magic tokens."""
     # Create a regular token (not a magic token)
