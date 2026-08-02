@@ -67,11 +67,11 @@ Internal fixes shipped in 0.5–0.6. The third-party review was applied for and 
 - [x] Applied for the third-party review; two follow-ups sent, no auditor allocated
 - [x] Third audit round run in-house: `notes/security/report-2026-07-21.md`
 - [x] Document the security model: published as `guides/security.md` (operators) and `developers/security-model.md` (developers/auditors), with `notes/security/security-model.md` as the engineering source
-- [x] Fix the five open defects from the 2026-07 round (`local-notes/plans/28-security-remediation.md`): **done 2026-07-29**: `run_as_hop3` argv split (16 argv / 4 shell call sites), addon restore-path containment, a fail-loud multi-worker/in-memory-rate-limiter invariant, the `user add` single-tenancy notice, and documented host-key pinning. Each landed with a regression test asserting the rejection; `make lint` and `make test-fast` green.
+- [x] Fix the five open defects from the 2026-07 round: **done 2026-07-29** (`notes/security/report-2026-07-29.md`): `run_as_hop3` argv split (16 argv / 4 shell call sites), addon restore-path containment, a fail-loud multi-worker/in-memory-rate-limiter invariant, the `user add` single-tenancy notice, and documented host-key pinning. Each landed with a regression test asserting the rejection; `make lint` and `make test-fast` green.
 - [ ] Publish the July round as a blog post (the third-party review never allocated → we built tooling and audited ourselves): counts toward M5.1
 
 ### Upgrade mechanism (M3.2)
-Hop3-server's own Alembic migrations work. Scope confirmed (`local-notes/specs/upgrades.md`): the server upgrade is the installer/deployer's job (and ultimately the `hop3-server` command); there is no `hop3 server upgrade` RPC and no in-product self-upgrade.
+Hop3-server's own Alembic migrations work. Scope confirmed: the server upgrade is the installer/deployer's job (and ultimately the `hop3-server` command); there is no `hop3 server upgrade` RPC and no in-product self-upgrade.
 
 - [x] Server upgrade defined, documented, and made fail-loud: after installing new code and migrating, the deployer verifies hop3-server actually answers before reporting "complete". On failure it prints the exact command to revert to the previous release (plus the pre-upgrade-DB-restore caveat) instead of leaving a silently dead server. Admin guide gained an "Upgrading Hop3" section.
 - [x] App-level upgrade orchestration: `hop3 app upgrade --app <app>` snapshots → redeploys + runs the app's `before-run` migrations → health-verifies → auto-rolls-back to the pre-upgrade snapshot on any failure.
@@ -155,7 +155,7 @@ Pinning (0.6.1) removed the moving-channel problem; hermeticity is the rest.
 ### Email addon refinements (M3.1)
 Email is a **backing service with a swappable backend**, symmetric with the database addon (ADR 054): the operator picks a backend once at the server level, an app opts in by attaching an email addon (and then inherits that backend), and the app-facing contract (`SMTP_*`/`EMAIL_*`/`MAIL_*`/`SMTP_URL`, all pointing at a loopback SMTP endpoint) is stable across backends. 0.6.1 shipped the interface; the work left is the backends and the productization.
 
-**The 0.7 cut** (details + backlog: `local-notes/plans/20-email-0.7-features.md`; 0.8+ roadmap: `22-email-roadmap-0.8-plus.md`):
+**The 0.7 cut** (what follows it is in [`../plans/plan-0.8.md`](../plans/plan-0.8.md) § *Email: make the built things real*):
 
 *Ships in 0.7, supported (experimental):*
 - [x] `server email backend <kind>` verb (`server email set` = the `relay` alias) + the loopback `127.0.0.1:25` endpoint, opt-in per app, `--with email` (Postfix), pm-aware reload

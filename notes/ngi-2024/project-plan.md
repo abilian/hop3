@@ -9,7 +9,7 @@ It was the 0.6-era milestone tracker: the annex task text with a status block un
 | The funded task descriptions (T1–T5) and the milestone list, verbatim | [`annex.md`](annex.md), the contract; do not edit |
 | Live milestone status (what is done, partial, open, and where it lands) | [`release-plan-0.7.md`](release-plan-0.7.md) § *Milestone status (annex T1–T5)* |
 | Per-milestone evidence links for the auditors | [`results-links-2026-07.md`](results-links-2026-07.md) (final) · [`results-links-2026-06.md`](results-links-2026-06.md) (interim, submitted) |
-| Actionable sequencing toward the tag and toward NGI-complete | `local-notes/plans/23-final-ngi-push.md` |
+| Actionable sequencing, now that the tag has shipped | [`../plans/README.md`](../plans/README.md), which indexes the four forward horizons |
 | The final report to the auditors | `notes/reports/TR-03.md` (§10 reconciles T1–T5) |
 
 The pre-retirement content is in git history if the 0.6-era snapshot is ever needed.

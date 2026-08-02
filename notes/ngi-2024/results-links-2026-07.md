@@ -62,7 +62,7 @@ Table 5 of the final report carries the same statuses and is reconciled against 
 
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-server/src/hop3/alembic>: Alembic schema migrations; upgrade deploy path hardened in 0.6 (migrations run on upgrade, venv preserved)
 - `hop3 app upgrade --app <app>`: snapshot → redeploy + run the app's `before-run` migrations → health-verify → **automatic rollback to the pre-upgrade snapshot on any failure**; `hop3 app rollback` for operator-driven restore
-- Server upgrade is the installer/deployer's job by decision (`local-notes/specs/upgrades.md`), and it is fail-loud: after migrating, the deployer confirms hop3-server actually answers before reporting success, and prints the exact revert command when it does not
+- Server upgrade is the installer/deployer's job by decision, and it is fail-loud: after migrating, the deployer confirms hop3-server actually answers before reporting success, and prints the exact revert command when it does not
 - <https://git.sr.ht/~sfermigier/hop3/tree/main/packages/hop3-testing>: `hop3-test upgrade-chain`: install a baseline release on a fresh box, then upgrade in-place through a version chain, each version installed by **its own** installer (git worktree per tag), asserting every hop deploys and the schema stays readable. Green on both Docker and a fresh Hetzner VPS.
 
 **M3.3:** Backups ✅: *cross-server migration test automated*
