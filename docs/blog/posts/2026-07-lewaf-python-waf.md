@@ -10,35 +10,19 @@ tags:
 
 # We Wrote a Web Application Firewall in Python
 
-Hop3 0.7 can put a Web Application Firewall in front of any app you deploy: OWASP Core Rule Set, per-app policy, automatic bans. Turn it on with two lines of `hop3.toml`.
-
-The engine behind it is **[LeWAF](https://pypi.org/project/lewaf/)**, a pure-Python, ModSecurity-compatible WAF engine we wrote and released standalone on PyPI under Apache-2.0.
-
-Writing your own security engine is normally a bad idea.
+Hop3 0.7 can put a Web Application Firewall in front of any app you deploy: OWASP Core Rule Set, per-app policy, automatic bans. Turn it on with two lines of `hop3.toml`. The engine behind it is **[LeWAF](https://pypi.org/project/lewaf/)**, a pure-Python, ModSecurity-compatible WAF engine we wrote and released standalone on PyPI under Apache-2.0. Writing your own security engine is normally a bad idea.
 
 ## The two layers
 
-The firewall and the WAF answer different questions, and they compose.
-
-The **network firewall** ([ADR 045](/developers/adrs/045-fixed-port-registry/)) decides whether a packet may reach a port at all. You declare `[[ports]]`, Hop3 translates that into `nft` rules, and the privileged daemon applies them. It has no idea what HTTP is.
-
-The **WAF** decides whether an HTTP request that reached the app's port is acceptable: SQL injection, cross-site scripting, path traversal, remote code execution, and a per-app access policy. It reads the request; it knows nothing about packets.
-
-An app can use either, both, or neither.
+The firewall and the WAF answer different questions. The **network firewall** ([ADR 045](/developers/adrs/045-fixed-port-registry/)) decides whether a packet may reach a port at all. You declare `[[ports]]`, Hop3 translates that into `nft` rules, and the privileged daemon applies them. The **WAF** decides whether an HTTP request that reached the app's port is acceptable: SQL injection, cross-site scripting, path traversal, remote code execution, and a per-app access policy.
 
 ## Choosing an engine
 
-The rules were never in question. The OWASP Core Rule Set is the standard answer for Layer 7, it is expressed in SecLang, and any engine worth using speaks that dialect. The question was which engine.
+The rules were never in question. The OWASP Core Rule Set is the standard answer for Layer 7, it is expressed in SecLang. The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecurity, which is C. Both are good software. **The process model.** Hop3 is Python end to end: the server, the CLI, the toolchains, and an installer written against the standard library alone so it can bootstrap a machine with nothing on it. Introducing a Go binary or a C library means a second build and runtime story running alongside the first: cross-compilation for every architecture, a packaging path per distribution, an independent upgrade cadence, and a failure mode ("the binary won't load on this host") that the platform would need new diagnostics to handle.
 
-The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecurity, which is C. Both are good software, and either would have worked.
+**Ownership.** Hop3 exists so people can own their infrastructure, and a platform that cannot fix its own security engine has a soft spot in that argument. Rule engines have bugs, CRS integrations drift, and false positives block legitimate requests to somebody's production app. So we wrote LeWAF, and released it on its own as a standalone project. It speaks SecLang and ships the CRS's 681 rules.
 
-**The process model.** Hop3 is Python end to end: the server, the CLI, the toolchains, and an installer written against the standard library alone so it can bootstrap a machine with nothing on it. Introducing a Go binary or a C library means a second build and runtime story running alongside the first: cross-compilation for every architecture, a packaging path per distribution, an independent upgrade cadence, and a failure mode ("the binary won't load on this host") that none of our existing diagnostics understand. That is a real, permanent tax on a platform whose selling point is that one command installs it anywhere.
-
-**Ownership.** Hop3 exists so people can own their infrastructure, and a platform that cannot fix its own security engine has a soft spot in that argument. Rule engines have bugs, CRS integrations drift, and false positives block legitimate requests to somebody's production app. We wanted a bug we could fix the same morning, without waiting on an upstream issue tracker.
-
-So we wrote LeWAF, and released it on its own as a standalone project. It speaks SecLang and ships the CRS's 681 rules, so nothing about the protection changes.
-
-Coraza remains available. It sits behind the same `WafEngine` interface ([ADR 050](/developers/adrs/050-waf-l7-lewaf/) §6) as a future alternative for operators who want a non-Python engine at higher throughput. The plugin seam keeps that choice open.
+Coraza remains available. It sits behind the same `WafEngine` interface ([ADR 050](/developers/adrs/050-waf-l7-lewaf/) §6) as a future alternative for operators who want a non-Python engine at higher throughput.
 
 ## What LeWAF is
 
@@ -49,7 +33,7 @@ A standalone project, usable outside Hop3:
 - **framework integrations** for Flask, FastAPI, Starlette and Django, if you want it in-process;
 - a **standalone reverse-proxy mode** (`lewaf-proxy`), which is how Hop3 uses it.
 
-Python ≥ 3.12, Apache-2.0, on PyPI. If you run a Python web app and want CRS in front of it without introducing a second runtime, it works on its own.
+Python ≥ 3.12, Apache-2.0, on PyPI.
 
 ## How Hop3 deploys it
 
@@ -66,9 +50,7 @@ On deploy, Hop3 puts a per-app WAF proxy in the request path:
 nginx  →  lewaf-proxy  →  uWSGI (your app)
 ```
 
-The proxy runs as a uWSGI Emperor vassal, supervised like any other app process: started when the app deploys, reaped when it is destroyed. The app itself stays bound to loopback, so there is no route around the WAF; you cannot reach the application except through it.
-
-The engine ships as the `hop3-server[waf]` extra and is imported lazily, so a server that runs no WAF-enabled apps pays nothing for it.
+The proxy runs as a uWSGI Emperor vassal, supervised like any other app process: started when the app deploys, reaped when it is destroyed. The app itself stays bound to loopback. The engine ships as the `hop3-server[waf]` extra and is imported lazily.
 
 ## Declarative policy, compiled
 
@@ -87,7 +69,7 @@ Named networks (`hop3 network`) resolve to addresses, the gates become SecLang, 
 
 ## Bans, without a cron job
 
-Blocking a single malicious request is the easy half. An attacker who is probing will send thousands, and answering each one with a 403 is a lot of work for no benefit.
+Blocking a single malicious request is the easy half. An attacker who is probing will send thousands.
 
 LeWAF's audit stream feeds a scorer inside hop3-server. Requests that trip rules accumulate a score against their source; past a threshold, the source is banned and the ban is recorded in the database. Reconciliation runs in-process roughly every minute: no external scheduler, no state that survives only in memory. You can see and clear bans:
 
