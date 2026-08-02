@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [0.7.1] - 2026/08/02
 
 ### Security
 
@@ -17,6 +17,12 @@ Affects every release up to and including 0.7.0. **If your hop3-server is reacha
 - **Signing out was a link, so another site could sign you out.** `GET /auth/logout` is now a form POST. Minor by itself, but it was the only state-changing GET, and "every mutation is a POST" is what lets Hop3 ship without CSRF tokens.
 
 Details, and the remaining open items, in `notes/security/`.
+
+One behaviour that looks like a bug and is not: a magic link is spent the moment it is presented, even if the sign-in then fails because the account was deleted or disabled. A link that has been used cannot be replayed, whatever happened next. The one case where the link is *not* spent is a redemption that could never have worked for a reason you can fix — over plain HTTP, above, Hop3 refuses before touching the token, so the link still works once you reach the server over HTTPS.
+
+### Fixed
+
+- **Bugsink's Nix recipe runs its background worker.** The hand-written recipe deployed the web process alone, so the app signed in and then failed on any path that queues work: its "snappea" queue lives in a second database that was never migrated. Configuration and both migrations now run before any worker starts, and the queue worker is declared alongside the web one. The other two Bugsink variants were unaffected.
 
 ## [0.7.0] - 2026/07/31
 
@@ -266,7 +272,8 @@ Major release: Hop3 becomes a complete self-hosted PaaS.
 
 Initial release: core architecture, app builders, addon support, SQLAlchemy models, first test runner.
 
-[Unreleased]: https://github.com/abilian/hop3/compare/0.7.0...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/0.7.1...HEAD
+[0.7.1]: https://github.com/abilian/hop3/compare/0.7.0...0.7.1
 [0.7.0]: https://github.com/abilian/hop3/compare/0.6.2...0.7.0
 [0.6.2]: https://github.com/abilian/hop3/compare/0.6.0...0.6.2
 [0.6.1]: https://github.com/abilian/hop3/compare/v0.6.0...v0.6.1
