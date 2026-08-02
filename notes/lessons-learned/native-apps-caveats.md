@@ -31,7 +31,7 @@ toolchain = "php"  # or "node", "python", etc.
 
 ### Toolchain Specification
 
-The `toolchain` key (`"php"`, `"node"`, `"python"`, ...) is optional but explicitly setting it helps build detection pick the right language tooling.
+The `toolchain` key (`"php"`, `"node"`, `"python"`, ...) is optional. Setting it explicitly helps build detection pick the right language tooling.
 
 ---
 
@@ -144,8 +144,8 @@ IllegalStateChangeError: Method 'close()' can't be called here
 #### Solutions (Implemented in hop3-server)
 
 1. **WAL Mode**: Readers proceed concurrently with a writer
-2. **Busy Timeout**: Wait up to 30 seconds when the database is locked instead of failing immediately (`busy_timeout=30000`)
-3. **Connection Pool**: `pool_size=5, max_overflow=10`. WAL makes a real pool safe, so reads (e.g. auth-token verification) get their own connection and never queue behind a long-running deploy's write transaction. An earlier `pool_size=1` serialized *all* access — reads included — and surfaced as bogus 401s on `/rpc` and 302s on `/api/stream` during heavy deploys.
+2. **Busy Timeout**: Wait up to 30 seconds for a locked database to become available (`busy_timeout=30000`)
+3. **Connection Pool**: `pool_size=5, max_overflow=10`. WAL makes a real pool safe, so reads (e.g. auth-token verification) get their own connection and never queue behind a long-running deploy's write transaction. An earlier `pool_size=1` serialized *all* access, reads included, and surfaced as bogus 401s on `/rpc` and 302s on `/api/stream` during heavy deploys.
 
 These are configured automatically in `hop3/orm/session.py`.
 
@@ -267,7 +267,7 @@ build = "composer install --no-dev --optimize-autoloader"
 **Symptom**: App doesn't respond on expected port
 
 **Causes**:
-- Hardcoded port instead of using `${PORT}`
+- Hardcoded port; use `${PORT}`
 - Binding to wrong interface (127.0.0.1 vs 0.0.0.0)
 
 **Fix**: Always use the PORT environment variable:

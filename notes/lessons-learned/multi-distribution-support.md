@@ -49,7 +49,7 @@ def _find_best_python():
 
 ## Debian Backports
 
-Debian 12 (bookworm) has older versions of some packages. Don't add the trixie repo (wrong approach) - use bookworm-backports:
+Debian 12 (bookworm) has older versions of some packages. Use bookworm-backports:
 
 ```bash
 echo "deb http://deb.debian.org/debian bookworm-backports main" > \
@@ -60,7 +60,7 @@ apt-get install -t bookworm-backports golang
 
 ## Rocky/AlmaLinux Docker
 
-RHEL clones don't include Docker in native repos. Must add Docker's official CentOS repo:
+RHEL clones don't include Docker in native repos. Add Docker's official CentOS repo:
 
 ```bash
 dnf config-manager --add-repo https://download.docker.com/linux/centos/docker-ce.repo
@@ -72,18 +72,18 @@ dnf install docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-co
 - Debian/Ubuntu: `/bin/sh` is dash (no bashisms)
 - Fedora/RHEL: `/bin/sh` is bash
 - Hop3 scripts should use `/bin/bash` explicitly or avoid bashisms
-- `source` is a bashism - use `. /path/to/script` instead
+- `source` is a bashism: use `. /path/to/script` instead
 
 ## Init System Detection: Use `/proc/1/comm`
 
-Hop3 runs under both systemd (production VPS) and supervisord (Docker test containers). Detecting which one is in charge looks straightforward - until a first-draft check goes wrong and nothing runs.
+Hop3 runs under both systemd (production VPS) and supervisord (Docker test containers). Detecting the active init system is harder than it looks: naive checks pass even when systemd is absent.
 
 **Don't** use these:
 
-- `which systemctl && test -d /run/systemd/system` - both can exist on a container where systemd is *not* actually PID 1 (leftover from the base image).
-- `systemctl is-system-running` - returns `offline` or `degraded` on containers; treating those as "systemd is alive" leads to `systemctl start postgresql` calls that fail silently, then `pg_isready` reports "not running", then the installer marks the install a failure.
+- `which systemctl && test -d /run/systemd/system`: both can exist on a container where systemd is *not* actually PID 1 (leftover from the base image).
+- `systemctl is-system-running`: returns `offline` or `degraded` on containers; treating those as "systemd is alive" leads to `systemctl start postgresql` calls that fail silently, then `pg_isready` reports "not running", then the installer marks the install a failure.
 
-**Do** use `/proc/1/comm`. PID 1's comm-name is unambiguous on Linux - it is either `systemd`, `init` (supervisord/containerd/sysvinit), or the custom PID-1 the container was started with:
+**Do** use `/proc/1/comm`. PID 1's comm-name is unambiguous on Linux: it is either `systemd`, `init` (supervisord/containerd/sysvinit), or the custom PID-1 the container was started with:
 
 ```python
 def has_systemd() -> bool:
@@ -121,4 +121,4 @@ for name in _top_level_names(code):
     seen_names[name] = module_path
 ```
 
-Silent shadowing is the worst bug class here - the symptoms look like application-level bugs, not installer bugs, so no one thinks to look at the bundler.
+Silent shadowing is the worst bug class here: the symptoms present as application-level bugs, so no one thinks to look at the bundler.

@@ -25,7 +25,7 @@ GRANT ALL ON mydb.* TO 'myuser'@'localhost';
 
 ## MySQL Per-Host Grants for Docker-Bridge Apps
 
-A single `@'localhost'` grant is not enough when Docker-based apps on the same host talk to MySQL. Containers connect from a private network address, not `localhost`, and that address depends on which pool Docker drew the network from — its default-address-pools span *both* `172.16.0.0/12` and `192.168.0.0/16`, and custom networks may use `10.x`. The connection surfaces as:
+A single `@'localhost'` grant is not enough when Docker-based apps on the same host talk to MySQL. Containers connect from a private network address, not `localhost`, and that address depends on which pool Docker drew the network from: its default-address-pools span *both* `172.16.0.0/12` and `192.168.0.0/16`, and custom networks may use `10.x`. The connection surfaces as:
 
 ```
 [1130] Host '192.168.0.2' is not allowed to connect to this MariaDB server
@@ -33,7 +33,7 @@ A single `@'localhost'` grant is not enough when Docker-based apps on the same h
 
 The MySQL protocol doesn't fall back between grant hosts: the server picks the most-specific matching user row at authentication and rejects if the password doesn't match *that* row. So one user row is needed per source range, and since host patterns can't express CIDR, you enumerate the RFC1918 wildcards.
 
-**Fix:** Create one user row per host in `ADDON_USER_HOSTS` — currently `("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")` — all with identical privileges:
+**Fix:** Create one user row per host in `ADDON_USER_HOSTS`, currently `("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")`, all with identical privileges:
 
 ```sql
 CREATE USER 'myuser'@'localhost'   IDENTIFIED BY 'pass';
@@ -48,9 +48,9 @@ Granting only `172.%` (the earlier value) failed every compose app whose network
 
 ## `localhost` Rewrite: Match by Value, Not by Variable Name
 
-When a containerised application needs to reach a host-side database, the deployer must rewrite `localhost`/`127.0.0.1` in the app's environment to `host.docker.internal`. A first-draft implementation whitelists specific env-var names (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …); this breaks for apps that introduce custom names (`GF_DATABASE_HOST`, `SMTP_HOST`, app-specific aliases) - the container sees the unrewritten `127.0.0.1` and fails.
+When a containerised application needs to reach a host-side database, the deployer must rewrite `localhost`/`127.0.0.1` in the app's environment to `host.docker.internal`. A first-draft implementation whitelists specific env-var names (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …); this breaks for apps that introduce custom names (`GF_DATABASE_HOST`, `SMTP_HOST`, app-specific aliases): the container sees the unrewritten `127.0.0.1` and fails.
 
-**Fix:** match by *value* at host-boundary positions via regex, not by var name. The pattern must handle:
+**Fix:** match by *value* at host-boundary positions via regex. The pattern must handle:
 
 - `postgresql://u:p@127.0.0.1:5432/db` → `…@host.docker.internal:…`
 - `redis://localhost:6379/0` → `redis://host.docker.internal:6379/0`
@@ -58,7 +58,7 @@ When a containerised application needs to reach a host-side database, the deploy
 - Multi-host values like `127.0.0.1:26379,remote:26379` (only the first host rewrites)
 - Leave substrings alone: `my-localhost-fallback` must not become `my-host.docker.internal-fallback`
 
-A regex anchored at URL schemes, `@host:port`, bare `host:port`, and full-value hosts covers this. Whitelists are a design smell — find the general rule. Unit-test both positive and negative cases.
+A regex anchored at URL schemes, `@host:port`, bare `host:port`, and full-value hosts covers this. Whitelists are a design smell: find the general rule. Unit-test both positive and negative cases.
 
 ## Unix Socket Authentication
 

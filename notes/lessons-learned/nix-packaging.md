@@ -67,7 +67,7 @@ This keeps the wrapper as a single-quoted heredoc (no expansion at all), then pa
 
 ### The Channel Problem
 
-> **Note (Hop3 0.7+):** the installer and code generator no longer use nix-channel; nixpkgs is pinned in-tree (`packages/hop3-server/.../gen/templates/base.py`, nixos-24.11). The channel steps below are kept for historical reference and for operators on pre-0.7 versions.
+> **Note (Hop3 0.7+):** the installer and code generator no longer use nix-channel; nixpkgs is pinned in-tree (`packages/hop3-server/.../gen/templates/base.py`, nixos-24.11).
 
 Nix's binary cache (`cache.nixos.org`) only caches packages from official release channels. If the server uses a rolling channel (`nixpkgs-unstable`) or no channel at all, packages like `nodejs_22` may not be cached and Nix builds them from source (~30 minutes for Node.js).
 
@@ -213,7 +213,7 @@ The `web` worker command must listen on `$BIND_ADDRESS:$PORT`. For static sites,
 
 - `pkgs.matrix-synapse` is Linux-only in nixpkgs (fails eval on macOS)
 - Node.js may segfault during `configure` on macOS ARM64 with certain nixpkgs versions
-- `patchelf` warnings ("cannot find section '.dynamic'") are normal for statically-linked Go binaries on Linux - harmless
+- `patchelf` warnings ("cannot find section '.dynamic'") are normal for statically-linked Go binaries on Linux; harmless
 
 ### The `dontFixup` Escape Hatch
 
@@ -224,13 +224,13 @@ npm/pnpm create symlinks between `node_modules/.pnpm/` entries. After `npm insta
 dontFixup = true;
 ```
 
-This is safe - the broken symlinks are dev dependencies that aren't used at runtime.
+This is safe: the broken symlinks are dev dependencies that aren't used at runtime.
 
 ## Package Manager Specifics
 
 ### npm / Node.js
 
-- `npm install --production --legacy-peer-deps` for production deps only
+- `npm install --production --legacy-peer-deps`
 - Always set `export HOME=$TMPDIR` (npm writes to `~/.npm`)
 - Large apps (CryptPad, HedgeDoc) take 5-10 minutes for `npm install`
 - Prefer pre-built release tarballs when available (HedgeDoc publishes them)
@@ -245,7 +245,7 @@ This is safe - the broken symlinks are dev dependencies that aren't used at runt
 
 - Use `pkgs.python3.withPackages` for apps in nixpkgs
 - Use `python -m venv $out/venv && $out/venv/bin/pip install ...` for apps NOT in nixpkgs
-- Use `psycopg2-binary` instead of `psycopg2` (avoids needing `pg_config`)
+- Use `psycopg2-binary` (avoids needing `pg_config`)
 
 ### Maven / Leiningen (Java/Clojure)
 
@@ -264,19 +264,19 @@ Nix builds succeed but apps crash at startup. These are the most frequent causes
 
 ### Wrong Port
 
-The app listens on its default port (e.g., Gitea on 3000, Grafana on 3000) instead of `$PORT` assigned by Hop3. The wrapper script must pass `$PORT` to the app's config or command line.
+The app ignores `$PORT` and listens on its own default (e.g., Gitea on 3000, Grafana on 3000). The wrapper script must pass `$PORT` to the app's config or command line.
 
 **Symptom:** Build succeeds, "Deployment successful", then "App failed to start within 60.0s timeout". The app IS running but on the wrong port.
 
-**Fix:** Generate config at runtime in the wrapper script, passing `$PORT` — see "The PORT Problem" above for the pattern.
+**Fix:** Generate config at runtime in the wrapper script, passing `$PORT`; see "The PORT Problem" above for the pattern.
 
 ### Working Directory vs Nix Store
 
 Nix store paths are **read-only**. Apps that try to write config files, create data directories, or modify their own directory will crash.
 
-- **Config files:** Write to the working directory (`src/`), not to `$out`
+- **Config files:** Write to the working directory (`src/`). `$out` is read-only.
 - **Data directories:** Create relative dirs (`mkdir -p data`), they land in `src/`
-- **Gitea's `custom/conf/`:** Must be relative to working dir, not in the Nix store
+- **Gitea's `custom/conf/`:** Must be relative to working dir, outside the Nix store
 
 **Symptom:** Gitea shows `WorkPath: /nix/store/.../bin` and `ConfigFile: /nix/store/.../bin/custom/conf/app.ini` - the config is in the read-only store.
 
@@ -316,7 +316,7 @@ exec radicale --storage-filesystem-folder ./collections
 
 ### Static Files and Relative Paths
 
-Apps like Listmonk expect `static/`, `i18n/`, `config.toml.sample` in the working directory. When running from a Nix wrapper, the working directory is `src/`, not the Nix store.
+Apps like Listmonk expect `static/`, `i18n/`, `config.toml.sample` in the working directory. When running from a Nix wrapper, the working directory is `src/`.
 
 **Fix:** Either symlink or copy static assets from the Nix store to the working directory:
 
@@ -332,7 +332,7 @@ exec /nix/store/.../bin/listmonk
 
 Some nixpkgs derivations package only the compiled binary and omit the runtime assets the binary expects. A concrete example: **WriteFreely 0.16.0** in nixpkgs installs only `$out/bin/writefreely`; the `templates/`, `pages/`, and `static/` directories the binary needs are absent. The binary searches `$exe_dir/../share/writefreely/...` by default, finds nothing, and fails at startup with `share/writefreely/templates: no such file or directory`.
 
-Rather than reinvent packaging, combine the nixpkgs binary with the upstream release tarball for its asset directories:
+Combine the nixpkgs binary with the upstream release tarball for its asset directories:
 
 ```nix
 let
@@ -366,7 +366,7 @@ The `nixpkgs-wrapper` template (ADR 008) wires exactly one nixpkgs package: the 
 | GoToSocial | `$out/share/gotosocial/web` sibling to the binary | `GTS_WEB_ASSET_BASE_DIR` set to a Nix-interpolated path |
 | WriteFreely | Upstream tarball for `templates/pages/static` (see above) | A hook to fetch a companion archive |
 
-The extension for the first two has landed: `[nix].let-extra` binds extra packages into the generated `let` block (e.g. `webvault = pkgs.vaultwarden.webvault`), and `[nix].env-exports-raw` exports env vars whose values are Nix-interpolated at build time (bypassing `nix_escape`, so `${webvault}` resolves to the store path instead of being treated as a shell ref). `apps/real-apps-nix-gen/keycloak` is the reference user: `let-extra` binds `jdk = "pkgs.zulu21"`, then `env-exports-raw` exports `JAVA_HOME = "${jdk}"`. Vaultwarden and GoToSocial are now expressible via the template but not yet migrated — the hand-crafted `real-apps-nix/<app>/hop3.nix` variant is still current. WriteFreely stays deferred: the template has no hook for fetching a companion archive.
+The extension for the first two has landed: `[nix].let-extra` binds extra packages into the generated `let` block (e.g. `webvault = pkgs.vaultwarden.webvault`), and `[nix].env-exports-raw` exports env vars whose values are Nix-interpolated at build time (bypassing `nix_escape`, so `${webvault}` resolves to the store path at build time). `apps/real-apps-nix-gen/keycloak` is the reference user: `let-extra` binds `jdk = "pkgs.zulu21"`, then `env-exports-raw` exports `JAVA_HOME = "${jdk}"`. Vaultwarden and GoToSocial are now expressible via the template but not yet migrated. The hand-crafted `real-apps-nix/<app>/hop3.nix` variant is still current. WriteFreely stays deferred: the template has no hook for fetching a companion archive.
 
 Future Outline, PeerTube, Funkwhale, and Chatwoot will hit the same pattern (S3 attachments, web assets, multiple worker binaries), and may need the companion-archive hook that WriteFreely still lacks.
 

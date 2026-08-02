@@ -18,7 +18,7 @@ Hop3 runs a uWSGI Emperor that watches `/home/hop3/uwsgi-enabled/` for `.ini` fi
 
 ## The `attach-daemon` Working Directory Trap
 
-uWSGI's `chdir` directive sets the working directory for WSGI workers, but **`attach-daemon` processes may not inherit it**. They fork from the Emperor, not from the chdir'd master.
+uWSGI's `chdir` directive sets the working directory for WSGI workers, but **`attach-daemon` processes may not inherit it** because they fork from the Emperor.
 
 **Symptom:** Daemon starts, immediately fails with "No such file or directory" for a relative path.
 
@@ -118,11 +118,11 @@ Apps whose build or runtime needs a binary outside the language ecosystem declar
 packages = ["ffmpeg"]
 ```
 
-These are **declarations, not install triggers** — nothing is installed at deploy time. Instead, the installer unions `[build].packages` + `[run].packages` across the *whole* app catalogue at server-provisioning time and installs the result once (`hop3_installer.server_installer.baseline` computes the union; `installer.py` runs the apt/dnf call). So adding a package to an app's `hop3.toml` requires regenerating the committed baseline (`python -m hop3_installer.server_installer.baseline`); a CI check fails if `baselines.py` has drifted from the catalogue.
+These are declarations. Nothing is installed at deploy time. Instead, the installer unions `[build].packages` + `[run].packages` across the *whole* app catalogue at server-provisioning time and installs the result once (`hop3_installer.server_installer.baseline` computes the union; `installer.py` runs the apt/dnf call). So adding a package to an app's `hop3.toml` requires regenerating the committed baseline (`python -m hop3_installer.server_installer.baseline`); a CI check fails if `baselines.py` has drifted from the catalogue.
 
-At build time the native builder only **probes** the declared packages against the local package DB (`dpkg` on Debian-family, `rpm` on Fedora-family). A missing package logs a Diagnosis naming it and the remedy, but the build continues (a soft gate — the probe must never create a false negative). Without the package the native deploy starts the binary, which crashes at startup with a message like "Unable to locate ffmpeg" — surfacing only after the 60-second health-check timeout. The probe is what turns that opaque timeout into a named cause.
+At build time the native builder only **probes** the declared packages against the local package DB (`dpkg` on Debian-family, `rpm` on Fedora-family). A missing package logs a Diagnosis naming it and the remedy, but the build continues (a soft gate: the probe must never create a false negative). Without the package the native deploy starts the binary, which crashes at startup with a message like "Unable to locate ffmpeg", surfacing only after the 60-second health-check timeout. The probe turns that opaque timeout into a named cause.
 
-Package names are canonical (Debian) and translated to the local OS family right before install (`package_aliases.py`), so the mechanism is not Debian-only — Debian and Fedora families are both supported. A package with no known alias on the target family is the operator's to install manually.
+Package names are canonical (Debian) and translated to the local OS family right before install (`package_aliases.py`), so the mechanism is not Debian-only; both Debian and Fedora families are supported. A package with no known alias on the target family is the operator's to install manually.
 
 ## SSH Key Collisions with Apps That Manage `authorized_keys`
 
@@ -135,6 +135,6 @@ Some self-hosted apps want full ownership of the hop3 user's `~/.ssh/authorized_
 DISABLE_SSH = true
 ```
 
-For Forgejo / Gitea this lands in `custom/conf/app.ini`. The setting turns off the app's git-over-SSH server, not Hop3's CLI-over-SSH tunnel - those are different SSH services on different processes. The app still accepts git pushes over HTTPS; HTTPS is what most operators use anyway.
+For Forgejo / Gitea this lands in `custom/conf/app.ini`. The setting turns off the app's git-over-SSH server; Hop3's CLI-over-SSH tunnel is unaffected. The app still accepts git pushes over HTTPS, which is what most operators use anyway.
 
-Apps that silently *scan* `~/.ssh/authorized_keys` rather than refuse to start are worse: the behaviour shows up as a logic bug later. If an app is strict about authorized_keys, the operator should know up front, so this deserves a note in the app's scaffolded `hop3.toml` or per-app README.
+Worse are apps that silently *scan* `~/.ssh/authorized_keys`: the behaviour shows up as a logic bug later. If an app is strict about authorized_keys, the operator should know up front, so this deserves a note in the app's scaffolded `hop3.toml` or per-app README.
