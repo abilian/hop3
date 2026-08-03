@@ -171,8 +171,10 @@ def render_mermaid(md_text: str, out_dir: Path) -> str:
         mmd = out_dir / f"mermaid-{count}.mmd"
         pdf = out_dir / f"mermaid-{count}.pdf"
         mmd.write_text(m.group("code"))
+        cmd = ["mmdc", "-i", str(mmd), "-o", str(pdf), "--pdfFit"]
+        print(f"Running '{' '.join(cmd)}")
         subprocess.run(
-            ["mmdc", "-i", str(mmd), "-o", str(pdf), "--pdfFit"],
+            cmd,
             check=True,
             capture_output=True,
             text=True,
