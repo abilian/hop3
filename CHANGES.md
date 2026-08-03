@@ -5,6 +5,14 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Fixed
+
+- **A signing key too short to sign with is now refused.** `HOP3_SECRET_KEY` shorter than 32 bytes weakens every token the server issues (RFC 7518 §3.2). PyJWT warned and signed anyway, into a log nobody reads. Hop3 now stops with the length it found, the command to generate a good key, and the three places it looks — plus the warning that replacing it signs everyone out.
+- **`APP_START_TIMEOUT` now does something.** The reconciler was constructed without it and kept its hardcoded 60 seconds, so an operator raising the setting changed nothing and a slow-starting app could be marked failed while it was still coming up.
+- **Forgejo's licence is `GPL-3.0-or-later`, not `MIT`.** Forgejo relicensed at v9.0 and we package v14; the recipe still carried the pre-v9 value. Mattermost stays `MIT`, which is right for the compiled binary Mattermost, Inc. publishes and is now documented in the recipe so it does not get "corrected" to AGPL-3.0.
+
 ## [0.7.1] - 2026/08/02
 
 ### Security

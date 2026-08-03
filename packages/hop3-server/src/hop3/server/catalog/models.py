@@ -45,6 +45,11 @@ class CatalogApp:
     providers: list[str] = field(default_factory=list)
     upstream_version: str | None = None
 
+    # Presentation, from the app's catalog.toml overlay
+    featured: bool = False
+    license_note: str = ""
+    screenshots: list[str] = field(default_factory=list)
+
     # Computed fields
     category: str = ""
     resource_tier: str = "medium"
@@ -114,8 +119,14 @@ class CatalogApp:
             "title": self.title,
             "description": self.description,
             "author": self.author,
+            "website": self.website,
+            "license": self.license,
+            "license_note": self.license_note,
             "tags": self.tags,
             "category": self.category,
+            "featured": self.featured,
+            "memory": self.memory,
+            "screenshots": self.screenshots,
             "resource_tier": self.resource_tier,
             "icon_url": self.icon_url,
             "initials": self.initials,

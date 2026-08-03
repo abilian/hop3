@@ -1,0 +1,76 @@
+<header class="bg-white border-b border-slate-200 sticky top-0 z-50">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between gap-8">
+        <a href="{{ base_url }}/" class="flex items-center gap-2 text-slate-800 font-bold text-lg">
+            <span class="w-8 h-8 bg-blue-500 rounded flex items-center justify-center text-white text-sm font-bold">H3</span>
+            <span>Hop3 Marketplace</span>
+        </a>
+
+        <div class="flex-1 max-w-md relative">
+            <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <circle cx="11" cy="11" r="8"></circle>
+                <path d="m21 21-4.35-4.35"></path>
+            </svg>
+            <input type="text" id="search-input"
+                   class="w-full pl-10 pr-4 py-2 bg-slate-100 border border-transparent rounded-lg text-sm focus:bg-white focus:border-blue-500 focus:ring-2 focus:ring-blue-100 outline-none transition-all"
+                   placeholder="Search apps... (Ctrl+K)" autocomplete="off">
+            <div id="search-results" class="search-results absolute top-full left-0 right-0 mt-2 bg-white border border-slate-200 rounded-lg shadow-lg max-h-96 overflow-y-auto"></div>
+        </div>
+
+        <nav class="flex items-center gap-6">
+            <a href="{{ base_url }}/apps/" class="text-slate-600 hover:text-slate-900 text-sm font-medium">All Apps</a>
+            <a href="{{ base_url }}/about/" class="text-slate-600 hover:text-slate-900 text-sm font-medium">About</a>
+        </nav>
+    </div>
+</header>
+
+<style>
+    /* Search results styling for tailwind theme */
+    #search-results {
+        display: none;
+    }
+    #search-results.active {
+        display: block;
+    }
+    #search-results .search-result-item {
+        display: block;
+        padding: 12px 16px;
+        border-bottom: 1px solid #e2e8f0;
+        color: #334155;
+        text-decoration: none;
+        transition: background-color 0.1s;
+    }
+    #search-results .search-result-item:last-child {
+        border-bottom: none;
+    }
+    #search-results .search-result-item:hover {
+        background-color: #f1f5f9;
+    }
+    #search-results .search-result-item.selected {
+        background-color: #3b82f6;
+        color: white;
+    }
+    #search-results .search-result-item.selected .search-result-desc {
+        color: rgba(255,255,255,0.8);
+    }
+    #search-results .search-result-title {
+        font-weight: 600;
+        font-size: 14px;
+    }
+    #search-results .search-result-title strong {
+        color: #3b82f6;
+    }
+    #search-results .search-result-item.selected .search-result-title strong {
+        color: #fef08a;
+    }
+    #search-results .search-result-desc {
+        font-size: 12px;
+        color: #64748b;
+        margin-top: 2px;
+    }
+    #search-results .search-result-empty {
+        padding: 16px;
+        text-align: center;
+        color: #94a3b8;
+        font-size: 14px;
+    }
+</style>

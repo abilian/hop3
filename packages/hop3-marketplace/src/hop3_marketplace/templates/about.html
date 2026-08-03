@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+
+{% block title %}About - Hop3 Marketplace{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6">
+    {% set breadcrumbs = [{"label": "About"}] %}
+    {% include "components/breadcrumbs.html" %}
+</div>
+
+<div class="bg-slate-50 py-8">
+    <div class="max-w-6xl mx-auto px-6">
+        <h1 class="text-3xl font-bold text-slate-800">About Hop3 Marketplace</h1>
+    </div>
+</div>
+
+<div class="max-w-3xl mx-auto px-6 py-12">
+    <div class="prose prose-slate max-w-none">
+        <h2 class="text-xl font-semibold text-slate-800 mb-4">The App Store for Self-Hosting</h2>
+        <p class="text-slate-600 leading-relaxed mb-6">
+            Hop3 Marketplace is the public storefront for the Hop3 platform.
+            It's designed to solve the "Self-Hosting Discovery Problem" by transforming
+            a list of technical packages into an attractive, App Store-grade catalog.
+        </p>
+        <p class="text-slate-600 leading-relaxed mb-8">
+            Our mission is to prove that self-hosting open-source software is not only
+            viable but superior to SaaS—offering the same ease of discovery with the
+            added benefits of sovereignty and control.
+        </p>
+
+        <h2 class="text-xl font-semibold text-slate-800 mb-4">Why Self-Host?</h2>
+        <p class="text-slate-600 leading-relaxed mb-4">
+            <strong class="text-slate-800">Data Sovereignty:</strong> Your data stays on your infrastructure.
+            No vendor lock-in, no surprise price changes, no terms of service updates
+            that compromise your privacy.
+        </p>
+        <p class="text-slate-600 leading-relaxed mb-4">
+            <strong class="text-slate-800">Cost Control:</strong> Pay for compute, not per-seat licensing.
+            Scale on your own terms without usage-based billing surprises.
+        </p>
+        <p class="text-slate-600 leading-relaxed mb-8">
+            <strong class="text-slate-800">Customization:</strong> Open-source applications can be modified,
+            extended, and integrated to fit your exact needs.
+        </p>
+
+        <h2 class="text-xl font-semibold text-slate-800 mb-4">About Hop3</h2>
+        <p class="text-slate-600 leading-relaxed mb-6">
+            Hop3 is a modern self-hosting platform that makes deploying and managing
+            open-source applications simple. With a single command, you can deploy
+            complex applications complete with databases, caching, and TLS certificates.
+        </p>
+        <a href="https://hop3.dev" class="inline-flex items-center gap-2 px-6 py-3 bg-blue-500 text-white rounded-lg font-medium hover:bg-blue-600 transition-colors">
+            Learn more about Hop3
+        </a>
+    </div>
+</div>
+{% endblock %}

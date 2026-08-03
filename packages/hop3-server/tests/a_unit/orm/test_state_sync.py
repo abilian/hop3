@@ -11,8 +11,13 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
+from hop3.config import config
 from hop3.orm import AppStateEnum
-from hop3.server.state_sync import StateSyncService
+from hop3.server.state_sync import (
+    StateSyncService,
+    start_state_sync_service,
+    stop_state_sync_service,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -351,3 +356,24 @@ class TestStateSyncServiceIntegration:
         service.stop()
 
         assert sync_count["value"] >= 2  # At least 2 cycles should have run
+
+
+def test_start_service_wires_the_configured_timeout(monkeypatch) -> None:
+    """
+    The reconciler must take its timeout from ``config.APP_START_TIMEOUT``.
+
+    Regression: ``start_state_sync_service`` constructed the service without a
+    timeout, so it kept the 60s default and an operator raising the setting
+    changed nothing — a heavy app was marked FAILED while it was still coming
+    up. The configured value here is deliberately *not* the default, because a
+    test that compares two values which are both 60.0 passes with the bug in
+    place.
+    """
+    monkeypatch.setattr(type(config), "APP_START_TIMEOUT", 137.0)
+
+    stop_state_sync_service()
+    service = start_state_sync_service(cast("Callable[[], Session]", MockSession))
+    try:
+        assert service.timeout == 137.0
+    finally:
+        stop_state_sync_service()

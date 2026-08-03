@@ -1,0 +1,33 @@
+<a href="{{ base_url }}/apps/{{ app.id }}/" class="block bg-white border border-slate-200 rounded-xl p-5 hover:border-blue-500 hover:shadow-md hover:-translate-y-0.5 transition-all">
+    <div class="flex items-start gap-3 mb-3">
+        {% if app.icon_url %}
+        <div class="w-12 h-12 bg-slate-100 rounded-lg flex items-center justify-center flex-shrink-0">
+            <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="w-full h-full object-contain rounded-lg">
+        </div>
+        {% else %}
+        <div class="w-12 h-12 rounded-lg flex items-center justify-center text-white font-semibold text-sm flex-shrink-0" style="background-color: {{ app.fallback_color }}">
+            {{ app.initials }}
+        </div>
+        {% endif %}
+        <div>
+            <h3 class="font-semibold text-slate-800">{{ app.title }}</h3>
+            <p class="text-xs text-slate-400">{{ app.author }}</p>
+        </div>
+    </div>
+    <p class="text-sm text-slate-600 line-clamp-2 mb-4">{{ app.description }}</p>
+    <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+        <div class="flex flex-wrap gap-1">
+            {% for tag in app.tags[:3] %}
+            <span class="px-2 py-0.5 bg-slate-100 rounded text-xs text-slate-500">{{ tag }}</span>
+            {% endfor %}
+        </div>
+        {% if app.memory %}
+        <span class="px-2 py-0.5 rounded text-xs font-medium
+            {% if app.resource_tier == 'light' %}bg-green-100 text-green-700
+            {% elif app.resource_tier == 'medium' %}bg-yellow-100 text-yellow-700
+            {% else %}bg-red-100 text-red-700{% endif %}">
+            {{ app.memory }}
+        </span>
+        {% endif %}
+    </div>
+</a>

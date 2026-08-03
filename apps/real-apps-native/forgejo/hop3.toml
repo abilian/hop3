@@ -7,7 +7,7 @@ version = "14.0.3"
 title = "Forgejo"
 description = "Self-hosted Git service (community fork of Gitea)"
 homepage = "https://forgejo.org/"
-license = "MIT"
+license = "GPL-3.0-or-later"
 categories = ["git", "version-control", "development"]
 
 [build]
