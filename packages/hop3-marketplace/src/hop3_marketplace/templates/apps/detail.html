@@ -130,11 +130,28 @@
     </div>
     {% endif %}
 
+    {% if app.screenshots %}
+    {# Captures taken against the deployed application by the verification run,
+       so what is shown is what this recipe actually produces. #}
+    <div class="mb-8">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Screenshots</h3>
+        <div class="grid grid-cols-1 {% if app.screenshots | length > 1 %}md:grid-cols-2{% endif %} gap-4">
+            {% for shot in app.screenshots %}
+            <a href="{{ shot }}" target="_blank" rel="noopener"
+               class="block overflow-hidden rounded-lg border border-slate-200 hover:border-blue-400 transition-colors">
+                <img src="{{ shot }}" alt="{{ app.title }} screenshot {{ loop.index }}"
+                     loading="lazy" class="w-full h-auto">
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Install -->
     <div class="bg-slate-50 rounded-xl p-6 mb-8">
         <h3 class="text-lg font-semibold text-slate-800 mb-4">Install on Hop3</h3>
         <div class="flex items-center bg-slate-800 rounded-lg overflow-hidden">
-            <code id="install-cmd" class="flex-1 px-4 py-3 font-mono text-sm text-white">hop3 apps:install {{ app.id }}</code>
+            <code id="install-cmd" class="flex-1 px-4 py-3 font-mono text-sm text-white">hop3 catalog install {{ app.id }}</code>
             <button onclick="copyCommand()" class="px-4 py-3 text-slate-400 hover:text-white transition-colors" title="Copy to clipboard">
                 <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
                     <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
