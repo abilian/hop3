@@ -28,6 +28,38 @@ _h1_pattern = re.compile(r"<h1[^>]*>.*?</h1>\s*", re.IGNORECASE | re.DOTALL)
 # rendered inline (ADR 049 F6). The loader/render path never emits raw SVG.
 _ICON_EXTENSIONS = ("webp", "png", "jpg", "jpeg")
 
+#: Where an app's captures live inside its own catalog directory.
+_SCREENSHOTS_DIR = "screenshots"
+
+
+def find_screenshots(app: CatalogApp) -> list[Path]:
+    """
+    Return the app's screenshot files, in filename order.
+
+    Same containment rule as :func:`find_icon`: resolved inside the app's own
+    verified directory, raster only, so a crafted catalog cannot point the
+    render path at an SVG or at something outside the app.
+
+    Ordering is by filename because the captures are named for their sequence
+    (``…-01-login.png`` then ``…-02-signed-in.png``), so sorting shows the
+    sign-in page before the page behind it.
+    """
+    if not app.source_path:
+        return []
+    base = Path(app.source_path).resolve()
+    shots_dir = (base / _SCREENSHOTS_DIR).resolve()
+    if shots_dir.parent != base or not shots_dir.is_dir():
+        return []
+
+    found = [
+        path
+        for path in sorted(shots_dir.iterdir())
+        if path.suffix.lstrip(".").lower() in _ICON_EXTENSIONS
+        and path.resolve().parent == shots_dir
+        and path.is_file()
+    ]
+    return found
+
 
 def find_icon(app: CatalogApp) -> Path | None:
     """
@@ -109,6 +141,15 @@ def load_app(app_dir: Path) -> CatalogApp | None:
 
     # Compute resource tier
     app.resource_tier = app.compute_resource_tier()
+
+    # An app that declares no screenshots gets the ones it ships. The overlay
+    # stays authoritative when set (an app may want a subset, or a different
+    # order), but the default must not be a list in 55 files mirroring 55
+    # directories: every entry said `screenshots = []` while shipping captures.
+    if not app.screenshots:
+        app.screenshots = [
+            f"{_SCREENSHOTS_DIR}/{path.name}" for path in find_screenshots(app)
+        ]
 
     # Load readme if exists
     readme_path = app_dir / "readme.md"

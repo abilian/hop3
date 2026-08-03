@@ -130,3 +130,61 @@ def test_declared_category_beats_the_tag_mapping(tmp_path):
     build_categories([app])
 
     assert app.category == "Collaboration"
+
+
+def test_screenshots_are_discovered_from_the_app_directory(tmp_path):
+    """No overlay entry needed: an app's own captures are what it shows."""
+    app_dir = tmp_path / "gitea"
+    _write(app_dir, RECIPE)
+    shots = app_dir / "screenshots"
+    shots.mkdir()
+    (shots / "gitea-02-signed-in.png").write_bytes(b"png")
+    (shots / "gitea-01-login.png").write_bytes(b"png")
+
+    app = load_app(app_dir)
+
+    assert app.screenshots == [
+        "screenshots/gitea-01-login.png",
+        "screenshots/gitea-02-signed-in.png",
+    ]
+
+
+def test_a_declared_screenshot_list_wins_over_discovery(tmp_path):
+    """The overlay is the override: a subset, or a different order."""
+    app_dir = tmp_path / "gitea"
+    _write(
+        app_dir,
+        RECIPE,
+        '[catalog]\nscreenshots = ["screenshots/gitea-02-signed-in.png"]\n',
+    )
+    shots = app_dir / "screenshots"
+    shots.mkdir()
+    (shots / "gitea-01-login.png").write_bytes(b"png")
+    (shots / "gitea-02-signed-in.png").write_bytes(b"png")
+
+    app = load_app(app_dir)
+
+    assert app.screenshots == ["screenshots/gitea-02-signed-in.png"]
+
+
+def test_screenshot_discovery_refuses_svg_and_escapes(tmp_path):
+    """
+    Same containment as the icon path: raster only, inside the app's own dir.
+
+    A catalog is fetched from a remote source, so a crafted entry must not be
+    able to point the render path at an SVG (an XSS vector when inlined) or at
+    a file outside the app (ADR 049 F6).
+    """
+    app_dir = tmp_path / "gitea"
+    _write(app_dir, RECIPE)
+    outside = tmp_path / "outside.png"
+    outside.write_bytes(b"png")
+    shots = app_dir / "screenshots"
+    shots.mkdir()
+    (shots / "logo.svg").write_text("<svg onload='alert(1)'/>")
+    (shots / "escape.png").symlink_to(outside)
+    (shots / "real.png").write_bytes(b"png")
+
+    app = load_app(app_dir)
+
+    assert app.screenshots == ["screenshots/real.png"]

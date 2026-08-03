@@ -22,7 +22,7 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.server.catalog.loader import find_icon, load_apps
+from hop3.server.catalog.loader import find_icon, find_screenshots, load_apps
 from hop3.server.catalog.taxonomy import build_categories, build_tags
 
 from .renderer import copy_static, generate_search_index, render_site
@@ -72,10 +72,16 @@ def build(catalog_apps: Path, output_dir: Path) -> int:
         )
         raise SystemExit(msg)
 
-    # The dashboard serves icons from a route; a static site serves files.
+    # The dashboard serves images from a route; a static site serves files. The
+    # loader gives paths inside each app's catalog directory; rewrite them to
+    # the URLs they will be copied to below.
     for app in apps:
         if find_icon(app):
             app.icon_url = f"/assets/icons/{app.id}.webp"
+        app.screenshots = [
+            f"/assets/screenshots/{app.id}/{path.name}"
+            for path in find_screenshots(app)
+        ]
 
     categories = build_categories(apps)
     tags = build_tags(apps)
@@ -87,10 +93,17 @@ def build(catalog_apps: Path, output_dir: Path) -> int:
 
     icons_dir = output_dir / "assets" / "icons"
     icons_dir.mkdir(parents=True, exist_ok=True)
+    shots_root = output_dir / "assets" / "screenshots"
     for app in apps:
         icon = find_icon(app)
         if icon:
             shutil.copy2(icon, icons_dir / f"{app.id}.webp")
+        shots = find_screenshots(app)
+        if shots:
+            app_shots = shots_root / app.id
+            app_shots.mkdir(parents=True, exist_ok=True)
+            for shot in shots:
+                shutil.copy2(shot, app_shots / shot.name)
 
     print(f"{len(apps)} apps, {len(categories)} categories, {len(tags)} tags")
     print(f"Site written to {output_dir}")

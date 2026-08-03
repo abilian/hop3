@@ -7,9 +7,14 @@
 from __future__ import annotations
 
 import json
+import re
 
 import pytest
 from hop3_marketplace.builder import build
+
+from hop3.commands._base import Command
+from hop3.lib.registry import lookup
+from hop3.lib.scanner import scan_package
 
 RECIPE = """
 [metadata]
@@ -133,3 +138,72 @@ def test_rendering_does_not_delete_the_signed_catalog(catalog, tmp_path):
 
     assert (signed / "catalog.tar.gz").read_bytes() == b"signed bytes"
     assert (signed / "catalog.tar.gz.minisig").read_text() == "signature"
+
+
+def test_the_install_command_is_a_real_command(catalog, tmp_path):
+    """
+    The site tells people what to type; it must be something that runs.
+
+    The page shipped `hop3 apps:install <id>` — a colon-style verb from a CLI
+    generation ago, which no version of Hop3 has ever accepted. Nothing caught
+    it because a template string is not executed by anything. So rather than
+    correct the literal and move on, this reads the command back out of the
+    rendered page and checks it against the server's own command registry: if
+    the CLI renames or drops it, the site fails to build.
+    """
+    out = tmp_path / "site"
+    build(catalog, out)
+    page = (out / "apps" / "gitea" / "index.html").read_text()
+
+    match = re.search(r'id="install-cmd"[^>]*>([^<]+)<', page)
+    assert match, "the detail page no longer shows an install command"
+
+    tokens = match.group(1).split()
+    assert tokens[0] == "hop3"
+    # Everything between `hop3` and the app id is the command name.
+    verb = tuple(t for t in tokens[1:-1] if not t.startswith("-"))
+    assert tokens[-1] == "gitea"
+
+    scan_package("hop3.commands")
+    registered = {command.name for command in lookup(Command)}
+    assert verb in registered, (
+        f"the site advertises `hop3 {' '.join(verb)}`, which is not a command"
+    )
+
+
+def test_screenshots_are_discovered_copied_and_shown(catalog, tmp_path):
+    """
+    An app that ships captures gets them on its page without declaring them.
+
+    Every entry in the real catalog said `screenshots = []` while shipping two
+    PNGs, because the field was a list in 55 files mirroring 55 directories.
+    The files are the source of truth; the field is an override.
+    """
+    shots = catalog / "gitea" / "screenshots"
+    shots.mkdir()
+    (shots / "gitea-02-signed-in.png").write_bytes(b"\x89PNG\r\n\x1a\n second")
+    (shots / "gitea-01-login.png").write_bytes(b"\x89PNG\r\n\x1a\n first")
+
+    out = tmp_path / "site"
+    build(catalog, out)
+
+    copied = out / "assets" / "screenshots" / "gitea"
+    assert (copied / "gitea-01-login.png").is_file()
+    assert (copied / "gitea-02-signed-in.png").is_file()
+
+    page = (out / "apps" / "gitea" / "index.html").read_text()
+    assert "Screenshots" in page
+    # Filename order, so the sign-in page comes before the page behind it.
+    first = page.index("gitea-01-login.png")
+    second = page.index("gitea-02-signed-in.png")
+    assert first < second
+
+
+def test_an_app_without_screenshots_shows_no_gallery(catalog, tmp_path):
+    """The section is absent, not an empty heading over nothing."""
+    out = tmp_path / "site"
+    build(catalog, out)
+
+    page = (out / "apps" / "gitea" / "index.html").read_text()
+
+    assert "Screenshots" not in page
