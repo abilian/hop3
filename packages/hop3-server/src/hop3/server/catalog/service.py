@@ -36,22 +36,6 @@ logger = logging.getLogger(__name__)
 
 _INDEX_FILENAME = "index.json"
 
-# Featured apps (curated list)
-FEATURED_APP_IDS = [
-    "nextcloud",
-    "moodle",
-    "peertube",
-    "rocketchat",
-    "matomo",
-    "openproject",
-    "baserow",
-    "taiga",
-    "calcom",
-    "redmine",
-    "hedgedoc",
-    "umami",
-]
-
 
 @dataclass(frozen=True)
 class _Snapshot:
@@ -126,8 +110,15 @@ class CatalogService:
         return self._current().tags
 
     def get_featured_apps(self) -> list[CatalogApp]:
-        snap = self._current()
-        return [snap.apps_by_id[i] for i in FEATURED_APP_IDS if i in snap.apps_by_id]
+        """
+        Apps that set ``featured = true`` in their catalog.toml.
+
+        This used to be a hardcoded list of twelve ids, ten of which named apps
+        the catalog does not contain — so the dashboard's featured row silently
+        showed two. Whether an app is featured is a property of the app, and it
+        travels with it.
+        """
+        return [app for app in self._current().apps if app.featured]
 
     def search(self, query: str) -> list[CatalogApp]:
         """Search apps by title, description, tags, or author."""
