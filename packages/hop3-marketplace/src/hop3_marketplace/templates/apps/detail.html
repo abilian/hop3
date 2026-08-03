@@ -1,0 +1,185 @@
+{% extends "base.html" %}
+
+{% block title %}{{ app.title }} - Hop3 Marketplace{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6">
+    {% set breadcrumbs = [{"label": "All Apps", "url": base_url ~ "/apps/"}, {"label": app.title}] %}
+    {% include "components/breadcrumbs.html" %}
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-8">
+    <!-- Header -->
+    <div class="flex items-start gap-6 pb-8 border-b border-slate-200 mb-8">
+        {% if app.icon_url %}
+        <div class="w-20 h-20 bg-slate-100 rounded-xl flex items-center justify-center flex-shrink-0">
+            <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="w-full h-full object-contain rounded-xl">
+        </div>
+        {% else %}
+        <div class="w-20 h-20 rounded-xl flex items-center justify-center text-white font-bold text-xl flex-shrink-0" style="background-color: {{ app.fallback_color }}">
+            {{ app.initials }}
+        </div>
+        {% endif %}
+        <div class="flex-1">
+            <h1 class="text-2xl font-bold text-slate-800 mb-1">{{ app.title }}</h1>
+            <p class="text-slate-600 mb-3">by {{ app.author }}</p>
+            <div class="flex flex-wrap gap-2">
+                {% for tag in app.tags %}
+                <a href="{{ base_url }}/tag/{{ tag }}/" class="px-2 py-1 bg-slate-100 rounded text-xs text-slate-600 hover:bg-slate-200">{{ tag }}</a>
+                {% endfor %}
+            </div>
+        </div>
+        {% if app.website %}
+        <a href="{{ app.website }}" target="_blank" class="flex items-center gap-2 px-4 py-2 border border-slate-300 rounded-lg text-sm text-slate-700 hover:bg-slate-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                <path d="M18 13v6a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h6"></path>
+                <polyline points="15 3 21 3 21 9"></polyline>
+                <line x1="10" y1="14" x2="21" y2="3"></line>
+            </svg>
+            Website
+        </a>
+        {% endif %}
+    </div>
+
+    <!-- One-liner description -->
+    <p class="text-slate-600 leading-relaxed mb-8">{{ app.description }}</p>
+
+    <!-- Info Cards -->
+    <div class="grid md:grid-cols-2 gap-6 mb-8">
+        <!-- Tech Card -->
+        <div class="bg-slate-50 rounded-xl p-6">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Tech Specifications</h3>
+            <div class="space-y-3">
+                {% if app.memory %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Memory</span>
+                    <span class="font-medium text-slate-800">
+                        {{ app.memory }}
+                        <span class="ml-2 px-2 py-0.5 rounded text-xs font-medium
+                            {% if app.resource_tier == 'light' %}bg-green-100 text-green-700
+                            {% elif app.resource_tier == 'medium' %}bg-yellow-100 text-yellow-700
+                            {% else %}bg-red-100 text-red-700{% endif %}">
+                            {{ app.resource_tier }}
+                        </span>
+                    </span>
+                </div>
+                {% endif %}
+                {% if app.port %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Port</span>
+                    <span class="font-medium text-slate-800">{{ app.port }}</span>
+                </div>
+                {% endif %}
+                {% if app.providers %}
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Requires</span>
+                    <span class="font-medium text-slate-800">{{ app.providers | join(", ") }}</span>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <!-- Trust Card -->
+        <div class="bg-slate-50 rounded-xl p-6">
+            <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Trust &amp; License</h3>
+            <div class="space-y-3">
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Author</span>
+                    <span class="font-medium text-slate-800">{{ app.author }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">License</span>
+                    <span class="font-medium text-slate-800">{{ app.license or "Not specified" }}</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                    <span class="text-slate-600">Version</span>
+                    <span class="font-medium text-slate-800">{{ app.upstream_version or app.version }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    {% if app.integrations %}
+    <!-- Integrations -->
+    <div class="bg-slate-50 rounded-xl p-6 mb-8">
+        <h3 class="text-xs font-semibold text-slate-400 uppercase tracking-wider mb-4">Integrations</h3>
+        <div class="flex flex-wrap gap-2">
+            <span class="px-3 py-1.5 rounded-lg text-sm {% if app.integrations.sso %}bg-green-100 text-green-700{% else %}bg-slate-200 text-slate-500{% endif %}">
+                {% if app.integrations.sso %}&#10003;{% else %}&#10007;{% endif %} SSO
+            </span>
+            <span class="px-3 py-1.5 rounded-lg text-sm {% if app.integrations.ldap %}bg-green-100 text-green-700{% else %}bg-slate-200 text-slate-500{% endif %}">
+                {% if app.integrations.ldap %}&#10003;{% else %}&#10007;{% endif %} LDAP
+            </span>
+            <span class="px-3 py-1.5 rounded-lg text-sm {% if app.integrations.sendmail %}bg-green-100 text-green-700{% else %}bg-slate-200 text-slate-500{% endif %}">
+                {% if app.integrations.sendmail %}&#10003;{% else %}&#10007;{% endif %} SMTP
+            </span>
+            {% if app.integrations.turn %}
+            <span class="px-3 py-1.5 rounded-lg text-sm bg-green-100 text-green-700">&#10003; TURN</span>
+            {% endif %}
+            {% if app.integrations.multi_domain %}
+            <span class="px-3 py-1.5 rounded-lg text-sm bg-green-100 text-green-700">&#10003; Multi-domain</span>
+            {% endif %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Readme -->
+    {% if app.readme_html %}
+    <div class="mb-8 prose prose-slate max-w-none prose-headings:text-slate-800 prose-p:text-slate-600 prose-li:text-slate-600 prose-strong:text-slate-700 prose-a:text-blue-500">
+        {{ app.readme_html | safe }}
+    </div>
+    {% endif %}
+
+    {% if app.screenshots %}
+    {# Captures taken against the deployed application by the verification run,
+       so what is shown is what this recipe actually produces. #}
+    <div class="mb-8">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Screenshots</h3>
+        <div class="grid grid-cols-1 {% if app.screenshots | length > 1 %}md:grid-cols-2{% endif %} gap-4">
+            {% for shot in app.screenshots %}
+            <a href="{{ shot }}" target="_blank" rel="noopener"
+               class="block overflow-hidden rounded-lg border border-slate-200 hover:border-blue-400 transition-colors">
+                <img src="{{ shot }}" alt="{{ app.title }} screenshot {{ loop.index }}"
+                     loading="lazy" class="w-full h-auto">
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
+    <!-- Install -->
+    <div class="bg-slate-50 rounded-xl p-6 mb-8">
+        <h3 class="text-lg font-semibold text-slate-800 mb-4">Install on Hop3</h3>
+        <div class="flex items-center bg-slate-800 rounded-lg overflow-hidden">
+            <code id="install-cmd" class="flex-1 px-4 py-3 font-mono text-sm text-white">hop3 catalog install {{ app.id }}</code>
+            <button onclick="copyCommand()" class="px-4 py-3 text-slate-400 hover:text-white transition-colors" title="Copy to clipboard">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                    <rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect>
+                    <path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path>
+                </svg>
+            </button>
+        </div>
+    </div>
+
+    {% if similar_apps %}
+    <!-- Similar Apps -->
+    <div class="border-t border-slate-200 pt-8">
+        <h2 class="text-lg font-semibold text-slate-800 mb-6">Similar Apps</h2>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+            {% for app in similar_apps %}
+            {% include "components/app-card.html" %}
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function copyCommand() {
+    const cmd = document.getElementById('install-cmd').textContent;
+    navigator.clipboard.writeText(cmd);
+}
+</script>
+{% endblock %}

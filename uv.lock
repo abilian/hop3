@@ -12,6 +12,7 @@ members = [
     "hop3",
     "hop3-cli",
     "hop3-installer",
+    "hop3-marketplace",
     "hop3-rootd",
     "hop3-server",
     "hop3-testing",
@@ -1390,6 +1391,7 @@ source = { virtual = "." }
 dependencies = [
     { name = "hop3-cli" },
     { name = "hop3-installer" },
+    { name = "hop3-marketplace" },
     { name = "hop3-rootd" },
     { name = "hop3-server" },
     { name = "hop3-testing" },
@@ -1452,6 +1454,7 @@ doc = [
 requires-dist = [
     { name = "hop3-cli", editable = "packages/hop3-cli" },
     { name = "hop3-installer", editable = "packages/hop3-installer" },
+    { name = "hop3-marketplace", editable = "packages/hop3-marketplace" },
     { name = "hop3-rootd", editable = "packages/hop3-rootd" },
     { name = "hop3-server", editable = "packages/hop3-server" },
     { name = "hop3-testing", editable = "packages/hop3-testing" },
@@ -1556,6 +1559,21 @@ dev = [
     { name = "pytest", specifier = ">=7.0" },
     { name = "ruff", specifier = ">=0.1.0" },
     { name = "ty" },
+]
+
+[[package]]
+name = "hop3-marketplace"
+version = "0.7.1"
+source = { editable = "packages/hop3-marketplace" }
+dependencies = [
+    { name = "hop3-server" },
+    { name = "jinja2" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "hop3-server", editable = "packages/hop3-server" },
+    { name = "jinja2", specifier = ">=3.1.6" },
 ]
 
 [[package]]

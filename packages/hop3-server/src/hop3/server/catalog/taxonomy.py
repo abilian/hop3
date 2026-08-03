@@ -122,7 +122,17 @@ CATEGORY_DESCRIPTIONS = {
 
 
 def get_category_for_app(app: CatalogApp) -> str:
-    """Determine the primary category for an app based on its tags."""
+    """
+    The app's category: what it declares, else what its tags imply.
+
+    An app's ``catalog.toml`` states its category, and that is the answer when
+    it is present — the mapping below is a fallback for apps with no overlay,
+    and it decides by whichever keyword happens to match first, which is no way
+    to file an application someone has already filed by hand.
+    """
+    if app.category:
+        return app.category
+
     for category, keywords in CATEGORY_MAPPING.items():
         for tag in app.tags:
             if tag.lower() in keywords:

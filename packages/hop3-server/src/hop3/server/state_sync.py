@@ -22,6 +22,7 @@ import threading
 from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING
 
+from hop3.config import config
 from hop3.lib import log
 from hop3.orm import App, AppRepository, AppStateEnum
 
@@ -273,7 +274,11 @@ def start_state_sync_service(
     if _service is not None and _service.is_running():
         return _service
 
-    _service = StateSyncService(session_factory)
+    # Read the knob here rather than at import: `APP_START_TIMEOUT` is an
+    # operator setting, and constructing the service without it left the
+    # reconciler on its hardcoded 60s default, so raising the setting changed
+    # nothing and a heavy app was marked FAILED while still starting.
+    _service = StateSyncService(session_factory, timeout=config.APP_START_TIMEOUT)
     _service.start()
     return _service
 

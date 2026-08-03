@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+
+{% block title %}{{ category.name }} - Hop3 Marketplace{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-6">
+    {% set breadcrumbs = [{"label": "Categories", "url": base_url ~ "/apps/"}, {"label": category.name}] %}
+    {% include "components/breadcrumbs.html" %}
+</div>
+
+<div class="bg-slate-50 py-8">
+    <div class="max-w-6xl mx-auto px-6">
+        <h1 class="text-3xl font-bold text-slate-800">{{ category.name }}</h1>
+        <p class="text-slate-600 mt-2">{{ category.description }}</p>
+    </div>
+</div>
+
+<div class="max-w-6xl mx-auto px-6 py-8">
+    <p class="text-sm text-slate-500 mb-6">{{ category.app_count }} apps in this category</p>
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        {% for app in category.apps %}
+        {% include "components/app-card.html" %}
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}

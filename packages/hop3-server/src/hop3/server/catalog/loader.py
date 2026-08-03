@@ -28,6 +28,38 @@ _h1_pattern = re.compile(r"<h1[^>]*>.*?</h1>\s*", re.IGNORECASE | re.DOTALL)
 # rendered inline (ADR 049 F6). The loader/render path never emits raw SVG.
 _ICON_EXTENSIONS = ("webp", "png", "jpg", "jpeg")
 
+#: Where an app's captures live inside its own catalog directory.
+_SCREENSHOTS_DIR = "screenshots"
+
+
+def find_screenshots(app: CatalogApp) -> list[Path]:
+    """
+    Return the app's screenshot files, in filename order.
+
+    Same containment rule as :func:`find_icon`: resolved inside the app's own
+    verified directory, raster only, so a crafted catalog cannot point the
+    render path at an SVG or at something outside the app.
+
+    Ordering is by filename because the captures are named for their sequence
+    (``…-01-login.png`` then ``…-02-signed-in.png``), so sorting shows the
+    sign-in page before the page behind it.
+    """
+    if not app.source_path:
+        return []
+    base = Path(app.source_path).resolve()
+    shots_dir = (base / _SCREENSHOTS_DIR).resolve()
+    if shots_dir.parent != base or not shots_dir.is_dir():
+        return []
+
+    found = [
+        path
+        for path in sorted(shots_dir.iterdir())
+        if path.suffix.lstrip(".").lower() in _ICON_EXTENSIONS
+        and path.resolve().parent == shots_dir
+        and path.is_file()
+    ]
+    return found
+
 
 def find_icon(app: CatalogApp) -> Path | None:
     """
@@ -69,11 +101,16 @@ def load_app(app_dir: Path) -> CatalogApp | None:
     port_config = data.get("port", {})
     integration = data.get("integration", {})
 
-    # Extract providers from [[provider]] sections
-    providers = []
-    for provider in data.get("provider", []):
-        if "name" in provider:
-            providers.append(provider["name"])
+    # Services the app declares. `[[addons]]` is what recipes actually use;
+    # `[[provider]]` is the older spelling and no recipe in the catalog carries
+    # one, which is why every app displayed "no services" until 0.7.2.
+    providers = [
+        addon["type"] for addon in data.get("addons", []) if addon.get("type")
+    ] or [
+        provider["name"] for provider in data.get("provider", []) if "name" in provider
+    ]
+
+    overlay = _load_catalog_overlay(app_dir)
 
     app = CatalogApp(
         id=metadata.get("id", app_dir.name),
@@ -82,18 +119,37 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         version=metadata.get("version", ""),
         upstream_version=metadata.get("upstream_version"),
         author=metadata.get("author", ""),
-        website=metadata.get("website", ""),
+        # Recipes declare `homepage`; `website` is the older key.
+        website=metadata.get("homepage") or metadata.get("website", ""),
         license=metadata.get("license", ""),
-        tags=metadata.get("tags", []),
-        memory=resources.get("memory"),
+        # The overlay owns display tags. Falling back to the recipe's own
+        # `categories` keeps an app that has no overlay out of the "no tags at
+        # all" state that made every card look identical.
+        tags=overlay.get("tags")
+        or metadata.get("tags")
+        or metadata.get("categories", []),
+        memory=overlay.get("memory") or resources.get("memory"),
         port=port_config.get("web"),
         integrations=integration,
         providers=providers,
+        featured=bool(overlay.get("featured", False)),
+        license_note=overlay.get("license_note", ""),
+        screenshots=overlay.get("screenshots", []),
+        category=overlay.get("category", ""),
         source_path=str(app_dir),
     )
 
     # Compute resource tier
     app.resource_tier = app.compute_resource_tier()
+
+    # An app that declares no screenshots gets the ones it ships. The overlay
+    # stays authoritative when set (an app may want a subset, or a different
+    # order), but the default must not be a list in 55 files mirroring 55
+    # directories: every entry said `screenshots = []` while shipping captures.
+    if not app.screenshots:
+        app.screenshots = [
+            f"{_SCREENSHOTS_DIR}/{path.name}" for path in find_screenshots(app)
+        ]
 
     # Load readme if exists
     readme_path = app_dir / "readme.md"
@@ -108,6 +164,33 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         app.readme_html = nh3.clean(html)
 
     return app
+
+
+def _load_catalog_overlay(app_dir: Path) -> dict:
+    """
+    Read the ``[catalog]`` table from the app's optional ``catalog.toml``.
+
+    The overlay carries everything that is presentation rather than deployment:
+    category, tags, memory, featured, screenshots, license_note. It is optional,
+    and an app without one still loads from its recipe alone.
+
+    A *malformed* one is a different matter and raises. Rendering an app with
+    silently missing metadata is how the dashboard came to show 55 identical
+    cards in a single category, and the publish-time gate is where a broken
+    overlay should be caught — not in the reader, by degrading quietly.
+    """
+    overlay_path = app_dir / "catalog.toml"
+    if not overlay_path.exists():
+        return {}
+
+    try:
+        with overlay_path.open("rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        msg = f"{overlay_path}: malformed catalog.toml: {e}"
+        raise CatalogSpecError(msg) from e
+
+    return data.get("catalog", {})
 
 
 def _attach_icon(app: CatalogApp, app_dir: Path) -> None:
