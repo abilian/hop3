@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+
+{% block title %}Hop3 Marketplace - Self-Hosted Apps{% endblock %}
+
+{% block content %}
+<!-- Hero -->
+<section class="bg-gradient-to-br from-slate-50 to-white py-16 text-center">
+    <div class="max-w-6xl mx-auto px-6">
+        <h1 class="text-4xl font-bold text-slate-800 mb-4 tracking-tight">The App Store for Self-Hosting</h1>
+        <p class="text-lg text-slate-600 max-w-xl mx-auto mb-8">
+            Discover and deploy open-source applications on your own infrastructure.
+            Full control, no vendor lock-in.
+        </p>
+        <div class="inline-flex items-center gap-2 bg-white px-4 py-2 rounded-lg shadow-sm text-sm text-slate-600">
+            <strong class="text-blue-500">{{ apps | length }}</strong> apps ready to deploy
+        </div>
+    </div>
+</section>
+
+<!-- Featured Apps -->
+<section class="py-12">
+    <div class="max-w-6xl mx-auto px-6">
+        <div class="flex items-center justify-between mb-6">
+            <h2 class="text-2xl font-semibold text-slate-800">Featured Apps</h2>
+            <a href="{{ base_url }}/apps/" class="text-sm font-medium text-blue-500 hover:text-blue-600">View all &rarr;</a>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {% for app in featured_apps %}
+            {% include "components/app-card.html" %}
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+<!-- Categories -->
+<section class="py-12 bg-slate-50">
+    <div class="max-w-6xl mx-auto px-6">
+        <h2 class="text-2xl font-semibold text-slate-800 mb-6">Browse by Category</h2>
+        <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+            {% for category in categories %}
+            <a href="{{ base_url }}/category/{{ category.id }}/" class="flex items-center gap-4 bg-white border border-slate-200 rounded-lg p-4 hover:border-blue-500 hover:bg-slate-50 transition-all">
+                <div class="w-10 h-10 bg-slate-100 rounded-lg flex items-center justify-center text-blue-500">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" stroke-width="2">
+                        <rect x="3" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="3" width="7" height="7"></rect>
+                        <rect x="14" y="14" width="7" height="7"></rect>
+                        <rect x="3" y="14" width="7" height="7"></rect>
+                    </svg>
+                </div>
+                <div>
+                    <div class="font-medium text-slate-800">{{ category.name }}</div>
+                    <div class="text-xs text-slate-400">{{ category.app_count }} apps</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+</section>
+
+{% endblock %}

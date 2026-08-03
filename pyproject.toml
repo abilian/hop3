@@ -19,6 +19,7 @@ dependencies = [
     "hop3-rootd",
     "hop3-testlab",
     "hop3-tooling",
+    "hop3-marketplace",
     "mdx-truly-sane-lists>=1.3",
 ]
 
@@ -106,6 +107,7 @@ hop3-tui = { workspace = true }
 hop3-rootd = { workspace = true }
 hop3-testlab = { workspace = true }
 hop3-tooling = { workspace = true }
+hop3-marketplace = { workspace = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]
