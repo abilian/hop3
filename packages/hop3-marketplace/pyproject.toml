@@ -1,0 +1,22 @@
+[project]
+name = "hop3-marketplace"
+version = "0.7.1"
+description = "Static site generator for the public Hop3 app catalog"
+readme = "README.md"
+license = "Apache-2.0"
+authors = [{ name = "Stefane Fermigier", email = "sf@abilian.com" }]
+requires-python = ">=3.12"
+dependencies = [
+    "hop3-server",
+    "jinja2>=3.1.6",
+]
+
+[project.scripts]
+hop3-site = "hop3_marketplace:main"
+
+[tool.uv.sources]
+hop3-server = { workspace = true }
+
+[build-system]
+requires = ["uv_build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
