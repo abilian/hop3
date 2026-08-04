@@ -62,9 +62,11 @@ MERMAID_BLOCK = re.compile(
 )
 
 #: `#image("…", alt: "…")` followed by an italic line: md2typst emits the two
-#: separately, and a real `#figure` gives us numbering and a styled caption.
+#: either as separate paragraphs or joined by a line break (`) \` — it does the
+#: latter for alt-less images, i.e. every pre-rendered mermaid figure. A real
+#: `#figure` gives us numbering and a styled caption.
 IMAGE_THEN_CAPTION = re.compile(
-    r"#image\((?P<args>[^\n]*?)\)\n\n_(?P<caption>[^\n]+?)_\n",
+    r"#image\((?P<args>[^\n]*?)\)(?: \\\n|\n\n)_(?P<caption>[^\n]+?)_\n",
 )
 
 #: A caption that numbers itself fights Typst's own numbering.
