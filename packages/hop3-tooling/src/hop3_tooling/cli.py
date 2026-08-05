@@ -36,7 +36,7 @@ from hop3_tooling.nix_repro import (
     summarize,
 )
 
-from . import catalog as catalog_lib, reports as reports_lib
+from . import catalog as catalog_lib, catalog_lint, reports as reports_lib
 from .verify import CHECKS, DEFAULT_HOST, run_verification
 
 
@@ -100,6 +100,49 @@ def drift(catalog_apps: Path | None, source_root: Path | None) -> None:
         click.echo("Re-promote from the tested source (do not hand-edit the catalog).")
         raise SystemExit(1)
     click.echo(f"All {len(ids)} catalog app(s) match their tested source.")
+
+
+@catalog.command()
+@click.option(
+    "--catalog-apps",
+    type=click.Path(path_type=Path),
+    default=None,
+    help="catalog apps/ dir (default: sibling hop3-catalog checkout)",
+)
+def lint(catalog_apps: Path | None) -> None:
+    """
+    Fail if any catalog entry is not fit to show an operator (publish gate).
+
+    Checks presentation, not function: every other gate asks whether an app
+    deploys and signs in. This one asks whether its entry has a title, a
+    description, a version, a real category, tags, a memory estimate, an icon
+    and a screenshot — each rule present because that field shipped empty.
+    """
+    catalog_apps = catalog_apps or catalog_lib.default_catalog_apps()
+    if not catalog_apps.is_dir():
+        msg = f"catalog apps dir not found: {catalog_apps}"
+        raise click.ClickException(msg)
+
+    click.echo(f"Catalog: {catalog_apps}\n")
+    try:
+        violations = catalog_lint.lint_catalog(catalog_apps)
+    except ValueError as e:
+        raise click.ClickException(str(e)) from e
+
+    if not violations:
+        count = len(catalog_lib.app_ids(catalog_apps))
+        click.echo(f"All {count} catalog entry/entries are presentable.")
+        return
+
+    by_app = Counter(v.app_id for v in violations)
+    for violation in violations:
+        click.echo(f"  {violation}")
+    click.echo(
+        f"\n{len(violations)} problem(s) across {len(by_app)} entry/entries. "
+        "Fix them in the catalog repo, then republish — installing reads the "
+        "PUBLISHED catalog, so an unpublished fix is not under test."
+    )
+    raise SystemExit(1)
 
 
 @catalog.command()
