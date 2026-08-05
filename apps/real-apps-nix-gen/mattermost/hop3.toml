@@ -3,6 +3,9 @@
 
 [metadata]
 id = "mattermost"
+# From the pinned nixpkgs (mattermost); not the native recipe's version,
+# which differs. Re-read it with `nix eval` when the pin moves.
+version = "9.11.16"
 description = "Open source team collaboration platform"
 
 [build]
