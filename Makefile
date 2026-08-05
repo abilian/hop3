@@ -137,7 +137,8 @@ test-fast:
 	  packages/hop3-tui/tests \
 	  packages/hop3-testing/tests \
 	  packages/hop3-testlab/tests/a_unit \
-	  packages/hop3-marketplace/tests
+	  packages/hop3-marketplace/tests \
+	  packages/hop3-tooling/tests
 	@echo ""
 
 ## Check tier — full in-process suite, all packages, no Docker. The pre-push gate.
@@ -153,7 +154,8 @@ test:
 	  packages/hop3-tui/tests \
 	  packages/hop3-testing/tests \
 	  packages/hop3-testlab/tests/a_unit \
-	  packages/hop3-marketplace/tests
+	  packages/hop3-marketplace/tests \
+	  packages/hop3-tooling/tests
 	@echo ""
 
 ## Docker e2e — backups, git-push, real deploys (needs Docker). Part of the check gate.
