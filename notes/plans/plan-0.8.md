@@ -90,6 +90,13 @@ TR-03 §9.5 calls this the substantive open item in the CLI: the resolution chai
 
 This is a **breaking change** requiring one coordinated CLI+server release: an unknown `extra_args` key reaches the command as a kwarg and raises `TypeError`, so mixed old-server/new-client is unsupported. The complementary command-manifest ADR (which would also absorb `DESTRUCTIVE_COMMANDS` and `_MISMATCH_GUARDED_PREFIXES`, the two sibling hardcoded lists with the same disease) is unwritten and should precede the work.
 
+### Catalog: one core behind two front-ends
+
+0.7.x gave the catalog a public site (`apps.hop3.cloud`) that shares hop3-server's loader and taxonomy by importing them. That sharing works and is the right shape; what it lacks is a home. `packages/hop3-marketplace` depending on the whole of `hop3-server` — Litestar, SQLAlchemy, the plugin manager — to render static HTML is a dependency direction nobody would choose deliberately.
+
+- [ ] Extract `hop3-catalog-core`: models, loader, taxonomy, policy, and the view-model both renderers consume. Pure Python, no web framework. `hop3-server` keeps everything about fetching, verifying and installing, because that is trust and state rather than presentation.
+- [ ] Decide whether the catalog shows one entry per application with the build path as a choice inside it (0.7.x §2.1, deferred). It changes `index.json`, which deployed servers consume, so treat that shape as an API and settle it in ADR 049 first.
+
 ### Catalog growth
 
 - [ ] More applications, now that the packaging playbook and the verification bar exist.

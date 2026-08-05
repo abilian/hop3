@@ -9,7 +9,9 @@
 
 0.7.0 shipped on 2026-07-31 as the final NGI deliverable release. 0.7.x is the tail: **fixes, small gaps, and presentation work on what 0.7 already ships**. The test for admission is whether an item repairs or completes something a 0.7 user can already see. Anything that adds a capability waits for 0.8, even when it is small.
 
-The security fixes in `CHANGES.md [Unreleased]` are landed but unreleased, so users are running without them; that alone justifies 0.7.1 soon. And the catalog (the most visible thing 0.7 added) has presentation defects that no automated gate catches, because every gate we built asks one thing: does the app *deploy and sign in*? Whether its entry *looks like something an operator would install* is a question none of them pose.
+**0.7.1 was tagged on 2026-08-02** with the security payload. What remained was the catalog (the most visible thing 0.7 added), whose presentation defects no automated gate caught, because every gate we built asks one thing: does the app *deploy and sign in*? Whether its entry *looks like something an operator would install* is a question none of them posed — and the answer, when someone finally looked on 2026-08-02, was that all 55 entries rendered with no tags, no memory, no services, no icon and one category between them.
+
+**Updated 2026-08-03**: §2 is done. The data was fixed (§2.3, §2.4), the work grew a public face at `apps.hop3.cloud` sharing the dashboard's loader (§6), a publish-time gate now blocks a bad entry from being signed (§2.2), and the dashboard renders what the entry declares (§2.3). Both defects of the underlying kind — *nobody had looked, and nothing would have told us* — now have a check behind them. What remains under §2 is the two deferred judgement calls: whether variants deserve their own entries (§2.1) and re-capturing the nine single-capture entries.
 
 ## 1. Ship 0.7.1 (the security payload)
 
@@ -19,7 +21,9 @@ Four fixes are landed and unreleased (`CHANGES.md [Unreleased] § Security`, com
 - [x] Decide F6 and land it in the same release (§3), so the security section is complete.
 - [x] Changelog closed out as `[0.7.1] - 2026/08/02`, versions bumped across the workspace, lockfile synced. No blog post; this is a patch release, and the changelog section is the release note.
 - [x] `hop3-tooling` was a release behind (0.6.2 at the 0.7.0 tag) because it was absent from *both* release scripts' hardcoded package lists, and nothing checks a package in neither. `bump_version.py` now derives the workspace from `packages/*` rather than mirroring the glob by hand, and `release.py`'s alignment gate covers every member instead of only the published subset.
-- [ ] Tag and publish (`make release`).
+- [x] **0.7.1 tagged.** Publishing to PyPI (`make release`) still to run.
+
+Landed after the tag, unreleased, in `CHANGES.md [Unreleased]`: an `HOP3_SECRET_KEY` under 32 bytes is refused instead of signing with it; `APP_START_TIMEOUT` actually reaches the reconciler (it was constructed without it, so the setting did nothing); and Forgejo's licence is corrected to `GPL-3.0-or-later`. All three were harvested from an abandoned branch — see §9.
 
 **Ship this first:** a released security fix that sits unreleased carries a real cost to users. Everything else in this plan can ship in 0.7.2.
 
@@ -27,46 +31,43 @@ Four fixes are landed and unreleased (`CHANGES.md [Unreleased] § Security`, com
 
 The catalog's *functional* story is done and gated (every app installs from the signed catalog and is verified by signing in). The remaining work is the presentation, which an operator sees first.
 
-### 2.1 The consistency bug: 55 entries where there should be 20
+### 2.1 55 entries, 20 applications — kept, deliberately
 
-`hop3-catalog/dist/index.json` carries **55 entries** where the project advertises twenty. The three packaging variants of each app (`bookstack`, `bookstack-nix`, `bookstack-nixgen`) are published as separate installable entries: nothing in `catalog.toml` marks a variant, and neither `server/catalog/loader.py` nor `service.py` filters them. An operator browsing the dashboard therefore sees Bookstack three times and has no way to tell which to pick.
+`dist/index.json` carries **55 entries** for twenty applications, because each is published in up to three packaging variants (`bookstack`, `bookstack-nix`, `bookstack-nixgen`).
 
-This is the sharpest item in the plan: it is a correctness bug in the published artefact, it undercuts the "twenty curated apps" claim everywhere it is made, and it is the reason to build a consistency check into the publish path.
+**Decided 2026-08-03: the variants stay for now**, so an operator can install the same application built three ways and compare them. That makes the count intentional rather than a defect, and the "twenty curated apps" claim needs to say *applications*, not entries, wherever it appears.
 
-- [ ] Decide the model. Preference: one catalog entry per application, with the build variant as an *attribute* of the entry (the recipe the installer picks). The alternative (a `hidden = true` / `variant-of = "bookstack"` field in `catalog.toml`) is less work and leaves the variants installable by id for testing.
-- [ ] Implement, and assert the published entry count matches the advertised set.
+What was a real defect, and is fixed, is that the variants did not describe themselves: fifteen of the thirty-five carried no `[metadata]` section at all, so the catalog published an app titled `Bookstack-Nix` with no version and no description. The generator now grafts the application's identity (`[metadata]`, and the `homepage` / `license` / `author` fields when a recipe declares its own block) from the native entry, and never propagates `featured` — one application should not take three front-page slots.
 
-### 2.2 A consistency check, run before publish
+- [ ] Revisit whether the catalog should show one entry per application with the build path as a choice inside it. Deferred, not cancelled; it changes an artefact deployed servers already consume, so treat `index.json`'s shape as an API and decide it in ADR 049 before implementing.
 
-Every catalog defect so far was found by a person looking at the page. `hop3-tools catalog` already has `drift` (shipped ≡ tested), `reports` (experience-report headers), `promote` and `verify`; there is no check on the *presentation* metadata.
+### 2.2 A consistency check, run before publish — done
 
-- [ ] Add `hop3-tools catalog lint` (or extend `drift`) asserting, per entry: a category from the known taxonomy and not `Other`; a non-empty description; an icon; at least one screenshot; a `memory` estimate; and that the entry's id resolves to a recipe. Fail the publish on any violation.
-- [ ] Wire it into the catalog repo's publish path, so the gate runs before the artefact ships.
+Every catalog defect so far was found by a person looking at the page. `hop3-tools catalog` already has `drift` (shipped ≡ tested), `reports` (experience-report headers), `promote` and `verify`; there was no check on the *presentation* metadata.
 
-**Note the ordering trap**, which has caught us before: `check-catalog.py` installs from the **published** catalog, so editing `apps/` and re-running silently re-tests the old recipe. The lint must run at publish time for the same reason.
+- [x] `hop3-tools catalog lint` asserts, per entry: a title, description and version; a category from the known taxonomy and not `Other`; tags; a `memory` estimate; an icon; at least one screenshot. Plus one rule the review added: **no two entries may claim the same id** — the service keys apps by id, so the second silently replaces the first and an application vanishes with nothing logged. It reports every violation rather than the first, and names the app.
+- [x] Wired into the catalog repo as `make lint-presentation`, which `validate` runs and `build` depends on, so a bad entry cannot be signed. Verified by planting `category = "Other"` on isso: the build stops.
 
-### 2.3 Icons
+Its first real run found three entries with no version (keycloak-nix, keycloak-nixgen, mattermost-nixgen), whose versions come from the pinned nixpkgs rather than the recipe. Read off the pin (`50ab7937` = nixos-24.11): keycloak 26.1.4, mattermost 9.11.16 — which confirms that grafting the native version would have published a false claim, since native mattermost is 9.4.2.
 
-There are **zero icon or logo files across all 55 app directories**. `CatalogApp.icon_url` always resolves to `/dashboard/catalog/icons/{id}`, which serves the two-letter initials fallback (`models.py:60`). Every app in the catalog is a coloured rectangle with letters in it.
+**Note the ordering trap**, which has caught us before: `check-catalog.py` installs from the **published** catalog, so editing `apps/` and re-running silently re-tests the old recipe. The lint runs at publish time for the same reason, and says so when it fails.
 
-- [ ] Source an icon per app (upstream logos, respecting each project's trademark guidance; several forbid modification; `license_note` in `catalog.toml` is the place to record any restriction).
-- [ ] Decide the format and where it lives: a raster file per app directory is simplest, and the dashboard already accepts only raster icons for the catalog (a deliberate XSS constraint from ADR 049; do not relax it to accept SVG without revisiting that decision).
-- [ ] Keep the initials fallback for apps whose logo cannot be redistributed. It should stay a fallback.
+### 2.3 The metadata the catalog carried and never showed — done
 
-### 2.4 Screenshots: the images already exist
+The presentation gap turned out to be one defect, not five. `catalog.toml` was **never read by hop3-server**: the loader asked for `[metadata].author/website/tags`, `[resources].memory`, `[port].web` and `[[provider]]`, none of which the recipes use. Measured on 2026-08-02, all 55 entries loaded with no tags, no memory, no services, no icon, and category `Other`; only title, description and version survived.
 
-Every app directory has a `screenshots/` directory holding real captures (`<app>-01-login.png`, `<app>-02-signed-in.png`) produced by the verification campaign, and every `catalog.toml` says `screenshots = []`. The assets are sitting one directory away from the field that would surface them.
+Fixed by reading the overlay, following `homepage`, and taking services from `[[addons]]` — the spelling recipes actually use. Every field is now populated across all 55 entries, and the catalog carries an icon (19 sourced from the icon corpus, isso rasterised from its upstream SVG), an upstream `author` per application, six `featured` picks spanning six categories, and no app left in `Other`.
 
-- [ ] Populate `[catalog].screenshots` from the files each app already has, and render them on the catalog detail page.
-- [ ] Regenerate where the capture is stale or missing. Known gaps, already diagnosed in the experience reports: Mattermost (harness finds no password field at `/login`), Paheko (capture hangs on a failed ServiceWorker registration), Bugsink; Invoice Ninja (Flutter canvas) and Radicale (identical signed-in rendering) are declared `unsupported` and need no capture. Uptime Kuma's missing signed-in shot is undeclared; declare it either way.
+Screenshots are **discovered rather than declared**: the loader lists each app's own `screenshots/` directory, sorted, under the same containment rules as the icon path (inside the app's verified directory, raster only, no SVG). All 101 captures surface with nothing to maintain; `[catalog].screenshots` remains an override for a subset or a different order.
 
-### 2.5 Categories
+- [ ] Re-capture the nine single-capture entries (invoice-ninja, uptime-kuma, and the mattermost / radicale / easy-appointments Nix variants), or declare each `unsupported` with its reason.
+- [x] **The dashboard now shows what the entry declares.** Its templates read `app.initials_bg_color`, `app.long_description` and `app.min_memory` — three names the model has never defined, rendered blank by Jinja — so the fallback icon drew on `background-color: ;` and the memory row never appeared. A fourth of the same shape: the templates compared `resource_tier` against `lightweight`/`moderate` while the model produces `light`/`medium`, so every app was styled heavy and the tier filter matched nothing. Screenshots now render through `/dashboard/catalog/screenshots/{id}/{filename}`, which selects from the names `find_screenshots` found rather than joining the URL onto a path, and the readme (already sanitised at load, already shown on the public site) renders as the long description.
 
-Categories have two sources of truth: each `catalog.toml` declares `[catalog].category`, and `server/catalog/taxonomy.py` *derives* categories from tags via `CATEGORY_MAPPING`. Three apps currently sit in `Other`.
+  The two front-ends now describe an application identically. The class of defect — a template naming a field nobody has, silently rendering empty behind a 200 — is gated: `test_templates.py` checks every `app.foo` in the catalog templates against the model (via the Jinja AST) and every Alpine `app.foo` against `to_dict()`'s keys, and pins the tier vocabulary to what the model can produce.
 
-- [ ] Pick one source. The declared field should win; the tag mapping handles *tags*.
-- [ ] Retire `Other` by assigning the three apps real categories, and have the lint (§2.2) refuse it thereafter.
-- [ ] Review the full category list for an operator-facing taxonomy: a browsable catalog wants roughly 8–12 categories with sensible populations.
+### 2.4 Categories — done
+
+Categories had two sources of truth: the declared `[catalog].category` and a tag-derived mapping in `server/catalog/taxonomy.py` that silently overwrote it. The declared value now wins, the mapping handles tags only, and the corpus files under **13 categories** with none in `Other`.
 
 ## 3. Security backlog (the items left open on 2026-08-01)
 
@@ -100,7 +101,9 @@ From [`../security/backlog-2026-08-01.md`](../security/backlog-2026-08-01.md). T
 
 - [ ] **Re-record the screencasts (M5.6).** 68 asciicasts are published covering every demo and tutorial; the review pass found 11 ran to completion, 33 end on a visible failure and 24 recorded nothing. Both causes are in the recorder: a fixed 120-second step timeout that 30 tutorials hit at their deploy step, and a manifest that reported success for a file it had written without reading. Fix both, then re-record; the recordings are the deliverable and the harness fixes are a prerequisite for the work.
 - [ ] Upload to asciinema.org and capture the URLs; publish to the site and embed in the getting-started docs.
-- [ ] **Application gallery page on hop3.cloud**: the catalog work in §2 is what makes this worth building, since the gallery is the same metadata rendered for a public audience.
+- [x] **Application gallery — built, not yet published.** `apps.hop3.cloud` already existed as a Hop3-deployed static app serving the signed catalog and a "coming soon" placeholder. It now has a site: `packages/hop3-marketplace` renders the catalog to static HTML — 55 app pages, 13 category pages, 78 tag pages, a client-side search index, icons and screenshots — and `make site` in the catalog repo writes it into `public/`, wired into `make publish` ahead of `stage`.
+  The generator has **no models, loader or taxonomy of its own**: it imports `hop3.server.catalog`, so the public site and the dashboard cannot describe an application differently. That sharing is the point, and the reason the dashboard's own rendering gaps (§2.3) now stand out.
+- [ ] Run `make publish` so the gallery is actually live. Until then apps.hop3.cloud still serves the placeholder.
 
 ## 7. Developer-facing chores
 
@@ -108,7 +111,18 @@ From [`../security/backlog-2026-08-01.md`](../security/backlog-2026-08-01.md). T
 - [ ] **Add `hop3 validate`.** A client-side lint of a project's `hop3.toml`: schema validation, the committed-credential tripwire, host-safety checks, with no server required, for CI gating. Top-level and project-rooted; the app id is `[metadata].id`. While there, decide whether the stale `hop3 config show` / `config export` ideas in ADR 027 are still wanted or should be struck.
 - [ ] **Bring `docs/scripts/` and `scripts/` into the linted set**, or decide deliberately that they stay out. `make ruff` covers only `packages/*/src` and `packages/*/tests`; `preprocess_markdown.py` carries eight ruff findings nobody sees, and `scripts/{bump_version,release}.py` another 27 — including `subprocess.run` without an explicit `check` in the code that publishes releases.
 
-## 8. Evaluation and report follow-through
+## 8. What the abandoned `feat/marketplace` branch still held
+
+A branch on sourcehut, last touched 2026-06-24 and 519 commits behind main, held nineteen commits none of which had an equivalent in main — including the fix for §2.3's blank-metadata defect, written six weeks before the defect was diagnosed here. The catalog repo's validator was pinned to it, so the publish gate had been running **hop3-server 0.5.0's rules against a 0.7 catalog**; re-run under current rules, all 55 apps pass, so the stale pin was hiding nothing.
+
+Harvested: the overlay loader (ported, not cherry-picked, and with its log-and-continue on a malformed overlay changed to a refusal), the `HOP3_SECRET_KEY` length check, the reconciler timeout wiring, and the Forgejo licence. Superseded and dropped: stateful sessions, `serve --workers` (which would now fight the single-worker rate-limiter invariant), two migrations, and the magic-link URL change.
+
+**The licence commit was itself half wrong**, which is the argument for reading rather than merging: Forgejo's `MIT` was a fossil from before its v9 relicensing, but Mattermost's `MIT` was correct — their `LICENSE.txt` grants the compiled binaries we ship under MIT, and the branch's change to AGPL-3.0 would have been a regression. The value now carries the reasoning in the recipe, because this is the second time someone has reached for AGPL.
+
+- [ ] Re-decide the five dashboard features the branch built and nobody re-did: a display title on the installed app, a `DEPLOYING` state so the dashboard can show build progress, background auto-deploy (which must use a bounded executor — unbounded build threads are an open security item), the title in the app list, and defaulting an installed app's name to its blueprint id.
+- [ ] Delete the branch once harvested, and record what was taken, so the next person who finds it does not redo this analysis.
+
+## 9. Evaluation and report follow-through
 
 Tracked in full in [`../reports/paper-completion-plan.md`](../reports/paper-completion-plan.md) § *Postponed past 0.7*. Only the items that could plausibly land in a 0.7.x window are repeated here:
 
