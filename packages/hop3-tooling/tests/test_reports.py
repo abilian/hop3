@@ -24,9 +24,8 @@ if TYPE_CHECKING:
 
 
 def _write_report(root: Path, name: str, header: str, body: str = "# Report\n") -> Path:
-    d = root / "notes" / "experience-reports"
-    d.mkdir(parents=True, exist_ok=True)
-    p = d / name
+    p = root / "notes" / "experience-reports" / name
+    p.parent.mkdir(parents=True, exist_ok=True)
     p.write_text(f"---\n{textwrap.dedent(header).strip()}\n---\n\n{body}")
     return p
 
@@ -221,7 +220,7 @@ def test_withdrawn_reports_do_not_claim_coverage(tmp_path: Path) -> None:
     """A withdrawn app (focalboard) is a record, not a coverage claim."""
     _write_report(
         tmp_path,
-        "01-gone.md",
+        "withdrawn/01-gone.md",
         """
         app: gone
         version: "1.0"
