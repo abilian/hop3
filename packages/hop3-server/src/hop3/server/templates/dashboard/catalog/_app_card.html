@@ -10,7 +10,7 @@
                 <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="h-12 w-12 rounded-lg object-cover">
                 {% else %}
                 <div class="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
-                     style="background-color: {{ app.initials_bg_color }};">
+                     style="background-color: {{ app.fallback_color }};">
                     {{ app.initials }}
                 </div>
                 {% endif %}
@@ -34,9 +34,9 @@
                 {% endfor %}
             </div>
             <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium
-                {% if app.resource_tier == 'lightweight' %}
+                {% if app.resource_tier == 'light' %}
                     bg-green-50 text-green-700
-                {% elif app.resource_tier == 'moderate' %}
+                {% elif app.resource_tier == 'medium' %}
                     bg-yellow-50 text-yellow-700
                 {% else %}
                     bg-red-50 text-red-700

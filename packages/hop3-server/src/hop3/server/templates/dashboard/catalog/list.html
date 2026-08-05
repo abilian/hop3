@@ -60,8 +60,10 @@
             <select x-model="tierFilter"
                     class="block w-full rounded-md border-0 py-2 pl-3 pr-10 text-gray-900 ring-1 ring-inset ring-gray-300 focus:ring-2 focus:ring-blue-600 sm:text-sm">
                 <option value="all">All Tiers</option>
-                <option value="lightweight">Lightweight</option>
-                <option value="moderate">Moderate</option>
+                {# The values are what `compute_resource_tier` returns; anything
+                   else filters to an empty grid. #}
+                <option value="light">Light</option>
+                <option value="medium">Medium</option>
                 <option value="heavy">Heavy</option>
             </select>
         </div>
@@ -85,7 +87,7 @@
                             </template>
                             <template x-if="!app.icon_url">
                                 <div class="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
-                                     :style="`background-color: ${app.initials_bg_color}`"
+                                     :style="`background-color: ${app.fallback_color}`"
                                      x-text="app.initials">
                                 </div>
                             </template>
@@ -108,8 +110,8 @@
                         </div>
                         <span class="inline-flex items-center rounded px-2 py-0.5 text-xs font-medium"
                               :class="{
-                                  'bg-green-50 text-green-700': app.resource_tier === 'lightweight',
-                                  'bg-yellow-50 text-yellow-700': app.resource_tier === 'moderate',
+                                  'bg-green-50 text-green-700': app.resource_tier === 'light',
+                                  'bg-yellow-50 text-yellow-700': app.resource_tier === 'medium',
                                   'bg-red-50 text-red-700': app.resource_tier === 'heavy'
                               }"
                               x-text="app.resource_tier">
