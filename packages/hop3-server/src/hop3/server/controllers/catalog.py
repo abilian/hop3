@@ -24,7 +24,7 @@ from litestar.response import File, Redirect, Template
 from hop3.commands._deploy import deploy_app_streaming
 from hop3.server.catalog import CatalogService
 from hop3.server.catalog.install import CatalogInstallError, stage_catalog_app
-from hop3.server.catalog.loader import find_icon
+from hop3.server.catalog.loader import find_icon, find_screenshots
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 
@@ -100,6 +100,41 @@ class CatalogController(Controller):
         # nosniff so a mislabeled file can't be reinterpreted as active content.
         return File(
             path=icon_path,
+            media_type=media_type,
+            headers={"X-Content-Type-Options": "nosniff"},
+        )
+
+    # AUDIT: guards=[] is intentional — same reasoning as the icon route.
+    @get(
+        "/screenshots/{app_id:str}/{filename:str}",
+        status_code=200,
+        sync_to_thread=False,
+        guards=[],
+    )
+    def catalog_screenshot(
+        self, app_id: FromPath[str], filename: FromPath[str]
+    ) -> File | Redirect:
+        """
+        Serve one of a catalog app's screenshots (raster only, ADR 049 F6).
+
+        ``filename`` is matched against the names ``find_screenshots`` found in
+        the verified app directory rather than joined onto a path, so the URL
+        cannot select a file the app does not ship.
+        """
+        service = CatalogService.get_instance()
+        app = service.get_app(app_id)
+        if app is None:
+            return Redirect(path="/static/favicon.png")
+
+        shot = next((p for p in find_screenshots(app) if p.name == filename), None)
+        if shot is None:
+            return Redirect(path="/static/favicon.png")
+
+        media_type = {".webp": "image/webp", ".png": "image/png"}.get(
+            shot.suffix.lower(), "image/jpeg"
+        )
+        return File(
+            path=shot,
             media_type=media_type,
             headers={"X-Content-Type-Options": "nosniff"},
         )

@@ -39,7 +39,7 @@
                 <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="h-20 w-20 rounded-xl object-cover shadow-sm">
                 {% else %}
                 <div class="h-20 w-20 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-sm"
-                     style="background-color: {{ app.initials_bg_color }};">
+                     style="background-color: {{ app.fallback_color }};">
                     {{ app.initials }}
                 </div>
                 {% endif %}
@@ -54,9 +54,9 @@
                         </a>
                         {% endif %}
                         <span class="inline-flex items-center rounded-md px-2 py-1 text-xs font-medium
-                            {% if app.resource_tier == 'lightweight' %}
+                            {% if app.resource_tier == 'light' %}
                                 bg-green-50 text-green-700
-                            {% elif app.resource_tier == 'moderate' %}
+                            {% elif app.resource_tier == 'medium' %}
                                 bg-yellow-50 text-yellow-700
                             {% else %}
                                 bg-red-50 text-red-700
@@ -72,23 +72,45 @@
             <div class="mt-8">
                 <h2 class="text-lg font-medium text-gray-900 mb-3">Description</h2>
                 <div class="prose prose-sm text-gray-600">
-                    {% if app.long_description %}
-                    <p>{{ app.long_description }}</p>
-                    {% else %}
                     <p>{{ app.description }}</p>
+                    {# The readme is the long form, sanitized at load time. The
+                       public site has always shown it; the dashboard was
+                       branching on a field the model does not define. #}
+                    {% if app.readme_html %}
+                    {{ app.readme_html | safe }}
                     {% endif %}
                 </div>
             </div>
+
+            <!-- Screenshots -->
+            {% if app.screenshots %}
+            <div class="mt-8">
+                <h2 class="text-lg font-medium text-gray-900 mb-3">Screenshots</h2>
+                <div class="grid grid-cols-1 {% if app.screenshots | length > 1 %}sm:grid-cols-2{% endif %} gap-4">
+                    {% for shot in app.screenshots %}
+                    {% set src = "/dashboard/catalog/screenshots/" ~ app.id ~ "/" ~ shot.split('/')[-1] %}
+                    <a href="{{ src }}" target="_blank" rel="noopener"
+                       class="block overflow-hidden rounded-lg border border-gray-200 hover:border-blue-400 transition-colors">
+                        <img src="{{ src }}" alt="{{ app.title }} screenshot {{ loop.index }}"
+                             loading="lazy" class="w-full h-auto">
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+            {% endif %}
 
             <!-- Technical Details -->
             <div class="mt-8">
                 <h2 class="text-lg font-medium text-gray-900 mb-3">Technical Details</h2>
                 <div class="bg-gray-50 rounded-lg p-4">
                     <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                        {% if app.min_memory %}
+                        {% if app.memory %}
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Minimum Memory</dt>
-                            <dd class="mt-1 text-sm text-gray-900">{{ app.min_memory }} MB</dd>
+                            {# `memory` carries its own unit ("512MB"); appending
+                               " MB" to a field that does not exist is what this
+                               row used to do. #}
+                            <dd class="mt-1 text-sm text-gray-900">{{ app.memory }}</dd>
                         </div>
                         {% endif %}
                         {% if app.version %}

@@ -63,6 +63,7 @@ READ_ONLY_GET_ROUTES = frozenset({
     "/dashboard/catalog/apps/{app_id:str}",
     "/dashboard/catalog/category/{category_id:str}",
     "/dashboard/catalog/icons/{app_id:str}",
+    "/dashboard/catalog/screenshots/{app_id:str}/{filename:str}",
     "/dashboard/certificates",
 })
 
