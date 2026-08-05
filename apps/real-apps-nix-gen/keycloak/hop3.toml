@@ -15,6 +15,9 @@
 
 [metadata]
 id = "keycloak"
+# From the pinned nixpkgs (keycloak); not the native recipe's version,
+# which differs. Re-read it with `nix eval` when the pin moves.
+version = "26.1.4"
 description = "Enterprise SSO / OIDC / SAML identity and access management"
 
 [build]
