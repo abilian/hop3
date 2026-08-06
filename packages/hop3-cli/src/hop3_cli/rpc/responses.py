@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import re
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 
 from jsonrpcclient import Error, Ok
 
@@ -69,8 +69,8 @@ def handle_response(
             )
         case Error(code=code, message=message):
             handle_error_response(code, message, printer)
-        case None:
-            pass
+        case _ as unreachable:
+            assert_never(unreachable)
 
     # Flush JSON output if in JSON mode
     if printer.json_output:

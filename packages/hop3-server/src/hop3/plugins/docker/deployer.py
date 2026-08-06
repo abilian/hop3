@@ -175,8 +175,8 @@ class DockerComposeDeployer:
         Returns the compose service lines (with a leading newline) or "" when no
         limits are declared. Docker enforces these natively.
         """
-        hop3_cfg = self.context.app_config.get("hop3_config") or {}
-        limits = hop3_cfg.get("limits") or {} if isinstance(hop3_cfg, dict) else {}
+        hop3_cfg = self.context.app_config.get("hop3_config", {})
+        limits = hop3_cfg.get("limits", {})
 
         lines = []
         if limits.get("memory"):

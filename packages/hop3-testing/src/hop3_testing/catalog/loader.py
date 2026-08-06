@@ -457,21 +457,21 @@ def _builder_from_hop3_toml(data: dict[str, Any]) -> str | None:
     - ``nix`` → ``nix`` or ``nix-template`` (depending on ``[nix].template``)
     - missing → ``None``
     """
-    build_section = data.get("build") or {}
+    build_section: dict[str, Any] = data.get("build") or {}
     raw = build_section.get("builder", "")
     if raw == "local":
         return "native"
     if raw == "docker":
         return "docker"
     if raw == "nix":
-        nix_section = data.get("nix") or {}
+        nix_section: dict[str, Any] = data.get("nix") or {}
         return "nix-template" if "template" in nix_section else "nix"
     return None
 
 
 def _toolchain_from_hop3_toml(data: dict[str, Any]) -> str | None:
     """Toolchain from ``[build].toolchain``, if explicitly set."""
-    build_section = data.get("build") or {}
+    build_section: dict[str, Any] = data.get("build") or {}
     return build_section.get("toolchain") or None
 
 
@@ -599,7 +599,7 @@ def generate_test_definition_from_hop3_toml(
 
     base_covers = ["docker" if deployment_type == "docker" else "native", *services]
 
-    hop3_test_section = hop3_data.get("test") or {}
+    hop3_test_section: dict[str, Any] = hop3_data.get("test") or {}
     if hop3_test_section:
         overrides = _overrides_from_hop3_test(hop3_test_section)
     elif test_toml_data:

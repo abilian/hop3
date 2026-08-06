@@ -26,6 +26,8 @@ from hop3.lib import Abort, get_free_port, log, robust_rmtree
 from hop3.run.spawn import spawn_app, verify_nix_closure
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.engine.interfaces import Dialect
 
     from .addon_credential import AddonCredential
@@ -86,7 +88,10 @@ class IntEnum(TypeDecorator):
         # SQLite may return strings, so convert to int first
         if isinstance(value, str):
             value = int(value)
-        return self.enum_class(value)
+        # Through a plain callable: calling a `type[Enum]` is otherwise read as
+        # the functional `Enum("Name", ...)` API by mypy-style checkers.
+        to_enum: Callable[[object], Enum] = self.enum_class
+        return to_enum(value)
 
 
 # Valid state transitions (from_state -> to_state)

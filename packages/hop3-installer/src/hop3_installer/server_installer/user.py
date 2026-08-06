@@ -9,6 +9,7 @@ import os
 import pwd
 import shlex
 import subprocess
+from collections.abc import Sequence
 from pathlib import Path
 
 from hop3_installer.common import print_info, print_success, print_warning, run_cmd
@@ -36,7 +37,7 @@ def group_exists(groupname: str) -> bool:
 
 
 def run_as_hop3(
-    argv: list[str],
+    argv: Sequence[str],
     *,
     check: bool = False,
     timeout: float | None = None,
@@ -54,6 +55,9 @@ def run_as_hop3(
 
     Args:
         argv: Command and arguments. Quoted here; callers pass raw values.
+            Declared ``Sequence[str]`` because a bare ``str`` IS one -- that is
+            exactly the confusion the guard below rejects, and the annotation
+            has to admit it for the check to mean anything.
         check: Whether to raise on non-zero exit (default: False).
         timeout: Timeout in seconds (default: None).
 

@@ -14,7 +14,7 @@ from collections.abc import (
 )
 from dataclasses import field
 from pathlib import Path
-from typing import Any
+from typing import Any, assert_never
 
 from hop3.lib.freeze import freeze
 from hop3.lib.settings import parse_settings
@@ -92,8 +92,8 @@ class Env(MutableMapping[str, str]):
                 return value
             case str():
                 return value.lower() in {"1", "on", "true", "enabled", "yes", "y"}
-            case _:
-                return bool(value)
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def get_path(self, key: str, default: str | Path = "") -> Path:
         value = self.get(key, default)
@@ -102,9 +102,8 @@ class Env(MutableMapping[str, str]):
                 return Path(value)
             case Path():
                 return value
-            case _:
-                # Any other type: coerce via its string form.
-                return Path(str(value))
+            case _ as unreachable:
+                assert_never(unreachable)
 
     def parse_settings(self, env_file: Path) -> None:
         if env_file.exists():

@@ -19,7 +19,7 @@ import shlex
 import subprocess
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, cast
 
 import docker
 from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
@@ -44,6 +44,8 @@ from .helpers import (
 
 if TYPE_CHECKING:
     from pathlib import Path
+
+    from docker.models.containers import Container
 
 
 class DockerTarget(DeploymentTarget):
@@ -335,7 +337,7 @@ class DockerTarget(DeploymentTarget):
         # Build image
         image_tag = f"hop3-e2e:{self.docker_config.container_name}"
         try:
-            _image, _logs = self._client.images.build(
+            self._client.images.build(
                 path=str(project_root),
                 dockerfile=str(dockerfile_path),
                 tag=image_tag,
@@ -638,7 +640,12 @@ class DockerTarget(DeploymentTarget):
         assert self._client is not None  # Set by start()
 
         try:
-            existing = self._client.containers.get(self.docker_config.container_name)
+            # docker-py types `containers.get` as returning the base `Model`;
+            # the collection's real element type is `Container`.
+            existing = cast(
+                "Container",
+                self._client.containers.get(self.docker_config.container_name),
+            )
             print(f"Removing existing container: {self.docker_config.container_name}")
             existing.remove(force=True)
         except NotFound:

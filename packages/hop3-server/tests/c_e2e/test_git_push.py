@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 
-from .conftest import init_git_repo
+from .conftest import FLASK_REQUIREMENTS, init_git_repo
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -59,7 +59,7 @@ def git_test_app(tmp_path: Path) -> Path:
 
     # Create Flask app files
     (app_dir / "app.py").write_text(FLASK_APP_CODE)
-    (app_dir / "requirements.txt").write_text("flask>=3.0\n")
+    (app_dir / "requirements.txt").write_text(FLASK_REQUIREMENTS)
     (app_dir / "Procfile").write_text(
         "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
     )
@@ -270,7 +270,7 @@ def index():
     return "Version 1"
 """
         (app_dir / "app.py").write_text(initial_code)
-        (app_dir / "requirements.txt").write_text("flask>=3.0\n")
+        (app_dir / "requirements.txt").write_text(FLASK_REQUIREMENTS)
         (app_dir / "Procfile").write_text(
             "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
         )

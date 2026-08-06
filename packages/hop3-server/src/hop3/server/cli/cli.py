@@ -11,6 +11,7 @@ import inspect
 import re
 import sys
 from argparse import ArgumentParser, RawDescriptionHelpFormatter, _SubParsersAction
+from functools import partial
 from typing import TYPE_CHECKING, NoReturn
 
 from advanced_alchemy.exceptions import RepositoryError
@@ -20,7 +21,7 @@ from hop3.lib.repository_errors import format_repository_error
 from hop3.lib.scanner import scan_package
 
 from . import Command
-from .help import Help, print_help
+from .help import print_help, print_subcommands_help
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -174,7 +175,7 @@ def add_cmd_to_subparsers(
     if hasattr(cmd, "run"):
         func = cmd.run
     else:
-        func = Help(name)
+        func = partial(print_subcommands_help, name)
 
     # Get docstring - use only first line for the help text
     doc = cmd.__doc__ or ""

@@ -59,7 +59,7 @@ def _selection_to_form(selection: dict) -> dict:
     """
     out = {"mode": selection.get("mode", "")}
     for key in _LIST_RULES:
-        value = selection.get(key) or []
+        value: object = selection.get(key) or []
         out[key] = ", ".join(value) if isinstance(value, list) else str(value)
     return out
 

@@ -626,14 +626,12 @@ class Hop3Config:
         are glob patterns pruned from the source/data archives. Both default to
         empty lists when the section or a field is absent.
         """
-        raw = self._data.get("backup") or {}
+        raw = self._data.get("backup")
         if not isinstance(raw, dict):
             return {"paths": [], "exclude": []}
-        paths = raw.get("paths") or []
-        exclude = raw.get("exclude") or []
         return {
-            "paths": [str(p) for p in paths if isinstance(p, str)],
-            "exclude": [str(e) for e in exclude if isinstance(e, str)],
+            "paths": [p for p in raw.get("paths") or [] if isinstance(p, str)],
+            "exclude": [e for e in raw.get("exclude") or [] if isinstance(e, str)],
         }
 
     @property

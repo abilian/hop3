@@ -13,7 +13,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, assert_never
 
 if TYPE_CHECKING:
     from .commands.flags import CliFlags
@@ -1078,9 +1078,8 @@ def verify_authentication(config: Config) -> None:
                 case Error(message=message):
                     msg = f"Authentication failed: {message}"
                     raise AuthenticationError(msg)
-                case _:
-                    msg = "Authentication verification failed: unexpected response"
-                    raise AuthenticationError(msg)
+                case _ as unreachable:
+                    assert_never(unreachable)
     except AuthenticationError:
         raise
     except Exception as e:

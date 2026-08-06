@@ -9,6 +9,10 @@ paths, or proxy configs.
 Every user-controlled string that ends up in an `sh -c` payload, a
 filesystem path under ``APP_ROOT``, or a reverse-proxy config file must
 pass through one of these validators before leaving the RPC boundary.
+
+The validators take ``object`` and return ``str``: the values come from
+JSON-RPC payloads and TOML files, where a declared type is a promise rather
+than a fact, so the type check is part of the validation.
 """
 
 from __future__ import annotations
@@ -62,7 +66,7 @@ class InvalidIdentifierError(ValueError):
     """
 
 
-def _validate_identifier(name: str, kind: str) -> str:
+def _validate_identifier(name: object, kind: str) -> str:
     """
     Validate ``name`` against ``APP_NAME_RE`` for the given ``kind``.
 
@@ -84,17 +88,17 @@ def _validate_identifier(name: str, kind: str) -> str:
     return name
 
 
-def validate_app_name(name: str) -> str:
+def validate_app_name(name: object) -> str:
     """Return ``name`` if it is a valid app identifier, else raise."""
     return _validate_identifier(name, "app")
 
 
-def validate_service_name(name: str) -> str:
+def validate_service_name(name: object) -> str:
     """Return ``name`` if it is a valid Docker Compose service identifier."""
     return _validate_identifier(name, "service")
 
 
-def validate_env_var_key(key: str) -> str:
+def validate_env_var_key(key: object) -> str:
     """Return ``key`` if it is a valid environment-variable identifier."""
     if not isinstance(key, str):
         msg = f"Env var key must be a string, got {type(key).__name__}"
@@ -109,7 +113,7 @@ def validate_env_var_key(key: str) -> str:
     return key
 
 
-def validate_hostname(host: str) -> str:
+def validate_hostname(host: object) -> str:
     """
     Return ``host`` if it is a valid RFC 1123 hostname, else raise.
 
@@ -131,7 +135,7 @@ def validate_hostname(host: str) -> str:
     return host
 
 
-def validate_hostname_list(value: str) -> list[str]:
+def validate_hostname_list(value: object) -> list[str]:
     """
     Parse and validate a comma- or whitespace-separated list of hostnames.
 

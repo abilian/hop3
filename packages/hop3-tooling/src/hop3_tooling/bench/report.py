@@ -20,7 +20,7 @@ from typing import Any
 
 def render_closure_table(data: dict[str, Any]) -> str:
     """The closure-versus-image table (uncompressed), ordered by closure size."""
-    block = data.get("closure_vs_image") or {}
+    block: dict[str, Any] = data.get("closure_vs_image") or {}
     rows = sorted(block.get("rows") or [], key=itemgetter("nix_closure_mb"))
     if not rows:
         msg = "no closure_vs_image rows in the run"
@@ -39,7 +39,7 @@ def render_closure_table(data: dict[str, Any]) -> str:
 
 def render_dedup(data: dict[str, Any]) -> str:
     """The cross-application deduplication sentence, both homogeneity regimes."""
-    d = data.get("dedup") or {}
+    d: dict[str, Any] = data.get("dedup") or {}
     homo, mixed = d.get("homogeneous_4_go"), d.get("mixed_6")
     if not homo or not mixed:
         msg = "run is missing one of the dedup regimes"
@@ -75,7 +75,7 @@ def render_deploy_timing(data: dict[str, Any]) -> str:
 
 def render_baselines(data: dict[str, Any]) -> str:
     """The control-plane comparison, computed like-for-like (same workload)."""
-    b = data.get("control_plane_baselines") or {}
+    b: dict[str, Any] = data.get("control_plane_baselines") or {}
     stacks = {s["stack"]: s for s in (b.get("stacks") or [])}
     hop3, k3s, compose = (
         stacks.get("hop3"),

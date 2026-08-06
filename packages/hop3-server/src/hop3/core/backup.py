@@ -811,7 +811,7 @@ class BackupManager:
         results: list[dict] = []
         for vol in self._app_volumes(app):
             name = vol["name"]
-            backup_cfg = vol.get("backup") or {}
+            backup_cfg: dict[str, Any] = vol.get("backup") or {}
             if backup_cfg.get("include") is False:
                 log(f"Skipping volume '{name}' (backup.include = false)")
                 continue
@@ -1070,7 +1070,7 @@ class BackupManager:
         missing the archive is a corrupt/incomplete backup → fail loud (never
         report success while silently dropping data).
         """
-        extra_paths = getattr(manifest, "extra_paths", None) or []
+        extra_paths = manifest.extra_paths
         if not extra_paths:
             return
         tar_path = backup_dir / "extra.tar.gz"
@@ -1117,7 +1117,7 @@ class BackupManager:
         <name>`` so that the subsequent ``app.deploy()`` re-links it with the
         data intact.
         """
-        volumes = getattr(manifest, "volumes", None) or []
+        volumes = manifest.volumes
         if not volumes:
             return
 

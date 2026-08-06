@@ -621,7 +621,6 @@ class AppLauncher:
                     ],
                 )
             )
-            return
 
         if missing:
             abort_with_diagnosis(

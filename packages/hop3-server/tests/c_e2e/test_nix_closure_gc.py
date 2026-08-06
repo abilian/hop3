@@ -57,10 +57,16 @@ NIX_APP = "nix-gc-demo"
 NIX_PROFILES = ("/nix/var/nix/profiles/default", "/home/hop3/.nix-profile")
 
 
-def _exec(container: Any, cmd: list[str]) -> subprocess.CompletedProcess:
-    """Run a command inside the target container, as root."""
+def _exec(target: Any, cmd: list[str]) -> subprocess.CompletedProcess:
+    """
+    Run a command inside the target container, as root.
+
+    The name comes from the fixture's own docker-py handle rather than a
+    ``name`` key: the fixture has never had one, so every call here raised
+    ``KeyError`` at setup and neither test in this file has ever run.
+    """
     return subprocess.run(
-        ["docker", "exec", container["name"], *cmd],
+        ["docker", "exec", target["container"].name, *cmd],
         capture_output=True,
         text=True,
         check=False,

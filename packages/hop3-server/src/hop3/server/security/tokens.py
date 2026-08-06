@@ -193,7 +193,7 @@ def validate_token(token: str) -> dict[str, Any] | None:  # ruff:ignore[too-many
         # *closed* on a DB error while user-scoped tokens fail open
         # (avoiding lockout-on-DB-outage). See is_token_revoked.
         jti = payload.get("jti")
-        token_scopes = payload.get("scopes", []) or []
+        token_scopes: list[str] = payload.get("scopes", []) or []
         if jti and is_token_revoked(jti, scopes=token_scopes):
             return None
 

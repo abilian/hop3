@@ -9,6 +9,7 @@ import re
 import subprocess
 from io import StringIO
 from pathlib import Path
+from typing import assert_never
 
 # Allowed shape for distro package names. Covers everything the PACKAGES
 # lists in this package use today (alphanumerics plus ``.``, ``_``, ``+``,
@@ -165,9 +166,8 @@ class BaseOSStrategy:
                 Path(dest).write_text(Path(src).read_text())
             case StringIO():
                 Path(dest).write_text(src.getvalue())
-            case _:
-                msg = f"Invalid src type: {type(src)}"
-                raise ValueError(msg)
+            case _ as unreachable:
+                assert_never(unreachable)
 
         if mode is not None or owner is not None or group is not None:
             # Not implemented yet. Fail loud rather than silently writing the file

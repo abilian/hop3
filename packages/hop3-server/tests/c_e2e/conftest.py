@@ -43,6 +43,13 @@ def health():
     return {"status": "ok"}
 """
 
+#: Every fixture app's requirements. Pinned because the platform refuses an
+#: unpinned build ("resolves to whatever satisfies them today and cannot be
+#: reproduced") — a test app is not exempt from a rule the platform enforces.
+#: One constant rather than a literal per fixture: three of the four copies were
+#: still `flask>=3.0` when the rule landed, and they failed the e2e layer.
+FLASK_REQUIREMENTS = "flask==3.0.0\n"
+
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -699,7 +706,7 @@ def deploy_flask_app(
     CompletedProcess — assert ``returncode == 0``.
     """
     (test_app_dir / "app.py").write_text(app_code or FLASK_APP_CODE)
-    (test_app_dir / "requirements.txt").write_text("flask>=3.0\n")
+    (test_app_dir / "requirements.txt").write_text(FLASK_REQUIREMENTS)
     # uwsgi sets chdir automatically, so no 'cd' needed.
     (test_app_dir / "Procfile").write_text(
         procfile_content or "web: flask --app app run --host 0.0.0.0 --port $PORT\n"
@@ -782,8 +789,13 @@ def wait_for_http_ready(
 
     while time.time() - start_time < timeout:
         try:
+            # Do NOT follow redirects. A vhost that 301s to `https://<host>/`
+            # sends the probe to a name that resolves only inside the container,
+            # and the DNS failure that follows says nothing about readiness —
+            # that misdirection cost this file two failing tests. Unfollowed, the
+            # loop reports "Unexpected status 301", which names the real problem.
             response = httpx.get(
-                url, headers=headers or {}, timeout=2.0, follow_redirects=True
+                url, headers=headers or {}, timeout=2.0, follow_redirects=False
             )
 
             if response.status_code == expected_status:
@@ -821,7 +833,7 @@ def create_flask_app(
     response: str = "Hello",
     extra_imports: str = "",
     extra_code: str = "",
-    requirements: str = "flask==3.0.0\n",
+    requirements: str = FLASK_REQUIREMENTS,
 ) -> Path:
     """
     Create a minimal Flask app for testing.
