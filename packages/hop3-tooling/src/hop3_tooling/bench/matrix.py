@@ -30,7 +30,7 @@ import subprocess
 import time
 from dataclasses import asdict, dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import yaml
 
@@ -120,7 +120,7 @@ def load_corpus(protocol: Path) -> list[str]:
     if not protocol.is_file():
         msg = f"pre-registration not found: {protocol} — the corpus is defined there"
         raise MatrixError(msg)
-    data = yaml.safe_load(protocol.read_text()) or {}
+    data: dict[str, Any] = yaml.safe_load(protocol.read_text()) or {}
     apps = (data.get("corpus") or {}).get("apps")
     if not apps:
         msg = f"{protocol}: corpus.apps is empty — refusing to benchmark nothing"

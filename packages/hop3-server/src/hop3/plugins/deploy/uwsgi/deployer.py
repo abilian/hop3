@@ -260,14 +260,13 @@ class UWSGIDeployer:
 
     def get_status(self) -> dict:
         """Gets process status from the SCALING file."""
-        status = {
-            "running": self.app.run_state == AppStateEnum.RUNNING,
-            "processes": {},
-        }
-
+        processes: dict[str, int] = {}
         scaling_file = self.app.virtualenv_path / "SCALING"
         if scaling_file.exists():
             worker_map = parse_procfile(scaling_file)
-            status["processes"] = {k: int(v) for k, v in worker_map.items()}
+            processes = {k: int(v) for k, v in worker_map.items()}
 
-        return status
+        return {
+            "running": self.app.run_state == AppStateEnum.RUNNING,
+            "processes": processes,
+        }

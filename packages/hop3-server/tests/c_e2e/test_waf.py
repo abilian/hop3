@@ -32,16 +32,35 @@ if TYPE_CHECKING:
 WAF_HOSTNAME = "waf-demo.test.local"
 BAN_HOSTNAME = "waf-ban-demo.test.local"
 
+# The proxy redirects HTTP to HTTPS by DEFAULT, so port 80 answers
+# `301 https://<host>/` before a request reaches the WAF at all. The container
+# publishes only 22/80/8000 and the vhost name resolves nowhere off it, so that
+# redirect leads out of the test entirely. `[deploy].allow-http` is the
+# documented opt-out and keeps the chain under test real (nginx -> LeWAF ->
+# uWSGI), minus a TLS hop these tests are not about.
+#
+# It must be set HERE and not as an env var: the deployer writes
+# `HOP3_ALLOW_HTTP` from this file on every deploy (deployer.py:1144), so an
+# ENV-file value is overwritten with the recipe's default before nginx reads it.
+ALLOW_PLAIN_HTTP = """
+[deploy]
+allow-http = true
+"""
+
 # Minimal policy: ``enabled = true`` runs the OWASP CRS (blocks attacks, passes
 # clean traffic). ``mode = "block"`` is the default, spelled out for clarity.
-WAF_HOP3_TOML = """\
+WAF_HOP3_TOML = (
+    """\
 [waf]
 enabled = true
 mode = "block"
 """
+    + ALLOW_PLAIN_HTTP
+)
 
 # Same, plus repeat-offender bans with a low threshold so the test trips it fast.
-BAN_HOP3_TOML = """\
+BAN_HOP3_TOML = (
+    """\
 [waf]
 enabled = true
 mode = "block"
@@ -52,6 +71,8 @@ threshold = 3
 window = "10m"
 duration = "1h"
 """
+    + ALLOW_PLAIN_HTTP
+)
 
 # Proven SQLi payload from tests/b_integration/waf/test_proxy_integration.py
 # (id=1' OR 1=1--, URL-encoded in the query string that the CRS inspects).

@@ -349,7 +349,7 @@ def _provision_single_addon(
         # that a per-app user cannot install even with CREATE grants,
         # and is idempotent (CREATE EXTENSION IF NOT EXISTS) for
         # trusted extensions too.
-        extensions = addon_config.get("extensions") or []
+        extensions: list[str] = addon_config.get("extensions") or []
         if extensions and hasattr(addon, "install_extensions"):
             log(
                 f"  Installing extensions on {addon_name}: {', '.join(extensions)}",

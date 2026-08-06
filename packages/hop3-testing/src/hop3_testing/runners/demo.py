@@ -16,7 +16,7 @@ import sys
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Literal, cast
+from typing import TYPE_CHECKING, Literal, assert_never, cast
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.exceptions import TargetOutOfDiskError
@@ -439,4 +439,4 @@ class DemoTestRunner:
         if step.action == "command":
             return self._run_command_step(step, start_time)
 
-        return None
+        assert_never(step.action)

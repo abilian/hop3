@@ -238,7 +238,7 @@ def check_report(meta: dict[str, Any], corpus: Corpus, name: str) -> list[Findin
 
     verified = _check_header(meta, fail)
 
-    variants = meta.get("variants") or {}
+    variants = meta.get("variants")
     if not isinstance(variants, dict) or not variants:
         fail("variants must be a non-empty mapping")
         return findings

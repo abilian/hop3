@@ -46,8 +46,8 @@ class LanguageToolchain(ABC):
         The name of the application.
     app_path : Path
         The path to the application directory.
-    context : BuildContext
-        The build context.
+    context : BuildContext | None
+        The build context; None in the legacy (app_name, app_path) form.
     name : ClassVar[str]
         Class-level attribute representing the name of the toolchain.
     requirements : ClassVar[list[str]]
@@ -56,7 +56,7 @@ class LanguageToolchain(ABC):
 
     app_name: str
     app_path: Path
-    context: BuildContext
+    context: BuildContext | None
 
     # Class attributes
     name: ClassVar[str]
@@ -81,9 +81,12 @@ class LanguageToolchain(ABC):
                 # the toolchain unit tests (test_builders / test_builder_init /
                 # test_virtualenv_repair); removing it means migrating those to
                 # the BuildContext form first.
-                self.context = None  # type: ignore[assignment]
+                if app_path is None:
+                    msg = "app_path is required when building from an app name"
+                    raise TypeError(msg)
+                self.context = None
                 self.app_name = context_or_app_name
-                self.app_path = app_path  # type: ignore[assignment]
+                self.app_path = app_path
             case _:
                 # New style: BuildContext or DeploymentContext
                 self.context = context_or_app_name

@@ -37,7 +37,7 @@ __all__ = [
 ]
 
 from .console import log
-from .shell import log_command_stream, shell
+from .sh import log_command_stream, shell
 
 if TYPE_CHECKING:
     from collections.abc import Callable, Iterator

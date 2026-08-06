@@ -46,17 +46,23 @@ class Registry:
         self.registered[obj] = metadata
         return obj
 
-    def lookup(self, key: str | type = "", tag: str = "") -> list:
-        match key:
-            case "":
-                objs = list(self.registered.items())
-            case str():
-                objs = self._lookup_by_name(key)
-            case type():
-                objs = self._lookup_by_type(key)
-            case _:
-                msg = f"Invalid key type: {type(key)}"
-                raise TypeError(msg)
+    def lookup(self, key: object = "", tag: str = "") -> list:
+        """
+        Look up registered objects by name (str) or by class (type).
+
+        ``key`` is typed ``object`` so the guard below stays live: lookups are
+        also made with names coming from RPC payloads and CLI arguments.
+        """
+        # An if/elif ladder, not a match: `case type()` loses the class type.
+        if key == "":
+            objs = list(self.registered.items())
+        elif isinstance(key, str):
+            objs = self._lookup_by_name(key)
+        elif isinstance(key, type):
+            objs = self._lookup_by_type(key)
+        else:
+            msg = f"Invalid key type: {type(key)}"
+            raise TypeError(msg)
 
         if tag:
             return [obj for obj, metadata in objs if tag == metadata.tag]

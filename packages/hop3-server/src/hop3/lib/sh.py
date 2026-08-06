@@ -3,7 +3,12 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Shell command execution with detailed error reporting."""
+"""
+Shell command execution with detailed error reporting.
+
+Named ``sh`` and not ``shell``: ``hop3.lib`` re-exports the ``shell``
+function, and a package attribute cannot be both a submodule and a function.
+"""
 
 from __future__ import annotations
 
@@ -81,11 +86,15 @@ def shell(
         ) from e
 
 
-def _parse_command(command: str | list[str]) -> tuple[str, list[str]]:
+def _parse_command(command: object) -> tuple[str, list[str]]:
     """
     Parse command into display string and argument list.
 
     Strings with shell operators are wrapped in ``sh -c``.
+
+    Takes ``object`` (and not ``shell``'s ``str | list[str]``) because this is
+    where an argv is built: a value that came from hop3.toml, an RPC payload,
+    or any other unchecked source is rejected here with a clear message.
     """
     match command:
         case str():

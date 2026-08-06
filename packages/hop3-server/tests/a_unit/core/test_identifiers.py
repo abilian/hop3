@@ -66,9 +66,9 @@ def test_validate_app_name_rejects(name: str) -> None:
 
 def test_validate_app_name_rejects_non_string() -> None:
     with pytest.raises(InvalidIdentifierError):
-        validate_app_name(None)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        validate_app_name(None)
     with pytest.raises(InvalidIdentifierError):
-        validate_app_name(123)  # type: ignore[arg-type]  # ty: ignore[invalid-argument-type]
+        validate_app_name(123)
 
 
 # ---------------------------------------------------------------------------

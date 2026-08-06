@@ -320,8 +320,6 @@ class AppsController(Controller):
                     path=f"/dashboard/apps/{app_name}?action=restart&success=false"
                 )
 
-        return Redirect(path=f"/dashboard/apps/{app_name}")
-
     @post("/{app_name:str}/stop", status_code=303, sync_to_thread=False)
     def app_stop(self, app_name: FromPath[str]) -> Redirect:
         """Stop an application."""
@@ -342,8 +340,6 @@ class AppsController(Controller):
                 return Redirect(
                     path=f"/dashboard/apps/{app_name}?action=stop&success=false"
                 )
-
-        return Redirect(path=f"/dashboard/apps/{app_name}")
 
     @post("/{app_name:str}/backup", status_code=303, sync_to_thread=False)
     def app_backup(self, app_name: FromPath[str]) -> Redirect:

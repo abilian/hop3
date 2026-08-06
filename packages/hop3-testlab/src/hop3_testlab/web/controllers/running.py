@@ -34,6 +34,8 @@ from hop3_testlab.worker import terminate_engine
 if TYPE_CHECKING:
     from datetime import datetime
 
+    from hop3_testing.results.models import TestRun
+
 
 def _to_epoch(dt: datetime | None, fallback: float) -> float:
     """Epoch seconds for a (possibly tz-naive, SQLite-round-tripped) datetime."""
@@ -102,7 +104,7 @@ def _build_panel_context(runs: RunsRepository) -> dict:
     return ctx
 
 
-def _type_progress(runs: RunsRepository, active) -> list[dict]:
+def _type_progress(runs: RunsRepository, active: TestRun) -> list[dict]:
     """
     Rows for the per-type progress table: done/planned + pass/fail per type.
 

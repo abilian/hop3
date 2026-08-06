@@ -62,18 +62,13 @@ class S3Addon:
     # Instance attributes
     addon_name: str = ""
 
-    # Resolved in __post_init__. Tests can pass a stub via the
-    # default argument; production callers leave it None and the
-    # default backend is resolved at init time.
-    backend: S3Backend = field(default=None, repr=False)  # type: ignore[assignment]
+    # Resolved at init time; tests can pass a stub instead.
+    backend: S3Backend = field(default_factory=get_default_backend, repr=False)
 
     def __post_init__(self) -> None:
         if not self.addon_name:
             msg = "addon_name is required for S3Addon"
             raise ValueError(msg)
-        # Resolve the default backend if none was injected.
-        if self.backend is None:
-            object.__setattr__(self, "backend", get_default_backend())
 
     @property
     def bucket_name(self) -> str:

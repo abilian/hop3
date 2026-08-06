@@ -5,8 +5,6 @@ from __future__ import annotations
 from importlib.metadata import version
 from typing import TYPE_CHECKING
 
-from attrs import frozen
-
 from hop3.lib.console import bold
 from hop3.lib.registry import lookup, register
 
@@ -58,46 +56,41 @@ def print_help() -> None:
     print("\n".join(output))
 
 
-@frozen
-class Help:
-    command_name: str
+def print_subcommands_help(command_name: str) -> None:
+    """List the subcommands of a command group (``<command>:<subcommand>``)."""
+    output = [
+        bold("USAGE"),
+        f"  $ hop3-server {command_name}:<subcommand> [options]",
+        "",
+        bold("SUBCOMMANDS"),
+    ]
 
-    def __call__(self) -> None:
-        output = [
-            bold("USAGE"),
-            f"  $ hop3-server {self.command_name}:<subcommand> [options]",
-            "",
-            bold("SUBCOMMANDS"),
-        ]
+    commands = lookup(Command)
+    commands.sort(key=lambda cmd: cmd.__name__)
+    for cmd in commands:
+        name = get_command_name(cmd)
 
-        commands = lookup(Command)
-        commands.sort(key=lambda cmd: cmd.__name__)
-        for cmd in commands:
-            name = get_command_name(cmd)
+        if ":" not in name:
+            continue
 
-            if ":" not in name:
-                continue
+        primary_name = name.split(":")[0]
+        if primary_name != command_name:
+            continue
 
-            primary_name = name.split(":")[0]
-            if primary_name != self.command_name:
-                continue
+        doc = cmd.__doc__ or ""
+        if "INTERNAL" in doc:
+            # Skip internal commands
+            continue
 
-            doc = cmd.__doc__ or ""
-            if "INTERNAL" in doc:
-                # Skip internal commands
-                continue
+        # Get only the first line of docstring
+        help_text = doc.strip().split("\n")[0] if doc else ""
 
-            # Get only the first line of docstring
-            help_text = doc.strip().split("\n")[0] if doc else ""
+        output.append(f"  {name:<24} {help_text}")
 
-            output.append(f"  {name:<24} {help_text}")
+    output.append("")
+    output.append(f"Use 'hop3-server {command_name}:<subcommand> --help' for details.")
 
-        output.append("")
-        output.append(
-            f"Use 'hop3-server {self.command_name}:<subcommand> --help' for details."
-        )
-
-        print("\n".join(output))
+    print("\n".join(output))
 
 
 def get_command_name(cmd: type[Command]) -> str:

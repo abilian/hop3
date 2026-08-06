@@ -330,8 +330,8 @@ def flatten_for_context(
     if block is not None:
         if "domains" in block:
             raw = block.get("domains")
-            hosts = raw.get("list", []) if isinstance(raw, dict) else (raw or [])
-            result["domains"] = {"list": [str(h) for h in hosts if isinstance(h, str)]}
+            hosts = raw.get("list") if isinstance(raw, dict) else raw
+            result["domains"] = {"list": [h for h in hosts or [] if isinstance(h, str)]}
         ctx_env = block.get("env")
         if isinstance(ctx_env, dict):
             merged = dict(data.get("env") or {})
@@ -366,8 +366,7 @@ def _resolved_domains(data: dict[str, Any]) -> list[str]:
     """The hostnames from the (already context-flattened) ``[domains].list``."""
     top = data.get("domains", {})
     if isinstance(top, dict):
-        lst = top.get("list", []) or []
-        return [str(d) for d in lst if isinstance(d, str)]
+        return [d for d in top.get("list") or [] if isinstance(d, str)]
     return []
 
 
@@ -388,7 +387,7 @@ def _host_name_domains(data: dict[str, Any]) -> list[str]:
 
 def _addon_names(data: dict[str, Any]) -> list[str]:
     """Extract addon type names from ``[[addons]]`` (or legacy ``[[provider]]``)."""
-    addons = data.get("addons") or data.get("provider") or []
+    addons = data.get("addons") or data.get("provider")
     if not isinstance(addons, list):
         return []
     out: list[str] = []

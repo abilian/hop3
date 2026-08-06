@@ -9,7 +9,7 @@ from __future__ import annotations
 import getpass
 import os
 import sys
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, assert_never
 from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
@@ -250,9 +250,8 @@ def _handle_login_response(
         case Error(message=message):
             print(f"Login failed: {message}", file=sys.stderr)
             sys.exit(1)
-        case _:
-            print("Unexpected response from server", file=sys.stderr)
-            sys.exit(1)
+        case _ as unreachable:
+            assert_never(unreachable)
 
 
 def _extract_token_from_login_response(result: list[dict]) -> str | None:
@@ -585,9 +584,8 @@ def _verify_token(server_url: str, token: str) -> str | None:
                 case Error(message=message):
                     print(f"Authentication failed: {message}", file=sys.stderr)
                     return None
-                case _:
-                    print("Unexpected response from server", file=sys.stderr)
-                    return None
+                case _ as unreachable:
+                    assert_never(unreachable)
 
     except Exception as e:
         error_str = str(e).lower()

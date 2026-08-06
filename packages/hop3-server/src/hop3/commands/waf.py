@@ -88,7 +88,7 @@ class WafLogsCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
             return [text("Usage: hop3 waf logs [<app>]")]
-        app_filter = args[0] if args else None
+        app_filter = next(iter(args), None)
         apps = AppRepository(session=self.db_session).list_all_ordered()
         targets = [
             a
@@ -144,7 +144,7 @@ class WafBansListCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
             return [text("Usage: hop3 waf bans list [<app>]")]
-        app_filter = args[0] if args else None
+        app_filter = next(iter(args), None)
         bans = BanRepository(session=self.db_session).list_all_active(utcnow())
         if app_filter:
             bans = [b for b in bans if b.app_name == app_filter]

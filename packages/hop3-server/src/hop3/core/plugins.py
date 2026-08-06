@@ -187,7 +187,11 @@ def get_builder(context: DeploymentContext) -> Builder:
     # Users can set [build] builder = "docker" in hop3.toml
     # The hop3.toml config is nested under "hop3_config" key
     hop3_config = context.app_config.get("hop3_config", {})
-    build_config = hop3_config.get("build", {}) if isinstance(hop3_config, dict) else {}
+    # Typed `object`: this is unvalidated app_config data, so a malformed
+    # section must stay visible to the isinstance guards below.
+    build_config: object = (
+        hop3_config.get("build", {}) if isinstance(hop3_config, dict) else {}
+    )
     if isinstance(build_config, dict):
         builder_name_from_config = build_config.get("builder", "auto")
     else:
@@ -280,7 +284,7 @@ def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deploye
     # An app can force a specific deployer via [deploy].deployer, mirroring
     # [build].builder; otherwise fall through to auto-selection by artifact kind.
     hop3_config = context.app_config.get("hop3_config", {})
-    deploy_config = (
+    deploy_config: object = (
         hop3_config.get("deploy", {}) if isinstance(hop3_config, dict) else {}
     )
     deployer_name = (

@@ -12,7 +12,7 @@ from pathlib import Path
 import pytest
 
 from hop3.lib.console import capture_logs
-from hop3.lib.shell import (
+from hop3.lib.sh import (
     _log_error,
     _log_output,
     _needs_shell,
