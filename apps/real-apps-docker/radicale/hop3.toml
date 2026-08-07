@@ -16,6 +16,7 @@ categories = ["calendar", "contacts", "caldav", "carddav"]
 RADICALE_AUTH_TYPE = "htpasswd"
 
 [healthcheck]
+contains = "Radicale"
 path = "/.web/"
 
 [test]

@@ -37,6 +37,7 @@ NEXTCLOUD_ADMIN_USER = "${HOP3_ADMIN_USER}"
 NEXTCLOUD_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
+contains = "installed"
 path = "/status.php"
 
 [test]

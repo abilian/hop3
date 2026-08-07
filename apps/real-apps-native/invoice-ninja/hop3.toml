@@ -50,6 +50,7 @@ email = "operator"
 password = { generate = "password", length = 20 }
 
 [healthcheck]
+contains = "Invoice Ninja"
 path = "/"
 
 [test]

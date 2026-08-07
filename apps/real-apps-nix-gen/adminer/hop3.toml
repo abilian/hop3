@@ -29,3 +29,6 @@ covers = ["php", "adminer", "nix", "database"]
 path = "/"
 status = 200
 contains = "Adminer"
+
+[healthcheck]
+contains = "Adminer"

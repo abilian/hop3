@@ -11,6 +11,7 @@ license = "AGPL-3.0"
 categories = ["nonprofit", "accounting", "association"]
 
 [healthcheck]
+contains = "Paheko"
 path = "/admin/install.php"
 
 [test]

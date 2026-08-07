@@ -37,6 +37,7 @@ GF_DATABASE_PASSWORD = "${PGPASSWORD}"
 GF_DATABASE_SSL_MODE = "disable"
 
 [healthcheck]
+contains = "database"
 path = "/api/health"
 
 [test]

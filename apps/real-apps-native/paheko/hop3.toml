@@ -60,6 +60,7 @@ name = "data"
 target = "data"
 
 [healthcheck]
+contains = "Connexion"
 # Post-install landing page. `/admin/install.php` is now an error page
 # ("déjà installé"), so it must NOT be the healthcheck target.
 path = "/admin/login.php"

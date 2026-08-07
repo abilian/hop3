@@ -43,6 +43,7 @@ ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
 ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
+contains = "LimeSurvey"
 path = "/"
 
 [test]

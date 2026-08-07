@@ -15,3 +15,6 @@ covers = ["golang", "nix", "sqlite", "fediverse"]
 path = "/"
 status = 200
 contains = "WriteFreely"
+
+[healthcheck]
+contains = "WriteFreely"

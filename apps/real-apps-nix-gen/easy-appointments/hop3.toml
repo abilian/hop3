@@ -129,3 +129,6 @@ password = { generate = "password", length = 20 }
 
 # Map the injected admin creds onto the names the setup script reads. Interpolated
 # after HOP3_ADMIN_* is injected, so they reach the before-run install step.
+
+[healthcheck]
+contains = "Easy!Appointments"

@@ -80,3 +80,6 @@ covers = ["php", "limesurvey", "nix", "surveys"]
 path = "/"
 status = 200
 contains = "LimeSurvey"
+
+[healthcheck]
+contains = "LimeSurvey"

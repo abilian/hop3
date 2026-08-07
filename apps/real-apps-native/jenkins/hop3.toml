@@ -27,6 +27,7 @@ JENKINS_HOME = "./jenkins_home"
 JAVA_OPTS = "-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
 
 [healthcheck]
+contains = "Jenkins"
 path = "/login"
 
 [test]

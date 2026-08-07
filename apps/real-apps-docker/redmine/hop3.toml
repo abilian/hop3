@@ -17,6 +17,7 @@ port = 3000
 type = "postgres"
 
 [healthcheck]
+contains = "Redmine"
 path = "/"
 
 [test]

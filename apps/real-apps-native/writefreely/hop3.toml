@@ -21,6 +21,7 @@ start = "./writefreely"
 start-timeout = 120
 
 [healthcheck]
+contains = "WriteFreely"
 path = "/"
 
 [test]

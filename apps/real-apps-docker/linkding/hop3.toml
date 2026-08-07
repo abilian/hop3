@@ -21,6 +21,7 @@ LD_SUPERUSER_NAME = "admin"
 LD_SUPERUSER_PASSWORD = "changeme123"
 
 [healthcheck]
+contains = "linkding"
 path = "/login/"
 
 [test]

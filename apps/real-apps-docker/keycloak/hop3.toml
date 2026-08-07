@@ -14,6 +14,7 @@ categories = ["auth", "sso", "identity"]
 type = "postgres"
 
 [healthcheck]
+contains = "master"
 # /realms/master is a public JSON endpoint every Keycloak instance
 # exposes; no auth required to confirm liveness.
 path = "/realms/master"

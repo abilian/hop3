@@ -184,3 +184,6 @@ else
 fi
 present || { echo "ERROR: Gitea admin '$ADMIN_USER' was not created" >&2; exit 1; }
 '''
+
+[healthcheck]
+contains = "Gitea"

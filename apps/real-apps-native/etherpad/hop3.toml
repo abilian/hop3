@@ -40,6 +40,7 @@ start = "pnpm run prod"
 NODE_ENV = "production"
 
 [healthcheck]
+contains = "Etherpad"
 path = "/"
 
 [test]

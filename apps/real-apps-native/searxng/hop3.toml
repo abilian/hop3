@@ -29,6 +29,7 @@ SEARXNG_SECRET = "change-me-to-random-string"
 SEARXNG_SETTINGS_PATH = "searxng/settings.yml"
 
 [healthcheck]
+contains = "OK"
 path = "/healthz"
 
 [test]

@@ -14,6 +14,7 @@ categories = ["files", "file-manager", "storage"]
 port = 8080
 
 [healthcheck]
+contains = "File Browser"
 # /login is the public login page served before authentication.
 path = "/login"
 

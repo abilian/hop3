@@ -117,3 +117,6 @@ covers = ["nodejs", "etherpad", "nix", "postgres", "nixpkgs-wrapper"]
 path = "/"
 status = 200
 contains = "Etherpad"
+
+[healthcheck]
+contains = "Etherpad"

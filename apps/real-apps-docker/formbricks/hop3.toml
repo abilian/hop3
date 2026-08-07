@@ -19,6 +19,7 @@ ENCRYPTION_KEY = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcd
 CRON_SECRET = "change-me-to-a-cron-secret"
 
 [healthcheck]
+contains = "All systems are up and running"
 path = "/health"
 
 [test]

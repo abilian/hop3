@@ -87,6 +87,7 @@ fi
 MM_ATRESTKEY = { generate = "base64" }
 
 [healthcheck]
+contains = "status"
 path = "/api/v4/system/ping"
 
 [test]

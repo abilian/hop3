@@ -10,6 +10,7 @@ license = "MIT"
 categories = ["media", "streaming", "video"]
 
 [healthcheck]
+contains = "versionNumber"
 path = "/api/status"
 
 [test]

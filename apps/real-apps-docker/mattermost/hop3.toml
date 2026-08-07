@@ -21,6 +21,7 @@ type = "postgres"
 MM_SERVICESETTINGS_SITEURL = "http://localhost:8065"
 
 [healthcheck]
+contains = "status"
 path = "/api/v4/system/ping"
 
 [test]

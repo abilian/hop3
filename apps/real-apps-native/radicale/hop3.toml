@@ -42,6 +42,7 @@ username = "admin"
 password = { generate = "password", length = 20 }
 
 [healthcheck]
+contains = "Radicale"
 path = "/.web/"
 
 [test]

@@ -17,6 +17,7 @@ type = "mysql"
 APP_URL = "http://localhost:8080"
 
 [healthcheck]
+contains = "Easy!Appointments"
 path = "/"
 
 [test]

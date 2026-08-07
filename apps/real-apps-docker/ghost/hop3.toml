@@ -17,6 +17,7 @@ port = 2368
 type = "mysql"
 
 [healthcheck]
+contains = "Ghost"
 path = "/"
 
 [test]

@@ -10,6 +10,7 @@ license = "Apache-2.0"
 categories = ["monitoring", "status-page", "observability"]
 
 [healthcheck]
+contains = "status"
 path = "/health"
 
 [test]

@@ -23,6 +23,7 @@ port = 9200
 runtime = "docker-compose"
 
 [healthcheck]
+contains = "OpenCloud"
 path = "/"
 
 [test]

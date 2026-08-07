@@ -33,3 +33,6 @@ contains = "About this page"
 path = "/style.css"
 status = 200
 contains = "font-family"
+
+[healthcheck]
+contains = "Welcome to Hop3"

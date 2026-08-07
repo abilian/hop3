@@ -13,6 +13,7 @@ categories = ["cms", "api", "headless"]
 type = "postgres"
 
 [healthcheck]
+contains = "Directus"
 path = "/admin/login"
 
 [test]

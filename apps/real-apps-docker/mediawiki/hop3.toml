@@ -13,6 +13,7 @@ categories = ["wiki", "knowledge-base", "collaboration"]
 type = "postgres"
 
 [healthcheck]
+contains = "MediaWiki"
 path = "/api.php"
 
 [test]

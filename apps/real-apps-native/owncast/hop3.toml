@@ -21,6 +21,7 @@ start = "bash scripts/start.sh"
 start-timeout = 120
 
 [healthcheck]
+contains = "versionNumber"
 path = "/api/status"
 
 [[ports]]

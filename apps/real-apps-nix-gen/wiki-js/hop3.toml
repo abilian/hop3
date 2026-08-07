@@ -93,3 +93,6 @@ path = "/"
 status = 200
 # Fresh wiki-js serves its setup wizard on every route; match the app name.
 contains = "Wiki.js"
+
+[healthcheck]
+contains = "Wiki.js"

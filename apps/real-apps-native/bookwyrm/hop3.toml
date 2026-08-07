@@ -65,6 +65,7 @@ EMAIL_USE_SSL = "false"
 DEFAULT_FROM_EMAIL = "noreply@localhost"
 
 [healthcheck]
+contains = "uri"
 path = "/api/v1/instance"
 
 [test]

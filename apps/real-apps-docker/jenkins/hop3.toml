@@ -18,6 +18,7 @@ JENKINS_OPTS = "--httpPort=8080"
 JAVA_OPTS = "-Djava.awt.headless=true -Djenkins.install.runSetupWizard=false"
 
 [healthcheck]
+contains = "Jenkins"
 path = "/login"
 
 [test]
