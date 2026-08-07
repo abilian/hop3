@@ -26,3 +26,6 @@ status = 200
 path = "/"
 status = 200
 contains = "Vaultwarden"
+
+[healthcheck]
+contains = "Vaultwarden"

@@ -45,6 +45,7 @@ KC_BOOTSTRAP_ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
 KC_BOOTSTRAP_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
+contains = "master"
 path = "/realms/master"
 
 [test]

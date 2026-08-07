@@ -28,3 +28,6 @@ contains = "Dolibarr"
 username = "admin"
 email = "operator"
 password = { generate = "password", length = 20 }
+
+[healthcheck]
+contains = "Dolibarr"

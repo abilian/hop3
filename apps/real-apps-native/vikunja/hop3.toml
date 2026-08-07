@@ -79,6 +79,7 @@ present || { echo "ERROR: Vikunja admin '$ADMIN_USER' was not created" >&2; exit
 '''
 
 [healthcheck]
+contains = "\"registration_enabled\":false"
 path = "/api/v1/info"
 
 [test]

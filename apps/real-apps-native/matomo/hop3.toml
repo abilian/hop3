@@ -29,6 +29,7 @@ type = "mysql"
 MATOMO_DATABASE_HOST = "${MYSQL_HOST}"
 
 [healthcheck]
+contains = "Matomo"
 path = "/"
 
 [test]

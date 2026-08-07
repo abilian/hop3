@@ -17,6 +17,7 @@ categories = ["search", "privacy", "metasearch"]
 SEARXNG_BASE_URL = "http://localhost:8080"
 
 [healthcheck]
+contains = "OK"
 path = "/healthz"
 
 [test]

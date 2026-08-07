@@ -30,6 +30,7 @@ JAVA_OPTS = "-Xmx1024m"
 XWIKI_NONINTERACTIVE = "true"
 
 [healthcheck]
+contains = "XWiki"
 path = "/xwiki/bin/view/Main/"
 
 [test]

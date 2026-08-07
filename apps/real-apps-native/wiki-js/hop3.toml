@@ -32,6 +32,7 @@ type = "postgres"
 NODE_ENV = "production"
 
 [healthcheck]
+contains = "Wiki.js"
 path = "/"
 
 [test]

@@ -24,6 +24,7 @@ ENABLE_TELEMETRY = "False"
 start-timeout = 300
 
 [healthcheck]
+contains = "api/v1"
 path = "/api/v1/"
 
 [test]

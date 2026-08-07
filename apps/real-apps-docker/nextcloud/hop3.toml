@@ -23,6 +23,7 @@ NEXTCLOUD_ADMIN_USER = "admin"
 NEXTCLOUD_TRUSTED_DOMAINS = "localhost"
 
 [healthcheck]
+contains = "installed"
 path = "/status.php"
 
 [test]

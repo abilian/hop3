@@ -33,6 +33,7 @@ MW_SITENAME = "Hop3 MediaWiki"
 MW_LANG = "en"
 
 [healthcheck]
+contains = "MediaWiki"
 # /index.php redirects (301) to /index.php/Main_Page; api.php returns
 # a stable 200 HTML help page with no params — unambiguous readiness
 # signal once `install.php` has written LocalSettings.php.

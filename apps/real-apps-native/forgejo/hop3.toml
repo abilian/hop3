@@ -83,6 +83,7 @@ present || { echo "ERROR: Forgejo admin '$ADMIN_USER' was not created" >&2; exit
 '''
 
 [healthcheck]
+contains = "status"
 path = "/api/healthz"
 
 [test]

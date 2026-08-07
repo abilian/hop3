@@ -62,6 +62,7 @@ EA_ADMIN_EMAIL = "${HOP3_ADMIN_EMAIL}"
 EA_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
+contains = "Easy!Appointments"
 path = "/"
 
 [test]

@@ -13,6 +13,7 @@ categories = ["observability", "error-tracking", "dev-tools"]
 type = "postgres"
 
 [healthcheck]
+contains = "Bugsink"
 path = "/accounts/login/"
 
 [test]

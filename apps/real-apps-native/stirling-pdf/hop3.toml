@@ -23,6 +23,7 @@ DOCKER_ENABLE_SECURITY = "false"
 SYSTEM_DEFAULTLOCALE = "en-US"
 
 [healthcheck]
+contains = "Stirling"
 path = "/login"
 
 [test]

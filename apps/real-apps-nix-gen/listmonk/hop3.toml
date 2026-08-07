@@ -69,3 +69,6 @@ covers = ["golang", "nix", "nixpkgs-wrapper", "postgres"]
 path = "/"
 status = 200
 contains = "listmonk"
+
+[healthcheck]
+contains = "listmonk"

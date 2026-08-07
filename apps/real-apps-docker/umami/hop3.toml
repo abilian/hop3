@@ -17,6 +17,7 @@ type = "postgres"
 DISABLE_TELEMETRY = "1"
 
 [healthcheck]
+contains = "{}"
 path = "/api/heartbeat"
 
 [test]

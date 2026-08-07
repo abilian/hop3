@@ -51,6 +51,7 @@ ADMIN_USERNAME = "${HOP3_ADMIN_USER}"
 ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 
 [healthcheck]
+contains = "OK"
 path = "/healthcheck"
 
 [test]

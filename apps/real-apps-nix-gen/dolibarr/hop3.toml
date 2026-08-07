@@ -61,3 +61,6 @@ before-run = "bash scripts/setup-config.sh"
 [admin]
 username = "admin"
 password = { generate = "password", length = 20 }
+
+[healthcheck]
+contains = "Dolibarr"

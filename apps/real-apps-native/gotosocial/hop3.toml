@@ -24,6 +24,7 @@ GTS_DB_TYPE = "sqlite"
 GTS_LETSENCRYPT_ENABLED = "false"
 
 [healthcheck]
+contains = "uri"
 path = "/api/v1/instance"
 
 [test]

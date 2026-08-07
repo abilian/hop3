@@ -53,6 +53,7 @@ email = "operator"
 password = { generate = "password", length = 20 }
 
 [healthcheck]
+contains = "Bugsink"
 # Bugsink redirects `/` to the login page when unauthenticated; point
 # at the login page directly so we get a 200 rather than a 302.
 path = "/accounts/login/"

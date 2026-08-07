@@ -73,3 +73,6 @@ if ! present; then
 fi
 present || { echo "ERROR: admin account '$HOP3_ADMIN_USER' was not created (the CLI exits 0 on refusal)" >&2; exit 1; }
 """
+
+[healthcheck]
+contains = "Gitea"

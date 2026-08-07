@@ -14,6 +14,7 @@ categories = ["url-shortener", "productivity", "analytics"]
 port = 8080
 
 [healthcheck]
+contains = "pass"
 path = "/rest/health"
 
 [test]

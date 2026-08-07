@@ -40,3 +40,6 @@ ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 username = "admin"
 email = "operator"
 password = { generate = "password", length = 20 }
+
+[healthcheck]
+contains = "LimeSurvey"

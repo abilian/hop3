@@ -17,6 +17,7 @@ type = "mysql"
 APP_DEBUG = "true"
 
 [healthcheck]
+contains = "database"
 path = "/status"
 
 [test]

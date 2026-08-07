@@ -16,6 +16,7 @@ type = "postgres"
 GITEA__log__LEVEL = "Info"
 
 [healthcheck]
+contains = "status"
 path = "/api/healthz"
 
 [test]

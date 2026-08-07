@@ -17,6 +17,7 @@ type = "postgres"
 WIKI_ADMIN_EMAIL = "admin@example.com"
 
 [healthcheck]
+contains = "Wiki.js"
 path = "/"
 
 [test]

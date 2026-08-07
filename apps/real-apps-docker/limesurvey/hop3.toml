@@ -20,6 +20,7 @@ ADMIN_EMAIL = "admin@example.com"
 ADMIN_PASSWORD = "change-me-admin-password"
 
 [healthcheck]
+contains = "LimeSurvey"
 path = "/"
 
 [test]

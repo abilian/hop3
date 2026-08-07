@@ -14,3 +14,6 @@ covers = ["ruby", "sinatra", "nix"]
 path = "/"
 status = 200
 contains = "Hello World, from Sinatra via Nix!"
+
+[healthcheck]
+contains = "Hello World, from Sinatra via Nix!"

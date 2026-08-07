@@ -17,6 +17,7 @@ type = "mysql"
 APP_URL = "localhost"
 
 [healthcheck]
+contains = "Matomo"
 path = "/"
 
 [test]

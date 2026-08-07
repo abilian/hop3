@@ -70,6 +70,7 @@ WP_ADMIN_PASSWORD = "${HOP3_ADMIN_PASSWORD}"
 # 302s to the setup wizard. So a passing healthcheck now proves the headless
 # install completed (not just that PHP is up).
 [healthcheck]
+contains = "user_login"
 path = "/wp-login.php"
 
 [test]

@@ -24,6 +24,7 @@ JAVA_OPTS = "-Xmx1024m"
 start-timeout = 600
 
 [healthcheck]
+contains = "XWiki"
 path = "/xwiki/bin/view/Main/"
 
 [test]

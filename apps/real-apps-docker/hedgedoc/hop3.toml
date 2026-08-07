@@ -20,6 +20,7 @@ CMD_ALLOW_ANONYMOUS = "false"
 CMD_ALLOW_FREEURL = "false"
 
 [healthcheck]
+contains = "onlineNotes"
 path = "/status"
 
 [test]

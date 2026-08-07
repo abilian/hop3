@@ -20,6 +20,7 @@ ADMIN_USERNAME = "admin"
 ADMIN_PASSWORD = "changeme"
 
 [healthcheck]
+contains = "OK"
 path = "/healthcheck"
 
 [test]

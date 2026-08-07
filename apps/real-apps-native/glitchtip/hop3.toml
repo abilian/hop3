@@ -29,6 +29,7 @@ type = "postgres"
 type = "redis"
 
 [healthcheck]
+contains = "ok"
 path = "/_health/"
 
 [test]

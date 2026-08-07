@@ -32,6 +32,7 @@ GF_DATABASE_USER = "${PGUSER}"
 GF_DATABASE_PASSWORD = "${PGPASSWORD}"
 
 [healthcheck]
+contains = "database"
 path = "/api/health"
 
 [test]

@@ -23,6 +23,7 @@ start = "./gatus"
 start-timeout = 60
 
 [healthcheck]
+contains = "status"
 path = "/health"
 
 [test]

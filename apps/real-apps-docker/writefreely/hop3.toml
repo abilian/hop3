@@ -10,6 +10,7 @@ license = "AGPL-3.0"
 categories = ["fediverse", "blog", "publishing"]
 
 [healthcheck]
+contains = "WriteFreely"
 path = "/"
 
 [test]

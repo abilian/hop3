@@ -17,6 +17,7 @@ type = "postgres"
 DOLI_ADMIN_LOGIN = "admin"
 
 [healthcheck]
+contains = "Dolibarr"
 path = "/"
 
 [test]

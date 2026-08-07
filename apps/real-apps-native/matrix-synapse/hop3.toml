@@ -28,6 +28,7 @@ type = "postgres"
 SERVER_NAME = "localhost"
 
 [healthcheck]
+contains = "versions"
 path = "/_matrix/client/versions"
 
 [[ports]]

@@ -18,6 +18,7 @@ categories = ["collaboration", "editor", "real-time"]
 TRUST_PROXY = "true"
 
 [healthcheck]
+contains = "status"
 path = "/health"
 
 [test]

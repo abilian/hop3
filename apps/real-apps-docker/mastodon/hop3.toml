@@ -22,6 +22,7 @@ LOCAL_DOMAIN = "localhost"
 SINGLE_USER_MODE = "false"
 
 [healthcheck]
+contains = "OK"
 path = "/health"
 
 [test]
