@@ -700,7 +700,7 @@ hop3 app create <repo_url> --app <app_name>
 ```
 
 **Arguments:**
-- `repo_url` - Git repository URL (HTTPS or SSH)
+- `repo_url` - Git repository URL: `https://`, `http://`, `ssh://`, `git://`, or the scp form `git@host:user/repo.git`
 - `--app <app_name>` - Name for the application (alphanumeric, hyphens, underscores)
 
 **Example:**
@@ -712,6 +712,10 @@ hop3 app create https://github.com/user/myapp.git --app myapp
 - Clones repository to server
 - Does not deploy automatically (use `hop3 deploy` afterwards)
 - Repository must be accessible from server
+- The clone is shallow (`--depth 1`, default branch only) and is stopped if it
+  runs past 10 minutes or 2 GiB. A local path, and git's `ext::` transport, are
+  refused: both let a repository address name something other than a repository.
+- If the clone fails, the app is not created — nothing is left to clean up
 
 ### `hop3 deploy`
 

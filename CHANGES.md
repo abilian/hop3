@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **`hop3 app create <repo_url>` now checks the URL and bounds the clone.** The URL went to `git clone` as it arrived, and a URL is not an inert string to git: `ext::sh -c …` runs its argument, `file:///…` reads any path the server can, and a value starting with `-` is an option rather than an address. Hop3 now accepts `https://`, `http://`, `ssh://`, `git://` and the `git@host:user/repo.git` form, and refuses the rest by name. The clone itself is shallow, single-branch, and stops at 10 minutes or 2 GiB, so a repository chosen by one account can no longer fill the disk and take every app on the host down with it. A clone that fails or is stopped leaves nothing behind — including the app row, which a failed create used to keep.
+
 ### Fixed
 
 - **A signing key too short to sign with is now refused.** `HOP3_SECRET_KEY` shorter than 32 bytes weakens every token the server issues (RFC 7518 §3.2). PyJWT warned and signed anyway, into a log nobody reads. Hop3 now stops with the length it found, the command to generate a good key, and the three places it looks — plus the warning that replacing it signs everyone out.

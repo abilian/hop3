@@ -23,11 +23,13 @@ __all__ = [
     "APP_NAME_RE",
     "ENV_VAR_KEY_RE",
     "HOSTNAME_RE",
+    "REPO_URL_SCHEMES",
     "InvalidIdentifierError",
     "validate_app_name",
     "validate_env_var_key",
     "validate_hostname",
     "validate_hostname_list",
+    "validate_repo_url",
     "validate_service_name",
 ]
 
@@ -53,6 +55,22 @@ HOSTNAME_RE = re.compile(
     r"^(?=.{1,253}$)"
     r"([a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)"
     r"(\.(?!-)[a-zA-Z0-9-]{1,63}(?<!-))*$"
+)
+
+# Transports a clone URL may name. Git's own list is longer, and two of the
+# extras are the reason this allowlist exists: ``ext::`` runs the rest of the
+# URL as a shell command, and ``file://`` reaches anything the hop3 user can
+# read. Neither belongs in a value that arrives over RPC.
+REPO_URL_SCHEMES = frozenset({"git", "http", "https", "ssh"})
+
+# scp-style remote, the form GitHub and friends hand out for SSH:
+# ``git@github.com:user/repo.git``. No scheme, a colon separating host from
+# path, and no room for a shell metacharacter.
+SCP_LIKE_REPO_RE = re.compile(
+    r"^[A-Za-z0-9._-]+@"
+    r"(?=.{1,253}:)[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?"
+    r"(\.[a-zA-Z0-9-]{1,63})*"
+    r":[A-Za-z0-9._/~-]+$"
 )
 
 
@@ -152,3 +170,48 @@ def validate_hostname_list(value: object) -> list[str]:
         msg = "Hostname list is empty"
         raise InvalidIdentifierError(msg)
     return hosts
+
+
+def validate_repo_url(url: object) -> str:
+    """
+    Return ``url`` if it is a repository Hop3 will clone from, else raise.
+
+    Accepts ``https://``, ``http://``, ``ssh://`` and ``git://`` URLs, plus the
+    scp-style ``git@host:user/repo.git``. Everything else is refused, which is
+    the point rather than a side effect: ``git clone`` treats a URL as a place
+    to run code (``ext::sh -c ...`` executes its argument) and as a way to read
+    the server's disk (``file:///``), and a leading ``-`` turns the whole value
+    into an option. None of those are things a repository address needs to do.
+    """
+    if not isinstance(url, str):
+        msg = f"Repository URL must be a string, got {type(url).__name__}"
+        raise InvalidIdentifierError(msg)
+
+    url = url.strip()
+    if not url:
+        msg = "Repository URL is empty"
+        raise InvalidIdentifierError(msg)
+
+    # An address with a space, a newline or a control character in it is not an
+    # address: every such byte has a percent-encoding, so a literal one is
+    # either a mistake or an attempt to smuggle a second line into a log, a
+    # config file, or a command.
+    if any(char.isspace() or not char.isprintable() for char in url):
+        msg = (
+            f"Invalid repository URL {url!r}: whitespace and control characters "
+            f"are not allowed; percent-encode them."
+        )
+        raise InvalidIdentifierError(msg)
+
+    scheme, separator, _rest = url.partition("://")
+    if separator and scheme.lower() in REPO_URL_SCHEMES:
+        return url
+    if SCP_LIKE_REPO_RE.fullmatch(url):
+        return url
+
+    msg = (
+        f"Invalid repository URL {url!r}: use https://, http://, ssh:// or "
+        f"git://, or the scp form git@host:user/repo.git. Local paths and "
+        f"git's ext:// transport are refused."
+    )
+    raise InvalidIdentifierError(msg)
