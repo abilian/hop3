@@ -412,7 +412,26 @@ def _update_app_model(
     healthcheck_contains = app_config.hop3_config.healthcheck_contains
     outcome = _wait_for_app_start(app, timeout, healthcheck_path, healthcheck_contains)
     if outcome.started:
-        log(f"App '{app.name}' is now running.", level=1, fg="green")
+        # Say what was actually verified. Without `[healthcheck].contains` the
+        # gate accepts any status line, so a 500 or a placeholder passes it —
+        # "is now running" then promises more than was checked. Naming the
+        # weaker check is what makes the missing assertion visible to the person
+        # who can add it.
+        if healthcheck_contains:
+            log(
+                f"App '{app.name}' is now running (serving {healthcheck_contains!r}).",
+                level=1,
+                fg="green",
+            )
+        else:
+            log(f"App '{app.name}' is now running.", level=1, fg="green")
+            log(
+                "  Readiness accepted any HTTP status: no content was asserted, "
+                "so an error page or a placeholder would have passed. Declare "
+                "[healthcheck].contains to check what the app serves.",
+                level=2,
+                fg="yellow",
+            )
     else:
         _handle_startup_failure(app, outcome, timeout)
 
@@ -696,6 +715,44 @@ def _log_runtime_hints(app: App) -> None:
     log(f"  - View full logs: hop3 app logs --app {app.name}", level=0)
 
 
+def _print_recent_output(app: App) -> list[str]:
+    """Print the app's recent log output and return it for further analysis."""
+    try:
+        recent_logs = app.get_logs(lines=200) or []
+    except Exception as e:
+        log(f"  Could not retrieve logs: {e}", level=0)
+        return []
+
+    if not recent_logs:
+        log("  No log output available.", level=0)
+        return []
+
+    log("  Recent log output:", level=0)
+    for line in _bounded_log_excerpt(recent_logs):
+        log(f"    {line}", level=0)
+    return recent_logs
+
+
+def _name_the_start_failure(app: App, actual_state: AppStateEnum) -> str:
+    """
+    Name why the start failed, or return "" when we cannot name it.
+
+    Reaching the failure path with the port already listening means the socket
+    is bound but the app never answered an HTTP request — the classic "master
+    bound the socket, the worker failed to boot or is hung" shape. Saying so
+    matters because otherwise "actual state: RUNNING" next to "failed to start"
+    reads as a contradiction rather than as a diagnosis.
+    """
+    if actual_state == AppStateEnum.RUNNING and getattr(app, "port", None):
+        return (
+            f"the app's port ({app.port}) is listening but it did not answer an "
+            "HTTP request: the server bound its socket but no worker is serving "
+            "(the worker failed to boot, or is hung). The app would be "
+            "unreachable behind the proxy"
+        )
+    return ""
+
+
 def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> None:
     """
     Report a failed startup, naming what actually happened.
@@ -709,14 +766,27 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
         timeout: The configured start timeout
     """
     app.run_state = AppStateEnum.FAILED
+
+    # The named cause, worked out BEFORE anything is printed or recorded. It
+    # used to be logged below the generic headline and below "Gathering
+    # diagnostic information...", where three start-timeout bumps
+    # (120 -> 180 -> 240) were spent on the headline while the answer sat
+    # underneath it. A diagnosis nobody reads is a diagnosis nobody made.
+    actual_state = app.check_actual_status()
+    diagnosis = _name_the_start_failure(app, actual_state)
+
     if outcome.crash_looped:
         app.error_message = (
             f"App crashed repeatedly on startup, after {outcome.elapsed:.0f}s"
         )
     else:
         app.error_message = f"App failed to start within {timeout}s timeout"
+    # The dashboard and `hop3 app status` show `error_message` and nothing
+    # else, so a cause that only reaches the deploy log never reaches the
+    # person looking for it.
+    if diagnosis:
+        app.error_message = f"{app.error_message}: {diagnosis}"
 
-    # Gather diagnostic information
     headline = (
         f"App '{app.name}' crashed repeatedly and was abandoned after "
         f"{outcome.elapsed:.0f}s."
@@ -724,38 +794,13 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
         else f"App '{app.name}' failed to start within {timeout}s."
     )
     log(headline, level=0, fg="red")
-    log("Gathering diagnostic information...", level=1, fg="yellow")
+    if diagnosis:
+        log(f"  → {diagnosis}", level=0, fg="red")
 
-    # Get actual status
-    actual_state = app.check_actual_status()
+    log("Gathering diagnostic information...", level=1, fg="yellow")
     log(f"  Current actual state: {actual_state.name}", level=0)
 
-    # Reaching here with the port already listening means the socket is bound
-    # but the app never answered an HTTP request — the classic "master bound
-    # the socket, the worker failed to boot / is hung" shape. Name it, because
-    # otherwise "actual state: RUNNING" + "failed to start" reads as a paradox.
-    if actual_state == AppStateEnum.RUNNING and getattr(app, "port", None):
-        log(
-            f"  The app's port ({app.port}) is listening but it did not answer "
-            "an HTTP request: the server bound its socket but no worker is "
-            "serving (e.g. the worker failed to boot or is hung). This is a "
-            "real failure — the app would be unreachable behind the proxy.",
-            level=0,
-            fg="red",
-        )
-
-    # Get recent logs and analyze for common failure patterns
-    recent_logs: list[str] = []
-    try:
-        recent_logs = app.get_logs(lines=200) or []
-        if recent_logs:
-            log("  Recent log output:", level=0)
-            for line in _bounded_log_excerpt(recent_logs):
-                log(f"    {line}", level=0)
-        else:
-            log("  No log output available.", level=0)
-    except Exception as e:
-        log(f"  Could not retrieve logs: {e}", level=0)
+    recent_logs = _print_recent_output(app)
 
     # Analyze logs for specific failure patterns and provide targeted advice
     log("", level=0)
@@ -781,6 +826,10 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
         )
     else:
         reason = f"'{app.name}' did not respond to health checks within {timeout}s"
+    # The Abort's reason is the last line the operator reads and the one a
+    # caller re-raises; a diagnosis that stops at the log does not reach them.
+    if diagnosis:
+        reason = f"{reason} — {diagnosis}"
 
     troubleshooting = [
         f"hop3 app logs --app {app.name}",
