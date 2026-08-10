@@ -7,6 +7,8 @@
 from __future__ import annotations
 
 import json
+import subprocess
+import threading
 from typing import TYPE_CHECKING
 
 import pytest
@@ -16,9 +18,11 @@ from hop3.plugins.addons import secrets as secrets_mod
 from hop3.plugins.redis import redis as redis_mod
 from hop3.plugins.redis.redis import (
     RedisAddon,
-    _allocate_db_number,
+    _claim_db_number,
+    _db_number_owners,
     _load_redis_password,
     _redis_cli_env,
+    _release_db_number,
 )
 
 if TYPE_CHECKING:
@@ -70,35 +74,126 @@ def test_redis_addon_db_number_unset_until_create(tmp_hop3_root):
     assert addon.db_number == 0
 
 
-def test_allocate_db_number_starts_at_one(tmp_hop3_root):
-    assert _allocate_db_number() == 1
+def test_claim_db_number_starts_at_one(tmp_hop3_root):
+    assert _claim_db_number("new-cache") == 1
 
 
-def test_allocate_db_number_skips_used(tmp_hop3_root):
+def test_claim_db_number_skips_used(tmp_hop3_root):
     _write_secrets(tmp_hop3_root, "addon-a", 1)
     _write_secrets(tmp_hop3_root, "addon-b", 2)
     _write_secrets(tmp_hop3_root, "addon-c", 4)
 
     # Should pick the lowest free number, which is 3.
-    assert _allocate_db_number() == 3
+    assert _claim_db_number("addon-d") == 3
 
 
-def test_allocate_db_number_raises_when_full(tmp_hop3_root):
+def test_claim_db_number_raises_when_full(tmp_hop3_root):
     for n in range(1, 16):
         _write_secrets(tmp_hop3_root, f"addon-{n}", n)
 
-    with pytest.raises(RuntimeError, match="All Redis databases"):
-        _allocate_db_number()
+    with pytest.raises(RuntimeError) as exc_info:
+        _claim_db_number("one-too-many")
+
+    # The operator has to free a slot, so the message says who holds them.
+    message = str(exc_info.value)
+    assert "all databases (1-15) are in use" in message
+    assert "1 → addon-1" in message
+    assert "15 → addon-15" in message
 
 
-def test_allocate_db_number_ignores_corrupt_secrets(tmp_hop3_root):
+def test_claim_db_number_ignores_corrupt_secrets(tmp_hop3_root):
     """A corrupt secrets file shouldn't block allocation."""
     secrets_dir = tmp_hop3_root / "addons" / "redis"
     secrets_dir.mkdir(parents=True, exist_ok=True)
     (secrets_dir / "broken.json").write_text("not json")
     (secrets_dir / "no-db-number.json").write_text(json.dumps({"created_at": "x"}))
 
-    assert _allocate_db_number() == 1
+    assert _claim_db_number("fresh") == 1
+
+
+def test_claiming_writes_the_assignment_immediately(tmp_hop3_root):
+    """
+    The claim IS the record. Choosing a number and writing it down used to be
+    minutes apart, which is the window two creates raced through.
+    """
+    n = _claim_db_number("eager")
+
+    on_disk = json.loads(
+        (tmp_hop3_root / "addons" / "redis" / "eager.json").read_text()
+    )
+    assert on_disk["db_number"] == n
+    assert _db_number_owners() == {n: "eager"}
+
+
+def test_concurrent_claims_never_collide(tmp_hop3_root):
+    """Ten threads claiming at once get ten different databases."""
+    claimed: list[int] = []
+    lock = threading.Lock()
+    start = threading.Barrier(10)
+
+    def claim(i: int) -> None:
+        start.wait(timeout=5)
+        n = _claim_db_number(f"addon-{i}")
+        with lock:
+            claimed.append(n)
+
+    threads = [threading.Thread(target=claim, args=(i,)) for i in range(10)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert sorted(claimed) == list(range(1, 11))
+
+
+def test_releasing_frees_the_slot(tmp_hop3_root):
+    n = _claim_db_number("short-lived")
+
+    _release_db_number("short-lived")
+
+    assert _db_number_owners() == {}
+    assert not (tmp_hop3_root / "addons" / "redis" / "short-lived.json").exists()
+    # And the number is handed out again rather than lost.
+    assert _claim_db_number("next-one") == n
+
+
+def test_a_create_that_fails_does_not_eat_a_slot(tmp_hop3_root, monkeypatch):
+    """Fifteen slots is few enough that a leaked one matters."""
+    monkeypatch.setattr(
+        redis_mod,
+        "_run_redis_cli",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="Connection refused"
+        ),
+    )
+    addon = RedisAddon(addon_name="doomed")
+
+    with pytest.raises(RuntimeError, match="Redis is not accessible"):
+        addon.create()
+
+    assert _db_number_owners() == {}
+    assert addon.db_number == 0
+
+
+def test_a_failed_recreate_keeps_the_number_it_did_not_claim(
+    tmp_hop3_root, monkeypatch
+):
+    """A re-create after a partial install must not release someone's slot."""
+    _write_secrets(tmp_hop3_root, "existing", 3)
+    monkeypatch.setattr(
+        redis_mod,
+        "_run_redis_cli",
+        lambda *args, **kwargs: subprocess.CompletedProcess(
+            args=[], returncode=1, stdout="", stderr="Connection refused"
+        ),
+    )
+    addon = RedisAddon(addon_name="existing")
+
+    with pytest.raises(RuntimeError, match="Redis is not accessible"):
+        addon.create()
+
+    assert _db_number_owners() == {3: "existing"}
+    assert addon.db_number == 3
 
 
 def test_redis_addon_assignment_is_deterministic_after_persist(tmp_hop3_root):
