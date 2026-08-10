@@ -8,8 +8,13 @@ server side.
 
 from __future__ import annotations
 
+import os
+import signal
 import stat
 import subprocess
+import tempfile
+import time
+from contextlib import suppress
 from pathlib import Path
 from textwrap import dedent
 from typing import TYPE_CHECKING
@@ -17,10 +22,36 @@ from typing import TYPE_CHECKING
 from attrs import frozen
 
 from hop3 import config as c
-from hop3.lib import log
+from hop3.lib import (
+    CommandError,
+    CommandFailedError,
+    CommandTimeoutError,
+    log,
+    robust_rmtree,
+)
 
 if TYPE_CHECKING:
     from hop3.orm import App
+
+# Caps on cloning a repository named by an operator. A clone is the one
+# deploy step whose cost is chosen entirely by whoever supplies the URL, and
+# an unbounded one fills the disk, which takes down every app on the host and
+# not only the one being created.
+CLONE_TIMEOUT_SECONDS = 600
+CLONE_MAX_BYTES = 2 * 1024**3
+
+# How often the clone is inspected: `_WAIT` bounds how late the timeout can
+# fire, `_MEASURE` how often the (O(files)) size walk runs.
+_WAIT_SECONDS = 0.25
+_MEASURE_SECONDS = 2.0
+
+
+class CloneTooLargeError(CommandError):
+    """Raised when a clone outgrows its byte cap and is killed."""
+
+    def __init__(self, cmd: list[str], max_bytes: int) -> None:
+        self.max_bytes = max_bytes
+        super().__init__(cmd, f"exceeded the {max_bytes} byte clone limit")
 
 
 def extract_app_name_from_repo_path(repo_path: str) -> str:
@@ -132,30 +163,118 @@ class GitManager:
             )
             make_executable(hook_path)
 
-    def clone(self) -> None:
-        """
-        Clone the git repository to the source directory.
 
-        This checks if the source path for the application exists. If it
-        does not exist, it creates the application directory and clones
-        the specified git repository into it.
-        """
-        if not self.app.src_path.exists():
-            log(f"Creating app '{self.app_name}'", level=2, fg="green")
-            self.app.create()
+def clone_repository(
+    repo_url: str,
+    dest: Path,
+    *,
+    timeout: float = CLONE_TIMEOUT_SECONDS,
+    max_bytes: int = CLONE_MAX_BYTES,
+) -> None:
+    """
+    Clone ``repo_url`` into ``dest`` under a wall-clock and a byte cap.
 
-            # Prepare the git clone command with the repository path and source path
-            cmd = [
-                "git",
-                "clone",
-                "--quiet",
-                str(self.repo_path),
-                str(self.app.src_path),
-            ]
-            cwd = self.app.repo_path
+    Shallow and single-branch, so a long history costs nothing to fetch, and
+    killed outright once the checkout passes ``max_bytes`` — git offers no
+    size limit of its own, and `--depth 1` bounds the history rather than the
+    content. A clone that fails, times out or overruns leaves nothing behind:
+    the partial tree is removed, because a cap that keeps the bytes it just
+    refused has not capped anything.
 
-            # Execute the git clone command in the specified working directory
-            subprocess.run(cmd, cwd=cwd, check=True)
+    ``repo_url`` must already have passed ``validate_repo_url``; the ``--``
+    below stops git reading a hostile value as an option, and is belt to that
+    validation's braces.
+
+    Raises:
+        CommandTimeoutError: the clone outlived ``timeout``.
+        CloneTooLargeError: the checkout outgrew ``max_bytes``.
+        CommandFailedError: git exited non-zero (unreachable host, bad ref…).
+    """
+    if dest.exists() and any(dest.iterdir()):
+        msg = (
+            f"Git can't clone into {dest}: the directory already exists and is "
+            f"not empty. Remove it, or create the app under another name."
+        )
+        raise FileExistsError(msg)
+
+    cmd = [
+        "git",
+        "clone",
+        "--quiet",
+        "--depth",
+        "1",
+        "--single-branch",
+        "--",
+        repo_url,
+        str(dest),
+    ]
+    try:
+        _run_capped(cmd, watched=dest, timeout=timeout, max_bytes=max_bytes)
+    except (CommandError, OSError):
+        robust_rmtree(dest)
+        raise
+
+
+def _run_capped(
+    cmd: list[str], *, watched: Path, timeout: float, max_bytes: int
+) -> None:
+    """
+    Run ``cmd`` until it exits, outlives ``timeout``, or fills ``watched``.
+
+    Output goes to a temporary file rather than a pipe: a pipe that nobody
+    drains until the process exits deadlocks a chatty git, and the deadlock
+    would surface as a timeout, hiding whatever git was trying to say.
+    """
+    with tempfile.TemporaryFile("w+") as output:
+        # Its own session, so killing the clone kills the transport helpers
+        # (git-remote-https, ssh) it spawned rather than orphaning them to
+        # carry on downloading.
+        proc = subprocess.Popen(
+            cmd,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            text=True,
+            start_new_session=True,
+        )
+        deadline = time.monotonic() + timeout
+        next_measure = 0.0
+
+        while proc.poll() is None:
+            now = time.monotonic()
+            if now >= deadline:
+                _kill_session(proc)
+                raise CommandTimeoutError(cmd, timeout)
+            if now >= next_measure:
+                if _tree_size(watched) > max_bytes:
+                    _kill_session(proc)
+                    raise CloneTooLargeError(cmd, max_bytes)
+                next_measure = now + _MEASURE_SECONDS
+            time.sleep(_WAIT_SECONDS)
+
+        if proc.returncode != 0:
+            output.seek(0)
+            # Both streams were merged into `output`; they travel as stderr so
+            # the exception's message carries what git actually said.
+            raise CommandFailedError(cmd, proc.returncode, stderr=output.read())
+
+
+def _kill_session(proc: subprocess.Popen) -> None:
+    """Kill the process and everything it spawned, then reap it."""
+    with suppress(ProcessLookupError):
+        os.killpg(os.getpgid(proc.pid), signal.SIGKILL)
+    proc.wait()
+
+
+def _tree_size(path: Path) -> int:
+    """Bytes held by ``path``, counting only what is there right now."""
+    total = 0
+    for root, _dirs, files in os.walk(path, onerror=None):
+        for name in files:
+            # A clone churns: a pack file counted a moment ago can be renamed
+            # or removed before it is measured.
+            with suppress(OSError):
+                total += os.lstat(os.path.join(root, name)).st_size
+    return total
 
 
 def make_executable(path: Path) -> None:

