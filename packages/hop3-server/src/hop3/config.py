@@ -125,6 +125,27 @@ class HopConfig:
         """Default timeout in seconds for apps to start (default: 60 = 1 minute)."""
         return self._config_loader.get_float("APP_START_TIMEOUT", 60.0)
 
+    @property
+    def MAX_CONCURRENT_BUILDS(self) -> int:
+        """
+        How many deploys may build at once (default: 2).
+
+        A build competes for CPU, memory and disk with every app already
+        running on the box, so this is a cap on the damage a burst of deploys
+        can do to the apps a server is meant to be serving.
+        """
+        return self._config_loader.get_int("MAX_CONCURRENT_BUILDS", 2)
+
+    @property
+    def MAX_WAITING_BUILDS(self) -> int:
+        """
+        How many deploys may wait for a build slot (default: 32).
+
+        Past this the deploy is refused rather than queued, so the wait line
+        cannot grow without limit.
+        """
+        return self._config_loader.get_int("MAX_WAITING_BUILDS", 32)
+
     # Proxy Configuration
 
     @property
