@@ -183,7 +183,11 @@ The allow-list exists because some PostgreSQL contrib extensions grant filesyste
 
 **Why safe:** `db_number` is allocated sequentially out of `[1, 15]` from the addon-secrets store and stored back persistently. It is never derived from `hash(addon_name)` (which was the original buggy form: non-deterministic across processes, only 16 buckets, trivial to collide).
 
-**Boundary:** *App deployer → app deployer.* Two apps colliding on the same Redis db number would mix their data; persistent assignment + sequential allocation precludes that.
+The claim is written **under an exclusive `flock` on the secrets directory, in the same critical section that chose the number**. Until 2026-08-09 this paragraph claimed more than the code delivered: allocation scanned the directory and returned a number, and the caller saved it only after pinging Redis, making it writable and setting a marker key. Two `addon create` calls passing through that window were handed the same database and shared each other's keys, with nothing to notice — a test that starts ten claims at once gets ten copies of db 1 against the old code. The lock is filesystem-level rather than a `threading.Lock` because a CLI-side addon command and the server are separate processes over one directory.
+
+A create that fails after claiming releases the number (`_release_db_number`), because a slot held by an addon that does not exist is one of fifteen lost until someone reads the directory by hand. When the fifteen really are taken, the refusal names which addon holds each one.
+
+**Boundary:** *App deployer → app deployer.* Two apps colliding on the same Redis db number would mix their data; atomic claim + persistent assignment precludes that.
 
 #### 3.1.5 `git clone`: the repository URL in argv, and the cost of fetching it
 
