@@ -686,6 +686,21 @@ sudo systemctl restart systemd-journald
 | `HOP3_LOG_LEVEL` | Server log level (default: `INFO`) |
 | `HOP3_UNSAFE` | Disable auth (testing only) |
 | `HOP3_DEBUG` | Enable debug logging |
+| `APP_START_TIMEOUT` | Seconds to wait for an app to start (default: `60`) |
+| `MAX_CONCURRENT_BUILDS` | Deploys that may build at the same time (default: `2`) |
+| `MAX_WAITING_BUILDS` | Deploys that may wait for a build slot before further ones are refused (default: `32`) |
+
+### Deploy concurrency
+
+A build competes for CPU, memory and disk with every application already
+running on the server, so Hop3 runs `MAX_CONCURRENT_BUILDS` of them at a time
+and queues the rest. A queued deploy says so in its own output and starts on
+its own; nothing is lost by waiting.
+
+Raise `MAX_CONCURRENT_BUILDS` on a machine with cores to spare, and lower it to
+`1` on a small one where a deploy noticeably slows the apps being served. Past
+`MAX_WAITING_BUILDS` waiting deploys, a new one is refused with a message
+rather than queued, so a burst cannot grow the wait line without limit.
 
 ## Related Guides
 

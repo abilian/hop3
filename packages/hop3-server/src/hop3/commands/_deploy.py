@@ -3,10 +3,14 @@
 """
 Shared streaming-deploy helper.
 
-``deploy_app_streaming`` runs ``do_deploy`` in a daemon thread and streams its
+``deploy_app_streaming`` hands ``do_deploy`` to the build queue and streams its
 logs over SSE, returning immediately with the stream response item. It is the
 single implementation used by both ``hop3 deploy`` (DeployCmd) and
 ``hop3 catalog install`` (CatalogInstallCmd), and by the dashboard install form.
+
+The queue (``deployers/build_queue.py``) is what bounds concurrent builds; this
+module's job is to say, in the stream, when a deploy is waiting for a slot or
+was refused a place in line.
 
 Cross-thread contract (why this takes an id, not an ORM object): the RPC request
 session is committed and CLOSED the moment the command returns the stream item
@@ -18,10 +22,10 @@ signature is ``(app_name, app_id)`` and never a Session or an attached App.
 from __future__ import annotations
 
 import contextlib
-import threading
 from datetime import UTC, datetime
 
 from hop3.deployers import do_deploy
+from hop3.deployers.build_queue import BuildQueueFullError, get_build_queue
 from hop3.orm import AppRepository, get_session_factory
 from hop3.server.streaming import create_stream, stream_context
 
@@ -68,8 +72,22 @@ def deploy_app_streaming(app_name: str, app_id: int) -> dict:
                     thread_session.rollback()
                 log_stream.finish(success=False, error_message=str(e))
 
-    thread = threading.Thread(target=run_deployment, daemon=True)
-    thread.start()
+    build_queue = get_build_queue()
+    try:
+        ahead = build_queue.submit(run_deployment)
+    except BuildQueueFullError as e:
+        # Refused, and said so where the operator is already looking: the
+        # stream they are about to connect to. `subscribe()` replays a
+        # finished stream, so a client that connects late still gets this.
+        log_stream.finish(success=False, error_message=str(e))
+    else:
+        if ahead >= build_queue.workers:
+            log_stream.write(
+                f"Waiting for a build slot: {build_queue.workers} builds are "
+                f"running and {ahead - build_queue.workers} deploy(s) are ahead "
+                f"of this one. It will start on its own.",
+                fg="yellow",
+            )
 
     # Return the stream_id immediately so the CLI can connect to the SSE endpoint.
     return stream(log_stream.stream_id)
