@@ -185,6 +185,19 @@ The allow-list exists because some PostgreSQL contrib extensions grant filesyste
 
 **Boundary:** *App deployer → app deployer.* Two apps colliding on the same Redis db number would mix their data; persistent assignment + sequential allocation precludes that.
 
+#### 3.1.5 `git clone`: the repository URL in argv, and the cost of fetching it
+
+**File:** `packages/hop3-server/src/hop3/core/git.py` (`clone_repository`), called from `commands/app.py` (`hop3 app create <repo_url>`)
+**Pattern:** an operator-supplied URL becomes an argument to `git clone`, and git then fetches whatever is on the other end.
+
+**Why safe:**
+
+1. `validate_repo_url()` in `core/identifiers.py` refuses anything that is not `https://`, `http://`, `ssh://`, `git://` or the scp form `git@host:user/repo.git`. This is an allow-list because a URL is not an inert string to git: `ext::sh -c …` runs its argument, `file:///…` reads any path the hop3 user can read, and a value starting with `-` is an option rather than an address (`--upload-pack=…` names a command to run). Whitespace and control characters are refused with them.
+2. The argv is `git clone … -- <url> <dest>`, so even a value that reached this point unvalidated cannot be read as an option.
+3. The clone runs under a wall-clock timeout and a byte cap (`CLONE_TIMEOUT_SECONDS`, `CLONE_MAX_BYTES`), shallow and single-branch, in its own process session so that killing it kills the transport helpers it spawned. A clone that fails, times out or overruns has its partial tree removed: a cap that leaves the bytes it refused on the disk has capped nothing.
+
+**Boundary:** *App deployer → host.* Item 1 is the injection control; item 3 is the availability one, and it is the reason this is written down. Cloning is the one deploy step whose cost is chosen entirely by whoever supplies the URL, and the disk it fills is shared by every app on the host — the "apps must coexist without interference" rule, enforced rather than assumed. See [report-2026-07-21.md](report-2026-07-21.md) §7.
+
 ### 3.2 Shell construction in subprocess
 
 #### 3.2.1 uWSGI worker: `command` and env exports
