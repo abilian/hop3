@@ -281,6 +281,15 @@ If you are about to file "shell injection via env / command in uWSGI worker", re
 
 **Boundary:** *Developer convenience → production deploy.* Don't soften the interlock; if a real production-shaped Docker deploy is ever needed, do it by separating the test-secret backend from the production-shaped one, not by relaxing the gate.
 
+#### 3.3.4 Build concurrency: the queue between a deploy and a build
+
+**File:** `packages/hop3-server/src/hop3/deployers/build_queue.py`, used by `commands/_deploy.py`
+**Pattern:** every background build goes through one `BuildQueue`. `MAX_CONCURRENT_BUILDS` (default 2) run at a time; `MAX_WAITING_BUILDS` (default 32) may wait; past that a deploy is refused.
+
+**Why safe:** the number of concurrent builds used to be chosen by whoever called the RPC — one thread per deploy, unbounded — so a burst of deploys became a burst of compiles on the box that is also serving every running app. Both bounds are needed: workers cap the work in flight, the wait line caps the memory a burst can hold. The refusal is loud (it finishes the deploy's own stream with the reason, which the CLI reports as a failed deploy), and so is the wait: a queued deploy writes a line saying how many are ahead of it, because a build that has not started looks exactly like a build that has stalled.
+
+**Boundary:** *App deployer → app deployer, and → host.* This is the "apps must coexist without interference" rule enforced for the one resource a deploy consumes most of. Workers are daemon threads by design, so a server restart is not held behind a long build; an interrupted build leaves its app half-deployed, which is the state reconciler's job and not the queue's. See [report-2026-07-21.md](report-2026-07-21.md) §7.
+
 ### 3.4 Secret handling (keep secrets off argv and out of logs)
 
 **Rule.** Any subprocess that needs a credential takes it via environment variable or stdin, never via argv. The OS-level argv of a spawned process is visible in `ps`, `/proc/<pid>/cmdline`, and shell history; environment variables and stdin are not. Every audited site below applies this rule one way or another (`MYSQL_PWD`, `PGPASSWORD`, `REDISCLI_AUTH`, `--password-stdin` from the deployer). When you add a new subprocess that handles a secret, pick whichever mechanism the target tool documents and do not invent a fourth way to do it on argv.
