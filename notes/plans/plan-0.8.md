@@ -92,7 +92,7 @@ This is a **breaking change** requiring one coordinated CLI+server release: an u
 
 ### Catalog: one core behind two front-ends
 
-0.7.x gave the catalog a public site (`apps.hop3.cloud`) that shares hop3-server's loader and taxonomy by importing them. That sharing works and is the right shape; what it lacks is a home. `packages/hop3-marketplace` depending on the whole of `hop3-server` — Litestar, SQLAlchemy, the plugin manager — to render static HTML is a dependency direction nobody would choose deliberately.
+0.7.x gave the catalog a public site (`apps.hop3.cloud`) that shares hop3-server's loader and taxonomy by importing them. That sharing works and is the right shape; what it lacks is a home. `packages/hop3-marketplace` depending on the whole of `hop3-server` (Litestar, SQLAlchemy, the plugin manager) to render static HTML is a dependency direction nobody would choose deliberately.
 
 - [ ] Extract `hop3-catalog-core`: models, loader, taxonomy, policy, and the view-model both renderers consume. Pure Python, no web framework. `hop3-server` keeps everything about fetching, verifying and installing, because that is trust and state rather than presentation.
 - [ ] Decide whether the catalog shows one entry per application with the build path as a choice inside it (0.7.x §2.1, deferred). It changes `index.json`, which deployed servers consume, so treat that shape as an API and settle it in ADR 049 first.
