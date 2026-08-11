@@ -3,7 +3,22 @@
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
-"""System status screen."""
+"""
+System status screen.
+
+Every panel here shows either what the server reported or why it has nothing
+to show. It used to show neither: CPU/memory/disk were the constants 42/63/81
+refreshed on a five-second timer so they looked live, the services panel
+discarded the status dict handed to it and rendered four services as RUNNING
+unconditionally, and the info panel reported hostname ``hop3.dev`` running
+``v0.5.0`` with 14 days of uptime. An operator reading a steady 81% disk, or
+``postgresql RUNNING`` for a database that had stopped, was reading a literal.
+
+The metrics stay unavailable until ``Hop3Client.get_system_status`` parses the
+server's response (it currently makes the call and drops the result — see its
+docstring). Saying so is the point: an empty panel that names its reason is
+recoverable, a fabricated one is not.
+"""
 
 from __future__ import annotations
 
@@ -23,12 +38,17 @@ if TYPE_CHECKING:
     from textual.app import ComposeResult
 
 
-class ResourcesPanel(Static):
-    """Panel showing system resources."""
+#: Shown wherever the server has not (yet) supplied a value.
+UNAVAILABLE = "[dim]not reported by the server[/]"
 
-    cpu: reactive[float] = reactive(0.0)
-    memory: reactive[float] = reactive(0.0)
-    disk: reactive[float] = reactive(0.0)
+
+class ResourcesPanel(Static):
+    """Panel showing system resources, or why it cannot."""
+
+    #: None means "no measurement", which is not the same as 0%.
+    cpu: reactive[float | None] = reactive(None)
+    memory: reactive[float | None] = reactive(None)
+    disk: reactive[float | None] = reactive(None)
 
     def compose(self) -> ComposeResult:
         yield Static("RESOURCES", classes="panel-title")
@@ -37,22 +57,28 @@ class ResourcesPanel(Static):
     def on_mount(self) -> None:
         self._update_display()
 
-    def watch_cpu(self, value: float) -> None:
+    def watch_cpu(self, value: float | None) -> None:
         self._update_display()
 
-    def watch_memory(self, value: float) -> None:
+    def watch_memory(self, value: float | None) -> None:
         self._update_display()
 
-    def watch_disk(self, value: float) -> None:
+    def watch_disk(self, value: float | None) -> None:
         self._update_display()
 
     def _update_display(self) -> None:
         content = self.query_one("#resources-content", Static)
         content.update(
-            f"CPU:    {self._make_bar(self.cpu)} {self.cpu:.0f}%\n"
-            f"Memory: {self._make_bar(self.memory)} {self.memory:.0f}%\n"
-            f"Disk:   {self._make_bar(self.disk)} {self.disk:.0f}%"
+            f"CPU:    {self._format(self.cpu)}\n"
+            f"Memory: {self._format(self.memory)}\n"
+            f"Disk:   {self._format(self.disk)}"
         )
+
+    def _format(self, percent: float | None) -> str:
+        """A bar and a number, or a statement that there is no measurement."""
+        if percent is None:
+            return UNAVAILABLE
+        return f"{self._make_bar(percent)} {percent:.0f}%"
 
     def _make_bar(self, percent: float, width: int = 10) -> str:
         """Create a progress bar string."""
@@ -60,7 +86,10 @@ class ResourcesPanel(Static):
 
 
 class ServicesPanel(Static):
-    """Panel showing service status."""
+    """Panel showing service status, or why it has none."""
+
+    #: None means nothing has been reported; {} means "reported, and empty".
+    _services: dict[str, bool] | None = None
 
     def compose(self) -> ComposeResult:
         yield Static("SERVICES", classes="panel-title")
@@ -76,16 +105,16 @@ class ServicesPanel(Static):
 
     def _update_display(self) -> None:
         content = self.query_one("#services-content", Static)
-        # Default services
-        services = {
-            "nginx": True,
-            "supervisor": True,
-            "postgresql": True,
-            "redis": True,
-        }
+
+        if self._services is None:
+            content.update(UNAVAILABLE)
+            return
+        if not self._services:
+            content.update("[dim]The server reported no services.[/]")
+            return
 
         lines = []
-        for name, running in services.items():
+        for name, running in self._services.items():
             status = "[green]RUNNING[/]" if running else "[red]STOPPED[/]"
             lines.append(f"{name:<12} {status}")
 
@@ -104,15 +133,19 @@ class SystemInfoPanel(Static):
 
     def update_info(
         self,
-        hostname: str = "unknown",
-        version: str = "unknown",
-        uptime: str = "unknown",
+        hostname: str = "",
+        version: str = "",
+        uptime: str = "",
     ) -> None:
         content = self.query_one("#info-content", Static)
-        content.update(f"Hostname: {hostname}\nHop3:     {version}\nUptime:   {uptime}")
+        content.update(
+            f"Hostname: {hostname or UNAVAILABLE}\n"
+            f"Hop3:     {version or UNAVAILABLE}\n"
+            f"Uptime:   {uptime or UNAVAILABLE}"
+        )
 
     def _update_display(self) -> None:
-        self.update_info("hop3.dev", "v0.5.0", "14d 3h 22m")
+        self.update_info()
 
 
 class SystemScreen(Screen):
@@ -168,16 +201,19 @@ class SystemScreen(Screen):
 
     def on_mount(self) -> None:
         """Initialize system data."""
-        self.set_interval(5, self._refresh_data)
         self._refresh_data()
 
     def _refresh_data(self) -> None:
-        """Refresh system data from server."""
-        # TODO: Fetch from API
-        resources = self.query_one(ResourcesPanel)
-        resources.cpu = 42.0
-        resources.memory = 63.0
-        resources.disk = 81.0
+        """
+        Refresh system data from the server.
+
+        There is nothing to fetch yet: ``Hop3Client.get_system_status`` makes
+        the RPC call but does not parse the response, so the panels stay on
+        their "not reported" state. This used to assign three constants here,
+        which is why the screen looked live and was not. Wire this up when the
+        client learns ``--json``; until then leaving the panels empty is the
+        accurate rendering, and pressing `r` says as much.
+        """
 
     def action_view_system_logs(self) -> None:
         """View system logs."""
@@ -190,4 +226,7 @@ class SystemScreen(Screen):
     def action_refresh(self) -> None:
         """Refresh system data."""
         self._refresh_data()
-        self.notify("System status refreshed")
+        # Not "refreshed": there is nothing to refresh until the client parses
+        # the system-status response, and claiming otherwise is the defect this
+        # screen's docstring describes.
+        self.notify("System metrics are not reported by the server yet.")
