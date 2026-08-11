@@ -107,14 +107,25 @@ class SSHKeyManager:
         # Remove existing key first to avoid duplicates
         self.remove_host_key(host)
 
-        # Use ssh-keyscan with shell redirection to properly append keys
-        # This handles multi-line output correctly
+        # No shell: this used to interpolate host and port into a command
+        # string with `>> {path} 2>/dev/null`, which meant a host containing a
+        # space or a shell character produced something other than the intended
+        # command, and a failing keyscan reported nothing but False.
         result = subprocess.run(
-            f"ssh-keyscan -p {port} -t ed25519,rsa {host} >> {self.known_hosts_path} 2>/dev/null",
-            shell=True,
+            ["ssh-keyscan", "-p", str(port), "-t", "ed25519,rsa", host],
+            capture_output=True,
+            text=True,
             check=False,
         )
-        return result.returncode == 0
+        if result.returncode != 0 or not result.stdout.strip():
+            reason = result.stderr.strip() or "ssh-keyscan returned no host key"
+            print(f"Could not read the host key for {host}:{port}: {reason}")
+            return False
+
+        keys = result.stdout if result.stdout.endswith("\n") else result.stdout + "\n"
+        with self.known_hosts_path.open("a") as f:
+            f.write(keys)
+        return True
 
     def update_host_key(
         self,
