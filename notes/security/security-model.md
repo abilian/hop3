@@ -337,7 +337,7 @@ If you are about to file "shell injection via env / command in uWSGI worker", re
 #### 3.4.5 Addon credentials at rest: versioned Fernet
 
 **File:** `packages/hop3-server/src/hop3/core/credentials.py` (note: *not* `hop3/server/security/`, where older docs place it).
-**Pattern:** addon credentials and app admin credentials are stored encrypted in the control-plane database, not as plaintext columns and not as files on disk.
+**Pattern:** addon credentials and app admin credentials are stored encrypted in the control-plane database, not as plaintext columns. This is the *attachment* copy; the provisioning-side record on disk is plaintext, and §3.4.7 is the other half of this entry.
 
 **Why safe:** Fernet AEAD (AES-128-CBC + HMAC-SHA256) with a key derived from `HOP3_SECRET_KEY` by PBKDF2-HMAC-SHA256. The scheme is **versioned**, and both halves matter:
 
@@ -348,7 +348,7 @@ Authentication is part of the primitive, so tampering with a stored credential i
 
 **Boundary:** *Database read access → credential plaintext.* This holds against an operator with raw row access, which is the point of encrypting inside the row. It does **not** protect against someone who has both the database and `HOP3_SECRET_KEY`; key custody is §1.3's explicit non-goal.
 
-If you are about to file "credentials stored in plaintext", check `AddonCredential` and `AppAdminCredential` in `orm/`: the columns hold Fernet tokens.
+If you are about to file "credentials stored in plaintext" **about the database**, check `AddonCredential` and `AppAdminCredential` in `orm/`: the columns hold Fernet tokens. About `$HOP3_ROOT/addons/*/*.json`, the finding is correct and §3.4.7 is where it is answered. This sentence used to stop at the first clause, which is how a true finding gets waved off by a document written to describe a different store.
 
 #### 3.4.6 CLI streaming RPC: bounded timeouts
 
@@ -358,6 +358,26 @@ If you are about to file "credentials stored in plaintext", check `AddonCredenti
 **Why safe:** a slowloris-style hang or a stuck server cannot block a CI runner indefinitely. The 300s read-timeout is well-defined for SSE because the server emits keepalive comments every ~15s; a missed keepalive trips it cleanly.
 
 **Boundary:** *Network → CLI.* DoS surface, not a credential leak.
+
+#### 3.4.7 Addon credentials in flight: the plaintext provisioning store
+
+**File:** `packages/hop3-server/src/hop3/plugins/addons/secrets.py`
+**Pattern:** every provisioned addon instance also has a **plaintext** JSON record at `$HOP3_ROOT/addons/<type>/<name>.json`, mode 0600. PostgreSQL and MySQL write the database password there, `email` the operator's upstream SMTP password, `redis` its db number. It is written atomically (`mkstemp` + `os.replace`, 0600 from birth) for the reason §3.4.4 and `server/cli/setup.py` do it: the older open-then-chmod published the password at 0644 for the length of the write, re-opened that window on every rotation, and — because it truncated the live file first — destroyed a working credential when the write failed, leaving an app unable to reach a database that still expected the old password.
+
+**Read this next to §3.4.5, because the two are easy to conflate.** They are separate stores holding the same secret:
+
+| | §3.4.5 `AddonCredential` | §3.4.7 addon secrets file |
+|---|---|---|
+| What it is | the app *attachment* — what gets injected into an app's env | the *provisioning* record — what the addon actually created |
+| Where | control-plane database | `$HOP3_ROOT/addons/<type>/<name>.json` |
+| At rest | Fernet, versioned | **plaintext**, 0600 |
+| Read back by | env provisioning | the addon plugin, on every connection-details call |
+
+So "addon credentials are encrypted at rest" is true of the database and false of the filesystem, and the filesystem copy is the authoritative one. Do not read the encrypted column as meaning the credential exists in only one place.
+
+**Why acceptable, for now:** the boundary §3.4.5 defends is *raw database rows / a database backup → plaintext*, and that boundary still holds — the secrets files are not in the database and not in a `pg_dump`. What it never defended is a reader on the host with the `hop3` uid, and encrypting these files would not add that: `/etc/hop3/secret-key` is 0640 `root:hop3`, so anything running as `hop3` can read `HOP3_SECRET_KEY` and decrypt the rows anyway. Encryption here would be ceremony over a key the same reader holds.
+
+**Boundary:** *`hop3` uid → every addon credential on the host.* That is a real exposure and it is the one the model already names: apps share the `hop3` account, so code execution in any app reads every app's addon passwords. It is [ADR 055](../adrs/055-app-runtime-uid-separation.md)'s exposure, not a second one, and per-app UID separation is what closes it. Encrypting this store is worth revisiting **after** ADR 055 lands, when the reader and the key holder stop being the same principal; until then it would buy nothing and read as protection.
 
 ### 3.5 Static literal lists that look like injection sinks
 
