@@ -33,7 +33,7 @@ Ordered by how likely each is to be picked up first.
 
 **Backups, phases 2 and 3 (ADR 016).** Scheduled backups and retention policies first; then remote storage (S3, B2), encryption, and incremental backups. Phase 1 shipped in 0.7 including cross-instance restore. Phase 2 is small and pairs naturally with the control-plane audit log that 0.8 adds.
 
-**Supply chain (ADR 013).** Signature attestation for release artefacts and for the SBOM (Sigstore, in-toto, cosign), scheduled reproducible-builds verification, and upstream source mirroring against registry deletions. The Cyber Resilience Act gives attestation an external deadline, which makes this the item here most likely to become urgent for reasons that have nothing to do with our own priorities.
+**Supply chain (ADR 013).** Signature attestation for release artefacts and for the SBOM (Sigstore, in-toto, cosign), scheduled reproducible-builds verification, and upstream source mirroring against registry deletions. The Cyber Resilience Act imposes an external deadline on attestation, which makes this the item here most likely to become urgent for reasons that have nothing to do with our own priorities.
 
 **HTTPS in the test lab.** Applications that force HTTPS can only be redirect-verified over plain HTTP today, so their content is never actually checked. This blocks a class of applications from the corpus.
 
