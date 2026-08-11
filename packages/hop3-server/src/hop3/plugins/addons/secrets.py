@@ -10,11 +10,22 @@ This module provides utilities for storing and retrieving addon secrets
 
 Secrets are stored in HOP3_ROOT/addons/<addon_type>/<addon_name>.json
 with restrictive file permissions (0o600).
+
+**This store holds plaintext.** It is the provisioning-side record of a
+backing service (the password the addon created in PostgreSQL/MySQL, the
+operator's upstream SMTP credentials), and it is the source those values are
+read back from. The Fernet-encrypted ``AddonCredential`` rows are the *app
+attachment* copy; the two are separate stores, and only one of them is
+encrypted. See ``notes/security/security-model.md`` §3.4.7 for what that does
+and does not defend against.
 """
 
 from __future__ import annotations
 
+import contextlib
 import json
+import os
+import tempfile
 from typing import TYPE_CHECKING, Any
 
 from hop3.config import HOP3_ROOT
@@ -74,10 +85,16 @@ def save_addon_secrets(
     addon_type: str, addon_name: str, secrets_data: dict[str, Any]
 ) -> None:
     """
-    Save secrets for an addon.
+    Atomically save secrets for an addon, 0600 from birth.
 
-    The secrets file is created with restrictive permissions (0o600)
-    to protect sensitive data.
+    Written the way every other credential file in the workspace is written
+    (``server/cli/setup.py``, the CLI's credential store): ``mkstemp`` creates
+    the temp file 0600 regardless of umask and ``os.replace`` swaps it in.
+
+    The previous open-then-chmod left the password world-readable for the
+    length of the write, and re-opened that window on every rotation. It also
+    truncated the live file first, so a failed write destroyed the credential
+    it was replacing rather than leaving the old one in place.
 
     Args:
         addon_type: The type of addon (e.g., "mysql", "postgres")
@@ -85,9 +102,19 @@ def save_addon_secrets(
         secrets_data: Dictionary of secrets to store
     """
     secrets_file = _get_secrets_file(addon_type, addon_name)
-    with secrets_file.open("w") as f:
-        json.dump(secrets_data, f, indent=2)
-    secrets_file.chmod(0o600)
+    fd, tmp = tempfile.mkstemp(
+        prefix=f".{addon_name}.", suffix=".tmp", dir=secrets_file.parent
+    )
+    try:
+        with os.fdopen(fd, "w") as f:
+            json.dump(secrets_data, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, secrets_file)
+    except BaseException:
+        with contextlib.suppress(OSError):
+            os.unlink(tmp)
+        raise
 
 
 def delete_addon_secrets(addon_type: str, addon_name: str) -> None:
