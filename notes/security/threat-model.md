@@ -106,7 +106,11 @@ Opt-in, so absent from a default install, but present on any host where the oper
 
 7. **Deploy tarballs are validated member by member.** Path traversal, symlink entries, hardlink entries, and decompression bombs are rejected before extraction.
 
-8. **Addon credentials are encrypted at rest.** Fernet AEAD with PBKDF2-HMAC-SHA256 (600k iterations, per-install salt). Stored as versioned tokens in the database; a DB backup is useless without `HOP3_SECRET_KEY`.
+8. **Addon credentials in the control-plane database are encrypted at rest.** Fernet AEAD with PBKDF2-HMAC-SHA256 (600k iterations, per-install salt). Stored as versioned tokens; a DB backup is useless without `HOP3_SECRET_KEY`.
+
+   **Read the scope literally: this invariant is about the database, and the database is not the only copy.** Each provisioned addon also has a plaintext record at `$HOP3_ROOT/addons/<type>/<name>.json` (0600) holding the PostgreSQL/MySQL password or the operator's SMTP password, and that file is the authoritative one — the encrypted row is the app-attachment copy. Stating the invariant without its scope claimed more than the platform delivers, which is worse than a stated exception: an auditor reasons from the invariant, and this one has to be read as *"a stolen database does not yield credentials"*, never as *"credentials exist only in encrypted form"*.
+
+   The boundary is *raw rows / a backup → plaintext*, and it holds. What it does not cover is a reader with the `hop3` uid, and encrypting the files would not change that: `/etc/hop3/secret-key` is 0640 `root:hop3`, so anything running as `hop3` holds the decryption key. That exposure is invariant 9's runtime half — apps share the account — and [ADR 055](../adrs/055-app-runtime-uid-separation.md) is what closes it. See security-model.md §3.4.5 and §3.4.7.
 
 9. **The control plane is single-tenant.** An authenticated account is operator-equivalent and can act on any app. This is a design decision for 0.7; the platform does not enforce it. Treat cross-tenant access *over the RPC and dashboard surfaces* as the model rather than a vulnerability.
 
