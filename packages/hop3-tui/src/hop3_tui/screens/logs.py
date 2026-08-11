@@ -3,14 +3,13 @@
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
-"""Logs viewing screen with streaming support."""
+"""Logs viewing screen, polling the server for an app's log lines."""
 
 from __future__ import annotations
 
-import random
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING, ClassVar, cast
 
 from textual.binding import Binding
 from textual.containers import VerticalScroll
@@ -20,6 +19,13 @@ from textual.widgets import Footer, Header, Input, Static
 
 if TYPE_CHECKING:
     from textual.app import ComposeResult
+
+    from hop3_tui.app import Hop3TUI
+
+#: The client offers no incremental log call, so the whole tail is re-fetched.
+#: Matched to SystemLogsScreen rather than chosen: one interval to reason about.
+POLL_SECONDS = 2
+LOG_LINES = 100
 
 
 class LogsScreen(Screen):
@@ -98,12 +104,21 @@ class LogsScreen(Screen):
         self.app_name = app_name
         self._logs: list[str] = []
         self._filter_text = ""
+        #: Why the pane is empty, when it is. Empty string means "it isn't".
+        self._empty_reason = ""
+
+    @property
+    def hop3_app(self) -> Hop3TUI | None:
+        """Get the Hop3TUI app instance if available."""
+        if hasattr(self.app, "api_client"):
+            return cast("Hop3TUI", self.app)
+        return None
 
     def compose(self) -> ComposeResult:
         yield Header()
         with Static(id="logs-header"):
             yield Static(f"Logs: {self.app_name}", id="logs-title")
-            yield Static("[green]STREAMING[/]", id="logs-status")
+            yield Static("[green]POLLING[/]", id="logs-status")
         with VerticalScroll(id="logs-container"):
             yield Static(id="logs-content")
         with Static(id="filter-bar"):
@@ -112,48 +127,71 @@ class LogsScreen(Screen):
 
     def on_mount(self) -> None:
         """Start loading logs."""
-        self._load_initial_logs()
-        # Start streaming (simulated with interval for now)
-        self.set_interval(1, self._poll_new_logs)
-
-    def _load_initial_logs(self) -> None:
-        """Load initial log lines."""
-        # TODO: Fetch from API
-        self._logs = [
-            "10:32:15.123 [INFO]  Request processed in 45ms",
-            "10:32:14.987 [INFO]  GET /api/users 200",
-            "10:32:14.542 [DEBUG] Cache hit for user:123",
-            "10:32:10.234 [INFO]  Database query completed",
-            "10:32:09.876 [WARN]  Slow query detected (>100ms)",
-            "10:32:05.432 [INFO]  New connection from 10.0.0.5",
-            "10:32:01.111 [ERROR] Failed to connect to redis",
-            "10:31:55.000 [INFO]  Server started on port 8000",
-        ]
-        self._update_display()
+        self._poll_new_logs()
+        self.set_interval(POLL_SECONDS, self._poll_new_logs)
 
     def _poll_new_logs(self) -> None:
-        """Poll for new log lines (simulate streaming)."""
+        """Re-fetch the log tail from the server."""
         if self.paused:
             return
+        self.run_worker(self._fetch_logs(), exclusive=True)
 
-        # TODO: Fetch new logs from API
-        # For demo, occasionally add a new line
-        if random.random() > 0.7:
-            levels = ["INFO", "DEBUG", "WARN"]
-            level = random.choice(levels)
-            self._logs.append(f"10:32:20.000 [{level}]  New log entry")
+    async def _fetch_logs(self) -> None:
+        """
+        Replace the displayed lines with what the server currently holds.
+
+        Every failure mode puts its reason on screen. This pane used to render
+        a hardcoded eight-line sample and append an invented line roughly every
+        three seconds, so it showed a plausible `[ERROR] Failed to connect to
+        redis` for an app that was fine — and ``action_download_logs`` would
+        write those invented lines to a file the operator could attach to a bug
+        report.
+        """
+        if not self.app_name:
+            self._show_nothing("No app selected. Open logs from an app's detail view.")
+            return
+
+        hop3_app = self.hop3_app
+        if hop3_app is None:
+            self._show_nothing("Not connected to a server, so there are no logs.")
+            return
+
+        try:
+            lines = await hop3_app.api_client.get_app_logs(
+                self.app_name, lines=LOG_LINES
+            )
+        except Exception as e:  # ken: the client raises broadly; siblings match
+            # Keep whatever we last got: a transient RPC failure should not
+            # blank a screen the operator may be reading.
+            self.notify(f"Failed to fetch logs: {e}", severity="error")
+            self._empty_reason = f"Could not reach the server: {e}"
             self._update_display()
+            return
+
+        self._logs = [line for line in lines if line.strip()]
+        self._empty_reason = (
+            "" if self._logs else f"{self.app_name} has not logged anything yet."
+        )
+        self._update_display()
+
+    def _show_nothing(self, reason: str) -> None:
+        """Clear the pane and say why it is empty."""
+        self._logs = []
+        self._empty_reason = reason
+        self._update_display()
 
     def _update_display(self) -> None:
         """Update the logs display."""
         content = self.query_one("#logs-content", Static)
         filtered_logs = self._get_filtered_logs()
 
-        styled_lines = []
-        for line in filtered_logs:
-            styled_lines.append(self._style_log_line(line))
-
-        content.update("\n".join(styled_lines))
+        if filtered_logs:
+            styled_lines = [self._style_log_line(line) for line in filtered_logs]
+            content.update("\n".join(styled_lines))
+        elif self._logs:
+            content.update(f"[dim]No line matches {self._filter_text!r}.[/]")
+        else:
+            content.update(f"[dim]{self._empty_reason}[/]")
 
         # Auto-scroll to bottom if enabled
         if self.auto_scroll and not self.paused:
@@ -182,7 +220,7 @@ class LogsScreen(Screen):
         if paused:
             status.update("[yellow]PAUSED[/]")
         else:
-            status.update("[green]STREAMING[/]")
+            status.update("[green]POLLING[/]")
 
     def on_input_changed(self, event: Input.Changed) -> None:
         """Handle filter input changes."""
