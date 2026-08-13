@@ -260,7 +260,9 @@ def run_tests(
     )
 
     log_path = _resolve_logs_dir(logs_dir, mode_label)
-    reporter = ConsoleReporter(verbose=verbose, quiet=quiet, logs_dir=log_path)
+    reporter = ConsoleReporter(
+        verbose=verbose, quiet=quiet, logs_dir=log_path, apps_kept=keep
+    )
     log_writer = TestLogWriter(log_path)
 
     if log_writer.enabled:

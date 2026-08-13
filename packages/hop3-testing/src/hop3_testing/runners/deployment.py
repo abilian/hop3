@@ -38,6 +38,32 @@ if TYPE_CHECKING:
 # and the harness hardcodes /home/hop3 throughout.
 _HOP3_VENV_PYTHON = "/home/hop3/venv/bin/python3"
 
+#: The port check.py is handed, and it must be the TLS one. `Check` builds an
+#: https:// base URL unconditionally, so a plain-HTTP port here means a TLS
+#: handshake against a server that answers in cleartext. Kept equal to what
+#: `hop3.server.checks.runner` passes on the deploy path: one check reached two
+#: ways must reach the same door, or a green run means different things.
+_CHECK_PORT = 443
+
+
+def _app_node_modules(app_name: str) -> str:
+    """
+    The app's own ``node_modules``, for a check that shells out to node.
+
+    A check may use a library the *application* already ships rather than one
+    the platform carries: uptime-kuma authenticates over socket.io, and its
+    probe requires ``socket.io-client`` from the app's dependency tree instead
+    of adding a Python socket.io client to hop3-server for one app.
+
+    Node resolves modules from the script's own directory upwards, so a probe
+    running anywhere outside the app tree cannot find it — and ``NODE_PATH`` is
+    how the app's own runtime makes it resolvable (it is in the uWSGI env the
+    deployer writes). The server's `run_app_check` gets this for free by passing
+    the app's runtime env; this path sourced only the credentials file, so the
+    probe lost it and failed with ``Cannot find module 'socket.io-client'``.
+    """
+    return f"/home/hop3/apps/{app_name}/src/node_modules"
+
 
 def _target_kind(target: DeploymentTarget) -> str:
     """Map a target to the bundle's ``target_kind`` ("docker"/"ssh"/"hetzner")."""
@@ -320,23 +346,66 @@ class DeploymentTestRunner:
             # check itself decides whether it needed one.
             return
 
+    def _upload_check_helpers(
+        self, session: DeploymentSession, remote_dir: str
+    ) -> None:
+        """
+        Ship the files a check reaches for beside itself.
+
+        A check may be more than one file: uptime-kuma authenticates over
+        socket.io rather than an HTML form, so its check shells out to a node
+        probe it locates with ``Path(__file__).parent / "scripts" / "probe.js"``.
+
+        That resolves on the server's own path, where the check runs from the
+        app's ``src/`` and ``scripts/`` sits beside it. Here the check was
+        uploaded alone, as ``/tmp/hop3-check-<app>.py``, so the lookup became
+        ``/tmp/scripts/probe.js`` and node failed with ``Cannot find module``.
+        Uploading into a directory restores the layout the check was written
+        against, and keeps the two ways of running it equivalent.
+        """
+        scripts = session.app.path / "scripts"
+        if not scripts.is_dir():
+            return
+        self.target.exec_run(f"mkdir -p {remote_dir}/scripts")
+        for helper in sorted(scripts.iterdir()):
+            if helper.is_file():
+                self.target.upload_file(helper, f"{remote_dir}/scripts/{helper.name}")
+
     def _run_check_script_remote(self, session: DeploymentSession) -> dict[str, Any]:
         """
-        Execute check.py ON the remote server (where localhost == nginx).
+        Execute check.py ON the remote server (where loopback == nginx).
 
-        The local runner can't run check.py against a remote box: check.py hits
-        ``http://localhost:{port}`` with a Host header, and on the test client
-        ``localhost`` is the client, not the server. So upload the script and run
-        it on the server, where ``localhost:80`` is the app's nginx and the Host
-        header selects the app vhost. NEVER silently passes: a server that cannot
-        run check.py is a hard FAIL (audit C8).
+        The local runner can't run check.py against a remote box: the check
+        addresses the app over loopback with its real hostname, and on the test
+        client loopback is the client, not the server. So upload the script and
+        run it on the server, where the app's nginx is listening and SNI selects
+        its vhost. NEVER silently passes: a server that cannot run check.py is a
+        hard FAIL (audit C8).
+
+        **Port 443, matching `hop3.server.checks.runner`.** This passed 80 for a
+        long time, on the reasoning in the old docstring — "localhost:80 is the
+        app's nginx and the Host header selects the vhost" — which was true when
+        the check spoke plain HTTP. It no longer does: `Check` builds an
+        ``https://`` base URL unconditionally, because Hop3 redirects HTTP to
+        HTTPS and because a `Secure` session cookie is never sent back over
+        HTTP, so a sign-in there fails whatever the credential. The transport
+        then sent a TLS ClientHello to port 80 and nginx answered in plain HTTP:
+        ``[SSL: WRONG_VERSION_NUMBER]``, reported as the *first step of the
+        check* failing — "the admin credential signs in" — which points at the
+        credential, the app and the recipe, none of which were involved.
+
+        The deploy's own smoke test always passed 443, so the same check passed
+        there and failed here, on the same app, in the same minute.
         """
         host = session.test_hostname
         check_path = session.app.path / "check.py"
-        remote_path = f"/tmp/hop3-check-{session.app_name}.py"
+        remote_dir = f"/tmp/hop3-check-{session.app_name}"
+        remote_path = f"{remote_dir}/check.py"
         env_path = f"/tmp/hop3-check-{session.app_name}.env"
         try:
+            self.target.exec_run(f"mkdir -p {remote_dir}")
             self.target.upload_file(check_path, remote_path)
+            self._upload_check_helpers(session, remote_dir)
             # No helper to ship: a check imports `hop3.server.checks`, which the
             # hop3-server venv below already provides. One copy, no drift.
             # Hand the check the app's generated admin credential, so it can
@@ -351,8 +420,9 @@ class DeploymentTestRunner:
             exit_code, stdout, stderr = self.target.exec_run(
                 "sh -c '"
                 f"set -a; . {env_path} 2>/dev/null; set +a; "
-                f"{_HOP3_VENV_PYTHON} {remote_path} {host} 80; "
-                f"rc=$?; rm -f {env_path}; exit $rc"
+                f"export NODE_PATH={_app_node_modules(session.app_name)}; "
+                f"{_HOP3_VENV_PYTHON} {remote_path} {host} {_CHECK_PORT}; "
+                f"rc=$?; rm -rf {env_path} {remote_dir}; exit $rc"
                 "'"
             )
         except Exception as e:  # upload/exec failed -> fail loud, never pass

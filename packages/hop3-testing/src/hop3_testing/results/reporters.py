@@ -78,6 +78,16 @@ class ConsoleReporter:
     logs_dir: Path | None = None
     """Per-test log directory for cross-reference in failure summary."""
 
+    apps_kept: bool = False
+    """
+    Whether ``--keep`` left the failed app deployed.
+
+    The failure note used to say "app destroyed after failure" unconditionally.
+    Under ``--keep`` that is false, and it is false in the one situation the flag
+    exists for: the app IS still up, waiting to be inspected, and the report sends
+    the reader to a static bundle instead. A run was spent on that.
+    """
+
     def __post_init__(self) -> None:
         """Adjust color setting based on TTY detection."""
         self.color = (
@@ -136,21 +146,43 @@ class ConsoleReporter:
                             print(f"  {line}", file=self.output)
                         print("  ---", file=self.output)
 
-        # A failed test always leaves a durable local bundle. Point at it HERE,
-        # at the failure — the error tail carries the server's own
-        # `hop3 app logs --app <app> --build` hint, which is already dead: the
-        # runner destroys the app right after (and a hetzner box is re-imaged on
-        # the next run). Surface the failure where the user looks.
-        if not result.passed and result.bundle is not None:
-            bundle = result.bundle
-            if bundle.artifact_dir:
-                print(
-                    self._colorize(
-                        f"  Full local diagnostics: {bundle.artifact_dir}/", "yellow"
-                    ),
-                    file=self.output,
-                )
-            print(f"  Replay: {bundle.why}", file=self.output)
+        self._report_bundle(result)
+
+    def _report_bundle(self, result: TestResult) -> None:
+        """
+        Point at the failure's durable evidence, and say where the app is.
+
+        A failed test always leaves a local bundle. Naming it HERE matters
+        because the error tail carries the server's own
+        `hop3 app logs --app <app> --build` hint, which is normally already dead:
+        the runner destroys the app right after (and a hetzner box is re-imaged
+        on the next run).
+
+        Whether it is dead depends on `--keep`, and saying so unconditionally was
+        wrong in the one case the flag exists for — the app was up, waiting to be
+        looked at, while this line sent the reader to a static bundle.
+        """
+        if result.passed or result.bundle is None:
+            return
+        bundle = result.bundle
+        if bundle.artifact_dir:
+            print(
+                self._colorize(
+                    f"  Full local diagnostics: {bundle.artifact_dir}/", "yellow"
+                ),
+                file=self.output,
+            )
+        print(f"  Replay: {bundle.why}", file=self.output)
+        if self.apps_kept:
+            print(
+                self._colorize(
+                    f"  --keep: app '{result.deployed_app_name}' is STILL DEPLOYED "
+                    f"— inspect it live (hop3 app logs / status) before it goes.",
+                    "yellow",
+                ),
+                file=self.output,
+            )
+        else:
             print(
                 "  (app destroyed after failure — on-box `hop3 app logs` is gone; "
                 "read the bundle above)",
