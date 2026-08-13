@@ -85,7 +85,9 @@ def promote_app(app_id: str, source_root: Path, catalog_apps: Path) -> None:
     stale script is removed). ``catalog.toml``, readmes, and icons are left as-is.
     """
     src = source_root / app_id
-    dst = catalog_apps / app_id
+    # Promote in place: an existing recipe keeps the status it earned, and a new
+    # one starts at `alpha` rather than being published by the act of copying it.
+    dst = app_dirs(catalog_apps).get(app_id, catalog_apps / "alpha" / app_id)
     if not (src / "hop3.toml").is_file():
         msg = f"no tested source recipe at {src / 'hop3.toml'}"
         raise FileNotFoundError(msg)
@@ -99,5 +101,34 @@ def promote_app(app_id: str, source_root: Path, catalog_apps: Path) -> None:
         shutil.copytree(src / "scripts", dst_scripts)
 
 
+def app_dirs(catalog_apps: Path) -> dict[str, Path]:
+    """
+    Every catalog app directory, keyed by id, across both layouts.
+
+    Recipes are filed under their maturity status (``apps/<status>/<app>/``,
+    ADR 059); a flat ``apps/<app>/`` is still resolved so an older checkout keeps
+    working. Going through here rather than joining a path matters more than it
+    looks: the flat version of this function returned the *status* directories
+    once the hierarchy landed, so a lint that had checked all 55 entries
+    correctly reported "All 2 catalog entries are presentable".
+    """
+    found: dict[str, Path] = {}
+    for entry in sorted(catalog_apps.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        candidates = (
+            [entry]
+            if (entry / "hop3.toml").is_file()
+            else [
+                d
+                for d in sorted(entry.iterdir())
+                if d.is_dir() and (d / "hop3.toml").is_file()
+            ]
+        )
+        for d in candidates:
+            found[d.name] = d
+    return found
+
+
 def app_ids(catalog_apps: Path) -> list[str]:
-    return sorted(d.name for d in catalog_apps.iterdir() if d.is_dir())
+    return sorted(app_dirs(catalog_apps))

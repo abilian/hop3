@@ -83,7 +83,9 @@ def drift(catalog_apps: Path | None, source_root: Path | None) -> None:
     ids = catalog_lib.app_ids(catalog_apps)
     bad = 0
     for app_id in ids:
-        issues = catalog_lib.compare_app(catalog_apps / app_id, source_root / app_id)
+        issues = catalog_lib.compare_app(
+            catalog_lib.app_dirs(catalog_apps)[app_id], source_root / app_id
+        )
         if not issues:
             click.echo(f"  OK     {app_id}")
         else:
@@ -130,8 +132,17 @@ def lint(catalog_apps: Path | None) -> None:
         raise click.ClickException(str(e)) from e
 
     if not violations:
-        count = len(catalog_lib.app_ids(catalog_apps))
-        click.echo(f"All {count} catalog entry/entries are presentable.")
+        # What was checked, not what exists: the lint covers published entries,
+        # and counting the whole tree would claim to have inspected recipes it
+        # deliberately skipped.
+        checked = len(catalog_lint.published_apps(catalog_apps))
+        total = len(catalog_lib.app_ids(catalog_apps))
+        unpublished = (
+            f" ({total - checked} unpublished, not checked)" if total > checked else ""
+        )
+        click.echo(
+            f"All {checked} published catalog entry/entries are presentable{unpublished}."
+        )
         return
 
     by_app = Counter(v.app_id for v in violations)
