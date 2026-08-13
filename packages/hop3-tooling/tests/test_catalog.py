@@ -1,78 +1,98 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-"""Unit tests for the catalog drift + promote logic (ADR 057)."""
+"""
+Unit tests for locating catalog recipes (ADR 057, ADR 059).
+
+This file used to test the drift check and the promote step, which compared a
+catalog recipe against a "tested source" in this repository and copied one over
+the other. Both premises are gone — the catalog holds the recipes now — so what
+is left to test is finding them, across a layout where the directory says how
+mature a recipe is and the id says how it is built.
+"""
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hop3_tooling.catalog import app_dirs, app_ids, find_repo_root, recipe_for
+
 if TYPE_CHECKING:
     from pathlib import Path
 
-from hop3_tooling.catalog import compare_app, promote_app, recipe_files
+
+def _recipe(root: Path, status: str, app_id: str) -> Path:
+    d = root / status / app_id
+    d.mkdir(parents=True)
+    (d / "hop3.toml").write_text(f'[metadata]\nid = "{app_id}"\n')
+    return d
 
 
-def _make_app(
-    base: Path, *, toml: str = "id = 'app'\n", setup: str = "echo hi\n"
-) -> Path:
-    (base / "scripts").mkdir(parents=True)
-    (base / "hop3.toml").write_text(toml)
-    (base / "scripts" / "setup.sh").write_text(setup)
-    return base
+def test_app_dirs_finds_recipes_across_statuses(tmp_path):
+    _recipe(tmp_path, "golden", "gitea")
+    _recipe(tmp_path, "beta", "gitea-nix")
+    _recipe(tmp_path, "alpha", "grafana")
+
+    found = app_dirs(tmp_path)
+
+    assert set(found) == {"gitea", "gitea-nix", "grafana"}
+    assert found["gitea-nix"].parent.name == "beta"
 
 
-def test_recipe_files_excludes_overlay(tmp_path):
-    app = _make_app(tmp_path / "app")
-    (app / "catalog.toml").write_text("[catalog]\n")
-    (app / "readme.md").write_text("# app\n")
-    files = recipe_files(app)
-    assert set(files) == {"hop3.toml", "scripts/setup.sh"}
+def test_the_flat_layout_still_resolves(tmp_path):
+    """An older checkout, from before recipes were filed by maturity."""
+    d = tmp_path / "gitea"
+    d.mkdir()
+    (d / "hop3.toml").write_text('[metadata]\nid = "gitea"\n')
+
+    assert app_ids(tmp_path) == ["gitea"]
 
 
-def test_compare_identical_is_in_sync(tmp_path):
-    src = _make_app(tmp_path / "src")
-    cat = _make_app(tmp_path / "cat")
-    assert compare_app(cat, src) == []
+def test_a_status_directory_is_not_itself_an_app(tmp_path):
+    """The flat version of this returned `["beta", "golden"]` — two "apps"."""
+    _recipe(tmp_path, "golden", "gitea")
+
+    assert app_ids(tmp_path) == ["gitea"]
 
 
-def test_compare_ignores_overlay(tmp_path):
-    src = _make_app(tmp_path / "src")
-    cat = _make_app(tmp_path / "cat")
-    (cat / "catalog.toml").write_text("[catalog]\n")
-    (cat / "readme.md").write_text("# app\n")
-    assert compare_app(cat, src) == []
+def test_recipe_for_maps_a_variant_to_its_id_suffix(tmp_path):
+    """
+    The packaging is in the id, not the path.
+
+    Callers used to build ``apps/real-apps-<variant>/<app>``, which cannot work
+    once the directory means maturity: the same recipe moves between `golden`,
+    `beta` and `alpha` as it earns or loses a status.
+    """
+    _recipe(tmp_path, "golden", "bookstack")
+    _recipe(tmp_path, "beta", "bookstack-nix")
+    _recipe(tmp_path, "beta", "bookstack-nixgen")
+    _recipe(tmp_path, "alpha", "bookstack-docker")
+
+    assert recipe_for("bookstack", "native", tmp_path).parent.name == "golden"
+    assert recipe_for("bookstack", "nix", tmp_path).name == "bookstack-nix"
+    assert recipe_for("bookstack", "nix-gen", tmp_path).name == "bookstack-nixgen"
+    assert recipe_for("bookstack", "nix-template", tmp_path).name == "bookstack-nixgen"
+    assert recipe_for("bookstack", "docker", tmp_path).name == "bookstack-docker"
 
 
-def test_compare_detects_recipe_diff(tmp_path):
-    src = _make_app(tmp_path / "src")
-    cat = _make_app(tmp_path / "cat", toml="id = 'app'\n# hand edit\n")
-    assert any("differs" in i for i in compare_app(cat, src))
+def test_recipe_for_returns_none_rather_than_guessing(tmp_path):
+    _recipe(tmp_path, "golden", "bookstack")
+
+    assert recipe_for("bookstack", "nix", tmp_path) is None
+    assert recipe_for("nosuchapp", "native", tmp_path) is None
+    assert recipe_for("bookstack", "not-a-variant", tmp_path) is None
 
 
-def test_compare_detects_extra_catalog_script(tmp_path):
-    src = _make_app(tmp_path / "src")
-    cat = _make_app(tmp_path / "cat")
-    (cat / "scripts" / "extra.sh").write_text("echo x\n")
-    assert any("catalog-only" in i for i in compare_app(cat, src))
+def test_the_repo_root_marker_is_not_an_apps_directory(tmp_path):
+    """
+    Root detection must not depend on a tree that can move.
 
+    The marker was ``apps/real-apps-native``. Once those recipes moved to the
+    catalog, that would have silently sent every caller to the fallback path.
+    """
+    root = tmp_path / "hop3"
+    (root / "packages" / "hop3-server").mkdir(parents=True)
+    nested = root / "packages" / "hop3-tooling"
+    nested.mkdir(parents=True)
 
-def test_compare_missing_source_reported(tmp_path):
-    cat = _make_app(tmp_path / "cat")
-    assert compare_app(cat, tmp_path / "nope")
-
-
-def test_promote_makes_recipe_identical_and_keeps_overlay(tmp_path):
-    src_root = tmp_path / "src"
-    cat_root = tmp_path / "cat"
-    _make_app(src_root / "app", toml="id = 'app'\nversion = '2'\n")
-    cat_app = _make_app(cat_root / "app", toml="id = 'app'\nversion = '1'\n")
-    # catalog-authored overlay + a stale script that promotion must remove
-    (cat_app / "catalog.toml").write_text("[catalog]\n")
-    (cat_app / "scripts" / "stale.sh").write_text("echo stale\n")
-
-    promote_app("app", src_root, cat_root)
-
-    assert compare_app(cat_app, src_root / "app") == []  # recipe now identical
-    assert (cat_app / "catalog.toml").exists()  # overlay preserved
-    assert not (cat_app / "scripts" / "stale.sh").exists()  # stale script gone
+    assert find_repo_root(nested) == root

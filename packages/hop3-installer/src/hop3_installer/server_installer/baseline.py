@@ -79,9 +79,10 @@ def derive_baseline(app_dirs: list[Path]) -> BaselineResult:
 
     Args:
         app_dirs: Directories to scan recursively for hop3.toml.
-            Typically `[Path("apps/real-apps-native")]`. Apps under
-            `apps/bad/` are **included** — we want their declarations
-            to seed the baseline so they're installable on retry.
+            Typically `[Path("../hop3-catalog/apps")]`, scanned recursively,
+            so recipes at every maturity are included — an unverified or broken
+            app's declarations still seed the baseline, which is what makes a
+            retry installable.
 
     Returns:
         BaselineResult describing the canonical union, per-OS
@@ -187,7 +188,7 @@ def main() -> int:
         default=None,
         help=(
             "Directory to scan for hop3.toml (can repeat). "
-            "Defaults to apps/real-apps-native and apps/bad/real-apps-native-bad."
+            "Defaults to the sibling catalog checkout (all maturities)."
         ),
     )
     parser.add_argument(
@@ -198,10 +199,11 @@ def main() -> int:
     args = parser.parse_args()
 
     if args.apps_dir is None:
-        args.apps_dir = [
-            Path("apps/real-apps-native"),
-            Path("apps/bad/real-apps-native-bad"),
-        ]
+        # The catalog holds every recipe now, at every maturity. The baseline
+        # wants them ALL — including `alpha` and `broken`, whose declarations
+        # seed it so a retry is installable, which is what the old
+        # `apps/bad/...` entry was for.
+        args.apps_dir = [Path("../hop3-catalog/apps")]
 
     result = derive_baseline(args.apps_dir)
 

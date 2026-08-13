@@ -26,9 +26,20 @@ _VARIANT_RULES: tuple[tuple[str, str], ...] = (
     ("sandbox", "sandbox"),
 )
 
+# Catalog paths carry the packaging in the app's ID, not its directory: the
+# catalog files recipes by maturity (`golden/`, `beta/`, …), so a path rule
+# would call every one of them the same thing. `bookstack` is the native build,
+# `bookstack-nix` the hand-written Nix one, `bookstack-nixgen` the generated
+# one. Longest suffix first, or "-nix" would claim "-nixgen".
+_ID_SUFFIX_RULES: tuple[tuple[str, str], ...] = (
+    ("-nixgen", "nix-template"),
+    ("-nix", "nix"),
+    ("-docker", "docker"),
+)
+
 
 def variant_of(test_name: str | None) -> str:
-    """Classify a test by packaging variant from its path-based name."""
+    """Classify a test by packaging variant, from its path or its app id."""
     if not test_name:
         return "other"
     name = test_name.replace("\\", "/")
@@ -39,7 +50,22 @@ def variant_of(test_name: str | None) -> str:
         return "demo"
     if "tutorials" in name or name.startswith("docs/"):
         return "tutorial"
-    return "other"
+    return _catalog_variant_of(name)
+
+
+def _catalog_variant_of(name: str) -> str:
+    """
+    Classify a catalog recipe: the directory is maturity, the id is packaging.
+
+    An unsuffixed id under a status directory is the native build.
+    """
+    head, _, app_id = name.rpartition("/")
+    if not head.endswith(("/golden", "/beta", "/alpha", "/broken", "/retired")):
+        return "other"
+    for suffix, label in _ID_SUFFIX_RULES:
+        if app_id.endswith(suffix):
+            return label
+    return "native"
 
 
 def type_of(test_name: str | None) -> str:
