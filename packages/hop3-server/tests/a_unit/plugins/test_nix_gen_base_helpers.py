@@ -149,6 +149,70 @@ def test_config_raw_requires_content():
         format_config_file(cf)
 
 
+# --- backticks in config content are data, not commands ---
+#
+# The heredoc is unquoted so ${VAR} and $(cmd) expand at startup. Backticks came
+# along with that and executed a COMMENT: Invoice Ninja's recipe explains its
+# APP_URL with "# `http://localhost`, `/` bounced …", the wrapper ran
+# `http://localhost`, and the app died at startup — build fine, nothing
+# listening, and a start-failure message that blamed the app.
+
+
+def test_a_backtick_in_a_comment_is_not_run():
+    cf = ConfigFile(
+        path=".env",
+        format="raw",
+        raw_content=(
+            "APP_URL=${HOP3_PUBLIC_URL:-http://localhost:${PORT:-8080}}\n"
+            "# `http://localhost`, `/` bounced between the app and the real host\n"
+        ),
+    )
+
+    result = format_config_file(cf)
+
+    assert "\\`http://localhost\\`" in result
+    assert "`http://localhost`" not in result.replace("\\`", "")
+
+
+def test_variable_expansion_still_works():
+    """The reason the heredoc is unquoted: a config needs the app's real port."""
+    cf = ConfigFile(path=".env", format="raw", raw_content="PORT=${PORT}\n")
+
+    result = format_config_file(cf)
+
+    assert "''${PORT}" in result  # Nix-escaped, expands in the shell at startup
+
+
+def test_command_substitution_still_works():
+    """
+    ``$(…)`` is used deliberately — mattermost-nixgen generates a key with it.
+
+    Only the backtick spelling is neutralised, because only that one shows up by
+    accident in prose.
+    """
+    cf = ConfigFile(
+        path="config.json",
+        format="raw",
+        raw_content='{"key": "$(head -c 32 /dev/urandom | base64)"}\n',
+    )
+
+    result = format_config_file(cf)
+
+    assert "$(head -c 32 /dev/urandom | base64)" in result
+
+
+def test_backticks_are_neutralised_in_ini_bodies_too():
+    cf = ConfigFile(
+        path="app.ini",
+        format="ini",
+        sections={"auth": {"note": "not `none`"}},
+    )
+
+    result = format_config_file(cf)
+
+    assert "not \\`none\\`" in result
+
+
 def test_config_ini():
     cf = ConfigFile(
         path="app.ini",

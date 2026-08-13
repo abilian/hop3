@@ -130,6 +130,32 @@ def format_env_exports(spec: AppSpec) -> str:
     return "\n".join(lines)
 
 
+def neutralize_backticks(body: str) -> str:
+    r"""
+    Make backticks literal in a config body written through an unquoted heredoc.
+
+    The heredoc is unquoted on purpose: ``${VAR}`` and ``$(cmd)`` must expand at
+    startup, which is how a config file gets the app's port, database URL and
+    generated secrets. Backtick command substitution comes along with that, and
+    nothing wants it: it is the legacy spelling of ``$(…)``, no recipe uses it
+    deliberately, and a backtick is ordinary punctuation in the prose people
+    write around a value.
+
+    So a comment quoting a value the Markdown way became a command. Invoice
+    Ninja's recipe explains why its ``APP_URL`` may not be pinned::
+
+        # `http://localhost`, `/` bounced between the app's idea of itself…
+
+    which the shell ran as ``http://localhost``, and the app died at startup with
+    ``No such file or directory`` — a wrapper failing on a sentence in a comment.
+    Two more recipes carry the same shape in their own comments.
+
+    ``\```` inside an unquoted heredoc emits a literal backtick, so escaping here
+    keeps the documented expansions and removes only the one nobody asked for.
+    """
+    return body.replace("`", "\\`")
+
+
 def format_config_file(cf: ConfigFile) -> str:
     """
     Emit shell code that writes the config file via heredoc.
@@ -138,13 +164,15 @@ def format_config_file(cf: ConfigFile) -> str:
     substitutions are expanded at startup. The ``raw`` format takes the
     literal content string (useful for JSON, YAML, or any format we
     don't have a dedicated formatter for).
+
+    Backticks are neutralised first — see :func:`neutralize_backticks`.
     """
     if cf.format == "raw":
         if cf.raw_content is None:
             raise ValueError(f"ConfigFile {cf.path}: raw format requires raw_content")
-        body = nix_escape(cf.raw_content.rstrip("\n") + "\n")
+        body = nix_escape(neutralize_backticks(cf.raw_content.rstrip("\n") + "\n"))
     elif cf.format == "ini":
-        body = nix_escape(_format_ini(cf.sections or {}))
+        body = nix_escape(neutralize_backticks(_format_ini(cf.sections or {})))
     else:
         raise NotImplementedError(f"Config format not yet supported: {cf.format}")
 
