@@ -46,6 +46,7 @@ def _resolve_tests(
     root: Path,
     mode: str,
     target_type: str,
+    catalog_apps: Path | None = None,
 ) -> list[TestDefinition]:
     """
     Resolve app_names into a list of TestDefinitions.
@@ -58,7 +59,7 @@ def _resolve_tests(
     if not app_names:
         # No args: scan everything, use mode-based selection
         catalog = Catalog(root)
-        catalog.scan(paths=default_scan_paths(root))
+        catalog.scan(paths=default_scan_paths(root, catalog_apps))
         mode_config = get_mode_config(mode)
         selector = Selector(catalog)
         return selector.select_for_target(mode_config, target_type)
@@ -421,7 +422,9 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
 
     # Resolve tests
     root = ctx.obj["root"]
-    tests = _resolve_tests(app_names, root, mode, target_type)
+    tests = _resolve_tests(
+        app_names, root, mode, target_type, ctx.obj.get("catalog_apps")
+    )
 
     if not tests:
         click.echo("No tests found")

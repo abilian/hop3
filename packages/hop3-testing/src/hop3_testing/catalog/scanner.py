@@ -55,9 +55,27 @@ def _has_executable_blocks(md_path: Path) -> bool:
         return False
 
 
-def default_scan_paths(root: Path) -> list[str]:
+#: Local ``apps/`` families that hold platform test fixtures rather than
+#: applications anyone installs. These stay in this repository: they exercise
+#: builders, toolchains and error paths, and have no place in a catalog of
+#: things to offer an operator.
+FIXTURE_FAMILIES = ("test-apps-procfile", "test-apps-nix", "test-apps-nix-gen")
+
+#: Catalog statuses worth deploying by default: the ones the catalog publishes
+#: (ADR 059). ``alpha`` and ``broken`` are kept as a record, and running them
+#: would report failures already known and written down.
+CATALOG_SUITES = ("golden", "beta")
+
+
+def default_catalog_apps(root: Path) -> Path | None:
+    """The sibling catalog checkout's ``apps/``, if there is one."""
+    candidate = root.parent / "hop3-catalog" / "apps"
+    return candidate if candidate.is_dir() else None
+
+
+def default_scan_paths(root: Path, catalog_apps: Path | None = None) -> list[str]:
     """
-    Default catalog scan set: every ``apps/`` subdir, ``demos/``, tutorials.
+    Default scan set: the catalog's published apps, plus this repo's fixtures.
 
     The single source of truth for "what to scan when no paths are given",
     shared by the ``hop3-test`` CLI and the Test Lab (which used to keep its own
@@ -65,14 +83,35 @@ def default_scan_paths(root: Path) -> list[str]:
     rendered one — validoc's executable ``bash exec``/``output``/``file`` fences
     are stripped out of ``docs/src/tutorials`` during the docs build, so scanning
     that yields a vacuous "0 passed".
+
+    **Two roots, deliberately.** Real applications live in the catalog and the
+    fixtures live here, so neither tree alone is the answer. The local
+    ``apps/real-apps-*`` and ``apps/bad`` families are NOT scanned even while
+    they still exist: every one of them now has a catalog counterpart, tests are
+    indexed by name, and scanning both would hand the runner two ``bookstack``
+    entries — with the stale copy winning by sort order. That is also the point
+    of the split: `hop3-test` should exercise the recipes an operator installs,
+    not a fork of them that quietly drifted.
+
+    Absolute paths are returned for the catalog and relative ones for this repo;
+    ``Catalog.scan`` joins both correctly.
     """
     paths: list[str] = []
+
+    catalog_apps = catalog_apps or default_catalog_apps(root)
+    if catalog_apps:
+        paths += [
+            str(catalog_apps / suite)
+            for suite in CATALOG_SUITES
+            if (catalog_apps / suite).is_dir()
+        ]
+
     apps_dir = root / "apps"
     if apps_dir.is_dir():
         paths += [
             str(child.relative_to(root))
             for child in sorted(apps_dir.iterdir())
-            if child.is_dir()
+            if child.is_dir() and child.name in FIXTURE_FAMILIES
         ]
     if (root / "demos").is_dir():
         paths.append("demos")
