@@ -233,6 +233,24 @@ class Check:
     # -- credentials ------------------------------------------------------
 
     @property
+    def connect_origin(self) -> str:
+        """
+        An origin an *external* tool can actually connect to.
+
+        :attr:`base_url` names the app by its real hostname, which is right for
+        the Python client: cookies are scoped by the request host, and
+        :class:`LoopbackTransport` rewrites only the socket. A subprocess gets no
+        such rewrite. Handed ``https://<app>.test.local`` it asks DNS, finds
+        nothing, and fails — which is how uptime-kuma's socket.io probe reported
+        ``connect_error: websocket error`` against an app that was serving fine.
+
+        So a check that shells out passes this, plus :attr:`host` for the ``Host``
+        header and the TLS server name. That is the same split the transport does
+        internally: connect to loopback, address the app by name.
+        """
+        return f"https://127.0.0.1:{self.port}"
+
+    @property
     def admin(self) -> Admin:
         """
         The app's generated admin credential, or FAIL.
