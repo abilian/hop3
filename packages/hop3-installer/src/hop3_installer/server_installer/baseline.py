@@ -153,7 +153,7 @@ def format_baselines_module(result: BaselineResult) -> str:
         "# Copyright (c) 2025-2026, Abilian SAS\n"
         f"# {spdx_license_identifier}: {license}\n"
         '"""Catalogue-derived installer baselines, per OS family.\n\n'
-        "GENERATED FROM apps/*/hop3.toml by\n"
+        "GENERATED FROM the catalog's apps/<status>/*/hop3.toml by\n"
         "`python -m hop3_installer.server_installer.baseline`.\n"
         "Do not edit by hand. Regenerate after catalogue changes.\n"
         '"""\n\n'

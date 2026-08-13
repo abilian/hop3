@@ -85,13 +85,10 @@ def default_scan_paths(root: Path, catalog_apps: Path | None = None) -> list[str
     that yields a vacuous "0 passed".
 
     **Two roots, deliberately.** Real applications live in the catalog and the
-    fixtures live here, so neither tree alone is the answer. The local
-    ``apps/real-apps-*`` and ``apps/bad`` families are NOT scanned even while
-    they still exist: every one of them now has a catalog counterpart, tests are
-    indexed by name, and scanning both would hand the runner two ``bookstack``
-    entries — with the stale copy winning by sort order. That is also the point
-    of the split: `hop3-test` should exercise the recipes an operator installs,
-    not a fork of them that quietly drifted.
+    fixtures live here, so neither tree alone is the answer. This repository
+    once carried its own copies of the applications too; they were forks that
+    drifted, and `hop3-test` was exercising them rather than the recipes an
+    operator installs.
 
     Absolute paths are returned for the catalog and relative ones for this repo;
     ``Catalog.scan`` joins both correctly.
