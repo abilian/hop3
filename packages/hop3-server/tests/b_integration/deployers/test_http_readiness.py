@@ -151,6 +151,147 @@ def test_contains_mismatch_is_not_serving(http_server: tuple[int, list[int]]) ->
     assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="nope") is False
 
 
+# --- redirects: the probe and the test harness must agree ------------------
+#
+# The harness fetches a `contains` body with `curl -s -L --max-redirs 5`, and
+# its own comment says the 3xx body is empty, so for an app whose entry point
+# redirects (kanboard → /?controller=AuthController, invoice-ninja → /setup) the
+# asserted string lives at the TARGET. This probe followed nothing, so the same
+# value copied into `[healthcheck].contains` could never match and the deploy
+# failed readiness for an app that served fine.
+
+
+@pytest.fixture
+def routing_server() -> Iterator[tuple[int, dict, list[str]]]:
+    """
+    A server driven by ``routes[path] = (status, location, body)``.
+
+    Also records the paths it was asked for, so a test can assert how many hops
+    the probe actually took rather than only its verdict.
+    """
+    routes: dict[str, tuple[int, str | None, bytes]] = {}
+    seen: list[str] = []
+
+    class Handler(BaseHTTPRequestHandler):
+        def do_GET(self) -> None:
+            seen.append(self.path)
+            status, location, body = routes.get(self.path, (404, None, b"not found"))
+            self.send_response(status)
+            if location:
+                self.send_header("Location", location)
+            self.end_headers()
+            self.wfile.write(body)
+
+        def log_message(self, *a: object) -> None:  # silence
+            pass
+
+    httpd = HTTPServer(("127.0.0.1", 0), Handler)
+    t = threading.Thread(target=httpd.serve_forever, daemon=True)
+    t.start()
+    try:
+        yield httpd.server_address[1], routes, seen
+    finally:
+        httpd.shutdown()
+        httpd.server_close()
+        t.join(timeout=1)
+
+
+def test_contains_found_after_following_a_redirect(routing_server) -> None:
+    """The kanboard shape: empty 302 at `/`, the asserted content at the target."""
+    port, routes, _ = routing_server
+    routes["/"] = (302, "/?controller=AuthController", b"")
+    routes["/?controller=AuthController"] = (200, None, b"<h1>AuthController</h1>")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert (
+        _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="AuthController")
+        is True
+    )
+
+
+def test_a_matching_3xx_body_is_not_made_to_take_another_hop(routing_server) -> None:
+    """An app that answers on the first hop must not be followed further."""
+    port, routes, seen = routing_server
+    routes["/"] = (302, "/elsewhere", b"moved to the setup wizard")
+    routes["/elsewhere"] = (200, None, b"nothing useful")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert (
+        _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="setup wizard")
+        is True
+    )
+    assert seen == ["/"]
+
+
+def test_an_off_host_redirect_is_not_followed(routing_server) -> None:
+    """
+    A readiness probe must not chase a redirect off this app.
+
+    Following one would let a deployed app make the server fetch a third party,
+    and would report the app healthy on the strength of someone else's page.
+    """
+    port, routes, seen = routing_server
+    routes["/"] = (302, "https://example.com/login", b"")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert (
+        _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="anything")
+        is False
+    )
+    assert seen == ["/"]
+
+
+def test_an_absolute_redirect_to_the_same_app_is_followed(routing_server) -> None:
+    port, routes, _ = routing_server
+    routes["/"] = (302, "http://localhost/dashboard", b"")
+    routes["/dashboard"] = (200, None, b"<title>Dashboard</title>")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert (
+        _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="Dashboard")
+        is True
+    )
+
+
+def test_a_redirect_loop_terminates(routing_server) -> None:
+    port, routes, seen = routing_server
+    routes["/a"] = (302, "/b", b"")
+    routes["/b"] = (302, "/a", b"")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert (
+        _app_serves_http(app, "/a", timeout=2.0, healthcheck_contains="never") is False
+    )
+    assert len(seen) <= 6, "the hop budget must bound a redirect loop"
+
+
+def test_without_contains_a_redirect_counts_as_serving_unfollowed(
+    routing_server,
+) -> None:
+    """The status line already answered the question; no hop is needed."""
+    port, routes, seen = routing_server
+    routes["/"] = (302, "/somewhere", b"")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert _app_serves_http(app, "/", timeout=2.0) is True
+    assert seen == ["/"]
+
+
+def test_a_non_redirect_status_is_answered_on_the_first_hop(routing_server) -> None:
+    """isso: `/` is its comment API and answers 400 with a real body."""
+    port, routes, seen = routing_server
+    routes["/"] = (400, None, b"missing uri query")
+    app = SimpleNamespace(port=port, hostname="localhost")
+
+    assert (
+        _app_serves_http(
+            app, "/", timeout=2.0, healthcheck_contains="missing uri query"
+        )
+        is True
+    )
+    assert seen == ["/"]
+
+
 # --- _wait_for_app_start gate ---------------------------------------------
 
 
