@@ -26,15 +26,8 @@ __all__ = ["cli", "main"]
 
 @click.group(invoke_without_command=True)
 @click.option("--verbose", "-v", is_flag=True, help="Verbose output")
-@click.option(
-    "--catalog",
-    "catalog_apps",
-    type=click.Path(path_type=Path, exists=True, file_okay=False),
-    default=None,
-    help="catalog apps/ dir (default: the sibling hop3-catalog checkout)",
-)
 @click.pass_context
-def cli(ctx: click.Context, verbose: bool, catalog_apps: Path | None) -> None:
+def cli(ctx: click.Context, verbose: bool) -> None:
     """
     Hop3 Test Runner - Unified testing for Hop3.
 
@@ -43,10 +36,6 @@ def cli(ctx: click.Context, verbose: bool, catalog_apps: Path | None) -> None:
     ctx.ensure_object(dict)
     ctx.obj["verbose"] = verbose
     ctx.obj["root"] = Path.cwd()
-    # Real applications live in the catalog, fixtures live here; the default
-    # scan set spans both. Explicit so a run can be pointed at another checkout
-    # rather than depending on where the two repos happen to sit.
-    ctx.obj["catalog_apps"] = catalog_apps
 
     # If no subcommand, show help
     if ctx.invoked_subcommand is None:
