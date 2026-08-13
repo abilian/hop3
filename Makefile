@@ -214,7 +214,12 @@ test-apps:
 	uv run hop3-test run --docker
 	@echo ""
 
-## Test one app or path: make test-app APP=apps/real-apps-native/edrix
+## The sibling catalog checkout. Real applications live there; this repo keeps
+## the platform fixtures (test-apps-*, demos, tutorials). `hop3-test` spans both
+## by default — override with `hop3-test --catalog <dir>` or CATALOG_APPS here.
+CATALOG_APPS ?= ../hop3-catalog/apps
+
+## Test one app or path: make test-app APP=../hop3-catalog/apps/golden/gitea
 test-app:
 	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
 	uv run hop3-test run --docker $(APP)
@@ -223,12 +228,20 @@ test-app:
 ## Docker by default; pass HOST=<box> to run it against a real server.
 ## Deliberately NOT taken from an env var: an ambient value silently
 ## redirecting a deploy at someone's server is the ADR 043 taboo.
-NIX_SUITE = apps/test-apps-nix apps/test-apps-nix-gen apps/real-apps-nix-gen
+## The real Nix apps come from the catalog now (its `beta` tier is exactly the
+## Nix-built variants); the two test-apps families stay here as fixtures.
+NIX_SUITE = apps/test-apps-nix apps/test-apps-nix-gen $(CATALOG_APPS)/beta
 test-nix:
 	@echo "--> Testing Nix apps (hop3-test run --with nix)$(if $(HOST), on $(HOST), on Docker)"
 	uv run hop3-test run $(if $(HOST),--host $(HOST),--docker) --with nix $(NIX_SUITE)
 
 ## Reproducibility gate: rebuild every nix-gen app and fail if any output drifts
+## STILL READS apps/real-apps-nix-gen. Unlike the suites above this one selects
+## the template-generated tier specifically, and the catalog files `-nix` and
+## `-nixgen` together under `beta`, so pointing it there would hand the rebuild
+## hand-written recipes it was never meant to check. Needs a way to select the
+## tier in the catalog first; until then it reads the copy in this repo, which
+## is why the tree cannot be deleted yet.
 .PHONY: check-reproducible
 check-reproducible:
 	@echo "--> Checking nix-gen reproducibility (nix build --rebuild)"

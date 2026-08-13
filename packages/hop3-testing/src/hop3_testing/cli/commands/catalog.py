@@ -50,7 +50,7 @@ def list_tests(
     """
     root = ctx.obj["root"]
     catalog = Catalog(root)
-    paths = list(scan_paths) if scan_paths else default_scan_paths(root)
+    paths = list(scan_paths) or default_scan_paths(root, ctx.obj.get("catalog_apps"))
     catalog.scan(paths=paths)
 
     # Show details for a specific test
