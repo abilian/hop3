@@ -42,6 +42,19 @@ from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 from .conftest import spec_for
 
+#: The catalog corpus. Recipes are filed by maturity (ADR 059), so an app's
+#: status directory is not knowable from its id — resolve by globbing rather
+#: than joining a path, or a promotion breaks the test.
+_CATALOG_APPS = Path(__file__).resolve().parents[6] / "hop3-catalog" / "apps"
+
+
+def _catalog_recipe(app_id: str) -> Path:
+    """The recipe dir for ``app_id``, wherever its maturity has put it."""
+    hits = sorted(_CATALOG_APPS.glob(f"*/{app_id}/hop3.toml"))
+    assert hits, f"no catalog recipe for {app_id!r} under {_CATALOG_APPS}"
+    return hits[0].parent
+
+
 # --- prebuilt-binary ---
 
 
@@ -1332,7 +1345,7 @@ class TestGoStaticDirs:
     def test_the_real_gitea_recipe_ships_options(self):
         """Regression on the recipe itself, not just the template."""
         config = tomllib.loads(
-            Path("apps/real-apps-nix-gen/gitea/hop3.toml").read_text()
+            (_catalog_recipe("gitea-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "gitea")
         assert "options" in spec.payload_as(GoSourcePayload).static_dirs
@@ -1424,7 +1437,7 @@ class TestRubyBundler:
 
     def test_the_real_redmine_recipe_generates(self):
         config = tomllib.loads(
-            Path("apps/real-apps-nix-gen/redmine/hop3.toml").read_text()
+            (_catalog_recipe("redmine-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "redmine")
         output = generate(spec)
@@ -1471,7 +1484,7 @@ class TestGoSourceExecTargetCheck:
 
     def test_the_real_forgejo_recipe_execs_the_binary_go_builds(self):
         config = tomllib.loads(
-            Path("apps/real-apps-nix-gen/forgejo/hop3.toml").read_text()
+            (_catalog_recipe("forgejo-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "forgejo")
         assert spec.exec_target == "forgejo.org"
