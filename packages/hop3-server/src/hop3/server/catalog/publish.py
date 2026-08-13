@@ -33,6 +33,8 @@ import os
 import sys
 import tarfile
 import time
+from dataclasses import dataclass
+from operator import itemgetter
 from pathlib import Path
 
 import tomllib
@@ -40,9 +42,11 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
 from .policy import (
+    PUBLISHABLE_STATUSES,
     CatalogSpecError,
     validate_catalog_app_files,
     validate_catalog_spec,
+    validate_catalog_status,
 )
 from .verify import sha256_file
 
@@ -105,68 +109,149 @@ def load_secret_key(text: str) -> tuple[bytes, Ed25519PrivateKey]:
 # --- index + tarball ---------------------------------------------------------
 
 
-def build_index(content_dir: Path, serial: int) -> dict:
+def find_app_dirs(content_dir: Path) -> list[tuple[Path, str]]:
     """
-    Scan ``content_dir`` for app dirs and build the signed-index manifest.
+    Every app directory under ``content_dir``, with the status it declares.
 
-    Each immediate subdir is one app and must carry a ``hop3.toml``; its spec is
-    run through the coexistence gate (F7) *before* signing — the publish step is
-    the primary place to reject a bad spec. Aborts loud on anything unexpected.
+    Two layouts are read, because a signed catalog outlives the tree that
+    produced it and an older checkout must keep building:
+
+    * ``<content_dir>/<app>/hop3.toml`` — flat, status unknown (``""``);
+    * ``<content_dir>/<status>/<app>/hop3.toml`` — the maturity hierarchy of
+      [ADR 059], where the *directory is the status* and nothing else records it.
+
+    A directory holding neither a recipe nor app subdirectories is an error
+    rather than something to skip: a typo'd status name would otherwise remove
+    every app under it from the catalog silently, which is the failure this
+    whole gate exists to prevent.
     """
     if not content_dir.is_dir():
         msg = f"Catalog content dir does not exist: {content_dir}"
         raise PublishError(msg)
 
-    apps = []
-    for app_dir in sorted(content_dir.iterdir()):
-        if not app_dir.is_dir() or app_dir.name.startswith("."):
+    found: list[tuple[Path, str]] = []
+    for entry in sorted(content_dir.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("."):
             continue
-        toml_path = app_dir / "hop3.toml"
-        if not toml_path.exists():
-            msg = f"Catalog app dir {app_dir.name!r} has no hop3.toml"
+        if (entry / "hop3.toml").exists():
+            found.append((entry, ""))
+            continue
+        nested = [
+            d
+            for d in sorted(entry.iterdir())
+            if d.is_dir() and not d.name.startswith(".") and (d / "hop3.toml").exists()
+        ]
+        if not nested:
+            msg = (
+                f"Catalog dir {entry.name!r} has no hop3.toml and holds no app "
+                f"directories — a status directory must contain apps, and an app "
+                f"directory must contain a recipe"
+            )
             raise PublishError(msg)
+        found += [(d, entry.name) for d in nested]
+    return found
+
+
+@dataclass(frozen=True, slots=True)
+class IndexBuild:
+    """
+    The result of scanning a catalog source tree.
+
+    ``sources`` maps each indexed path back to the file that produced it, which
+    is where the source tree's status hierarchy is flattened away. ``excluded``
+    lists ``(app_id, status)`` for recipes deliberately kept out of the artefact,
+    so the caller can say which and why — being unpublished is a decision, and a
+    decision nobody reports is indistinguishable from a bug.
+    """
+
+    index: dict
+    sources: dict[str, Path]
+    excluded: list[tuple[str, str]]
+
+
+def build_index(content_dir: Path, serial: int) -> IndexBuild:
+    """
+    Build the signed-index manifest from a catalog source tree.
+
+    Each app's spec is run through the coexistence gate (F7) *before* signing —
+    the publish step is the primary place to reject a bad spec. Aborts loud on
+    anything unexpected.
+
+    Indexed paths are always ``<app-dir>/…`` regardless of where the recipe sits
+    in the source tree: ADR 049 pins that shape as the boundary that does not
+    change, and every deployed node's loader is written against it. The status
+    hierarchy is a property of the source tree only.
+
+    Recipes at a non-publishable status (ADR 059: ``alpha``, ``broken``,
+    ``retired``) are kept out of the index and reported in
+    :attr:`IndexBuild.excluded`. They are still validated first, so a recipe does
+    not rot unnoticed while it waits to be promoted.
+    """
+    apps = []
+    sources: dict[str, Path] = {}
+    excluded: list[tuple[str, str]] = []
+    for app_dir, status in find_app_dirs(content_dir):
+        toml_path = app_dir / "hop3.toml"
         with toml_path.open("rb") as f:
             data = tomllib.load(f)
         app_id = data.get("metadata", {}).get("id", app_dir.name)
+        published = not status or status in PUBLISHABLE_STATUSES
         try:
+            validate_catalog_status(status, app_id)
             validate_catalog_spec(data, app_id)
-            validate_catalog_app_files(app_dir, app_id)
+            validate_catalog_app_files(app_dir, app_id, published=published)
         except CatalogSpecError as e:
             raise PublishError(str(e)) from e
 
-        files = [
-            {
-                "path": p.relative_to(content_dir).as_posix(),
-                "sha256": sha256_file(p),
-            }
-            for p in sorted(app_dir.rglob("*"))
-            if p.is_file() and not _is_ignored(p)
-        ]
+        if not published:
+            excluded.append((app_id, status))
+            continue
+
+        files = []
+        for p in sorted(app_dir.rglob("*")):
+            if not p.is_file() or _is_ignored(p):
+                continue
+            indexed = (Path(app_dir.name) / p.relative_to(app_dir)).as_posix()
+            files.append({"path": indexed, "sha256": sha256_file(p)})
+            sources[indexed] = p
         if not files:
             msg = f"Catalog app dir {app_dir.name!r} contains no files"
             raise PublishError(msg)
-        apps.append({"id": app_id, "files": files})
+        entry: dict = {"id": app_id, "files": files}
+        if status:
+            entry["status"] = status
+        apps.append(entry)
 
     if not apps:
-        msg = f"No catalog apps found under {content_dir}"
+        msg = f"No publishable catalog apps found under {content_dir}"
         raise PublishError(msg)
-    return {"format": 1, "serial": serial, "apps": apps}
+    # Sorted by id, not by traversal: with the hierarchy, traversal order is
+    # status-then-app, and the index must not change because a recipe moved
+    # between statuses.
+    apps.sort(key=itemgetter("id"))
+    return IndexBuild(
+        index={"format": 1, "serial": serial, "apps": apps},
+        sources=sources,
+        excluded=sorted(excluded),
+    )
 
 
-def write_tarball(content_dir: Path, index: dict, dest: Path) -> bytes:
+def write_tarball(sources: dict[str, Path], index: dict, dest: Path) -> bytes:
     """
     Write a deterministic ``catalog.tar.gz`` containing exactly the indexed
     files plus ``index.json``, and return its bytes.
 
     Driving the tar off the index (not ``rglob``) guarantees the extracted tree
     is bijective with the index — the exact invariant the node enforces (F1).
+    ``sources`` resolves each indexed path back to the file that produced it,
+    which is where the source tree's status hierarchy is flattened away.
     """
     index_bytes = json.dumps(index, indent=2, sort_keys=True).encode()
     with tarfile.open(dest, "w:gz") as tar:
         tar.addfile(_member(_INDEX_FILENAME, len(index_bytes)), io.BytesIO(index_bytes))
         for app in index["apps"]:
             for entry in app["files"]:
-                path = content_dir / entry["path"]
+                path = sources[entry["path"]]
                 with path.open("rb") as f:
                     tar.addfile(_member(entry["path"], path.stat().st_size), f)
     return dest.read_bytes()
@@ -193,21 +278,22 @@ def publish(
 ) -> dict:
     """Build + sign a catalog. Returns ``{serial, tarball, signature, index}``."""
     key_id, priv = load_secret_key(secret_key_text)
-    index = build_index(content_dir, serial)
+    built = build_index(content_dir, serial)
 
     out_dir.mkdir(parents=True, exist_ok=True)
     tarball = out_dir / "catalog.tar.gz"
     sigfile = out_dir / "catalog.tar.gz.minisig"
     index_file = out_dir / _INDEX_FILENAME
 
-    index_file.write_text(json.dumps(index, indent=2, sort_keys=True))
-    data = write_tarball(content_dir, index, tarball)
+    index_file.write_text(json.dumps(built.index, indent=2, sort_keys=True))
+    data = write_tarball(built.sources, built.index, tarball)
     sigfile.write_text(sign_tarball(data, key_id, priv, tarball.name))
     return {
         "serial": serial,
         "tarball": tarball,
         "signature": sigfile,
         "index": index_file,
+        "excluded": built.excluded,
     }
 
 
@@ -281,11 +367,27 @@ def _run_validate(content_dir: Path) -> int:
     # build_index runs the coexistence gate + structural checks and raises
     # PublishError on any problem (caught by main → exit 1). Serial is irrelevant
     # here, so pass 0.
-    index = build_index(content_dir, serial=0)
-    for app in index["apps"]:
-        print(f"  ok  {app['id']}  ({len(app['files'])} files)")
-    print(f"{len(index['apps'])} app(s) valid.")
+    built = build_index(content_dir, serial=0)
+    for app in built.index["apps"]:
+        status = f"  [{app['status']}]" if app.get("status") else ""
+        print(f"  ok  {app['id']}  ({len(app['files'])} files){status}")
+    print(f"{len(built.index['apps'])} app(s) valid.")
+    _report_excluded(built.excluded)
     return 0
+
+
+def _report_excluded(excluded: list[tuple[str, str]]) -> None:
+    """Name what will not ship, so its absence is a decision and not a surprise."""
+    if not excluded:
+        return
+    by_status: dict[str, list[str]] = {}
+    for app_id, status in excluded:
+        by_status.setdefault(status, []).append(app_id)
+    total = len(excluded)
+    print(f"{total} app(s) validated but NOT published, by status:")
+    for status in sorted(by_status):
+        names = ", ".join(sorted(by_status[status]))
+        print(f"  {status}: {names}")
 
 
 def _run_publish(content_dir: Path, key: Path, out_dir: Path, serial: int) -> int:

@@ -38,9 +38,48 @@ if TYPE_CHECKING:
 _CATCHALL_HOST = "_"  # the nginx catch-all / default_server
 _WILDCARD = "*"
 
+#: Maturity statuses a recipe may occupy, and whether the catalog ships it
+#: (ADR 059). The directory a recipe lives in IS its status; this is the
+#: vocabulary that directory is checked against, so a typo becomes a refusal
+#: instead of an application quietly vanishing from the catalog.
+CATALOG_STATUSES: dict[str, bool] = {
+    "golden": True,  # verified through the app's own sign-in
+    "beta": True,  # serves its own content; sign-in unmet or N/A
+    "alpha": False,  # deploys; verification status-only or unproven
+    "broken": False,  # a recorded failure, kept as a platform backlog item
+    "retired": False,  # withdrawn for a reason upstream of the platform
+}
+
+PUBLISHABLE_STATUSES = frozenset(s for s, ship in CATALOG_STATUSES.items() if ship)
+
 
 class CatalogSpecError(Exception):
     """Raised when a catalog spec violates platform coexistence policy."""
+
+
+def validate_catalog_status(status: str, app_id: str) -> None:
+    """
+    Refuse a status directory that is not part of the vocabulary.
+
+    An empty status is the flat legacy layout and passes: a catalog that predates
+    the hierarchy still builds.
+
+    Only a *misspelled* status is an error, and it has to be, because the
+    directory is the status: ``beeta/`` would otherwise remove every app beneath
+    it from the catalog with nothing to say so. A correctly-spelled
+    unpublishable status is not an error — ``alpha``, ``broken`` and ``retired``
+    exist to be kept out of the artefact, and :data:`PUBLISHABLE_STATUSES` is how
+    the publish step decides. The distinction is between a typo and a decision.
+    """
+    if not status or status in CATALOG_STATUSES:
+        return
+    known = ", ".join(sorted(CATALOG_STATUSES))
+    msg = (
+        f"{app_id}: unknown catalog status {status!r} "
+        f"(known statuses: {known}). The directory a recipe lives in is its "
+        f"status, so a misspelled one would remove it from the catalog."
+    )
+    raise CatalogSpecError(msg)
 
 
 def validate_catalog_spec(data: Mapping, app_id: str) -> None:
@@ -103,7 +142,9 @@ def _as_str_list(value: object) -> Iterator[str]:
                 yield item
 
 
-def validate_catalog_app_files(app_dir: Path, app_id: str) -> None:
+def validate_catalog_app_files(
+    app_dir: Path, app_id: str, *, published: bool = True
+) -> None:
     """
     Reject a catalog app whose recipe cannot build on a node.
 
@@ -116,6 +157,11 @@ def validate_catalog_app_files(app_dir: Path, app_id: str) -> None:
     refuses as unreproducible. The rule is imported from the toolchain rather
     than restated, so the gate cannot drift from what a node enforces.
 
+    ``published`` distinguishes the two audiences a recipe can have. The build
+    rules apply either way — an ``alpha`` recipe someone installs by hand must
+    still build — but the verifiability rule below is about what Hop3 *offers*,
+    and an unpublished recipe offers nothing.
+
     Raises:
         CatalogSpecError: if the app's recipe would fail its build.
     """
@@ -124,12 +170,20 @@ def validate_catalog_app_files(app_dir: Path, app_id: str) -> None:
     # repeatedly not to mean "it works": apps served their login page perfectly
     # while rejecting every credential. A blueprint that ships no check makes
     # that indistinguishable from success, so it does not go in the catalog.
-    if not (app_dir / "check.py").exists():
+    #
+    # Scoped to published statuses (ADR 059). This rule's own wording is
+    # "advertised", and until the maturity hierarchy existed that was the same
+    # set as "in the catalog repository". It no longer is: a recipe kept at
+    # `alpha` or `broken` is retained precisely because it is *not* offered, and
+    # requiring a sign-in test of an app we already say does not work would only
+    # push it back out of the repository — losing the record of why it is hard,
+    # which is the thing keeping it is for.
+    if published and not (app_dir / "check.py").exists():
         msg = (
             f"Catalog app {app_id!r} ships no check.py, so installing it could "
             f"only ever prove that it started. Add a smoke test that signs in "
             f"and asserts a wrong password is refused (see an existing app's "
-            f"check.py), or leave the app out of the catalog."
+            f"check.py), or move it to a status the catalog does not publish."
         )
         raise CatalogSpecError(msg)
 
