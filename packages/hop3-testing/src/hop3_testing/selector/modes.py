@@ -87,7 +87,10 @@ _CURATED_SEED: list[str] = [
     "apps/test-apps-procfile/050-clojure",
     "apps/test-apps-nix/golang-minimal",
     "apps/test-apps-nix/static-hello",
-    "apps/real-apps-native/adminer",
+    # One real application, from the catalog: the fast set is meant to touch
+    # a genuine app, and adminer sits at `alpha` (unverified) so it is not in
+    # the default scan set. isso is small and golden.
+    "../hop3-catalog/apps/golden/isso",
     # demos — the three simplest (run in order; fail-fast stops the rest)
     "demos/demo01",
     "demos/demo02",

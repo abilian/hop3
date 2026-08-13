@@ -34,6 +34,7 @@ from typing import TYPE_CHECKING, Any
 
 import yaml
 
+from hop3_tooling import catalog
 from hop3_tooling.catalog import find_repo_root
 
 if TYPE_CHECKING:
@@ -129,8 +130,18 @@ def load_corpus(protocol: Path) -> list[str]:
 
 
 def recipe_dir(root: Path, variant: str, app: str) -> Path:
-    """Where a variant's recipe for an app lives."""
-    return root / f"apps/real-apps-{variant}" / app
+    """
+    Where a variant's recipe for an app lives.
+
+    Resolved through the catalog rather than built from the variant name: the
+    directory is the recipe's maturity now, not its packaging, so the path
+    cannot be constructed from `variant` alone.
+    """
+    found = catalog.recipe_for(app, variant)
+    if found is None:
+        msg = f"no {variant} recipe for {app!r} in the catalog"
+        raise MatrixError(msg)
+    return found
 
 
 def anchor(root: Path, path: Path) -> Path:

@@ -236,17 +236,15 @@ test-nix:
 	uv run hop3-test run $(if $(HOST),--host $(HOST),--docker) --with nix $(NIX_SUITE)
 
 ## Reproducibility gate: rebuild every nix-gen app and fail if any output drifts
-## STILL READS apps/real-apps-nix-gen. Unlike the suites above this one selects
-## the template-generated tier specifically, and the catalog files `-nix` and
-## `-nixgen` together under `beta`, so pointing it there would hand the rebuild
-## hand-written recipes it was never meant to check. Needs a way to select the
-## tier in the catalog first; until then it reads the copy in this repo, which
-## is why the tree cannot be deleted yet.
+## The catalog files `-nix` and `-nixgen` together under `beta`, but the tier
+## does not have to be selected by path: `_nix_gen_recipes` already keeps only
+## recipes declaring `[nix].template`, which is exactly the generated ones (19
+## of beta's 34; the other 15 are hand-written and carry a hop3.nix instead).
 .PHONY: check-reproducible
 check-reproducible:
 	@echo "--> Checking nix-gen reproducibility (nix build --rebuild)"
 	uv run hop3-tools nix check-reproducible $${HOP3_NIX_SSH:+--ssh $$HOP3_NIX_SSH} \
-	  apps/test-apps-nix-gen apps/real-apps-nix-gen
+	  apps/test-apps-nix-gen $(CATALOG_APPS)/beta
 	@echo ""
 
 ## Advertised gate (nix-gen tier): reproducible build AND clean deploy.

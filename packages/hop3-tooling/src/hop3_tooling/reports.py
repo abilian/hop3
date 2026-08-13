@@ -37,6 +37,8 @@ from typing import TYPE_CHECKING, Any, ClassVar
 import tomllib
 import yaml
 
+from . import catalog as catalog_lib
+
 if TYPE_CHECKING:
     from collections.abc import Callable
     from pathlib import Path
@@ -99,16 +101,10 @@ class Corpus:
 
     def recipe(self, app: str, variant: str) -> Path | None:
         """The app's `hop3.toml` for a variant, if the corpus holds one."""
-        by_variant = {
-            "native": "real-apps-native",
-            "docker": "real-apps-docker",
-            "nix": "real-apps-nix",
-            "nix-gen": "real-apps-nix-gen",
-        }
-        directory = by_variant.get(variant)
-        if not directory:
+        recipe_dir = catalog_lib.recipe_for(app, variant)
+        if recipe_dir is None:
             return None
-        path = self.root / "apps" / directory / app / "hop3.toml"
+        path = recipe_dir / "hop3.toml"
         if path.exists():
             return path
         # The catalog is the other home of a native recipe — for some apps the
