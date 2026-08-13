@@ -6,8 +6,6 @@
 
 from __future__ import annotations
 
-from pathlib import Path
-
 import click
 import pytest
 import tomllib
@@ -20,18 +18,6 @@ from hop3_tooling.nix_repro import (
 )
 
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
-
-#: The catalog corpus. Recipes are filed by maturity (ADR 059), so an app's
-#: status directory is not knowable from its id — resolve by globbing rather
-#: than joining a path, or a promotion breaks the test.
-_CATALOG_APPS = Path(__file__).resolve().parents[4] / "hop3-catalog" / "apps"
-
-
-def _catalog_recipe(app_id: str) -> Path:
-    """The recipe dir for ``app_id``, wherever its maturity has put it."""
-    hits = sorted(_CATALOG_APPS.glob(f"*/{app_id}/hop3.toml"))
-    assert hits, f"no catalog recipe for {app_id!r} under {_CATALOG_APPS}"
-    return hits[0].parent
 
 
 def test_clean_rebuild_is_reproducible():
@@ -129,13 +115,13 @@ def test_pin_override_requires_both_halves():
         _pin_override("a" * 40, None)
 
 
-def test_pin_override_replaces_whatever_the_recipe_declares():
+def test_pin_override_replaces_whatever_the_recipe_declares(catalog_recipe):
     """
     etherpad pins itself to a 25.05 rev. A corpus-wide bump has to override
     that too, or the run silently measures two different nixpkgs.
     """
     config = tomllib.loads(
-        (_catalog_recipe("etherpad-nixgen") / "hop3.toml").read_text()
+        (catalog_recipe("etherpad-nixgen") / "hop3.toml").read_text()
     )
     spec = app_spec_from_config(config["nix"], config.get("metadata") or {}, "etherpad")
     assert spec.nixpkgs_rev  # the recipe carries its own pin
