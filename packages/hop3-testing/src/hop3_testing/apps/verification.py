@@ -282,26 +282,51 @@ class CheckScriptRunner:
             return result
 
     def _get_connection_info(self) -> tuple[str, int]:
-        """Get hostname and port for check script.
-
-        Returns:
-            Tuple of (hostname, port)
         """
-        http_base = self.target_info.http_base
-        parsed = urlparse(http_base)
+        Get the vhost name and TLS port for a check script.
 
-        if parsed.hostname == "localhost":
+        **The TLS port, not the HTTP one.** Hop3 redirects HTTP to HTTPS, so a
+        check aimed at the plain port got a 301 to ``https://<vhost>/`` — and
+        followed it, off the loopback address it was carefully using and into a
+        DNS lookup for a name that exists only in the container's vhost table.
+        Every test app shipping a check.py failed that way with
+        ``nodename nor servname provided``; the ones without a check.py passed,
+        which is what made it look app-specific.
+
+        The check scripts were already written for this — their signatures
+        default to 443 — and only their URL scheme lagged. Going to the TLS door
+        also matches `hop3.server.checks.runner`, so a check means the same thing
+        wherever it runs.
+        """
+        parsed = urlparse(self.target_info.http_base)
+
+        # Both spellings: `runners.deployment` decides local-vs-remote with
+        # `not in {"localhost", "127.0.0.1"}`, and this said only "localhost".
+        # A target published as http://127.0.0.1 therefore took the REMOTE
+        # branch here and the LOCAL one there — the two disagreed about the same
+        # box, and the check was handed `Host: 127.0.0.1`, which matches no vhost.
+        if parsed.hostname in {"localhost", "127.0.0.1"}:
             # Local Docker target - use the app's real server_name: its declared
             # host (hop3.toml [domains]/[env].HOST_NAME) when it pins one, else
             # the harness-injected {app_name}.test.local (audit L5).
             hostname = self.app.declared_hostname or f"{self.app_name}.test.local"
-            http_port = parsed.port or 80
         else:
             # Remote target - use the actual remote hostname
             hostname = parsed.hostname or "localhost"
-            http_port = parsed.port or 80
 
-        return hostname, http_port
+        return hostname, self._tls_port(parsed.port)
+
+    @staticmethod
+    def _tls_port(http_port: int | None) -> int:
+        """
+        The TLS port matching a published HTTP port.
+
+        The Docker backend publishes 8080→80 and 8443→443 as a pair, so the
+        offset is the mapping's own convention rather than arithmetic on a
+        number. A target reached on the standard port answers on the standard
+        TLS port.
+        """
+        return {8080: 8443, 80: 443, None: 443}.get(http_port, 443)
 
 
 @dataclass

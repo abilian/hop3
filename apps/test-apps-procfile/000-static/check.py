@@ -19,7 +19,7 @@ def check(hostname: str, port: int = 443) -> None:
         hostname: Virtual host name (e.g., 'app.test.local')
         port: HTTP port to connect to (default: 443)
     """
-    url = f"http://localhost:{port}/"
+    url = f"https://localhost:{port}/"
     response = httpx.get(
         url,
         headers={"Host": hostname},
