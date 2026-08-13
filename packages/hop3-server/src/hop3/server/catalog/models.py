@@ -50,6 +50,13 @@ class CatalogApp:
     license_note: str = ""
     screenshots: list[str] = field(default_factory=list)
 
+    #: Maturity status (ADR 059), from the directory the recipe lives in or the
+    #: signed index. Defaults to "golden" so a catalog published before statuses
+    #: existed keeps describing its entries the way it always did: everything in
+    #: that catalog had already passed the sign-in bar, and defaulting to
+    #: anything weaker would demote 55 verified apps on an upgrade.
+    status: str = "golden"
+
     # Computed fields
     category: str = ""
     resource_tier: str = "medium"
@@ -125,6 +132,7 @@ class CatalogApp:
             "tags": self.tags,
             "category": self.category,
             "featured": self.featured,
+            "status": self.status,
             "memory": self.memory,
             "screenshots": self.screenshots,
             "resource_tier": self.resource_tier,

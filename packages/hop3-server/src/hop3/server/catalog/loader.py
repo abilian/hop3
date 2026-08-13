@@ -202,6 +202,30 @@ def _attach_icon(app: CatalogApp, app_dir: Path) -> None:
         app.icon_url = f"/dashboard/catalog/icons/{app.id}"
 
 
+def _source_app_dirs(apps_dir: Path) -> list[tuple[Path, str]]:
+    """
+    App directories under a catalog *source* tree, with the status each declares.
+
+    Reads both the flat layout (``apps/<app>/``) and the maturity hierarchy
+    (``apps/<status>/<app>/``, ADR 059) where the directory is the status. Only
+    source trees are nested; the extracted tree a node loads from is flat by
+    construction, and :func:`load_apps_from_index` reads that one.
+    """
+    found: list[tuple[Path, str]] = []
+    for entry in sorted(apps_dir.iterdir()):
+        if not entry.is_dir() or entry.name.startswith("."):
+            continue
+        if (entry / "hop3.toml").exists():
+            found.append((entry, ""))
+            continue
+        found += [
+            (d, entry.name)
+            for d in sorted(entry.iterdir())
+            if d.is_dir() and not d.name.startswith(".") and (d / "hop3.toml").exists()
+        ]
+    return found
+
+
 def load_apps(apps_dir: Path) -> list[CatalogApp]:
     """
     Load all apps by scanning ``apps_dir`` (dev/local fallback).
@@ -215,18 +239,15 @@ def load_apps(apps_dir: Path) -> list[CatalogApp]:
     if not apps_dir.exists():
         return apps
 
-    for app_dir in sorted(apps_dir.iterdir()):
-        if not app_dir.is_dir():
-            continue
-        if app_dir.name.startswith("."):
-            continue
-
+    for app_dir, status in _source_app_dirs(apps_dir):
         try:
             app = load_app(app_dir)
         except CatalogSpecError:
             logger.exception("Excluding catalog app %r from the catalog", app_dir.name)
             continue
         if app:
+            if status:
+                app.status = status
             _attach_icon(app, app_dir)
             apps.append(app)
 
@@ -242,12 +263,18 @@ def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
     """
     seen: set[str] = set()
     app_dirs: list[str] = []
+    # The status the publisher recorded, keyed by the directory it published to.
+    # An index that predates statuses names none, and the model's default then
+    # stands (see CatalogApp.status).
+    status_of: dict[str, str] = {}
     for app in index.get("apps", []):
         for entry in app.get("files", []):
             top = entry["path"].split("/", 1)[0]
             if top and top not in seen:
                 seen.add(top)
                 app_dirs.append(top)
+                if app.get("status"):
+                    status_of[top] = app["status"]
 
     apps: list[CatalogApp] = []
     for name in app_dirs:
@@ -258,6 +285,8 @@ def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
             logger.exception("Excluding catalog app %r from the catalog", name)
             continue
         if app:
+            if name in status_of:
+                app.status = status_of[name]
             _attach_icon(app, app_dir)
             apps.append(app)
     return apps
