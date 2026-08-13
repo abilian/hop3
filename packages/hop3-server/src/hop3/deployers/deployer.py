@@ -7,6 +7,7 @@ import re
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
+from urllib.parse import urlparse
 
 from hop3.commands._helpers import check_hostname_conflict
 from hop3.config import HopConfig
@@ -538,6 +539,24 @@ def _process_new_logs(app: App, last_log_lines: int) -> tuple[int, int]:
         return last_log_lines, 0  # Ignore log reading errors
 
 
+#: A healthcheck body is small, and the socket timeout already caps a slow or
+#: streaming response; this only bounds a server that answers with a firehose.
+_BODY_READ_LIMIT = 262144
+
+_REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
+
+#: Redirect hops the readiness probe follows when a content assertion is set.
+#: Matched to the test harness's ``curl -L --max-redirs 5``
+#: (hop3-testing ``apps/deployment.py``) on purpose: a recipe's
+#: ``[healthcheck].contains`` and its ``[[test.validations]]`` contains describe
+#: the same page, so the two must agree about what "the body at this path" is.
+#: They did not. The harness followed redirects and this probe did not, so a
+#: value taken from a validation on an app whose entry point 302s (kanboard,
+#: invoice-ninja) could never match — a 3xx body is typically empty — and the
+#: deploy would fail its readiness gate while the app served perfectly.
+_MAX_REDIRECT_HOPS = 5
+
+
 def _app_serves_http(
     app: App,
     healthcheck_path: str,
@@ -555,12 +574,16 @@ def _app_serves_http(
 
     Without ``healthcheck_contains``, any status line (2xx-5xx) counts as
     "serving" — a 400/404/500 still proves a worker produced it; the point is to
-    distinguish "serving" from "socket bound but nothing answers".
+    distinguish "serving" from "socket bound but nothing answers". No redirect is
+    followed in that mode: the status line already answered the question.
 
     With ``healthcheck_contains`` set ([healthcheck].contains), "serving" is
     stricter: the response body must contain that substring. This makes the
     readiness gate content-aware, so a status-only 200 (placeholder, error page,
-    wrong app behind the proxy) is NOT mistaken for a healthy deploy.
+    wrong app behind the proxy) is NOT mistaken for a healthy deploy. In that
+    mode a redirect is followed, up to :data:`_MAX_REDIRECT_HOPS` and only back
+    to the same app, because an app whose entry point redirects keeps its content
+    at the target.
 
     Returns True for apps with no web ``port`` (background workers): there is no
     HTTP endpoint to probe, so the process/TCP check is all we can assert.
@@ -571,20 +594,64 @@ def _app_serves_http(
     if not path.startswith("/"):
         path = "/" + path
     host = getattr(app, "hostname", None) or "localhost"
-    conn = http.client.HTTPConnection("127.0.0.1", app.port, timeout=timeout)
     try:
-        conn.request("GET", path, headers={"Host": host, "Connection": "close"})
-        resp = conn.getresponse()  # raises on timeout/refusal
-        if not healthcheck_contains:
-            return True  # a status line alone == serving
-        # Bounded read: a healthcheck body is small, and the socket timeout
-        # already caps a slow/streaming response.
-        body = resp.read(262144).decode("utf-8", "replace")
-        return healthcheck_contains in body
+        return _probe_until_content(app.port, host, path, timeout, healthcheck_contains)
     except (OSError, http.client.HTTPException):
         return False
-    finally:
-        conn.close()
+
+
+def _probe_until_content(
+    port: int, host: str, path: str, timeout: float, contains: str
+) -> bool:
+    """
+    GET ``path``, following same-app redirects, until the content is found.
+
+    Every response's body is checked before its redirect is followed, so an app
+    that answers on the first hop (isso's 400 "missing uri query") is not made to
+    take a second one.
+    """
+    for _ in range(_MAX_REDIRECT_HOPS + 1):
+        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+        try:
+            conn.request("GET", path, headers={"Host": host, "Connection": "close"})
+            resp = conn.getresponse()  # raises on timeout/refusal
+            if not contains:
+                return True  # a status line alone == serving
+            body = resp.read(_BODY_READ_LIMIT).decode("utf-8", "replace")
+            if contains in body:
+                return True
+            if resp.status not in _REDIRECT_STATUSES:
+                return False
+            target = _same_app_redirect(resp.getheader("Location"), host)
+            if target is None:
+                return False
+            path = target
+        finally:
+            conn.close()
+    return False
+
+
+def _same_app_redirect(location: str | None, host: str) -> str | None:
+    """
+    The path to follow for ``Location``, or None to stop.
+
+    Only this app's own redirects are followed. An absolute Location pointing
+    somewhere else is not followed at all: a readiness probe that chases an
+    off-host redirect would report an app healthy on the strength of a page
+    served by someone else, and would make the server fetch a third party
+    because a deployed app asked it to.
+    """
+    if not location:
+        return None
+    if location.startswith("/"):
+        return location
+    parsed = urlparse(location)
+    if not parsed.scheme and not parsed.netloc:
+        return "/" + location.lstrip("/")
+    if parsed.hostname not in {host, "127.0.0.1", "localhost"}:
+        return None
+    path = parsed.path or "/"
+    return f"{path}?{parsed.query}" if parsed.query else path
 
 
 @dataclass(frozen=True, slots=True)
