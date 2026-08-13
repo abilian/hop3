@@ -19,8 +19,11 @@ def check(hostname: str, port: int = 443) -> None:
         hostname: Virtual host name (e.g., 'app.test.local')
         port: HTTP port to connect to (default: 443)
     """
-    # Use localhost with Host header to avoid DNS resolution
-    url = f"http://localhost:{port}/"
+    # Loopback + a Host header, so no DNS is needed. HTTPS because Hop3
+    # redirects HTTP to HTTPS: over http:// this got a 301 to
+    # https://<hostname>/, followed it, and then had to resolve a name
+    # that only exists in the server's vhost table.
+    url = f"https://localhost:{port}/"
     response = httpx.get(
         url,
         headers={"Host": hostname},
