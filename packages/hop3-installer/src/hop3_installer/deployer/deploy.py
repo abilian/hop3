@@ -1329,10 +1329,25 @@ class Deployer:
             self.log_output(result)
 
     def _setup_cli(self) -> None:
-        """Configure local CLI to connect to the deployed server."""
+        """
+        Configure local CLI to connect to the deployed server.
+
+        The server just deployed — NOT whatever ``HOP3_HOST`` / ``HOP3_DEV_HOST``
+        happens to hold. In Docker mode the target is the container, reached on
+        loopback, while `config.host` still carries the ambient value: a
+        `--docker` run pointed the CLI at a remote dev box, printing
+        "CLI configured to connect to http://hop3-dev.abilian.com:8000" two lines
+        before "Server URL: http://localhost:8000". Nothing was deployed there
+        this time, but the next `hop3` command would have gone to it — an
+        ambient variable silently redirecting at a real server is the failure
+        ADR 043 forbids for pytest, and it is no better here.
+        """
         try:
-            # Try to configure hop3 CLI
-            host = self.config.host or "localhost"
+            host = (
+                "localhost"
+                if self.config.use_docker
+                else (self.config.host or "localhost")
+            )
             # Build the full API URL
             api_url = f"http://{host}:8000" if "://" not in host else host
             subprocess.run(

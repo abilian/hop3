@@ -293,10 +293,22 @@ class DeployConfig:
         """
         # HOP3_HOST is the canonical target var; HOP3_DEV_HOST / HOP3_TEST_SERVER
         # still work (ADR 052 D2).
+        #
+        # Ignored entirely in Docker mode. The target there is the container, so
+        # an ambient host is not a target — it is someone's dev box that happens
+        # to be exported in this shell, and carrying it through meant a
+        # `--docker` run configured the local CLI to point at a remote server.
+        # An env var must never silently redirect a run at a real machine
+        # (ADR 043 says so for pytest; the reason does not stop at pytest).
+        use_docker = env_bool("HOP3_DOCKER")
         host = (
-            env_str("HOP3_HOST")
-            or env_str("HOP3_DEV_HOST")
-            or env_str("HOP3_TEST_SERVER")
+            ""
+            if use_docker
+            else (
+                env_str("HOP3_HOST")
+                or env_str("HOP3_DEV_HOST")
+                or env_str("HOP3_TEST_SERVER")
+            )
         )
         features = env_list("HOP3_WITH")
         branch = env_str("HOP3_BRANCH", DEFAULT_BRANCH)
@@ -313,7 +325,7 @@ class DeployConfig:
 
         return cls(
             host=host,
-            use_docker=env_bool("HOP3_DOCKER"),
+            use_docker=use_docker,
             ssh_user=env_str("HOP3_SSH_USER", DEFAULT_SSH_USER),
             ssh_key=env_str("HOP3_SSH_KEY"),
             branch=branch,
