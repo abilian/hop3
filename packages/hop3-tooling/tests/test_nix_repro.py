@@ -21,6 +21,18 @@ from hop3_tooling.nix_repro import (
 
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
+#: The catalog corpus. Recipes are filed by maturity (ADR 059), so an app's
+#: status directory is not knowable from its id — resolve by globbing rather
+#: than joining a path, or a promotion breaks the test.
+_CATALOG_APPS = Path(__file__).resolve().parents[4] / "hop3-catalog" / "apps"
+
+
+def _catalog_recipe(app_id: str) -> Path:
+    """The recipe dir for ``app_id``, wherever its maturity has put it."""
+    hits = sorted(_CATALOG_APPS.glob(f"*/{app_id}/hop3.toml"))
+    assert hits, f"no catalog recipe for {app_id!r} under {_CATALOG_APPS}"
+    return hits[0].parent
+
 
 def test_clean_rebuild_is_reproducible():
     r = interpret_rebuild("miniflux", 0, "")
@@ -123,7 +135,7 @@ def test_pin_override_replaces_whatever_the_recipe_declares():
     that too, or the run silently measures two different nixpkgs.
     """
     config = tomllib.loads(
-        Path("apps/real-apps-nix-gen/etherpad/hop3.toml").read_text()
+        (_catalog_recipe("etherpad-nixgen") / "hop3.toml").read_text()
     )
     spec = app_spec_from_config(config["nix"], config.get("metadata") or {}, "etherpad")
     assert spec.nixpkgs_rev  # the recipe carries its own pin

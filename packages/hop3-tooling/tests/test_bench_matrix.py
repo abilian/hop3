@@ -95,10 +95,24 @@ class TestParseVariants:
             parse_variants("nix,bogus")
 
 
-def test_recipe_dir_maps_variant_to_apps_tree():
-    assert recipe_dir(Path("/repo"), "nix-gen", "gitea") == Path(
-        "/repo/apps/real-apps-nix-gen/gitea"
-    )
+def test_recipe_dir_resolves_through_the_catalog():
+    """
+    The variant is the id suffix, and the directory is the recipe's maturity.
+
+    This used to assert `/repo/apps/real-apps-nix-gen/gitea` — a path built from
+    the variant name. That cannot work now: the same recipe moves between
+    `golden`, `beta` and `alpha` as it earns or loses a status, so the location
+    has to be looked up rather than constructed.
+    """
+    found = recipe_dir(Path("/repo"), "nix-gen", "gitea")
+    assert found.name == "gitea-nixgen"
+    assert found.parent.name in {"golden", "beta", "alpha", "broken", "retired"}
+
+
+def test_recipe_dir_refuses_an_app_it_cannot_find():
+    """A benchmark of nothing must not read as a benchmark of something."""
+    with pytest.raises(MatrixError, match="no nix-gen recipe"):
+        recipe_dir(Path("/repo"), "nix-gen", "nosuchapp")
 
 
 class TestServerId:
