@@ -42,19 +42,6 @@ from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 from .conftest import spec_for
 
-#: The catalog corpus. Recipes are filed by maturity (ADR 059), so an app's
-#: status directory is not knowable from its id — resolve by globbing rather
-#: than joining a path, or a promotion breaks the test.
-_CATALOG_APPS = Path(__file__).resolve().parents[6] / "hop3-catalog" / "apps"
-
-
-def _catalog_recipe(app_id: str) -> Path:
-    """The recipe dir for ``app_id``, wherever its maturity has put it."""
-    hits = sorted(_CATALOG_APPS.glob(f"*/{app_id}/hop3.toml"))
-    assert hits, f"no catalog recipe for {app_id!r} under {_CATALOG_APPS}"
-    return hits[0].parent
-
-
 # --- prebuilt-binary ---
 
 
@@ -1342,10 +1329,10 @@ class TestGoStaticDirs:
         output = generate(self._spec())
         assert "cp -R options $out/" not in output
 
-    def test_the_real_gitea_recipe_ships_options(self):
+    def test_the_real_gitea_recipe_ships_options(self, catalog_recipe):
         """Regression on the recipe itself, not just the template."""
         config = tomllib.loads(
-            (_catalog_recipe("gitea-nixgen") / "hop3.toml").read_text()
+            (catalog_recipe("gitea-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "gitea")
         assert "options" in spec.payload_as(GoSourcePayload).static_dirs
@@ -1435,9 +1422,9 @@ class TestRubyBundler:
         """There the recipe dir is the app, so the pair is already the same."""
         assert "cp ${./Gemfile}" not in generate(self._spec())
 
-    def test_the_real_redmine_recipe_generates(self):
+    def test_the_real_redmine_recipe_generates(self, catalog_recipe):
         config = tomllib.loads(
-            (_catalog_recipe("redmine-nixgen") / "hop3.toml").read_text()
+            (catalog_recipe("redmine-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "redmine")
         output = generate(spec)
@@ -1482,9 +1469,9 @@ class TestGoSourceExecTargetCheck:
         output = generate(self._spec())
         assert "''${goApp}/bin" not in output
 
-    def test_the_real_forgejo_recipe_execs_the_binary_go_builds(self):
+    def test_the_real_forgejo_recipe_execs_the_binary_go_builds(self, catalog_recipe):
         config = tomllib.loads(
-            (_catalog_recipe("forgejo-nixgen") / "hop3.toml").read_text()
+            (catalog_recipe("forgejo-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "forgejo")
         assert spec.exec_target == "forgejo.org"

@@ -24,8 +24,13 @@ Two responsibilities, both cross-package:
 from __future__ import annotations
 
 import os
+from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
 
 # Env vars that name a REMOTE deploy/test target. They must never select or
 # point a pytest target (see module docstring). Stripped session-wide so no
@@ -90,3 +95,34 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
             item.add_marker("integration")
         else:
             item.add_marker("fast")
+
+
+@pytest.fixture(scope="session")
+def catalog_apps() -> Path:
+    """
+    The sibling catalog checkout's ``apps/``.
+
+    Corpus regressions read real recipes, and the recipes live in the catalog
+    repository now. One fixture rather than a constant per test file: four of
+    them had grown, each counting ``Path(__file__).parents[N]`` to a different
+    depth, which is a fact about where a file sits rather than about the corpus.
+    """
+    return Path(__file__).resolve().parent.parent / "hop3-catalog" / "apps"
+
+
+@pytest.fixture(scope="session")
+def catalog_recipe(catalog_apps: Path) -> Callable[[str], Path]:
+    """
+    Resolve a recipe directory by app id, wherever its maturity has filed it.
+
+    Globs rather than joins: a recipe moves between ``golden``, ``beta`` and
+    ``alpha`` as it earns or loses a status (ADR 059), so its status directory
+    is not knowable from its id and a joined path would break on promotion.
+    """
+
+    def resolve(app_id: str) -> Path:
+        hits = sorted(catalog_apps.glob(f"*/{app_id}/hop3.toml"))
+        assert hits, f"no catalog recipe for {app_id!r} under {catalog_apps}"
+        return hits[0].parent
+
+    return resolve

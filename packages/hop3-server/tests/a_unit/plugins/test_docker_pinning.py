@@ -12,22 +12,7 @@ refuses rather than producing an image nobody can rebuild.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from hop3.plugins.docker.builder import unpinned_base_images
-
-#: The catalog corpus. Recipes are filed by maturity (ADR 059), so an app's
-#: status directory is not knowable from its id — resolve by globbing rather
-#: than joining a path, or a promotion breaks the test.
-_CATALOG_APPS = Path(__file__).resolve().parents[6] / "hop3-catalog" / "apps"
-
-
-def _catalog_recipe(app_id: str) -> Path:
-    """The recipe dir for ``app_id``, wherever its maturity has put it."""
-    hits = sorted(_CATALOG_APPS.glob(f"*/{app_id}/hop3.toml"))
-    assert hits, f"no catalog recipe for {app_id!r} under {_CATALOG_APPS}"
-    return hits[0].parent
-
 
 DIGEST = "sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd"
 
@@ -60,9 +45,9 @@ def test_lowercase_from_and_as_are_handled():
     assert unpinned_base_images(dockerfile) == []
 
 
-def test_the_shipped_corpus_is_fully_pinned():
+def test_the_shipped_corpus_is_fully_pinned(catalog_apps):
     """Regression guard: every Dockerfile in the docker variant stays pinned."""
-    root = _CATALOG_APPS / "alpha"
+    root = catalog_apps / "alpha"
     # Fail rather than skip: a guard that quietly finds nothing to check is
     # indistinguishable from a guard that passes.
     assert root.is_dir(), f"app corpus not found at {root}"

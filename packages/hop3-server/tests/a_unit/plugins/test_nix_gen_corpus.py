@@ -26,25 +26,15 @@ import tomllib
 from hop3.plugins.build.nix.gen.registry import generate, get_template
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
-#: The catalog corpus. Recipes are filed by maturity (ADR 059), so an app's
-#: status directory is not knowable from its id — resolve by globbing rather
-#: than joining a path, or a promotion breaks the test.
-_CATALOG_APPS = Path(__file__).resolve().parents[6] / "hop3-catalog" / "apps"
-
-
-def _catalog_recipe(app_id: str) -> Path:
-    """The recipe dir for ``app_id``, wherever its maturity has put it."""
-    hits = sorted(_CATALOG_APPS.glob(f"*/{app_id}/hop3.toml"))
-    assert hits, f"no catalog recipe for {app_id!r} under {_CATALOG_APPS}"
-    return hits[0].parent
-
-
 # apps/test-apps-nix holds hand-written hop3.nix files, which this test has
 # nothing to say about; apps/test-apps-nix-gen holds the small templated
 # fixtures that mirror them.
+#: Relative to the repo root, like the fixture path beside it — the suite runs
+#: from there. NOT the `catalog_recipe` fixture: these feed `params=` below,
+#: which pytest evaluates at collection time, before any fixture exists.
 CORPUS_ROOTS = (
-    _CATALOG_APPS / "beta",
-    _CATALOG_APPS / "alpha",
+    Path("../hop3-catalog/apps/beta"),
+    Path("../hop3-catalog/apps/alpha"),
     Path("apps/test-apps-nix-gen"),
 )
 
