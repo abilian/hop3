@@ -297,7 +297,20 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
     elif args.host:
         config.host = args.host
     if args.docker:
+        # `--docker` names the target, and a container has no host. The config
+        # came from `from_env()`, which read HOP3_HOST / HOP3_DEV_HOST before
+        # anyone knew this was a Docker run — so a shell with a dev box exported
+        # sent a `--docker` deploy off to configure the CLI against that box.
+        # Clear it rather than carry it: an ambient variable must not decide
+        # which machine a run touches.
+        if args.host or args.provider:
+            msg = (
+                "--docker deploys to a local container, so it cannot be combined "
+                "with --host or --provider, which name a different target. Pick one."
+            )
+            raise SystemExit(msg)
         config.use_docker = True
+        config.host = ""
     if args.docker_image is not None:
         config.docker_image = args.docker_image
     if args.docker_container is not None:
