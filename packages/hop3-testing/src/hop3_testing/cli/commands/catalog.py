@@ -44,7 +44,7 @@ def list_tests(
     \b
     Examples:
       hop3-test list                           # All tests
-      hop3-test list apps/real-apps-docker     # Only docker apps
+      hop3-test list ../hop3-catalog/apps/beta # Only the beta tier
       hop3-test list demos -t fast             # Fast demos
       hop3-test list --show 010-flask-pip-wsgi # Show details
     """

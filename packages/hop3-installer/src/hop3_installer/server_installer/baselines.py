@@ -1,9 +1,8 @@
 # Copyright (c) 2025-2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
-"""
-Catalogue-derived installer baselines, per OS family.
+"""Catalogue-derived installer baselines, per OS family.
 
-GENERATED FROM apps/*/hop3.toml by
+GENERATED FROM the catalog's apps/<status>/*/hop3.toml by
 `python -m hop3_installer.server_installer.baseline`.
 Do not edit by hand. Regenerate after catalogue changes.
 """

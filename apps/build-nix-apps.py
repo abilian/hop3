@@ -10,8 +10,8 @@ updates the hop3.nix file with the correct hash and retries the build.
 
 Usage:
     ./build-nix-apps.py test-apps-nix             # Build only test apps
-    ./build-nix-apps.py real-apps-nix             # Build only real apps
-    ./build-nix-apps.py test-apps-nix real-apps-nix  # Both
+    ./build-nix-apps.py ../../hop3-catalog/apps/beta  # Build the catalog's Nix apps
+    ./build-nix-apps.py test-apps-nix ../../hop3-catalog/apps/beta  # Both
     ./build-nix-apps.py test-apps-nix --app flask-hello  # Single app
     ./build-nix-apps.py test-apps-nix --fix-hashes       # Auto-fix hashes
     ./build-nix-apps.py test-apps-nix --debug            # Full error output
