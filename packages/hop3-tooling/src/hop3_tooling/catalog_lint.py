@@ -24,6 +24,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.server.catalog.loader import find_icon, find_screenshots, load_apps
+from hop3.server.catalog.policy import PUBLISHABLE_STATUSES
 from hop3.server.catalog.taxonomy import CATEGORY_MAPPING
 
 if TYPE_CHECKING:
@@ -91,11 +92,40 @@ def lint_app(app: CatalogApp) -> list[Violation]:
     return violations
 
 
+def published_apps(apps_dir: Path) -> list[CatalogApp]:
+    """The entries the catalog actually offers (ADR 059)."""
+    return [a for a in load_apps(apps_dir) if a.status in PUBLISHABLE_STATUSES]
+
+
 def lint_catalog(apps_dir: Path) -> list[Violation]:
-    """Check every entry under ``apps_dir``, in id order."""
-    apps = load_apps(apps_dir)
-    if not apps:
+    """
+    Check every *published* entry under ``apps_dir``, in id order.
+
+    Every rule here asks whether an entry is fit to show an operator, so it
+    applies to the entries an operator is shown. A recipe kept at ``alpha`` or
+    ``broken`` (ADR 059) is in the repository as a record, not an offer: it has
+    no icon, no screenshot and no curated description because nobody is being
+    invited to install it. Holding those to a presentation bar would make the
+    only way to satisfy the lint deleting them.
+    """
+    # Two different failures, and telling them apart is the whole value of the
+    # message: an empty tree is a wrong path or a broken checkout, while a tree
+    # of recipes with nothing publishable is a real state of the catalog — and
+    # one that must still fail, because signing an empty catalog would unpublish
+    # every app on every node.
+    all_apps = load_apps(apps_dir)
+    if not all_apps:
         msg = f"no catalog apps under {apps_dir}"
+        raise ValueError(msg)
+
+    apps = [a for a in all_apps if a.status in PUBLISHABLE_STATUSES]
+    if not apps:
+        statuses = ", ".join(sorted({a.status for a in all_apps}))
+        msg = (
+            f"no published catalog apps under {apps_dir}: all {len(all_apps)} "
+            f"recipe(s) are at a status the catalog does not publish ({statuses}). "
+            f"Promote at least one, or this would sign an empty catalog."
+        )
         raise ValueError(msg)
 
     violations: list[Violation] = []

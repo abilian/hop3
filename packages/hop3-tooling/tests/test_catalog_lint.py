@@ -174,3 +174,36 @@ def test_an_empty_catalog_is_an_error(apps_dir):
 
     with pytest.raises(ValueError, match="no catalog apps"):
         lint_catalog(apps_dir)
+
+
+def test_a_catalog_with_nothing_publishable_is_a_different_error(apps_dir):
+    """
+    Recipes present but none offered — a real state, and still a failure.
+
+    Distinct from the empty tree above: that one means a wrong path, this one
+    means the catalog would be signed with nothing in it, unpublishing every app
+    on every node. The message has to say which, or the fix is a guess.
+    """
+    apps_dir.mkdir()
+    _app(apps_dir / "alpha", name="grafana")
+
+    with pytest.raises(ValueError, match="all 1 recipe") as exc_info:
+        lint_catalog(apps_dir)
+
+    assert "alpha" in str(exc_info.value)
+
+
+def test_unpublished_entries_are_not_held_to_the_presentation_bar(apps_dir):
+    """
+    An `alpha` recipe has no icon and no screenshot because nobody is offered it.
+
+    Linting it would leave deletion as the only way to go green, discarding the
+    record of why the app is hard — which is what keeping it is for.
+    """
+    apps_dir.mkdir()
+    _app(apps_dir / "golden", name="gitea")
+    bare = apps_dir / "alpha" / "grafana"
+    bare.mkdir(parents=True)
+    (bare / "hop3.toml").write_text(COMPLETE_RECIPE.replace('"gitea"', '"grafana"'))
+
+    assert lint_catalog(apps_dir) == []
