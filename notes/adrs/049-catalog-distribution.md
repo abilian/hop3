@@ -30,6 +30,8 @@ Distribute the catalog as a **signed artifact pulled over HTTPS**, verified agai
 
 The per-app artifact shape (a directory of `<app-id>/{hop3.toml, readme.md, icon.*}`) is the boundary that does **not** change across phases. Shipping `index.json` inside the v1 tarball lets v2 move to fetch-on-demand without changing the format the node already understands.
 
+That boundary constrains how a recipe's maturity status ([ADR 059](./059-catalog-maturity-status.md)) reaches a node. The status is the directory a recipe occupies in the catalog *source* tree; the publish step walks that hierarchy and emits the same flat `<app-id>/…` tree, recording each app's status as a field in `index.json`. The artefact gains a field and keeps its shape, so the bijection above and every deployed loader are unaffected. Only publishable statuses appear at all — an entry that is absent from the index is absent from the tarball, which is the invariant, not an exception to it.
+
 ### Trust model
 
 HTTPS authenticates the channel; the realistic threat is compromise of the origin/bucket/CDN/CI, against which TLS is useless. So the root of trust is an **offline signature**: the catalog is trusted because the Hop3 release key signed it, independent of who serves the bytes. We use **minisign** (Ed25519 detached signatures), verified with the `cryptography` library Hop3 already depends on: no new dependency and no `minisign` binary in the path.
