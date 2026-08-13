@@ -73,7 +73,7 @@ def default_catalog_apps(root: Path) -> Path | None:
     return candidate if candidate.is_dir() else None
 
 
-def default_scan_paths(root: Path, catalog_apps: Path | None = None) -> list[str]:
+def default_scan_paths(root: Path) -> list[str]:
     """
     Default scan set: the catalog's published apps, plus this repo's fixtures.
 
@@ -91,11 +91,13 @@ def default_scan_paths(root: Path, catalog_apps: Path | None = None) -> list[str
     operator installs.
 
     Absolute paths are returned for the catalog and relative ones for this repo;
-    ``Catalog.scan`` joins both correctly.
+    ``Catalog.scan`` joins both correctly. To run against a different checkout,
+    pass its path to `hop3-test run` directly — an option for it would be a
+    second way to say the same thing.
     """
     paths: list[str] = []
 
-    catalog_apps = catalog_apps or default_catalog_apps(root)
+    catalog_apps = default_catalog_apps(root)
     if catalog_apps:
         paths += [
             str(catalog_apps / suite)
