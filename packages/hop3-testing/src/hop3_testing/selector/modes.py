@@ -87,10 +87,12 @@ _CURATED_SEED: list[str] = [
     "apps/test-apps-procfile/050-clojure",
     "apps/test-apps-nix/golang-minimal",
     "apps/test-apps-nix/static-hello",
-    # One real application, from the catalog: the fast set is meant to touch
-    # a genuine app, and adminer sits at `alpha` (unverified) so it is not in
-    # the default scan set. isso is small and golden.
-    "../hop3-catalog/apps/golden/isso",
+    # One real application, from the catalog. Named by its ID, not its path:
+    # a catalog test's name is its app id (`isso`), because its directory sits
+    # outside this repo and so has no path relative to the root — while a local
+    # fixture is still named `apps/test-apps-procfile/000-static`. A path here
+    # matches nothing, silently, and the fast set just gets smaller.
+    "isso",
     # demos — the three simplest (run in order; fail-fast stops the rest)
     "demos/demo01",
     "demos/demo02",
