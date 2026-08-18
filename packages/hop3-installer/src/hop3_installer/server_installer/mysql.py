@@ -10,6 +10,7 @@ import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
+    control_service,
     print_detail,
     print_info,
     print_success,
@@ -61,22 +62,27 @@ def _get_debian_mysql_credentials() -> tuple[str, str] | None:
     return None
 
 
+#: Service names to try, in order. Debian/Ubuntu ship `mysql`; MariaDB-based
+#: distros ship `mariadb`.
+_MYSQL_SERVICE_NAMES = ("mysql", "mariadb")
+
+
 def _start_mysql_service() -> bool:
     """
-    Start MySQL or MariaDB service.
+    Start MySQL or MariaDB, whichever this distro ships.
 
-    Returns:
-        True if service started successfully, False otherwise.
+    Uses systemd when available, the init script otherwise — the same shape
+    `_start_postgres_service` uses. There was no second branch: `systemctl start`
+    was the only thing tried, so on a container it always failed and the install
+    aborted with "Could not start MySQL service", two steps after PostgreSQL had
+    started fine through its own non-systemd path in the same run.
     """
-    run_cmd(["systemctl", "enable", "mysql"], check=False)
-    result = run_cmd(["systemctl", "start", "mysql"], check=False)
+    return control_service("start", *_MYSQL_SERVICE_NAMES)
 
-    if result.returncode != 0:
-        # Try mariadb service name (some distros use this)
-        run_cmd(["systemctl", "enable", "mariadb"], check=False)
-        result = run_cmd(["systemctl", "start", "mariadb"], check=False)
 
-    return result.returncode == 0
+def _restart_mysql() -> bool:
+    """Restart MySQL using whichever init system is actually running."""
+    return control_service("restart", *_MYSQL_SERVICE_NAMES)
 
 
 def _find_mysql_admin_connection() -> tuple[list[str], dict[str, str]] | None:
@@ -408,10 +414,16 @@ def _configure_mysql_for_docker(
     _create_mysql_docker_user(root_cmd, root_env, mysql_password, docker_ip)
 
     if bind_changed:
-        # Restart MySQL to apply bind-address change
-        result = run_cmd(["systemctl", "restart", "mysql"], check=False)
-        if result.returncode != 0:
-            run_cmd(["systemctl", "restart", "mariadb"], check=False)
+        # Restart MySQL to apply bind-address change. The message below used to
+        # print whichever way the restart went: on a non-systemd host both
+        # `systemctl restart` calls failed, MySQL kept its old bind address, and
+        # the installer announced that Docker containers could reach it.
+        if not _restart_mysql():
+            print_warning(
+                "MySQL bind-address was changed but the service could not be "
+                "restarted; Docker containers will not reach it until it is"
+            )
+            return
         print_detail("MySQL configured to accept connections from Docker containers")
 
 

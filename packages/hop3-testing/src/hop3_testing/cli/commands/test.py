@@ -12,7 +12,12 @@ from typing import TYPE_CHECKING, Literal, cast
 
 import click
 
-from hop3_testing.catalog import Catalog, default_scan_paths
+from hop3_testing.catalog import (
+    CATALOG_STATUSES,
+    Catalog,
+    catalog_status_paths,
+    default_scan_paths,
+)
 from hop3_testing.catalog.features import (
     merge_features,
     required_features_from_tests,
@@ -46,6 +51,8 @@ def _resolve_tests(
     root: Path,
     mode: str,
     target_type: str,
+    statuses: tuple[str, ...] = (),
+    covers: tuple[str, ...] = (),
 ) -> list[TestDefinition]:
     """
     Resolve app_names into a list of TestDefinitions.
@@ -54,7 +61,36 @@ def _resolve_tests(
     - Specific paths/names given -> look them up
     - Scan directories given -> scan and return all
     - Nothing given -> use mode-based selection on default paths
+
+    ``statuses`` and ``covers`` are the two orthogonal axes of the catalog:
+    maturity (the folder, ADR 059) and technology (the recipe's ``covers``
+    tags). Keeping them separate is the point — pinning "the Nix suite" to a
+    maturity folder held only while every Nix recipe happened to sit in one, and
+    silently dropped the 34 that had moved on.
     """
+    # A status *is* a directory, so it needs no branch of its own: it joins the
+    # scan set and everything downstream treats it like any other path.
+    if statuses:
+        app_names += tuple(catalog_status_paths(root, statuses))
+
+    return _by_covers(_resolve_named(app_names, root, mode, target_type), covers)
+
+
+def _by_covers(
+    tests: list[TestDefinition], covers: tuple[str, ...]
+) -> list[TestDefinition]:
+    """Keep the tests declaring any of the given ``[test].covers`` tags."""
+    if not covers:
+        return tests
+    return [t for t in tests if any(c in t.metadata.covers for c in covers)]
+
+
+def _resolve_named(
+    app_names: tuple[str, ...],
+    root: Path,
+    mode: str,
+    target_type: str,
+) -> list[TestDefinition]:
     if not app_names:
         # No args: scan everything, use mode-based selection
         catalog = Catalog(root)
@@ -282,6 +318,18 @@ def _run_image_sweep(
     multiple=True,
     help="Extra features on top of the apps' auto-provisioned addons — repeatable or comma-separated (e.g. --with nix,redis, or --with all)",
 )
+@click.option(
+    "--status",
+    "statuses",
+    multiple=True,
+    type=click.Choice(CATALOG_STATUSES),
+    help="Catalog maturity tier to run — repeatable (e.g. --status golden --status beta)",
+)
+@click.option(
+    "--covers",
+    multiple=True,
+    help="Keep only apps declaring this [test].covers tag — repeatable (e.g. --covers nix)",
+)
 @click.pass_context
 def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
     ctx: click.Context,
@@ -309,6 +357,8 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     narrate: bool,
     logs_dir: str | None,
     features: tuple[str, ...],
+    statuses: tuple[str, ...],
+    covers: tuple[str, ...],
 ) -> None:
     """
     Deploy Hop3 and run tests.
@@ -320,6 +370,8 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     Examples:
       hop3-test run --docker                  # Deploy + test defaults
       hop3-test run --docker apps/test-apps   # Scan a directory
+      hop3-test run --docker --status golden  # One maturity tier
+      hop3-test run --docker --covers nix      # Every Nix app, any tier
       hop3-test run --docker --clean --with all demos
       hop3-test run --host X                  # Remote (--host implies remote)
       hop3-test run --host X demos/demo03     # Specific app on a remote
@@ -421,13 +473,20 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
 
     # Resolve tests
     root = ctx.obj["root"]
-    tests = _resolve_tests(app_names, root, mode, target_type)
+    tests = _resolve_tests(app_names, root, mode, target_type, statuses, covers)
 
     if not tests:
-        click.echo("No tests found")
+        # Exit non-zero: a selection that matches nothing is a mistake in the
+        # selection, and reporting it as a clean run is how a typo'd --status or
+        # a moved directory passes CI as "all green".
+        click.echo("No tests found", err=True)
         if app_names:
-            click.echo(f"Searched: {', '.join(app_names)}")
-        return
+            click.echo(f"Searched: {', '.join(app_names)}", err=True)
+        if statuses:
+            click.echo(f"Status: {', '.join(statuses)}", err=True)
+        if covers:
+            click.echo(f"Covers: {', '.join(covers)}", err=True)
+        ctx.exit(1)
 
     # Show plan
     click.echo(f"\n{'=' * 70}")

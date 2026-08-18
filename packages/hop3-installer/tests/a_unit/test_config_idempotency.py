@@ -269,6 +269,10 @@ def test_install_restarts_server_after_writing_config(monkeypatch):
 
 def test_restart_hop3_server_uses_systemctl_on_systemd(monkeypatch):
     issued: list[list[str]] = []
+    # A box that HAS a process manager, which is what these two describe. The
+    # restart is skipped in the window before one exists — see
+    # test_process_manager_pending.py.
+    monkeypatch.setattr(services, "process_manager_pending", lambda: False)
     monkeypatch.setattr(services, "has_systemd", lambda: True)
     monkeypatch.setattr(
         services,
@@ -283,6 +287,10 @@ def test_restart_hop3_server_uses_systemctl_on_systemd(monkeypatch):
 
 def test_restart_hop3_server_uses_supervisorctl_without_systemd(monkeypatch):
     issued: list[list[str]] = []
+    # A box that HAS a process manager, which is what these two describe. The
+    # restart is skipped in the window before one exists — see
+    # test_process_manager_pending.py.
+    monkeypatch.setattr(services, "process_manager_pending", lambda: False)
     monkeypatch.setattr(services, "has_systemd", lambda: False)
     monkeypatch.setattr(
         services,
@@ -293,3 +301,27 @@ def test_restart_hop3_server_uses_supervisorctl_without_systemd(monkeypatch):
     )
     services.restart_hop3_server()
     assert ["supervisorctl", "restart", "hop3-server"] in issued
+
+
+def test_no_restart_is_attempted_before_a_process_manager_exists(monkeypatch, capsys):
+    """
+    The window between the installer and the deployer on a Docker target.
+
+    Restarting here printed "Failed to restart hop3-server after writing config"
+    and warned about a stale config — for a process that had never started, and
+    that will read this very file when the process manager first launches it.
+    """
+    issued: list[list[str]] = []
+    monkeypatch.setattr(services, "process_manager_pending", lambda: True)
+    monkeypatch.setattr(
+        services,
+        "run_cmd",
+        lambda cmd, **k: (
+            issued.append(cmd) or types.SimpleNamespace(returncode=0, stderr="")
+        ),
+    )
+
+    services.restart_hop3_server()
+
+    assert issued == []
+    assert "will load this config" in capsys.readouterr().out

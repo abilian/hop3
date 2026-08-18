@@ -224,16 +224,30 @@ test-app:
 	@if [ -z "$(APP)" ]; then echo "Usage: make test-app APP=<app-path-or-name>"; exit 1; fi
 	uv run hop3-test run --docker $(APP)
 
+## One maturity tier: make test-apps-golden | -beta | -alpha | -broken
+## A pattern rule, not five targets — the statuses are hop3-test's to know
+## (it rejects an unknown one), and a copy here would be a second list to keep
+## in step with the catalog's folders.
+test-apps-%:
+	uv run hop3-test run --docker --status $*
+
 ## Deploy Hop3 + run the Nix suite (the M2.2 nix-runtime gate).
 ## Docker by default; pass HOST=<box> to run it against a real server.
 ## Deliberately NOT taken from an env var: an ambient value silently
 ## redirecting a deploy at someone's server is the ADR 043 taboo.
-## The real Nix apps come from the catalog now (its `beta` tier is exactly the
-## Nix-built variants); the two test-apps families stay here as fixtures.
-NIX_SUITE = apps/test-apps-nix apps/test-apps-nix-gen $(CATALOG_APPS)/beta
+##
+## Selected by TECHNOLOGY (`--covers nix`), not by folder. This used to point at
+## the catalog's `beta` tier because every Nix recipe happened to live there —
+## which stopped being true the moment one was promoted or demoted, and already
+## missed the 34 Nix recipes filed under `alpha` and `broken`. Maturity and build
+## tech are orthogonal axes; only one of them describes a Nix app. As a gate it
+## still runs the publishable tiers only — `alpha`/`broken` Nix recipes are
+## reachable with `hop3-test run --status alpha --covers nix`.
+NIX_SUITE = apps/test-apps-nix apps/test-apps-nix-gen
 test-nix:
-	@echo "--> Testing Nix apps (hop3-test run --with nix)$(if $(HOST), on $(HOST), on Docker)"
-	uv run hop3-test run $(if $(HOST),--host $(HOST),--docker) --with nix $(NIX_SUITE)
+	@echo "--> Testing Nix apps (hop3-test run --covers nix)$(if $(HOST), on $(HOST), on Docker)"
+	uv run hop3-test run $(if $(HOST),--host $(HOST),--docker) --with nix \
+	  --status golden --status beta --covers nix $(NIX_SUITE)
 
 ## Reproducibility gate: rebuild every nix-gen app and fail if any output drifts
 ## The catalog files `-nix` and `-nixgen` together under `beta`, but the tier

@@ -228,6 +228,18 @@ class DeployBackend(ABC):
         """
         return f"systemctl restart {service}"
 
+    def service_logs_command(self, service: str) -> str:
+        """
+        The shell command that shows a managed service's recent logs.
+
+        The sibling of `service_restart_command`, and needed for the same
+        reason: a failed restart printed "Diagnose: journalctl -u hop3-server"
+        on every target, including containers that have neither systemd nor a
+        journal. Advice that cannot be followed is worse than none — it sends
+        the reader looking for the wrong thing.
+        """
+        return f"journalctl -u {service} -n 100 --no-pager"
+
     def restart_service(self, service: str) -> CommandResult:
         """
         Restart a managed service, best-effort.

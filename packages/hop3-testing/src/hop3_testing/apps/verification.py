@@ -30,6 +30,16 @@ if TYPE_CHECKING:
     from .catalog import AppSource
 
 
+def tls_port_for(http_port: int | None) -> int:
+    """
+    The TLS port matching a published HTTP port.
+
+    The Docker backend publishes 8080->80 and 8443->443 as a pair, so this is
+    the mapping's own convention rather than arithmetic on a number.
+    """
+    return {8080: 8443, 80: 443, None: 443}.get(http_port, 443)
+
+
 def _status_match(actual: int, expected: int | Iterable[int]) -> bool:
     """Whether ``actual`` satisfies ``expected`` (scalar or any-of)."""
     if isinstance(expected, int):
@@ -117,6 +127,7 @@ class HttpVerifier:
                     headers={"Host": hostname},
                     timeout=2.0,
                     follow_redirects=False,
+                    verify=False,  # ken: self-signed per-host cert, and never leaves loopback
                 )
 
                 # Log redirect info if we got a 3xx
@@ -144,6 +155,7 @@ class HttpVerifier:
                     headers={"Host": hostname},
                     timeout=2.0,
                     follow_redirects=True,
+                    verify=False,  # ken: self-signed per-host cert, and never leaves loopback
                 )
 
                 result["details"]["status_code"] = response.status_code
@@ -200,9 +212,19 @@ class HttpVerifier:
         return result
 
     def _build_url(self, path: str) -> str:
-        """Build the full URL for testing."""
-        http_base = self.target_info.http_base.rstrip("/")
-        return f"{http_base}{path}"
+        """
+        The URL to test, over TLS.
+
+        This route is the fallback for an app with no direct port — a static
+        site, served by nginx itself. Its sibling exists (as its docstring says)
+        "to avoid hostname resolution and SSL redirect issues", and this one had
+        neither defence: Hop3 redirects HTTP to HTTPS, so a plain-HTTP request
+        here got a 301 and the check reported it as the app's status. Going to
+        the TLS port is what the redirect was asking for.
+        """
+        parsed = urlparse(self.target_info.http_base)
+        host = parsed.hostname or "localhost"
+        return f"https://{host}:{tls_port_for(parsed.port)}{path}"
 
 
 @dataclass(frozen=True)
@@ -314,19 +336,7 @@ class CheckScriptRunner:
             # Remote target - use the actual remote hostname
             hostname = parsed.hostname or "localhost"
 
-        return hostname, self._tls_port(parsed.port)
-
-    @staticmethod
-    def _tls_port(http_port: int | None) -> int:
-        """
-        The TLS port matching a published HTTP port.
-
-        The Docker backend publishes 8080→80 and 8443→443 as a pair, so the
-        offset is the mapping's own convention rather than arithmetic on a
-        number. A target reached on the standard port answers on the standard
-        TLS port.
-        """
-        return {8080: 8443, 80: 443, None: 443}.get(http_port, 443)
+        return hostname, tls_port_for(parsed.port)
 
 
 @dataclass

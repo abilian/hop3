@@ -12,8 +12,10 @@ from pathlib import Path
 from hop3_installer.common import (
     has_systemd,
     print_detail,
+    print_info,
     print_success,
     print_warning,
+    process_manager_pending,
     run_cmd,
 )
 from hop3_installer.nginx_templates import SYSTEMD_UNIT, UWSGI_UNIT
@@ -199,6 +201,17 @@ def restart_hop3_server() -> None:
     A failed restart is surfaced by ``verify_installation`` (it checks the
     service is active), so warn here rather than abort.
     """
+    # Nothing to restart yet: on a Docker target the process manager is set up
+    # after this installer returns, and it starts hop3-server fresh — which
+    # reads the config file that was just written. The stale-config hazard this
+    # function exists for cannot arise there, because the process never booted
+    # before the file existed.
+    if process_manager_pending():
+        print_info(
+            "hop3-server will load this config when the process manager starts it"
+        )
+        return
+
     if has_systemd():
         result = run_cmd(["systemctl", "restart", "hop3-server"], check=False)
     else:

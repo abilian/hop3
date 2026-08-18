@@ -16,6 +16,7 @@ from pathlib import Path
 from hop3_installer.common import (
     CommandError,
     Spinner,
+    create_symlink,
     make_build_info,
     print_info,
     print_success,
@@ -37,6 +38,9 @@ from hop3_installer.constants import (
 
 from .config import ServerInstallerConfig
 from .user import run_as_hop3
+
+#: Where app build hooks find the download helper (see publish_fetch_helper).
+FETCH_HELPER_LINK = Path("/usr/local/bin/hop3-fetch")
 
 
 def _get_python_executable() -> str:
@@ -116,10 +120,40 @@ def install_package(config: ServerInstallerConfig) -> None:
 
     print_success("hop3-server installed successfully")
 
+    publish_fetch_helper()
+
     install_rootd_package(config)
     install_cli_package(config)
 
     write_build_info(config)
+
+
+def publish_fetch_helper() -> None:
+    """
+    Put ``hop3-fetch`` on PATH for app build hooks.
+
+    Recipes call it from ``[build].before-build`` to fetch their upstream
+    source through Hop3's shared download cache. Build hooks run with the
+    server process's PATH, which does not include the server venv — and it
+    must not: prepending that venv would shadow ``python3`` inside every app
+    build. So the helper is symlinked into /usr/local/bin, the same way the
+    installer publishes cargo, elixir and hop3-rootd.
+
+    A missing helper is fatal here rather than at deploy time, where it
+    surfaces as ``hop3-fetch: command not found`` from inside a recipe's
+    download script — a message that blames the recipe for a broken install.
+    """
+    source = VENV_DIR / "bin" / "hop3-fetch"
+    if not create_symlink(source, FETCH_HELPER_LINK):
+        msg = (
+            f"hop3-fetch not found at {source}, so it cannot be published to "
+            f"{FETCH_HELPER_LINK}. Catalog recipes call it to download their "
+            "sources and would fail at deploy time with 'command not found'. "
+            "The installed hop3-server predates the helper — install a "
+            "current version, or drop the --version pin."
+        )
+        raise FileNotFoundError(msg)
+    print_success(f"hop3-fetch published to {FETCH_HELPER_LINK}")
 
 
 def write_build_info(config: ServerInstallerConfig) -> None:

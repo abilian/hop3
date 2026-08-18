@@ -102,7 +102,13 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
     "ruby-bundler": (RubyBundlerPayload, {}),
     "python-venv": (
         PythonVenvPayload,
-        {"pip-requirements": "requirements", "pip-deps-hash": "deps_hash"},
+        {
+            "pip-requirements": "requirements",
+            "pip-deps-hash": "deps_hash",
+            "pip-source-packages": "source_packages",
+            "pip-build-inputs": "build_inputs",
+            "pip-build-requires": "build_requires",
+        },
     ),
     "node-pnpm-install": (
         NodePnpmInstallPayload,

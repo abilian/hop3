@@ -145,8 +145,22 @@ class MySQLAdmin:
             or None
         )
 
-        # Auto-detect unix socket on macOS/Linux if not explicitly set
-        if not unix_socket:
+        # Auto-detect a unix socket ONLY when there is no password to connect
+        # with. The socket is the Homebrew/MariaDB laptop pattern, where auth is
+        # by peer credential and no password exists; a configured password means
+        # someone provisioned a TCP account and that is what to use.
+        #
+        # Preferring the socket whenever one merely EXISTS overrode both the
+        # configured MYSQL_HOST (127.0.0.1 by default) and the account the
+        # installer creates — it makes 'hop3'@'127.0.0.1' with a password, and
+        # says so when it fails: "MySQL must be running and accept a TCP
+        # connection as 'hop3' on 127.0.0.1:3306". On a server hop3-server runs
+        # as the `hop3` user, which cannot connect to mysqld's socket, so every
+        # app declaring a mysql addon died on
+        # "[Errno 13] Permission denied: '/var/run/mysqld/mysqld.sock'" —
+        # seven of twenty golden apps, on a box where MySQL was running fine and
+        # the installer had verified its own TCP connection.
+        if not unix_socket and not password:
             unix_socket = _find_mysql_socket()
 
         # When using unix socket auth and no explicit superuser was configured,

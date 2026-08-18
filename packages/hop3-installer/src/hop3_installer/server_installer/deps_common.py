@@ -248,11 +248,29 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
         )
     if result.returncode == 0:
         print_success(f"{name} packages installed")
-    else:
-        print_warning(f"{name} installation failed")
-        if result.stderr:
-            for line in result.stderr.strip().split("\n")[-5:]:
+        return
+
+    # Every caller is guarded by `config.with_<feature>`, so reaching here means
+    # the operator asked for this feature by name and did not get it. A warning
+    # let the install continue and report success: `--with mysql` printed one
+    # line, then apps needing MySQL deployed against a database that was never
+    # configured. Abort, like the catalogue baseline below.
+    #
+    # Both streams: the failure that hid behind this was mysql-server's postinst
+    # reporting "Unable to shut down server with process id ..." on *stdout*,
+    # while the five stderr lines shown said only that apt-utils was missing —
+    # which is a warning, and not the reason for anything.
+    print_error(f"{name} installation failed")
+    for stream in (result.stdout, result.stderr):
+        for line in (stream or "").strip().split("\n")[-8:]:
+            if line:
                 print_detail(line)
+    raise CommandError(
+        cmd=install_cmd,
+        returncode=result.returncode,
+        stderr=(result.stderr or "").strip(),
+        stdout=(result.stdout or "").strip(),
+    )
 
 
 # =============================================================================

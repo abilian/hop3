@@ -11,6 +11,8 @@ import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
+    control_service,
+    has_systemd,
     print_detail,
     print_info,
     print_success,
@@ -183,9 +185,16 @@ def configure_redis() -> None:
     if result.returncode == 0:
         print_detail("Redis configured as primary (not replica)")
 
-    # Enable and restart Redis service (restart to apply bind changes)
-    run_cmd(["systemctl", "enable", "redis-server"], check=False)
-    run_cmd(["systemctl", "restart", "redis-server"], check=False)
+    # Enable and restart Redis service (restart to apply bind changes).
+    #
+    # Through `control_service`, so this works without systemd. Both calls were
+    # bare `systemctl` with `check=False`: on a container they did nothing, said
+    # nothing, and Redis never started — surfacing much later as a connection
+    # error in whichever app had declared a redis addon.
+    if has_systemd():
+        run_cmd(["systemctl", "enable", "redis-server"], check=False)
+    if not control_service("restart", "redis-server"):
+        print_warning("Redis could not be restarted; apps needing it will fail")
 
     # Verify Redis is working
     result = run_cmd(["redis-cli", "PING"], check=False)

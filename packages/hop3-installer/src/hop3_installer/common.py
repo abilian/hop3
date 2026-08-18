@@ -352,6 +352,65 @@ def has_systemd() -> bool:
     return comm == "systemd"
 
 
+def control_service(action: str, *names: str) -> bool:
+    """
+    Run ``action`` (start/restart/stop) on the first of ``names`` that exists.
+
+    Uses systemd where systemd is running, and the sysvinit script otherwise —
+    so a service actually starts on a container instead of the call quietly
+    doing nothing. ``names`` is a preference list for packages that differ by
+    distro (``mysql``/``mariadb``).
+
+    The init script is invoked directly rather than through ``service``:
+    ``service`` defers to ``invoke-rc.d``, which consults ``policy-rc.d``, which
+    container images set to deny everything. We are the ones asking, so the
+    policy meant for package postinsts should not apply.
+
+    Returns:
+        True if one of the services was acted on successfully.
+    """
+    if has_systemd():
+        return any(
+            run_cmd(["systemctl", action, name], check=False).returncode == 0
+            for name in names
+        )
+
+    for name in names:
+        script = Path("/etc/init.d") / name
+        if script.is_file():
+            return run_cmd([str(script), action], check=False).returncode == 0
+    return False
+
+
+def process_manager_pending() -> bool:
+    """
+    Return True when no process manager is available to run services yet.
+
+    On a Docker target the deploy has two halves: this installer provisions the
+    box, and the *deployer* then writes the supervisor config and starts
+    supervisord. So between those halves there is a window with neither systemd
+    nor supervisord, and every service this installer might restart or check is
+    legitimately not running.
+
+    Three places treated that window as a fault — the restart after the config
+    write, the core-service check, and the database check — and the last one
+    gated the exit code, so a correct install ended in "Installation
+    verification failed!" with four warnings about services nothing had been
+    asked to start yet. The services ARE verified, by the deployer, once it has
+    a process manager to verify them against.
+    """
+    if has_systemd():
+        return False
+    return (
+        subprocess.run(
+            ["pgrep", "-x", "supervisord"],
+            capture_output=True,
+            check=False,
+        ).returncode
+        != 0
+    )
+
+
 # =============================================================================
 # System Detection
 # =============================================================================

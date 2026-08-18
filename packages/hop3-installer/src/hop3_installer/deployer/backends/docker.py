@@ -44,6 +44,18 @@ if TYPE_CHECKING:
 # Docker deploy backend; see the trust-model note at the top of the file.
 E2E_TEST_SECRET_KEY = "e2e-test-secret-key-do-not-use-in-production"
 
+# Where `hop3-fetch` keeps downloaded build inputs inside the container, and the
+# named volume that backs it. On a real server the cache lives under the hop3
+# home and persists by itself; here the container is thrown away between runs,
+# so without a volume every catalog run re-downloads every tarball — which is
+# what got this address rate-limited by GitHub in the first place.
+#
+# A named volume, not a bind mount: it survives `docker rm`, and `chown` works
+# on it (a macOS bind mount presents its own ownership, so the hop3 user could
+# not write there). Clear it with `docker volume rm hop3-download-cache`.
+DOWNLOAD_CACHE_VOLUME = "hop3-download-cache"
+DOWNLOAD_CACHE_PATH = "/var/cache/hop3-downloads"
+
 # Supervisor configuration for Hop3 services in Docker
 SUPERVISOR_CONFIG = f"""\
 # Supervisor configuration for Hop3 services in Docker
@@ -92,7 +104,7 @@ directory=/home/hop3
 user=hop3
 autostart=true
 autorestart=true
-environment=HOME="/home/hop3",HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed"
+environment=HOME="/home/hop3",HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_DOWNLOAD_CACHE="{DOWNLOAD_CACHE_PATH}"
 stdout_logfile=/var/log/supervisor/hop3-server.log
 stderr_logfile=/var/log/supervisor/hop3-server_err.log
 """
@@ -314,10 +326,40 @@ class DockerDeployBackend(DeployBackend):
                 "docker",
                 "run",
                 "-d",
+                # A real init as PID 1, so exited children get reaped.
+                #
+                # PID 1 was `sleep infinity`, which never calls wait(). Anything
+                # that forked a helper and waited for it to disappear then hung
+                # on a zombie: mysql-server-8.0's postinst starts a temporary
+                # mysqld, shuts it down cleanly, and polls for the pid to go —
+                # the pid stayed, so it reported "Unable to shut down server",
+                # dpkg failed, and the whole install died three steps later
+                # under an unrelated error about apt-utils. Any package whose
+                # postinst does the same would have hit it.
+                "--init",
+                # rootd manages the host firewall through nftables — it opens
+                # each app's fixed [[ports]] in the `inet hop3` table. That needs
+                # CAP_NET_ADMIN, which a container does not get by default.
+                #
+                # This was invisible while `nftables` was missing from the
+                # installer's package list: with no `nft` binary, rootd skipped
+                # reconciliation and started. Installing the package made it try,
+                # and `nft add table inet hop3` returned "Operation not
+                # permitted" — on which rootd exits. The socket at
+                # /run/hop3-rootd/socket never appeared and EVERY deploy failed
+                # at proxy reload, which also goes through rootd.
+                #
+                # The container is standing in for a server that manages its own
+                # firewall, so it needs the capability that implies. Without it,
+                # apps declaring fixed ports (owncast, matrix-synapse) can never
+                # be tested here at all.
+                "--cap-add=NET_ADMIN",
                 "--name",
                 self.container_name,
                 "-v",
                 f"{self.config.project_root}:/hop3:ro",
+                "-v",
+                f"{DOWNLOAD_CACHE_VOLUME}:{DOWNLOAD_CACHE_PATH}",
                 "-p",
                 "8000:8000",
                 "-p",
@@ -589,6 +631,10 @@ class DockerDeployBackend(DeployBackend):
         """
         return f"supervisorctl restart {service}"
 
+    def service_logs_command(self, service: str) -> str:
+        """Supervisor keeps the logs here; there is no journal in a container."""
+        return f"supervisorctl tail -100 {service}"
+
     def start_services(self) -> None:
         """
         Start supervisor to manage services after Hop3 installation.
@@ -603,6 +649,12 @@ class DockerDeployBackend(DeployBackend):
             ServiceStartError: If services fail to start.
         """
         print("  → Setting up supervisor to manage services...")
+
+        # Docker creates the volume's mountpoint root-owned, but builds run as
+        # hop3 — so hand it over before anything tries to write a download there.
+        # Non-recursive: existing entries were written by this same uid on an
+        # earlier run.
+        self.run(f"chown hop3:hop3 {DOWNLOAD_CACHE_PATH}")
 
         # Write supervisor config
         config_cmd = (
@@ -623,11 +675,18 @@ class DockerDeployBackend(DeployBackend):
                 "supervisorctl reread && supervisorctl update", check=False
             )
         else:
-            # Start supervisord in background
+            # Start supervisord in background. It daemonizes (the config sets no
+            # `nodaemon`), so this returns and the container keeps its own
+            # long-running process as PID 1.
+            #
+            # There used to be a `pkill -f 'sleep infinity'` here, to "kill the
+            # sleep process that's keeping the container alive". It never did:
+            # `sleep infinity` WAS pid 1, and the kernel discards a signal sent
+            # to pid 1 when pid 1 installed no handler for it. Under `--init`
+            # tini is pid 1 and the sleep is an ordinary child, so the same line
+            # would kill it for real — and tini exits when its child does,
+            # taking the container down in the middle of its own deploy.
             print("  → Starting supervisord...")
-            # Kill the sleep process that's keeping the container alive
-            self.run("pkill -f 'sleep infinity'", check=False)
-            # Start supervisord
             result = self.run(
                 "supervisord -c /etc/supervisor/supervisord.conf",
                 check=False,

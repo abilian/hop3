@@ -20,7 +20,10 @@ from hop3_testlab.catalog import (
 def test_title_map_uses_human_titles():
     titles = title_map()
     assert titles["demos/demo01"] == "Demo 1: uWSGI Deployment"
-    assert titles["apps/real-apps-native/etherpad"] == "Etherpad"
+    # Catalog apps are keyed by bare id, not by path — and the key is a *published*
+    # app: this asserted on `apps/real-apps-native/etherpad`, a tree that moved to
+    # the catalog, where etherpad sits at `alpha` and outside the default scan set.
+    assert titles["bookstack"] == "BookStack"
     # Tutorials use their markdown H1.
     assert "Flask" in titles["docs/tutorials/python/flask.md"]
 

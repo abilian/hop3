@@ -124,11 +124,13 @@ def test_host_alone_selects_remote(monkeypatch):
     monkeypatch.setattr(testmod, "_resolve_tests", lambda *a, **k: [])
     monkeypatch.delenv("HOP3_TEST_HOST", raising=False)
     result = CliRunner().invoke(cli, ["run", "--host", "1.2.3.4"])
-    # Remote was selected: no "specify --docker/--host" error, and it reaches the
-    # "No tests found" early return (exit 0).
-    assert result.exit_code == 0
+    # Remote was selected: no "specify --docker/--host" error, and it gets as far
+    # as resolving tests. The stub yields none, so the run then exits 1 — an
+    # empty selection is a mistake in the selection, not a clean run over
+    # nothing. What this test asserts is the target choice, not that exit code.
     assert "No tests found" in result.output
     assert "specify --docker" not in (result.stderr or "")
+    assert result.exit_code == 1
 
 
 def test_no_target_and_no_host_errors(monkeypatch):

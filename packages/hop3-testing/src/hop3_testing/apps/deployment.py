@@ -593,27 +593,40 @@ class DeploymentSession:
     ) -> dict[str, Any]:
         """Test HTTP via nginx on the remote server (for static/no-port apps).
 
-        Runs curl on the server targeting localhost:80 with the Host header set
-        to the hostname the app was actually deployed under. This MUST match the
-        nginx server_name (HOST_NAME) the harness set in prepare(); otherwise the
-        request misses the app's vhost, falls through to the platform
-        default_server, and gets a 301 (HTTP→HTTPS) instead of the app.
+        Runs curl on the server over TLS, resolving the app's own hostname to
+        loopback. The name must match the nginx server_name (HOST_NAME) the
+        harness set in prepare(), or the request misses the app's vhost and falls
+        through to the platform default_server.
+
+        **HTTPS, via --resolve.** This used to curl `http://127.0.0.1{path}` with
+        a `Host:` header, and read the resulting 301 as proof of a Host mismatch.
+        It is not: an app's own HTTP vhost redirects to HTTPS, so a correct Host
+        gets the same 301 as a wrong one, and a static app — which has no direct
+        port to fall back on — could never pass. `--resolve` sets the TLS SNI
+        *and* the Host header while connecting to loopback, which is what selects
+        the vhost; `-k` because the per-host cert is self-signed.
         """
         host = self._preparation.test_hostname
-        url = f"http://127.0.0.1{path}"
+        url = f"https://{host}{path}"
+        resolve = f"--resolve {host}:443:127.0.0.1 -k"
         result: dict[str, Any] = {
             "passed": False,
             "message": "",
             "details": {"url": url, "method": "nginx-ssh", "host": host},
         }
 
-        self.console.info(f"Testing HTTP via nginx (Host: {host}): {path}")
+        def fetch_body() -> str:
+            _, body, _ = self.target.exec_run(
+                f"curl -s {resolve} --max-time 3 '{url}' | head -c {BODY_FETCH_LIMIT}"
+            )
+            return body.strip() if body else ""
+
+        self.console.info(f"Testing HTTP via nginx ({url} -> 127.0.0.1): {path}")
 
         for attempt in range(max_retries):
             try:
                 _exit_code, stdout, _stderr = self.target.exec_run(
-                    f"curl -s -o /dev/null -w '%{{http_code}}' "
-                    f"-H 'Host: {host}' "
+                    f"curl -s -o /dev/null -w '%{{http_code}}' {resolve} "
                     f"--connect-timeout 3 --max-time 5 '{url}'"
                 )
                 status_str = stdout.strip() if stdout else ""
@@ -625,10 +638,7 @@ class DeploymentSession:
 
                     if _status_match(status_code, expected_status):
                         # Fetch body for contains checks
-                        _, body, _ = self.target.exec_run(
-                            f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c {BODY_FETCH_LIMIT}"
-                        )
-                        result["details"]["body_preview"] = body.strip() if body else ""
+                        result["details"]["body_preview"] = fetch_body()
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -641,10 +651,7 @@ class DeploymentSession:
                         continue
 
                     # Non-matching status — get body for diagnostics
-                    _, body, _ = self.target.exec_run(
-                        f"curl -s -H 'Host: {host}' --max-time 3 '{url}' | head -c {BODY_FETCH_LIMIT}"
-                    )
-                    body_text = body.strip() if body else ""
+                    body_text = fetch_body()
                     result["details"]["body_preview"] = body_text
                     body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
@@ -664,10 +671,30 @@ class DeploymentSession:
         return result
 
     def run_check_script_detailed(self) -> dict[str, Any]:
-        """Run the app's check.py script and return detailed results.
+        """
+        Run the app's check.py through the server, and return detailed results.
 
-        Returns:
-            Dict with: passed, message, details
+        Via `hop3 app check`, which is the one implementation — the same one the
+        end of every deploy uses. This used to `exec()` the script in-process
+        instead, and that second implementation ran it in the wrong place and
+        the wrong way:
+
+        - **On the wrong machine.** The script runs on the box, from the app's
+          source tree, under the server's interpreter, so it can import
+          `hop3.server.checks`. In-process it ran on the developer's laptop.
+        - **Without the app's identity.** The server passes the app's runtime env
+          and the credential `hop3 app credentials` would show an operator. A
+          sign-in check has nothing to sign in with otherwise.
+        - **With the harness's own argv.** The script is invoked as
+          `check.py <hostname> 443`, so `run()` reads `sys.argv[2]` as the port.
+          Exec'd in-process it read *hop3-test's* argv and did
+          `int("--docker")` — which is what failed eleven of twenty golden apps,
+          each of them already serving HTTP 200.
+        - **Without `__file__`,** which a bare `exec` namespace does not define;
+          uptime-kuma's check used it and died on a NameError.
+
+        `AppCheckCmd` promises "the same script, the same way, as the test
+        harness". That is now true.
         """
         if not self.deployed:
             return {
@@ -676,8 +703,35 @@ class DeploymentSession:
                 "details": {},
             }
 
-        verifier = self._get_verifier()
-        return verifier.run_check_script_detailed()
+        result = subprocess.run(
+            ["hop3", "app", "check", "--app", self.app_name],
+            env=self._build_cli_env(),
+            cwd=hermetic_cli_cwd(),
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        output = (result.stdout or "") + (result.stderr or "")
+        details = {"output": output, "returncode": result.returncode}
+
+        if "ships no check.py" in output:
+            self.console.info("No check script available")
+            return {
+                "passed": True,
+                "message": "No check script (skipped)",
+                "details": details,
+            }
+
+        if result.returncode == 0 and "PASSED" in output:
+            self.console.success("Check script passed")
+            return {"passed": True, "message": "check.py passed", "details": details}
+
+        self.console.error(f"Check script failed: {output.strip()[:500]}")
+        return {
+            "passed": False,
+            "message": f"check.py failed: {output.strip()[:300]}",
+            "details": details,
+        }
 
     def _get_verifier(self) -> AppVerifier:
         """Get a verifier instance for this session."""
