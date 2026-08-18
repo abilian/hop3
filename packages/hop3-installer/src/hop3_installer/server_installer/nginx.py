@@ -11,6 +11,7 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    has_systemd,
     print_detail,
     print_error,
     print_info,
@@ -129,7 +130,18 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
         print_error(f"Nginx configuration test failed: {e.stderr[:200]}")
         return
 
-    # Enable and start nginx
+    # Enable and start nginx — but only where systemd is what runs it.
+    #
+    # Not a fallback to the init script, deliberately: on a non-systemd target
+    # the process manager owns nginx (`[program:nginx]` in the supervisor
+    # config), and a second nginx started here would fight it for :80. So say
+    # who has it instead. This previously printed "Failed to restart nginx" with
+    # advice to read `journalctl` — on a box with neither systemd nor a journal,
+    # for a step that was never this installer's to do.
+    if not has_systemd():
+        print_info("systemd not detected; the process manager will start nginx")
+        return
+
     run_cmd(["systemctl", "enable", "nginx"], check=False)
     result = run_cmd(["systemctl", "restart", "nginx"], check=False)
     if result.returncode != 0:

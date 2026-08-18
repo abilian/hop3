@@ -174,6 +174,21 @@ pip-install = ["setuptools", "wheel"]
 test = "npm test"
 ```
 
+##### Downloading upstream sources: use `hop3-fetch`, not `curl`
+
+A recipe that fetches an upstream tarball in `before-build` should call `hop3-fetch` rather than `curl` or `wget`:
+
+```bash
+hop3-fetch "$URL" | tar xz --strip-components=1          # pipe into tar
+hop3-fetch "$URL" -o app.tar.gz --sha256 "$SHA256"       # or write a file
+```
+
+It downloads through a cache shared by every app on the server, so redeploying the same pinned version does not ask upstream again. That is not only a speed matter: a catalog run pulls dozens of tags from the same few hosts within minutes, and GitHub's codeload rate-limits the address — after which `curl` gets `HTTP 429` and the deploy fails with nothing wrong in the recipe. Retrying harder makes it worse; not asking twice fixes it.
+
+`hop3-fetch` also fails loudly on an HTTP error instead of saving the error page as the artifact, retries transient failures with backoff (honouring `Retry-After`), and verifies `--sha256` **before** admitting the download to the cache — so a cache hit is proof the bytes are the ones the recipe pinned.
+
+When piping into `tar`, set `set -eo pipefail` in the script. Without it the pipeline's exit status is `tar`'s, so a failed download surfaces as a misleading "Unexpected EOF" instead of the actual error.
+
 #### `[run]` - Runtime Configuration
 
 ```toml

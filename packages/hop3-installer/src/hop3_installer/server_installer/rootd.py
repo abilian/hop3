@@ -370,10 +370,33 @@ def _check_cgroup_v2() -> None:
 
 
 def _ensure_inet_hop3_table() -> None:
-    """Create the `inet hop3` table+chain if missing. Idempotent."""
+    """
+    Create the `inet hop3` table+chain if missing. Idempotent.
+
+    A missing `nft` warns and returns, deliberately. `nftables` is in the base
+    package list for both distro families, so this should not happen — and when
+    it does, the capability lost is narrow: rootd needs the table only to open
+    an app's fixed ``[[ports]]``. Proxy reloads, which every single deploy
+    depends on, do not touch it.
+
+    This briefly raised instead, on the reasoning that a warn-and-continue is
+    what let owncast and matrix-synapse fail hours later. That was the wrong
+    place to enforce it. This is step 5 of `install_rootd`; step 6 is
+    activation, so raising here skipped starting the daemon altogether, the
+    socket at /run/hop3-rootd/socket never appeared, and EVERY app — not just
+    the two declaring ports — died with "hop3-rootd is not reachable". A narrow
+    degradation became a total outage.
+
+    The fixed-port path already fails loudly at the point of use, naming the
+    app and the operation. That is where this belongs: the same shape as
+    postfix, installed inert and loud when actually needed.
+    """
     if not cmd_exists("nft"):
         print_warning("nft not found on PATH; skipping inet hop3 table creation")
-        print_detail("install nftables: apt install nftables / dnf install nftables")
+        print_detail(
+            "install nftables (apt install nftables / dnf install nftables); "
+            "until then any app declaring fixed [[ports]] will fail to deploy"
+        )
         return
 
     # Add table — tolerate "File exists".

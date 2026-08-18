@@ -125,6 +125,11 @@ def _install_package_step(config: ServerInstallerConfig) -> bool:
         return True
     try:
         install_package(config)
+    except FileNotFoundError as e:
+        # The package installed but did not deliver an executable the platform
+        # depends on (see publish_fetch_helper).
+        print_error(str(e))
+        return False
     except CommandError as e:
         print_error("Failed to install hop3-server")
         if e.stdout:

@@ -514,29 +514,57 @@ def _is_crash_indicator(line: str) -> bool:
     return any(pattern in line_lower for pattern in crash_patterns)
 
 
-def _process_new_logs(app: App, last_log_lines: int) -> tuple[int, int]:
+def _lines_since(previous: list[str], current: list[str]) -> list[str]:
+    """
+    The lines in ``current`` that were not already in ``previous``.
+
+    Both are windows onto the tail of the same log, so the new lines are
+    whatever extends past the overlap between them. Finds the longest suffix of
+    ``previous`` that is a prefix of ``current`` and returns the remainder; with
+    no overlap at all (the log rotated, or the app out-logged the window between
+    two polls) everything is treated as new, which errs toward noticing a crash
+    rather than missing one.
+    """
+    for size in range(min(len(previous), len(current)), 0, -1):
+        if previous[-size:] == current[:size]:
+            return current[size:]
+    return current
+
+
+def _process_new_logs(app: App, seen: list[str]) -> tuple[list[str], int]:
     """
     Process new log lines, display them, and count crash indicators.
 
+    Compares log *content*, not a line count. It used to keep a running total of
+    lines seen and compare it against `len(app.get_logs(lines=50))` — but that
+    call returns the last 50 lines, a rolling window, so the total caught up with
+    the window's size within the first seconds of a chatty startup and
+    `len(logs) <= seen` was true forever after. From that moment nothing was ever
+    "new", no crash indicator was ever counted, and the fail-fast below could not
+    fire: keycloak spent its full 420-second budget waiting on a binary that
+    could not execute, with `throttling` in its log the whole time.
+
     Returns:
-        Tuple of (new_last_log_lines, crash_indicator_count)
+        Tuple of (log lines now seen, crash_indicator_count)
     """
     crash_count = 0
     try:
         logs = app.get_logs(lines=50)
-        if not logs or len(logs) <= last_log_lines:
-            return last_log_lines, 0
+        if not logs:
+            return seen, 0
 
-        new_lines = logs[last_log_lines:]
+        new_lines = _lines_since(seen, logs)
         for line in new_lines[-10:]:  # Show at most 10 new lines per check
             line_stripped = line.rstrip()
             log(f"  {line_stripped}", level=1)
-            if _is_crash_indicator(line_stripped):
-                crash_count += 1
 
-        return len(logs), crash_count
+        # Count over ALL new lines, not just the ten displayed: the display cap
+        # is about noise, and a burst of crashes must not hide inside it.
+        crash_count = sum(1 for line in new_lines if _is_crash_indicator(line))
+
+        return logs, crash_count
     except Exception:
-        return last_log_lines, 0  # Ignore log reading errors
+        return seen, 0  # Ignore log reading errors
 
 
 #: A healthcheck body is small, and the socket timeout already caps a slow or
@@ -713,7 +741,7 @@ def _wait_for_app_start(
     deadline = time.time() + timeout
     last_progress = time.time()
     last_log_check = time.time()
-    last_log_lines = 0
+    seen_logs: list[str] = []
     crash_indicators = 0
     max_crash_indicators = 3  # Fail fast after this many crash signals
 
@@ -729,7 +757,7 @@ def _wait_for_app_start(
 
         # Stream new log lines and detect crashes
         if time.time() - last_log_check >= log_check_interval:
-            last_log_lines, new_crashes = _process_new_logs(app, last_log_lines)
+            seen_logs, new_crashes = _process_new_logs(app, seen_logs)
             crash_indicators += new_crashes
 
             if crash_indicators >= max_crash_indicators:

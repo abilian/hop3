@@ -14,6 +14,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 
 import pytest
+from hop3_installer.deployer.backends.base import DeployBackend
 from hop3_installer.deployer.config import DeployConfig
 from hop3_installer.deployer.deploy import Deployer
 
@@ -46,11 +47,13 @@ class _Backend:
             success=ok, stdout="", stderr="", returncode=0 if ok else 1
         )
 
-    def service_restart_command(self, service):
-        return f"systemctl restart {service}"
-
-    def restart_service(self, service):
-        return self.run(self.service_restart_command(service))
+    # Borrowed from the real backend rather than re-typed. `DeployBackend` has
+    # seven abstract methods, so the stub does not inherit — but a hand-copied
+    # `systemctl restart {service}` would let this suite keep asserting a
+    # command the backend had stopped emitting. Only `run` is stubbed.
+    service_restart_command = DeployBackend.service_restart_command
+    service_logs_command = DeployBackend.service_logs_command
+    restart_service = DeployBackend.restart_service
 
 
 class _UpdateBackend(_Backend):

@@ -25,7 +25,7 @@ from .loader import (
 from .models import TargetType, TestDefinition, Tier
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Iterable, Iterator
 
 logger = logging.getLogger(__name__)
 
@@ -61,6 +61,11 @@ def _has_executable_blocks(md_path: Path) -> bool:
 #: things to offer an operator.
 FIXTURE_FAMILIES = ("test-apps-procfile", "test-apps-nix", "test-apps-nix-gen")
 
+#: Every maturity status a catalog recipe can live under (ADR 059). The folder
+#: *is* the status, so selecting a status is selecting a directory — there is
+#: nothing to filter and nothing to keep in sync.
+CATALOG_STATUSES = ("golden", "beta", "alpha", "broken", "retired")
+
 #: Catalog statuses worth deploying by default: the ones the catalog publishes
 #: (ADR 059). ``alpha`` and ``broken`` are kept as a record, and running them
 #: would report failures already known and written down.
@@ -71,6 +76,42 @@ def default_catalog_apps(root: Path) -> Path | None:
     """The sibling catalog checkout's ``apps/``, if there is one."""
     candidate = root.parent / "hop3-catalog" / "apps"
     return candidate if candidate.is_dir() else None
+
+
+def catalog_status_paths(root: Path, statuses: Iterable[str]) -> list[str]:
+    """
+    Scan paths for the named maturity statuses.
+
+    Status is a *selection of directories*, not a property to filter on: a
+    filter would quietly match nothing whenever the requested status lay outside
+    the default scan set, which is the shape of a silent skip.
+
+    Raises:
+        ValueError: on an unknown status name, or with no catalog checkout —
+            either way the run would otherwise report "0 tests" and exit clean.
+    """
+    unknown = sorted(set(statuses) - set(CATALOG_STATUSES))
+    if unknown:
+        msg = (
+            f"Unknown catalog status: {', '.join(unknown)}. "
+            f"Known statuses: {', '.join(CATALOG_STATUSES)}"
+        )
+        raise ValueError(msg)
+
+    catalog_apps = default_catalog_apps(root)
+    if catalog_apps is None:
+        msg = (
+            f"No catalog checkout at {root.parent / 'hop3-catalog'}: "
+            "cannot select apps by status. Clone it beside this repository."
+        )
+        raise ValueError(msg)
+
+    missing = [s for s in statuses if not (catalog_apps / s).is_dir()]
+    if missing:
+        msg = f"Catalog has no {', '.join(missing)} directory under {catalog_apps}"
+        raise ValueError(msg)
+
+    return [str(catalog_apps / s) for s in statuses]
 
 
 def default_scan_paths(root: Path) -> list[str]:

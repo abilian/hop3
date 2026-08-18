@@ -12,7 +12,6 @@ sed commands, and Nix syntax structure.
 from __future__ import annotations
 
 import re
-from pathlib import Path
 from typing import Any
 
 import pytest
@@ -1208,16 +1207,21 @@ def test_pnpm_pin_is_configurable():
     assert "pkgs.pnpm_10" in generate(spec)
 
 
-def test_committed_lockfiles_match_their_pinned_pnpm():
+def test_committed_lockfiles_match_their_pinned_pnpm(catalog_apps):
     """
     Guard: a lockfile the pinned pnpm cannot read fails inside the Nix build
     with a parse error naming neither the pin nor the lockfile.
+
+    Reads the catalog, via the shared fixture. It used to count
+    `parents[5] / "apps"` to this repo's own tree, where the pnpm recipes lived
+    until they moved to the catalog; the glob then matched nothing and the
+    `checked` guard below is what said so, instead of a green vacuous pass.
     """
-    root = Path(__file__).parents[5] / "apps"
-    assert root.is_dir(), f"app corpus not found at {root}"
+    assert catalog_apps.is_dir(), f"app corpus not found at {catalog_apps}"
     mismatches = {}
     checked = 0
-    for toml_path in root.glob("*/*/hop3.toml"):
+    # `<status>/<app>/hop3.toml` — maturity decides the directory (ADR 059).
+    for toml_path in catalog_apps.glob("*/*/hop3.toml"):
         text = toml_path.read_text()
         if 'template = "node-pnpm-install"' not in text:
             continue
@@ -1635,3 +1639,167 @@ def test_a_composer_app_from_a_tarball_gains_no_unzip():
 
     composer = output[output.index("buildComposerProject") : output.index("vendorHash")]
     assert "unzip" not in composer
+
+
+def test_python_venv_vendors_named_packages_as_source():
+    """
+    A package shipping per-architecture wheels must be vendored as source.
+
+    `pip download` picks the wheel matching the build machine, so a set holding
+    one puts different bytes on x86_64 than on aarch64 — and `pip-deps-hash`
+    can only ever match whichever machine recorded it. That is precisely why
+    bugsink, isso and radicale (the only three recipes carrying a lockfile) all
+    failed on arm64 against hashes taken on x86, run after run, deterministically.
+
+    An sdist is the same bytes everywhere, so naming those packages makes one
+    recorded hash correct on every architecture — including one nobody has
+    published a wheel for.
+    """
+    output = generate(_python_spec(source_packages=("cffi", "misaka")))
+
+    assert "--no-binary cffi,misaka" in output
+
+
+def test_python_venv_leaves_pure_python_packages_as_wheels():
+    """
+    Deliberately not `--no-binary :all:`.
+
+    Forcing a pure-Python package to build from its sdist buys nothing — its
+    wheel is already identical everywhere — and it breaks: html5lib's setup.py
+    imports `pkg_resources`, which current setuptools no longer ships, so
+    `:all:` fails the download outright.
+    """
+    output = generate(_python_spec())
+
+    assert "--no-binary" not in output
+
+
+def test_python_venv_downloads_exactly_the_locked_closure():
+    """`--no-deps`: the lockfile IS the resolution, so this is a fetch, not a re-resolve."""
+    output = generate(_python_spec(source_packages=("cffi",)))
+
+    assert "--no-deps" in output
+
+
+def test_python_venv_declares_libraries_for_compiling_sources():
+    """
+    Libraries land in buildInputs, not nativeBuildInputs.
+
+    The split is what a cross-build keys off, and reaching an architecture
+    without published wheels is the entire reason for compiling from source.
+    """
+    output = generate(_python_spec(source_packages=("cffi",), build_inputs=("libffi",)))
+
+    assert "buildInputs = [ pkgs.libffi ];" in output
+    assert "pkgs.pkg-config" in output  # build-time tool, for finding those libs
+
+
+def test_python_venv_gives_the_download_step_the_same_toolchain():
+    """
+    Vendoring source makes the DOWNLOAD derivation compile, not just the build.
+
+    `pip download` builds each sdist's metadata, and a PEP 517 backend
+    dependency is compiled to do it — misaka's pulls in cffi, which needs
+    libffi. With the libraries declared only on the app derivation, the fetch
+    died on `fatal error: ffi.h: No such file or directory`, which is the last
+    place anyone would look for a compiler error.
+    """
+    output = generate(
+        _python_spec(source_packages=("misaka",), build_inputs=("libffi",))
+    )
+    download_phase = output[: output.index("app = pkgs.stdenv.mkDerivation")]
+
+    assert "buildInputs = [ pkgs.libffi ];" in download_phase
+    assert "pkgs.pkg-config" in download_phase
+
+
+def test_python_venv_vendors_rust_crates_in_the_fetch_step():
+    """
+    A Rust extension's sdist build fetches crates from crates.io.
+
+    The app build is sandboxed and offline, so that fetch cannot happen there.
+    The dependency derivation — the one step allowed the network — vendors them
+    instead, and the app build compiles against the vendored registry with
+    cargo forbidden the network.
+    """
+    output = generate(_python_spec(source_packages=("bcrypt",)))
+
+    assert "cargo vendor" in output
+    assert "pkgs.cargo" in output
+    assert 'replace-with = "vendored-sources"' in output
+    assert "CARGO_NET_OFFLINE=true" in output
+
+
+def test_python_venv_without_source_packages_needs_no_rust():
+    """A wheels-only recipe must not grow a Rust toolchain it never uses."""
+    output = generate(_python_spec())
+
+    assert "pkgs.cargo" not in output
+
+
+def test_python_venv_vendors_pinned_build_backends():
+    """
+    An offline sdist build needs its PEP 517 requirements vendored too.
+
+    The lockfile does not carry them — it describes what the app RUNS, not what
+    compiles it. radicale died on "Could not find a version that satisfies the
+    requirement setuptools>=42.0.0 (from versions: none)" for exactly this
+    reason; isso survived only because its runtime set happens to include
+    setuptools.
+    """
+    output = generate(
+        _python_spec(
+            source_packages=("bcrypt",),
+            build_requires=("setuptools==83.0.0", "setuptools-rust==1.13.0"),
+        )
+    )
+
+    assert '"setuptools==83.0.0" "setuptools-rust==1.13.0"' in output
+
+
+def test_python_venv_build_backends_are_fetched_without_resolution():
+    """
+    Pinned and --no-deps, so the closure must be listed in full.
+
+    Resolving it would let a new release of a build tool change the vendored
+    bytes and invalidate the recorded hash — a build that breaks on a day
+    nobody touched the recipe.
+    """
+    output = generate(
+        _python_spec(
+            source_packages=("bcrypt",), build_requires=("setuptools==83.0.0",)
+        )
+    )
+
+    assert 'pip download --no-deps --dest $out "setuptools==83.0.0"' in output
+
+
+def test_python_venv_gives_cargo_a_writable_home():
+    """
+    The sandbox points HOME at /homeless-shelter, which is not writable.
+
+    cargo stages its downloads under CARGO_HOME, so with the default it fails
+    with `Permission denied` on `/homeless-shelter/.cargo/registry/...` — a path
+    the recipe never mentions.
+    """
+    output = generate(_python_spec(source_packages=("bcrypt",)))
+    fetch_phase = output[: output.index("app = pkgs.stdenv.mkDerivation")]
+
+    assert "export CARGO_HOME=$TMPDIR/cargo-fetch" in fetch_phase
+
+
+def test_python_venv_does_not_fix_up_the_vendored_set():
+    """
+    stdenv's fixupPhase must not touch downloaded dependencies.
+
+    `patchShebangs` rewrites `#!/bin/bash` to a store path and reaches inside
+    vendored crates (autocfg's test script, wasi's CI scripts). That breaks the
+    derivation three ways: a fixed-output derivation may not reference store
+    paths; the reference is machine-specific, which is the very non-determinism
+    this vendoring removes; and editing a crate's files invalidates the
+    .cargo-checksum.json that cargo verifies when building offline.
+    """
+    output = generate(_python_spec(source_packages=("bcrypt",)))
+    fetch_phase = output[: output.index("app = pkgs.stdenv.mkDerivation")]
+
+    assert "dontFixup = true;" in fetch_phase

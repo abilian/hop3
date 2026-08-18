@@ -14,8 +14,10 @@ from hop3_installer.common import (
     has_systemd,
     print_detail,
     print_error,
+    print_info,
     print_success,
     print_warning,
+    process_manager_pending,
     run_cmd,
 )
 from hop3_installer.constants import (
@@ -255,6 +257,13 @@ def verify_mysql_config() -> bool:
 
 def _verify_services() -> None:
     """Verify core services are running."""
+    if process_manager_pending():
+        print_info(
+            "No process manager yet; the deployer starts and verifies "
+            "hop3-server, nginx and uwsgi after this installer returns"
+        )
+        return
+
     if has_systemd():
         for service, name in [
             ("hop3-server", "hop3-server service"),
@@ -304,6 +313,36 @@ def _is_postgres_running() -> bool:
     return result.returncode == 0
 
 
+def _is_mysql_running() -> bool:
+    """
+    Check if MySQL is running, regardless of init system.
+
+    The twin of `_is_postgres_running`, which this did not have: it asked
+    `systemctl is-active` for mysql and then mariadb, and on a container both
+    fail whatever the server is doing. So a run that had just reported "MySQL
+    service started" and "MySQL connection verified successfully" three lines
+    earlier ended with "MySQL service is not running" — and that warning set the
+    exit code, failing the whole install.
+
+    Without systemd there is no init system to ask, so this defers to the
+    caller's `verify_mysql_config()` — which opens a real connection, and so
+    answers "is MySQL running" more strictly than any liveness probe could.
+    `mysqladmin ping` was the obvious candidate and is the wrong one twice over:
+    it ships in `mysql-client` rather than the server package, and a probe that
+    passes where the connection fails would only move the error later.
+    """
+    if not has_systemd():
+        return True
+
+    return any(
+        run_cmd(
+            ["systemctl", "is-active", service], capture=True, check=False
+        ).stdout.strip()
+        == "active"
+        for service in ("mysql", "mariadb")
+    )
+
+
 def _verify_database_services(config_content: str) -> bool:
     """
     Verify database services are running and configured.
@@ -321,18 +360,7 @@ def _verify_database_services(config_content: str) -> bool:
             all_ok = False
 
     if "MYSQL_SUPERUSER_PASSWORD" in config_content:
-        result = run_cmd(
-            ["systemctl", "is-active", "mysql"],
-            capture=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            result = run_cmd(
-                ["systemctl", "is-active", "mariadb"],
-                capture=True,
-                check=False,
-            )
-        if result.stdout.strip() == "active":
+        if _is_mysql_running():
             if verify_mysql_config():
                 print_success("MySQL configuration verified")
             else:

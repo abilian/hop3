@@ -213,6 +213,39 @@ class PythonVenvPayload(TemplatePayload):
     # buildGoModule's `vendorHash`). Build once with a placeholder and read the
     # `got:` line Nix prints.
     deps_hash: str | None = None
+    # Packages that must be vendored as SOURCE rather than as a wheel.
+    #
+    # `pip download` resolves for the host platform, so any package shipping
+    # per-architecture wheels puts different bytes in the vendored set on
+    # different machines and `deps_hash` can only ever match one of them. That
+    # is why bugsink, isso and radicale — the only three recipes carrying a
+    # lockfile — all failed on arm64 while their hashes were recorded on x86.
+    #
+    # Naming them here makes the vendored set architecture-independent: one
+    # hash is then correct everywhere, including on a platform nobody has
+    # published a wheel for. Applies to the packages with compiled extensions,
+    # NOT to everything: forcing a pure-Python package to build from its sdist
+    # buys nothing and breaks (html5lib's setup.py imports `pkg_resources`,
+    # which current setuptools no longer provides).
+    source_packages: tuple[str, ...] = ()
+    # nixpkgs attributes needed to compile those sources, e.g. ("libffi",).
+    # Declared per recipe because it is a property of the dependency set, and
+    # a missing one is a named linker error rather than a mystery.
+    build_inputs: tuple[str, ...] = ()
+    # PEP 517 build backends, pinned, vendored alongside the runtime set.
+    #
+    # Building a source distribution offline needs its build requirements to be
+    # present too, and those are not in the lockfile — a lockfile describes what
+    # the app RUNS, not what compiles it. isso only worked without this because
+    # its runtime set happens to include setuptools and wheel; radicale's does
+    # not, and its build died on "Could not find a version that satisfies the
+    # requirement setuptools>=42.0.0 (from versions: none)".
+    #
+    # Every entry is pinned and fetched with --no-deps, so the closure has to be
+    # listed in full. That is deliberate: resolving it would let a new release of
+    # a build tool change the vendored bytes, and the hash with them. A missing
+    # entry fails loudly, naming the package pip could not find.
+    build_requires: tuple[str, ...] = ()
 
 
 @dataclass(frozen=True)

@@ -97,6 +97,14 @@ DEBIAN_BASE_PACKAGES = [
     # Java toolchain
     "default-jdk",
     "maven",
+    # Firewall. rootd opens an app's fixed [[ports]] through the `inet hop3`
+    # nftables table, so `nft` is a hard requirement of the platform, not an
+    # optional extra. It was in no package list: the installer warned "nft not
+    # found on PATH; skipping inet hop3 table creation" and carried on, and
+    # every app declaring [[ports]] then died at deploy time with
+    # "Deployer can't open the firewall for the app's fixed [[ports]]"
+    # — owncast and matrix-synapse, two hours and one install later.
+    "nftables",
     # Common utilities
     "curl",
     "wget",

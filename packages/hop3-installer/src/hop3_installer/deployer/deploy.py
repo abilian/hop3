@@ -150,6 +150,26 @@ class Deployer:
         elif self.backend.is_hop3_installed():
             step += 1
             self.log_step(step, "Updating existing installation")
+
+            # Ensure the process manager exists BEFORE restarting through it.
+            #
+            # `_start_docker_services` runs after this block, which is fine for a
+            # fresh install but leaves the update path restarting hop3-server via
+            # a supervisor that may never have been set up. A deploy that died
+            # between installing and starting services — an installer that exited
+            # non-zero, say — left a box that answers `is_hop3_installed()` with
+            # yes and has no supervisor at all. Every later run then took this
+            # branch and failed identically on
+            # "unix:///var/run/supervisor.sock no such file", with no way out but
+            # `--clean`. Idempotent (reread+update when supervisord is already
+            # running) and a no-op on systemd targets, so it costs nothing in the
+            # normal case and un-sticks the broken one.
+            try:
+                self.backend.start_services()
+            except ServiceStartError as e:
+                self.log(f"Could not start services before updating: {e}", "error")
+                return False, step
+
             if not self._update():
                 return False, step
             # Install any requested features not yet present
@@ -651,14 +671,29 @@ class Deployer:
         message only once this returns True.
         """
         self.log("Restarting server")
-        self.backend.restart_service("hop3-server")
+        result = self.backend.restart_service("hop3-server")
 
         if self._wait_until_server_healthy():
             return True
 
         self.log(f"Server did NOT come back up after {what}.", "error")
+
+        # The restart command's own output, which used to be dropped. When the
+        # restart itself was refused — supervisord not running, so supervisorctl
+        # answered "unix:///var/run/supervisor.sock no such file" — that one line
+        # is the whole diagnosis, and none of it reached the operator.
+        if not result.success:
+            self.log(
+                f"  The restart command failed: "
+                f"{self.backend.service_restart_command('hop3-server')}",
+                "error",
+            )
+            self.log_output(result, always=True)
+
         self.log(f"  Recover: {recovery}", "error")
-        self.log("  Diagnose: journalctl -u hop3-server -n 100 --no-pager", "error")
+        self.log(
+            f"  Diagnose: {self.backend.service_logs_command('hop3-server')}", "error"
+        )
         return False
 
     @staticmethod

@@ -27,9 +27,15 @@ from .models import (
     Validation,
     ValidationExpect,
 )
-from .scanner import Catalog, default_scan_paths
+from .scanner import (
+    CATALOG_STATUSES,
+    Catalog,
+    catalog_status_paths,
+    default_scan_paths,
+)
 
 __all__ = [
+    "CATALOG_STATUSES",
     "Catalog",
     "DemoConfig",
     "DeploymentConfig",
@@ -42,6 +48,7 @@ __all__ = [
     "TutorialConfig",
     "Validation",
     "ValidationExpect",
+    "catalog_status_paths",
     "default_scan_paths",
     "load_test_definition",
 ]

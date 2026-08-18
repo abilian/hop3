@@ -31,7 +31,7 @@ from __future__ import annotations
 import datetime as dt
 import re
 import subprocess
-from dataclasses import dataclass, field
+from dataclasses import InitVar, dataclass, field
 from typing import TYPE_CHECKING, Any, ClassVar
 
 import tomllib
@@ -77,10 +77,23 @@ class Corpus:
     """Where the reports and the recipes live."""
 
     root: Path
-    reports_dir: Path = field(init=False)
 
-    def __post_init__(self) -> None:
+    #: Where the recipes are. Overridable, but only ever a ``Path`` once built —
+    #: an ``InitVar`` so the resolved attribute never carries the ``None`` that
+    #: only the *caller* is allowed to omit.
+    #:
+    #: It has to be a parameter at all because `recipe()` used to call
+    #: `recipe_for()` with no path: the lookup went to the real checkout
+    #: regardless of ``root``, so a Corpus pointed at a fixture directory
+    #: silently answered from the developer's own catalog.
+    catalog_apps: InitVar[Path | None] = None
+
+    reports_dir: Path = field(init=False)
+    apps_dir: Path = field(init=False)
+
+    def __post_init__(self, catalog_apps: Path | None) -> None:
         self.reports_dir = self.root / "notes" / "experience-reports"
+        self.apps_dir = catalog_apps or self.root.parent / "hop3-catalog" / "apps"
 
     #: Reports for applications the corpus has dropped. Kept as a record, not
     #: checked against recipes — there are none left to check against.
@@ -100,22 +113,20 @@ class Corpus:
         return sorted(directory.glob("*.md")) if directory.is_dir() else []
 
     def recipe(self, app: str, variant: str) -> Path | None:
-        """The app's `hop3.toml` for a variant, if the corpus holds one."""
-        recipe_dir = catalog_lib.recipe_for(app, variant)
+        """
+        The app's `hop3.toml` for a variant, if the corpus holds one.
+
+        One lookup, in the catalog. There used to be a second one here for
+        native recipes, because the catalog was then the *other* home of a
+        recipe and an app packaged only there (uptime-kuma) read as having none.
+        Both trees are one tree now, so a fallback would only search the flat
+        layout the maturity hierarchy replaced — and find nothing.
+        """
+        recipe_dir = catalog_lib.recipe_for(app, variant, self.apps_dir)
         if recipe_dir is None:
             return None
         path = recipe_dir / "hop3.toml"
-        if path.exists():
-            return path
-        # The catalog is the other home of a native recipe — for some apps the
-        # only one. uptime-kuma is packaged there and nowhere else, so looking
-        # only under apps/real-apps-native/ reported a working, published
-        # application as having no recipe at all.
-        if variant == "native":
-            catalog = self.root.parent / "hop3-catalog" / "apps" / app / "hop3.toml"
-            if catalog.exists():
-                return catalog
-        return None
+        return path if path.exists() else None
 
     def last_changed(self, app: str) -> dt.date | None:
         """
@@ -135,7 +146,12 @@ class Corpus:
         try:
             out = subprocess.run(
                 ["git", "log", "-1", "--format=%cs", "--", *paths],
-                cwd=self.root,
+                # The *catalog's* history, not this repo's. Recipes moved to a
+                # separate checkout, so asking git here about paths over there
+                # returns nothing — and nothing parses as "unknown", which the
+                # staleness rule treats as "not stale". Every app would have
+                # quietly stopped being checked for rot.
+                cwd=self.apps_dir,
                 capture_output=True,
                 text=True,
                 check=False,
@@ -214,9 +230,12 @@ def _check_variant(
         actual = tomllib.loads(recipe.read_text()).get("nix", {}).get("template")
         declared = spec.get("template")
         if declared != actual:
+            # Relative to the CATALOG: a recipe is no longer under `corpus.root`,
+            # so relative_to(root) raises ValueError — the message about a
+            # mismatched template would crash instead of reporting it.
             fail(
                 f"nix-gen template is {declared!r} in the report but "
-                f"{actual!r} in {recipe.relative_to(corpus.root)}"
+                f"{actual!r} in {recipe.relative_to(corpus.apps_dir)}"
             )
 
 

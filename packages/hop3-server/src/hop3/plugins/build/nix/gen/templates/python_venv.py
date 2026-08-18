@@ -68,6 +68,40 @@ class PythonVenvTemplate:
             raise ValueError("python-venv requires exec_target (e.g., 'isso')")
         runtime_package = spec.runtime_package or "python3"
 
+        # `pip download` picks a wheel matching the build machine, so any
+        # package shipping per-architecture wheels makes the vendored set — and
+        # therefore `deps_hash` — machine-specific. Naming those packages here
+        # fetches their sdist instead, which is the same bytes everywhere, so
+        # one recorded hash is correct on every architecture rather than on the
+        # one that happened to record it.
+        no_binary = ",".join(p.source_packages) if p.source_packages else ""
+        no_binary_flag = f" --no-binary {no_binary}" if no_binary else ""
+        # Libraries go in buildInputs, not nativeBuildInputs: the split is what
+        # a cross-build keys off, and reaching a new architecture is the whole
+        # point of vendoring source. pkg-config is a build-time tool, and any
+        # extension linking a system library wants it, so it comes along
+        # whenever there is source to compile.
+        build_inputs = (
+            f"\n    buildInputs = [{''.join(f' pkgs.{name}' for name in p.build_inputs)} ];"
+            if p.build_inputs
+            else ""
+        )
+        native_extra = " pkgs.pkg-config" if p.source_packages else ""
+        # A Rust extension's sdist build fetches its crates from crates.io, which
+        # the offline app build cannot do. cargo vendors them in the fetch step
+        # instead, so they arrive with the wheels under one hash.
+        cargo_tools = " pkgs.cargo pkgs.rustc" if p.source_packages else ""
+        build_requires = " ".join(f'"{req}"' for req in p.build_requires)
+        build_requires_step = (
+            f"""
+      # PEP 517 backends for the sources vendored above. Pinned and --no-deps:
+      # resolving them would let a new release of a build tool change these
+      # bytes, and the recorded hash with them.
+      pip download --no-deps --dest $out {build_requires}"""
+            if p.build_requires
+            else ""
+        )
+
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"VENVBIN/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
@@ -98,12 +132,63 @@ let
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [ python pkgs.python3Packages.pip ];
+    # The same toolchain as the app build below. Vendoring a source
+    # distribution makes this derivation compile too: pip builds each sdist's
+    # metadata, and a PEP 517 backend dependency gets built to do it (misaka's
+    # pulls in cffi, which needs libffi). Without these the download fails on
+    # `fatal error: ffi.h: No such file or directory` — in the *download* step,
+    # which reads as the last place a compiler error could come from.
+    nativeBuildInputs = [ python pkgs.python3Packages.pip{native_extra}{cargo_tools} ];{build_inputs}
 
     installPhase = ''
       mkdir -p $out
-      pip download --require-hashes --dest $out --requirement ${{requirementsFile}}
+      # --no-deps: the lockfile is already the full resolved closure, so this
+      # is a fetch of exactly what was pinned rather than a re-resolution.
+      pip download --require-hashes --no-deps{no_binary_flag} \\
+        --dest $out --requirement ${{requirementsFile}}{build_requires_step}
+
+      # Vendor the Rust crates of any source distribution that carries a
+      # Cargo.lock. Done here because this is the step allowed to use the
+      # network; the app build below is sandboxed and offline, and a Rust
+      # extension would otherwise die trying to reach crates.io.
+      #
+      # A set with no Rust in it produces no directory and therefore no change
+      # to this derivation's hash, so recipes without one are unaffected.
+      # cargo needs a writable CARGO_HOME to stage its downloads; the sandbox
+      # points HOME at /homeless-shelter, so the default is unwritable and the
+      # vendor step fails with "Permission denied" on a path nobody chose.
+      export CARGO_HOME=$TMPDIR/cargo-fetch
+      mkdir -p $CARGO_HOME
+
+      ${{python}}/bin/python - "$out" << 'CARGOVENDOR'
+import subprocess, sys, tarfile, tempfile
+from pathlib import Path
+
+out = Path(sys.argv[1])
+work = Path(tempfile.mkdtemp())
+for sdist in sorted(out.glob("*.tar.gz")):
+    with tarfile.open(sdist) as archive:
+        archive.extractall(work, filter="data")
+
+# Sorted, so the vendored tree does not depend on filesystem order.
+manifests = sorted(lock.parent / "Cargo.toml" for lock in work.rglob("Cargo.lock"))
+if manifests:
+    cmd = ["cargo", "vendor", "--manifest-path", str(manifests[0])]
+    for extra in manifests[1:]:
+        cmd += ["--sync", str(extra)]
+    cmd.append(str(out / "cargo-vendor"))
+    subprocess.run(cmd, check=True, stdout=subprocess.DEVNULL)
+CARGOVENDOR
     '';
+
+    # Nothing in a downloaded dependency set should be "fixed up". stdenv's
+    # fixupPhase rewrites `#!/bin/bash` to a store path, and it reaches inside
+    # vendored crates — autocfg's test script, wasi's CI scripts. That breaks
+    # this derivation three ways: a fixed-output derivation may not reference
+    # store paths at all; the reference is machine-specific, which is precisely
+    # the non-determinism being removed here; and editing a crate's files
+    # invalidates the .cargo-checksum.json cargo verifies at build time.
+    dontFixup = true;
 
     outputHashMode = "recursive";
     outputHashAlgo = "sha256";
@@ -120,10 +205,26 @@ let
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [ python pkgs.python3Packages.pip ];
+    nativeBuildInputs = [ python pkgs.python3Packages.pip{native_extra}{cargo_tools} ];{build_inputs}
 
     installPhase = ''
       mkdir -p $out/app $out/bin $out/venv $out/hop3
+
+      # Point cargo at the crates vendored above and forbid it the network, so
+      # a Rust extension compiles from source inside the sandbox. Only written
+      # when there are crates: `cargo vendor` produced nothing otherwise.
+      if [ -d ${{pythonDeps}}/cargo-vendor ]; then
+        export CARGO_HOME=$TMPDIR/cargo-home
+        export CARGO_NET_OFFLINE=true
+        mkdir -p $CARGO_HOME
+        cat > $CARGO_HOME/config.toml << CARGOCFG
+[source.crates-io]
+replace-with = "vendored-sources"
+
+[source.vendored-sources]
+directory = "${{pythonDeps}}/cargo-vendor"
+CARGOCFG
+      fi
 
       # Create the virtualenv and install offline from the vendored wheels.
       ${{python}}/bin/python -m venv $out/venv

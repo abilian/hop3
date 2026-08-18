@@ -68,6 +68,9 @@ dev = [
 [project.scripts]
 hop3-server = "hop3.server.cli:main"
 hop3-catalog = "hop3.server.catalog.publish:main"
+# Recipes call this from their build hooks; the installer symlinks it into
+# /usr/local/bin so it is on PATH there.
+hop3-fetch = "hop3.lib.fetch:main"
 
 [project.optional-dependencies]
 waf = [

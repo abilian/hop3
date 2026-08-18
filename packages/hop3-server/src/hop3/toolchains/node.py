@@ -132,6 +132,19 @@ class NodeToolchain(LanguageToolchain):
                 "NODE_PATH": node_modules,
                 "NPM_CONFIG_PREFIX": npm_prefix,
                 "PATH": path,
+                # Survive a bad minute on the registry. npm retries twice by
+                # default, which a large `npm ci` can exhaust: uptime-kuma —
+                # a golden app that had passed the same suite two days
+                # earlier — failed its whole deploy on a single ECONNRESET.
+                #
+                # Set here rather than per recipe: every Node app fetches from
+                # the same registry over the same link, so a recipe repeating
+                # this would be copying a platform concern. The same reasoning
+                # the catalog's download scripts already state for
+                # `curl --retry`.
+                "NPM_CONFIG_FETCH_RETRIES": "5",
+                "NPM_CONFIG_FETCH_RETRY_MINTIMEOUT": "2000",
+                "NPM_CONFIG_FETCH_RETRY_MAXTIMEOUT": "60000",
             },
         )
         env.parse_settings(self.env_file)

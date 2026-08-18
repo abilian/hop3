@@ -69,6 +69,9 @@ FEDORA_COMMON_PACKAGES = [
     "gmp-devel",
     # Go toolchain
     "golang",
+    # Firewall — see the note beside the Debian list: `nft` is required for
+    # rootd to open an app's fixed [[ports]], and was in neither list.
+    "nftables",
     # Common utilities
     "curl",
     "wget",

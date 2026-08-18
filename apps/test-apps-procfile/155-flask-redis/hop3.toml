@@ -1,0 +1,25 @@
+# Hop3 configuration for the Flask Redis addon smoke test.
+
+[metadata]
+id = "flask-redis"
+description = "Flask app exercising the Hop3 Redis addon (set/get round-trip)"
+
+[[addons]]
+type = "redis"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "redis", "addons"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Redis addon OK"
+
+[[test.validations]]
+path = "/config"
+status = 200
+contains = "has_url"
