@@ -139,20 +139,42 @@ def publish_fetch_helper() -> None:
     build. So the helper is symlinked into /usr/local/bin, the same way the
     installer publishes cargo, elixir and hop3-rootd.
 
-    A missing helper is fatal here rather than at deploy time, where it
-    surfaces as ``hop3-fetch: command not found`` from inside a recipe's
-    download script — a message that blames the recipe for a broken install.
+    A server that does not ship the helper is not an error: this installer
+    installs whatever version it is asked for, and older ones predate it. A
+    helper that is present but cannot be published *is* an error, because
+    every recipe needing it would then fail with nothing pointing here.
     """
     source = VENV_DIR / "bin" / "hop3-fetch"
+
+    if not source.exists():
+        # Not a failure. The helper arrived with a particular hop3-server
+        # version, and this installer is expected to install any version — from
+        # git, from a --version pin, from PyPI. An older server legitimately has
+        # no helper to publish, so aborting the install here would break
+        # installing anything that predates it (it did: the from-git e2e test).
+        #
+        # The mismatch that actually matters is a *current catalog* against an
+        # *older server*, and that surfaces at deploy time as "hop3-fetch:
+        # command not found" from the recipe that needs it — the right place,
+        # because only then is it known whether anything needs the helper.
+        print_info(
+            f"hop3-server in {VENV_DIR} ships no hop3-fetch; not publishing it. "
+            "Catalog recipes that download their sources through it require a "
+            "newer hop3-server."
+        )
+        return
+
     if not create_symlink(source, FETCH_HELPER_LINK):
+        # Present but unlinkable — that IS a failure, and a silent one would
+        # leave every such recipe failing later for no visible reason.
         msg = (
-            f"hop3-fetch not found at {source}, so it cannot be published to "
+            f"hop3-fetch exists at {source} but could not be linked to "
             f"{FETCH_HELPER_LINK}. Catalog recipes call it to download their "
             "sources and would fail at deploy time with 'command not found'. "
-            "The installed hop3-server predates the helper — install a "
-            "current version, or drop the --version pin."
+            "Check that /usr/local/bin is writable."
         )
-        raise FileNotFoundError(msg)
+        raise OSError(msg)
+
     print_success(f"hop3-fetch published to {FETCH_HELPER_LINK}")
 
 
