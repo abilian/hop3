@@ -1771,7 +1771,41 @@ def test_python_venv_build_backends_are_fetched_without_resolution():
         )
     )
 
-    assert 'pip download --no-deps --dest $out "setuptools==83.0.0"' in output
+    assert (
+        'pip download --no-deps --no-binary bcrypt --dest $out "setuptools==' in output
+    )
+
+
+def test_python_venv_build_backends_obey_the_source_only_declaration():
+    """
+    A package named source-only must arrive as source in BOTH fetches.
+
+    The build-backend fetch is a second `pip download`, and without the flag it
+    quietly took a wheel for a package the recipe had declared source-only —
+    re-introducing the per-architecture bytes the declaration exists to remove,
+    with nothing in the output saying so.
+    """
+    output = generate(
+        _python_spec(source_packages=("maturin",), build_requires=("maturin==1.14.1",))
+    )
+
+    assert 'pip download --no-deps --no-binary maturin --dest $out "maturin==' in output
+
+
+def test_python_venv_pip_belongs_to_the_apps_interpreter():
+    """
+    `pkgs.python3Packages.pip` is the *default* interpreter's pip, not the app's.
+
+    A recipe that pins `runtime-package` (bugsink pins python312 so a newer
+    nixpkgs does not migrate it to 3.13) then downloads wheels tagged for the
+    nixpkgs default, and the offline install fails to find a compatible
+    distribution for a package it has just vendored.
+    """
+    output = generate(_python_spec(runtime_package="python312"))
+
+    assert "python = pkgs.python312;" in output
+    assert "python.pkgs.pip" in output
+    assert "python3Packages.pip" not in output
 
 
 def test_python_venv_gives_cargo_a_writable_home():
@@ -1786,6 +1820,12 @@ def test_python_venv_gives_cargo_a_writable_home():
     fetch_phase = output[: output.index("app = pkgs.stdenv.mkDerivation")]
 
     assert "export CARGO_HOME=$TMPDIR/cargo-fetch" in fetch_phase
+    # Before the fetch, not merely somewhere in the phase: a build backend
+    # written in Rust (maturin) compiles during `pip download` and needs a
+    # writable home earlier than the vendor step does.
+    assert fetch_phase.index("export CARGO_HOME") < fetch_phase.index(
+        "pip download --require-hashes"
+    )
 
 
 def test_python_venv_does_not_fix_up_the_vendored_set():
@@ -1803,3 +1843,35 @@ def test_python_venv_does_not_fix_up_the_vendored_set():
     fetch_phase = output[: output.index("app = pkgs.stdenv.mkDerivation")]
 
     assert "dontFixup = true;" in fetch_phase
+
+
+def test_python_venv_caps_lints_on_vendored_crates():
+    """
+    Third-party Rust must not fail the build over a lint we cannot fix.
+
+    cargo applies `--cap-lints allow` to crates from a registry for exactly
+    that reason, but not to workspace paths — and every crate vendored out of a
+    Python sdist arrives as a path. Without the cap, a rustc that promotes a
+    lint to deny-by-default breaks an app nobody edited: symbolic 8.7.2 stops
+    compiling at 1.87 on `dangerous_implicit_autorefs`.
+    """
+    output = generate(_python_spec(source_packages=("bcrypt",)))
+    app_phase = output[output.index("app = pkgs.stdenv.mkDerivation") :]
+
+    assert 'rustflags = ["--cap-lints", "allow"]' in app_phase
+
+
+def test_python_venv_cargo_config_is_written_literally():
+    """
+    The cargo config heredoc must not be expanded by the shell.
+
+    Its body is TOML with prose in it, and prose contains backticks. Unquoted,
+    the shell reads them as a command substitution and runs them mid-build:
+
+        1774: dangerous_implicit_autorefs: command not found
+
+    The written file is then quietly not what the template says it is.
+    """
+    output = generate(_python_spec(source_packages=("bcrypt",)))
+
+    assert "cat > $CARGO_HOME/config.toml << 'CARGOCFG'" in output
