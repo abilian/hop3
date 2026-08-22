@@ -56,6 +56,11 @@ E2E_TEST_SECRET_KEY = "e2e-test-secret-key-do-not-use-in-production"
 DOWNLOAD_CACHE_VOLUME = "hop3-download-cache"
 DOWNLOAD_CACHE_PATH = "/var/cache/hop3-downloads"
 
+# Labels stamped on every container this backend creates, so a later run can
+# recognise one of ours and find out whether anybody still owns it.
+MARKER_LABEL = "hop3.test.container"
+OWNER_LABEL = "hop3.test.owner-pid"
+
 # Supervisor configuration for Hop3 services in Docker
 SUPERVISOR_CONFIG = f"""\
 # Supervisor configuration for Hop3 services in Docker
@@ -108,6 +113,25 @@ environment=HOME="/home/hop3",HOP3_SECRET_KEY="{E2E_TEST_SECRET_KEY}",HOP3_DB_UR
 stdout_logfile=/var/log/supervisor/hop3-server.log
 stderr_logfile=/var/log/supervisor/hop3-server_err.log
 """
+
+
+def _process_is_alive(pid_text: str) -> bool:
+    """
+    Whether the process that created a container is still running.
+
+    Signal 0 performs the permission and existence checks without delivering
+    anything. A PermissionError means the pid exists under another user, which
+    still counts as alive. A recycled pid reads as alive and the conflict is
+    reported instead of reclaimed — erring toward the older, manual behaviour,
+    which is the safe direction to be wrong in.
+    """
+    try:
+        os.kill(int(pid_text), 0)
+    except (ProcessLookupError, ValueError):
+        return False
+    except PermissionError:
+        return True
+    return True
 
 
 class DockerDeployBackend(DeployBackend):
@@ -300,6 +324,65 @@ class DockerDeployBackend(DeployBackend):
 
         return conflicts
 
+    def _reclaim_orphans(self, conflicts: list[tuple[int, str, str]]) -> list[str]:
+        """
+        Remove conflicting containers this tool created whose run is gone.
+
+        A run killed by Ctrl-C, a timeout or an OOM cannot tear its own
+        container down, and the container keeps holding ports 8000/8080/8443.
+        The next run — quite possibly a *different* harness, since `hop3-test`
+        and the pytest e2e layer use different container names but the same
+        host ports — then fails before it starts, and only a hand-typed
+        `docker rm -f` clears it. Per the project's own rule, a leftover that
+        blocks the next deploy is a platform bug, not something to tell the
+        operator to go fix.
+
+        Only containers carrying this backend's label are ever touched, and
+        only when the process that created them is gone: a live run's container
+        is somebody's work in progress, and taking it out from under them would
+        be worse than the conflict. Unlabelled containers (someone else's, or
+        one from an older build) are left alone too.
+
+        Returns the names reclaimed.
+        """
+        reclaimed: list[str] = []
+        for name in dict.fromkeys(container for _, container, _ in conflicts):
+            owner = self._container_label(name, OWNER_LABEL)
+            if owner is None:
+                continue  # not ours — never touch it
+            if _process_is_alive(owner):
+                continue  # somebody is still using it; conflict is real
+            print(
+                f"  → Reclaiming '{name}': it belongs to hop3 run pid {owner}, "
+                "which is no longer running (a killed run cannot clean up "
+                "after itself)."
+            )
+            subprocess.run(
+                ["docker", "rm", "-f", name], capture_output=True, check=False
+            )
+            reclaimed.append(name)
+        return reclaimed
+
+    def _container_label(self, name: str, label: str) -> str | None:
+        """Return a label's value, or None if absent or the container is gone."""
+        result = subprocess.run(
+            [
+                "docker",
+                "inspect",
+                "-f",
+                f'{{{{index .Config.Labels "{label}"}}}}',
+                name,
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            return None
+        value = result.stdout.strip()
+        # `docker inspect` prints "<no value>" for a label that is not set.
+        return value if value and value != "<no value>" else None
+
     def _report_port_conflicts(self, conflicts: list[tuple[int, str, str]]) -> None:
         """Report port conflict error to user."""
         print("  ✗ Port conflict detected!")
@@ -356,6 +439,14 @@ class DockerDeployBackend(DeployBackend):
                 "--cap-add=NET_ADMIN",
                 "--name",
                 self.container_name,
+                # Who owns this container. A run that is killed cannot clean up
+                # after itself — SIGKILL leaves no chance to — so the next run
+                # has to be able to tell an abandoned container from one a live
+                # run is using. The pid is that signal; see _reclaim_orphans.
+                "--label",
+                f"{OWNER_LABEL}={os.getpid()}",
+                "--label",
+                f"{MARKER_LABEL}=1",
                 "-v",
                 f"{self.config.project_root}:/hop3:ro",
                 "-v",
@@ -462,6 +553,10 @@ class DockerDeployBackend(DeployBackend):
 
         # Check for port conflicts (now that our own container is gone)
         conflicts = self._check_ports_available()
+        if conflicts:
+            # An abandoned container of ours is ours to clear; a live one is not.
+            if self._reclaim_orphans(conflicts):
+                conflicts = self._check_ports_available()
         if conflicts:
             self._report_port_conflicts(conflicts)
             return False
