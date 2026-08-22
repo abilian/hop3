@@ -252,6 +252,17 @@ class Client:
             headers=headers,
             verify=verify_ssl,
             timeout=(_RPC_CONNECT_TIMEOUT_SECONDS, _RPC_READ_TIMEOUT_SECONDS),
+            # An RPC endpoint never legitimately redirects, so following one can
+            # only turn a useful error into a useless one: an unauthenticated
+            # call is answered with 302 to a login page, requests follows it,
+            # and a 200 of HTML arrives instead. It parses as neither JSON-RPC
+            # nor an HTTP error, so it surfaced as "Unexpected response format"
+            # — no mention of authentication, no way to act on it. A whole
+            # catalog run failed that way and read like a broken server.
+            #
+            # Not following also stops a Bearer token being replayed to
+            # wherever Location points.
+            allow_redirects=False,
         )
 
         return self._parse_response(response, json_request)
@@ -319,6 +330,9 @@ class Client:
             if response.status_code == 401:
                 return self._make_auth_error(request_id)
 
+            if 300 <= response.status_code < 400:
+                return self._make_redirect_error(response, request_id)
+
             # Try to parse as JSON-RPC response (even for non-200 status codes)
             json_rpc_response = self._try_parse_jsonrpc(response, request_id)
             if json_rpc_response is not None:
@@ -326,7 +340,16 @@ class Client:
 
             # For non-200 responses without JSON-RPC error, raise HTTP error
             response.raise_for_status()
-            return Error(-1, "Unexpected response format", "", request_id)
+            # Say what actually arrived. "Unexpected response format" on its own
+            # names no cause and suggests no next step.
+            body = response.text[:200].strip()
+            return Error(
+                -1,
+                f"{self.rpc_url} answered HTTP {response.status_code} with a body "
+                f"that is not a JSON-RPC response: {body!r}",
+                "",
+                request_id,
+            )
 
         except requests.exceptions.HTTPError as e:
             error_detail = f"HTTP {response.status_code} error: {e!s}"
@@ -335,6 +358,30 @@ class Client:
             return Error(response.status_code, error_detail, "", request_id)
         except Exception as e:
             return Error(response.status_code, str(e), "", request_id)
+
+    def _make_redirect_error(
+        self, response: requests.Response, request_id: int
+    ) -> Error:
+        """
+        A redirect from the RPC endpoint is an error, and almost always auth.
+
+        The server sends an unauthenticated caller to its login page. Reporting
+        it as such — rather than following it and failing to parse the HTML —
+        is the difference between "run hop3 login" and a mystery.
+        """
+        location = response.headers.get("Location", "(no Location header)")
+        error_msg = (
+            f"The server redirected the RPC call to {location}.\n\n"
+            "That usually means the request was not authenticated. Log in with "
+            "the credentials an administrator created for you:\n"
+            "  hop3 login\n\n"
+            "For scripts, mint a token explicitly:\n"
+            "  hop3 auth get-token <username> --password-file -\n\n"
+            f"If you are logged in, check that {self.api_url} is the right "
+            "server URL — a redirect can also mean the request reached "
+            "something that is not a Hop3 RPC endpoint."
+        )
+        return Error(response.status_code, error_msg, "", request_id)
 
     def _make_auth_error(self, request_id: int) -> Error:
         """Create authentication required error."""
