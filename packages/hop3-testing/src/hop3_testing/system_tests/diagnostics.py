@@ -51,7 +51,17 @@ class DiagnosticCollector:
 
     # Commands to run for collecting diagnostics
     DIAGNOSTIC_COMMANDS: ClassVar[dict[str, str]] = {
-        "hop3-server.log": "journalctl -u hop3-server --no-pager -n 500 2>&1 || echo 'No hop3-server logs'",
+        # journalctl exists in the Docker image but nothing there runs under
+        # systemd, so asking it alone yields "No journal files were found" —
+        # recorded as if the server had logged nothing. Read whichever source
+        # the running process manager actually writes to.
+        "hop3-server.log": (
+            'if [ "$(cat /proc/1/comm 2>/dev/null)" = systemd ]; then '
+            "journalctl -u hop3-server --no-pager -n 500 2>&1; else "
+            "tail -500 /var/log/supervisor/hop3-server.log 2>&1; "
+            "tail -500 /var/log/supervisor/hop3-server_err.log 2>&1; fi "
+            "|| echo 'No hop3-server logs'"
+        ),
         "nginx-error.log": "tail -500 /var/log/nginx/error.log 2>&1 || echo 'No nginx error log'",
         "nginx-access.log": "tail -200 /var/log/nginx/access.log 2>&1 || echo 'No nginx access log'",
         "docker-daemon.log": "journalctl -u docker --no-pager -n 200 2>&1 || echo 'No docker logs'",
