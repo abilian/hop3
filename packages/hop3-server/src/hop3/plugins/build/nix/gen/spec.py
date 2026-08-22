@@ -246,6 +246,19 @@ class PythonVenvPayload(TemplatePayload):
     # a build tool change the vendored bytes, and the hash with them. A missing
     # entry fails loudly, naming the package pip could not find.
     build_requires: tuple[str, ...] = ()
+    # Cargo lockfiles committed beside the recipe, as (recipe file, path inside
+    # the extracted sources) pairs.
+    #
+    # `cargo vendor` needs a lockfile to be deterministic; without one it
+    # resolves latest-compatible versions at fetch time, so the vendored crates
+    # — and the hash covering them — would change whenever any transitive crate
+    # publishes a release, breaking the recipe on a day nobody touched it.
+    #
+    # Most sdists ship their own. `symbolic` does not: its Rust sources arrive
+    # in a nested rustsrc.zip carrying 21 Cargo.toml files and no Cargo.lock. So
+    # the lock is generated once, committed here, and dropped in before
+    # vendoring — a pinned artifact we own on upstream's behalf.
+    cargo_locks: tuple[tuple[str, str], ...] = ()
 
 
 @dataclass(frozen=True)

@@ -92,12 +92,17 @@ class PythonVenvTemplate:
         # instead, so they arrive with the wheels under one hash.
         cargo_tools = " pkgs.cargo pkgs.rustc" if p.source_packages else ""
         build_requires = " ".join(f'"{req}"' for req in p.build_requires)
+        # Each committed lockfile enters the derivation as a store path, paired
+        # with where it belongs inside the extracted sources.
+        cargo_locks = "".join(
+            f' "${{./{src}}}" "{dest}"' for src, dest in p.cargo_locks
+        )
         build_requires_step = (
             f"""
       # PEP 517 backends for the sources vendored above. Pinned and --no-deps:
       # resolving them would let a new release of a build tool change these
       # bytes, and the recorded hash with them.
-      pip download --no-deps --dest $out {build_requires}"""
+      pip download --no-deps{no_binary_flag} --dest $out {build_requires}"""
             if p.build_requires
             else ""
         )
@@ -138,9 +143,18 @@ let
     # pulls in cffi, which needs libffi). Without these the download fails on
     # `fatal error: ffi.h: No such file or directory` — in the *download* step,
     # which reads as the last place a compiler error could come from.
-    nativeBuildInputs = [ python pkgs.python3Packages.pip{native_extra}{cargo_tools} ];{build_inputs}
+    nativeBuildInputs = [ python python.pkgs.pip{native_extra}{cargo_tools} ];{build_inputs}
 
     installPhase = ''
+      # cargo needs a writable CARGO_HOME, and the sandbox points HOME at
+      # /homeless-shelter, so the default is unwritable. Set before the fetch,
+      # not just before the vendor step below: a source distribution whose PEP
+      # 517 backend is itself written in Rust (maturin) compiles during
+      # `pip download`, and hits this first — reported as a permission error on
+      # a path no recipe mentions, from inside a pip subprocess.
+      export CARGO_HOME=$TMPDIR/cargo-fetch
+      mkdir -p $CARGO_HOME
+
       mkdir -p $out
       # --no-deps: the lockfile is already the full resolved closure, so this
       # is a fetch of exactly what was pinned rather than a re-resolution.
@@ -154,14 +168,8 @@ let
       #
       # A set with no Rust in it produces no directory and therefore no change
       # to this derivation's hash, so recipes without one are unaffected.
-      # cargo needs a writable CARGO_HOME to stage its downloads; the sandbox
-      # points HOME at /homeless-shelter, so the default is unwritable and the
-      # vendor step fails with "Permission denied" on a path nobody chose.
-      export CARGO_HOME=$TMPDIR/cargo-fetch
-      mkdir -p $CARGO_HOME
-
-      ${{python}}/bin/python - "$out" << 'CARGOVENDOR'
-import subprocess, sys, tarfile, tempfile
+      ${{python}}/bin/python - "$out"{cargo_locks} << 'CARGOVENDOR'
+import shutil, subprocess, sys, tarfile, tempfile, zipfile
 from pathlib import Path
 
 out = Path(sys.argv[1])
@@ -169,6 +177,23 @@ work = Path(tempfile.mkdtemp())
 for sdist in sorted(out.glob("*.tar.gz")):
     with tarfile.open(sdist) as archive:
         archive.extractall(work, filter="data")
+for sdist in sorted(out.glob("*.zip")):
+    with zipfile.ZipFile(sdist) as archive:
+        archive.extractall(work)
+
+# Some sdists bury their Rust sources in a nested archive rather than shipping
+# them as files: symbolic ships rustsrc.zip, the milksnake convention. Unpack
+# one level so those manifests are visible to the scan below.
+for nested in sorted(work.glob("*/*.zip")):
+    with zipfile.ZipFile(nested) as archive:
+        archive.extractall(nested.parent)
+
+# Drop in the lockfiles upstream does not provide, so resolution is pinned.
+locks = sys.argv[2:]
+for store_path, destination in zip(locks[::2], locks[1::2]):
+    target = work / destination
+    target.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(store_path, target)
 
 # Sorted, so the vendored tree does not depend on filesystem order.
 manifests = sorted(lock.parent / "Cargo.toml" for lock in work.rglob("Cargo.lock"))
@@ -205,7 +230,7 @@ CARGOVENDOR
     dontUnpack = true;
     dontBuild = true;
 
-    nativeBuildInputs = [ python pkgs.python3Packages.pip{native_extra}{cargo_tools} ];{build_inputs}
+    nativeBuildInputs = [ python python.pkgs.pip{native_extra}{cargo_tools} ];{build_inputs}
 
     installPhase = ''
       mkdir -p $out/app $out/bin $out/venv $out/hop3
@@ -217,12 +242,25 @@ CARGOVENDOR
         export CARGO_HOME=$TMPDIR/cargo-home
         export CARGO_NET_OFFLINE=true
         mkdir -p $CARGO_HOME
-        cat > $CARGO_HOME/config.toml << CARGOCFG
+        # Quoted delimiter: the body is literal TOML. Unquoted, the shell
+        # expands it, and the backticks in the comment below became a command
+        # substitution the build tried to run.
+        cat > $CARGO_HOME/config.toml << 'CARGOCFG'
 [source.crates-io]
 replace-with = "vendored-sources"
 
 [source.vendored-sources]
 directory = "${{pythonDeps}}/cargo-vendor"
+
+# cargo caps lints for crates it pulls from a registry, on the principle that
+# third-party code must not fail your build over a lint you cannot fix. Every
+# crate here is third-party too — it just arrives as a workspace path inside a
+# Python sdist, which is the one case cargo's rule misses. Without this, a
+# newer rustc turning a lint deny-by-default breaks an app whose sources
+# nobody touched: symbolic 8.7.2 stops compiling at rustc 1.87 over
+# `dangerous_implicit_autorefs`.
+[build]
+rustflags = ["--cap-lints", "allow"]
 CARGOCFG
       fi
 

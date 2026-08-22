@@ -108,6 +108,7 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
             "pip-source-packages": "source_packages",
             "pip-build-inputs": "build_inputs",
             "pip-build-requires": "build_requires",
+            "cargo-locks": "cargo_locks",
         },
     ),
     "node-pnpm-install": (
