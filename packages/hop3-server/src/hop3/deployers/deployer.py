@@ -514,6 +514,34 @@ def _is_crash_indicator(line: str) -> bool:
     return any(pattern in line_lower for pattern in crash_patterns)
 
 
+def _unrunnable_worker(lines: list[str]) -> str:
+    """
+    The shell's message if a declared worker's command could not be executed.
+
+    uWSGI runs each worker as `sh -c "... exec <command> ..."`, so a command
+    that is not on PATH — or is not executable — fails in the shell before the
+    app is involved:
+
+        sh: 1: exec: bugsink-runsnappea: not found
+
+    This is worth singling out because it is *instant and deterministic*, while
+    its consequence is neither. The daemon dies the moment it is spawned, uWSGI
+    respawns it, and only after enough cycles does it announce that it is
+    throttling. Whether that happens before or after the web process answers
+    its first request decides whether the deploy is reported as a failure or a
+    success — so the same broken app passed on an idle box and failed on a busy
+    one. A worker that cannot be executed is never acceptable, so it is
+    reported the moment it is seen, regardless of what the web process is doing.
+    """
+    for line in lines:
+        lowered = line.lower()
+        if "exec:" in lowered and (
+            "not found" in lowered or "permission denied" in lowered
+        ):
+            return line.strip()
+    return ""
+
+
 def _lines_since(previous: list[str], current: list[str]) -> list[str]:
     """
     The lines in ``current`` that were not already in ``previous``.
@@ -698,6 +726,10 @@ class StartOutcome:
     started: bool
     crash_looped: bool = False
     elapsed: float = 0.0
+    # The shell's own words when a declared worker's command could not be
+    # executed at all. Distinct from a crash loop: nothing ran, so there is no
+    # application error to find in the log, and waiting cannot help.
+    unrunnable_worker: str = ""
 
 
 def _wait_for_app_start(
@@ -751,6 +783,17 @@ def _wait_for_app_start(
         if actual_state == AppStateEnum.RUNNING and _app_serves_http(
             app, healthcheck_path, healthcheck_contains=healthcheck_contains
         ):
+            # Serving HTTP is not the whole app. A two-process app whose
+            # background worker never started answers requests and then fails
+            # on the first task that needs the queue, so accepting the web
+            # process alone would report a success the app cannot honour.
+            broken = _unrunnable_worker(app.get_logs(lines=50))
+            if broken:
+                return StartOutcome(
+                    started=False,
+                    unrunnable_worker=broken,
+                    elapsed=time.time() - started_at,
+                )
             return StartOutcome(started=True, elapsed=time.time() - started_at)
 
         elapsed = time.time() - (deadline - timeout)
@@ -848,6 +891,38 @@ def _name_the_start_failure(app: App, actual_state: AppStateEnum) -> str:
     return ""
 
 
+def _summarise_start_failure(
+    app: App, outcome: StartOutcome, timeout: float
+) -> tuple[str, str]:
+    """
+    The stored ``error_message`` and the printed headline for a failed start.
+
+    Three endings need three different words. Calling them all a timeout offers
+    the one remedy guaranteed not to work — raising the timeout — for two of
+    them.
+    """
+    if outcome.unrunnable_worker:
+        return (
+            f"A declared worker could not be executed: {outcome.unrunnable_worker}",
+            (
+                f"App '{app.name}' serves HTTP, but one of its declared workers "
+                f"could not be executed, so the app is only partly running."
+            ),
+        )
+    if outcome.crash_looped:
+        return (
+            f"App crashed repeatedly on startup, after {outcome.elapsed:.0f}s",
+            (
+                f"App '{app.name}' crashed repeatedly and was abandoned after "
+                f"{outcome.elapsed:.0f}s."
+            ),
+        )
+    return (
+        f"App failed to start within {timeout}s timeout",
+        f"App '{app.name}' failed to start within {timeout}s.",
+    )
+
+
 def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> None:
     """
     Report a failed startup, naming what actually happened.
@@ -870,25 +945,21 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
     actual_state = app.check_actual_status()
     diagnosis = _name_the_start_failure(app, actual_state)
 
-    if outcome.crash_looped:
-        app.error_message = (
-            f"App crashed repeatedly on startup, after {outcome.elapsed:.0f}s"
-        )
-    else:
-        app.error_message = f"App failed to start within {timeout}s timeout"
+    summary, headline = _summarise_start_failure(app, outcome, timeout)
     # The dashboard and `hop3 app status` show `error_message` and nothing
     # else, so a cause that only reaches the deploy log never reaches the
     # person looking for it.
-    if diagnosis:
-        app.error_message = f"{app.error_message}: {diagnosis}"
-
-    headline = (
-        f"App '{app.name}' crashed repeatedly and was abandoned after "
-        f"{outcome.elapsed:.0f}s."
-        if outcome.crash_looped
-        else f"App '{app.name}' failed to start within {timeout}s."
-    )
+    app.error_message = f"{summary}: {diagnosis}" if diagnosis else summary
     log(headline, level=0, fg="red")
+    if outcome.unrunnable_worker:
+        log(f"  → {outcome.unrunnable_worker}", level=0, fg="red")
+        log(
+            "  The command in [run.workers] must be on the app's PATH — the "
+            "build artifact's bin directories, the virtualenv, or an absolute "
+            "path.",
+            level=0,
+            fg="yellow",
+        )
     if diagnosis:
         log(f"  → {diagnosis}", level=0, fg="red")
 
