@@ -18,6 +18,8 @@ from typing import TYPE_CHECKING, Any
 
 import jwt
 
+from hop3.lib.logging import server_log
+
 if TYPE_CHECKING:
     from types import ModuleType
 
@@ -224,11 +226,21 @@ def validate_token(token: str) -> dict[str, Any] | None:  # ruff:ignore[too-many
             "expires_at": payload.get("exp"),
             "token_id": jti,
         }
-    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError):
-        # Token has expired, is invalid, or secret key not configured
+    except (jwt.ExpiredSignatureError, jwt.InvalidTokenError, ValueError) as e:
+        # Token has expired, is invalid, or secret key not configured. Expected
+        # for a genuinely bad token, so this is not an error — but it is the
+        # difference between "your token expired" and "the server has no secret
+        # key", which the caller's 401 cannot distinguish.
+        server_log.info("Token rejected", reason=type(e).__name__, detail=str(e))
         return None
-    except Exception:
-        # Unexpected error
+    except Exception as e:
+        # Anything else is a bug or an outage, not a bad token. Denying without
+        # a trace is what made an auth failure look like a broken deployment.
+        server_log.error(
+            "Token validation raised an unexpected error; denying",
+            error=str(e),
+            error_type=type(e).__name__,
+        )
         return None
 
 
@@ -255,8 +267,22 @@ def is_token_revoked(jti: str, scopes: list[str] | None = None) -> bool:
         with get_session() as db_session:
             repo = RevokedTokenRepository(session=db_session)
             return repo.is_revoked(jti)
-    except Exception:
+    except Exception as e:
         is_admin = scopes is not None and "admin" in scopes
+        # Say so. The decision below is deliberate, but discarding the cause
+        # made it undiagnosable: a valid admin token is denied, the caller is
+        # told "Authentication required", and nothing anywhere records that a
+        # database error — not a revocation — is what denied it. A 34-app
+        # catalog run failed this way and read as a broken server.
+        server_log.error(
+            "Revocation check failed; denying admin token"
+            if is_admin
+            else "Revocation check failed; allowing user token",
+            jti=jti,
+            is_admin=is_admin,
+            error=str(e),
+            error_type=type(e).__name__,
+        )
         # Admin scope: fail closed (treat as revoked).
         # User scope: fail open (treat as not revoked) so a DB
         # outage doesn't lock everyone out.
