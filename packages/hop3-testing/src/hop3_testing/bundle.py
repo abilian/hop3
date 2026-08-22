@@ -552,18 +552,41 @@ def _collect_sections(
         "|| echo '(ss/netstat unavailable — see proxy_probe.txt)'",
     )
 
+    # The server's own log, from whichever process manager is actually running.
+    #
+    # This used to branch on `command -v journalctl`, which is present in the
+    # Docker image even though nothing there is managed by systemd — so the
+    # journalctl path was taken, `journalctl` printed "No journal files were
+    # found", and the bundle recorded that as the server's log. An empty
+    # section reads as "no errors", which is the worst possible answer: an app
+    # failed on "Authentication required" and the reason the server denied it
+    # sat in a supervisor log the bundle never looked at.
+    #
+    # So: decide on PID 1, read both streams, and if nothing turns up say that
+    # the log could not be collected rather than leaving a silent blank.
     sections["journal"] = _section_body(
         target,
         'echo "uid=$(id -un)";'
-        "if command -v journalctl >/dev/null 2>&1; then "
-        "echo '=== hop3-server ==='; "
-        "journalctl -u hop3-server -n 200 --no-pager 2>&1 "
-        "|| echo '(journalctl needs root)';"
-        "echo '=== hop3-rootd ==='; "
-        "journalctl -u hop3-rootd -n 100 --no-pager 2>&1 || echo '(none)';"
-        "else echo '=== supervisor hop3-server ==='; "
-        "tail -200 /var/log/supervisor/hop3-server.log 2>&1 || echo '(none)';"
-        "tail -200 /var/log/supervisor/hop3-server_err.log 2>&1 || echo '(none)'; fi",
+        'PM="$(cat /proc/1/comm 2>/dev/null || echo unknown)";'
+        'echo "=== process manager (pid 1): $PM ===";'
+        'OUT=$(if [ "$PM" = systemd ]; then '
+        "echo '--- hop3-server (journal) ---'; "
+        "journalctl -u hop3-server -n 500 --no-pager 2>&1; "
+        "echo '--- hop3-rootd (journal) ---'; "
+        "journalctl -u hop3-rootd -n 200 --no-pager 2>&1; "
+        "else "
+        "echo '--- hop3-server (supervisor stdout) ---'; "
+        "tail -500 /var/log/supervisor/hop3-server.log 2>&1; "
+        "echo '--- hop3-server (supervisor stderr) ---'; "
+        "tail -500 /var/log/supervisor/hop3-server_err.log 2>&1; "
+        "echo '--- hop3-rootd (supervisor) ---'; "
+        "tail -200 /var/log/supervisor/hop3-rootd*.log 2>&1; "
+        "fi);"
+        'echo "$OUT";'
+        'if [ -z "$(echo "$OUT" | grep -vE \'^---|^$|^tail:|No such file|No journal files|-- No entries\')" ]; then '
+        "echo '!!! the server log could not be collected — this is a gap in the "
+        "bundle, NOT evidence that the server logged nothing. Check the process "
+        "manager above against where its logs actually go.'; fi",
     )
 
     # Host resource state — disk/inodes/memory + nix GC roots + OOM kills. A
