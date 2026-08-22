@@ -194,6 +194,98 @@ class UwsgiWorker:
         ...
         # raise NotImplementedError
 
+    def attach_daemon(self) -> None:
+        """
+        Run this worker's command as a uWSGI ``attach-daemon``.
+
+        Commands are wrapped in 'sh -c' to enable shell variable expansion
+        (e.g., $PORT) which is standard for Heroku-style Procfiles.
+
+        Trust model
+        -----------
+        ``self.command`` and ``self.env`` are owned by the app's deployer:
+        the user who pushed this app's Procfile/hop3.toml gets to pick
+        the entrypoint and environment, and the app already runs *as*
+        that deployer's app context. There is no privilege boundary
+        between "the command they wrote" and "the shell that executes
+        the command they wrote", so the f-string below does not cross
+        a security boundary.
+
+        The single-quote escaping on env values is a *correctness*
+        measure (so a legitimate apostrophe in a value doesn't break
+        the shell parse), not a security control. Do not "harden" this
+        by, say, list-form ``subprocess`` — uWSGI's ``attach-daemon``
+        only takes a shell string, and Procfile commands legitimately
+        rely on shell features (``$PORT`` expansion, ``&&`` chains).
+        """
+        from hop3.orm import (  # ruff:ignore[import-outside-top-level]
+            App,
+        )
+
+        app = App(name=self.app_name)
+
+        # The PATH the spawner built comes FIRST. It already carries the build
+        # artifact's `path_prepend` — for a Nix app that is where every binary
+        # lives, since `virtualenv_path` holds nothing. Rebuilding PATH from a
+        # virtualenv shape and discarding this made a bare worker command
+        # ("bugsink-runsnappea") not found, while the web process survived
+        # because its command is an absolute store path. The background worker
+        # is the one that pays, and it pays by crash-looping until uWSGI
+        # throttles it and the whole app is abandoned.
+        path_dirs = [p for p in self.env.get("PATH", "").split(":") if p]
+
+        # Virtualenv and node_modules bin directories, for the toolchains that
+        # do install into the app's own tree.
+        venv_bin = app.virtualenv_path / "bin"
+        src_node_bin = app.src_path / "node_modules" / ".bin"
+        venv_node_bin = app.virtualenv_path / "node_modules" / ".bin"
+
+        path_dirs.append(str(venv_bin))
+        if src_node_bin.exists():
+            path_dirs.append(str(src_node_bin))
+        if venv_node_bin.exists():
+            path_dirs.append(str(venv_node_bin))
+
+        path_dirs.extend([
+            "/usr/local/sbin",
+            "/usr/local/bin",
+            "/usr/sbin",
+            "/usr/bin",
+        ])
+        # Ordered dedup: the artifact's entries already appear above, and a
+        # repeat would only make the exported PATH harder to read.
+        path_value = ":".join(dict.fromkeys(path_dirs))
+
+        # Build exports for ALL environment variables
+        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit
+        # env vars from the uWSGI config, so we must export them explicitly
+        exports = [f"export PATH={path_value}"]
+        for key, value in self.env.items():
+            # PATH is folded into path_value above; NGINX_ACL is not the app's.
+            if key in {"NGINX_ACL", "PATH"}:
+                continue
+            # Escape single quotes in values so a literal apostrophe in
+            # ``value`` doesn't break out of the surrounding ``'...'``.
+            # Correctness, not security — see the trust-model note above.
+            safe_value = str(value).replace("'", "'\\''")
+            exports.append(f"export {key}='{safe_value}'")
+
+        # Wrap command in shell with all exports and explicit cd to src/
+        # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
+        # so we explicitly cd to the source directory.
+        #
+        # Redirect stdout AND stderr to the app log file so application
+        # output (PHP exceptions, Python tracebacks, Node startup errors,
+        # …) is captured and visible via `hop3 app logs`. Node apps in
+        # particular often write critical startup errors to stdout (e.g.
+        # HedgeDoc 1.10 config-validation failures), so `2>>` alone loses
+        # them; `>>file 2>&1` captures both.
+        log_path = app.log_path
+        daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
+        exports_str = "; ".join(exports)
+        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
+        self.settings.add("attach-daemon", shell_cmd)
+
     def update_env(self) -> None:
         """
         Update the environment settings for the application.
@@ -361,89 +453,8 @@ class WebWorker(UwsgiWorker):
     )
 
     def update_settings(self) -> None:
-        """
-        Update the settings by adding the command to the 'attach-daemon'
-        section.
-
-        This modifies the current settings to include the specified
-        command associated with the key 'attach-daemon'.
-
-        Commands are wrapped in 'sh -c' to enable shell variable expansion
-        (e.g., $PORT) which is standard for Heroku-style Procfiles.
-
-        Trust model
-        -----------
-        ``self.command`` and ``self.env`` are owned by the app's deployer:
-        the user who pushed this app's Procfile/hop3.toml gets to pick
-        the entrypoint and environment, and the app already runs *as*
-        that deployer's app context. There is no privilege boundary
-        between "the command they wrote" and "the shell that executes
-        the command they wrote", so the f-string below does not cross
-        a security boundary.
-
-        The single-quote escaping on env values is a *correctness*
-        measure (so a legitimate apostrophe in a value doesn't break
-        the shell parse), not a security control. Do not "harden" this
-        by, say, list-form ``subprocess`` — uWSGI's ``attach-daemon``
-        only takes a shell string, and Procfile commands legitimately
-        rely on shell features (``$PORT`` expansion, ``&&`` chains).
-        """
-        from hop3.orm import (  # ruff:ignore[import-outside-top-level]
-            App,
-        )
-
-        app = App(name=self.app_name)
-
-        # Build PATH with virtualenv and node_modules bin directories
-        venv_bin = app.virtualenv_path / "bin"
-        src_node_bin = app.src_path / "node_modules" / ".bin"
-        venv_node_bin = app.virtualenv_path / "node_modules" / ".bin"
-
-        path_dirs = [str(venv_bin)]
-
-        # Add node_modules/.bin if present (check both src and venv locations)
-        if src_node_bin.exists():
-            path_dirs.append(str(src_node_bin))
-        if venv_node_bin.exists():
-            path_dirs.append(str(venv_node_bin))
-
-        path_dirs.extend([
-            "/usr/local/sbin",
-            "/usr/local/bin",
-            "/usr/sbin",
-            "/usr/bin",
-        ])
-        path_value = ":".join(path_dirs)
-
-        # Build exports for ALL environment variables
-        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit
-        # env vars from the uWSGI config, so we must export them explicitly
-        exports = [f"export PATH={path_value}"]
-        for key, value in self.env.items():
-            # Skip keys that shouldn't be exported or are already handled
-            if key in {"NGINX_ACL", "PATH"}:
-                continue
-            # Escape single quotes in values so a literal apostrophe in
-            # ``value`` doesn't break out of the surrounding ``'...'``.
-            # Correctness, not security — see the trust-model note above.
-            safe_value = str(value).replace("'", "'\\''")
-            exports.append(f"export {key}='{safe_value}'")
-
-        # Wrap command in shell with all exports and explicit cd to src/
-        # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
-        # so we explicitly cd to the source directory.
-        #
-        # Redirect stdout AND stderr to the app log file so application
-        # output (PHP exceptions, Python tracebacks, Node startup errors,
-        # …) is captured and visible via `hop3 app logs`. Node apps in
-        # particular often write critical startup errors to stdout (e.g.
-        # HedgeDoc 1.10 config-validation failures), so `2>>` alone loses
-        # them; `>>file 2>&1` captures both.
-        log_path = app.log_path
-        daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
-        exports_str = "; ".join(exports)
-        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
-        self.settings.add("attach-daemon", shell_cmd)
+        """Run this worker's command as a uWSGI ``attach-daemon``."""
+        self.attach_daemon()
 
 
 @dataclass
@@ -451,57 +462,5 @@ class GenericWorker(UwsgiWorker):
     kind: str = "generic"
 
     def update_settings(self) -> None:
-        # Trust model: see WebWorker.update_settings. ``self.command`` and
-        # ``self.env`` are owned by the app's deployer, who already has
-        # full code-execution rights inside their own app's runtime —
-        # the shell construction below does not cross a privilege
-        # boundary.
-        from hop3.orm import (  # ruff:ignore[import-outside-top-level]
-            App,
-        )
-
-        app = App(name=self.app_name)
-
-        # Build PATH with virtualenv and node_modules bin directories
-        venv_bin = app.virtualenv_path / "bin"
-        src_node_bin = app.src_path / "node_modules" / ".bin"
-        venv_node_bin = app.virtualenv_path / "node_modules" / ".bin"
-
-        path_dirs = [str(venv_bin)]
-
-        # Add node_modules/.bin if present (check both src and venv locations)
-        if src_node_bin.exists():
-            path_dirs.append(str(src_node_bin))
-        if venv_node_bin.exists():
-            path_dirs.append(str(venv_node_bin))
-
-        path_dirs.extend([
-            "/usr/local/sbin",
-            "/usr/local/bin",
-            "/usr/sbin",
-            "/usr/bin",
-        ])
-        path_value = ":".join(path_dirs)
-
-        # Build exports for ALL environment variables
-        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit
-        # env vars from the uWSGI config, so we must export them explicitly
-        exports = [f"export PATH={path_value}"]
-        for key, value in self.env.items():
-            # Skip keys that shouldn't be exported or are already handled
-            if key in {"NGINX_ACL", "PATH"}:
-                continue
-            # Escape single quotes in values for shell safety
-            safe_value = str(value).replace("'", "'\\''")
-            exports.append(f"export {key}='{safe_value}'")
-
-        # Wrap command in shell with all exports and explicit cd to src/
-        # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
-        # so we explicitly cd to the source directory.
-        #
-        # Redirect stdout AND stderr to the app log file (same fix as WebWorker).
-        log_path = app.log_path
-        daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
-        exports_str = "; ".join(exports)
-        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
-        self.settings.add("attach-daemon", shell_cmd)
+        """Run this worker's command as a uWSGI ``attach-daemon``."""
+        self.attach_daemon()
