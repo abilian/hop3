@@ -125,9 +125,10 @@ def _install_package_step(config: ServerInstallerConfig) -> bool:
         return True
     try:
         install_package(config)
-    except FileNotFoundError as e:
-        # The package installed but did not deliver an executable the platform
-        # depends on (see publish_fetch_helper).
+    except OSError as e:
+        # The package installed but an executable the platform depends on could
+        # not be published (see publish_fetch_helper). A server that simply does
+        # not ship it is handled there and is not an error.
         print_error(str(e))
         return False
     except CommandError as e:
