@@ -69,9 +69,23 @@ def cache_dir() -> Path:
     return Path(override) if override else CACHE_ROOT / "downloads"
 
 
-def fetch(url: str, *, sha256: str | None = None, cache: Path | None = None) -> Path:
+def fetch(
+    url: str,
+    *,
+    sha256: str | None = None,
+    cache: Path | None = None,
+    refresh: bool = False,
+) -> Path:
     """
     Return the path to a cached copy of ``url``, downloading it if absent.
+
+    ``refresh`` discards any cached copy first. Needed because a cache hit is
+    returned unread: an entry written by a version that accepted a short body
+    would otherwise be served to every later build forever, and the only remedy
+    would be deleting a file inside the cache by hand on the server. A pinned
+    fetch could never be poisoned that way — verification happens before the
+    file reaches the cache, and the key is the hash itself — so this is for the
+    unpinned entries, which are keyed by URL and have nothing to check against.
 
     Raises:
         FetchError: if the download fails, or if a pinned ``sha256`` does not
@@ -83,6 +97,9 @@ def fetch(url: str, *, sha256: str | None = None, cache: Path | None = None) -> 
     root.mkdir(parents=True, exist_ok=True)
 
     cached = root / _cache_key(url, sha256)
+    if refresh and cached.exists():
+        _report(f"discarding cached copy of {url}")
+        cached.unlink()
     if cached.exists():
         _report(f"cache hit for {url}")
         return cached
@@ -121,10 +138,15 @@ def main(argv: list[str] | None = None) -> int:
         "--sha256",
         help="expected content hash; a mismatch fails the build",
     )
+    parser.add_argument(
+        "--refresh",
+        action="store_true",
+        help="discard any cached copy and download again",
+    )
     args = parser.parse_args(argv)
 
     try:
-        cached = fetch(args.url, sha256=args.sha256)
+        cached = fetch(args.url, sha256=args.sha256, refresh=args.refresh)
     except (FetchError, OSError) as e:
         # OSError covers an unwritable cache directory. Reported, not worked
         # around: a build whose input cannot be stored should stop here rather
@@ -167,8 +189,21 @@ def _download(url: str, dest: Path) -> None:
                 dest.open("wb") as out,
             ):
                 shutil.copyfileobj(response, out, CHUNK)
+                expected = _declared_length(response)
+            written = dest.stat().st_size
+            if expected is not None and written != expected:
+                # A connection dropped mid-body leaves a short file and no
+                # exception: `copyfileobj` returns what it got. Accepting it
+                # reports a download that did not happen, and — because a
+                # recipe without a pinned `sha256` has nothing else to check —
+                # stores the truncation in the cache, so every later build
+                # gets the same corrupt bytes without touching the network.
+                # mediawiki's tarball arrived 68 MB short and unpacked as
+                # `gzip: stdin: unexpected end of file`.
+                msg = f"truncated: got {written} of {expected} bytes"
+                raise FetchError(msg)
             return
-        except (urllib.error.URLError, TimeoutError) as e:
+        except (urllib.error.URLError, TimeoutError, FetchError) as e:
             if isinstance(e, urllib.error.HTTPError) and e.code not in RETRYABLE_STATUS:
                 msg = f"{url}: HTTP {e.code} {e.reason}"
                 raise FetchError(msg) from e
@@ -178,6 +213,23 @@ def _download(url: str, dest: Path) -> None:
             delay = _retry_delay(attempt, e)
             _report(f"{url}: {e} — retrying in {delay:.0f}s")
             time.sleep(delay)
+
+
+def _declared_length(response: object) -> int | None:
+    """
+    The body length the server promised, when it promised one.
+
+    Absent for a chunked or compressed-in-transit response, where the only
+    honest answer is that the size is not known in advance; those fall back to
+    the pinned `sha256`, or to nothing.
+    """
+    header = response.headers.get("Content-Length")  # type: ignore[attr-defined]
+    if header is None:
+        return None
+    try:
+        return int(header)
+    except ValueError:
+        return None
 
 
 def _retry_delay(attempt: int, error: Exception) -> float:

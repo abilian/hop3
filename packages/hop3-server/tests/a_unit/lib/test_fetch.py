@@ -16,6 +16,7 @@ downloads, keyed by content where the recipe pins a hash.
 
 from __future__ import annotations
 
+import email.message
 import hashlib
 import urllib.error
 from email.message import Message
@@ -91,10 +92,19 @@ def test_the_cache_location_is_overridable(monkeypatch, tmp_path):
 
 
 class _Response:
-    """Minimal stand-in for what urlopen returns."""
+    """
+    Minimal stand-in for what urlopen returns.
 
-    def __init__(self, body: bytes) -> None:
+    Carries ``headers`` because every real response does, and the fetcher reads
+    Content-Length from it to notice a body that arrived short. Pass
+    ``declared`` to claim a length the body does not have.
+    """
+
+    def __init__(self, body: bytes, declared: int | None = None) -> None:
         self._body = body
+        length = len(body) if declared is None else declared
+        self.headers = email.message.Message()
+        self.headers["Content-Length"] = str(length)
 
     def read(self, size: int = -1) -> bytes:
         chunk, self._body = self._body, b""
@@ -159,3 +169,106 @@ def _raise_or_return(item):
     if isinstance(item, Exception):
         raise item
     return item
+
+
+def test_a_truncated_download_is_not_returned_as_success(tmp_path, monkeypatch):
+    """
+    A body that stops early is a failed download, not a short file.
+
+    `copyfileobj` returns what it got and raises nothing, so the fetch reported
+    success and the caller unpacked the fragment: mediawiki's tarball arrived
+    68 MB short and died as `gzip: stdin: unexpected end of file`.
+    """
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request,
+        "urlopen",
+        lambda *_a, **_kw: _Response(PAYLOAD[:3], declared=len(PAYLOAD)),
+    )
+
+    with pytest.raises(fetch_module.FetchError, match="truncated"):
+        fetch(URL, cache=tmp_path)
+
+
+def test_a_truncated_download_never_reaches_the_cache(tmp_path, monkeypatch):
+    """
+    Otherwise the corruption outlives the network blip that caused it.
+
+    Without a pinned sha256 there is nothing else to catch it, so a cached
+    fragment would be served to every later build without touching the network.
+    """
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request,
+        "urlopen",
+        lambda *_a, **_kw: _Response(PAYLOAD[:3], declared=len(PAYLOAD)),
+    )
+
+    with pytest.raises(fetch_module.FetchError):
+        fetch(URL, cache=tmp_path)
+
+    assert list(tmp_path.iterdir()) == []
+
+
+def test_a_truncated_download_is_retried(tmp_path, monkeypatch):
+    """A dropped connection is transient, so it gets the same retry as a 429."""
+    responses = [
+        _Response(PAYLOAD[:3], declared=len(PAYLOAD)),
+        _Response(PAYLOAD),
+    ]
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request,
+        "urlopen",
+        lambda *_a, **_kw: responses.pop(0),
+    )
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+
+
+def test_a_response_without_a_declared_length_is_accepted(tmp_path, monkeypatch):
+    """
+    Chunked and compressed-in-transit responses promise no length.
+
+    There the size is genuinely unknown in advance, so the check has nothing to
+    compare against and must not invent a failure.
+    """
+    response = _Response(PAYLOAD)
+    del response.headers["Content-Length"]
+    monkeypatch.setattr(
+        fetch_module.urllib.request, "urlopen", lambda *_a, **_kw: response
+    )
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+
+
+def test_refresh_discards_a_cached_copy(tmp_path, monkeypatch):
+    """
+    A cache hit is returned unread, so a bad entry needs a way out.
+
+    The truncation check stops new corruption reaching the cache, but an entry
+    written before it would be served to every later build forever, and the
+    only remedy would be deleting a file inside the cache by hand on a server.
+    """
+    stale = tmp_path / fetch_module._cache_key(URL, None)
+    stale.write_bytes(b"truncated")
+
+    monkeypatch.setattr(
+        fetch_module.urllib.request, "urlopen", lambda *_a, **_kw: _Response(PAYLOAD)
+    )
+
+    assert fetch(URL, cache=tmp_path, refresh=True).read_bytes() == PAYLOAD
+
+
+def test_without_refresh_a_cached_copy_is_kept(tmp_path, monkeypatch):
+    """The cache is the point; refresh is the exception, not the default."""
+    cached = tmp_path / fetch_module._cache_key(URL, None)
+    cached.write_bytes(b"already here")
+
+    def _no_network(*_a, **_kw):
+        msg = "a cache hit must not reach the network"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(fetch_module.urllib.request, "urlopen", _no_network)
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == b"already here"
