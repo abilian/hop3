@@ -141,13 +141,22 @@ def get_category_for_app(app: CatalogApp) -> str:
 
 
 def build_categories(apps: list[CatalogApp]) -> list[Category]:
-    """Build category objects from apps."""
+    """
+    Build category objects from apps.
+
+    Every recipe gets its ``category`` computed, including the alternative build
+    paths, so an app page can show it whichever entry the reader arrived by.
+    Only the default entry is listed *in* the category: browsing a category is
+    browsing applications, and three routes to the same software listed side by
+    side reads as three applications.
+    """
     category_apps: dict[str, list[CatalogApp]] = defaultdict(list)
 
     for app in apps:
         category_name = get_category_for_app(app)
         app.category = category_name
-        category_apps[category_name].append(app)
+        if app.is_default_variant:
+            category_apps[category_name].append(app)
 
     categories = []
     for name, cat_apps in sorted(category_apps.items(), key=lambda x: -len(x[1])):
@@ -170,6 +179,8 @@ def build_tags(apps: list[CatalogApp]) -> list[Tag]:
     tag_apps: dict[str, list[CatalogApp]] = defaultdict(list)
 
     for app in apps:
+        if not app.is_default_variant:
+            continue
         for tag in app.tags:
             tag_apps[tag].append(app)
 

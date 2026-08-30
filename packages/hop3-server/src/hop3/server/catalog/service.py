@@ -97,8 +97,38 @@ class CatalogService:
     def get_app(self, app_id: str) -> CatalogApp | None:
         return self._current().apps_by_id.get(app_id)
 
-    def list_apps(self) -> list[CatalogApp]:
-        return self._current().apps
+    def list_apps(self, *, include_variants: bool = False) -> list[CatalogApp]:
+        """
+        The catalog's applications, one entry each.
+
+        A catalog entry is a recipe, and one application may have several:
+        bookstack, bookstack-nix and bookstack-nixgen install the same software
+        by different routes. Browsing wants applications, so the alternative
+        build paths are folded into the entry they belong to and reachable
+        through :meth:`variants_of`. They stay installable by id throughout.
+
+        ``include_variants`` returns every recipe, for the tooling that has to
+        enumerate what the server publishes rather than what it offers.
+        """
+        apps = self._current().apps
+        if include_variants:
+            return apps
+        return [app for app in apps if app.is_default_variant]
+
+    def variants_of(self, app_id: str) -> list[CatalogApp]:
+        """
+        The alternative build paths for one application, the default first.
+
+        Empty when the application is packaged one way, so a caller can render
+        a choice only where there is one to make.
+        """
+        app = self.get_app(app_id)
+        if app is None or not app.is_default_variant:
+            return []
+        others = [other for other in self._current().apps if other.variant_of == app_id]
+        if not others:
+            return []
+        return [app, *sorted(others, key=lambda a: a.build_path)]
 
     def get_category(self, category_id: str) -> Category | None:
         return self._current().categories_by_id.get(category_id)
@@ -118,17 +148,22 @@ class CatalogService:
         showed two. Whether an app is featured is a property of the app, and it
         travels with it.
         """
-        return [app for app in self._current().apps if app.featured]
+        return [
+            app
+            for app in self._current().apps
+            if app.featured and app.is_default_variant
+        ]
 
     def search(self, query: str) -> list[CatalogApp]:
         """Search apps by title, description, tags, or author."""
         snap = self._current()
         q = query.lower().strip()
+        candidates = [app for app in snap.apps if app.is_default_variant]
         if not q:
-            return snap.apps
+            return candidates
         return [
             app
-            for app in snap.apps
+            for app in candidates
             if q in app.title.lower()
             or q in app.description.lower()
             or any(q in tag.lower() for tag in app.tags)

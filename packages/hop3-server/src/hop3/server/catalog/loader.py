@@ -135,6 +135,8 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         featured=bool(overlay.get("featured", False)),
         license_note=overlay.get("license_note", ""),
         screenshots=overlay.get("screenshots", []),
+        variant_of=overlay.get("variant_of", ""),
+        build_path=overlay.get("build_path", "native"),
         category=overlay.get("category", ""),
         source_path=str(app_dir),
     )
