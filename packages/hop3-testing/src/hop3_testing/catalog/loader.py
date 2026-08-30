@@ -102,18 +102,28 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
         tutorial=tutorial,
         description=test_section.get("description"),
         metadata=metadata,
-        # Apps under apps/bad/ are "bad recipes": negative tests expected to
+        # A recipe the catalog files as `broken` is a negative test expected to
         # fail BY DEFAULT. An explicit `expects-failure = false` opts back out
-        # (e.g. a business-drop under apps/bad/ that still deploys fine), so the
+        # (e.g. a business-drop filed there that still deploys fine), so the
         # path-derived default must lose to an explicit config value (audit C6).
-        expects_failure=bool(test_section.get("expects-failure", _under_bad_dir(path))),
+        expects_failure=bool(
+            test_section.get("expects-failure", _is_broken_recipe(path))
+        ),
         source_path=path,
     )
 
 
-def _under_bad_dir(path: Path | None) -> bool:
-    """True for apps under apps/bad/ (the expected-to-fail "bad recipes")."""
-    return path is not None and "/apps/bad/" in f"/{path.as_posix()}"
+def _is_broken_recipe(path: Path | None) -> bool:
+    """
+    True for a recipe under the catalog's ``broken`` status (ADR 059).
+
+    This used to read ``apps/bad/`` in this repository. That tree moved into the
+    catalog when the recipes were consolidated, and the check kept reading the
+    old path — so it matched nothing, every known-broken recipe was expected to
+    pass, and ``make test-apps-broken`` would have reported nine expected
+    failures as regressions.
+    """
+    return path is not None and "/apps/broken/" in f"/{path.as_posix()}"
 
 
 def _parse_requirements(data: dict[str, Any]) -> TestRequirements:
@@ -648,13 +658,13 @@ def generate_test_definition_from_hop3_toml(
         ),
         description=description,
         metadata=TestMetadata(**metadata_kwargs),
-        # Bad recipes (apps/bad/**) are negative tests BY DEFAULT, even when
+        # Broken recipes (the catalog's broken/**) are negative tests BY DEFAULT, even when
         # configured via hop3.toml — match the standalone-test.toml path so
         # they're xfail, not red. An explicit [test] `expects-failure = false`
         # opts back out (a deferred business-drop that still deploys fine). The
         # DEFERRED.md scanner skip is what actually drops focalboard & co.; this
         # only honors an explicit opt-out (audit C6).
-        expects_failure=overrides.get("expects_failure", _under_bad_dir(app_path)),
+        expects_failure=overrides.get("expects_failure", _is_broken_recipe(app_path)),
         source_path=app_path / "hop3.toml",
     )
 

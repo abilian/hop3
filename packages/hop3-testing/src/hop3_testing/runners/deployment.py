@@ -758,7 +758,7 @@ class DeploymentTestRunner:
                 return _fail_result(error, deploy_logs=deploy_logs)
             # Negative test cases: a genuine builder/deployer REJECTION is the
             # expected outcome (e.g., an input the builder is expected to
-            # reject — see apps/bad/). We record a PASS, skip the
+            # reject — see the catalog's broken/ status). We record a PASS, skip the
             # HTTP/check-script stages (there's no running app to probe), and
             # short-circuit to cleanup.
             if test.expects_failure:

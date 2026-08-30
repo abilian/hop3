@@ -281,7 +281,7 @@ class TestDefinition:
     # Runner treats a failed deploy as PASS (and an unexpected
     # successful deploy as FAIL). Used for apps that intentionally
     # exercise a rejection path (e.g., an input the builder must
-    # reject — see apps/bad/).
+    # reject — see the catalog's broken/ status).
     expects_failure: bool = False
     """Whether this test expects the deployment to fail."""
 

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 
 from .loader import (
     TestDefinitionError,
-    _under_bad_dir,
+    _is_broken_recipe,
     generate_test_definition_from_app,
     generate_tutorial_test_definition,
     load_test_definition_smart,
@@ -31,7 +31,7 @@ logger = logging.getLogger(__name__)
 
 IGNORE_FILE = "HOP3_TEST_IGNORE"
 
-# A DEFERRED.md under apps/bad/** is OVERLOADED: it marks BOTH a deploys-fine
+# A DEFERRED.md under the catalog's broken/** is OVERLOADED: it marks BOTH a deploys-fine
 # business-drop (e.g. focalboard — "dropped for business reasons, not a platform
 # limitation") AND a genuine platform blocker (e.g. monica — a "## Blocker" that
 # really fails to deploy). Only the former is skipped from the run (it is not a
@@ -266,7 +266,7 @@ class Catalog:
 
     def _is_deferred_business_drop(self, app_dir: Path) -> bool:
         """
-        True only for a deploys-fine business-drop under apps/bad/** — a
+        True only for a deploys-fine business-drop under broken/** — a
         DEFERRED.md that explicitly marks itself "not a platform limitation".
 
         Such apps are skipped from the run (they aren't negative tests). A
@@ -274,7 +274,7 @@ class Catalog:
         fails to deploy, or no DEFERRED.md at all — is NOT skipped; it stays a
         negative test so its builder-rejection coverage is preserved (audit C6).
         """
-        if not _under_bad_dir(app_dir):
+        if not _is_broken_recipe(app_dir):
             return False
         deferred = app_dir / DEFERRED_FILE
         if not deferred.is_file():
