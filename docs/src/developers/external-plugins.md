@@ -638,7 +638,7 @@ Use a permissive license compatible with Hop3:
 
 ### 6. Type Hints
 
-Use type hints for better IDE support:
+Annotate plugin code so the IDE can complete and check it:
 
 ```python
 from typing import TYPE_CHECKING
@@ -658,7 +658,7 @@ class MyBuilder:
 
 ### Plugin Not Discovered
 
-**Problem**: Plugin is installed but not found by Hop3.
+**Problem**: Hop3 does not discover an installed plugin.
 
 **Solutions**:
 1. Check entry point configuration in `pyproject.toml`

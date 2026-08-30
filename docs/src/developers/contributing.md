@@ -26,11 +26,11 @@ For each set of changes, create a new branch in your forked repository. Use a de
 
 - **Small and Focused Pull Requests (PRs)**: Please ensure your PRs are focused on a single issue or feature request. Avoid including unrelated changes, as this makes it harder to review and merge your contributions.
 
-- **Code Style**: Follow the project's coding style. For Python code, we adhere to PEP8 guidelines, except where explicitly stated otherwise. When importing functions, prefer to import them directly (e.g., `from os.path import abspath`) rather than importing the entire module.
+- **Code Style**: Follow the project's coding style. For Python code, we adhere to PEP8 guidelines, except where explicitly stated otherwise. When importing functions, import them directly: `from os.path import abspath`.
 
 - **Write Meaningful Commit Messages**: Your commit messages should clearly describe what changes have been made and why. This helps maintainers understand the purpose of your changes and speeds up the review process.
 
-- **Update Documentation**: If your changes require updates to the documentation, include those in your PR. Accurate and up-to-date documentation is crucial for users and contributors.
+- **Update Documentation**: If your changes require updates to the documentation, include those in your PR. Users and contributors depend on the documentation being accurate and current.
 
 - **Testing**: Include tests for your changes to ensure that the new code works as expected and does not break existing functionality. Add new tests if you're introducing new features or fixing bugs. See the [Testing](#testing) section below for detailed requirements.
 
@@ -42,7 +42,7 @@ Once you've completed your changes, pushed them to your fork, and ensured they a
 
 ## Testing
 
-Hop3 uses a three-layer testing strategy (see ADR 043). All contributions should include appropriate tests. A test's layer is decided by what it *needs* (Docker, root, host mutation), not by how complex it is — duplication across layers is allowed.
+Hop3 uses a three-layer testing strategy (see ADR 043). All contributions should include appropriate tests. A test's layer is decided by what it *needs*: Docker, root, or host mutation. Duplication across layers is allowed.
 
 ### Test Requirements
 
@@ -76,7 +76,7 @@ make test-e2e
 Each package's `tests/` directory holds up to three layers. The root `conftest.py` stamps a marker on each layer (`fast`, `integration`, `e2e`, `needs_docker`), so `pytest -m fast` and `pytest -m "not needs_docker"` work across all packages.
 
 1. **Unit Tests** (`tests/a_unit/`): Fast, isolated tests of individual functions
-   - No Docker, no external dependencies
+   - No Docker or other external dependencies
    - Counts toward coverage
    - Tier: `fast` (the inner loop, < 1 min for the whole suite)
 
@@ -86,7 +86,7 @@ Each package's `tests/` directory holds up to three layers. The root `conftest.p
    - Tier: `check`
 
 3. **E2E Tests** (`tests/c_e2e/`): Complete workflow tests
-   - **Requires Docker** — real application deploys, backups, git-push
+   - **Requires Docker**: real application deploys, backups, git-push
    - Does *not* count toward coverage
    - Runs in the check tier (Docker) and nightly
 
@@ -191,9 +191,9 @@ Hop3 runs CI on [SourceHut builds](https://builds.sr.ht/), driven by the manifes
 
 Three runners cover three domains. Only pytest produces coverage.
 
-- **pytest** — platform code (unit → integration → e2e). The only runner that produces coverage.
-- **hop3-test** — applications: real apps and demos, deployed and verified over the `DeploymentTarget` ABC (Docker, SSH, Hetzner). See `make test-apps` / `uv run hop3-test list`.
-- **validoc** — narratives: tutorials-as-tests. See `make test-tutorials`.
+- **pytest**: platform code (unit → integration → e2e). The only runner that produces coverage.
+- **hop3-test**: applications, real apps and demos alike, deployed and verified over the `DeploymentTarget` ABC (Docker, SSH, Hetzner). See `make test-apps` / `uv run hop3-test list`.
+- **validoc**: narratives, tutorials-as-tests. See `make test-tutorials`.
 
 On failure of a Docker e2e or app test, a diagnostic bundle is collected; run `hop3-test why <run-id>` to inspect it.
 
@@ -210,7 +210,7 @@ make test-cov  # Coverage on the in-process layers (what coverage.py sees)
 
 ### Coverage Requirements
 
-Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`) — the Docker e2e layer does not contribute coverage. Run `make test-cov` to reproduce it. While we don't enforce strict coverage requirements, we expect:
+Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`). The Docker e2e layer contributes none. Run `make test-cov` to reproduce it. While we don't enforce strict coverage requirements, we expect:
 - New features to include tests that cover the main code paths
 - Bug fixes to include regression tests
 - Coverage not to decrease significantly with new changes
@@ -221,7 +221,7 @@ When developing CLI commands or modifying server responses, follow these message
 
 ### Message Format
 
-All CLI output is formatted as a list of message dictionaries. Each message has a `"t"` (type) field that determines how it's rendered. A command's `call()` method returns a plain `list` of these dictionaries, built with the helper functions in `hop3.commands._response`:
+All CLI output is formatted as a list of message dictionaries. Each message has a `"t"` (type) field that determines how it's rendered. A command's `call()` method returns a plain `list` of these dictionaries, built with the helpers in `hop3.commands._response`:
 
 ```python
 from hop3.commands._response import success, table
@@ -525,6 +525,6 @@ Hop3 is committed to fostering an inclusive and welcoming community. We expect a
 
 ## Questions and Support
 
-If you have any questions or need help with your contributions, don't hesitate to reach out to the Hop3 community. You can open an issue for questions related to contributing or seek help on our community forums or chat channels.
+If you have any questions or need help with your contributions, ask the Hop3 community. You can open an issue for questions related to contributing or seek help on our community forums or chat channels.
 
 Thank you for contributing to Hop3! Your efforts will help make Hop3 stronger and more successful.
