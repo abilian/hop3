@@ -34,6 +34,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_wrapper_body,
     pinned_nixpkgs_header,
 )
+from hop3.run.spawn import PHP_BUILTIN_SERVER_WORKERS
 
 _NO_COMPOSER_HASH = (
     "{pname}: php-app with needs_composer requires `composer-deps-hash` in "
@@ -42,6 +43,11 @@ _NO_COMPOSER_HASH = (
     'AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="`) and read the `got:` '
     "hash Nix reports, or run `hop3-tools nix vendor-hash <app-dir>`."
 )
+
+
+#: Serve modes that run PHP's own web server, which is single-threaded.
+#: `artisan serve` is the same server behind a Laravel wrapper.
+_CONCURRENT_SERVE_MODES = frozenset({"builtin", "artisan"})
 
 
 class PhpAppTemplate:
@@ -220,7 +226,16 @@ WRAPPER
 
         # runtime.json — extra_paths can include "${php}/bin" etc., which Nix
         # interpolates at build time (they're inside the installPhase string).
-        runtime_env_json = format_runtime_env_json(spec.runtime_env)
+        # PHP's built-in server handles one request at a time, so an app that
+        # fetches its own URL deadlocks against its only worker. The platform
+        # sets this for Procfile apps by matching `php -S` in the worker
+        # command, which a Nix app never looks like: its command is an opaque
+        # wrapper path in the store. The template that *chose* the built-in
+        # server is what knows it needs workers, so it declares them here.
+        runtime_env = dict(spec.runtime_env)
+        if p.serve_mode in _CONCURRENT_SERVE_MODES:
+            runtime_env.setdefault("PHP_CLI_SERVER_WORKERS", PHP_BUILTIN_SERVER_WORKERS)
+        runtime_env_json = format_runtime_env_json(runtime_env)
         paths_json = format_paths_json(spec.extra_paths)
         # `writable_tree` names the store path Hop3 must copy into the app's
         # own directory BEFORE anything runs there. It is declared here rather
@@ -253,7 +268,7 @@ EOF"""
         install_lines.append(runtime_json_section)
         install_body = "\n".join(install_lines)
 
-        nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
+        nix_env_attrs = format_nix_env_attrs(runtime_env)
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
