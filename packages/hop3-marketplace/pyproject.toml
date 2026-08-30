@@ -1,6 +1,6 @@
 [project]
 name = "hop3-marketplace"
-version = "0.7.1"
+version = "0.7.2"
 description = "Static site generator for the public Hop3 app catalog"
 readme = "README.md"
 license = "Apache-2.0"
