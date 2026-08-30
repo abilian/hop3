@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import json
 import warnings
 from dataclasses import dataclass
 from functools import cached_property
@@ -16,6 +17,7 @@ from loguru import logger
 
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
+from hop3_cli.ui.upload_progress import upload_body
 
 if TYPE_CHECKING:
     from types import TracebackType
@@ -30,6 +32,24 @@ if TYPE_CHECKING:
 # the SSE path's timeouts (streaming.py). (connect, read) seconds.
 _RPC_CONNECT_TIMEOUT_SECONDS = 30.0
 _RPC_READ_TIMEOUT_SECONDS = 300.0
+
+# urllib3 leaves the socket at the *connect* timeout while it writes the request
+# body, raising it to the read timeout only before reading the response. So the
+# first slot of `timeout=` bounds the whole upload, not just the handshake — and
+# a `hop3 deploy` whose archive takes longer than the handshake bound to push
+# dies inside sendall(). That surfaced as "Could not connect ... Is it running?"
+# against a server that was up and answering: a 19.6 MB deploy needs ~70 s on a
+# 2 Mbit/s uplink, and every attempt died at 30 s. So the body gets its own
+# allowance on top of the handshake bound, computed at a deliberately
+# pessimistic floor rate rather than a flat cap that a larger archive or a
+# slower link would silently outgrow again.
+_MIN_UPLOAD_RATE_BYTES_PER_SECOND = 64 * 1024  # ~0.5 Mbit/s
+
+
+def upload_timeout_seconds(body_bytes: int) -> float:
+    """The `timeout=` connect slot for a request carrying `body_bytes`."""
+    return _RPC_CONNECT_TIMEOUT_SECONDS + body_bytes / _MIN_UPLOAD_RATE_BYTES_PER_SECOND
+
 
 # audit M2: we do NOT call urllib3.disable_warnings() here. When TLS
 # verification is disabled (verify_ssl=false on an https URL), urllib3's
@@ -245,25 +265,34 @@ class Client:
 
         verify_ssl = self._get_ssl_verification()
         headers = self._build_headers()
+        # Serialized here rather than via `json=` so the upload allowance can be
+        # derived from the real body size (and so a 20 MB deploy payload is
+        # serialized once, not twice). _build_headers sets the content type.
+        body = json.dumps(json_request).encode("utf-8")
 
-        response = requests.post(
-            self.rpc_url,
-            json=json_request,
-            headers=headers,
-            verify=verify_ssl,
-            timeout=(_RPC_CONNECT_TIMEOUT_SECONDS, _RPC_READ_TIMEOUT_SECONDS),
-            # An RPC endpoint never legitimately redirects, so following one can
-            # only turn a useful error into a useless one: an unauthenticated
-            # call is answered with 302 to a login page, requests follows it,
-            # and a 200 of HTML arrives instead. It parses as neither JSON-RPC
-            # nor an HTTP error, so it surfaced as "Unexpected response format"
-            # — no mention of authentication, no way to act on it. A whole
-            # catalog run failed that way and read like a broken server.
-            #
-            # Not following also stops a Bearer token being replayed to
-            # wherever Location points.
-            allow_redirects=False,
-        )
+        with upload_body(body) as payload:
+            response = requests.post(
+                self.rpc_url,
+                data=payload,
+                headers=headers,
+                verify=verify_ssl,
+                timeout=(
+                    upload_timeout_seconds(len(body)),
+                    _RPC_READ_TIMEOUT_SECONDS,
+                ),
+                # An RPC endpoint never legitimately redirects, so following one
+                # can only turn a useful error into a useless one: an
+                # unauthenticated call is answered with 302 to a login page,
+                # requests follows it, and a 200 of HTML arrives instead. It
+                # parses as neither JSON-RPC nor an HTTP error, so it surfaced
+                # as "Unexpected response format" — no mention of
+                # authentication, no way to act on it. A whole catalog run
+                # failed that way and read like a broken server.
+                #
+                # Not following also stops a Bearer token being replayed to
+                # wherever Location points.
+                allow_redirects=False,
+            )
 
         return self._parse_response(response, json_request)
 
