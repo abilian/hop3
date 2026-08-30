@@ -27,7 +27,7 @@ Several types of short-lived branches are used to manage the development and rel
 * **Purpose:** To develop new features or significant refactors.
 *   **Branch from:** `devel`
 *   **Merge to:** `devel`
-*   **Naming Convention:** There is no strict convention, but descriptive names are used (e.g., `refact-certificates`, `feature/sbom-generator`).
+*   **Naming Convention:** Names are descriptive, with no strict convention (e.g., `refact-certificates`, `feature/sbom-generator`).
 *   **Workflow:**
     1.  A contributor forks the repository.
     2.  Creates a new feature branch from the latest `devel`.

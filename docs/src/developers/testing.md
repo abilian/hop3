@@ -8,7 +8,7 @@ Hop3 uses a multi-layer testing approach across three complementary runners (pyt
 
 ### Test Layers (pytest-based)
 
-Three layers live under each package's `tests/`. The layer is decided by what a test *needs* (Docker, root, host-mutation), not by complexity — duplication across layers is allowed (see ADR 043).
+Three layers live under each package's `tests/`. The layer is decided by what a test *needs*: Docker, root, or host-mutation. Duplication across layers is allowed (see ADR 043).
 
 1. **Unit Tests** (`tests/a_unit/`) - Individual components in isolation; no Docker; count toward coverage; tier `fast`
 2. **Integration Tests** (`tests/b_integration/`) - Multiple components within a subsystem, in-process against a real in-memory DB; no Docker; count toward coverage; tier `check`
@@ -18,8 +18,8 @@ Three layers live under each package's `tests/`. The layer is decided by what a 
 
 Beyond pytest, two more runners cover the other domains (only pytest produces coverage):
 
-- **`hop3-test`** — applications: deploys real apps and demos to a `DeploymentTarget` (Docker, SSH, Hetzner) and verifies them.
-- **`validoc`** — narratives: runs the tutorials as doc-as-tests.
+- **`hop3-test`**: applications. Deploys real apps and demos to a `DeploymentTarget` (Docker, SSH, Hetzner) and verifies them.
+- **`validoc`**: narratives. Runs the tutorials as doc-as-tests.
 
 ## Quick Start
 
@@ -106,7 +106,7 @@ hop3-test why <run-id>              # Show the diagnostic bundle for a failed ru
 
 ### Upgrade-chain testing
 
-`hop3-test upgrade-chain` verifies that a running server survives a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` — checked out into a worktree and run via `uv run` — on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update, and each is asserted to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
+`hop3-test upgrade-chain` verifies that a running server survives a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update, and each is asserted to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
 
 ## Test Organization
 
@@ -121,7 +121,7 @@ pytest -m "not needs_docker"   # everything except the Docker e2e layer
 
 **Location**: `packages/hop3-server/tests/a_unit/`
 **Speed**: < 1 second
-**Requirements**: None — counts toward coverage
+**Requirements**: None. Counts toward coverage
 **Marker**: `fast`
 
 ```bash
@@ -132,7 +132,7 @@ pytest packages/hop3-server/tests/a_unit/ -v
 
 **Location**: `packages/hop3-server/tests/b_integration/`
 **Speed**: ~10 seconds
-**Requirements**: None — in-process, real in-memory DB; counts toward coverage
+**Requirements**: None. In-process, real in-memory DB; counts toward coverage
 **Marker**: `integration`
 
 ```bash
@@ -143,7 +143,7 @@ pytest packages/hop3-server/tests/b_integration/ -v
 
 **Location**: `packages/hop3-server/tests/c_e2e/`
 **Speed**: 10-20 minutes
-**Requirements**: Docker (real deploy) — no coverage
+**Requirements**: Docker (real deploy). No coverage
 **Marker**: `e2e` (+ `needs_docker`)
 
 ```bash
@@ -197,12 +197,12 @@ status = 200
 contains = "Hello"
 ```
 
-Note: `tier` is *only* a report-grouping label — all builds share a single 30-minute budget (see [config.md](../reference/config.md#test-test-harness-metadata)). The legacy `[build].tier` field no longer exists.
+Note: `tier` is *only* a report-grouping label, and all builds share a single 30-minute budget (see [config.md](../reference/config.md#test-test-harness-metadata)). The legacy `[build].tier` field no longer exists.
 
 **Standalone `test.toml` files still exist for Procfile-only test apps** (`apps/test-apps-procfile/*/`), which don't pair with a `hop3.toml`. Two other kinds of test are configured differently:
 
 - Negative-test cases live under `apps/bad/` (in `apps/bad/real-apps-native-bad/`, `apps/bad/real-apps-docker-bad/`, `apps/bad/real-apps-nix-bad/`). They carry a normal `hop3.toml`, and the runner treats any deploy under `apps/bad/` as expected-to-fail (a failed deploy counts as PASS). You can also opt any app in with `expects-failure = true` in `[test]`.
-- Demos (`demos/*/`) and tutorials (`docs/tutorials/**/`) are discovered structurally — a demo by its `demo-script.py`, a tutorial by its `bash exec`/`output`/`file` markers — rather than from a `test.toml`.
+- Demos (`demos/*/`) and tutorials (`docs/tutorials/**/`) are discovered structurally, without a `test.toml`: a demo by its `demo-script.py`, a tutorial by its `bash exec`/`output`/`file` markers.
 
 ### Test Modes
 
@@ -293,7 +293,7 @@ See: <https://builds.sr.ht/~sfermigier/hop3/>
 
 ## Coverage
 
-Coverage is measured on the in-process layers only (`a_unit` + `b_integration`) — the Docker e2e layer runs out-of-process and contributes nothing to coverage.
+Coverage is measured on the in-process layers only (`a_unit` + `b_integration`). The Docker e2e layer runs out-of-process and contributes none.
 
 ```bash
 # Coverage on the in-process layers

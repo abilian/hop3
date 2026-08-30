@@ -1,6 +1,6 @@
 # Hop3 Testing Cheat Sheet
 
-> **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+> **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker, root or host-mutation; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 
 Quick reference for developers running tests.
 
@@ -83,7 +83,7 @@ The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `
 
 ### Upgrade Chain (Cross-Version Upgrades)
 
-Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions — each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Every hop after the first is an in-place update, asserted to come back healthy with a readable schema.
+Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions, each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Every hop after the first is an in-place update, asserted to come back healthy with a readable schema.
 
 ```bash
 # Fresh Docker container: 0.6.2 -> current tree
@@ -99,7 +99,7 @@ hop3-test upgrade-chain --docker --chain local,local
 hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04
 ```
 
-`--host <server>` is accepted but warns (existing server, not a clean slate). `0.6.0` is excluded from the default chain — its `hop3-rootd` can't start.
+`--host <server>` is accepted but warns, since an existing server is not a clean slate. `0.6.0` is excluded from the default chain because its `hop3-rootd` can't start.
 
 ### App Testing (Testing Apps, Not Hop3)
 
@@ -179,7 +179,7 @@ hop3-test run --host server.example.com --reuse
 
 ### Run by Layer
 
-There are three layers under each package's `tests/`. A test's layer is decided by what it *needs* (Docker / root / host-mutation), not by complexity; duplication across layers is allowed.
+There are three layers under each package's `tests/`. A test's layer is decided by what it *needs*: Docker, root, or host-mutation. Duplication across layers is allowed.
 
 ```bash
 # Unit tests — no Docker, counts toward coverage (tier: fast)
@@ -348,7 +348,7 @@ path = "/"
 status = 200
 ```
 
-Legacy standalone `test.toml` files are still used by procfile-only test apps (`apps/test-apps-procfile/*/`), negative-test cases, demos, and tutorials — anywhere there's no sibling `hop3.toml`. See [config.md](../reference/config.md#test-test-harness-metadata) for the full reference.
+Legacy standalone `test.toml` files are still used by procfile-only test apps (`apps/test-apps-procfile/*/`), negative-test cases, demos, and tutorials: anywhere there's no sibling `hop3.toml`. See [config.md](../reference/config.md#test-test-harness-metadata) for the full reference.
 
 ## Environment Variables
 

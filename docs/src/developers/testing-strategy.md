@@ -59,7 +59,7 @@ This document describes both approaches, their purposes, and how to use them eff
 /______________________\ - No Docker, counts toward coverage
 ```
 
-A test's layer is decided by **what it needs** — Docker, root, or host-mutation — not by complexity. Anything that needs a real Docker deploy lives in `c_e2e`; everything that can run in-process (even with a real in-memory database) lives in `a_unit` or `b_integration`. Duplication across layers is allowed.
+A test's layer is decided by **what it needs**: Docker, root, or host-mutation. Anything that needs a real Docker deploy lives in `c_e2e`; everything that can run in-process (even with a real in-memory database) lives in `a_unit` or `b_integration`. Duplication across layers is allowed.
 
 ### Test Layer Characteristics
 
@@ -777,7 +777,7 @@ hop3-test run --host server.example.com --reuse
 | Option | Description |
 |--------|-------------|
 | `--provider PROVIDER` | Cloud provider (default: `hetzner`) |
-| `--image IMAGE` | Single OS image — a sweep-of-one |
+| `--image IMAGE` | Single OS image: a sweep-of-one |
 | `--images IMAGES` | Comma-separated images, or `all` |
 | `--list-images` | List available OS images |
 | `--from {local,git,pypi}` | Install source (same as `run`; default: local) |
@@ -804,7 +804,7 @@ Each image in the matrix is a full `hop3-test run --provider hetzner`:
 
 1. **Provision** - rebuild the server to a clean OS image
 2. **Deploy** - install Hop3 from local code (or PyPI)
-3. **Test** - run the selected apps, persisting results to the shared store —
+3. **Test** - run the selected apps, persisting results to the shared store:
    so cloud runs appear in the dashboard and `hop3-test why`
 
 To test an already-provisioned server without a rebuild, use

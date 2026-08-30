@@ -10,7 +10,7 @@ The catalog ships **disabled by design**: `hop3.server.catalog.keys.CATALOG_PUBL
 
 ## 0. Bake your catalog public key into the build
 
-Generate a keypair once (or reuse the one in your `hop3-catalog` checkout — `catalog.pub` / `catalog.key`):
+Generate a keypair once, or reuse the `catalog.pub` / `catalog.key` pair in your `hop3-catalog` checkout:
 
 ```bash
 uv run hop3-catalog keygen --out-dir ./keys      # writes keys/catalog.pub + keys/catalog.key (0600)
@@ -23,7 +23,7 @@ Paste the public key into the build's pinned constant:
 CATALOG_PUBLIC_KEY: str = "RWR...your catalog.pub base64 body..."
 ```
 
-You can paste the full `catalog.pub` text or just its last base64 line. Keep `catalog.key` **offline** — it never touches the server. Redeploy the server so the running venv has the edited `keys.py` (`hop3-deploy-server --local`, or your usual deploy).
+You can paste the full `catalog.pub` text or just its last base64 line. Keep `catalog.key` **offline**: it never touches the server. Redeploy the server so the running venv has the edited `keys.py` (`hop3-deploy-server --local`, or your usual deploy).
 
 ## 1. Build and sign the catalog
 
@@ -48,7 +48,7 @@ https://staging.example.com/catalog/catalog.tar.gz
 https://staging.example.com/catalog/catalog.tar.gz.minisig
 ```
 
-You do **not** host `index.json` — the server reads it from inside the tarball.
+You do **not** host `index.json`; the server reads it from inside the tarball.
 
 > The catalog fetch enforces TLS certificate + hostname verification and **cannot be disabled** (unlike the CLI's `--insecure`). A self-signed *TLS* cert on the staging host will fail; add its CA to the box's trust store or use a CA-issued cert. (A self-signed *signing* key, step 0, is the intended model — that's a different thing.)
 
@@ -75,12 +75,12 @@ hop3 app destroy --app mycloud                # remove (a catalog app is a norma
 
 `hop3 catalog install` deploys with the same live streaming output as `hop3 deploy`. The `--app` name is the **new** app to create; it is required (there is no ambient default for a create-style command). Add `--env KEY=VALUE` (repeatable) to seed environment variables.
 
-The same flow is available in the **dashboard** at `/dashboard/catalog`: browse, open an app, and use the Install form — it stages the recipe and starts the deploy in the background, taking you to the app's live status page.
+The same flow is available in the **dashboard** at `/dashboard/catalog`: browse, open an app, and use the Install form, which stages the recipe and starts the deploy in the background, taking you to the app's live status page.
 
 ## Common snags
 
-- **`No catalog signing public key is compiled into this build`** — step 0 not done (or the server wasn't redeployed after editing `keys.py`).
-- **Signature verification fails** — the `catalog.key` you signed with is not the counterpart of the `catalog.pub` you baked in (they must share one keygen).
-- **`refused as a rollback`** — the server already installed a serial ≥ the one you published. Bump `--serial`. (The high-water mark lives at `CATALOG_STATE_ROOT/serial`, outside the catalog dir, so a re-publish can't reset it.)
-- **TLS error on fetch** — the staging host's cert isn't trusted by the server; see step 2.
-- **`hop3 catalog install <id>` errors with "requires --app"** — pass `--app <name>`; the install target is a new app name, never inferred from the current directory.
+- **`No catalog signing public key is compiled into this build`**: step 0 not done (or the server wasn't redeployed after editing `keys.py`).
+- **Signature verification fails**: the `catalog.key` you signed with is not the counterpart of the `catalog.pub` you baked in (they must share one keygen).
+- **`refused as a rollback`**: the server already installed a serial ≥ the one you published. Bump `--serial`. (The high-water mark lives at `CATALOG_STATE_ROOT/serial`, outside the catalog dir, so a re-publish can't reset it.)
+- **TLS error on fetch**: the staging host's cert isn't trusted by the server; see step 2.
+- **`hop3 catalog install <id>` errors with "requires --app"**: pass `--app <name>`; the install target is a new app name, never inferred from the current directory.

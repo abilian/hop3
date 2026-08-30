@@ -81,7 +81,7 @@ class MyPlugin:
         return [LocalBuilder, DockerBuilder]
 ```
 
-Language-specific build logic lives in toolchains contributed via [`get_language_toolchains`](#get_language_toolchains), not in builders.
+Builders orchestrate; language-specific build logic lives in toolchains contributed via [`get_language_toolchains`](#get_language_toolchains).
 
 **Usage in Core**:
 
@@ -95,7 +95,7 @@ builder = get_builder(context)
 ```
 
 **Notes**:
-- Return builder **classes**, not instances
+- Return the builder **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement the `Builder` protocol
 - Multiple plugins can provide builders
@@ -138,7 +138,7 @@ class ToolchainPlugin:
 ```
 
 **Notes**:
-- Return toolchain **classes**, not instances
+- Return the toolchain **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement `accept()` to detect its language
 - Toolchains are consumed by the local builder, which selects the first that accepts
@@ -197,7 +197,7 @@ deployer = get_deployer_by_name(app, "docker-compose")
 ```
 
 **Notes**:
-- Return deployer **classes**, not instances
+- Return the deployer **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement the `Deployer` protocol
 - The `name` attribute is used by `get_deployer_by_name()` for lifecycle lookups
@@ -252,7 +252,7 @@ connection = addon.get_connection_details()
 ```
 
 **Notes**:
-- Return addon **classes**, not instances
+- Return the addon **classes** themselves, uninstantiated
 - Each class must have a `name` attribute (the addon type)
 - Each class must implement the `Addon` protocol
 - The constructor takes a keyword-only `addon_name` for the specific instance
@@ -308,7 +308,7 @@ os_strategy.setup_server()
 ```
 
 **Notes**:
-- Return strategy **classes**, not instances
+- Return the strategy **classes** themselves, uninstantiated
 - Each class must have `name` and `display_name` attributes
 - Each class must implement `detect()` to identify if it matches the current OS
 - Only one strategy should detect `True` per system
@@ -361,7 +361,7 @@ proxy.setup()
 ```
 
 **Notes**:
-- Return proxy **classes**, not instances
+- Return the proxy **classes** themselves, uninstantiated
 - Should inherit from `BaseProxy` for code reuse
 - Each proxy type should have a unique name
 - Only one proxy type is active per hop3 installation
@@ -442,7 +442,7 @@ for provider in providers:
 ```
 
 **Notes**:
-- Return provider **instances**, not classes (unlike other hooks)
+- Return provider **instances**, already constructed (unlike the other hooks)
 - Use Dishka's `Provider` class
 - Define scope appropriately (`Scope.APP`, `Scope.REQUEST`, etc.)
 - Services are available for dependency injection in controllers, etc.
@@ -494,7 +494,7 @@ Health checks run during server startup (failures are logged) and via
 `hop3 system status`.
 
 **Notes**:
-- Return health check **instances**, not classes
+- Return health check **instances**, already constructed
 - Each must implement `is_configured()` and `check()`
 - `check()` returns a `HealthCheckResult`
 
@@ -515,7 +515,7 @@ def cli_commands() -> list:
     """
 ```
 
-**Returns**: List of `Command` subclasses. Each command's `name` is a tuple of tokens (ADR 036) that maps to the space-separated CLI form — for example `("addon", "postgres", "credentials")` is invoked as `hop3 addon postgres credentials`.
+**Returns**: List of `Command` subclasses. Each command's `name` is a tuple of tokens (ADR 036) that maps to the space-separated CLI form: `("addon", "postgres", "credentials")` is invoked as `hop3 addon postgres credentials`.
 
 **Implementation Example**:
 

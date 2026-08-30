@@ -12,7 +12,7 @@ Hop3's architecture is designed to be open and extensible, encouraging community
 1. **Inclusivity in Technology:** Designed to be accessible to individual developers, hobbyists, K-12 schools, and small to medium enterprises, promoting digital literacy and innovation across diverse communities.
 1. **Simplicity in Code:** Strives for a maintainable codebase through a modular and plugin-oriented architecture, ensuring that each component is easy to understand and maintain. This approach allows developers to focus on specific areas of the platform without being overwhelmed by its entirety, promoting clarity and efficiency in development.
 1. **Minimal Dependencies:** Maintains a lean architecture with minimal external dependencies to ensure reliability, ease of installation, straightforward updates, and software supply chain independence.
-1. **Adherence to 12-Factor App Methodology:** Embraces the principles of the 12-factor app to promote portability, scalability, and a seamless development-to-deployment workflow.
+1. **Adherence to 12-Factor App Methodology:** Embraces the principles of the 12-factor app to promote portability, scalability, and an uninterrupted path from development to deployment.
 1. **User-Centric Design:** Focuses on simplifying the user experience, from setup to deployment, ensuring that common use cases are intuitive and well-supported.
 1. **Broad Use Case Coverage:** Aims to address a wide range of deployment scenarios, covering the most common needs with sensible defaults and flexible configuration options.
 1. **Integration with Standard Ecosystems:** Leverages widely-used tools and platforms (e.g., Git, SSH) and supports major Linux distributions, ensuring compatibility and ease of use across different environments.

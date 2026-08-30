@@ -12,7 +12,7 @@ Installer testing is a pytest E2E suite living in `packages/hop3-installer/tests
 | SSH | `--ssh-host HOST` | Production-like testing on real servers |
 | Vagrant | `--vagrant` | Full system testing with systemd in a VM |
 
-If no backend option is given, the suite defaults to Docker only. A remote host is used **only** when `--ssh-host HOST` is passed explicitly — it is never taken from an env var (`HOP3_TEST_HOST` / `HOP3_DEV_HOST` are taboo for pytest; the root `conftest.py` strips them, per [ADR 043](/developers/adrs/043-unified-testing-architecture/)). When any backend option is given, only the requested backends run.
+If no backend option is given, the suite defaults to Docker only. A remote host is used **only** when `--ssh-host HOST` is passed explicitly, and never taken from an env var (`HOP3_TEST_HOST` / `HOP3_DEV_HOST` are taboo for pytest; the root `conftest.py` strips them, per [ADR 043](/developers/adrs/043-unified-testing-architecture/)). When any backend option is given, only the requested backends run.
 
 ## Quick Start
 
@@ -94,11 +94,11 @@ The SSH backend runs the installer on a remote machine. This is the most product
 uv run pytest packages/hop3-installer/tests/c_e2e --ssh-host root@server.example.com
 ```
 
-The host comes **only** from `--ssh-host` — it is never read from an env var. `HOP3_SSH_USER` sets the user when the `--ssh-host` value has no `user@` prefix (it defaults to `root`).
+The host comes **only** from `--ssh-host`, and is never read from an env var. `HOP3_SSH_USER` sets the user when the `--ssh-host` value has no `user@` prefix (it defaults to `root`).
 
 ## Vagrant Backend
 
-The Vagrant backend provisions a VM, giving full systemd behavior without touching a remote server. It is slower than Docker and is never enabled by default — pass `--vagrant` explicitly.
+The Vagrant backend provisions a VM, giving full systemd behavior without touching a remote server. It is slower than Docker and is never enabled by default; pass `--vagrant` explicitly.
 
 ### Prerequisites
 

@@ -185,7 +185,11 @@ hop3-fetch "$URL" -o app.tar.gz --sha256 "$SHA256"       # or write a file
 
 It downloads through a cache shared by every app on the server, so redeploying the same pinned version does not ask upstream again. That is not only a speed matter: a catalog run pulls dozens of tags from the same few hosts within minutes, and GitHub's codeload rate-limits the address — after which `curl` gets `HTTP 429` and the deploy fails with nothing wrong in the recipe. Retrying harder makes it worse; not asking twice fixes it.
 
-`hop3-fetch` also fails loudly on an HTTP error instead of saving the error page as the artifact, retries transient failures with backoff (honouring `Retry-After`), and verifies `--sha256` **before** admitting the download to the cache — so a cache hit is proof the bytes are the ones the recipe pinned.
+`hop3-fetch` also fails loudly on an HTTP error instead of saving the error page as the artifact, retries transient failures with backoff (honouring `Retry-After`), and verifies `--sha256` **before** admitting the download to the cache, so a cache hit is proof the bytes are the ones the recipe pinned.
+
+It also checks the body against the `Content-Length` the server promised. A connection that drops mid-transfer leaves a short file and raises nothing, so without that check the fetch reports a download that did not happen — and an unpinned recipe, having nothing else to compare against, caches the fragment and serves it to every later build. That is why `--sha256` is worth pinning wherever upstream publishes one: it is the only thing that can detect a body which arrived complete but wrong.
+
+`--refresh` discards any cached copy and downloads again. Reach for it when a cache entry is suspect; a cache hit is otherwise returned without being read.
 
 When piping into `tar`, set `set -eo pipefail` in the script. Without it the pipeline's exit status is `tar`'s, so a failed download surfaces as a misleading "Unexpected EOF" instead of the actual error.
 

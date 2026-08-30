@@ -61,7 +61,7 @@ Hop3 aims to provide a versatile, user-friendly platform that meets the diverse 
 - **Easy Software Installation:** Simplify the process of installing software to make it as straightforward as possible, reducing the need for extensive technical expertise.
 - **On-premise and Cloud Deployments:** Support both on-premise and cloud deployments, allowing users to choose the best environment for their needs.
 - **Migrate Software between Machines / Clusters:** Enable easy migration of software and services from one machine to another with minimal downtime and effort.
-- **Centralized Management Portal:** Provide a centralized management portal as a unified interface for managing the entire infrastructure.
+- **Centralized Management Portal:** Provide a centralized management portal as a unified interface for managing the whole infrastructure.
 
 ### Independence and Control
 

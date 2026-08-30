@@ -24,7 +24,7 @@ uv sync
 
 ### Using Nix
 
-If you are using Nix, the repository ships a `flake.nix` that provides a development shell. To enter it, run:
+If you are using Nix, the repository ships a `flake.nix` defining a development shell. To enter it, run:
 
 ```bash
 nix develop

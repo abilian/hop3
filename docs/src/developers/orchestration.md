@@ -1,7 +1,7 @@
 # Hop3 Orchestrator Architecture (Design Vision)
 
 !!! warning "Forward-looking design document"
-    This page describes a planned orchestration engine, not the current behavior of Hop3. None of the capabilities below — dynamic scaling, compute offloading, live migration, AI/ML pipeline orchestration, and the integrated security/observability layer — are implemented today. Today Hop3 deploys and runs applications on a single server (process management via uWSGI, named worker processes via `[run.workers]`, reverse-proxy configuration, and database addons). Treat this document as a roadmap of intended architecture, and check [the architecture overview](architecture.md) for what exists now.
+    This page describes a planned orchestration engine, not the current behavior of Hop3. None of the capabilities below are implemented today: dynamic scaling, compute offloading, live migration, AI/ML pipeline orchestration, and the integrated security/observability layer. Today Hop3 deploys and runs applications on a single server (process management via uWSGI, named worker processes via `[run.workers]`, reverse-proxy configuration, and database addons). Treat this document as a roadmap of intended architecture, and check [the architecture overview](architecture.md) for what exists now.
 
 This document sketches a lightweight orchestration engine intended to manage distributed applications across cloud, edge, and IoT environments. The goal is to handle orchestration tasks such as scaling, offloading, migration, and AI/ML workflow management, while providing security, observability, and governance.
 
@@ -13,7 +13,7 @@ The planned orchestration engine would support **horizontal scaling**, handling 
 
 - **Custom Resource Manager**: A **resource management layer** that tracks resource usage across all nodes (cloud, edge, and IoT), determines when additional resources are needed, and allocates them across environments.
 
-- **Real-Time Metrics and Alerts**: **Monitoring modules** that gather real-time data on resource utilization and trigger scaling events when they detect spikes in demand, redistributing tasks as necessary.
+- **Real-Time Metrics and Alerts**: **Monitoring modules** that gather real-time data on resource use and trigger scaling events when they detect spikes in demand, redistributing tasks as necessary.
 
 - **Scaling Policies**: User-defined **scaling policies** that dictate when to add or remove resources, implemented within the orchestration engine to control scaling across heterogeneous environments.
 
