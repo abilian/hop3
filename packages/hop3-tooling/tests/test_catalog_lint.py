@@ -6,7 +6,9 @@
 from __future__ import annotations
 
 import pytest
-from hop3_tooling.catalog_lint import lint_catalog
+from hop3_tooling.catalog_lint import lint_catalog, lint_variants
+
+from hop3.server.catalog.models import CatalogApp
 
 COMPLETE_RECIPE = """
 [metadata]
@@ -207,3 +209,75 @@ def test_unpublished_entries_are_not_held_to_the_presentation_bar(apps_dir):
     (bare / "hop3.toml").write_text(COMPLETE_RECIPE.replace('"gitea"', '"grafana"'))
 
     assert lint_catalog(apps_dir) == []
+
+
+# --- variant graph ---------------------------------------------------------
+
+
+def _entry(app_id, *, variant_of="", build_path="native"):
+    return CatalogApp(
+        id=app_id,
+        title=app_id,
+        description="d",
+        version="1",
+        author="a",
+        website="w",
+        license="MIT",
+        variant_of=variant_of,
+        build_path=build_path,
+    )
+
+
+def _rules(apps):
+    return {v.rule for v in lint_variants(apps)}
+
+
+def test_a_consistent_variant_graph_is_clean():
+    apps = [
+        _entry("bookstack"),
+        _entry("bookstack-nix", variant_of="bookstack", build_path="nix"),
+        _entry("bookstack-nixgen", variant_of="bookstack", build_path="nixgen"),
+    ]
+
+    assert _rules(apps) == set()
+
+
+def test_a_suffixed_id_with_no_parent_is_reported():
+    """Left unattached it is listed as its own application, which is the bug."""
+    apps = [_entry("bookstack"), _entry("bookstack-nix", build_path="nix")]
+
+    assert "unattached variant" in _rules(apps)
+
+
+def test_a_parent_the_catalog_does_not_publish_is_reported():
+    """Otherwise the entry is folded under nothing and shown nowhere."""
+    apps = [_entry("bookstack-nix", variant_of="gone", build_path="nix")]
+
+    assert "variant of nothing" in _rules(apps)
+
+
+def test_a_build_path_contradicting_the_id_is_reported():
+    apps = [
+        _entry("bookstack"),
+        _entry("bookstack-nix", variant_of="bookstack", build_path="docker"),
+    ]
+
+    assert "build path disagrees with id" in _rules(apps)
+
+
+def test_a_chain_of_variants_is_reported():
+    """A build path attaches to an application, not to another build path."""
+    apps = [
+        _entry("bookstack"),
+        _entry("bookstack-nix", variant_of="bookstack", build_path="nix"),
+        _entry("bookstack-nixgen", variant_of="bookstack-nix", build_path="nixgen"),
+    ]
+
+    assert "variant of a variant" in _rules(apps)
+
+
+def test_an_application_whose_name_ends_in_a_suffix_word_is_not_a_variant():
+    """`build_path` is declared, so nothing infers a parent from spelling."""
+    apps = [_entry("phoenix")]
+
+    assert _rules(apps) == set()
