@@ -51,7 +51,7 @@ The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [Gi
 > [!WARNING]
 > This code is still evolving quickly, and is not yet recommended for unattended production use.
 
-Hop3 is at **version 0.6.x** and under active development toward its **0.7** release. It can already deploy and manage real web applications — a curated set of self-hostable apps is being validated on it — but its APIs and internals are still changing.
+Hop3 is at **version 0.7.x**, with **0.8** in development. It already deploys and manages real web applications — your own code and off-the-shelf software from a curated catalog, each catalog app verified by installing it and signing in through the app's own login — but its APIs and internals are still changing.
 
 ## Getting Started
 
