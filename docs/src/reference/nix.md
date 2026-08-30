@@ -149,7 +149,7 @@ Tier 1 is the goal: you inherit nixpkgs' build, its architectures and its securi
 To see the tier of every app in a checkout:
 
 ```bash
-hop3-tools nix tiers apps/real-apps-nix-gen
+hop3-tools nix tiers ../hop3-catalog/apps/beta
 ```
 
 A tier describes the *build*, never the running app. A bit-identical rebuild says nothing about whether the app starts — see [reproducibility checks](#checking-reproducibility) below.
@@ -203,7 +203,7 @@ hop3-install server --with nix
 ### Validate a Nix build
 
 ```bash
-cd apps/real-apps-nix-gen/miniflux
+cd ../hop3-catalog/apps/beta/miniflux-nixgen
 # For template mode, generate first:
 uv run python -c "
 from hop3.plugins.build.nix.gen import generate
@@ -217,7 +217,7 @@ print(generate(spec))
 nix-build /tmp/hop3.nix --no-out-link
 
 # For hand-crafted mode, just build directly:
-cd apps/real-apps-nix/landing
+cd ../hop3-catalog/apps/alpha/landing-nix
 nix-build hop3.nix --no-out-link
 ```
 
@@ -231,8 +231,10 @@ cat "$result/hop3/runtime.json" | python3 -m json.tool
 ### Validate all Nix apps
 
 ```bash
-hop3-test run --docker --clean --with nix apps/real-apps-nix
-hop3-test run --docker --clean --with nix apps/real-apps-nix-gen
+# Selected by build technology, not by folder: `covers` is the recipe's own tag,
+# maturity is the folder, and the two are orthogonal axes.
+make test-nix
+hop3-test run --docker --clean --with nix --covers nix --status alpha
 ```
 
 ## Limitations

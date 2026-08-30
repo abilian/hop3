@@ -344,20 +344,20 @@ Working examples organized by approach:
 
 | Directory | Approach |
 |-----------|----------|
-| `apps/real-apps-nix-gen/` | Template-based (preferred) |
-| `apps/real-apps-nix/` | Hand-crafted `hop3.nix` files |
-| `apps/test-apps-nix/` | Small smoke-test apps |
+| `../hop3-catalog/apps/<status>/<app>-nixgen/` | Template-based (preferred) |
+| `../hop3-catalog/apps/<status>/<app>-nix/` | Hand-crafted `hop3.nix` files |
+| `apps/test-apps-nix-gen/`, `apps/test-apps-nix/` | Small smoke-test fixtures |
 
 Notable examples:
 
 | App | Template / approach | Notes |
 |-----|---------------------|-------|
-| `real-apps-nix-gen/miniflux` | nixpkgs-wrapper | Cleanest case — a short `[nix]` block over a nixpkgs package |
-| `real-apps-nix-gen/gitea` | nixpkgs-wrapper | INI config generation at startup |
-| `real-apps-nix-gen/grafana` | nixpkgs-wrapper | PostgreSQL backend, env-driven homepath |
-| `real-apps-nix-gen/wordpress` | php-app | Composer + writable dir handling |
-| `real-apps-nix/landing` | hand-crafted | Minimal static site reference |
-| `real-apps-nix/wiki-js` | hand-crafted | Wraps nixpkgs source with `node` runtime |
+| `beta/miniflux-nixgen` | nixpkgs-wrapper | Cleanest case — a short `[nix]` block over a nixpkgs package |
+| `beta/gitea-nixgen` | nixpkgs-wrapper | INI config generation at startup |
+| `alpha/grafana-nixgen` | nixpkgs-wrapper | PostgreSQL backend, env-driven homepath |
+| `beta/wordpress-nixgen` | php-app | Composer + writable dir handling |
+| `alpha/landing-nix` | hand-crafted | Minimal static site reference |
+| `alpha/wiki-js-nix` | hand-crafted | Wraps nixpkgs source with `node` runtime |
 
 ## Related
 
