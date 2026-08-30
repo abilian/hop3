@@ -48,6 +48,75 @@ class Violation:
         return f"{self.app_id}: {self.rule} — {self.detail}"
 
 
+#: Build paths a recipe may declare, and the id suffix each one carries.
+BUILD_PATH_SUFFIXES = {"nix": "-nix", "nixgen": "-nixgen", "docker": "-docker"}
+
+
+def lint_variants(apps: list[CatalogApp]) -> list[Violation]:
+    """
+    Check that the variant graph agrees with itself and with the ids.
+
+    The dashboard folds alternative build paths into the application they
+    belong to, so ``variant_of`` decides what an operator is shown. A wrong or
+    missing value does not fail anything: it silently either hides an
+    application or lists one three times, which is the state this replaced.
+    """
+    violations: list[Violation] = []
+    by_id = {app.id: app for app in apps}
+
+    for app in apps:
+        suffix_path = next(
+            (
+                path
+                for path, suffix in BUILD_PATH_SUFFIXES.items()
+                if app.id.endswith(suffix)
+            ),
+            "native",
+        )
+        if app.build_path != suffix_path:
+            violations.append(
+                Violation(
+                    app.id,
+                    "build path disagrees with id",
+                    f"id implies {suffix_path!r}, [catalog].build_path says "
+                    f"{app.build_path!r}",
+                )
+            )
+        if app.variant_of:
+            parent = by_id.get(app.variant_of)
+            if parent is None:
+                violations.append(
+                    Violation(
+                        app.id,
+                        "variant of nothing",
+                        f"[catalog].variant_of names {app.variant_of!r}, which "
+                        f"this catalog does not publish, so the entry is shown "
+                        f"nowhere",
+                    )
+                )
+            elif parent.variant_of:
+                violations.append(
+                    Violation(
+                        app.id,
+                        "variant of a variant",
+                        f"{app.variant_of!r} is itself a variant; a build path "
+                        f"attaches to an application",
+                    )
+                )
+        elif suffix_path != "native":
+            violations.append(
+                Violation(
+                    app.id,
+                    "unattached variant",
+                    f"the id names a {suffix_path!r} build but [catalog]."
+                    f"variant_of is unset, so it is listed as its own "
+                    f"application",
+                )
+            )
+
+    return violations
+
+
 def lint_app(app: CatalogApp) -> list[Violation]:
     """Check one loaded catalog entry. Returns every violation, not the first."""
     violations: list[Violation] = []
@@ -147,6 +216,8 @@ def lint_catalog(apps_dir: Path) -> list[Violation]:
             )
         else:
             seen[app.id] = Path(app.source_path).name
+
+    violations.extend(lint_variants(sorted(apps, key=lambda a: a.id)))
 
     for app in sorted(apps, key=lambda a: a.id):
         violations.extend(lint_app(app))
