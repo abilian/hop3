@@ -1011,14 +1011,31 @@ def _handle_ssl_error(rpc_url: str) -> None:
     sys.exit(ExitCode.NETWORK_ERROR)
 
 
+# A ConnectionError that never reached the server — as opposed to one that died
+# part-way through an exchange with a server that was answering fine.
+_NEVER_CONNECTED_MARKERS = ("refused", "name or service", "nodename", "unreachable")
+
+
 def _handle_connection_error(e: Exception, rpc_url: str) -> None:
-    """Handle connection errors, including wrapped SSL errors."""
+    """
+    Report a transport failure with the cause it actually had.
+
+    ``requests.ConnectionError`` covers both "nothing is listening" and "the
+    exchange broke mid-flight". Answering every one of them with "Is it
+    running?" states a cause we did not observe: a ``hop3 deploy`` whose upload
+    timed out in ``sendall`` reported a dead server that was up the whole time.
+    So the underlying error is always shown, and the is-it-running hint is
+    offered only when the connection genuinely never came up.
+    """
     error_str = str(e).lower()
     if "ssl" in error_str or "certificate" in error_str:
         _handle_ssl_error(rpc_url)
-    else:
-        err(f"Could not connect to the Hop3 server at {rpc_url}.\nIs it running?")
-        sys.exit(ExitCode.NETWORK_ERROR)
+
+    message = f"Connection to the Hop3 server at {rpc_url} failed:\n  {e}"
+    if any(marker in error_str for marker in _NEVER_CONNECTED_MARKERS):
+        message += "\nIs it running?"
+    err(message)
+    sys.exit(ExitCode.NETWORK_ERROR)
 
 
 def load_config() -> Config:
