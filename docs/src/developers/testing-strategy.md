@@ -218,10 +218,10 @@ The test catalog discovers and manages test applications by scanning for `hop3.t
 
 Two conventions coexist:
 
-**Apps with full `hop3.toml`** (all `apps/real-apps-*`, `apps/test-apps-nix/`, `apps/bad/`): test configuration lives in the app's `hop3.toml` under `[test]`. No separate `test.toml` file.
+**Apps with full `hop3.toml`** (every catalog recipe, plus `apps/test-apps-nix/` and `apps/test-apps-nix-gen/`): test configuration lives in the app's `hop3.toml` under `[test]`. No separate `test.toml` file.
 
 ```
-apps/real-apps-nix-gen/listmonk/
+../hop3-catalog/apps/alpha/listmonk-nixgen/
 ├── hop3.toml          # [metadata], [build], [[addons]], [test], …
 └── (no test.toml)
 ```
@@ -347,7 +347,7 @@ To iterate on a single app against an already-running container, pass `--reuse` 
 hop3-test run --docker --clean --with all
 
 # Reuse the container and test one app
-hop3-test run --docker --reuse apps/real-apps-native/etherpad
+hop3-test run --docker --reuse gitea
 ```
 
 #### RemoteTarget (`--host`)

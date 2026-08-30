@@ -53,7 +53,7 @@ pytest packages/hop3-server/tests/c_e2e/
 make test-apps
 
 # Test a single app or path
-make test-app APP=apps/real-apps-native/edrix
+make test-app APP=../hop3-catalog/apps/golden/gitea
 ```
 
 ## Test Commands Reference
@@ -85,8 +85,8 @@ make test-app APP=apps/real-apps-native/edrix
 # System testing (deploys Hop3, then deploys + verifies apps)
 hop3-test run --docker                       # Deploy + test defaults on Docker
 hop3-test run --docker --clean --with all    # Clean install with all addons
-hop3-test run --docker apps/real-apps-native # Scan a directory
-hop3-test run --docker apps/real-apps-native/edrix  # One app or path
+hop3-test run --docker --status golden       # One maturity tier
+hop3-test run --docker gitea                 # One app, by catalog id
 hop3-test run --host server.example.com    # Remote via SSH (or set $HOP3_HOST)
 hop3-test run --reuse --host server.example.com   # Skip deploy, test existing
 hop3-test run --docker --from git --branch devel  # Deploy from git
@@ -161,11 +161,12 @@ Test applications live under several `apps/` directories (plus `demos/`):
 ```
 apps/test-apps-procfile/   # Procfile-only fixtures (standalone test.toml)
 apps/test-apps-nix/        # Nix fixtures
-apps/real-apps-native/     # Real apps, native build
-apps/real-apps-docker/     # Real apps, Docker build
-apps/real-apps-nix/        # Real apps, Nix hand-crafted
-apps/real-apps-nix-gen/    # Real apps, Nix from template
 demos/                     # Demos (discovered via demo-script.py)
+docs/tutorials/            # Tutorials (discovered by their validoc fences)
+
+../hop3-catalog/apps/      # Real applications, in the sibling catalog checkout
+  golden/ beta/            #   published, and scanned by default
+  alpha/ broken/ retired/  #   kept as a record; reachable with --status
 ```
 
 ### Test Configuration (`[test]` in hop3.toml)
@@ -201,7 +202,7 @@ Note: `tier` is *only* a report-grouping label, and all builds share a single 30
 
 **Standalone `test.toml` files still exist for Procfile-only test apps** (`apps/test-apps-procfile/*/`), which don't pair with a `hop3.toml`. Two other kinds of test are configured differently:
 
-- Negative-test cases live under `apps/bad/` (in `apps/bad/real-apps-native-bad/`, `apps/bad/real-apps-docker-bad/`, `apps/bad/real-apps-nix-bad/`). They carry a normal `hop3.toml`, and the runner treats any deploy under `apps/bad/` as expected-to-fail (a failed deploy counts as PASS). You can also opt any app in with `expects-failure = true` in `[test]`.
+- Negative-test cases are the recipes the catalog files as `broken`. They carry a normal `hop3.toml`, and the runner treats any deploy under `broken/` as expected-to-fail (a failed deploy counts as PASS). An `expects-failure = false` in `[test]` opts one back out — a recipe dropped for business reasons that still deploys fine — and `expects-failure = true` opts any other app in.
 - Demos (`demos/*/`) and tutorials (`docs/tutorials/**/`) are discovered structurally, without a `test.toml`: a demo by its `demo-script.py`, a tutorial by its `bash exec`/`output`/`file` markers.
 
 ### Test Modes
@@ -322,7 +323,7 @@ hop3-test run --provider hetzner --image ubuntu-24.04
 hop3-test run --provider hetzner --images ubuntu-24.04,debian-13
 
 # Choose which app directories to test (positional, like `run`)
-hop3-test run --provider hetzner apps/real-apps-native demos
+hop3-test run --provider hetzner --status golden demos
 
 # Use local code (the default; --from pypi installs from PyPI instead)
 hop3-test run --provider hetzner --from local --images all

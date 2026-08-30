@@ -140,11 +140,11 @@ The scanner walks the test-app directories and reads each test's configuration:
 ```
 apps/test-apps-procfile/   # Procfile-only apps (standalone test.toml)
 apps/test-apps-nix/        # Nix-based test apps
-apps/real-apps-native/     # Real apps, native toolchains
-apps/real-apps-nix/        # Real apps, hand-crafted Nix
-apps/real-apps-nix-gen/    # Real apps, Nix from template
+apps/test-apps-nix-gen/    # Nix-from-template test apps
 demos/                     # Demo walkthroughs
-docs/src/tutorials/        # Tutorial scripts
+docs/tutorials/            # Tutorial scripts (the source tree, not the built one)
+
+../hop3-catalog/apps/<status>/   # Real applications, in the sibling catalog (ADR 059)
 ```
 
 Each real app declares its test configuration under a `[test]` section in its own `hop3.toml`. Apps without a `hop3.toml` — Procfile-only test apps, demos, tutorials, and negative-test cases — keep a standalone `test.toml`.
@@ -311,7 +311,7 @@ hop3-test run --docker apps/test-apps-procfile
 hop3-test run --docker --clean --with all
 
 # Test one app, reusing the existing container (skip the Hop3 deploy)
-hop3-test run --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse gitea
 
 # Run against a remote server over SSH
 hop3-test run --host server.example.com --clean --with all
@@ -428,7 +428,7 @@ docker exec -it hop3-test bash
 
 ```bash
 # Iterate on verification against an already-deployed app, without redeploying Hop3
-hop3-test run --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse gitea
 ```
 
 ### Replay a failure

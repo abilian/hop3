@@ -60,7 +60,7 @@ hop3-test run --docker apps/test-apps-procfile
 hop3-test run --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Run one app, reusing an existing deployment
-hop3-test run --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse gitea
 
 # Keep target running after tests
 hop3-test run --docker --keep
@@ -118,7 +118,7 @@ hop3-test run --docker apps/test-apps-procfile
 hop3-test run --docker apps/test-apps-procfile/010-flask-pip-wsgi
 
 # Reuse an existing deployment for fast iteration on one app
-hop3-test run --docker --reuse apps/real-apps-native/edrix
+hop3-test run --docker --reuse gitea
 
 # Keep apps deployed after testing
 hop3-test run --docker --keep apps/test-apps-procfile/010-flask-pip-wsgi
@@ -326,10 +326,13 @@ apps/                            # Test and demo applications
 │   ├── 020-nodejs-express/
 │   └── ...
 ├── test-apps-nix/               # Nix-based test apps
-├── real-apps-native/            # Real apps, native toolchains
-├── real-apps-nix/               # Real apps, hand-crafted Nix
-├── real-apps-nix-gen/           # Real apps, Nix from template
+└── test-apps-nix-gen/           # Nix-from-template test apps
 demos/                           # Educational demos
+docs/tutorials/                  # Tutorials (validoc fences)
+
+../hop3-catalog/apps/            # Real applications (ADR 059)
+├── golden/  beta/               # published, scanned by default
+└── alpha/  broken/  retired/    # kept as a record; reachable with --status
 ```
 
 ## Test Configuration (`[test]` in hop3.toml)
