@@ -15,6 +15,8 @@
 
 **Updated 2026-08-09**: both "ship it" items are shipped. 0.7.1 is on PyPI (`hop3-server` 0.7.1 is the latest release there, alongside the rest of the workspace), and `apps.hop3.cloud` serves the generated gallery in place of the placeholder, so §1 and §6's publish item are closed. The open-registration defect (§4) is closed too: all six forge recipes in the catalog declare `DISABLE_REGISTRATION`, the Nix variants included, and the signed `dist/index.json` was built after them: what survives there is the design question, not a shipped defect. With those out of the way the front of the queue is **§3, the security backlog**, and the `git clone` caps are the item to take first. 0.7.2 then has a shape: the three fixes already sitting in `CHANGES.md [Unreleased]` plus whatever of §3's robustness trio lands.
 
+**Updated 2026-08-30: 0.7.2 is tagged.** It carries §3's robustness trio in full (addon secrets written 0600 from birth, the Redis slot race, the bounded build queue, the `git clone` caps), §2's presentation work, and the consolidation [plan 34](../../local-notes/plans/34-apps-single-source.md) scoped: every real-app recipe now lives once, in the catalog, filed under the maturity status that says how well we know it ([ADR 059](../adrs/059-catalog-maturity-status.md)). `apps/real-apps-{native,nix,nix-gen,docker}` is gone from this repository, which retires more than a path: **§4's "53 recipes" was measured against a tree that no longer exists**, and any count below that was taken there needs re-basing on the catalog before it is quoted again. §2.1's deferred question is answered (see below). What remains at the front of the queue is the screencast re-recording (§6), the single-capture screenshots (§2.3), and §5's coverage holes — none of which gate a release.
+
 ## 1. Ship 0.7.1 (the security payload)
 
 Four fixes are landed and unreleased (`CHANGES.md [Unreleased] § Security`, commit `2dee5209`): the shared `AUTH_RATE_LIMITER` across the web form and `auth get-token`, identical bcrypt-timed responses for all three login failures, an up-front refusal when a `Secure` cookie would be dropped over plain HTTP, and `GET /auth/logout` converted to a form POST. They affect every release up to and including 0.7.0.
@@ -33,15 +35,15 @@ Landed after the tag, unreleased, in `CHANGES.md [Unreleased]`: an `HOP3_SECRET_
 
 The catalog's *functional* story is done and gated (every app installs from the signed catalog and is verified by signing in). The remaining work is the presentation, which an operator sees first.
 
-### 2.1 55 entries, 20 applications: kept, deliberately
+### 2.1 55 entries, 20 applications: folded back to one entry each
 
 `dist/index.json` carries **55 entries** for twenty applications, because each is published in up to three packaging variants (`bookstack`, `bookstack-nix`, `bookstack-nixgen`).
 
-**Decided 2026-08-03: the variants stay for now**, so an operator can install the same application built three ways and compare them. That makes the count intentional, and the "twenty curated apps" claim needs to say *applications* wherever it appears.
+**Decided 2026-08-03: the variants stay for now**, so an operator can install the same application built three ways and compare them. That makes the count intentional, and the "twenty curated apps" claim needs to say *applications* wherever it appears. **Superseded 2026-08-30** by the decided item below: the variants are all still there and still installable, but the catalog no longer lists each of them as an application in its own right.
 
 The variants did not describe themselves; that was the real defect, and it is fixed: fifteen of the thirty-five carried no `[metadata]` section at all, so the catalog published an app titled `Bookstack-Nix` with no version and no description. The generator now grafts the application's identity (`[metadata]`, and the `homepage` / `license` / `author` fields when a recipe declares its own block) from the native entry, and never propagates `featured`: one application should not take three front-page slots.
 
-- [ ] Revisit whether the catalog should show one entry per application with the build path as a choice inside it. Deferred, not cancelled; it changes an artefact deployed servers already consume, so treat `index.json`'s shape as an API and decide it in ADR 049 before implementing.
+- [x] **Decided and shipped in 0.7.2: one entry per application, with the build path behind it.** The concern that shaped the deferral did not materialise. The fields that mark a variant (`variant_of`, `build_path`) ride in each app's own `catalog.toml`, which is already inside the flat per-app tree, so `index.json`'s shape is untouched and every deployed loader is unaffected — the API this was waiting on never had to change. The decision is recorded in [ADR 059](../adrs/059-catalog-maturity-status.md), which owns an application's identity; ADR 049 stays the record of how the artefact is distributed. Every variant keeps its id and remains installable by it, and `hop3 catalog list` still enumerates all of them, deliberately: the acceptance harness reads that list to decide what to install, so hiding a recipe there would drop it from the gate that verifies it.
 
 ### 2.2 A consistency check, run before publish: done
 
@@ -99,7 +101,7 @@ From [`../security/backlog-2026-08-01.md`](../security/backlog-2026-08-01.md). T
 ## 5. Corpus and coverage
 
 - [ ] **Uptime Kuma has one variant only** (native): no hand-written Nix recipe and no template one. It is the single largest coverage hole in the catalog twenty.
-- [ ] **Migrate Vaultwarden and GoToSocial to the template.** Both are expressible now that `[nix].let-extra` and `[nix].env-exports-raw` have landed (reference user: `apps/real-apps-nix-gen/keycloak`), but both still carry a hand-crafted `hop3.nix`.
+- [ ] **Migrate Vaultwarden and GoToSocial to the template.** Both are expressible now that `[nix].let-extra` and `[nix].env-exports-raw` have landed (reference user: `../hop3-catalog/apps/beta/keycloak-nixgen`), but both still carry a hand-crafted `hop3.nix`.
 - [ ] **Record WriteFreely's deferral properly.** The `nixpkgs-wrapper` template has no hook for fetching a companion archive (`templates/pages/static`); Outline, PeerTube, Funkwhale and Chatwoot will hit the same pattern. The hook itself waits for 0.8. Record the deferral now.
 
 ## 6. Dissemination tail
