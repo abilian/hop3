@@ -161,6 +161,32 @@
         </div>
     </div>
 
+    {% if variants and variants | length > 1 %}
+    <!-- Build paths: the same application, packaged different ways -->
+    <div class="border-t border-slate-200 pt-8 mb-8">
+        <h2 class="text-lg font-semibold text-slate-800 mb-1">Build paths</h2>
+        <p class="text-sm text-slate-500 mb-6">
+            The same application, packaged different ways. The default is the one
+            tested most; pick another if you have a reason to.
+        </p>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            {% for variant in variants %}
+            <a href="{{ base_url }}/apps/{{ variant.id }}/"
+               class="block rounded-lg border p-4 transition hover:border-slate-400
+                      {{ 'border-slate-800 bg-slate-50' if variant.id == app.id else 'border-slate-200' }}">
+                <div class="flex items-baseline justify-between">
+                    <span class="font-medium text-slate-800">{{ variant.build_path }}</span>
+                    {% if not variant.variant_of %}
+                    <span class="text-xs text-slate-500">default</span>
+                    {% endif %}
+                </div>
+                <p class="mt-1 text-xs text-slate-500">{{ variant.id }}</p>
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     {% if similar_apps %}
     <!-- Similar Apps -->
     <div class="border-t border-slate-200 pt-8">

@@ -23,6 +23,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.server.catalog.loader import find_icon, find_screenshots, load_apps
+from hop3.server.catalog.policy import PUBLISHABLE_STATUSES
 from hop3.server.catalog.taxonomy import build_categories, build_tags
 
 from .renderer import copy_static, generate_search_index, render_site
@@ -64,13 +65,28 @@ def _preserved(output_dir: Path) -> Iterator[None]:
 
 def build(catalog_apps: Path, output_dir: Path) -> int:
     """Render the catalog under ``catalog_apps`` into ``output_dir``."""
-    apps = load_apps(catalog_apps)
-    if not apps:
+    all_apps = load_apps(catalog_apps)
+    if not all_apps:
         msg = (
             f"No catalog apps under {catalog_apps}.\n"
             "Point --catalog at a catalog checkout's apps/ directory."
         )
         raise SystemExit(msg)
+
+    # Only what the catalog publishes. `alpha`, `broken` and `retired` recipes
+    # live in the repository as a record of what was tried and why it is not
+    # offered (ADR 059); rendering them put a page for a known-broken app on the
+    # public site, next to the working ones and indistinguishable from them.
+    apps = [a for a in all_apps if a.status in PUBLISHABLE_STATUSES]
+    if not apps:
+        statuses = ", ".join(sorted({a.status for a in all_apps}))
+        msg = (
+            f"No published catalog apps under {catalog_apps}: all "
+            f"{len(all_apps)} recipe(s) are at a status the catalog does not "
+            f"publish ({statuses})."
+        )
+        raise SystemExit(msg)
+    withheld = len(all_apps) - len(apps)
 
     # The dashboard serves images from a route; a static site serves files. The
     # loader gives paths inside each app's catalog directory; rewrite them to
@@ -105,7 +121,12 @@ def build(catalog_apps: Path, output_dir: Path) -> int:
             for shot in shots:
                 shutil.copy2(shot, app_shots / shot.name)
 
-    print(f"{len(apps)} apps, {len(categories)} categories, {len(tags)} tags")
+    applications = sum(1 for a in apps if a.is_default_variant)
+    print(
+        f"{applications} application(s) from {len(apps)} published recipe(s), "
+        f"{len(categories)} categories, {len(tags)} tags "
+        f"({withheld} recipe(s) withheld as unpublished)"
+    )
     print(f"Site written to {output_dir}")
     return len(apps)
 

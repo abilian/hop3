@@ -59,8 +59,13 @@ def render_site(
     # Featured comes from each app's `[catalog].featured`, not a list kept here:
     # a curated list in the renderer goes stale silently, and did — it named
     # twelve apps, ten of which the catalog does not contain.
-    featured_apps = [app for app in apps if app.featured]
-    recent_apps = apps[-6:] if len(apps) > 6 else apps
+    # Listings show applications, not recipes: an application packaged three
+    # ways is one entry with a build-path choice on its page, not three cards
+    # differing by a suffix. Every recipe still gets a page rendered below, so
+    # a variant stays linkable and installable by id.
+    applications = [app for app in apps if app.is_default_variant]
+    featured_apps = [app for app in applications if app.featured]
+    recent_apps = applications[-6:] if len(applications) > 6 else applications
 
     common = {"base_url": ""}
 
@@ -68,7 +73,7 @@ def render_site(
         env,
         "index.html",
         output_dir / "index.html",
-        apps=apps,
+        apps=applications,
         categories=categories,
         featured_apps=featured_apps,
         recent_apps=recent_apps,
@@ -78,17 +83,24 @@ def render_site(
         env,
         "apps/list.html",
         output_dir / "apps" / "index.html",
-        apps=apps,
+        apps=applications,
         categories=categories,
         **common,
     )
+    # A page per recipe, so a variant remains linkable; the build paths of the
+    # application it belongs to are offered on each of them.
+    by_application: dict[str, list[CatalogApp]] = {}
     for app in apps:
+        by_application.setdefault(app.variant_of or app.id, []).append(app)
+    for app in apps:
+        siblings = by_application.get(app.variant_of or app.id, [])
         render_page(
             env,
             "apps/detail.html",
             output_dir / "apps" / app.id / "index.html",
             app=app,
-            similar_apps=get_similar_apps(app, apps),
+            similar_apps=get_similar_apps(app, applications),
+            variants=sorted(siblings, key=lambda a: (bool(a.variant_of), a.build_path)),
             **common,
         )
     for category in categories:
@@ -111,7 +123,8 @@ def render_site(
 
 
 def generate_search_index(apps: list[CatalogApp], output_path: Path) -> None:
-    """Write the client-side search index."""
+    """Write the client-side search index, over applications."""
+    apps = [app for app in apps if app.is_default_variant]
     index = [
         {
             "id": app.id,
