@@ -41,7 +41,7 @@ A fourth property belongs on that list and is deliberately absent: nothing watch
 
 ### 2. PHP-FPM: a production runtime for ten catalog apps
 
-Ten of the twenty catalog applications (BookStack, Dolibarr, Easy!Appointments, Invoice Ninja, Kanboard, LimeSurvey, Matomo, Nextcloud, Paheko, WordPress) serve through PHP's built-in single-threaded server or `artisan serve`. Requests serialize, and Nextcloud and Matomo issue concurrent internal sub-requests, which is how the installer deadlocked against its own only worker during the verification campaign. 0.7 worked around it by raising the worker count; the fix is a real runtime.
+Ten of the twenty catalog applications (BookStack, Dolibarr, Easy!Appointments, Invoice Ninja, Kanboard, LimeSurvey, Matomo, Nextcloud, Paheko, WordPress) serve through PHP's built-in single-threaded server or `artisan serve`. Requests serialize, and Nextcloud and Matomo issue concurrent internal sub-requests, which is how the installer deadlocked against its own only worker during the verification campaign. 0.7 worked around it by raising the worker count; the fix is a real runtime. **0.7.2 moved the workaround into the generator** (`PHP_CLI_SERVER_WORKERS` is set for every recipe served by the built-in server or `artisan serve`), so it now travels with the template instead of being remembered per recipe. That is still a workaround: requests still serialize per worker, and the item below stands unchanged.
 
 **Serve PHP through php-fpm behind the reverse proxy.** One platform fix, ten applications, and it converts the largest ecosystem in the catalog from "works in a demo" to "works under load". This is the highest value-per-unit-work item in the release.
 
@@ -95,7 +95,7 @@ This is a **breaking change** requiring one coordinated CLI+server release: an u
 0.7.x gave the catalog a public site (`apps.hop3.cloud`) that shares hop3-server's loader and taxonomy by importing them. That sharing works and is the right shape; what it lacks is a home. `packages/hop3-marketplace` depending on the whole of `hop3-server` (Litestar, SQLAlchemy, the plugin manager) to render static HTML is a dependency direction nobody would choose deliberately.
 
 - [ ] Extract `hop3-catalog-core`: models, loader, taxonomy, policy, and the view-model both renderers consume. Pure Python, no web framework. `hop3-server` keeps everything about fetching, verifying and installing, because that is trust and state rather than presentation.
-- [ ] Decide whether the catalog shows one entry per application with the build path as a choice inside it (0.7.x §2.1, deferred). It changes `index.json`, which deployed servers consume, so treat that shape as an API and settle it in ADR 049 first.
+- [x] **Settled in 0.7.2, and it did not have to change `index.json`.** The catalog shows one entry per application, with the other build paths offered on its page. The fields marking a variant travel in each app's own `catalog.toml`, already inside the flat per-app tree, so the artefact shape deployed servers consume is unchanged and the ADR 049 question never had to be opened; the decision is recorded in [ADR 059](../adrs/059-catalog-maturity-status.md) instead, which owns an application's identity. What this leaves for 0.8 is the extraction below, not the decision.
 
 ### Catalog growth
 

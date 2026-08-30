@@ -55,5 +55,5 @@ Ordered by how likely each is to be picked up first.
 
 ## Corpus tail
 
-- The applications under `apps/bad/` each carry a `DEFERRED.md` naming their blocker. Every platform fix should trigger a re-try of the applications it unblocks; a `--filter-blocker` selector in the test runner would make that mechanical.
+- The applications the catalog files as `broken` each carry a `DEFERRED.md` naming their blocker. Every platform fix should trigger a re-try of the applications it unblocks; a `--filter-blocker` selector in the test runner would make that mechanical.
 - Two Ruby test applications and a source-built `wiki-js` variant remain unconverted from an earlier packaging pass.
