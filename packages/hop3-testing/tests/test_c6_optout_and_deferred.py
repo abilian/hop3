@@ -3,9 +3,9 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-apps/bad opt-out + DEFERRED.md business-drop skip (audit C6).
+the catalog's broken/ opt-out + DEFERRED.md business-drop skip (audit C6).
 
-An explicit `expects-failure = false` must win over the apps/bad path default,
+An explicit `expects-failure = false` must win over the the catalog's broken/ path default,
 and a DEFERRED.md business-drop (an app dropped for business reasons that still
 deploys fine) must be skipped from the run — not reported as a failing negative
 test.
@@ -26,7 +26,7 @@ from hop3_testing.catalog.scanner import Catalog
 
 def test_hop3_toml_bad_app_explicit_false_opts_out():
     td = generate_test_definition_from_hop3_toml(
-        Path("apps/bad/real-apps-docker-bad/x"),
+        Path("apps/broken/x"),
         {"metadata": {"id": "x"}, "test": {"expects-failure": False}},
     )
     assert td.expects_failure is False  # before the fix this returned True
@@ -42,7 +42,7 @@ def test_standalone_test_toml_bad_dir_explicit_false_opts_out():
                 "expects-failure": False,
             }
         },
-        Path("apps/bad/foo/test.toml"),
+        Path("apps/broken/foo/test.toml"),
     )
     assert td.expects_failure is False
 
@@ -50,12 +50,12 @@ def test_standalone_test_toml_bad_dir_explicit_false_opts_out():
 def test_bad_app_with_no_flag_stays_auto_negative():
     # A genuine bad recipe (no flag, no DEFERRED.md) is still auto-negative.
     td = generate_test_definition_from_hop3_toml(
-        Path("apps/bad/real-apps-nix-bad/ghost"), {"metadata": {"id": "ghost"}}
+        Path("apps/broken/ghost"), {"metadata": {"id": "ghost"}}
     )
     assert td.expects_failure is True
 
 
-# ---- scanner: DEFERRED.md business-drops are skipped (scoped to apps/bad) ----
+# ---- scanner: DEFERRED.md business-drops are skipped (scoped to broken/) ----
 
 
 def test_is_deferred_business_drop_predicate(tmp_path):
@@ -63,7 +63,7 @@ def test_is_deferred_business_drop_predicate(tmp_path):
 
     # A deploys-fine business-drop: DEFERRED.md marked "not a platform
     # limitation" -> skipped.
-    focal = tmp_path / "apps" / "bad" / "x" / "focal"
+    focal = tmp_path / "apps" / "broken" / "focal"
     focal.mkdir(parents=True)
     (focal / "DEFERRED.md").write_text(
         "**Business-reasons drop. Not a platform limitation.** Moved 2026-06-23."
@@ -73,19 +73,19 @@ def test_is_deferred_business_drop_predicate(tmp_path):
     # A GENUINE bad recipe: DEFERRED.md documents a real blocker (it fails to
     # deploy) -> NOT skipped, stays a negative test. This is the verifier's
     # concern: an overloaded DEFERRED.md must not drop builder-rejection coverage.
-    monica = tmp_path / "apps" / "bad" / "x" / "monica"
+    monica = tmp_path / "apps" / "broken" / "monica"
     monica.mkdir(parents=True)
     (monica / "DEFERRED.md").write_text(
         "## Blocker\n\nwebpack build fails; app does not deploy"
     )
     assert cat._is_deferred_business_drop(monica) is False
 
-    ghost = tmp_path / "apps" / "bad" / "x" / "ghost"
+    ghost = tmp_path / "apps" / "broken" / "ghost"
     ghost.mkdir(parents=True)
     assert cat._is_deferred_business_drop(ghost) is False  # no DEFERRED.md -> kept
 
-    # The business-drop marker OUTSIDE apps/bad does not trigger the skip.
-    good = tmp_path / "apps" / "real-apps-native" / "z"
+    # The business-drop marker OUTSIDE the catalog's broken/ does not trigger the skip.
+    good = tmp_path / "apps" / "golden" / "z"
     good.mkdir(parents=True)
     (good / "DEFERRED.md").write_text("not a platform limitation")
     assert cat._is_deferred_business_drop(good) is False

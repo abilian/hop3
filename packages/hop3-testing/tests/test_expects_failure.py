@@ -20,10 +20,10 @@ from typing import Any, cast
 
 import pytest
 from hop3_testing.catalog.loader import (
+    _is_broken_recipe,
     _overrides_from_hop3_test,
     _overrides_from_legacy_test_toml,
     _parse_test_definition,
-    _under_bad_dir,
     generate_test_definition_from_hop3_toml,
 )
 from hop3_testing.catalog.models import (
@@ -73,14 +73,14 @@ class TestLoaderParsesExpectsFailure:
 
     def test_hop3_toml_bad_app_is_auto_expects_failure(self):
         """
-        A bad recipe under apps/bad/** is xfail even via hop3.toml (no flag).
+        A bad recipe under apps/broken/** is xfail even via hop3.toml (no flag).
 
         Regression: the hop3.toml path only honoured the explicit config flag,
         so docker/native bad recipes (which carry hop3.toml) were counted as
         real failures instead of expected ones.
         """
         td = generate_test_definition_from_hop3_toml(
-            Path("apps/bad/real-apps-docker-bad/discourse"),
+            Path("apps/broken/discourse"),
             {"metadata": {"id": "discourse"}},
         )
         assert td.expects_failure is True
@@ -204,15 +204,17 @@ class TestRunnerInvertsExpectsFailure:
 
 
 class TestBadDirIsNegativeTest:
-    """Apps under apps/bad/ are auto-marked expects_failure (path-based)."""
+    """Apps under apps/broken/ are auto-marked expects_failure (path-based)."""
 
-    def test_under_bad_dir_matches(self):
-        assert _under_bad_dir(Path("apps/bad/real-apps-docker-bad/wekan/hop3.toml"))
-        assert _under_bad_dir(Path("/home/x/apps/bad/foo/hop3.toml"))
+    def test_is_broken_recipe_matches(self):
+        assert _is_broken_recipe(Path("apps/broken/wekan/hop3.toml"))
+        assert _is_broken_recipe(Path("/home/x/apps/broken/foo/hop3.toml"))
 
-    def test_under_bad_dir_excludes_normal_apps(self):
-        assert not _under_bad_dir(Path("apps/real-apps-docker/invoice-ninja/hop3.toml"))
-        assert not _under_bad_dir(None)
+    def test_is_broken_recipe_excludes_normal_apps(self):
+        assert not _is_broken_recipe(
+            Path("apps/real-apps-docker/invoice-ninja/hop3.toml")
+        )
+        assert not _is_broken_recipe(None)
 
 
 class TestStoreStatusForNegativeTests:
