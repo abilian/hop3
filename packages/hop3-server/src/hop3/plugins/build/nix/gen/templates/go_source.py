@@ -117,6 +117,13 @@ def _frontend_block(
         if not p.pnpm_deps_hash:
             raise ValueError(_NO_PNPM_HASH.format(pname=spec.pname))
         sr_inherit = " sourceRoot" if p.frontend_source_root else ""
+        # Emitted only when the recipe asks for it: the default nixpkgs pin's
+        # fetcher rejects the argument outright.
+        fetcher_version = (
+            f"\n      fetcherVersion = {p.pnpm_fetcher_version};"
+            if p.pnpm_fetcher_version is not None
+            else ""
+        )
         frontend_nix = f"""
   # The JS frontend, built offline with pnpm; pnpm.fetchDeps pins the dep set.
   frontend = pkgs.stdenv.mkDerivation (finalAttrs: {{
@@ -125,7 +132,7 @@ def _frontend_block(
     src = {binding};{fe_root}
     pnpmDeps = pkgs.{p.pnpm_package}.fetchDeps {{
       inherit (finalAttrs) pname version src{sr_inherit};
-      hash = "{p.pnpm_deps_hash}";
+      hash = "{p.pnpm_deps_hash}";{fetcher_version}
     }};
     nativeBuildInputs =
       [ pkgs.{p.frontend_node_package} pkgs.{p.pnpm_package}.configHook ];

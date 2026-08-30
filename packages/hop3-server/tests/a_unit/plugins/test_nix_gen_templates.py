@@ -1875,3 +1875,83 @@ def test_python_venv_cargo_config_is_written_literally():
     output = generate(_python_spec(source_packages=("bcrypt",)))
 
     assert "cat > $CARGO_HOME/config.toml << 'CARGOCFG'" in output
+
+
+def test_go_source_pnpm_fetcher_version_is_emitted_when_set():
+    """
+    nixpkgs' reproducibility knob reaches the generated fetchDeps call.
+
+    Without it the fetcher leaves file permissions as pnpm happened to create
+    them, so the same lockfile produces different bytes on different machines:
+    vikunja installed from the published catalog hit a hash mismatch against a
+    hash that reproduced perfectly on the machine that recorded it.
+    """
+    output = generate(
+        _go_spec(
+            frontend_pnpm=True,
+            frontend_build="pnpm run build",
+            frontend_output="dist",
+            pnpm_deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            pnpm_fetcher_version=3,
+        )
+    )
+
+    assert "fetcherVersion = 3;" in output
+
+
+def test_go_source_omits_pnpm_fetcher_version_by_default():
+    """
+    The default nixpkgs pin's fetcher rejects the argument outright.
+
+    Emitting it unconditionally would break every pnpm recipe that has not also
+    pinned a newer nixpkgs, so it appears only when a recipe asks for it.
+    """
+    output = generate(
+        _go_spec(
+            frontend_pnpm=True,
+            frontend_build="pnpm run build",
+            frontend_output="dist",
+            pnpm_deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+        )
+    )
+
+    assert "fetcherVersion" not in output
+
+
+def test_php_builtin_server_gets_workers():
+    """
+    A Nix-built PHP app needs the concurrency setting declared, not detected.
+
+    PHP's built-in server handles one request at a time, so an app that fetches
+    its own URL deadlocks. The platform sets `PHP_CLI_SERVER_WORKERS` by
+    matching `php -S` in the worker command, and a Nix app's command is an
+    opaque store path — invoice-ninja-nix bound its port and never answered.
+    """
+    output = generate(_composer_spec(serve_mode="builtin"))
+
+    assert "PHP_CLI_SERVER_WORKERS" in output
+
+
+def test_php_artisan_serve_gets_workers_too():
+    """`artisan serve` is the same single-threaded server behind a wrapper."""
+    output = generate(_composer_spec(serve_mode="artisan"))
+
+    assert "PHP_CLI_SERVER_WORKERS" in output
+
+
+def test_a_php_app_behind_a_real_server_gets_no_workers_setting():
+    """Only PHP's own server has the defect; nothing else is touched."""
+    output = generate(_composer_spec(serve_mode="custom", exec_target="frankenphp"))
+
+    assert "PHP_CLI_SERVER_WORKERS" not in output
+
+
+def test_an_explicit_worker_count_wins():
+    """The template supplies a default; it does not override the recipe."""
+    output = generate(
+        _composer_spec(
+            serve_mode="builtin", runtime_env={"PHP_CLI_SERVER_WORKERS": "2"}
+        )
+    )
+
+    assert '"PHP_CLI_SERVER_WORKERS": "2"' in output

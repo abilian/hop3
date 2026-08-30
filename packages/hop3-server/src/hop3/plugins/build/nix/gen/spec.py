@@ -277,6 +277,14 @@ class NodePnpmInstallPayload(TemplatePayload):
     # Which nixpkgs pnpm to build with. The committed lockfile's format must be
     # one this major can read (see PNPM_LOCKFILE_VERSIONS in the template).
     pnpm_package: str = "pnpm_9"
+    # nixpkgs' own reproducibility knob for `pnpm.fetchDeps`. Left unset, the
+    # fetcher normalises JSON key order and timestamps and nothing else, so the
+    # file permissions pnpm happened to create survive into the output: the same
+    # lockfile then yields different bytes on different machines, and the pinned
+    # hash matches only where it was recorded. Version 2 normalises permissions,
+    # 3 packs a reproducible tarball. The 24.11 default pin's fetcher does not
+    # accept the argument, so a recipe setting this pins `nixpkgs-rev` too.
+    pnpm_fetcher_version: int | None = None
     # npm packages with node-gyp native addons to compile from source, offline,
     # in the sandbox (e.g. ["isolated-vm"]). The default `--ignore-scripts`
     # install skips their build; each name here is then `pnpm rebuild`-ed with
@@ -420,6 +428,14 @@ class GoSourcePayload(TemplatePayload):
     frontend_pnpm: bool = False
     pnpm_deps_hash: str | None = None
     pnpm_package: str = "pnpm_9"
+    # nixpkgs' own reproducibility knob for `pnpm.fetchDeps`. Left unset, the
+    # fetcher normalises JSON key order and timestamps and nothing else, so the
+    # file permissions pnpm happened to create survive into the output: the same
+    # lockfile then yields different bytes on different machines, and the pinned
+    # hash matches only where it was recorded. Version 2 normalises permissions,
+    # 3 packs a reproducible tarball. The 24.11 default pin's fetcher does not
+    # accept the argument, so a recipe setting this pins `nixpkgs-rev` too.
+    pnpm_fetcher_version: int | None = None
     frontend_node_package: str = "nodejs"
     # Embed the built frontend into the source at this path before the Go build
     # (apps that `//go:embed` the assets, e.g. vikunja's `frontend/dist`),

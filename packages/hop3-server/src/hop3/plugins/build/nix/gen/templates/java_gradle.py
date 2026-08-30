@@ -92,7 +92,14 @@ let
     src = {binding};{patches_attr}
 
     mitmCache = pkgs.gradle.fetchDeps {{
-      inherit (finalAttrs) pname;
+      # A bare `pname` makes nixpkgs resolve the package by attribute path
+      # *inside nixpkgs* (`pkg ? getPkg attrPath, attrPath ? pname`), which
+      # aborts with "cannot find attribute" for any recipe nixpkgs does not
+      # ship — which is every recipe this template exists for. Passing the
+      # derivation back would be circular, since `mitmCache` is one of its own
+      # inputs; the fetcher only forces `pkg` to name its output, so a name is
+      # all it needs.
+      pkg = {{ pname = "{spec.pname}"; }};
       data = ./{p.deps_json};
     }};
     __darwinAllowLocalNetworking = true;{flags_attr}
