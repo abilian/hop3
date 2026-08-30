@@ -22,6 +22,12 @@ This documentation is intended for developers who want to contribute to Hop3.
 - [DI Testing Guide](di-testing-guide.md) - Dependency injection in tests
 - [Installer Testing](installer-testing.md) - Testing the installer
 
+## Catalog
+
+- [Catalog Lifecycle](catalog-lifecycle.md) - Statuses, the two runners, publish → verify → promote
+- [Publishing a Catalog](catalog-publishing.md) - Signing keys, serials, staging, key rotation
+- [Staging a Catalog](catalog-staging.md) - Sideloading a signed catalog onto your own box
+
 ## Plugins
 
 - [Plugin Development](plugin-development.md) - How to create plugins

@@ -181,10 +181,14 @@ nav = [
             { "hop3-tui" = "developers/packages/hop3-tui.md" },
             { "hop3-testing" = "developers/packages/hop3-testing.md" },
         ]},
+        { "Catalog" = [
+            { "Catalog Lifecycle" = "developers/catalog-lifecycle.md" },
+            { "Publishing a Catalog" = "developers/catalog-publishing.md" },
+            { "Staging a Catalog" = "developers/catalog-staging.md" },
+        ]},
         { "Operations" = [
             { "Branching Strategy" = "developers/branching-strategy.md" },
             { "DNS Configuration" = "developers/dns-configuration.md" },
-            { "Publishing a Catalog" = "developers/catalog-publishing.md" },
             { "Governance" = "developers/governance.md" },
         ]},
     ]},
