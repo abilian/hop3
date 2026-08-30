@@ -189,9 +189,16 @@ class CatalogController(Controller):
             if category:
                 similar_apps = [a for a in category.apps if a.id != app_id][:4]
 
+        # The alternative build paths, offered here because this is the page
+        # that describes the application. Asked for by the application, so a
+        # reader who arrived at a variant is shown its siblings too.
+        application_id = app.variant_of or app.id
+        variants = service.variants_of(application_id)
+
         ctx = {
             "app": app,
             "similar_apps": similar_apps,
+            "variants": variants,
             "errors": [],
             "app_name": "",
             "domain": "",

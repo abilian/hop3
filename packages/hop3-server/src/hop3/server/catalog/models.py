@@ -50,6 +50,27 @@ class CatalogApp:
     license_note: str = ""
     screenshots: list[str] = field(default_factory=list)
 
+    #: The application this entry is an alternative build of, if any. A catalog
+    #: entry is a *recipe*, and one application may have several: bookstack,
+    #: bookstack-nix and bookstack-nixgen install the same software by different
+    #: routes. Left unset, an entry stands for its own application.
+    #:
+    #: Recorded rather than parsed off the id suffix. The suffix is a naming
+    #: convention, which is adequate for a test script deciding what to exercise
+    #: and too weak to decide what an operator is shown: an application legitimately
+    #: named `foo-nix` would vanish under its own non-existent parent.
+    variant_of: str = ""
+
+    #: How this recipe builds: "native", "nix", "nixgen", "docker". Set on every
+    #: entry, so the default build path is nameable rather than merely the one
+    #: without a suffix.
+    build_path: str = "native"
+
+    @property
+    def is_default_variant(self) -> bool:
+        """Whether this entry is the one an operator browsing should be offered."""
+        return not self.variant_of
+
     #: Maturity status (ADR 059), from the directory the recipe lives in or the
     #: signed index. Defaults to "golden" so a catalog published before statuses
     #: existed keeps describing its entries the way it always did: everything in

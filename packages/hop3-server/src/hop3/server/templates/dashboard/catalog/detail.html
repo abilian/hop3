@@ -271,6 +271,35 @@
         </div>
     </div>
 
+    <!-- Build paths: the same application, packaged different ways -->
+    {% if variants | length > 1 %}
+    <div class="mt-12 border-t border-gray-200 pt-8">
+        <h2 class="text-lg font-medium text-gray-900 mb-1">Build paths</h2>
+        <p class="text-sm text-gray-500 mb-4">
+            The same application, packaged different ways. Pick one if you have a
+            reason to; otherwise the default is the one that is tested most.
+        </p>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
+            {% for variant in variants %}
+            <a href="/dashboard/catalog/apps/{{ variant.id }}"
+               class="block rounded-lg border p-4 hover:border-gray-400
+                      {{ 'border-gray-900 bg-gray-50' if variant.id == app.id else 'border-gray-200' }}">
+                <div class="flex items-baseline justify-between">
+                    <span class="font-medium text-gray-900">{{ variant.build_path }}</span>
+                    {% if not variant.variant_of %}
+                    <span class="text-xs text-gray-500">default</span>
+                    {% endif %}
+                </div>
+                <p class="mt-1 text-xs text-gray-500">{{ variant.id }}</p>
+                {% if variant.status and variant.status != 'golden' %}
+                <p class="mt-1 text-xs text-gray-400">{{ variant.status }}</p>
+                {% endif %}
+            </a>
+            {% endfor %}
+        </div>
+    </div>
+    {% endif %}
+
     <!-- Similar Apps -->
     {% if similar_apps %}
     <div class="mt-12 border-t border-gray-200 pt-8">

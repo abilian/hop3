@@ -89,7 +89,12 @@ class CatalogListCmd(Command):
                 )
             ]
 
-        apps = service.list_apps()
+        # Every recipe, including the alternative build paths the dashboard
+        # folds into their application. This command answers "what does this
+        # server publish", which is what the acceptance harness enumerates to
+        # decide what to install; hiding a recipe here would silently drop it
+        # from the gate that verifies it.
+        apps = service.list_apps(include_variants=True)
         if not apps:
             return [text("The published catalog contains no apps.")]
 
