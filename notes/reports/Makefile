@@ -18,8 +18,13 @@ PDFS    := $(REPORTS:.md=.pdf)
 all: $(PDFS)
 
 ## One rule per report, so an untouched TR is not rebuilt and `make -j` works.
-## The style is a prerequisite: changing it must re-render everything.
-%.pdf: %.md build.py report-style.typ
+## The template is a prerequisite: changing it must re-render everything. It
+## lives in the shared library, and `report` is @local/cs's, which is
+## @local/lab's document with the CS Lab brand bound to it, so both count.
+LIB       := $(HOME)/projects/typst/templates
+TEMPLATES := $(wildcard $(LIB)/cs/0.1.0/*.typ) $(wildcard $(LIB)/lab/0.1.0/*.typ)
+
+%.pdf: %.md build.py $(TEMPLATES)
 	@./build.py $<
 
 ## Same PDFs with a DRAFT banner on the cover. Always rebuilds: the banner is
