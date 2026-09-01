@@ -42,7 +42,7 @@ def sent() -> Any:
         with patch("httpx.AsyncClient") as cls:
             cls.return_value.__aenter__ = AsyncMock(return_value=transport)
             cls.return_value.__aexit__ = AsyncMock(return_value=None)
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             returned = await getattr(client, method)(*args, **kwargs)
 
         payload = transport.post.call_args.kwargs["json"]
@@ -104,7 +104,7 @@ async def test_a_transport_failure_becomes_a_client_error(sent):
         cls.return_value.__aenter__ = AsyncMock(return_value=transport)
         cls.return_value.__aexit__ = AsyncMock(return_value=None)
         with pytest.raises(Hop3ClientError, match="Request failed"):
-            await Hop3Client().list_apps()
+            await Hop3Client("http://hop3.test:8000").list_apps()
 
 
 # -- parsing the table the server sends back -------------------------------------------

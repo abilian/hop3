@@ -1656,6 +1656,7 @@ version = "0.7.2"
 source = { editable = "packages/hop3-tui" }
 dependencies = [
     { name = "httpx" },
+    { name = "platformdirs" },
     { name = "pydantic" },
     { name = "turbodesk" },
 ]
@@ -1669,6 +1670,7 @@ dev = [
 [package.metadata]
 requires-dist = [
     { name = "httpx", specifier = ">=0.27.0" },
+    { name = "platformdirs", specifier = ">=4.3.8" },
     { name = "pydantic", specifier = ">=2.0.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=8.0.0" },
     { name = "pytest-asyncio", marker = "extra == 'dev'", specifier = ">=0.24.0" },

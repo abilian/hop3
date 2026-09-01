@@ -14,6 +14,14 @@ import httpx
 
 from hop3_tui.api.models import App, AppState, Backup, EnvVar, SystemStatus
 
+#: Said once, in full, wherever an unconfigured client is used. Naming the two
+#: ways out matters more than the diagnosis: the previous behaviour was to guess a
+#: server and report its answer as ours.
+NOT_CONFIGURED = (
+    "No Hop3 server configured. Run `hop3 login` to set one up, "
+    "or start the TUI with `hop3-tui --server URL`."
+)
+
 
 class Hop3ClientError(Exception):
     """Base exception for Hop3 client errors."""
@@ -37,12 +45,14 @@ class Hop3Client:
 
     def __init__(
         self,
-        base_url: str = "http://localhost:5000",
+        base_url: str = "",
+        unconfigured_hint: str = "",
         token: str | None = None,
         verify_ssl: bool = True,
         ssl_cert: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
+        self.unconfigured_hint = unconfigured_hint
         self.token = token
         # SECURITY: when a pinned cert is configured we always pass its
         # path (chain-verified against the cert). Disabling verification
@@ -71,6 +81,9 @@ class Hop3Client:
         extra_args: dict[str, Any] | None = None,
     ) -> Any:
         """Make a JSON-RPC call to the server."""
+        if not self.base_url:
+            raise Hop3ClientError(f"{self.unconfigured_hint} {NOT_CONFIGURED}".strip())
+
         payload = {
             "jsonrpc": "2.0",
             "method": "cli",

@@ -23,7 +23,7 @@ class TestTUIConfig:
     def test_default_values(self):
         """Test default configuration values."""
         config = TUIConfig()
-        assert config.server_url == "http://localhost:5000"
+        assert config.server_url == ""  # unconfigured; see test_cli_config_inheritance
         assert config.auth_token is None
         assert config.theme == "dark"
         assert config.refresh_interval == 5
@@ -131,7 +131,7 @@ class TestConfigFromFile:
         config = TUIConfig()
         result = TUIConfig._load_from_file(tmp_path / "nonexistent.toml", config)
         # Should return original config unchanged
-        assert result.server_url == "http://localhost:5000"
+        assert result.server_url == ""  # unconfigured; see test_cli_config_inheritance
 
     def test_load_from_toml_file(self, tmp_path: Path):
         """Test loading from a valid TOML file."""
@@ -184,7 +184,7 @@ url = "https://partial.com"
         config = TUIConfig()
         result = TUIConfig._load_from_file(config_file, config)
         # Should return original config unchanged
-        assert result.server_url == "http://localhost:5000"
+        assert result.server_url == ""  # unconfigured; see test_cli_config_inheritance
 
 
 class TestConfigSave:
@@ -316,7 +316,7 @@ api_url = "https://partial-cli.com"
         config = TUIConfig()
         result = TUIConfig._load_from_cli_config(config_file, config)
         # Should return original config unchanged
-        assert result.server_url == "http://localhost:5000"
+        assert result.server_url == ""  # unconfigured; see test_cli_config_inheritance
 
     def test_tui_config_overrides_cli_config(self, tmp_path: Path):
         """Test that TUI config takes priority over CLI config."""
