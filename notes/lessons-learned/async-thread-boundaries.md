@@ -59,7 +59,7 @@ The whole bug class is "wrong primitive for the boundary". Choose by which side 
 
 `asyncio.Queue/Event/Future/Condition/Semaphore` are loop-owned: only touch them from the loop thread. The moment a `threading.Thread`, `ThreadPoolExecutor`/`run_in_executor`, an APScheduler job, or a subprocess callback needs to hand data to a coroutine, you need `call_soon_threadsafe`/`run_coroutine_threadsafe`; never a bare `put_nowait`/`set`/`set_result`.
 
-Litestar/Granian handlers run on the event loop; any `threading.Thread` you spawn does not. That seam is exactly where this bug lives.
+Litestar/Granian handlers run on the event loop; any `threading.Thread` you spawn does not. This bug lives at that boundary.
 
 ## Diagnosis lesson: instrument, don't theorize
 
@@ -71,7 +71,7 @@ Instrumentation found it, in order:
 3. The HTTP access log: `GET /api/stream 200 30033ms` → the 30s lived in the SSE stream.
 
 Takeaways:
-- **A numeric coincidence (30.0s ≈ a known timeout) is a lead.** Confirm the mechanism is on the actual code path before committing to it.
+- A numeric coincidence (30.0s ≈ a known timeout) is a lead. Confirm the mechanism is on the actual code path before committing to it.
 - **Measure each phase.** Every phase here was fast *in isolation*. The cost was in the orchestration/transport, which no single-component probe would reveal.
 - **Know your tool's blind spots.** SQLAlchemy `before/after_cursor_execute` does not fire for `commit()`/`rollback()` (DBAPI-level), so "no slow SQL logged" did not mean "no slow DB op".
 - **Trust the transport timing.** The web server's own access log (request duration) is ground truth and is immune to application-level log buffering, which was actively misleading here (journald batched the app's log lines tens of seconds apart).

@@ -123,7 +123,7 @@ Hop3 provides these environment variables to the compose file:
 
 A container cannot reach a service bound to `127.0.0.1`/`localhost` on the host through that name, since `localhost` inside the container resolves to the container itself. When passing environment values into the container, Hop3 rewrites host references of `localhost` and `127.0.0.1` to `host.docker.internal`, the Docker-provided alias for the host.
 
-The substitution is value-based: it matches host references at host boundaries within the value (via regex), rather than against a whitelist of known env-var names. A name-based whitelist would silently miss custom variables such as `GF_DATABASE_HOST`; a value-based rewrite catches any variable that carries a host reference, regardless of its name.
+The substitution is value-based: it matches host references at host boundaries within the value (via regex). A name-based whitelist would silently miss custom variables such as `GF_DATABASE_HOST`; a value-based rewrite catches any variable that carries a host reference, regardless of its name.
 
 ### Proxy Integration
 

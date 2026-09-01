@@ -72,7 +72,7 @@ We keep `[run.workers]` for Pattern 1 (shared-env background tasks) and introduc
 | Independent scaling (2 web + 4 sidekiq) | `[[component]]` |
 | Truly independent components (Mastodon, AppFlowy) | `[[component]]` |
 
-The rule of thumb: **`[run.workers]` when the processes are variants of the main app; `[[component]]` when they have distinct lifecycles, configs, or resource needs.**
+The rule of thumb: `[run.workers]` when the processes are variants of the main app; `[[component]]` when they have distinct lifecycles, configs, or resource needs.
 
 ### `[[component]]` schema
 

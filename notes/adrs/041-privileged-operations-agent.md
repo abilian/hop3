@@ -25,7 +25,7 @@ So the firewall feature forces a runtime privilege-separation step. Given such a
 
 [ADR 040](./040-network-firewall-and-port-exposure.md)'s draft sketches a "sudoers fragment for a tightly-scoped command" approach for firewall ops too. While workable for one feature, it has known weaknesses: every invocation is a setuid escalation, the validation surface is "whatever the wrapper script parses", the sudoers file becomes a TOFU asset, and the model does not generalise to other privileged operations Hop3 will eventually need (certificate issuance, optional runtime package installation, systemd unit management).
 
-A separate observation, made while drafting [ADR 040](./040-network-firewall-and-port-exposure.md): the cloud-provider firewall case (Hetzner Cloud Firewall, Scaleway Security Group, AWS Security Group) is **architecturally simpler than the local-firewall case**, because the cloud provider exposes a control-plane API that hop3-server can call directly with operator-supplied credentials. No privilege-escalation gymnastics; the kernel boundary is replaced by a network boundary, and the auth boundary shifts from a UID to a token.
+A separate observation, made while drafting [ADR 040](./040-network-firewall-and-port-exposure.md): the cloud-provider firewall case (Hetzner Cloud Firewall, Scaleway Security Group, AWS Security Group) is architecturally simpler than the local-firewall case, because the cloud provider exposes a control-plane API that hop3-server can call directly with operator-supplied credentials. No privilege-escalation gymnastics; the kernel boundary is replaced by a network boundary, and the auth boundary shifts from a UID to a token.
 
 This ADR proposes that we make the local case look like the cloud case: introduce a small root-running daemon that exposes a control-plane API to hop3-server over a Unix socket. The daemon is the kernel-boundary executor for privileged operations Hop3 performs at runtime. From hop3-server's perspective, "the local box" and "the cloud" become two equally-shaped backends behind a single `Firewall` plugin protocol.
 
@@ -135,7 +135,7 @@ Field semantics:
 
 New codes are added per op as ops are added. Adding a new code is part of the protocol contract and is documented in the daemon's `protocol.py`.
 
-**Handshake**. The first request on every connection is `daemon.handshake({client_version, client_protocol_version})`. Response carries `{daemon_version, protocol_version, accepted: true}`. Mismatch returns `protocol_version_mismatch` with a concrete remediation message ("upgrade hop3-rootd to >= 0.7.0"); hop3-server fails the deploy with a "version mismatch: re-run hop3-install server" diagnostic. No further messages on that connection.
+**Handshake**. The first request on every connection is `daemon.handshake({client_version, client_protocol_version})`. Response carries `{daemon_version, protocol_version, accepted: true}`. Mismatch returns `protocol_version_mismatch` with a concrete remediation message ("upgrade hop3-rootd to >= 0.7.0"); hop3-server fails the deploy with a "version mismatch: re-run hop3-install server" diagnostic. The connection carries no further messages.
 
 The choice of plain JSON-over-UDS, in preference to gRPC, D-Bus, or HTTP, is deliberate: minimal dependencies (stdlib only), trivial to test, easy to read on the wire (`nc -U /run/hop3-rootd/socket` from a root shell), easy to audit. The protocol is conservative on purpose; anything we add later is a separate decision.
 
@@ -692,7 +692,7 @@ The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `st
 
 ### 19. Amendment: `proxy.*` op family ([ADR 040](./040-network-firewall-and-port-exposure.md) addon exposure)
 
-[ADR 040](./040-network-firewall-and-port-exposure.md) exposes an app's *own* fixed ports by opening the host firewall (`firewall.*`, §4): the app already binds `0.0.0.0` and the rule simply lets traffic through. A database **addon** is different: it binds `127.0.0.1` only (Hop3 convention, never `0.0.0.0`), so `hop3 addon expose` cannot be satisfied by a firewall rule alone. A rule on a public port would reach a closed socket. Making a loopback-only service reachable on a public host port needs a real forwarder, and creating one is a privileged act. Hence a third op family.
+[ADR 040](./040-network-firewall-and-port-exposure.md) exposes an app's *own* fixed ports by opening the host firewall (`firewall.*`, §4): the app already binds `0.0.0.0` and the rule simply lets traffic through. A database **addon** is different: it binds `127.0.0.1` only (Hop3 convention, never `0.0.0.0`), so `hop3 addon expose` cannot be satisfied by a firewall rule alone. A rule on a public port would reach a closed socket. Making a loopback-only service reachable on a public host port needs a real forwarder, and creating one is a privileged act. Hence rootd gains a third op family.
 
 **Ops** (registered, dispatched, and audited like the others; `proxy.list` is read-only, `audit=False`):
 
@@ -765,7 +765,7 @@ Give hop3-server `AmbientCapabilities=CAP_NET_ADMIN` via its systemd unit. No he
 
 ### D. PolicyKit-mediated helper
 
-Register a polkit action; hop3 user invokes pkexec to run a helper. **Rejected** because: heavy dependency (polkit not always present on minimal systemd setups); the polkit configuration surface is its own learning curve for operators; the audit story is good but no better than what we get with journald + our own audit log. Worth revisiting if we need cross-distro consistency that polkit happens to provide.
+Register a polkit action; hop3 user invokes pkexec to run a helper. **Rejected** because: heavy dependency (polkit not always present on minimal systemd setups); the polkit configuration surface is its own learning curve for operators; the audit story is good but no better than what we get with journald + our own audit log. Revisit it if Hop3 needs cross-distro consistency that polkit happens to provide.
 
 ### E. D-Bus system service
 
@@ -773,7 +773,7 @@ Register a polkit action; hop3 user invokes pkexec to run a helper. **Rejected**
 
 ### F. Per-app network namespaces
 
-Run each app in its own `unshare(CLONE_NEWNET)` namespace. The local-firewall problem partially dissolves: each namespace has its own rules. **Rejected as a substitute for this ADR** because: it is a much larger architectural change (Hop3 deliberately does not use Docker for production, and per-app netns brings most of Docker's networking complexity); it does not eliminate the need for a privileged step (creating the namespace itself needs root); it does not address non-firewall privileged ops. Worth pursuing as a separate Phase-2-isolation ADR.
+Run each app in its own `unshare(CLONE_NEWNET)` namespace. The local-firewall problem partially dissolves: each namespace has its own rules. **Rejected as a substitute for this ADR** because: it is a much larger architectural change (Hop3 deliberately does not use Docker for production, and per-app netns brings most of Docker's networking complexity); it does not eliminate the need for a privileged step (creating the namespace itself needs root); it does not address non-firewall privileged ops. It belongs in a separate Phase-2-isolation ADR.
 
 ### G. Per-operation policy file with auto_allow / prompt / deny outcomes
 

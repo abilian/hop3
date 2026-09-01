@@ -18,7 +18,7 @@ Hop3 runs a uWSGI Emperor that watches `/home/hop3/uwsgi-enabled/` for `.ini` fi
 
 ## The `attach-daemon` Working Directory Trap
 
-uWSGI's `chdir` directive sets the working directory for WSGI workers, but **`attach-daemon` processes may not inherit it** because they fork from the Emperor.
+uWSGI's `chdir` directive sets the working directory for WSGI workers, but `attach-daemon` processes may not inherit it, because they fork from the Emperor.
 
 **Symptom:** Daemon starts, immediately fails with "No such file or directory" for a relative path.
 

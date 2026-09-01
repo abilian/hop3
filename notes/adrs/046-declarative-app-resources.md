@@ -147,7 +147,7 @@ type   = "persist"          # persist (default) | tmpfs | bind
 
 **Realization by builder.** Native/Nix run on the host with cwd `src/`: `persist` is a relative symlink; `tmpfs`/`bind` are real kernel mounts made through hop3-rootd (§6). Docker bind-mounts the **same** host dir `<app>/volumes/<name>` into the container at `target`, so the host-side backup/restore path is byte-for-byte identical across builders; `tmpfs`/`bind` map to compose `tmpfs:`/`volumes:`. Docker seed-once copies the image's content at `target` into an empty host volume via a throwaway `docker create` + `docker cp`: a `docker cp` failure other than "path absent in image" aborts, so there is no silent empty volume. Per-volume `[volumes.backup]` makes [ADR 024](./024-backup-restore-system.md)'s backup/restore *resource-aware* (a volume is a backup unit).
 
-**Teardown gate.** `App.stop()` (before `src/` is wiped) and `App.destroy()` (before any `rmtree`) must, for every declared native mount: reap processes, unmount (lazy `MNT_DETACH` fallback on EBUSY), then list mounts under the app and **raise if any survive**: refuse to delete over a live mount. Docker releases its own mounts when the container dies, and `compose down --volumes` never touches a host bind source.
+**Teardown gate.** `App.stop()` (before `src/` is wiped) and `App.destroy()` (before any `rmtree`) must, for every declared native mount: reap processes, unmount (lazy `MNT_DETACH` fallback on EBUSY), then list mounts under the app and **raise if any remain**: refuse to delete over a live mount. Docker releases its own mounts when the container dies, and `compose down --volumes` never touches a host bind source.
 
 ### 3. `[limits]`: resource caps
 
@@ -194,9 +194,9 @@ type = "postgres"
 
 Plus per-`[[volumes]]` `[volumes.backup]`. This is the config-surface layer over the backup *system* of [ADR 024](./024-backup-restore-system.md) (extended), superseding the backup-config sketch in [ADR 002](./002-config-format.md).
 
-**Schema.** `enabled` + `schedule` (5-field cron, UTC; required when `enabled`) + `[backup.retention]` (`days` / `keep-last`) + the wired `paths`/`exclude`, plus a strict `[addons.backup]` (`method`/`schedule`/`retention`). All `extra="forbid"`, all fail-loud at schema time. The cron matcher is stdlib-only (no `croniter`).
+**Schema.** `enabled` + `schedule` (5-field cron, UTC; required when `enabled`) + `[backup.retention]` (`days` / `keep-last`) + the wired `paths`/`exclude`, plus a strict `[addons.backup]` (`method`/`schedule`/`retention`). Every model sets `extra="forbid"` and fails loud at schema time. The cron matcher is stdlib-only (no `croniter`).
 
-**Scheduler.** An in-process background service in the ASGI lifespan, structurally identical to the cert-renewal / state-sync / domain-health services (a daemon thread + stop-event + a testable `run_once()`), polling each minute. It needs no rootd and no new dependency, and leaves **no per-app host artifact**: a systemd timer or `/etc/cron.d` entry would survive `destroy` (a leftover, hence a platform bug). "Did the cron minute elapse" is computed from the existing `Backup` rows, so there is no separate scheduling table.
+**Scheduler.** An in-process background service in the ASGI lifespan, structurally identical to the cert-renewal / state-sync / domain-health services (a daemon thread + stop-event + a testable `run_once()`), polling each minute. It needs no rootd and no new dependency, and leaves **no per-app host artifact**: a systemd timer or `/etc/cron.d` entry would outlive `destroy` (a leftover, hence a platform bug). "Did the cron minute elapse" is computed from the existing `Backup` rows, so there is no separate scheduling table.
 
 **Failure visibility.** The authoritative state of a backup is its `Backup` row: a FAILED backup writes no manifest and its partial dir is removed. The read path therefore reads `state` plus an `error` column from the rows and merges manifest detail only for COMPLETED rows: without this, a failed scheduled backup would be fire-and-forget. The scheduler catches per-app (one failure doesn't stop the cycle), logs loudly, leaves the row FAILED with its `error`, and refuses to start a second backup while one is in progress for the app (no overlap). A `scheduled` provenance flag distinguishes manual from scheduled backups, and an "overdue" indicator (newest scheduled COMPLETED vs the cron) surfaces a scheduler that has silently stopped.
 
@@ -218,7 +218,7 @@ proxy     = true            # nginx proxies this endpoint
 subdomain = "admin"         # served at admin.<host>; inherits TLS
 ```
 
-`PortConfig` gains `proxy`/`subdomain`/`path` while keeping its `container`/`public`/`https` fields (additive, no break): a named endpoint with `proxy = true` requires exactly one of `subdomain` (served at `<sub>.<host>`) or `path` (served at `<host><path>`, rendered ahead of `location /`). nginx renders the endpoint into the **same** `<app>.conf` (one atomic teardown unit) as an extra `server{}` (subdomain) or `location{}` (path). The container port is reached on loopback (native: the app binds `127.0.0.1:<container>`; Docker: publish `127.0.0.1:<hostport>:<container>`) and a post-start probe **asserts the port answers on loopback and is refused on a non-loopback address**, so a publicly-bound secondary listener (bypassing nginx/TLS) aborts the deploy and never silently exposes an admin UI. Raw, non-HTTP ports stay in `[[ports]]`; no app binds 80/443 directly: the proxy multiplexes.
+`PortConfig` gains `proxy`/`subdomain`/`path` while keeping its `container`/`public`/`https` fields (additive, no break): a named endpoint with `proxy = true` requires exactly one of `subdomain` (served at `<sub>.<host>`) or `path` (served at `<host><path>`, rendered ahead of `location /`). nginx renders the endpoint into the **same** `<app>.conf` (one atomic teardown unit) as an extra `server{}` (subdomain) or `location{}` (path). The container port is reached on loopback (native: the app binds `127.0.0.1:<container>`; Docker: publish `127.0.0.1:<hostport>:<container>`) and a post-start probe checks that the port answers on loopback and is refused on a non-loopback address, so a publicly-bound secondary listener (bypassing nginx/TLS) aborts the deploy and never silently exposes an admin UI. Raw, non-HTTP ports stay in `[[ports]]`; no app binds 80/443 directly: the proxy multiplexes.
 
 **TLS.** A `subdomain` adds a hostname the served cert must cover, so issuance is **multi-SAN** (the self-signed engine accepts a name list; certbot adds `-d` per name), and cert verification runs over **every** secondary FQDN so a missing SAN fails loud and never serves a mismatch. Teardown is complete by construction (same conf file, same cert pair); Docker verifies the published loopback port is released so it can't block the next deploy's port allocation. A `subdomain` endpoint depends on multi-SAN issuance; a `path` endpoint shares the primary cert and has no such dependency.
 
@@ -252,7 +252,7 @@ Native `tmpfs`/`bind` mounts (§2) and native `[limits]` (§3) require privilege
 
 What collapses the two families into one amendment:
 
-- **One path-allow-list.** rootd re-derives `APP_ROOT` and runs `validate_app_name` for both families; every `mountpoint`/leaf must canonicalize under `<APP_ROOT>/<app>/src/` resp. `hop3.slice/hop3-app-<app>.scope`. Callers never pass arbitrary paths.
+- **One path-allow-list.** rootd recomputes `APP_ROOT` and runs `validate_app_name` for both families; every `mountpoint`/leaf must canonicalize under `<APP_ROOT>/<app>/src/` resp. `hop3.slice/hop3-app-<app>.scope`. Callers never pass arbitrary paths.
 - **One state file + reconcile loop.** Mounts and cgroup leaves join the firewall family's atomic-write/reconcile discipline, so a rootd restart re-asserts or cleans exactly what it owns.
 - **One threat model.** The op families run within rootd's existing root privilege. The larger trust budget the union implies (`CAP_SYS_ADMIN` (mounts), a non-private mount namespace (so an Emperor-spawned process can see a rootd-made mount), and `ProtectControlGroups=false` or a delegated `hop3.slice`) is a forward constraint for the unit-hardening pass, threat-modelled as a whole so it is not loosened ad hoc.
 
@@ -308,9 +308,9 @@ type = "postgres"
 ### Positive
 
 - Closes the four gaps; removes the per-app workarounds the ethos warns against.
-- Fixes the silent-drop defect: config is honored or rejected, never quietly ignored.
+- Fixes the silent-drop defect: config is honored or rejected, never ignored without a word.
 - Generated-once secrets make first-boot reproducible and redeploys idempotent.
-- Declarative persistence makes stateful apps survive redeploys by design, where they previously survived only when their data happened to land in `data/`.
+- Declarative persistence keeps a stateful app's data across redeploys by design, where it previously persisted only when it happened to land in `data/`.
 - Per-app limits make the multi-tenant single box production-safe.
 - Aligns the documented format ([ADR 002](./002-config-format.md)) with the runtime, and the docs with the schema.
 
@@ -344,7 +344,7 @@ type = "postgres"
 - **Regenerate secrets every deploy.** Rejected: non-idempotent; rotates sessions/keys and corrupts data on every redeploy.
 - **Resource limits via uWSGI knobs only.** Rejected: incomplete and runtime-specific; the cgroup boundary is the real enforcement surface and covers Docker/Nix too.
 - **No volumes; rely on the implicit `data/`.** Rejected: apps cannot declare which tree paths persist, forcing bespoke layout hacks.
-- **Per-app systemd units / timers for limits and scheduled backups.** Rejected: a unit or timer survives `destroy` as a host leftover; a per-app cgroup leaf and an in-process scheduler leave no artifact.
+- **Per-app systemd units / timers for limits and scheduled backups.** Rejected: a unit or timer outlives `destroy` as a host leftover; a per-app cgroup leaf and an in-process scheduler leave no artifact.
 
 ## Prior Art
 

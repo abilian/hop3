@@ -16,7 +16,7 @@ Nothing about `nix-build` guarantees that. `nix-store --gc` reclaims any store p
 
 When a GC reclaims a path inside a *running* app's closure, the worker dies with `No such file or directory`. This is a **heisenbug**: it depends on whether (and exactly when) a collect happened relative to the deploy, so it passes in isolation and fails intermittently under load or after another app churns the store. Worse, the only symptom is a slow health-check timeout, minutes after the real event, with no pointer to the reclaimed path.
 
-There are also **windows where Hop3's own rooting is ineffective** even when a GC root exists:
+There are also windows where Hop3's own rooting is ineffective even when a GC root exists:
 
 - `nix-build --no-out-link` roots nothing.
 - A naïve "keep the previous build rooted" rotation that moves the out-link with a filesystem rename does **not** carry the root: Nix registers an *indirect* root as `gcroots/auto/<hash-of-abspath> → <link>`, keyed on the link's path; renaming the link leaves that auto-entry pointing at a name that no longer exists, so the renamed symlink is a plain dangling link.
@@ -40,7 +40,7 @@ The server install writes `min-free = 0` to `nix.conf` and disables `nix-gc.time
 
 ### 3. Deploy-time closure-integrity pre-flight
 
-Before a Nix app's workers start, the run phase verifies that every path in each worker's runtime closure (`nix-store -q --requisites` on the worker's store-path root) still exists on disk, and **aborts with a named, actionable error** if one was reclaimed: rather than letting the worker crash-loop into a health-check timeout.
+Before a Nix app's workers start, the run phase verifies that every path in each worker's runtime closure (`nix-store -q --requisites` on the worker's store-path root) still exists on disk, and **aborts with a named, actionable error** if one was reclaimed.
 
 - The check is **deploy-time**: at build time the closure exists by construction (it was just realised), so the reclaim it guards against can only appear later.
 - It is **best-effort**: if `nix-store` cannot answer (absent from PATH, times out) it logs and continues: a guard that cannot run must never block an otherwise-working deploy.
@@ -51,7 +51,7 @@ Before a Nix app's workers start, the run phase verifies that every path in each
 
 - Roots protect the closures Hop3 knows about, but cannot cover a transient unrooted window or a path outside a rooted set.
 - Pinning GC off removes the *trigger* (the external collect that turns any residual window lethal) and is the single change that most directly ends the intermittency.
-- The pre-flight assumes the first two can still fail (a misconfigured host, a manual `nix-collect-garbage`) and makes the failure **loud and early** instead of a silent slow timeout.
+- The pre-flight assumes the first two can still fail (a misconfigured host, a manual `nix-collect-garbage`) and makes the failure **loud and early**.
 
 Defense-in-depth is warranted because the failure is non-deterministic: the fix must *remove the non-determinism*.
 

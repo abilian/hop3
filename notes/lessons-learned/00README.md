@@ -1,6 +1,6 @@
 # Lessons Learned
 
-**Updated**: 2026-08-02 - added `documentation-and-publication.md`, and extended `web-auth-and-csrf.md` with the August security round (rate-limit scope, login-failure indistinguishability, `Secure`-cookie-over-HTTP, and enforcing auth invariants with tests).
+**Updated**: 2026-09-01 - extended `cli-ergonomics.md` with the September round (a corrupt client cache, a hand-copied registry, scraping the peer's prose for structure, and secrets on the command line).
 
 
 **Convention:** group each new lesson into the thematically closest file below; create a new file if none fits. Keep this `00README.md` an index - don't accumulate full lessons inline.
@@ -11,7 +11,7 @@ Everything below the "Topic deep dives" list is legacy, predating the thematic-f
 
 - [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md) - how an app behaves config → build → run: RPC session isolation, deploy-vs-redeploy state transitions, build-vs-runtime env, 502s, eventual consistency, HOST_NAME/proxy semantics.
 - [`async-thread-boundaries.md`](./async-thread-boundaries.md) - cross-thread `asyncio` pitfalls (the "every deploy takes 30s" bug) and choosing the right primitive per producer/consumer boundary.
-- [`cli-ergonomics.md`](./cli-ergonomics.md) - evolving the CLI command surface safely (rename via alias, deprecate by hiding) and clear help/error messages. (ADR 036)
+- [`cli-ergonomics.md`](./cli-ergonomics.md) - evolving the CLI command surface safely (rename via alias, deprecate by hiding), clear help/error messages, and the September 2026 round: why a client-side cache is a feature's weakest link, why a copy of the server's registry rots, sending structure instead of scraping the peer's prose, and keeping secrets out of argv and out of the echo. (ADR 036)
 - [`database-addon-portability.md`](./database-addon-portability.md) - PostgreSQL, MySQL and Redis connectivity (localhost vs 127.0.0.1, host-matching, Docker-bridge rewrites) and per-framework env-var mapping, across native and Docker deployment.
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md) - Making deployment failures actionable.
 - [`documentation-and-publication.md`](./documentation-and-publication.md) - the public/private tree boundary, documentation as a claim that rots, advertised numbers needing a gate, generated-vs-source trees, suspecting the renderer before the source, errors that name their input, and what a report review pass actually finds.
@@ -300,14 +300,14 @@ Tutorials were failing with "rails not found" or "jekyll not found" because we e
 
 ### 18. Bridge thread→coroutine with `call_soon_threadsafe`
 
-**Lesson**: `asyncio` primitives (`Queue`, `Event`, `Future`, …) are owned by the event loop and are **not thread-safe**. A background thread must never mutate one directly - it must marshal the call onto the loop with `loop.call_soon_threadsafe(...)` (or `asyncio.run_coroutine_threadsafe(...)`). Full write-up: [`async-thread-boundaries.md`](./async-thread-boundaries.md).
+**Lesson**: `asyncio` primitives (`Queue`, `Event`, `Future`, …) are owned by the event loop and are **not thread-safe**. A background thread must never mutate one directly - it must marshal the call onto the loop with `loop.call_soon_threadsafe(...)` (or `asyncio.run_coroutine_threadsafe(...)`). The full write-up is in [`async-thread-boundaries.md`](./async-thread-boundaries.md).
 
 **Case Study - "every deploy takes ~30s" (June 2026)**:
 The deploy runs in a `threading.Thread`, but pushed SSE logs to clients through an `asyncio.Queue` consumed by the async handler. A cross-thread `queue.put_nowait()` doesn't wake the loop's awaiting `get()`, so the consumer only advanced on its 30s keepalive - making *every* deployment report ~30s regardless of real work (~2s).
 
 **Best practices**:
 - Pick the primitive by boundary: thread↔thread → `queue.Queue`/`threading.Event`; loop↔loop → `asyncio.*`; **thread→coroutine → `call_soon_threadsafe`/`run_coroutine_threadsafe`**.
-- Litestar/Granian handlers run on the loop; any `threading.Thread` you spawn does not - that seam is where this bug lives.
+- Litestar/Granian handlers run on the loop; any `threading.Thread` you spawn does not. This bug lives at that boundary.
 - A numeric coincidence (30.0s ≈ a known timeout, here SQLite `busy_timeout`) is a *lead*. Instrument each phase and trust the web server's access-log durations over app-level logs (which buffer and mislead).
 
 | Producer → Consumer | Use | Why |

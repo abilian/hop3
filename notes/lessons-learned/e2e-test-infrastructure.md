@@ -162,7 +162,7 @@ stdout = result.stdout.decode("utf-8", errors="replace")
 
 Testing that a server upgrades has two requirements, surfaced while building `hop3-test upgrade-chain`.
 
-**Each version must be installed by its own installer.** Driving the *current* installer to install an old version (`--from pypi --version 0.6.0`) is doubly wrong: it pairs the current installer's expectations (today's systemd unit, today's strict "rootd must start" check) with *old* binaries, and the current, stricter installer rejects a state that an older, looser installer once shipped as valid. Check each version's tag out into a git worktree and run *that* checkout's `hop3-deploy-server` (`uv run … --local`). Use the stable `--local`/`--git`/`--pypi` source flags - every release accepts them, unlike the newer `--from`.
+**Each version must be installed by its own installer.** Driving the *current* installer to install an old version (`--from pypi --version 0.6.0`) is doubly wrong. It pairs the current installer's expectations (today's systemd unit, today's strict "rootd must start" check) with *old* binaries, while the stricter current installer rejects a state that an older, looser installer once shipped as valid. Check each version's tag out into a git worktree and run *that* checkout's `hop3-deploy-server` (`uv run … --local`). Use the stable `--local`/`--git`/`--pypi` source flags - every release accepts them, unlike the newer `--from`.
 
 **The box must be fresh.** Start each chain from a clean slate (a fresh Docker container or a rebuilt cloud VPS), because an old release expects the toolchain/OS state of its era and an existing server carries state that masks migration bugs.
 

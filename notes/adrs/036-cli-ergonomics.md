@@ -6,7 +6,7 @@
 - **Updated**: 2026-06-24
 - **Related-ADRs**: [018](./018-cli-architecture.md), [019](./019-cli-commands.md), [025](./025-cli-user-experience.md), [031](./031-project-terminology.md), [039](./039-python-deploy-strategies.md), [042](./042-cli-context-model.md)
 
-The app-resolution chain (D7) and sticky-context state (D8) are superseded by [ADR 042](042-cli-context-model.md). Under [ADR 042](./042-cli-context-model.md)'s second revision a *context* is a per-project deploy **environment** declared in the project's committed `hop3.toml` as `[contexts.<name>]` (server address + app + domains + non-secret env); the global `config.toml [contexts.*]` connection model was retired, `config.toml` holds no contexts (only prefs/aliases and an optional default-server address), and the per-server token lives in `~/.config/hop3-cli/credentials.toml`. The per-context `default_app` and the git-remote app source were dropped, and the resolution chains were redefined. The body of D7/D8 is retained for the record, with in-section supersession notes. (Updated for [ADR 042](./042-cli-context-model.md) r2 on 2026-06-24; an earlier note here described the r1 "global connection in config.toml" model, which was itself superseded.) All other decisions remain authoritative.
+The app-resolution chain (D7) and sticky-context state (D8) are superseded by [ADR 042](042-cli-context-model.md). Under [ADR 042](./042-cli-context-model.md)'s second revision a *context* is a per-project deploy **environment** declared in the project's committed `hop3.toml` as `[contexts.<name>]` (server address + app + domains + non-secret env). The global `config.toml [contexts.*]` connection model was retired, `config.toml` holds no contexts (only prefs/aliases and an optional default-server address), and the per-server token lives in `~/.config/hop3-cli/credentials.toml`. The per-context `default_app` and the git-remote app source were dropped, and the resolution chains were redefined. The body of D7/D8 is retained for the record, with in-section supersession notes. (Updated for [ADR 042](./042-cli-context-model.md) r2 on 2026-06-24; an earlier note here described the r1 "global connection in config.toml" model, which was itself superseded.) All other decisions remain authoritative.
 
 > **Read alongside**: [ADR 031 (Terminology)](./031-project-terminology.md), [ADR 039 (Plugin CLI extension)](../cli/plugin-mechanism-todo.md), and the evidence in [`notes/cli/`](../cli/README.md).
 
@@ -34,7 +34,7 @@ The Hop3 CLI is the primary interface for managing applications. As a PaaS targe
 
 ## Decisions
 
-Decisions are grouped by concern. Each decision has a one-paragraph motivation.
+Decisions are grouped by concern.
 
 ### Syntax and structure
 
@@ -107,7 +107,7 @@ The app is *never* positional. Every command that targets an app takes it via `-
 | `--no-alias` |: | all | bypass alias resolution |
 | `--why` | (| all | print resolution trace and exit (diagnostic-only) does not run the command) |
 
-Flags may appear before or after the subcommand. Environment-variable equivalents (e.g., `HOP3_APP`, `HOP3_CONTEXT`) follow the pattern `HOP3_<FLAG>`. `--json` implies non-interactive (no prompts, no colors, no spinners).
+Flags may appear before or after the subcommand. Environment-variable equivalents (e.g., `HOP3_APP`, `HOP3_CONTEXT`) follow the pattern `HOP3_<FLAG>`. `--json` implies non-interactive: no prompts, colors, or spinners.
 
 #### D7: Implicit app resolution
 

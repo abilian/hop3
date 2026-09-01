@@ -11,14 +11,14 @@ Hop3 accumulates tooling that no shipped package owns: automation a *maintainer*
 
 Today this tooling lives as ad-hoc files under the repo-root `scripts/` directory. That directory has grown into a broad mix (Python and shell, checks and generators and deploy helpers) with structural problems that compound as it grows:
 
-- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. There is no `--help`, no index, no "what can I run here."
+- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. Nothing answers `--help`, and nothing indexes what a maintainer can run here.
 - **No contract.** Scripts vary in argument style, exit-code discipline, and output. Some are `set -e` shell, some argparse Python, some neither.
 - **No tests.** A 500-line script like `verify-security-batch.py`, which SSHes to a box, drives `hop3 catalog install`, and asserts security properties, has no test and no way to acquire one in place.
 - **No shared library.** Every script re-implements the same primitives: shell out to the `hop3` CLI, parse `hop3 app credentials`, SSH to a box, talk to a staged catalog. The logic drifts between copies.
 
 The other workspace packages each have a narrow, defensible purpose that this tooling does not fit. `hop3-cli` is the end-user client; putting maintainer tooling there blurs "what a user runs." `hop3-server` is the platform. `hop3-installer` installs and deploys the platform. `hop3-testing` is the E2E **test framework**: a library plus the `hop3-test` runner. A version-bumper or a catalog promoter does other work entirely, and folding it in overloads that package's boundary. `hop3-tui` is the terminal UI; `hop3-rootd` is the privileged helper. Maintainer, release, and operator tooling has no home.
 
-The catalog work ([ADR 049](./049-catalog-distribution.md), and the catalog-acceptance plan) is the concrete trigger: it needs at least three durable tools (a drift check, a promote step, and a whole-catalog acceptance harness) that must be discoverable, documented, tested, and share a common library. Adding them as three more files under `scripts/` deepens the smell instead of resolving it.
+The catalog work ([ADR 049](./049-catalog-distribution.md), and the catalog-acceptance plan) is the concrete trigger: it needs at least three durable tools (a drift check, a promote step, and a whole-catalog acceptance harness) that must be discoverable, documented, tested, and share a common library. Adding them as three more files under `scripts/` deepens the smell.
 
 ## Decision
 
