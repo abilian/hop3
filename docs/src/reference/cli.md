@@ -13,6 +13,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 > - Implicit `--app` resolution chain with sticky context (`hop3 use <app>`).
 > - Alias mechanism: `hop3 apps`, `hop3 addons`, `hop3 plugins`, `hop3 whoami` are built-in aliases (`env` is a real command group, with `config` as its back-compat alias).
 > - Did-you-mean suggestions on typos for both commands and app names.
+- `hop3 help --all --json` emits the whole command tree as data (see [Machine-readable help](#machine-readable-help)).
 > - 11-code exit-code table (see [Exit Codes](#exit-codes)) and the `--no-input`,
 >   `--confirm=<name>`, `--password-file`/`--stdin` flags for automation.
 > - State-change summary lines on mutations, routed to stderr for pipeline safety.
@@ -30,6 +31,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 - [Backup and Restore](#backup-and-restore)
 - [Services (Addons)](#services-addons)
 - [Admin Commands](#admin-commands)
+- [Machine-readable help](#machine-readable-help)
 - [System Commands](#system-commands)
 - [Miscellaneous Commands](#miscellaneous-commands)
 
@@ -1049,6 +1051,9 @@ Set environment variables for an app.
 **Usage:**
 ```bash
 hop3 env set [--app <app>] KEY1=value1 [KEY2=value2 ...]
+hop3 env set [--app <app>] KEY=-          # value read from stdin
+hop3 env set [--app <app>] KEY=@<path>    # value read from a file
+hop3 env set [--app <app>] KEY            # prompt, input hidden
 ```
 
 **Arguments:**
@@ -1063,17 +1068,35 @@ hop3 env set --app myapp LOG_LEVEL=info
 # Set multiple variables
 hop3 env set --app myapp \
   DATABASE_URL=postgresql://localhost/db \
-  REDIS_URL=redis://localhost:6379 \
-  SECRET_KEY=mysecret
+  REDIS_URL=redis://localhost:6379
 
 # Set variable with spaces (quote the value)
 hop3 env set --app myapp MESSAGE="Hello World"
 ```
 
+**Secrets** — a value written as `KEY=value` is recorded in your shell history and
+is visible in `ps` while the command runs. Use one of the three secret-safe forms
+instead (ADR 036 §D14):
+
+```bash
+# Prompt, with no echo — the interactive form
+hop3 env set --app myapp SENTRY_DSN
+
+# From a file — the scripted form
+hop3 env set --app myapp SENTRY_DSN=@/run/secrets/sentry-dsn
+
+# From stdin — the pipeline form
+pass show sentry/dsn | hop3 env set --app myapp SENTRY_DSN=-
+```
+
+A value that legitimately begins with `@` has to come through one of those forms
+too, or it will be read as a file path: `printf '@handle' | hop3 env set --app myapp X=-`.
+
 **Notes:**
 - Requires app restart to take effect: `hop3 app restart --app myapp`
 - Values are stored encrypted in database
 - No leading/trailing whitespace in keys
+- The confirmation line redacts the value it just set (and the one it replaced)
 
 ### `hop3 env unset`
 
@@ -2198,6 +2221,25 @@ The Hop3 CLI uses the exit-code table defined in ADR 036 D16. Scripts can distin
 JSON output (`--json`) includes `error.exit_code` in the envelope so programmatic consumers don't have to mirror this mapping.
 
 **Script tip.** Code `10` is your friend: use it to distinguish a user typing "no" at a confirmation prompt from an actual operation failure. Non-interactive scripts should pass `--confirm=<name>` or `--yes` to avoid it altogether, or `--no-input` to fail fast with an actionable message instead of hanging.
+
+## Machine-readable help
+
+`hop3 help --all --json` emits every command as JSON instead of a page of prose,
+so scripts, dashboards, and generated documentation never have to parse help
+output:
+
+```bash
+hop3 help --all --json | jq -r '.[] | select(.t=="data") | .data.commands[] | select(.hidden|not) | "\(.name)\t\(.summary)"'
+```
+
+Each entry carries `name`, `summary`, `usage`, `examples`, `aliases`, and the
+flags `namespace`, `hidden`, `destructive` and `requires_auth`. Hidden commands
+are included and marked rather than dropped, so each consumer applies its own
+rule.
+
+Help itself also works before the CLI has a server: `hop3` and `hop3 help` on a
+fresh install print the built-in command list and how to connect, instead of a
+configuration error.
 
 ## Environment Variables
 

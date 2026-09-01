@@ -134,7 +134,7 @@ def run_test(test, session):
 
 The collected context travels back via `TestResult.runtime_logs` and is written to a per-test log file (`test-logs/<mode>-<timestamp>/app-logs/<test>.log`). A single test-suite run is then self-sufficient for post-mortem: no SSH-into-the-target-to-reconstruct-state step is needed.
 
-One practical pitfall: **store the deployed app name (not the test path) on the `TestResult` when the deploy starts.** A test at `apps/real-apps-docker/bookstack` deploys to a timestamped `/home/hop3/apps/bookstack-<timestamp>/`; the debug output then locates it with the glob from "Finding App Directories" above.
+One practical pitfall: store the deployed app name on the `TestResult` when the deploy starts, and store it in preference to the test path. A test at `apps/real-apps-docker/bookstack` deploys to a timestamped `/home/hop3/apps/bookstack-<timestamp>/`; the debug output then locates it with the glob from "Finding App Directories" above.
 
 ## What to Show on Failure
 

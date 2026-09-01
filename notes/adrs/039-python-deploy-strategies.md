@@ -107,7 +107,7 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 
 ## Deferred
 
-**`hop3 app freeze` client-side helper.** Worth doing (it would turn "run `poetry export`, commit the file, redeploy" into `hop3 app freeze`) but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step" and deserves its own ADR; it should not ride along with Python-specific changes.
+**`hop3 app freeze` client-side helper.** It would turn "run `poetry export`, commit the file, redeploy" into `hop3 app freeze`, but it requires the relevant toolchain (`uv`, `poetry`, `pip-compile`) on the packager's client machine and would have to be replicated for the other languages Hop3 supports (Node via `npm shrinkwrap` / `pnpm lock`, Ruby via `bundle lock`, etc.). The abstract mechanism is "a per-language freeze step" and deserves its own ADR; it should not ride along with Python-specific changes.
 
 ## Non-goals
 
@@ -126,7 +126,7 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 
 ### Drawbacks
 
-- **Breaking change for existing deployed apps with abstract `requirements.txt` and `--upgrade` behaviour.** Dropping `--upgrade` changes semantics: apps that were quietly getting newer library versions on each deploy stop doing so. Operators see a change the first time they deploy after the upgrade. Mitigation: call this out in the changelog; document the workaround (delete `requirements.txt`, re-freeze).
+- **Breaking change for existing deployed apps with abstract `requirements.txt` and `--upgrade` behaviour.** Dropping `--upgrade` changes semantics: apps that had been picking up newer library versions on each deploy stop doing so. Operators see a change the first time they deploy after the upgrade. Mitigation: call this out in the changelog; document the workaround (delete `requirements.txt`, re-freeze).
 - **Both-files-present now errors.** Apps in the real-world catalogue may have both files. Mitigation: a migration note plus a one-line addition (`[build.python].strategy = "requirements"` or `"pyproject"`) for affected apps. The in-tree test corpus is small enough to audit by hand before the change.
 
 ### Risks

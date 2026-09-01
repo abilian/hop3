@@ -54,7 +54,7 @@ A JSON object under a reserved key in `extra_args` (proposed: `_context`, mirror
 
 The object is **open for extension**: future fields (locale, output width, dry-run intent, trace id) ride here without a protocol change. Older code ignores unknown fields. The reserved key is the one exception; see *Versioning*.
 
-Values are still produced by [ADR 042](./042-cli-context-model.md)'s resolution chains; nothing about *how* the app/server/context resolve changes. [ADR 042](./042-cli-context-model.md) stays authoritative for the resolution model (servers, project contexts, the resolution order); this ADR is authoritative only for *how* the resolved values travel to the server and are consumed there. Resolution is now **always performed and always transmitted**, instead of being gated on a hardcoded app-scoped check and injected positionally.
+Values are still produced by [ADR 042](./042-cli-context-model.md)'s resolution chains; nothing about *how* the app/server/context resolve changes. [ADR 042](./042-cli-context-model.md) stays authoritative for the resolution model (servers, project contexts, the resolution order); this ADR is authoritative only for *how* the resolved values travel to the server and are consumed there. Resolution is now **always performed and always transmitted**.
 
 ### Server-side consumption
 

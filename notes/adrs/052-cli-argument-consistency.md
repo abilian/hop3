@@ -41,7 +41,7 @@ The following are all *present in the code today* (surveyed flag-by-flag).
 
 ### The model this extends
 
-The main `hop3` CLI is coherent, and ADRs 042 and 047 already decided its model: the **context is the server** (one selector, `--context`), host/user are derived from a literal `ssh://` address rather than passed as flags, **`--app` is always a flag never a positional**, verbosity stacks, and `--json` / `--yes` / `--force` mean one thing each. `hop3-test`'s `--deploy-from {local,git,pypi,none}` is the one good expression of install-source in the tree. This ADR does not invent a new style; it names the existing good one and extends it outward.
+The main `hop3` CLI is coherent, and ADRs 042 and 047 already decided its model: the context is the server (one selector, `--context`), host/user are derived from a literal `ssh://` address rather than passed as flags, `--app` is always a flag never a positional, verbosity stacks, and `--json` / `--yes` / `--force` mean one thing each. `hop3-test`'s `--deploy-from {local,git,pypi,none}` is the one good expression of install-source in the tree. This ADR names the style the main CLI already has and extends it outward.
 
 ### Why now
 
@@ -106,7 +106,7 @@ The default git branch is **`main`** for every tool; a dev workflow passes `--br
 
 The full model (stacking `-v/-vv/-vvv` levels, `-q/--quiet`, `--debug`, `HOP3_VERBOSITY`, `--yes/-y`, `--no-input`, and `--json/-j`) lives on the **interactive main `hop3` CLI**, which already has it. It is *not* pushed onto the operator/dev tools: `hop3-deploy-server`, `hop3-install`, and `hop3-test` are **one-shot, non-interactive commands** that don't prompt, don't emit machine-parsed data, and have no use for a verbosity level beyond on/off. Forcing the rich model onto them is churn without benefit.
 
-Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (where it already exists) `-q/--quiet`, plus `--clean`/`--force` (D6). The rule across all of them: **no tool redefines a global short flag locally** (e.g. `hop3-test cloud` must not shadow the group's `-v`), and short flags keep their global meaning (D1). A tool that grows a data-emitting mode (a `--list-images`, a status query) may add `--json` at that point: but it is not a blanket requirement.
+Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (where it already exists) `-q/--quiet`, plus `--clean`/`--force` (D6). The rule across all of them: no tool redefines a global short flag locally (e.g. `hop3-test cloud` must not shadow the group's `-v`), and short flags keep their global meaning (D1). A tool that grows a data-emitting mode (a `--list-images`, a status query) may add `--json` at that point: but it is not a blanket requirement.
 
 ### D6. `--force` means one thing
 
@@ -116,15 +116,15 @@ Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (wher
 
 One env var per concept, named `HOP3_<FLAG>` for `--flag`, replacing the `HOP3_PYPI_VERSION` / `HOP3_LOCAL_PACKAGE` / `HOP3_DEV_HOST` sprawl. Precedence is uniform and correct everywhere: **explicit flag > env var > built-in default**, and an explicitly-passed flag wins *even when its value equals the default* (fixing the `hop3-deploy` sentinel bug). Implement with "was this provided" tracking (argparse `default=SUPPRESS`, or a None sentinel), never by comparing against the default value.
 
-### D8. Enforcement: one lexicon, per-tool definitions, drift caught at the seams
+### D8. Enforcement: one lexicon, per-tool definitions, drift caught at the boundaries
 
-There is **no single arg-spec module imported by every tool.** `hop3-testing` depends on `hop3-installer` only to run the shipped `hop3-deploy-server` binary as a subprocess: it deliberately imports none of the installer's code, so it exercises the same binary a user would; a shared Python module would couple the two against that grain, and the installer must stay stdlib-only regardless (it is bundled into the `curl … | python3` one-liner and runs before any dependency exists). Instead, **this document's lexicon is the source of truth for the names**, and each tool defines its own options to match it:
+There is no single arg-spec module imported by every tool. `hop3-testing` depends on `hop3-installer` only to run the shipped `hop3-deploy-server` binary as a subprocess: it deliberately imports none of the installer's code, so it exercises the same binary a user would. A shared Python module would couple the two against that grain, and the installer must stay stdlib-only regardless (it is bundled into the `curl … | python3` one-liner and runs before any dependency exists). Instead, this document's lexicon is the source of truth for the names, and each tool defines its own options to match it:
 
 - `hop3-installer` (both `hop3-deploy-server` and `hop3-install`) keeps argparse and stays stdlib-only. Its two tools live in one package, so they share one small stdlib module for the migration mechanics (deprecation aliases) and the lexicon constants.
 - `hop3-test` keeps Click and defines matching options with its own small alias helper; it does not import the installer's definitions.
 - The main `hop3` CLI is the source of the vocabulary; it already conforms.
 
-**Contract tests at the coupling seams** catch drift between the tools: chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab passes to `hop3-test`. Documentation (help strings, CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale feature lists can't recur.
+**Contract tests at the coupling boundaries** catch drift between the tools: chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab passes to `hop3-test`. Documentation (help strings, CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale feature lists can't recur.
 
 `hop3-install` keeps its current subcommand dispatch rather than moving to argparse subparsers: `prog` reading `install-server.py` is *correct* for the bundled standalone (`curl | python3` runs a file of that name). Where the `hop3-install server --help` program name matters, set `prog` explicitly.
 
@@ -167,7 +167,7 @@ hop3-install server --from local --path /src --with mysql,redis,s3 --domain x   
 
 **Fold the operator tools into `hop3` subcommands** (`hop3 deploy-server`, `hop3 test`). The lexicon makes them *look* like one tool; making them *be* one is tempting but wrong: they are completely different programs. `hop3-install`/`hop3-deploy` run before `hop3-cli` exists, as root, and ship bundled standalone; `hop3-test` is a dev-only dependency with a heavy import graph; the client talks to a running server. They stay separate binaries: the shared lexicon gives the *feel* of one family without the coupling.
 
-**A single `--target URL` with `docker://` / `hetzner://` schemes.** The first draft of this ADR. Rejected: those are invented URL schemes, and the three target kinds are acquired too differently (create-and-destroy a container, attach to a host, OS-rebuild a dedicated server) to coherently share one address grammar. Only `ssh://` is a real scheme, and it is accepted as one *form* of `--host` (D2).
+**A single `--target URL` with `docker://` / `hetzner://` schemes.** This was the first draft of this ADR. Rejected: those are invented URL schemes, and the three target kinds are acquired too differently (create-and-destroy a container, attach to a host, OS-rebuild a dedicated server) to coherently share one address grammar. Only `ssh://` is a real scheme, and it is accepted as one *form* of `--host` (D2).
 
 **Keep `system` and `cloud` as the top-level split.** Rejected: it names the target *provider* (local vs cloud) as the command boundary, but the boundary that actually matters is single-target vs OS-image sweep. It also keeps two deploy wrappers for one shared test core and leaves `cloud` a grab-bag (single-server run and multi-image sweep conflated in one command).
 

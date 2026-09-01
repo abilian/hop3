@@ -7,7 +7,7 @@
 
 ## Context
 
-Installing an application is more than starting its process. Most real applications gate everything behind a login, and a freshly installed instance has no account to log in with. A platform that advertises one-command installs but drops the operator at a login wall with no credentials has staged the app and left the install unfinished.
+Installing an application is more than starting its process. Most real applications gate everything behind a login. A freshly installed instance has no account to log in with. A platform that advertises one-command installs but drops the operator at a login wall with no credentials has staged the app and left the install unfinished.
 
 The catalog recipes show three broken answers to this, all variants of one missing capability. Some hardcode a placeholder password (`ADMIN_PASSWORD = "changeme"`, `KC_BOOTSTRAP_ADMIN_PASSWORD = "changeme"`), which is insecure and leaves the operator unaware that a change is needed. A few generate a random password inline (`$(head -c 16 /dev/urandom)`), yet they never communicate it and regenerate it on every redeploy, so the account stays unusable. Bugsink creates no account at all. The shape common to all three is one capability: this app has an initial admin credential, so generate it, create the account, and tell the operator durably.
 
@@ -15,7 +15,7 @@ The platform already owns the pieces. [ADR 046](./046-declarative-app-resources.
 
 ## Motivation
 
-The catalog advertises a curated set of apps as working, and one-command install is the headline. An install that ends at an unenterable login page fails that promise for every app with a login, which is most of them. The `changeme` recipes make it worse: they ship a weak, well-known password to production and give the operator no signal to rotate it. The capability is worth building once at the platform level so every admin-bearing app drops in the same way, which is the system-validation goal that motivates packaging apps at all.
+The catalog advertises a curated set of apps as working. One-command install is the headline. An install that ends at an unenterable login page fails that promise for every app with a login, which is most of them. The `changeme` recipes make it worse: they ship a weak, well-known password to production and give the operator no signal to rotate it. Building the capability once at the platform level lets every admin-bearing app drop in the same way, which is the system-validation goal that motivates packaging apps at all.
 
 ## Decision
 
@@ -49,9 +49,9 @@ The platform generates the password once (reusing the ADR 046 generator), resolv
 
 ### Bootstrap runs as a builder-agnostic post-deploy step
 
-The account-creation command runs after the app has started, as a dedicated post-deploy step in the deploy orchestration. A `before-run` hook is unsuitable here because `before-run` does not execute on the Docker-Compose deploy path, so a `before-run`-based bootstrap would silently skip Docker-deployed apps, and a silent skip is a fail-loud violation. The post-deploy step covers every builder uniformly: it runs in the app's environment for native and uWSGI apps and inside the container for Docker apps.
+The account-creation command runs after the app has started, as a dedicated post-deploy step in the deploy orchestration. A `before-run` hook is unsuitable here because `before-run` does not execute on the Docker-Compose deploy path, so a `before-run`-based bootstrap would silently skip Docker-deployed apps. A silent skip is a fail-loud violation. The post-deploy step covers every builder uniformly: it runs in the app's environment for native and uWSGI apps and inside the container for Docker apps.
 
-The step runs once, guarded by a per-app marker, and the `create` command must itself be idempotent (create-if-absent), so a redeploy neither recreates nor duplicates the account. A `create` that fails aborts the deploy loudly, because a running app the operator cannot enter is a failed install.
+The step runs once, guarded by a per-app marker. The `create` command must itself be idempotent (create-if-absent), so a redeploy neither recreates nor duplicates the account. A `create` that fails aborts the deploy loudly, because a running app the operator cannot enter is a failed install.
 
 ### The credential is stored, encrypted, for retrieval
 

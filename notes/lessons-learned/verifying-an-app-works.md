@@ -14,7 +14,7 @@ Every level of "it worked" we have trusted has, at some point, hidden a broken a
 | The login page renders 200 | Static files are served | Bugsink served its login page while every post-login request 500'd; its worker process and queue DB were a second, unstarted service. Invoice-ninja served an SPA shell whose frontend bundle was absent. |
 | A login attempt is accepted | Almost everything | Only if a *wrong* password is refused in the same run. |
 
-**Rule:** the strongest cheap signal is *sign in with the credential the platform generated, then confirm a wrong password is refused.* That is what `check.py` does for every catalog app, and it runs at the end of every deploy, built into the deploy itself.
+**Rule:** the strongest cheap signal is to sign in with the credential the platform generated, then confirm that a wrong password is refused. That is what `check.py` does for every catalog app, and it runs at the end of every deploy, built into the deploy itself.
 
 ## A check that cannot fail proves nothing
 

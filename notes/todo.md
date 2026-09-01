@@ -7,7 +7,7 @@ to plans / weeklies / commit messages as they're picked up.
 
 - **Pin runtime dependencies.** `hop3-server` (and the other workspace
   packages) currently use loose floors like `litestar[standard]>=2.22.0`.
-  Hop3 is an app, not a library — runtime deps should be pinned to exact
+  Hop3 is an application, and applications pin their runtime deps to exact
   versions, with controlled bumps. This avoids two failure modes seen in
   production: (1) pip's `only-if-needed` upgrade strategy leaving stale
   transitive deps on the server (e.g. litestar 2.18 satisfying `>=2.18.0`
@@ -26,12 +26,12 @@ to plans / weeklies / commit messages as they're picked up.
 - **Add `hop3 validate`.** A local, client-side lint of a project's `hop3.toml`:
   run the server's schema validation (`ContextSection`, the committed-credential
   tripwire, field/host-safety checks) on the file at/above the CWD and exit
-  0/non-zero, no server required — for CI gating. Top-level and project-rooted,
+  0/non-zero with no server required, so it can gate CI. Top-level and project-rooted,
   the dry sibling of `hop3 deploy` (no `--app`; the app comes from
   `[metadata].id`). Renamed from the obsolete `hop3 config validate` idea, which
   clashed with the `config`→`env` alias (ADR 036 D17). Original intent: ADR 001
   §Consequences, ADR 027 §Developer Experience. (ADR 027 also lists a stale
-  `hop3 config show` / `config export` from the same wishlist — revisit if those
+  `hop3 config show` / `config export` from the same wishlist. Revisit if those
   are still wanted.)
 
 ## After 0.7 (or later)

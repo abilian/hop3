@@ -8,7 +8,7 @@
 
 [ADR 043](./043-unified-testing-architecture.md) establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the per-run runner (`hop3-test run`: provision, deploy, test, persist), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test run --images` sweep that drives them across OS images.
 
-The piece still missing is the consumer that makes a nightly run actionable every morning. Today, the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and there is no scheduler, no way to browse a failed test's full logs, no trend/flakiness view, and no way to trigger or re-run from a UI. [ADR 043](./043-unified-testing-architecture.md) also found that the most common deployment failure (a healthy app behind a 502, the "silent-502" class) is captured by no surface.
+The piece still missing is the consumer that makes a nightly run actionable every morning. Today, the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and four capabilities are missing: a scheduler, a way to browse a failed test's full logs, a trend and flakiness view, and a way to trigger or re-run from a UI. [ADR 043](./043-unified-testing-architecture.md) also found that the most common deployment failure (a healthy app behind a 502, the "silent-502" class) is captured by no surface.
 
 This is squarely on the project ethos: *packaging apps is system-validation work; each app is a deliberate probe of the platform's edges.* The nightly suite is the instrument; this app makes its output legible and turns each failure into a visible platform backlog item.
 
@@ -31,7 +31,7 @@ Create a new subproject, **`hop3-testlab`**:
 | Component | Role | Stack |
 |-----------|------|-------|
 | **Web service** | Dashboard + JSON API; browse runs, tests, logs, trends; trigger ad-hoc runs | Litestar + Advanced Alchemy + Dishka, server-rendered + HTMX |
-| **Scheduler** | Kicks off the nightly run on a timer; enforces the 6 h budget | APScheduler in-process / systemd timer |
+| **Scheduler** | Starts the nightly run on a timer; enforces the 6 h budget | APScheduler in-process / systemd timer |
 | **Runner (worker)** | Provision pool → deploy → run suites → collect bundles → persist → teardown | reuses `hop3-testing` as a **library** |
 | **Datastore** | Queryable results + trends | **PostgreSQL** (extends the existing SQLAlchemy models) |
 | **Artifact store** | Per-test diagnostic bundles | filesystem volume now; object storage later |

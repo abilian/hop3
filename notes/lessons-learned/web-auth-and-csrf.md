@@ -6,7 +6,7 @@ Cookie-based CSRF and session auth (Litestar's CSRF middleware, used by both hop
 
 ## Don't derive the CSRF/session secret from a rotatable credential
 
-hop3-testlab's `SECRET_KEY` falls back to a value derived from `TESTLAB_PASSWORD` (`config.py`): convenient - CSRF works out of the box with no extra config - but it couples two things that should be independent. **Rotating the admin password silently rotates the CSRF/session secret.** Every session cookie and every CSRF token minted under the old password instantly becomes invalid. For a single-admin app, "you changed the password, please log in again" is acceptable for *sessions* - but for CSRF it's worse than that (next section).
+hop3-testlab's `SECRET_KEY` falls back to a value derived from `TESTLAB_PASSWORD` (`config.py`): convenient - CSRF works out of the box with no extra config - but it couples two things that should be independent. Rotating the admin password silently rotates the CSRF/session secret. Every session cookie and every CSRF token minted under the old password instantly becomes invalid. For a single-admin app, "you changed the password, please log in again" is acceptable for *sessions* - but for CSRF it's worse than that (next section).
 
 Pin an explicit secret in production so the two are decoupled:
 
@@ -26,7 +26,7 @@ token = connection_state.csrf_token = csrf_cookie or generate_csrf_token(secret=
 # and the Set-Cookie is only emitted when csrf_cookie is None
 ```
 
-So a browser holding a `csrftoken` cookie minted under the **old** secret never recovers by reloading the login page: the middleware **reuses** the stale cookie, the page renders a token equal to that stale cookie, and the POST fails the HMAC under the **new** secret - every single time. The only client-side cure is *deleting* the cookie (a brand-new incognito window, or DevTools → Cookies → delete `csrftoken`). "Clear your cache / hard refresh" does **not** work, because the cookie is what's wedged, and a GET won't replace it.
+So a browser holding a `csrftoken` cookie minted under the **old** secret never recovers by reloading the login page. The middleware **reuses** the stale cookie, the page renders a token equal to that stale cookie, and the POST fails the HMAC under the **new** secret, every single time. The only client-side cure is *deleting* the cookie (a brand-new incognito window, or DevTools → Cookies → delete `csrftoken`). "Clear your cache / hard refresh" does **not** work, because the cookie is what's wedged, and a GET won't replace it.
 
 This is why a fresh `curl` (empty cookie jar → mints a valid token under the current secret) succeeds while the user's browser stays stuck - a discrepancy that's baffling until you read the middleware.
 
@@ -86,7 +86,7 @@ The regression test asserts the *responses are equal*. The formulation fails whe
 
 Sign-in over plain HTTP looped back to the login form forever, with no error anywhere. The session cookie is `Secure`, so the browser accepted the redirect and discarded the cookie, and the next request arrived unauthenticated. Every component behaved correctly and the sum was unusable.
 
-The user-visible symptom is indistinguishable from a wrong password, so it sends you to look at credentials. **Detect the condition up front and refuse with an explanation.** Development over HTTP stays possible behind an explicit debug flag.
+The user-visible symptom is indistinguishable from a wrong password, so it sends you to look at credentials. Detect the condition up front and refuse with an explanation. Development over HTTP stays possible behind an explicit debug flag.
 
 This is the same shape as the app-level failures in [`verifying-an-app-works.md`](./verifying-an-app-works.md): a transport-level fault reported as an authentication error.
 
@@ -104,4 +104,4 @@ Hop3 ships no CSRF middleware on the dashboard. What stands in for it is `samesi
 | No credential reaches a subprocess through argv | Repo-wide scan of `packages/*/src` for the interpolation patterns (`-p{`, `--password=`, …) |
 | Every pre-auth command is rate limited | Test over the command registry: a command with `requires_auth=False` must set `rate_limited` or be explicitly exempted |
 
-Two properties made these worth the effort. Each **fails closed on new code** - the route test breaks the moment a route is added, before any human review. And each was **verified against a planted regression** before being trusted, because a scan that matches nothing looks exactly like a scan that passes. The rate-limit test found a real gap on its first run.
+These three tests share two properties. Each **fails closed on new code** - the route test breaks the moment a route is added, before any human review. And each was **verified against a planted regression** before being trusted, because a scan that matches nothing looks exactly like a scan that passes. The rate-limit test found a real gap on its first run.

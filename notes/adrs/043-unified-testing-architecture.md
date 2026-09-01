@@ -57,11 +57,11 @@ The "unification" is: (a) a memorable map of *which runner for what*, (b) one se
 | `b_integration` | multi-component, real DB/subprocess, **but hermetic** | no | ✅ yes |
 | `c_e2e` | deploys / real-server tests | **yes** | ❌ no (out-of-process) |
 
-**The placement rule (the crux).** The axis is **"does this test need Docker, root, a real server, or host mutation?"** The test's complexity is not what decides it. Pure logic → `a_unit`. Heavyweight but hermetic (runs in `tmp_path`, temp/in-memory DB, monkeypatched `HOME`, no privileged ops, no `/etc`, cleans up after itself) → `b_integration`. Needs Docker / root / a real server / system mutation → `c_e2e`. This deliberately pushes work *down*: prefer `b_integration` whenever a test can run hermetically.
+**The placement rule (the crux).** The axis is **"does this test need Docker, root, a real server, or host mutation?"** The test's complexity does not decide it. Pure logic → `a_unit`. Heavyweight but hermetic (runs in `tmp_path`, temp/in-memory DB, monkeypatched `HOME`, no privileged ops, no `/etc`, cleans up after itself) → `b_integration`. Needs Docker / root / a real server / system mutation → `c_e2e`. This deliberately pushes work *down*: prefer `b_integration` whenever a test can run hermetically.
 
 **Duplication across layers is allowed and expected.** A hermetic backup-logic test in `b_integration` and a real-deploy backup test in `c_e2e` test different things and should coexist; the only question is which layer a test's *dependencies* place it in.
 
-This **supersedes [ADR 026](./026-dashboard-ui-test-classification.md)**, which classified dashboard tests by the real-vs-mocked-dependency axis. Under the Docker/root/host-mutation axis, a test running real `App.create()` against `tmp_path` with an in-memory DB is *hermetic* and belongs in `b_integration`: reversing [ADR 026](./026-dashboard-ui-test-classification.md). The one in-process `c_system` test moves there; the skipped Postgres-backup test is made hermetic or moved to `c_e2e`; the disabled proxy tests are revived into `c_e2e` (they exercise the silent-502 class).
+This supersedes [ADR 026](./026-dashboard-ui-test-classification.md), which classified dashboard tests by the real-vs-mocked-dependency axis. Under the Docker/root/host-mutation axis, a test running real `App.create()` against `tmp_path` with an in-memory DB is *hermetic* and belongs in `b_integration`: reversing [ADR 026](./026-dashboard-ui-test-classification.md). The one in-process `c_system` test moves there; the skipped Postgres-backup test is made hermetic or moved to `c_e2e`; the disabled proxy tests are revived into `c_e2e` (they exercise the silent-502 class).
 
 ### 3. Coverage policy
 

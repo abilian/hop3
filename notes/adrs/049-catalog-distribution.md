@@ -30,22 +30,22 @@ Distribute the catalog as a **signed artifact pulled over HTTPS**, verified agai
 
 The per-app artifact shape (a directory of `<app-id>/{hop3.toml, readme.md, icon.*}`) is the boundary that does **not** change across phases. Shipping `index.json` inside the v1 tarball lets v2 move to fetch-on-demand without changing the format the node already understands.
 
-That boundary constrains how a recipe's maturity status ([ADR 059](./059-catalog-maturity-status.md)) reaches a node. The status is the directory a recipe occupies in the catalog *source* tree; the publish step walks that hierarchy and emits the same flat `<app-id>/…` tree, recording each app's status as a field in `index.json`. The artefact gains a field and keeps its shape, so the bijection above and every deployed loader are unaffected. Only publishable statuses appear at all — an entry that is absent from the index is absent from the tarball, which is the invariant, not an exception to it.
+That boundary constrains how a recipe's maturity status ([ADR 059](./059-catalog-maturity-status.md)) reaches a node. The status is the directory a recipe occupies in the catalog *source* tree; the publish step walks that hierarchy and emits the same flat `<app-id>/…` tree, recording each app's status as a field in `index.json`. The artefact gains a field and keeps its shape, so the bijection above and every deployed loader are unaffected. Only publishable statuses appear at all: an entry that is absent from the index is absent from the tarball, which is the invariant.
 
 ### Trust model
 
 HTTPS authenticates the channel; the realistic threat is compromise of the origin/bucket/CDN/CI, against which TLS is useless. So the root of trust is an **offline signature**: the catalog is trusted because the Hop3 release key signed it, independent of who serves the bytes. We use **minisign** (Ed25519 detached signatures), verified with the `cryptography` library Hop3 already depends on: no new dependency and no `minisign` binary in the path.
 
-Two anchors live on the node and are never re-derived from whatever the origin currently serves:
+Two anchors live on the node and are never recomputed from whatever the origin currently serves:
 
 - **The verifying public key is a compiled-in constant** in the server release: not a runtime file an attacker with a node foothold could swap. The private key never touches a production node.
 - **A monotonic `serial`** in the signed index, persisted outside the catalog directory, blocks rollback to an older but validly-signed catalog.
 
-This is the APT model in miniature (sign the index, the index hashes the artifacts) and aligns with [ADR 013](./013-supply-chain.md) (sha256 pinning; Sigstore deferred). The chain only holds if the **server-release channel is an independent trust root** from the catalog channel; today the catalog (`apps.hop3.cloud`) and the install one-liner (`hop3.cloud`) share the `hop3.cloud` parent domain and operator, so they are not yet independent trust roots: install-time origin integrity is a documented gap (below).
+This is the APT model in miniature (sign the index, the index hashes the artifacts) and aligns with [ADR 013](./013-supply-chain.md) (sha256 pinning; Sigstore deferred). The chain only holds if the server-release channel is an independent trust root from the catalog channel; today the catalog (`apps.hop3.cloud`) and the install one-liner (`hop3.cloud`) share the `hop3.cloud` parent domain and operator, so they are not yet independent trust roots: install-time origin integrity is a documented gap (below).
 
 ### How a refresh works
 
-Catalog refresh runs as a sub-step of `hop3-server setup` (once, after dirs exist, before the service starts) and on demand via `hop3 catalog refresh` (never per request. It fetches the tarball and its signature over HTTPS into a staging area, **verifies the signature before opening the archive**, extracts with path confinement and resource caps, and then enforces the design's central invariant: the extracted tree must be **exactly** the file set named in the signed `index.json`) every listed file present with a matching hash, and nothing else on disk. Only then is the new version published, by an atomic symlink flip plus an in-process snapshot swap, and the new serial recorded.
+Catalog refresh runs as a sub-step of `hop3-server setup` (once, after dirs exist, before the service starts) and on demand via `hop3 catalog refresh` (never per request. It fetches the tarball and its signature over HTTPS into a staging area, verifies the signature before opening the archive, extracts with path confinement and resource caps, and then enforces the design's central invariant: the extracted tree must be **exactly** the file set named in the signed `index.json`) every listed file present with a matching hash, and nothing else on disk. Only then is the new version published, by an atomic symlink flip plus an in-process snapshot swap, and the new serial recorded.
 
 Every failure aborts, leaves the previously verified catalog serving, and reports why. There is no "verification unavailable → load anyway" branch and no silent-empty or silent-stale fallback: a *verified* catalog with zero apps is allowed; a fetch or verification failure is surfaced. With no key compiled in, refresh refuses to run rather than fetch something it cannot verify.
 
@@ -69,7 +69,7 @@ The release process builds and signs the artifact offline with the `hop3-catalog
 
 Authenticity is **necessary but not sufficient**: a verified spec is still attacker- or mistake-shaped content. These are in v1 scope because v1 is the change that first makes catalog content installable; deferring them would ship a known hole. Each maps to a property in the table at the end.
 
-- **Coexistence gate (F7).** A verified spec must not claim an unmanaged shared resource and break the "apps must coexist" invariant. The one such resource a `hop3.toml` can express is the reverse-proxy default server, so the gate rejects a catch-all (`"_"`) or wildcard host; it runs at publish time (primary) and as a load-time backstop. The gate deliberately does not re-validate builders, addons, or fixed ports: those are already constrained by the hop3.toml schema, the port registry, and per-app addon provisioning, so re-gating them would be redundant rather than defense-in-depth.
+- **Coexistence gate (F7).** A verified spec must not claim an unmanaged shared resource and break the "apps must coexist" invariant. The one such resource a `hop3.toml` can express is the reverse-proxy default server, so the gate rejects a catch-all (`"_"`) or wildcard host; it runs at publish time (primary) and as a load-time backstop. The gate deliberately does not re-validate builders, addons, or fixed ports: those are already constrained by the hop3.toml schema, the port registry, and per-app addon provisioning, so re-gating them would be redundant.
 - **Untrusted readme/icon (F6).** The public icon route serves raster images only (never SVG, an inline-XSS vector) with `nosniff`, resolved within the app's own verified directory. The readme is rendered through an HTML-sanitizing allowlist.
 - **Resource bounds (F9).** `hop3 catalog refresh` is dashboard-reachable, so download size, uncompressed size, and member count are capped to prevent a zip-bomb / disk-fill DoS with cross-tenant impact.
 - **Privilege separation (F8, deferred hardening).** The `hop3` user verifies the catalog, owns the serial, *and* is the uid a bad spec runs as: so one compromise can disable future verification. Root-owned key/serial state is the hardening target; v1 verifies against the compiled-in constant and keeps the serial outside the catalog dir.
@@ -77,7 +77,7 @@ Authenticity is **necessary but not sufficient**: a verified spec is still attac
 
 ## Consequences
 
-- **Fixes the current production bug**: a real box gets a real, verified catalog instead of a silently empty one.
+- **Fixes the current production bug**: a real box gets a real, verified catalog.
 - **New on the node**: a fetch / verify / atomic-publish path, a compiled-in pubkey constant, an anti-rollback serial outside the catalog dir, a coexistence gate, readme/icon sanitization, `CATALOG_SOURCE_URL` + `CATALOG_ROOT` config, and a `hop3 catalog refresh` command. No new dependency.
 - **Changed**: the loader iterates the verified `index.json` instead of `iterdir()`; refresh swaps an immutable snapshot under a lock; the silent-empty load path is replaced with loud reporting.
 - **New for the Hop3 team**: an offline signing key, the `hop3-catalog publish` release step, and the standing constraint that the server-release channel stay an independent trust root. Real cost, accepted as the price of not making one static host a fleet-wide RCE.

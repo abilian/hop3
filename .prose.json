@@ -1,0 +1,13 @@
+{
+  "_note": "Judgements recorded by /prose:prose passes, so later passes stop re-litigating them.",
+  "_why": {
+    "R33-taboo/loudly": "Hop3's named doctrine (CLAUDE.md: 'Errors Are Never Silent - Fail Loud'). 'fail loudly' / 'aborts loudly' are terms of art here, not manner adverbs claiming a virtue.",
+    "R29-synonym/client+user": "In a client-server CLI these name two different things: the client is the program on the laptop, the user is the person typing. Both are needed in the same sentence.",
+    "R34-verbless/labels": "'**Case Study - <topic> (<date>)**:' and '**Fix:**' open a case or a remedy. Rule 34 exempts labels; the parser reads them as prose and mis-tags the imperative that follows."
+  },
+  "allowlist": {
+    "R33-taboo": ["loudly"],
+    "R29-synonym": ["client", "user"],
+    "R34-verbless": ["Case Study", "**Fix:**"]
+  }
+}

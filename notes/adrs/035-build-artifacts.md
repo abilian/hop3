@@ -16,7 +16,7 @@ self._setup_ruby_paths(env)    # GEM_HOME, BUNDLE_PATH
 self._setup_python_paths(env)  # PYTHONPATH for src-layout
 ```
 
-This exposes a deeper architectural issue: **the run phase has hardcoded knowledge of specific languages**.
+This exposes a deeper architectural issue: the run phase has hardcoded knowledge of specific languages.
 
 ### The Problem
 
@@ -114,7 +114,7 @@ The authoritative dataclass lives in `core/artifacts.py`.
 - **Workers.** Started as uWSGI vassals, with lifecycle hooks (`prebuild` / `postbuild` / `prerun`) filtered out: those are build steps, never daemons.
 - **Absent artifact.** The run phase falls back to legacy per-language detection (the pre-contract behaviour), so the migration is incremental.
 
-For Nix apps, the wrapper execs hardcoded `/nix/store` paths; keeping those alive across garbage collection is the subject of **[ADR 053](./053-nix-closure-lifetime.md)**.
+For Nix apps, the wrapper execs hardcoded `/nix/store` paths; keeping those alive across garbage collection is the subject of [ADR 053](./053-nix-closure-lifetime.md).
 
 ### Key Changes
 
@@ -133,7 +133,7 @@ We considered two approaches:
 
 | Approach | Description | Pros | Cons |
 |----------|-------------|------|------|
-| **Detection** | Run phase checks for `node_modules/`, `Gemfile`, etc. | Simple, always current | Couples run to build, not portable |
+| **Detection** | Run phase checks for `node_modules/`, `Gemfile`, etc. | Simple, always current | Couples run to build; not portable |
 | **Artifact** | Build phase records config, run phase reads it | Clean separation, portable | Extra file, could get stale |
 
 **We chose Artifact because:**

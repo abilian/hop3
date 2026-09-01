@@ -34,7 +34,7 @@ Coraza is kept as a *future alternative engine* behind the same plugin interface
 
 ### 1. Deployment shape: a platform-managed proxy process
 
-LeWAF runs as a **long-lived reverse-proxy service managed by Hop3**. Request flow for a WAF-enabled app:
+LeWAF runs as a long-lived reverse-proxy service managed by Hop3. Request flow for a WAF-enabled app:
 
 ```
 Client → Nginx (TLS, vhost) → LeWAF proxy (unix socket) → app (uWSGI/web socket)
@@ -88,7 +88,7 @@ hop3 network add office 203.0.113.0/24
 hop3 network add vpn    10.8.0.0/24
 ```
 
-**Evaluation order** (per request): **(1) ban check**: a banned source is rejected before anything else; **(2) gate**: if the path matches a gate and the condition fails, deny; **(3) allow**: if `allow` is set and the path matches neither `allow` nor a satisfied gate, deny; **(4) CRS** inspection; **(5) score** the violation (a deny or a CRS match) toward bans. When `allow` is absent, gates merely carve out conditional regions and everything else is open (the WordPress case).
+**Evaluation order** (per request): **(1) ban check**: a banned source is rejected before anything else; **(2) gate**: if the path matches a gate and the condition fails, deny; **(3) allow**: if `allow` is set and the path matches neither `allow` nor a satisfied gate, deny; **(4) CRS** inspection; **(5) score** the violation (a deny or a CRS match) toward bans. When `allow` is absent, gates only open conditional regions and everything else is reachable (the WordPress case).
 
 Positive-security WAFs are most often bypassed on the two things this model leans on entirely: the client's **source IP** (for network gates and bans) and **path normalization** (for matching). They are pinned as normative Security invariants (1) and (2) below; an implementation that gets either wrong is bypassable regardless of the rules above.
 
@@ -142,7 +142,7 @@ A `WafEngine` protocol + `get_waf_engines()` Pluggy hook, mirroring `get_proxies
 
 When `[waf].enabled`, the app's generated nginx upstream points at the LeWAF socket instead of the app's web socket; LeWAF forwards clean traffic on to the app socket. When disabled, nginx points straight at the app (today's behaviour): the single integration point in `plugins/proxy/nginx/`. `configure_app` on deploy, `remove_app` on destroy, file-touch reload (the uWSGI-emperor pattern Hop3 already uses). Per-app generated config lives under `WAF_ROOT`. A redeploy that flips `enabled` re-points the upstream.
 
-### 8. Config vs runtime state (the Web-UI seam)
+### 8. Config vs runtime state (the Web-UI boundary)
 
 Two clean tiers, so an admin UI can manage the operational parts without editing app repos:
 
@@ -151,7 +151,7 @@ Two clean tiers, so an admin UI can manage the operational parts without editing
 | **Declarative policy** | `hop3.toml` (in the app repo) | `enabled`, `mode`, `allow`, `[[waf.gate]]`, `[[waf.tuning]]`, `[waf.bans]` thresholds |
 | **Runtime state** | hop3 DB (CLI/UI-managed) | named networks, active bans, a per-app `detect↔block` override for incident response |
 
-v1's only architectural commitment here is to put **named networks and active bans in the DB**, so a future UI/CLI can list/add/clear them. The UI itself is not built in v1.
+v1's only architectural commitment here is to put named networks and active bans in the DB, so a future UI/CLI can list/add/clear them. The UI itself is not built in v1.
 
 ### 9. CLI & observability
 
@@ -305,7 +305,7 @@ The two earlier gaps are **resolved**: `ctl:requestBodyAccess` is implemented (a
 
 ## Dependencies, prior art, and acceptance
 
-**Dependency:** `lewaf` (Apache-2.0, Python ≥3.12) plus the vendored OWASP CRS. Declared as the optional extra `hop3-server[waf]` (`lewaf>=0.7.6` + `uvicorn`) with a `python_full_version >= '3.12'` marker (the base workspace supports 3.11, lewaf doesn't). **Every server-install path installs the extra by default** (production installer, `hop3-deploy`, the e2e image), so a WAF-enabled app works out of the box; the marker still excludes it on 3.11, and `scan_package` imports no `lewaf` at module top (verified) so server startup is unaffected. It pulls `starlette` + `regex` (the rest, httpx / redis / pyyaml, hop3-server already has), resolved from **PyPI**. The earlier dev-only local-path pin in `[tool.uv.sources]` has been removed. CRS distribution per §3 / "CRS distribution (as built)".
+**Dependency:** `lewaf` (Apache-2.0, Python ≥3.12) plus the vendored OWASP CRS. Declared as the optional extra `hop3-server[waf]` (`lewaf>=0.7.6` + `uvicorn`) with a `python_full_version >= '3.12'` marker (the base workspace supports 3.11, lewaf doesn't). Every server-install path installs the extra by default (production installer, `hop3-deploy`, the e2e image), so a WAF-enabled app works out of the box; the marker still excludes it on 3.11, and `scan_package` imports no `lewaf` at module top (verified) so server startup is unaffected. It pulls `starlette` + `regex` (the rest, httpx / redis / pyyaml, hop3-server already has), resolved from **PyPI**. The earlier dev-only local-path pin in `[tool.uv.sources]` has been removed. CRS distribution per §3 / "CRS distribution (as built)".
 
 **Prior art, for reference only.** An earlier WAF attempt was implemented on an abandoned `waf-integration` branch at commit **`77e4046a`** ("feat: step 1 of WAF integration"), including `commands/waf.py`, `lib/waf_logging.py`, and `plugins/waf/lewaf/engine.py`. It is **not** an ancestor of any live branch and uses the **pre-050 schema** (`[waf]` + `[security.rules]`). Consult it for the LeWAF engine wrapper and audit-logging mechanics; do not cherry-pick wholesale: the access model in §2 supersedes it. (SHA recorded so the commit survives git gc.)
 
