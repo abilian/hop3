@@ -19,6 +19,19 @@ class Hop3ClientError(Exception):
     """Base exception for Hop3 client errors."""
 
 
+def _as_count(cell: Any) -> int:
+    """A whole number from a table cell. Cells arrive as strings.
+
+    Parsing belongs here, at the boundary, so a screen never formats a raw cell —
+    the processes table used to apply `:.1f` to one and raise ValueError on real
+    data. An unparseable cell is 0 rather than a crash.
+    """
+    try:
+        return int(str(cell).strip())
+    except (TypeError, ValueError):
+        return 0
+
+
 class Hop3Client:
     """Client for communicating with Hop3 server via JSON-RPC."""
 
@@ -97,22 +110,24 @@ class Hop3Client:
 
     async def list_apps(self) -> list[App]:
         """Get list of all applications."""
-        result = await self._rpc_call(["apps"])
+        result = await self._rpc_call(["app", "list"])
         apps = []
         if result and result.get("t") == "table":
+            # `app list` sends [Name, Status, Instances] — no port, runtime or
+            # timestamp. The third column used to be read as a port, so the apps
+            # table showed the instance count under PORT.
             for row in result.get("rows", []):
-                # Assuming row format: [name, status, port, ...]
                 app = App(
                     name=row[0] if len(row) > 0 else "unknown",
                     state=AppState(row[1]) if len(row) > 1 else AppState.STOPPED,
-                    port=int(row[2]) if len(row) > 2 and row[2] else None,
+                    workers=_as_count(row[2]) if len(row) > 2 else 1,
                 )
                 apps.append(app)
         return apps
 
     async def get_app(self, name: str) -> App | None:
         """Get details for a specific application."""
-        result = await self._rpc_call(["app", "status", name])
+        result = await self._rpc_call(["app", "status", "--app", name])
         if result:
             # Parse the result based on the format returned
             return App(name=name)
@@ -120,22 +135,29 @@ class Hop3Client:
 
     async def start_app(self, name: str) -> bool:
         """Start an application."""
-        await self._rpc_call(["app", "start", name])
+        await self._rpc_call(["app", "start", "--app", name])
         return True
 
     async def stop_app(self, name: str) -> bool:
         """Stop an application."""
-        await self._rpc_call(["app", "stop", name])
+        await self._rpc_call(["app", "stop", "--app", name])
         return True
 
     async def restart_app(self, name: str) -> bool:
         """Restart an application."""
-        await self._rpc_call(["app", "restart", name])
+        await self._rpc_call(["app", "restart", "--app", name])
         return True
 
     async def get_app_logs(self, name: str, lines: int = 100) -> list[str]:
         """Get application logs."""
-        result = await self._rpc_call(["app", "logs", name, "--lines", str(lines)])
+        result = await self._rpc_call([
+            "app",
+            "logs",
+            "--app",
+            name,
+            "--lines",
+            str(lines),
+        ])
         if result and result.get("t") == "text":
             return result.get("text", "").split("\n")
         return []
@@ -178,14 +200,14 @@ class Hop3Client:
 
     async def create_backup(self, app_name: str) -> str:
         """Create a backup for an application."""
-        result = await self._rpc_call(["backup", "create", app_name])
+        result = await self._rpc_call(["backup", "create", "--app", app_name])
         return result.get("backup_id", "") if result else ""
 
     # Environment variable methods
 
     async def get_env_vars(self, app_name: str) -> list[EnvVar]:
         """Get environment variables for an application."""
-        result = await self._rpc_call(["config", "show", app_name])
+        result = await self._rpc_call(["env", "show", "--app", app_name])
         env_vars = []
         if result:
             # Result is expected to be a dict or list of env vars
@@ -210,76 +232,87 @@ class Hop3Client:
 
     async def set_env_var(self, app_name: str, key: str, value: str) -> bool:
         """Set an environment variable."""
-        await self._rpc_call(["config", "set", app_name, f"{key}={value}"])
+        await self._rpc_call(["env", "set", "--app", app_name, f"{key}={value}"])
         return True
 
     async def delete_env_var(self, app_name: str, key: str) -> bool:
         """Delete an environment variable."""
-        await self._rpc_call(["config", "unset", app_name, key])
+        await self._rpc_call(["env", "unset", "--app", app_name, key])
         return True
 
     async def delete_app(self, name: str) -> bool:
         """Delete an application."""
-        await self._rpc_call(["app", "destroy", name])
+        await self._rpc_call(["app", "destroy", "--app", name])
         return True
 
-    async def deploy_app(self, name: str, git_url: str) -> dict[str, Any]:
-        """Deploy an application from a git URL."""
-        result = await self._rpc_call(["app", "deploy", name, "--from", git_url])
+    async def deploy_app(self, name: str) -> dict[str, Any]:
+        """Build and start an application from the source it was created with.
+
+        `deploy` takes no repository: the source is fixed when the app is created
+        (see `create_app`). The old `--from` flag was never a server option.
+        """
+        result = await self._rpc_call(["deploy", "--app", name])
         return result or {}
 
-    async def create_app(self, name: str) -> bool:
-        """Create an empty application."""
-        await self._rpc_call(["app", "create", name])
+    async def create_app(self, name: str, repo_url: str) -> bool:
+        """Create an application from a git repository.
+
+        There is no empty app on the server: `app create` takes the repository to
+        create from, and `deploy_app` is what then builds and starts it.
+        """
+        await self._rpc_call(["app", "create", repo_url, "--app", name])
         return True
 
     # Addon methods
 
     async def list_addons(self) -> list[dict[str, Any]]:
         """Get list of all addons."""
-        result = await self._rpc_call(["addons", "list"])
+        result = await self._rpc_call(["addon", "list"])
         addons = []
         if result and result.get("t") == "table":
             for row in result.get("rows", []):
+                # `addon list` sends [Name, Type, Attached apps] — three columns,
+                # the third a comma-joined list of apps or "-". There is no status
+                # column; reading a fourth gave every add-on "unknown".
+                attached = str(row[2]).strip() if len(row) > 2 else ""
                 addon = {
                     "name": row[0] if len(row) > 0 else "",
                     "type": row[1] if len(row) > 1 else "",
-                    "app_name": row[2] if len(row) > 2 else None,
-                    "status": row[3] if len(row) > 3 else "unknown",
+                    "app_name": None if attached in {"", "-"} else attached,
                 }
                 addons.append(addon)
         return addons
 
     async def get_addon(self, name: str) -> dict[str, Any] | None:
         """Get addon details."""
-        result = await self._rpc_call(["addons", "info", name])
+        result = await self._rpc_call(["addon", "show", name])
         return result
 
     async def create_addon(self, addon_type: str, name: str) -> bool:
         """Create a new addon."""
-        await self._rpc_call(["addons", "create", addon_type, name])
+        await self._rpc_call(["addon", "create", addon_type, name])
         return True
 
     async def attach_addon(self, addon_name: str, app_name: str) -> bool:
         """Attach an addon to an application."""
-        await self._rpc_call(["addons", "attach", addon_name, app_name])
+        await self._rpc_call(["addon", "attach", addon_name, "--app", app_name])
         return True
 
     async def detach_addon(self, addon_name: str, app_name: str) -> bool:
         """Detach an addon from an application."""
-        await self._rpc_call(["addons", "detach", addon_name, app_name])
+        await self._rpc_call(["addon", "detach", addon_name, "--app", app_name])
         return True
 
     async def delete_addon(self, name: str) -> bool:
         """Delete an addon."""
-        await self._rpc_call(["addons", "destroy", name])
+        await self._rpc_call(["addon", "destroy", name])
         return True
 
     # Extended backup methods
 
     async def get_backup(self, backup_id: str) -> Backup | None:
         """Get backup details."""
-        result = await self._rpc_call(["backup", "info", backup_id])
+        result = await self._rpc_call(["backup", "show", backup_id])
         if result:
             # Parse created_at from result or use current time as fallback
             created_at_str = result.get("created_at")
@@ -309,18 +342,22 @@ class Hop3Client:
 
     # Process and system log methods
 
-    async def get_processes(self) -> list[dict[str, Any]]:
-        """Get list of running processes."""
-        result = await self._rpc_call(["system", "processes"])
+    async def get_processes(self, app_name: str) -> list[dict[str, Any]]:
+        """Get the processes of one application.
+
+        `ps` is app-scoped on the server — there is no server-wide process list.
+        """
+        result = await self._rpc_call(["ps", "--app", app_name])
         processes = []
         if result and result.get("t") == "table":
             for row in result.get("rows", []):
+                # `ps` sends [Process Type, Count]: how many workers of each type
+                # the app is scaled to. It is not a process list — there is no pid,
+                # status, CPU or uptime on the server at all, and the client used to
+                # parse six columns out of these two.
                 process = {
-                    "name": row[0] if len(row) > 0 else "",
-                    "pid": row[1] if len(row) > 1 else 0,
-                    "status": row[2] if len(row) > 2 else "unknown",
-                    "cpu": row[3] if len(row) > 3 else 0.0,
-                    "memory": row[4] if len(row) > 4 else 0.0,
+                    "type": row[0] if len(row) > 0 else "",
+                    "count": _as_count(row[1]) if len(row) > 1 else 0,
                 }
                 processes.append(process)
         return processes

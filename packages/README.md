@@ -41,4 +41,4 @@ Testing utilities and pytest fixtures for integration and E2E testing. Manages t
 
 ## hop3-tui
 
-Experimental keyboard-driven terminal interface built with Textual. Provides dashboard, app management, and log viewing.
+Experimental keyboard-driven terminal interface built with turbodesk. Provides dashboard, app management, and log viewing.

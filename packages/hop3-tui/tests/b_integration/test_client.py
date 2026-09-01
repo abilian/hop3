@@ -80,9 +80,12 @@ class TestHop3ClientAsync:
             "jsonrpc": "2.0",
             "result": {
                 "t": "table",
-                "headers": ["NAME", "STATUS", "PORT"],
+                # What `app list` actually sends. This test used to invent a
+                # PORT header, which is what legitimised reading the instance
+                # count as a port number.
+                "headers": ["Name", "Status", "Instances"],
                 "rows": [
-                    ["myapp", "RUNNING", "8000"],
+                    ["myapp", "RUNNING", "2"],
                     ["api", "STOPPED", None],
                 ],
             },
@@ -99,7 +102,7 @@ class TestHop3ClientAsync:
             assert len(apps) == 2
             assert apps[0].name == "myapp"
             assert apps[0].state == AppState.RUNNING
-            assert apps[0].port == 8000
+            assert apps[0].workers == 2
             assert apps[1].name == "api"
             assert apps[1].state == AppState.STOPPED
 
@@ -111,7 +114,7 @@ class TestHop3ClientAsync:
             "jsonrpc": "2.0",
             "result": {
                 "t": "table",
-                "headers": ["NAME", "STATUS", "PORT"],
+                "headers": ["Name", "Status", "Instances"],
                 "rows": [],
             },
             "id": 1,

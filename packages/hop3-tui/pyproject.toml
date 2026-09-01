@@ -7,7 +7,7 @@ name = "hop3-tui"
 version = "0.7.2"
 description = "Terminal User Interface for Hop3 PaaS"
 readme = "README.md"
-requires-python = ">=3.10"
+requires-python = ">=3.12"
 license = "Apache-2.0"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -21,17 +21,14 @@ classifiers = [
     "Operating System :: POSIX :: Linux",
     "Operating System :: MacOS :: MacOS X",
     "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.10",
-    "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
     "Topic :: System :: Systems Administration",
 ]
 
 dependencies = [
-    "textual>=0.89.0",
+    "turbodesk>=0.3.2",
     "httpx>=0.27.0",
-    "rich>=13.0.0",
     "pydantic>=2.0.0",
 ]
 
@@ -39,7 +36,6 @@ dependencies = [
 dev = [
     "pytest>=8.0.0",
     "pytest-asyncio>=0.24.0",
-    "textual-dev>=1.0.0",
 ]
 
 [project.scripts]

@@ -8,7 +8,6 @@ exclude = [
     "docs",
     "demos",
     "spikes",
-    "packages/hop3-tui",
 ]
 
 lint.select = [
@@ -130,6 +129,27 @@ known-first-party = ["hop3"]
     "ANN",
     "FBT",
     "T20", # flake8-print
+    # CLAUDE.md: imports stay at top level (no TYPE_CHECKING shuffling).
+    "TC001",
+    "TC002",
+    "TC003",
+]
+"packages/hop3-tui/src/hop3_tui/screens/*.py" = [
+    # A screen is one `render` closure holding one nested action per key binding.
+    # Each action is small; ruff charges all of them to `render`. Hoisting them to
+    # module level would mean threading `ui`, `hop3`, `rows`, `selected` and
+    # `refresh` through every one — more code, for a metric.
+    "C901",     # complex-structure
+    "PLR0915",  # too-many-statements
+    "PLR0911",  # too-many-return-statements
+    # `screens/__init__` imports the eleven screens inside `_registry()`: each of
+    # them imports `Screen` from it. The documented circular-import workaround.
+    "PLC0415",
+]
+"packages/hop3-tui/tests/**/*.py" = [
+    # Some tests are async only to get a running loop — `ui.now` registers a tick
+    # on one. There is nothing to await; the loop is the point.
+    "RUF029",
 ]
 "packages/hop3-installer/src/**/*.py" = [
     # Real imports are needed by the bundler

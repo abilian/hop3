@@ -1,232 +1,107 @@
-# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
-"""
-System status screen.
+"""System status: resources, services, and host information.
 
-Every panel here shows either what the server reported or why it has nothing
-to show. It used to show neither: CPU/memory/disk were the constants 42/63/81
-refreshed on a five-second timer so they looked live, the services panel
-discarded the status dict handed to it and rendered four services as RUNNING
-unconditionally, and the info panel reported hostname ``hop3.dev`` running
-``v0.5.0`` with 14 days of uptime. An operator reading a steady 81% disk, or
-``postgresql RUNNING`` for a database that had stopped, was reading a literal.
+`grid-size: 2` with `#info-panel { column-span: 2 }` — two half-width panels over one
+full-width one. Here that is `vcat([hcat([a, b]), c])`.
 
-The metrics stay unavailable until ``Hop3Client.get_system_status`` parses the
-server's response (it currently makes the call and drops the result — see its
-docstring). Saying so is the point: an empty panel that names its reason is
-recoverable, a fabricated one is not.
+Every panel shows either what the server reported or why it has nothing to show. It
+used to show neither: CPU/memory/disk were the constants 42/63/81 on a timer, the
+services panel rendered four services as RUNNING unconditionally, and the info panel
+reported hostname `hop3.dev` running `v0.5.0` with 14 days of uptime.
+
+The metrics stay unavailable until `Hop3Client.get_system_status` parses the server's
+response (it currently makes the call and drops the result — see its docstring).
+Saying so is the point: an empty panel that names its reason is recoverable, a
+fabricated one is not.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, ClassVar
+from collections.abc import Callable
 
-from textual.binding import Binding
-from textual.containers import Container
-from textual.reactive import reactive
-from textual.screen import Screen
-from textual.widgets import Footer, Header, Static
+from turbodesk import UI, Size, View, hcat, markup, vcat
+from turbodesk.widgets import dialog
 
-from hop3_tui.screens.processes import ProcessesScreen
-from hop3_tui.screens.system_logs import SystemLogsScreen
-from hop3_tui.widgets.util import make_bar
+from hop3_tui.screens import Screen
+from hop3_tui.screens._common import Action, bind, fill, halves
+from hop3_tui.widgets import SystemStats, panel, status_panel
+from hop3_tui.widgets.util import UNAVAILABLE
 
-if TYPE_CHECKING:
-    from textual.app import ComposeResult
-
-
-#: Shown wherever the server has not (yet) supplied a value.
-UNAVAILABLE = "[dim]not reported by the server[/]"
+NAME_WIDTH = 12
+#: Pressing `r` cannot refresh what is never fetched, and saying "refreshed" would be
+#: the same defect one layer up.
+NOTHING_TO_REFRESH = "System metrics are not reported by the server yet."
 
 
-class ResourcesPanel(Static):
-    """Panel showing system resources, or why it cannot."""
+def services_panel(ui: UI, services: dict[str, bool] | None) -> View:
+    """One line per service, green when it is up.
 
-    #: None means "no measurement", which is not the same as 0%.
-    cpu: reactive[float | None] = reactive(None)
-    memory: reactive[float | None] = reactive(None)
-    disk: reactive[float | None] = reactive(None)
-
-    def compose(self) -> ComposeResult:
-        yield Static("RESOURCES", classes="panel-title")
-        yield Static(id="resources-content")
-
-    def on_mount(self) -> None:
-        self._update_display()
-
-    def watch_cpu(self, value: float | None) -> None:
-        self._update_display()
-
-    def watch_memory(self, value: float | None) -> None:
-        self._update_display()
-
-    def watch_disk(self, value: float | None) -> None:
-        self._update_display()
-
-    def _update_display(self) -> None:
-        content = self.query_one("#resources-content", Static)
-        content.update(
-            f"CPU:    {self._format(self.cpu)}\n"
-            f"Memory: {self._format(self.memory)}\n"
-            f"Disk:   {self._format(self.disk)}"
-        )
-
-    def _format(self, percent: float | None) -> str:
-        """A bar and a number, or a statement that there is no measurement."""
-        if percent is None:
-            return UNAVAILABLE
-        return f"{self._make_bar(percent)} {percent:.0f}%"
-
-    def _make_bar(self, percent: float, width: int = 10) -> str:
-        """Create a progress bar string."""
-        return make_bar(percent, width)
-
-
-class ServicesPanel(Static):
-    """Panel showing service status, or why it has none."""
-
-    #: None means nothing has been reported; {} means "reported, and empty".
-    _services: dict[str, bool] | None = None
-
-    def compose(self) -> ComposeResult:
-        yield Static("SERVICES", classes="panel-title")
-        yield Static(id="services-content")
-
-    def on_mount(self) -> None:
-        self._update_display()
-
-    def update_services(self, services: dict[str, bool]) -> None:
-        """Update services status."""
-        self._services = services
-        self._update_display()
-
-    def _update_display(self) -> None:
-        content = self.query_one("#services-content", Static)
-
-        if self._services is None:
-            content.update(UNAVAILABLE)
-            return
-        if not self._services:
-            content.update("[dim]The server reported no services.[/]")
-            return
-
-        lines = []
-        for name, running in self._services.items():
-            status = "[green]RUNNING[/]" if running else "[red]STOPPED[/]"
-            lines.append(f"{name:<12} {status}")
-
-        content.update("\n".join(lines))
-
-
-class SystemInfoPanel(Static):
-    """Panel showing system information."""
-
-    def compose(self) -> ComposeResult:
-        yield Static("INFO", classes="panel-title")
-        yield Static(id="info-content")
-
-    def on_mount(self) -> None:
-        self._update_display()
-
-    def update_info(
-        self,
-        hostname: str = "",
-        version: str = "",
-        uptime: str = "",
-    ) -> None:
-        content = self.query_one("#info-content", Static)
-        content.update(
-            f"Hostname: {hostname or UNAVAILABLE}\n"
-            f"Hop3:     {version or UNAVAILABLE}\n"
-            f"Uptime:   {uptime or UNAVAILABLE}"
-        )
-
-    def _update_display(self) -> None:
-        self.update_info()
-
-
-class SystemScreen(Screen):
-    """Screen showing system status and information."""
-
-    CSS = """
-    SystemScreen {
-        layout: grid;
-        grid-size: 2;
-        grid-gutter: 1;
-        padding: 1;
-    }
-
-    .panel {
-        border: solid $primary;
-        padding: 1;
-    }
-
-    .panel-title {
-        text-style: bold;
-        margin-bottom: 1;
-    }
-
-    #resources-panel {
-        row-span: 1;
-    }
-
-    #services-panel {
-        row-span: 1;
-    }
-
-    #info-panel {
-        column-span: 2;
-    }
+    `None` means nothing has been reported; `{}` means reported, and empty.
     """
-
-    BINDINGS: ClassVar = [
-        Binding("escape", "switch_mode('dashboard')", "Back"),
-        Binding("l", "view_system_logs", "Logs"),
-        Binding("p", "view_processes", "Processes"),
-        Binding("r", "refresh", "Refresh"),
+    if services is None:
+        return markup.render(ui.theme, UNAVAILABLE)
+    if not services:
+        return markup.render(ui.theme, "[dim]The server reported no services.[/]")
+    lines = [
+        f"{name:<{NAME_WIDTH}} " + ("[green]RUNNING[/]" if up else "[red]STOPPED[/]")
+        for name, up in services.items()
     ]
+    return markup.render_lines(ui.theme, "\n".join(lines))
 
-    def compose(self) -> ComposeResult:
-        yield Header()
-        with Container(id="resources-panel", classes="panel"):
-            yield ResourcesPanel()
-        with Container(id="services-panel", classes="panel"):
-            yield ServicesPanel()
-        with Container(id="info-panel", classes="panel"):
-            yield SystemInfoPanel()
-        yield Footer()
 
-    def on_mount(self) -> None:
-        """Initialize system data."""
-        self._refresh_data()
+def info_panel(ui: UI, hostname: str, version: str, uptime: str) -> View:
+    return markup.render_lines(
+        ui.theme,
+        f"Hostname: {hostname or UNAVAILABLE}\n"
+        f"Hop3:     {version or UNAVAILABLE}\n"
+        f"Uptime:   {uptime or UNAVAILABLE}",
+    )
 
-    def _refresh_data(self) -> None:
-        """
-        Refresh system data from the server.
 
-        There is nothing to fetch yet: ``Hop3Client.get_system_status`` makes
-        the RPC call but does not parse the response, so the panels stay on
-        their "not reported" state. This used to assign three constants here,
-        which is why the screen looked live and was not. Wire this up when the
-        client learns ``--json``; until then leaving the panels empty is the
-        accurate rendering, and pressing `r` says as much.
-        """
+def _ask_for_app(ui: UI, push: Callable[..., None]) -> None:
+    """`ps` needs an app, and the system screen is not about one — so ask."""
 
-    def action_view_system_logs(self) -> None:
-        """View system logs."""
-        self.app.push_screen(SystemLogsScreen())
+    async def ask() -> None:
+        name = await dialog.prompt(ui, "Processes", "Which application?")
+        if name:
+            push(Screen.PROCESSES, name)
 
-    def action_view_processes(self) -> None:
-        """View running processes."""
-        self.app.push_screen(ProcessesScreen())
+    ui.spawn(ask())
 
-    def action_refresh(self) -> None:
-        """Refresh system data."""
-        self._refresh_data()
-        # Not "refreshed": there is nothing to refresh until the client parses
-        # the system-status response, and claiming otherwise is the defect this
-        # screen's docstring describes.
-        self.notify("System metrics are not reported by the server yet.")
+
+def render(
+    ui: UI,
+    hop3,
+    size: Size,
+    *,
+    argument: str = "",
+    push: Callable[..., None] | None = None,
+    switch: Callable[[Screen], None] | None = None,
+) -> View:
+    actions: dict[str, Action] = {}
+    if push is not None:
+        actions["l"] = lambda: push(Screen.SYSTEM_LOGS)
+        actions["p"] = lambda: _ask_for_app(ui, push)
+    actions["r"] = lambda: ui.notify(NOTHING_TO_REFRESH)
+    bind(ui, actions)
+
+    left, right = halves(size.width)
+    top_height = max(5, size.height // 2)
+    bottom_height = max(5, size.height - top_height)
+
+    top = hcat([
+        panel(
+            ui,
+            "Resources",
+            status_panel(ui, SystemStats()),
+            Size(left, top_height),
+        ),
+        panel(ui, "Services", services_panel(ui, None), Size(right, top_height)),
+    ])
+    bottom = panel(
+        ui, "Info", info_panel(ui, "", "", ""), Size(size.width, bottom_height)
+    )
+    return fill(ui, vcat([top, bottom]), size)

@@ -6,7 +6,7 @@
 # ruff:file-ignore[global-statement]
 # `_config` is the TUI's process-global user-config singleton. Like the
 # CLI's argparse Namespace, it's intrinsically global state and a DI
-# container would be overkill for a single-process Textual app.
+# container would be overkill for a single-process TUI app.
 
 """Configuration handling for Hop3 TUI."""
 
