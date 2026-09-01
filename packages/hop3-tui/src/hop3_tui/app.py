@@ -97,6 +97,16 @@ class Nav(NamedTuple):
         return Nav(self.mode, self.stack[:-1])
 
 
+def _ssh_hint(config: TUIConfig) -> str:
+    """Say so when hop3-cli is pointed somewhere this client cannot follow."""
+    if config.server_url or not config.cli_ssh_target:
+        return ""
+    return (
+        f"hop3-cli is pointed at {config.cli_ssh_target}, which the TUI cannot "
+        f"reach: it speaks HTTP only, with no SSH tunnel."
+    )
+
+
 class Hop3TUI:
     """Holds what outlives a frame: the client, the config, the failure count."""
 
@@ -104,6 +114,7 @@ class Hop3TUI:
         self.config = config or get_config()
         self.api_client = Hop3Client(
             base_url=self.config.server_url,
+            unconfigured_hint=_ssh_hint(self.config),
             token=self.config.auth_token,
             verify_ssl=self.config.verify_ssl,
             ssl_cert=self.config.ssl_cert,

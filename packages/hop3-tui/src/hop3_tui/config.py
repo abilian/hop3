@@ -14,12 +14,17 @@ from __future__ import annotations
 
 import contextlib
 import os
-import sys
 import tempfile
 from dataclasses import dataclass
 from pathlib import Path
 
 import tomllib
+from platformdirs import user_config_dir
+
+#: hop3-cli's own app identity, from `hop3_cli.core.paths`. A test pins these
+#: equal: if they drift, the TUI silently stops inheriting the CLI's server.
+CLI_APP_NAME = "hop3-cli"
+CLI_APP_AUTHOR = "Abilian SAS"
 
 
 @dataclass
@@ -27,7 +32,17 @@ class TUIConfig:
     """Configuration for the Hop3 TUI application."""
 
     # Server connection
-    server_url: str = "http://localhost:5000"
+    #: Empty means "no server configured". hop3-cli deliberately has no default
+    #: api_url either ("unconfigured state should be detected") — and a default
+    #: here is not harmless: it pointed at localhost:5000, where whatever else the
+    #: developer happens to be running answers, and the TUI reported that stranger's
+    #: 404 as a Hop3 error.
+    server_url: str = ""
+
+    #: Set when hop3-cli is pointed at an `ssh://` server. The TUI has no SSH
+    #: tunnel, so this is not a URL it can use — it is what the TUI reports
+    #: instead of quietly connecting somewhere the CLI is not.
+    cli_ssh_target: str = ""
     auth_token: str | None = None
 
     # TLS settings (mirror hop3-cli's Config; see notes/security.md §3.4.5).
@@ -94,49 +109,60 @@ class TUIConfig:
 
     @classmethod
     def _find_cli_config_file(cls) -> Path | None:
-        """Find the hop3-cli configuration file."""
-        # Check platform-specific locations
-        if sys.platform == "darwin":
-            # macOS: ~/Library/Application Support/hop3-cli/config.toml
-            cli_config = (
-                Path.home()
-                / "Library"
-                / "Application Support"
-                / "hop3-cli"
-                / "config.toml"
-            )
-        elif sys.platform == "win32":
-            # Windows: %APPDATA%/hop3-cli/config.toml
-            appdata = os.environ.get("APPDATA", "")
-            if appdata:
-                cli_config = Path(appdata) / "hop3-cli" / "config.toml"
-            else:
-                cli_config = Path.home() / ".hop3-cli" / "config.toml"
-        else:
-            # Linux/Unix: ~/.config/hop3-cli/config.toml or ~/.hop3-cli/config.toml
-            cli_config = Path.home() / ".config" / "hop3-cli" / "config.toml"
-            if not cli_config.exists():
-                cli_config = Path.home() / ".hop3-cli" / "config.toml"
+        """Find the hop3-cli configuration file, the way hop3-cli finds it.
 
-        if cli_config.exists():
-            return cli_config
-
-        return None
+        Resolved with the same `platformdirs` call and the same app name/author
+        hop3-cli uses (`hop3_cli.core.paths.config_dir`), and honouring the same
+        `$HOP3_CONFIG_DIR` override. This used to guess per platform and guessed
+        wrong on macOS — it looked in `~/Library/Application Support/hop3-cli/`
+        while the CLI was using `~/.config/hop3-cli/`. The TUI then fell back to
+        its own default server and talked to whatever else was listening there.
+        """
+        override = os.environ.get("HOP3_CONFIG_DIR", "").strip()
+        directory = (
+            Path(override)
+            if override
+            else Path(user_config_dir(CLI_APP_NAME, CLI_APP_AUTHOR))
+        )
+        cli_config = directory / "config.toml"
+        return cli_config if cli_config.exists() else None
 
     @classmethod
     def _load_from_cli_config(cls, path: Path, config: TUIConfig) -> TUIConfig:
-        """Load configuration from hop3-cli config file."""
+        """Load what the TUI can use from hop3-cli's config file.
+
+        hop3-cli resolves its server through a priority chain — the active
+        context's server, then the default server, then the flat `api_url` (see
+        `hop3_cli.config.Config.get_api_url`). Most of that chain points at an
+        `ssh://` target, which this client cannot reach: it speaks http(s) only,
+        while the CLI opens an SSH tunnel. Rather than silently reading past those
+        and connecting somewhere the CLI is not, an `ssh://` target is recorded so
+        the TUI can say what it found and what to do about it.
+        """
         try:
             with path.open("rb") as f:
                 data = tomllib.load(f)
         except Exception:
             return config
 
-        # CLI uses different field names
-        if "api_url" in data:
-            config.server_url = data["api_url"]
         if "api_token" in data:
             config.auth_token = data["api_token"]
+
+        cli_section = data.get("cli", {})
+        contexts = data.get("contexts", {})
+        current = cli_section.get("default_context")
+        server = (
+            contexts.get(current, {}).get("server")
+            if current
+            else cli_section.get("default_server")
+        ) or cli_section.get("default_server")
+
+        if server and str(server).startswith("ssh://"):
+            config.cli_ssh_target = str(server)
+        elif server:
+            config.server_url = str(server)
+        elif "api_url" in data:
+            config.server_url = data["api_url"]
 
         return config
 

@@ -20,8 +20,8 @@ class TestHop3Client:
 
     def test_init_default(self):
         """Test default initialization."""
-        client = Hop3Client()
-        assert client.base_url == "http://localhost:5000"
+        client = Hop3Client("http://hop3.test:8000")
+        assert client.base_url == "http://hop3.test:8000"
         assert client.token is None
 
     def test_init_with_params(self):
@@ -35,7 +35,7 @@ class TestHop3Client:
 
     def test_get_headers_without_token(self):
         """Test headers without token."""
-        client = Hop3Client()
+        client = Hop3Client("http://hop3.test:8000")
         headers = client._get_headers()
         assert headers == {"Content-Type": "application/json"}
         assert "Authorization" not in headers
@@ -48,7 +48,7 @@ class TestHop3Client:
 
     def test_request_id_increments(self):
         """Test that request ID increments."""
-        client = Hop3Client()
+        client = Hop3Client("http://hop3.test:8000")
         id1 = client._next_request_id()
         id2 = client._next_request_id()
         id3 = client._next_request_id()
@@ -96,7 +96,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             apps = await client.list_apps()
 
             assert len(apps) == 2
@@ -124,7 +124,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             apps = await client.list_apps()
             assert apps == []
 
@@ -145,7 +145,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             with pytest.raises(Hop3ClientError, match="Invalid request"):
                 await client._rpc_call(["invalid"])
 
@@ -163,7 +163,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             result = await client.start_app("myapp")
             assert result is True
 
@@ -184,7 +184,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             result = await client.stop_app("myapp")
             assert result is True
 
@@ -205,7 +205,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             logs = await client.get_app_logs("myapp", lines=50)
             assert logs == ["line1", "line2", "line3"]
 
@@ -223,7 +223,7 @@ class TestHop3ClientAsync:
             mock_class.return_value.__aenter__ = AsyncMock(return_value=mock_client)
             mock_class.return_value.__aexit__ = AsyncMock(return_value=None)
 
-            client = Hop3Client()
+            client = Hop3Client("http://hop3.test:8000")
             status = await client.get_system_status()
             # Returns default SystemStatus since parsing isn't implemented
             assert status.cpu_percent == 0.0
