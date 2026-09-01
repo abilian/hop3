@@ -15,6 +15,11 @@ from hop3.core.identifiers import (
     validate_app_name,
     validate_env_var_key,
 )
+from hop3.lib.suggestions import (
+    DidYouMeanError,
+    SuggestionKind,
+    closest_matches,
+)
 from hop3.orm import App, EnvVar
 from hop3.orm.repositories import AppRepository
 
@@ -33,14 +38,25 @@ SENSITIVE_PATTERNS: list[str] = [
     "TOKEN",
     "CREDENTIAL",
     "API_KEY",
+    # A DSN or webhook URL carries its credential inline (Sentry's
+    # `https://<key>@host`, Slack's `/services/<token>`), and neither name
+    # matches any pattern above.
+    "DSN",
+    "WEBHOOK",
 ]
 
 # Credentials embedded in connection-string URLs, e.g.
-# `mysql://user:PASSWORD@host:3306/db` or `redis://:PASSWORD@host`. The name
-# check misses these (DATABASE_URL/REDIS_URL don't match SENSITIVE_PATTERNS),
-# so they would otherwise leak the password in cleartext. Match the password
-# component between `://[user]:` and `@`, keeping the rest for debuggability.
-_URL_PASSWORD_RE = re.compile(r"(://[^:/?#\s@]*:)([^@/?#\s]+)(@)")
+# `mysql://user:PASSWORD@host:3306/db`, `redis://:PASSWORD@host`, or a Sentry
+# DSN's `https://<key>@host` (userinfo with no colon — the whole userinfo *is*
+# the credential). The name check misses these (DATABASE_URL/REDIS_URL don't
+# match SENSITIVE_PATTERNS), so they would otherwise leak in cleartext. Match
+# the credential component, keeping scheme, user and host for debuggability.
+_URL_CREDENTIAL_RE = re.compile(r"(://)(?:([^:/?#\s@]*):)?([^@/?#\s]+)@")
+
+# Colon-less userinfo shorter than this is a username (`ssh://git@host`,
+# `ssh://root@host`), not a token; masking it would hide useful context
+# without hiding a secret.
+_MIN_URL_TOKEN_LEN = 12
 
 
 def redact_sensitive_value(name: str, value: str) -> str:
@@ -65,7 +81,19 @@ def redact_sensitive_value(name: str, value: str) -> str:
         if len(value) > 4:
             return value[:4] + "***"
         return "***"
-    return _URL_PASSWORD_RE.sub(r"\1***\3", value)
+    return _URL_CREDENTIAL_RE.sub(_mask_url_credential, value)
+
+
+def _mask_url_credential(match: re.Match[str]) -> str:
+    """Mask the credential in a `scheme://[user:]credential@host` URL."""
+    user, credential = match.group(2), match.group(3)
+    if user is None:
+        # `scheme://credential@host`: the userinfo is the credential itself,
+        # unless it's short enough to be a plain username.
+        if len(credential) < _MIN_URL_TOKEN_LEN:
+            return match.group(0)
+        return f"{match.group(1)}***@"
+    return f"{match.group(1)}{user}:***@"
 
 
 def get_app(db_session: Session, app_name: str) -> App:
@@ -81,17 +109,23 @@ def get_app(db_session: Session, app_name: str) -> App:
 
     Raises:
         InvalidIdentifierError: If ``app_name`` fails identifier validation.
+        DidYouMeanError: If the app is not found — carrying the closest
+            existing app names, so the client can suggest one (ADR 036 D10).
             This is the primary RPC-boundary choke point; rejecting here
             prevents path-traversal payloads from ever reaching
             ``App.app_path`` or touching the filesystem.
-        ValueError: If the app is not found.
     """
     validate_app_name(app_name)
     app_repo = AppRepository(session=db_session)
     app = app_repo.get_one_or_none(name=app_name)
     if not app:
         msg = f"App '{app_name}' not found."
-        raise ValueError(msg)
+        raise DidYouMeanError(
+            msg,
+            kind=SuggestionKind.UNKNOWN_APP,
+            typed=app_name,
+            candidates=closest_matches(app_name, [a.name for a in app_repo.list()]),
+        )
     return app
 
 
@@ -146,17 +180,22 @@ def set_env_var(app: App, key: str, value: str) -> str:
         value: Environment variable value
 
     Returns:
-        Description of the change made
+        Description of the change made, with the value redacted — this string
+        is printed back to the operator's terminal, and `env set` is exactly
+        where a fresh secret arrives.
     """
     for env_var in app.env_vars:
         if env_var.name == key:
             old_value = env_var.value
             env_var.value = value
-            return f"Updated {key}={value} (was: {old_value})"
+            return (
+                f"Updated {key}={redact_sensitive_value(key, value)} "
+                f"(was: {redact_sensitive_value(key, old_value)})"
+            )
 
     new_var = EnvVar(name=key, value=value, app=app)
     app.env_vars.append(new_var)
-    return f"Set {key}={value}"
+    return f"Set {key}={redact_sensitive_value(key, value)}"
 
 
 def unset_env_var(app: App, key: str) -> bool:

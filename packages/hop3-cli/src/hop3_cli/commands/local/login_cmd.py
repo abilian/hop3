@@ -441,6 +441,10 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
         return
     from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
+    from .completion_cmd import (  # ruff:ignore[import-outside-top-level]
+        refresh_caches_after_login,
+    )
+
     credential_store.set_token(server_url, token)
 
     # A successful login is a lie if an exported HOP3_API_TOKEN keeps shadowing
@@ -456,16 +460,19 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
     context_name = config.get_context_override()
     if context_name:
         config.set_context_server(context_name, server_url)
-        previous = config.get_default_context()
+        previous_context = config.get_default_context()
         config.set_default_context(context_name)
-        if previous != context_name:
+        if previous_context != context_name:
             print(f"  context {context_name!r} -> {server_url} (now the default)")
-        return
+    else:
+        previous_server = config.get_default_server()
+        config.set_default_server(server_url)
+        if previous_server != server_url:
+            print(f"  default server is now {server_url}")
 
-    previous = config.get_default_server()
-    config.set_default_server(server_url)
-    if previous != server_url:
-        print(f"  default server is now {server_url}")
+    # Now that there is a server to ask, fill the caches shell completion and
+    # the offline command list read from (ADR 036 M9.3).
+    refresh_caches_after_login(config)
 
 
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:

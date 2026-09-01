@@ -8,7 +8,8 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.commands._helpers import redact_sensitive_value
+from hop3.commands._helpers import redact_sensitive_value, set_env_var
+from hop3.orm import App
 
 
 @pytest.mark.parametrize(
@@ -32,6 +33,20 @@ from hop3.commands._helpers import redact_sensitive_value
         ("NODE_ENV", "production", "production"),
         # host:port without credentials must NOT be mistaken for user:pass.
         ("APP_URL", "https://host:8080/path", "https://host:8080/path"),
+        # A DSN carries its key as colon-less userinfo, and the name matches no
+        # password-like pattern — both layers used to miss it.
+        ("SENTRY_DSN", "https://81e271568630473d8dd3ae@o44322.ingest.io/4", "http***"),
+        (
+            "REPORTING_URL",
+            "https://81e271568630473d8dd3ae@o44322.ingest.io/4",
+            "https://***@o44322.ingest.io/4",
+        ),
+        # A short colon-less userinfo is a username, not a token: keep it.
+        (
+            "GIT_REMOTE",
+            "ssh://git@github.com/abilian/hop3",
+            "ssh://git@github.com/abilian/hop3",
+        ),
     ],
 )
 def test_redact_sensitive_value(name, value, expected):
@@ -42,3 +57,23 @@ def test_redact_does_not_leak_password_substring():
     """The cleartext password must not survive anywhere in the output."""
     out = redact_sensitive_value("DATABASE_URL", "postgres://user:supersecret@h/db")
     assert "supersecret" not in out
+
+
+def test_redact_does_not_leak_dsn_key():
+    """A Sentry-style DSN key must not survive any display path."""
+    dsn = "https://81e271568630473d8dd3ae@o44322.ingest.us.sentry.io/4511581"
+    for name in ("SENTRY_DSN", "REPORTING_URL"):
+        assert "81e271568630473d8dd3ae" not in redact_sensitive_value(name, dsn)
+
+
+def test_set_env_var_does_not_echo_the_value():
+    """`env set` prints its result back to the terminal: it must be redacted."""
+    app = App(name="redact-demo")
+    secret = "s3cret-value-not-in-output"
+
+    created = set_env_var(app, "API_TOKEN", secret)
+    updated = set_env_var(app, "API_TOKEN", "another-secret-value")
+
+    assert secret not in created
+    assert secret not in updated  # the *old* value leaks through "(was: ...)" too
+    assert "API_TOKEN" in created

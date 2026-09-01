@@ -25,12 +25,22 @@ testable and safe to call from any error path.
 from __future__ import annotations
 
 import difflib
-from pathlib import Path
+import re
+from typing import TYPE_CHECKING
+
+from hop3_cli.core.paths import commands_cache_path
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Conservative defaults: 3 matches, cutoff 0.6 means roughly 1-2 character
 # edits on short strings. Lower cutoff => noisier suggestions.
 _MAX_SUGGESTIONS = 3
 _CUTOFF = 0.6
+
+# A cached name is one or more lowercase command/app tokens: `app`, `env set`,
+# `addon postgres diagnose`, `uptime-kuma`. Anything else is damage.
+_CACHED_NAME_RE = re.compile(r"[a-z0-9][a-z0-9_-]*( [a-z0-9][a-z0-9_-]*)*")
 
 
 def closest_matches(
@@ -101,12 +111,27 @@ def load_cached_commands(cache_path: Path | None = None) -> list[str]:
     as "no suggestions available" rather than as an error.
     """
     if cache_path is None:
-        cache_path = Path.home() / ".cache" / "hop3" / "commands.txt"
+        cache_path = commands_cache_path()
     if not cache_path.is_file():
         return []
     try:
-        return [
-            line.strip() for line in cache_path.read_text().splitlines() if line.strip()
-        ]
+        return read_cached_names(cache_path.read_text())
     except OSError:
         return []
+
+
+def read_cached_names(content: str) -> list[str]:
+    """
+    Parse a cache file into names, dropping anything that is not one.
+
+    A cache is a file on someone's laptop: an interrupted write leaves it
+    truncated or NUL-padded, and a garbage line would otherwise be offered as
+    a command by shell completion and by the did-you-mean fallback. Reading
+    the well-formed lines and dropping the rest turns a corrupt cache into an
+    absent one, which every caller already handles.
+    """
+    return [
+        line.strip()
+        for line in content.splitlines()
+        if _CACHED_NAME_RE.fullmatch(line.strip())
+    ]

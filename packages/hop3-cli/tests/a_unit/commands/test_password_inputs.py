@@ -13,9 +13,9 @@ from unittest.mock import patch
 
 import pytest
 from hop3_cli.commands.arguments import (
-    _resolve_email_password_input,
+    _resolve_env_set_values,
+    _resolve_flag_value_sources,
     _resolve_password_inputs,
-    _resolve_run_input,
 )
 
 if TYPE_CHECKING:
@@ -164,7 +164,7 @@ def test_stdin_from_tty_refused() -> None:
         _resolve_password_inputs(args)
 
 
-# ---- _resolve_run_input (ADR 036 §D14 for `hop run --input`) ----
+# ---- _resolve_flag_value_sources (§D14 for `hop run --input`) ----
 
 
 def test_run_input_dash_reads_stdin() -> None:
@@ -174,7 +174,7 @@ def test_run_input_dash_reads_stdin() -> None:
         patch.object(sys, "stdin", fake_stdin),
         patch.object(sys.stdin, "isatty", lambda: False, create=True),
     ):
-        _resolve_run_input(args)
+        _resolve_flag_value_sources(args)
     assert args[-1] == "payload"
 
 
@@ -182,26 +182,26 @@ def test_run_input_at_path_reads_file(tmp_path: Path) -> None:
     f = tmp_path / "in.txt"
     f.write_text("from-file\n", encoding="utf-8")
     args = ["run", "myapp", "cat", "--input", f"@{f}"]
-    _resolve_run_input(args)
+    _resolve_flag_value_sources(args)
     assert args[-1] == "from-file"
 
 
 def test_run_input_literal_unchanged() -> None:
     args = ["run", "myapp", "echo", "--input", "literal"]
-    _resolve_run_input(args)
+    _resolve_flag_value_sources(args)
     assert args[-1] == "literal"
 
 
 def test_run_input_unrelated_command_noop() -> None:
     args = ["deploy", "myapp", "--input", "-"]
-    _resolve_run_input(args)
+    _resolve_flag_value_sources(args)
     assert args == ["deploy", "myapp", "--input", "-"]
 
 
 def test_run_input_at_path_missing_file() -> None:
     args = ["run", "myapp", "cat", "--input", "@/nope/missing"]
     with pytest.raises(ValueError, match="Could not read --input file"):
-        _resolve_run_input(args)
+        _resolve_flag_value_sources(args)
 
 
 def test_run_input_dash_from_tty_refused() -> None:
@@ -210,10 +210,10 @@ def test_run_input_dash_from_tty_refused() -> None:
         patch.object(sys.stdin, "isatty", lambda: True, create=True),
         pytest.raises(ValueError, match="Refusing to read --input"),
     ):
-        _resolve_run_input(args)
+        _resolve_flag_value_sources(args)
 
 
-# ---- _resolve_email_password_input (ADR 036 §D14 for `addon email create`) ----
+# ---- _resolve_flag_value_sources (§D14 for `addon email create`) ----
 
 
 def test_email_password_dash_reads_stdin() -> None:
@@ -223,7 +223,7 @@ def test_email_password_dash_reads_stdin() -> None:
         patch.object(sys, "stdin", fake_stdin),
         patch.object(sys.stdin, "isatty", lambda: False, create=True),
     ):
-        _resolve_email_password_input(args)
+        _resolve_flag_value_sources(args)
     assert args[-1] == "re_secret"
 
 
@@ -231,26 +231,26 @@ def test_email_password_at_path_reads_file(tmp_path: Path) -> None:
     f = tmp_path / "smtp.secret"
     f.write_text("re_fromfile\n", encoding="utf-8")
     args = ["addon", "email", "create", "mail", "--smtp-password", f"@{f}"]
-    _resolve_email_password_input(args)
+    _resolve_flag_value_sources(args)
     assert args[-1] == "re_fromfile"
 
 
 def test_email_password_literal_unchanged() -> None:
     args = ["addon", "email", "create", "mail", "--smtp-password", "re_literal"]
-    _resolve_email_password_input(args)
+    _resolve_flag_value_sources(args)
     assert args[-1] == "re_literal"
 
 
 def test_email_password_unrelated_command_noop() -> None:
     args = ["addon", "postgres", "create", "db", "--smtp-password", "-"]
-    _resolve_email_password_input(args)
+    _resolve_flag_value_sources(args)
     assert args == ["addon", "postgres", "create", "db", "--smtp-password", "-"]
 
 
 def test_email_password_at_path_missing_file() -> None:
     args = ["addon", "email", "create", "mail", "--smtp-password", "@/nope/missing"]
     with pytest.raises(ValueError, match="Could not read --smtp-password file"):
-        _resolve_email_password_input(args)
+        _resolve_flag_value_sources(args)
 
 
 def test_email_password_dash_from_tty_refused() -> None:
@@ -259,4 +259,72 @@ def test_email_password_dash_from_tty_refused() -> None:
         patch.object(sys.stdin, "isatty", lambda: True, create=True),
         pytest.raises(ValueError, match="Refusing to read --smtp-password"),
     ):
-        _resolve_email_password_input(args)
+        _resolve_flag_value_sources(args)
+
+
+# ---- _resolve_env_set_values (§D14 for `env set KEY=…`) ----
+
+
+def test_env_set_dash_reads_stdin() -> None:
+    args = ["env", "set", "--app", "myapp", "SENTRY_DSN=-"]
+    fake_stdin = io.StringIO("https://key@sentry.io/1\n")
+    with (
+        patch.object(sys, "stdin", fake_stdin),
+        patch.object(sys.stdin, "isatty", lambda: False, create=True),
+    ):
+        _resolve_env_set_values(args)
+    assert args[-1] == "SENTRY_DSN=https://key@sentry.io/1"
+
+
+def test_env_set_at_path_reads_file(tmp_path: Path) -> None:
+    f = tmp_path / "dsn.txt"
+    f.write_text("https://key@sentry.io/1\n", encoding="utf-8")
+    args = ["env", "set", "--app", "myapp", f"SENTRY_DSN=@{f}"]
+    _resolve_env_set_values(args)
+    assert args[-1] == "SENTRY_DSN=https://key@sentry.io/1"
+
+
+def test_env_set_literal_unchanged() -> None:
+    args = ["env", "set", "--app", "myapp", "DEBUG=true", "PORT=8000"]
+    _resolve_env_set_values(args)
+    assert args == ["env", "set", "--app", "myapp", "DEBUG=true", "PORT=8000"]
+
+
+def test_env_set_does_not_treat_the_app_name_as_a_key() -> None:
+    """`--app myapp` must not be read as a bare key and trigger a prompt."""
+    args = ["env", "set", "--app", "myapp", "DEBUG=true"]
+    with patch.object(sys.stdin, "isatty", lambda: True, create=True):
+        _resolve_env_set_values(args)
+    assert args == ["env", "set", "--app", "myapp", "DEBUG=true"]
+
+
+def test_env_set_bare_key_prompts_without_echo() -> None:
+    args = ["env", "set", "--app", "myapp", "SENTRY_DSN"]
+    with (
+        patch.object(sys.stdin, "isatty", lambda: True, create=True),
+        patch("hop3_cli.commands.arguments.getpass.getpass", return_value="secret"),
+    ):
+        _resolve_env_set_values(args)
+    assert args[-1] == "SENTRY_DSN=secret"
+
+
+def test_env_set_bare_key_without_tty_is_an_error() -> None:
+    """A script must get a loud error, never a hang on an unanswerable prompt."""
+    args = ["env", "set", "--app", "myapp", "SENTRY_DSN"]
+    with (
+        patch.object(sys.stdin, "isatty", lambda: False, create=True),
+        pytest.raises(ValueError, match="No value given for SENTRY_DSN"),
+    ):
+        _resolve_env_set_values(args)
+
+
+def test_env_set_alias_config_set_is_covered() -> None:
+    args = ["config", "set", "--app", "myapp", "TOKEN=@/nope/missing"]
+    with pytest.raises(ValueError, match="Could not read value for TOKEN file"):
+        _resolve_env_set_values(args)
+
+
+def test_env_set_unrelated_command_noop() -> None:
+    args = ["env", "unset", "--app", "myapp", "SENTRY_DSN"]
+    _resolve_env_set_values(args)
+    assert args == ["env", "unset", "--app", "myapp", "SENTRY_DSN"]

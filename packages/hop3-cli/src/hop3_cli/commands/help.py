@@ -10,8 +10,10 @@ import sys
 from typing import TYPE_CHECKING
 
 from hop3_cli.core.aliases import CORE_ALIASES
+from hop3_cli.core.suggest import load_cached_commands
 
 from .local import LOCAL_COMMANDS_INFO
+from .local.completion_cmd import FALLBACK_COMMANDS
 from .local.help_text import LOCAL_COMMAND_HELP
 
 if TYPE_CHECKING:
@@ -65,6 +67,51 @@ def handle_help_flags(args: list[str]) -> list[str]:
         return ["help", *filtered]
 
     return args
+
+
+def serve_offline_help(cli_args: list[str], config: Config) -> bool:
+    """
+    Answer `hop3 help` without a server, and report whether we did.
+
+    Help is a server command, so before ADR 036 M9.3 a CLI that had never been
+    pointed at a server answered `hop3` and `hop3 help` with
+    "Error: API URL not configured" — the discoverability floor was set by the
+    network, for exactly the user who needs help most. The client knows enough
+    to answer: the commands it runs itself, the server's top-level names, and
+    whatever fuller list the completion cache holds from a previous session.
+    """
+    if cli_args[:1] != ["help"] or config.is_configured():
+        return False
+
+    cached = load_cached_commands()
+    names = sorted({name.split()[0] for name in cached or FALLBACK_COMMANDS})
+
+    print("hop3 — deploy and manage applications on your own server\n")
+    print("Not connected to a server yet, so this is the built-in command list.")
+    print("Connect with:  hop3 login --ssh root@<your-server>")
+    print("Then `hop3 help` shows the full help for that server's commands.\n")
+    print("Commands:")
+    for row in _in_columns(names, per_row=6):
+        print(f"  {row}")
+    print("\nRun without a server:")
+    for row in _in_columns(sorted(LOCAL_COMMANDS_INFO), per_row=6):
+        print(f"  {row}")
+    if len(cli_args) > 1:
+        target = " ".join(arg for arg in cli_args[1:] if not arg.startswith("-"))
+        print(f"\nDetailed help for `{target}` comes from the server; connect first.")
+    print(f"\nReport issues: {FEEDBACK_URL}")
+    return True
+
+
+def _in_columns(names: list[str], *, per_row: int) -> list[str]:
+    """Lay names out in aligned columns, so a long list stays scannable."""
+    if not names:
+        return []
+    width = max(len(name) for name in names) + 2
+    return [
+        "".join(name.ljust(width) for name in names[i : i + per_row]).rstrip()
+        for i in range(0, len(names), per_row)
+    ]
 
 
 def is_help_command(cli_args: list[str]) -> bool:

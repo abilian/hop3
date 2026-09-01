@@ -67,8 +67,8 @@ def handle_response(
             handle_ok_response(
                 result, cli_args, config, printer, tunnel_port=tunnel_port
             )
-        case Error(code=code, message=message):
-            handle_error_response(code, message, printer)
+        case Error(code=code, message=message, data=data):
+            handle_error_response(code, message, printer, data=data)
         case _ as unreachable:
             assert_never(unreachable)
 
@@ -252,7 +252,11 @@ def _handle_streaming_response(
 
 
 def handle_error_response(
-    code: int, message: str, printer: RichPrinter | None = None
+    code: int,
+    message: str,
+    printer: RichPrinter | None = None,
+    *,
+    data: object = None,
 ) -> None:
     """
     Handle RPC error response.
@@ -261,6 +265,8 @@ def handle_error_response(
         code: The JSON-RPC or HTTP error code
         message: The error message
         printer: Optional RichPrinter for JSON output mode
+        data: The error's structured payload, when the server sent one
+            (ADR 036 D10 — `{kind, typed, candidates, hint}`)
     """
     clean_message = message
     logs_to_display = None
@@ -285,18 +291,14 @@ def handle_error_response(
     # Add helpful hints for specific error codes (ADR 036 D10 — did-you-mean).
     if code == HTTP_PAYLOAD_TOO_LARGE:  # 413 — deploy archive too big
         clean_message = _payload_too_large_message()
-    elif code == -32601:  # Method/command not found
-        suggestion = _command_not_found_suggestion(clean_message)
+    else:
+        suggestion = _structured_suggestion(data) or _scraped_suggestion(
+            code, clean_message
+        )
         if suggestion:
             clean_message += f"\n\n{suggestion}"
-        clean_message += "\n\nRun 'hop help' to see available commands."
-    else:
-        # ADR 036 M8.3: for "app 'foo' not found" errors, offer a closest-match
-        # suggestion against the cached app list. Silent when the cache is
-        # empty (the user just hasn't run `hop3 completion --refresh` yet).
-        app_suggestion = _app_not_found_suggestion(clean_message)
-        if app_suggestion:
-            clean_message += f"\n\n{app_suggestion}"
+        if code == -32601:  # Method/command not found
+            clean_message += "\n\nRun 'hop help' to see available commands."
 
     # Determine exit code from RPC code, falling back to message analysis
     exit_code = map_rpc_code_to_exit(code)
@@ -310,7 +312,7 @@ def handle_error_response(
 
     # Output error in appropriate format
     if printer and printer.json_output:
-        error_obj = {
+        error_obj: dict = {
             "success": False,
             "error": {
                 "code": code,
@@ -318,11 +320,46 @@ def handle_error_response(
                 "exit_code": exit_code,
             },
         }
+        if isinstance(data, dict):
+            error_obj["error"]["data"] = data
         print(json.dumps(error_obj, indent=2))
     else:
         err(clean_message)
 
     sys.exit(exit_code)
+
+
+def _structured_suggestion(data: object) -> str | None:
+    """
+    Render the server's structured failure payload (ADR 036 D10).
+
+    The server names the token the user typed and the candidates that were
+    valid where it failed, so nothing has to be recovered from the message.
+    Returns None when the server sent no payload — an older server, or a
+    failure that carries no suggestion.
+    """
+    if not isinstance(data, dict) or "typed" not in data:
+        return None
+    candidates = [str(c) for c in data.get("candidates") or []]
+    if not candidates:
+        # A payload can carry a `hint` instead (e.g. "--app demo18"), which the
+        # server has already spelled out in the message; it stays in the JSON
+        # envelope for scripts.
+        return None
+    return format_did_you_mean(str(data["typed"]), candidates)
+
+
+def _scraped_suggestion(code: int, message: str) -> str | None:
+    """
+    Recover a suggestion from the error text, for servers older than D10's payload.
+
+    A new CLI talks to whatever server the operator has deployed, so this
+    fallback stays until the version floor moves. It reads the cache written by
+    `hop3 completion --refresh`, and is silent when that cache is empty.
+    """
+    if code == -32601:  # Method/command not found
+        return _command_not_found_suggestion(message)
+    return _app_not_found_suggestion(message)
 
 
 def _payload_too_large_message() -> str:

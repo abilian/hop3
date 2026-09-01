@@ -38,6 +38,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from hop3.core.identifiers import APP_NAME_RE
+from hop3.lib.suggestions import DidYouMeanError, SuggestionKind
+
 
 def _handle_short_option(
     arg: str,
@@ -281,10 +284,27 @@ def reject_extra_args(remaining: tuple[str, ...] | list[str]) -> None:
     ``--no-addons``) must be rejected, not silently ignored — silent ignoring
     reports success while doing the wrong thing (audit 2026-06 C9).
     """
-    if remaining:
-        joined = ", ".join(repr(tok) for tok in remaining)
+    if not remaining:
+        return
+
+    # A lone leftover that is a valid app name is the app, typed as a
+    # positional: the operator knows what they meant and so do we (ADR 036 D5).
+    token = remaining[0]
+    if len(remaining) == 1 and APP_NAME_RE.match(token):
         msg = (
-            f"Unrecognized argument(s): {joined}. "
-            "Check the command's usage (run it with --help)."
+            f"Unrecognized argument: {token!r}. "
+            f"The app is named by a flag, never a positional: use --app {token}."
         )
-        raise ValueError(msg)
+        raise DidYouMeanError(
+            msg,
+            kind=SuggestionKind.UNKNOWN_ARGUMENT,
+            typed=token,
+            hint=f"--app {token}",
+        )
+
+    joined = ", ".join(repr(tok) for tok in remaining)
+    msg = (
+        f"Unrecognized argument(s): {joined}. "
+        "Check the command's usage (run it with --help)."
+    )
+    raise DidYouMeanError(msg, kind=SuggestionKind.UNKNOWN_ARGUMENT, typed=token)
