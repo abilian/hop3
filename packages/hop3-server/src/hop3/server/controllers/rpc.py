@@ -26,6 +26,11 @@ from hop3.lib.repository_errors import (
     repository_error_diagnosis as _repository_error_diagnosis,
 )
 from hop3.lib.scanner import scan_package
+from hop3.lib.suggestions import (
+    DidYouMeanError,
+    SuggestionKind,
+    closest_matches,
+)
 from hop3.orm import get_session_factory
 from hop3.orm.repositories import (
     AddonCredentialRepository,
@@ -54,6 +59,8 @@ REPOSITORY_TYPES: dict[str, type] = {
 }
 
 if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
+
     from hop3.lib.types import Json, JsonDict
 
 # Scan and register all CLI commands (including aliases)
@@ -114,6 +121,17 @@ def find_command(cli_args: list[str]) -> tuple[type[Command] | None, int]:
         if key in _commands:
             return _commands[key], n
     return None, 0
+
+
+def _unknown_command_error(message: str, display_name: str) -> DidYouMeanError:
+    """Attach the closest registered command names to an unknown-command error."""
+    known = [format_command_name(name) for name in commands]
+    return DidYouMeanError(
+        message,
+        kind=SuggestionKind.UNKNOWN_COMMAND,
+        typed=display_name,
+        candidates=closest_matches(display_name, known),
+    )
 
 
 def format_command_name(name: tuple[str, ...]) -> str:
@@ -181,6 +199,28 @@ def command_needs_token_info(command_class: type[Command]) -> bool:
     return getattr(command_class, "pass_token_info", False)
 
 
+def _injected_args(command_class: type, db_session: Session, display_name: str) -> dict:
+    """Build the command's constructor arguments: session and/or repositories."""
+    annotations = command_class.__annotations__
+    class_args: dict = {}
+
+    # Inject db_session if needed (legacy pattern)
+    if "db_session" in annotations:
+        class_args["db_session"] = db_session
+        server_log.debug("Command uses db_session", command=display_name)
+
+    # Inject repositories if needed (new pattern)
+    for attr_name, repo_class in REPOSITORY_TYPES.items():
+        if attr_name in annotations:
+            class_args[attr_name] = repo_class(session=db_session)
+            server_log.debug(
+                f"Command uses {attr_name}",
+                command=display_name,
+                repo_type=repo_class.__name__,
+            )
+    return class_args
+
+
 def call(
     command_name: tuple[str, ...], args: list[str], extra_args: JsonDict
 ) -> list[dict]:
@@ -203,7 +243,7 @@ def call(
     if command_class is None:
         msg = f"Command '{display_name}' not found"
         server_log.error("Command not found", command=display_name)
-        raise ValueError(msg)
+        raise _unknown_command_error(msg, display_name)
 
     server_log.debug(
         "Creating command instance",
@@ -221,23 +261,7 @@ def call(
     session_factory = get_session_factory()
     db_session = session_factory()
     try:
-        class_args: dict = {}
-
-        # Inject db_session if needed (legacy pattern)
-        if "db_session" in command_class.__annotations__:
-            class_args["db_session"] = db_session
-            server_log.debug("Command uses db_session", command=display_name)
-
-        # Inject repositories if needed (new pattern)
-        annotations = command_class.__annotations__
-        for attr_name, repo_class in REPOSITORY_TYPES.items():
-            if attr_name in annotations:
-                class_args[attr_name] = repo_class(session=db_session)
-                server_log.debug(
-                    f"Command uses {attr_name}",
-                    command=display_name,
-                    repo_type=repo_class.__name__,
-                )
+        class_args = _injected_args(command_class, db_session, display_name)
 
         try:
             command = command_class(**class_args)
@@ -268,6 +292,12 @@ def call(
             )
             # Commit any pending changes (if not already committed by command)
             db_session.commit()
+        except DidYouMeanError:
+            # Carries its own message and candidates: re-raise it intact rather
+            # than flattening it into a generic "Command execution failed".
+            with contextlib.suppress(Exception):
+                db_session.rollback()
+            raise
         except Exception as e:
             # Rollback on any error to clean up transaction state
             with contextlib.suppress(Exception):
@@ -357,11 +387,15 @@ class RPCController(Controller):
 
         # Validate command exists
         if command_class is None:
+            unknown = _unknown_command_error(
+                f"Command '{display_name}' not found", display_name
+            )
             return self._build_error_response(
                 code=-32601,  # Method not found
-                message=f"Command '{display_name}' not found",
+                message=str(unknown),
                 request_id=request_id,
                 status_code=404,
+                data=unknown.data,
             )
 
         # Prepare arguments and execute
@@ -373,7 +407,12 @@ class RPCController(Controller):
         )
 
     def _build_error_response(
-        self, code: int, message: str, request_id: int, status_code: int = 200
+        self,
+        code: int,
+        message: str,
+        request_id: int,
+        status_code: int = 200,
+        data: dict | None = None,
     ) -> Response:
         """
         Build a JSON-RPC error response.
@@ -383,13 +422,17 @@ class RPCController(Controller):
             message: Error message
             request_id: Request ID from the original request
             status_code: HTTP status code (default 200 per JSON-RPC spec)
+            data: Structured payload for the client (ADR 036 D10 suggestions)
 
         Returns:
             JSON-RPC error response
         """
+        error: dict = {"code": code, "message": message}
+        if data:
+            error["data"] = data
         error_rpc = {
             "jsonrpc": "2.0",
-            "error": {"code": code, "message": message},
+            "error": error,
             "id": request_id,
         }
         return Response(
@@ -581,6 +624,19 @@ class RPCController(Controller):
                 result_length=len(result) if isinstance(result, (list, dict)) else None,
             )
             return self._build_success_response(result, request_id)
+        except DidYouMeanError as e:
+            server_log.error(
+                "Command failed with a suggestion",
+                command=display_name,
+                error=str(e),
+                kind=e.data.get("kind"),
+            )
+            return self._build_error_response(
+                code=-32602,  # Invalid params
+                message=str(e),
+                request_id=request_id,
+                data=e.data,
+            )
         except ValueError as e:
             server_log.error(
                 "Command failed with ValueError",

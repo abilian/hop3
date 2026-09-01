@@ -31,6 +31,7 @@ from .commands import (
     is_destructive_command,
     is_local_command,
     parse_flags,
+    serve_offline_help,
 )
 from .commands.arguments import describe_archive
 from .config import Config, get_config
@@ -148,6 +149,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     cli_args = handle_help_flags(cli_args)
 
+    # Help must work before the CLI has a server to ask (ADR 036 M9.3).
+    if serve_offline_help(cli_args, config):
+        return
+
     # ADR 042: compute resolutions once, then reuse them for app injection,
     # the project-mismatch guard, and the deploy preview. Avoids running
     # the git subprocess twice.
@@ -177,7 +182,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
 
     deploy_override = _context_deploy_override(cli_args, context_resolution)
     extra_args = _get_extra_args_safe(
-        cli_args, flags.verbosity, hop3_toml_override=deploy_override
+        cli_args,
+        flags.verbosity,
+        hop3_toml_override=deploy_override,
+        json_output=flags.json_output,
     )
     _execute_rpc_command(cli_args, config, extra_args, printer)
 
@@ -795,12 +803,19 @@ def _context_deploy_override(
 
 
 def _get_extra_args_safe(
-    cli_args: list[str], verbosity: int, hop3_toml_override: bytes | None = None
+    cli_args: list[str],
+    verbosity: int,
+    hop3_toml_override: bytes | None = None,
+    *,
+    json_output: bool = False,
 ) -> dict:
     """Get extra args with error handling."""
     try:
         return get_extra_args(
-            cli_args, verbosity=verbosity, hop3_toml_override=hop3_toml_override
+            cli_args,
+            verbosity=verbosity,
+            hop3_toml_override=hop3_toml_override,
+            json_output=json_output,
         )
     except FileNotFoundError as e:
         err(f"File or directory not found: {e}")

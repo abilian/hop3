@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import base64
+import getpass
 import io
 import sys
 import tarfile
@@ -17,6 +18,7 @@ from typing import TYPE_CHECKING
 import pathspec
 
 from hop3_cli.core.hop3_toml import read_hop3_toml
+from hop3_cli.ui.prompts import require_input_allowed
 
 if TYPE_CHECKING:
     from hop3_cli.types import JsonDict
@@ -74,7 +76,11 @@ _DEPRECATED_IGNORE_FILE = ".hop3ignore"
 
 
 def get_extra_args(
-    args: list[str], verbosity: int = 1, hop3_toml_override: bytes | None = None
+    args: list[str],
+    verbosity: int = 1,
+    hop3_toml_override: bytes | None = None,
+    *,
+    json_output: bool = False,
 ) -> JsonDict:
     """
     Generate a dictionary of extra arguments for RPC commands.
@@ -82,6 +88,7 @@ def get_extra_args(
     Args:
         args: Command-line arguments
         verbosity: Verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
+        json_output: Whether the user asked for machine-readable output
 
     Returns:
         Dictionary with extra arguments. Verbosity is always included as it's
@@ -97,13 +104,11 @@ def get_extra_args(
     # in place so the secret never appears in the user's shell history or
     # `ps` output. The positional form still works but is discouraged.
     _resolve_password_inputs(args)
-    # ADR 036 §D14: `--input -` reads from stdin; `--input @<path>` reads from
-    # a file. Mirrors the password-file pattern so `hop run myapp foo --input -`
-    # behaves predictably in pipelines.
-    _resolve_run_input(args)
-    # ADR 036 §D14: `--smtp-password -`/`@<path>` on `addon email create` reads the
-    # SMTP password from stdin/a file so it never lands in shell history or argv.
-    _resolve_email_password_input(args)
+    # ADR 036 §D14: `-` reads from stdin, `@<path>` from a file — for the flags
+    # that take a value (`run --input`, `addon email create --smtp-password`)
+    # and for `env set KEY=…`, so a secret never lands in argv or the history.
+    _resolve_flag_value_sources(args)
+    _resolve_env_set_values(args)
 
     command = args[0]
 
@@ -125,6 +130,13 @@ def get_extra_args(
 
             # Enable streaming by default for real-time log output
             extra_args["streaming"] = streaming
+
+        case "help":
+            # `--json` is a client flag, stripped before dispatch, so the server
+            # is told separately: with it, `help --all` answers with the command
+            # tree as data instead of a page of prose (ADR 036 M9.4).
+            if json_output:
+                extra_args["json_output"] = True
 
         case "addon":
             # `addon <type> import <name> < dump.sql`: ship the piped dump to
@@ -153,72 +165,103 @@ def _read_import_data() -> str | None:
     return base64.b64encode(raw).decode("ascii")
 
 
-def _resolve_run_input(args: list[str]) -> None:
+def read_value_source(value: str, *, label: str) -> str:
     """
-    Resolve --input -/@path on `hop run` so the server gets literal bytes.
+    Resolve an ADR 036 §D14 value source: ``-`` is stdin, ``@<path>`` is a file.
 
-    Per ADR 036 §D14, dash means stdin and ``@<path>`` means "read from file".
-    Bare strings are passed through unchanged. Only applies to ``hop run``.
+    Anything else is a literal and passes through. Reading a secret from a pipe
+    or a file keeps it out of argv — and therefore out of the shell history and
+    out of `ps` — which is the whole point of §D14.
     """
-    if not args or args[0] != "run":
+    if value == "-":
+        if sys.stdin.isatty():
+            msg = (
+                f"Refusing to read {label} from a terminal; pipe it in or use @<path>."
+            )
+            raise ValueError(msg)
+        return sys.stdin.read().rstrip("\n")
+    if value.startswith("@"):
+        path = value[1:]
+        try:
+            return Path(path).read_text(encoding="utf-8").rstrip("\n")
+        except OSError as e:
+            msg = f"Could not read {label} file {path!r}: {e}"
+            raise ValueError(msg) from e
+    return value
+
+
+# Flags whose value follows the §D14 source convention, per command prefix.
+_VALUE_SOURCE_FLAGS: list[tuple[tuple[str, ...], str]] = [
+    (("run",), "--input"),
+    (("addon", "email", "create"), "--smtp-password"),
+]
+
+
+def _resolve_flag_value_sources(args: list[str]) -> None:
+    """Apply the §D14 source convention to the flags that accept one."""
+    for prefix, flag in _VALUE_SOURCE_FLAGS:
+        if tuple(args[: len(prefix)]) != prefix:
+            continue
+        i = 0
+        while i < len(args) - 1:
+            if args[i] == flag:
+                args[i + 1] = read_value_source(args[i + 1], label=flag)
+                i += 2
+            else:
+                i += 1
+
+
+# `env set` also accepts the alias `config set` (server-side, so it survives
+# client alias expansion). Its only value-taking flag is the app selector.
+_ENV_SET_PREFIXES = (["env", "set"], ["config", "set"])
+_ENV_SET_VALUE_FLAGS = frozenset({"--app", "-a"})
+
+
+def _resolve_env_set_values(args: list[str]) -> None:
+    """
+    Source `env set` values from stdin, a file, or a hidden prompt (§D14).
+
+        hop3 env set --app x SENTRY_DSN=-           # value read from stdin
+        hop3 env set --app x SENTRY_DSN=@dsn.txt    # value read from a file
+        hop3 env set --app x SENTRY_DSN             # prompt, no echo
+
+    A value passed as `KEY=VALUE` lands in the shell history and in `ps`; these
+    three forms are how a secret gets set without that happening. Rewrites argv
+    in place, so what reaches the RPC layer is always `KEY=VALUE`.
+    """
+    if args[:2] not in _ENV_SET_PREFIXES:
         return
-    i = 0
+    i = 2
     while i < len(args):
-        if args[i] != "--input":
+        token = args[i]
+        if token in _ENV_SET_VALUE_FLAGS:
+            i += 2
+            continue
+        if token.startswith("-"):
             i += 1
             continue
-        if i + 1 >= len(args):
-            return  # let server emit "--input requires a value"
-        value = args[i + 1]
-        if value == "-":
-            if sys.stdin.isatty():
-                msg = "Refusing to read --input from a terminal stdin; pipe data in or use --input @<path>."
-                raise ValueError(msg)
-            args[i + 1] = sys.stdin.read().rstrip("\n")
-        elif value.startswith("@"):
-            path = value[1:]
-            try:
-                args[i + 1] = Path(path).read_text(encoding="utf-8").rstrip("\n")
-            except OSError as e:
-                msg = f"Could not read --input file {path!r}: {e}"
-                raise ValueError(msg) from e
-        i += 2
+        key, sep, value = token.partition("=")
+        if sep:
+            args[i] = f"{key}={read_value_source(value, label=f'value for {key}')}"
+        else:
+            args[i] = f"{key}={_prompt_env_value(key)}"
+        i += 1
 
 
-def _resolve_email_password_input(args: list[str]) -> None:
-    """
-    Resolve `--smtp-password -`/`@<path>` on `addon email create` (ADR 036 §D14).
-
-    Dash means stdin, ``@<path>`` means "read from file"; a bare value passes
-    through unchanged. Rewrites the value in place so the SMTP password is
-    sourced from a file/pipe instead of the shell command line.
-    """
-    if args[:3] != ["addon", "email", "create"]:
-        return
-    i = 0
-    while i < len(args):
-        if args[i] != "--smtp-password":
-            i += 1
-            continue
-        if i + 1 >= len(args):
-            return  # let the server emit the "missing --smtp-password" error
-        value = args[i + 1]
-        if value == "-":
-            if sys.stdin.isatty():
-                msg = (
-                    "Refusing to read --smtp-password from a terminal; pipe it in "
-                    "or use --smtp-password @<path>."
-                )
-                raise ValueError(msg)
-            args[i + 1] = sys.stdin.read().rstrip("\n")
-        elif value.startswith("@"):
-            path = value[1:]
-            try:
-                args[i + 1] = Path(path).read_text(encoding="utf-8").rstrip("\n")
-            except OSError as e:
-                msg = f"Could not read --smtp-password file {path!r}: {e}"
-                raise ValueError(msg) from e
-        i += 2
+def _prompt_env_value(key: str) -> str:
+    """Prompt for a value with no echo; refuse to hang when there's no tty."""
+    require_input_allowed(f"value for {key}")
+    if not sys.stdin.isatty():
+        msg = (
+            f"No value given for {key}. Pass {key}=VALUE, {key}=- to read it "
+            f"from stdin, or {key}=@<path> to read it from a file."
+        )
+        raise ValueError(msg)
+    value = getpass.getpass(f"Value for {key} (input is hidden): ")
+    if not value:
+        msg = f"Value for {key} is empty."
+        raise ValueError(msg)
+    return value
 
 
 def _resolve_password_inputs(args: list[str]) -> None:

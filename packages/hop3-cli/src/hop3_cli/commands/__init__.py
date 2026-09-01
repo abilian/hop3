@@ -25,6 +25,7 @@ from .help import (
     handle_help_flags,
     inject_local_commands_into_help,
     is_help_command,
+    serve_offline_help,
 )
 from .local import (
     LOCAL_COMMANDS,
@@ -51,4 +52,5 @@ __all__ = [
     "is_local_command",
     "pack_repository",
     "parse_flags",
+    "serve_offline_help",
 ]

@@ -18,7 +18,7 @@ from typing import ClassVar
 from hop3.lib.console import get_verbosity
 from hop3.lib.registry import lookup, register
 
-from ._base import Command
+from ._base import Command, NamespaceCommand
 from ._help_render import (
     longest_prefix_match as _longest_prefix_match,
     parse_docstring_sections as _parse_docstring_sections,
@@ -85,6 +85,7 @@ class HelpCmd(Command):
         hop help <ns> <verb>      Show detailed help for a namespaced command
         hop help --all            Show all commands flat with markers
         hop help --all -v         Show the full help for every command
+        hop help --all --json     Emit the whole command tree as JSON
 
     Examples:
         hop help auth             Show auth command help and its subcommands
@@ -99,6 +100,12 @@ class HelpCmd(Command):
         show_all = "--all" in arg_list
         if show_all:
             arg_list.remove("--all")
+
+        # `--all --json`: the command tree as data. Help output is prose meant
+        # for people, and it was being scraped with grep for want of anything
+        # better (ADR 036 M9.4).
+        if show_all and not arg_list and kwargs.get("json_output"):
+            return [data({"commands": command_entries()})]
 
         # If a command name is provided, show detailed help for that command.
         # Remaining tokens form the command path tuple (e.g., ("config", "set")).
@@ -293,6 +300,32 @@ class HelpCmd(Command):
     _get_short_help = staticmethod(_short_help)
 
 
+def command_entries() -> list[dict]:
+    """
+    Describe every registered command, as data.
+
+    One source for the four consumers that need the command tree rather than
+    the help page: shell completion, did-you-mean, the client's offline help,
+    and a generated documentation reference. Hidden commands are included and
+    marked, so each consumer applies its own rule rather than inheriting ours.
+    """
+    entries = []
+    for cmd in sorted(lookup(Command), key=lambda c: c.name):
+        sections = _parse_docstring_sections(cmd.__doc__)
+        entries.append({
+            "name": " ".join(cmd.name),
+            "summary": _short_help(cmd.__doc__),
+            "usage": sections["usage"],
+            "examples": sections["examples"],
+            "aliases": [" ".join(alias) for alias in cmd.aliases],
+            "namespace": issubclass(cmd, NamespaceCommand),
+            "hidden": cmd.hidden,
+            "destructive": cmd.destructive,
+            "requires_auth": cmd.requires_auth,
+        })
+    return entries
+
+
 @register
 class HelpCommandsCmd(Command):
     """
@@ -313,12 +346,10 @@ class HelpCommandsCmd(Command):
     hidden: ClassVar[bool] = True  # RPC endpoint, not user-facing
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
-        """Return list of command names (as space-joined strings) as structured data."""
-        commands = lookup(Command)
+        """Return the visible command names, for the client's completion cache."""
         command_names = sorted(
-            " ".join(cmd.name) for cmd in commands if not getattr(cmd, "hidden", False)
+            entry["name"] for entry in command_entries() if not entry["hidden"]
         )
-
         return [data({"commands": command_names})]
 
 

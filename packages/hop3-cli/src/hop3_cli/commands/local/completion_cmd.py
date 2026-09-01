@@ -14,158 +14,78 @@ from __future__ import annotations
 import json
 import sys
 from datetime import datetime, timedelta, timezone
-from pathlib import Path
 from typing import TYPE_CHECKING
 
+from hop3_cli.core.paths import apps_cache_path, cache_dir, commands_cache_path
+from hop3_cli.core.suggest import read_cached_names
+
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_cli.config import Config
     from hop3_cli.rpc import Client
     from hop3_cli.ui.rich_printer import RichPrinter
 
-# Cache file location
-CACHE_DIR = Path.home() / ".cache" / "hop3"
+# Cache file locations (resolved in core.paths — the completion command writes
+# them, the did-you-mean fallback reads them).
+CACHE_DIR = cache_dir()
 COMMANDS_CACHE_FILE = CACHE_DIR / "commands.json"
-COMMANDS_CACHE_TXT = CACHE_DIR / "commands.txt"  # Plain text for shell scripts
+COMMANDS_CACHE_TXT = commands_cache_path()  # Plain text for shell scripts
 # Per ADR 036 M8.3: app names are cached alongside commands so shell
 # completion (and the did-you-mean fallback) can suggest real apps without
 # making a live RPC call on every TAB press.
-APPS_CACHE_TXT = CACHE_DIR / "apps.txt"
+APPS_CACHE_TXT = apps_cache_path()
 
 # Static list of known commands (fallback when cache unavailable)
 # These are embedded for static completion without server access
 # Keep in sync with server commands (excluding hidden commands like git-hook)
+# What the CLI knows before it has ever reached a server: the commands it
+# runs itself, plus the server's top-level names. Everything deeper comes
+# from the cache the server fills (`hop3 completion --refresh`) — the client
+# cannot see the server's registry, and a hand-copied mirror of it rots:
+# this list previously still named `config:*`/`addons:*` and had been
+# flattened into fragments like a bare "create" and "destroy".
+# `tests/a_unit/commands/test_fallback_commands.py` pins every name here to a
+# real command.
 FALLBACK_COMMANDS = [
-    # Local commands (handled by CLI without server)
+    # Client-side commands, never sent to the server
+    "aliases",
     "completion",
     "context",
     "init",
     "login",
     "logout",
+    "scaffold",
     "settings",
-    # Server commands - top-level
-    "addons",
-    "admin",
+    "tunnel",
+    "use",
+    "version",
+    # Server commands — top level only (subcommands come from the cache)
+    "addon",
     "app",
-    "apps",
     "auth",
     "backup",
+    "catalog",
+    "cert",
     "config",
     "deploy",
-    "help",
-    "plugins",
-    "ps",
-    "run",
-    "sbom",
-    "system",
-    "version",
-    # Subcommands - addons
-    "addons attach",
-    "addons",
-    "create",
-    "addons",
     "destroy",
-    "addons",
-    "detach",
-    "addons",
-    "info",
-    "addons",
-    "list",
-    "addons",
-    "status",
-    # Subcommands - admin
-    "admin user add",
-    "admin",
-    "user",
-    "disable",
-    "admin",
-    "user",
-    "enable",
-    "admin",
-    "user",
-    "generate-token",
-    "admin",
-    "user",
-    "grant-admin",
-    "admin",
-    "user",
-    "info",
-    "admin",
-    "user",
-    "list",
-    "admin",
-    "user",
-    "remove",
-    "admin",
-    "user",
-    "revoke-admin",
-    "admin",
-    "user",
-    "set-password",
-    # Subcommands - app
-    "app",
-    "debug",
-    "app",
-    "destroy",
-    "app",
+    "domain",
+    "domains",
     "env",
-    "app",
-    "launch",
-    "app",
+    "help",
     "logs",
-    "app",
-    "ping",
-    "app",
-    "restart",
-    "app",
-    "start",
-    "app",
-    "status",
-    "app",
-    "stop",
-    # Subcommands - auth
-    "auth login",
-    "auth logout",
-    "auth whoami",
-    "auth get-token",
-    "auth register",
-    # Subcommands - backup
-    "backup create",
-    "backup",
-    "delete",
-    "backup",
-    "info",
-    "backup",
-    "list",
-    "backup",
-    "restore",
-    # Subcommands - config
-    "config get",
-    "config",
-    "live",
-    "config",
-    "migrate",
-    "config",
-    "set",
-    "config",
-    "show",
-    "config",
-    "unset",
-    # Subcommands - ps
-    "ps scale",
-    # Subcommands - system
-    "system check",
-    "system",
-    "cleanup",
-    "system",
-    "info",
-    "system",
-    "logs",
-    "system",
+    "network",
+    "plugin",
+    "port",
     "ps",
-    "system",
+    "restart",
+    "run",
+    "server",
     "status",
     "system",
-    "uptime",
+    "user",
+    "waf",
 ]
 
 # Local commands that are always added (not from server)
@@ -450,25 +370,20 @@ def write_commands_cache(commands: list[str]) -> None:
         "updated_at": datetime.now(timezone.utc).isoformat(),
         "version": 1,
     }
-    COMMANDS_CACHE_FILE.write_text(json.dumps(data, indent=2))
+    write_cache_file(COMMANDS_CACHE_FILE, json.dumps(data, indent=2))
 
     # Write plain text file for shell scripts (one command per line)
-    COMMANDS_CACHE_TXT.write_text("\n".join(sorted_commands) + "\n")
+    write_cache_file(COMMANDS_CACHE_TXT, "\n".join(sorted_commands) + "\n")
 
 
 def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
     """
-    Fetch commands (and app names) from server and update the cache.
+    Fetch commands (and app names) from the server and update the cache.
 
     Args:
         config: CLI configuration
         printer: Output printer
     """
-    # Import here to avoid circular import
-    from jsonrpcclient import Ok  # ruff:ignore[import-outside-top-level]
-
-    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
-
     if not config.is_configured():
         print(
             "Error: CLI not configured. Run 'hop3 init' or 'hop3 context add' first.",
@@ -477,58 +392,82 @@ def refresh_commands_cache(config: Config, printer: RichPrinter) -> None:
         sys.exit(1)
 
     print("Fetching commands from server...", file=sys.stderr)
+    try:
+        count = fetch_and_write_caches(config)
+    except CacheRefreshError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"✓ Cached {count} commands to {COMMANDS_CACHE_TXT}", file=sys.stderr)
+    print(
+        "Your shell completions will now use the updated command list.",
+        file=sys.stderr,
+    )
+
+
+def refresh_caches_after_login(config: Config) -> None:
+    """
+    Refresh the completion caches on the back of a successful login.
+
+    The caches used to be filled only by an explicit `hop3 completion
+    --refresh`, which nothing else called — so shell completion and the
+    offline command list were, for most users, whatever they were the day the
+    CLI was installed. A login is the moment we are connected and
+    authenticated, so it is the moment to fill them.
+
+    The login itself has already succeeded when this runs: a cache that cannot
+    be refreshed is reported and left alone, never fatal.
+    """
+    try:
+        fetch_and_write_caches(config)
+    except CacheRefreshError as e:
+        print(f"  (shell completions not refreshed: {e})", file=sys.stderr)
+
+
+class CacheRefreshError(Exception):
+    """The server could not supply the command list."""
+
+
+def fetch_and_write_caches(config: Config) -> int:
+    """Fetch commands and app names from the server; return the command count."""
+    # Import here to avoid circular import
+    from jsonrpcclient import Ok  # ruff:ignore[import-outside-top-level]
+
+    from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
     try:
         with Client(config=config) as client:
             response = client.rpc("cli", ["help", "commands"])
+            if not isinstance(response, Ok) or not isinstance(response.result, list):
+                msg = "the server did not return a command list"
+                raise CacheRefreshError(msg)
 
-            if not isinstance(response, Ok):
-                print("Error: Failed to fetch commands from server.", file=sys.stderr)
-                sys.exit(1)
-
-            result = response.result
-            if not result or not isinstance(result, list):
-                print("Error: Invalid response from server.", file=sys.stderr)
-                sys.exit(1)
-
-            # Extract commands from response
             # Response format: [{"t": "data", "data": {"commands": [...]}}]
-            commands = None
-            for item in result:
-                if item.get("t") == "data" and "data" in item:
-                    commands = item["data"].get("commands")
-                    break
-
+            commands = next(
+                (
+                    item["data"].get("commands")
+                    for item in response.result
+                    if item.get("t") == "data" and "data" in item
+                ),
+                None,
+            )
             if not commands:
-                print("Error: No commands in server response.", file=sys.stderr)
-                sys.exit(1)
+                msg = "no commands in the server's response"
+                raise CacheRefreshError(msg)
 
-            # Add local commands
             all_commands = sorted(set(commands) | set(LOCAL_COMMANDS))
-
-            # Write to cache
             write_commands_cache(all_commands)
 
-            print(
-                f"✓ Cached {len(all_commands)} commands to {COMMANDS_CACHE_TXT}",
-                file=sys.stderr,
-            )
-
-            # ADR 036 M8.3: also refresh the app-name cache. We do this in the
-            # same invocation because it's what the user would expect from
-            # "refresh completions" — both pools are stale at the same moments.
-            # A failure to fetch apps doesn't fail the whole refresh: commands
-            # already cached successfully and the apps cache is strictly extra.
+            # ADR 036 M8.3: app names are refreshed in the same breath — both
+            # pools go stale at the same moments. A failure here doesn't undo
+            # the commands cache that just wrote.
             _refresh_apps_cache(client)
-
-            print(
-                "Your shell completions will now use the updated command list.",
-                file=sys.stderr,
-            )
-
+            return len(all_commands)
+    except CacheRefreshError:
+        raise
     except Exception as e:
-        print(f"Error connecting to server: {e}", file=sys.stderr)
-        sys.exit(1)
+        msg = f"could not reach the server: {e}"
+        raise CacheRefreshError(msg) from e
 
 
 def _refresh_apps_cache(client: Client) -> None:
@@ -571,8 +510,22 @@ def _refresh_apps_cache(client: Client) -> None:
 
 def write_apps_cache(apps: list[str]) -> None:
     """Write the app name cache (plain text, one per line)."""
+    write_cache_file(APPS_CACHE_TXT, "\n".join(apps) + "\n")
+
+
+def write_cache_file(path: Path, content: str) -> None:
+    """
+    Replace a cache file atomically.
+
+    A cache written in place is a cache that can be found half-written: an
+    interrupted refresh leaves a truncated — or NUL-padded — file behind, and
+    nothing downstream can tell that from real content. Write beside it, then
+    rename over it, so a reader sees either the old file or the new one.
+    """
     CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    APPS_CACHE_TXT.write_text("\n".join(apps) + "\n")
+    tmp = path.with_suffix(path.suffix + ".tmp")
+    tmp.write_text(content)
+    tmp.replace(path)
 
 
 def read_apps_cache() -> list[str]:
@@ -580,11 +533,7 @@ def read_apps_cache() -> list[str]:
     if not APPS_CACHE_TXT.is_file():
         return []
     try:
-        return [
-            line.strip()
-            for line in APPS_CACHE_TXT.read_text().splitlines()
-            if line.strip()
-        ]
+        return read_cached_names(APPS_CACHE_TXT.read_text())
     except OSError:
         return []
 
