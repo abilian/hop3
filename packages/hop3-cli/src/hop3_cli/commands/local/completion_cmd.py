@@ -16,6 +16,7 @@ import sys
 from datetime import datetime, timedelta, timezone
 from typing import TYPE_CHECKING
 
+from hop3_cli.core.local_overlay import atomic_write_text
 from hop3_cli.core.paths import apps_cache_path, cache_dir, commands_cache_path
 from hop3_cli.core.suggest import read_cached_names
 
@@ -360,8 +361,6 @@ def write_commands_cache(commands: list[str]) -> None:
     Args:
         commands: List of command names to cache
     """
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-
     sorted_commands = sorted(commands)
 
     # Write JSON file with metadata
@@ -515,17 +514,19 @@ def write_apps_cache(apps: list[str]) -> None:
 
 def write_cache_file(path: Path, content: str) -> None:
     """
-    Replace a cache file atomically.
+    Replace a cache file atomically *and durably*.
 
     A cache written in place is a cache that can be found half-written: an
     interrupted refresh leaves a truncated — or NUL-padded — file behind, and
-    nothing downstream can tell that from real content. Write beside it, then
-    rename over it, so a reader sees either the old file or the new one.
+    nothing downstream can tell that from real content.
+
+    Renaming alone does not close that case: without fsync, the rename can reach
+    the disk before the bytes do, and a crash leaves exactly the NUL-padded file
+    that started this (see notes/lessons-learned/cli-ergonomics.md). So this goes
+    through the same `atomic_write_text` the config and overlay writers use,
+    rather than being a fourth copy of the pattern with the fsync left out.
     """
-    CACHE_DIR.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(content)
-    tmp.replace(path)
+    atomic_write_text(path, content)
 
 
 def read_apps_cache() -> list[str]:

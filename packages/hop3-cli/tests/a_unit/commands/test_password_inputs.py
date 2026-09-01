@@ -328,3 +328,46 @@ def test_env_set_unrelated_command_noop() -> None:
     args = ["env", "unset", "--app", "myapp", "SENTRY_DSN"]
     _resolve_env_set_values(args)
     assert args == ["env", "unset", "--app", "myapp", "SENTRY_DSN"]
+
+
+# -- §D14: `@` and `-` need a way to mean themselves -----------------------------------
+
+
+def test_env_set_at_at_escapes_a_literal_at_sign():
+    """`MAIL_FROM=@example.com` went looking for a file called `example.com`."""
+    args = ["env", "set", "--app", "myapp", "MAIL_FROM=@@example.com"]
+
+    _resolve_env_set_values(args)
+
+    assert args[-1] == "MAIL_FROM=@example.com"
+
+
+def test_env_set_double_dash_escapes_a_literal_dash():
+    """Without an escape, a value of `-` could not be set at all."""
+    args = ["env", "set", "--app", "myapp", "SEPARATOR=--"]
+
+    _resolve_env_set_values(args)
+
+    assert args[-1] == "SEPARATOR=-"
+
+
+def test_env_set_leaves_a_value_that_merely_starts_with_a_dash():
+    """Only the exact `-` is the stdin marker, so `-v` needs no escaping."""
+    args = ["env", "set", "--app", "myapp", "FLAGS=-v"]
+
+    _resolve_env_set_values(args)
+
+    assert args[-1] == "FLAGS=-v"
+
+
+def test_env_set_does_not_prompt_for_the_value_of_an_unknown_flag():
+    """A value-taking flag nobody listed must not have its value read as a key.
+
+    `--limit 20` is not `20=<prompt>`: the name check leaves it alone and the
+    server says what is wrong, instead of the CLI opening a password prompt.
+    """
+    args = ["env", "set", "--app", "myapp", "--limit", "20"]
+
+    _resolve_env_set_values(args)
+
+    assert args == ["env", "set", "--app", "myapp", "--limit", "20"]

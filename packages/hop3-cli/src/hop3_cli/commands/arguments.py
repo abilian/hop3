@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import getpass
 import io
+import re
 import sys
 import tarfile
 from operator import itemgetter
@@ -172,7 +173,17 @@ def read_value_source(value: str, *, label: str) -> str:
     Anything else is a literal and passes through. Reading a secret from a pipe
     or a file keeps it out of argv — and therefore out of the shell history and
     out of `ps` — which is the whole point of §D14.
+
+    ``@`` and ``-`` are ordinary characters in a config value, so there has to be
+    a way to mean them literally: a leading ``@@`` stands for one ``@``, and ``--``
+    for a bare ``-``. Without an escape, ``MAIL_FROM=@example.com`` went looking
+    for a file called ``example.com`` and a value of ``-`` could not be set at all.
+    Only the exact ``-`` is the stdin marker, so ``-v`` needs no escaping.
     """
+    if value.startswith("@@"):
+        return value[1:]
+    if value == "--":
+        return "-"
     if value == "-":
         if sys.stdin.isatty():
             msg = (
@@ -212,9 +223,18 @@ def _resolve_flag_value_sources(args: list[str]) -> None:
 
 
 # `env set` also accepts the alias `config set` (server-side, so it survives
-# client alias expansion). Its only value-taking flag is the app selector.
+# client alias expansion).
 _ENV_SET_PREFIXES = (["env", "set"], ["config", "set"])
+
+#: Flags on `env set` that consume the token after them. `--app x` is the whole
+#: list today, and the CLI injects it (ADR 036 D5), so it is always present.
 _ENV_SET_VALUE_FLAGS = frozenset({"--app", "-a"})
+
+# What an environment-variable name may look like. Checked as well as the skip
+# list above, so a value-taking flag nobody added here yet has its value left
+# alone rather than prompted for as if it were a bare key — the server then says
+# what is wrong, which beats a password prompt for `20`.
+_ENV_VAR_NAME = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 
 def _resolve_env_set_values(args: list[str]) -> None:
@@ -235,12 +255,12 @@ def _resolve_env_set_values(args: list[str]) -> None:
     while i < len(args):
         token = args[i]
         if token in _ENV_SET_VALUE_FLAGS:
-            i += 2
-            continue
-        if token.startswith("-"):
-            i += 1
+            i += 2  # the flag and the value it consumes
             continue
         key, sep, value = token.partition("=")
+        if not _ENV_VAR_NAME.fullmatch(key):
+            i += 1
+            continue
         if sep:
             args[i] = f"{key}={read_value_source(value, label=f'value for {key}')}"
         else:
