@@ -3,127 +3,178 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-The TUI inherits hop3-cli's configuration, so it has to look where hop3-cli looks.
+The TUI must reach the same server `hop3` reaches, by the same route.
 
-It used to guess a config path per platform and guessed wrong on macOS: hop3-cli
-resolves `~/.config/hop3-cli/config.toml` via `platformdirs`, while the TUI looked in
-`~/Library/Application Support/hop3-cli/`. Finding nothing, it fell back to its own
-default server — `http://localhost:5000` — and reported whatever else was listening
-there as a Hop3 error. The user's bug report was "http error 404" from a stray
-Werkzeug app.
+It used to reimplement hop3-cli's configuration: guessing the config path per
+platform (wrong on macOS, so it found nothing and fell back to `localhost:5000`,
+where an unrelated dev server answered with the 404 that started this), and then
+reading only the flat `api_url` — ignoring the context chain, so `hop3` would talk
+to prod while the TUI talked to localhost.
 
-Both halves are pinned here: the path must equal hop3-cli's, and there must be no
-default server to fall back to.
+Both are now delegated to hop3-cli, and an `ssh://` answer is reached the way the
+CLI reaches it: an `ssh -N -L` forward, with the client pointed at the local end.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
+from typing import TYPE_CHECKING, Any
 
 import pytest
-import tomllib
-from hop3_cli.core import paths as cli_paths
-from hop3_cli.core.paths import config_dir as cli_config_dir
+from hop3_cli.config import get_config as cli_config
 from hop3_tui.app import Hop3TUI
-from hop3_tui.config import CLI_APP_NAME, TUIConfig
+from hop3_tui.config import TUIConfig
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
+PROD = "ssh://root@prod.test"
 
 
-def test_the_tui_looks_where_hop3_cli_keeps_its_config(monkeypatch, tmp_path: Path):
-    """Compared against hop3-cli's own resolver, not against a hardcoded path."""
-    monkeypatch.delenv("HOP3_CONFIG_DIR", raising=False)
-    expected = cli_config_dir() / "config.toml"
-
-    # `_find_cli_config_file` returns None unless the file exists, so point both at
-    # a directory we control and assert they agree on where that is.
+@pytest.fixture
+def cli_home(monkeypatch, tmp_path: Path):
+    """A throwaway hop3-cli config directory, isolated from the developer's own."""
     monkeypatch.setenv("HOP3_CONFIG_DIR", str(tmp_path))
-    (tmp_path / "config.toml").write_text('api_url = "http://example.test:8000"\n')
+    for var in (
+        "HOP3_API_URL",
+        "HOP3_API_TOKEN",
+        "HOP3_SERVER_URL",
+        "HOP3_TOKEN",
+        "HOP3_DEV_MODE",
+    ):
+        monkeypatch.delenv(var, raising=False)
 
-    assert TUIConfig._find_cli_config_file() == tmp_path / "config.toml"
-    assert cli_config_dir() / "config.toml" == tmp_path / "config.toml"
-    # And with the override gone, both name the same real location.
-    monkeypatch.delenv("HOP3_CONFIG_DIR")
-    assert cli_config_dir() / "config.toml" == expected
+    def write(text: str) -> Path:
+        (tmp_path / "config.toml").write_text(text)
+        return tmp_path
+
+    return write
 
 
-def test_the_app_name_matches_the_one_hop3_cli_registers():
-    """A drifted app name would silently stop the TUI inheriting anything."""
-    assert CLI_APP_NAME == cli_paths.APP_NAME
+CONTEXT_CONFIG = (
+    'api_url = "http://ignored.test:8000"\n'
+    "[cli]\n"
+    'default_context = "prod"\n'
+    "[contexts.prod]\n"
+    f'server = "{PROD}"\n'
+)
 
 
 def test_there_is_no_default_server_to_fall_back_to():
     """hop3-cli has no default api_url either: unconfigured must be detectable.
 
-    A default is not harmless here. It pointed at localhost:5000, where whatever
-    else the developer was running answered, and the TUI reported that stranger's
-    404 as its own.
+    A default was not harmless. It pointed at localhost:5000, where whatever else
+    the developer was running answered, and the TUI reported that stranger's 404
+    as its own.
     """
     assert TUIConfig().server_url == ""
 
 
-def test_a_flat_api_url_is_inherited(monkeypatch, tmp_path: Path):
-    monkeypatch.setenv("HOP3_CONFIG_DIR", str(tmp_path))
-    (tmp_path / "config.toml").write_text(
-        'api_url = "http://example.test:8000"\napi_token = "t"\n'
-    )
+def test_the_tui_resolves_the_same_server_as_hop3_cli(cli_home):
+    """The whole point of delegating: one resolution, so they cannot disagree."""
+    cli_home(CONTEXT_CONFIG)
 
-    config = TUIConfig._load_from_cli_config(tmp_path / "config.toml", TUIConfig())
+    cli = cli_config()
+    name = cli.get_context_override() or cli.get_default_context()
+    if name and (server := cli.get_context_server(name)):
+        cli.set_active_server(server)
 
-    assert config.server_url == "http://example.test:8000"
-    assert config.auth_token == "t"
-
-
-def test_the_active_context_wins_over_the_flat_url(tmp_path: Path):
-    """hop3-cli resolves the context's server ahead of `api_url`; so must the TUI."""
-    path = tmp_path / "config.toml"
-    path.write_text(
-        'api_url = "http://ignored.test:8000"\n'
-        "[cli]\n"
-        'default_context = "prod"\n'
-        "[contexts.prod]\n"
-        'server = "https://prod.test"\n'
-    )
-
-    config = TUIConfig._load_from_cli_config(path, TUIConfig())
-
-    assert config.server_url == "https://prod.test"
+    assert TUIConfig._load_from_cli_config(TUIConfig()).server_url == cli.get_api_url()
 
 
-def test_an_ssh_context_is_reported_rather_than_silently_bypassed(tmp_path: Path):
-    """The TUI has no SSH tunnel, so an ssh:// target is not a URL it can use.
+def test_the_active_context_beats_the_flat_api_url(cli_home):
+    """`hop3` resolves the context first; reading `api_url` sent the TUI elsewhere."""
+    cli_home(CONTEXT_CONFIG)
 
-    Reading past it to `api_url` would point the TUI at a different server from the
-    one `hop3` talks to — the same class of quiet disagreement as the path bug.
+    assert TUIConfig._load_from_cli_config(TUIConfig()).server_url == PROD
+
+
+def test_a_bare_api_url_is_ignored_the_way_hop3_cli_ignores_it(cli_home):
+    """`hop3` uses a flat `api_url` only under HOP3_DEV_MODE.
+
+    The TUI used to read it unconditionally, which is one of the ways it ended up
+    pointed somewhere `hop3` was not. Delegating means inheriting this rule too,
+    including the part where unconfigured stays detectable.
     """
-    path = tmp_path / "config.toml"
-    path.write_text(
-        'api_url = "http://localhost:8000"\n'
-        "[cli]\n"
-        'default_context = "prod"\n'
-        "[contexts.prod]\n"
-        'server = "ssh://root@prod.test"\n'
+    cli_home('api_url = "http://plain.test:8000"\n')
+
+    assert TUIConfig._load_from_cli_config(TUIConfig()).server_url == ""
+
+
+def test_dev_mode_brings_the_flat_api_url_back(cli_home, monkeypatch):
+    cli_home('api_url = "http://plain.test:8000"\n')
+    monkeypatch.setenv("HOP3_DEV_MODE", "true")
+
+    assert (
+        TUIConfig._load_from_cli_config(TUIConfig()).server_url
+        == "http://plain.test:8000"
     )
 
-    config = TUIConfig._load_from_cli_config(path, TUIConfig())
 
-    assert config.cli_ssh_target == "ssh://root@prod.test"
-    assert config.server_url == "", "must not silently use a different server"
+# -- reaching an ssh:// server ---------------------------------------------------------
 
 
-def test_the_unconfigured_error_names_the_ssh_target_and_the_way_out():
-    config = TUIConfig(cli_ssh_target="ssh://root@prod.test")
-    message = Hop3TUI(config).api_client.unconfigured_hint
-
-    assert "ssh://root@prod.test" in message
-    assert "SSH tunnel" in message
+#: Forwards the stub was asked for, newest last. Module-level rather than a class
+#: attribute so the fixture can reset it without a mutable class default.
+STARTED: list[tuple[Any, ...]] = []
 
 
-@pytest.mark.parametrize("sample", ["config.toml"])
-def test_the_users_own_config_shape_is_one_we_understand(sample: str):
-    """A smoke check that the real file, if present, parses the way we expect."""
-    path = cli_config_dir() / sample
-    if not path.exists():
-        pytest.skip(f"no hop3-cli config at {path} on this machine")
+class StubTunnel:
+    """Records the forward it was asked for, without running ssh."""
 
-    data = tomllib.loads(path.read_text())
+    def __init__(self, host, remote_port, *, user, ssh_port=22, key=None) -> None:
+        self.args = (host, remote_port, user, ssh_port, key)
+        self.stopped = False
 
-    assert isinstance(data, dict)
+    def start(self) -> None:
+        STARTED.append(self.args)
+
+    def stop(self) -> None:
+        self.stopped = True
+
+    @property
+    def local_bind_port(self) -> int:
+        return 54321
+
+
+@pytest.fixture
+def stub_tunnel(monkeypatch):
+    STARTED.clear()
+    monkeypatch.setattr("hop3_tui.app.SshTunnel", StubTunnel)
+    return STARTED
+
+
+def test_an_ssh_server_is_reached_through_a_tunnel(stub_tunnel):
+    """`hop3` forwards a local port to the remote hop3-server; so does the TUI."""
+    hop3 = Hop3TUI(TUIConfig(server_url=PROD))
+
+    host, remote_port, user, ssh_port, _key = stub_tunnel[0]
+    assert (host, user, ssh_port) == ("prod.test", "root", 22)
+    assert remote_port == 8000, "the port hop3-server listens on remotely"
+    assert hop3.api_client.base_url == "http://localhost:54321"
+    hop3.close()
+
+
+def test_an_http_server_opens_no_tunnel(stub_tunnel):
+    hop3 = Hop3TUI(TUIConfig(server_url="http://plain.test:8000"))
+
+    assert stub_tunnel == []
+    assert hop3.tunnel is None
+    assert hop3.api_client.base_url == "http://plain.test:8000"
+
+
+def test_closing_drops_the_tunnel_and_is_safe_twice(stub_tunnel):
+    """An `ssh -N -L` child outliving the TUI would hold the port."""
+    hop3 = Hop3TUI(TUIConfig(server_url=PROD))
+    tunnel = hop3.tunnel
+
+    hop3.close()
+    hop3.close()
+
+    assert tunnel is not None
+    assert tunnel.stopped
+    assert hop3.tunnel is None
+
+
+def test_an_ssh_url_without_a_host_fails_loudly():
+    with pytest.raises(ValueError, match="no hostname"):
+        Hop3TUI(TUIConfig(server_url="ssh://"))

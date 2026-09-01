@@ -17,7 +17,10 @@ from __future__ import annotations
 from collections.abc import Callable
 from enum import Enum
 from typing import NamedTuple
+from urllib.parse import urlparse
 
+from hop3_cli.config import get_config as cli_config
+from hop3_cli.core.ssh_tunnel import SshTunnel
 from turbodesk import UI, Size, Style, View, vcat, zcat
 from turbodesk.events import Event, Key, KeyPress
 
@@ -97,14 +100,41 @@ class Nav(NamedTuple):
         return Nav(self.mode, self.stack[:-1])
 
 
-def _ssh_hint(config: TUIConfig) -> str:
-    """Say so when hop3-cli is pointed somewhere this client cannot follow."""
-    if config.server_url or not config.cli_ssh_target:
-        return ""
+def _tunnel_hint(server: str) -> str:
+    """Why a request over a tunnel can fail in a way the URL does not explain.
+
+    hop3-server installs the `hop3` user's key with `no-port-forwarding` (it is the
+    git-push key), so a tunnel as that user connects and then refuses every channel
+    — which arrives here as a bare read error. `hop3` itself tunnels as root.
+    """
     return (
-        f"hop3-cli is pointed at {config.cli_ssh_target}, which the TUI cannot "
-        f"reach: it speaks HTTP only, with no SSH tunnel."
+        f"(over an SSH tunnel to {server}; if the SSH user's authorized_keys "
+        f"carries no-port-forwarding — hop3-server sets that on the `hop3` user — "
+        f"forwarding is refused. hop3-cli connects as root.)"
     )
+
+
+def open_tunnel(server: str) -> tuple[SshTunnel, str]:
+    """Forward a local port to hop3-server on the far side of `server`.
+
+    hop3-cli reaches an `ssh://` target this way and rewrites its RPC URL to the
+    local end (`hop3_cli.rpc.client.Client`); the TUI does the same, with the same
+    `SshTunnel`, so both arrive at the same server by the same route.
+    """
+    parsed = urlparse(server)
+    if not parsed.hostname:
+        msg = f"SSH server URL has no hostname: {server!r}"
+        raise ValueError(msg)
+    cli = cli_config()
+    tunnel = SshTunnel(
+        parsed.hostname,
+        cli.get("server_port", 8000),
+        user=parsed.username or cli.get("ssh_user", "root"),
+        ssh_port=parsed.port or 22,
+        key=key if isinstance(key := cli.get("ssh_key", None), str) else None,
+    )
+    tunnel.start()
+    return tunnel, f"http://localhost:{tunnel.local_bind_port}"
 
 
 class Hop3TUI:
@@ -112,9 +142,15 @@ class Hop3TUI:
 
     def __init__(self, config: TUIConfig | None = None) -> None:
         self.config = config or get_config()
+        #: Held open for the life of the app when the server is reached over SSH.
+        self.tunnel: SshTunnel | None = None
+        base_url = self.config.server_url
+        if base_url.startswith("ssh://"):
+            self.tunnel, base_url = open_tunnel(base_url)
+
         self.api_client = Hop3Client(
-            base_url=self.config.server_url,
-            unconfigured_hint=_ssh_hint(self.config),
+            base_url=base_url,
+            transport_hint=_tunnel_hint(self.config.server_url) if self.tunnel else "",
             token=self.config.auth_token,
             verify_ssl=self.config.verify_ssl,
             ssl_cert=self.config.ssl_cert,
@@ -132,6 +168,12 @@ class Hop3TUI:
         else:
             self.connection_state = ConnectionState.CONNECTED
             self.consecutive_failures = 0
+
+    def close(self) -> None:
+        """Drop the tunnel, if we opened one. Safe to call twice."""
+        if self.tunnel is not None:
+            self.tunnel.stop()
+            self.tunnel = None
 
     def mark_api_success(self) -> None:
         self.connection_state = ConnectionState.CONNECTED

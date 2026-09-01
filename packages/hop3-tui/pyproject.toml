@@ -28,9 +28,9 @@ classifiers = [
 
 dependencies = [
     "turbodesk>=0.3.2",
-    # Same resolution hop3-cli uses for its config dir, so the TUI inherits the
-    # server the CLI is pointed at instead of guessing a path per platform.
-    "platformdirs>=4.3.8",
+    # The TUI inherits hop3-cli's server, token and context resolution rather
+    # than reimplementing it — see TUIConfig._load_from_cli_config.
+    "hop3-cli",
     "httpx>=0.27.0",
     "pydantic>=2.0.0",
 ]
@@ -66,3 +66,6 @@ exclude_also = [
 ]
 skip_covered = true
 skip_empty = true
+
+[tool.uv.sources]
+hop3-cli = { workspace = true }

@@ -61,7 +61,13 @@ def main(argv: list[str] | None = None) -> None:
             **({"auth_token": args.token} if args.token else {}),
         })
 
-    run(app(Hop3TUI(config)), title=TITLE)
+    hop3 = Hop3TUI(config)
+    try:
+        run(app(hop3), title=TITLE)
+    finally:
+        # An `ssh -N -L` child outliving the TUI would hold the port and confuse
+        # the next run; `close` is a no-op when no tunnel was opened.
+        hop3.close()
 
 
 if __name__ == "__main__":
