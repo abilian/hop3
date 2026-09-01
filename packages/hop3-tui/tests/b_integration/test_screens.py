@@ -88,7 +88,7 @@ def test_screens_render_at_any_size(draw, size: Size):
 def test_the_dashboard_shows_its_four_panels(draw):
     text = draw(Screen.DASHBOARD)
 
-    for title in ("APPLICATIONS", "SYSTEM STATUS", "RECENT ACTIVITY", "QUICK ACTIONS"):
+    for title in ("APPLICATIONS", "SYSTEM STATUS", "RECENT ACTIVITY", "ACTIONS"):
         assert title in text
 
 
@@ -96,9 +96,10 @@ def test_the_dashboard_counts_start_at_zero(draw):
     assert "Running: 0" in draw(Screen.DASHBOARD)
 
 
-def test_a_key_hint_is_not_eaten_as_markup(draw):
-    """`[b]` is Rich's abbreviation for bold; here it is a key hint."""
-    assert "[b] Create backup" in draw(Screen.DASHBOARD)
+# The `[b]`-is-not-bold guard moved to tests/a_unit/test_widgets.py: it was asserted
+# through the dashboard's "[b] Create backup" literal, and that literal is gone —
+# it advertised a key the screen never bound. The invariant is about the markup
+# parser, so it is now tested against the parser.
 
 
 # -- system ---------------------------------------------------------------------------

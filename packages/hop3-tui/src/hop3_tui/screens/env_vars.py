@@ -36,6 +36,15 @@ MAX_VALUE = 50
 SECRET_HINTS = ("sk-", "key", "secret", "password", "token", "auth", "credential")
 
 
+KEYS = (
+    ("a", "Add variable"),
+    ("e", "Edit variable"),
+    ("d", "Delete variable"),
+    ("t", "Toggle secret values"),
+    ("R", "Refresh"),
+)
+
+
 def is_secret(value: str) -> bool:
     lowered = value.lower()
     return any(hint in lowered for hint in SECRET_HINTS)

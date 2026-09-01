@@ -14,18 +14,20 @@ from collections.abc import Callable
 from typing import NamedTuple
 
 from turbodesk import UI, Size, View, hcat, markup, vcat
-from turbodesk.events import KeyPress
 
 from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import AppState
 from hop3_tui.screens import Screen
-from hop3_tui.screens._common import poll
+from hop3_tui.screens._common import bind, poll
 from hop3_tui.widgets import SystemStats, panel, status_panel
 
-QUICK_ACTIONS = (
-    "[d] Deploy new app\n[b] Create backup\n[l] View system logs\n[c] Open chat"
-)
 NO_ACTIVITY = "[dim]No recent activity[/]"
+
+
+KEYS = (
+    ("r", "Refresh"),
+    ("l", "System logs"),
+)
 
 
 class AppCounts(NamedTuple):
@@ -79,18 +81,17 @@ def render(
 
     poll(ui, float(hop3.config.refresh_interval), refresh)
 
-    def keys(event) -> bool:
-        if not isinstance(event, KeyPress) or switch is None:
-            return False
-        match event.key:
-            case "r":
-                ui.spawn(refresh())
-                ui.notify("Refreshing dashboard...")
-            case _:
-                return False
-        return True
+    def show_logs() -> None:
+        if push is not None:
+            push(Screen.SYSTEM_LOGS)
 
-    ui.on_event(keys)
+    def do_refresh() -> None:
+        ui.spawn(refresh())
+        ui.notify("Refreshing dashboard...")
+
+    # Through `bind`, like every other screen: it is what the help panel is checked
+    # against, so a bespoke handler here would be a key nothing could verify.
+    bind(ui, {"r": do_refresh, "l": show_logs})
 
     cell = _cell_size(size)
     apps_panel = panel(ui, "Applications", apps_summary(ui, counts), cell)
@@ -98,8 +99,15 @@ def render(
     # gets. The panel says so rather than showing the constants it used to.
     system = panel(ui, "System status", status_panel(ui, SystemStats()), cell)
     activity = panel(ui, "Recent activity", markup.render(ui.theme, NO_ACTIVITY), cell)
+    # Built from KEYS, so the panel cannot advertise a key the screen does not bind.
     actions = panel(
-        ui, "Quick actions", markup.render_lines(ui.theme, QUICK_ACTIONS), cell
+        ui,
+        "Actions",
+        markup.render_lines(
+            ui.theme,
+            "\n".join(f"[bold]{key}[/]  {label}" for key, label in KEYS),
+        ),
+        cell,
     )
 
     if switch is not None:

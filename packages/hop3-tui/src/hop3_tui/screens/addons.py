@@ -36,6 +36,15 @@ ADDON_TYPES = [
 ]
 
 
+KEYS = (
+    ("n", "New add-on"),
+    ("a", "Attach to an app"),
+    ("d", "Detach from its app"),
+    ("D", "Delete"),
+    ("R", "Refresh"),
+)
+
+
 def table_rows(addons: Sequence[dict[str, Any]]) -> list[list[str]]:
     return [
         [
