@@ -11,10 +11,8 @@ pure parts are tested directly and the rendering is checked by what comes out.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime, timedelta
-
 import pytest
-from hop3_tui.api.models import App as AppModel, AppState
+from hop3_tui.api.models import App as AppModel, AppState, Backup as BackupModel
 from hop3_tui.app import Hop3TUI
 from hop3_tui.config import TUIConfig
 from hop3_tui.screens import (
@@ -131,35 +129,6 @@ def test_the_resources_panel_draws_no_gauge_without_a_measurement(draw):
         assert constant not in text
 
 
-# -- apps: relative time --------------------------------------------------------------
-
-
-def test_a_timestamp_a_moment_old_reads_as_just_now():
-    assert apps_screen.relative_time(datetime.now(UTC)) == "just now"
-
-
-@pytest.mark.parametrize(
-    ("delta", "expected"),
-    [
-        (timedelta(minutes=5), "5m ago"),
-        (timedelta(hours=3), "3h ago"),
-        (timedelta(days=2), "2d ago"),
-    ],
-)
-def test_older_timestamps_read_in_the_largest_unit(delta: timedelta, expected: str):
-    assert apps_screen.relative_time(datetime.now(UTC) - delta) == expected
-
-
-def test_a_missing_timestamp_reads_as_not_available():
-    assert apps_screen.relative_time(None) == "N/A"
-
-
-def test_a_naive_timestamp_is_taken_as_utc():
-    naive = datetime.now(UTC).replace(tzinfo=None)
-
-    assert apps_screen.relative_time(naive) == "just now"
-
-
 # -- apps: filtering and rows ---------------------------------------------------------
 
 
@@ -226,61 +195,36 @@ def test_the_apps_screen_says_when_there_is_nothing(draw):
 # -- env vars -------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    "value", ["sk-abc123", "my-secret-value", "a-password", "auth-token", "credential1"]
-)
-def test_a_value_that_looks_like_a_credential_is_secret(value: str):
-    assert env_screen.is_secret(value)
-
-
-@pytest.mark.parametrize("value", ["production", "8000", "https://example.com"])
-def test_an_ordinary_value_is_not_secret(value: str):
-    assert not env_screen.is_secret(value)
-
-
-def test_a_secret_value_is_masked_until_revealed():
-    assert env_screen.format_value("sk-abc", reveal=False) == env_screen.MASK
-
-
-def test_revealing_shows_the_secret():
-    assert env_screen.format_value("sk-abc", reveal=True) == "sk-abc"
-
-
 def test_a_long_value_is_elided():
-    formatted = env_screen.format_value("x" * 100, reveal=True)
+    formatted = env_screen.format_value("x" * 100)
 
     assert formatted.endswith("...")
     assert len(formatted) == env_screen.MAX_VALUE
 
 
 def test_a_short_value_is_left_alone():
-    assert env_screen.format_value("production", reveal=True) == "production"
+    assert env_screen.format_value("production") == "production"
 
 
 def test_the_env_vars_table_has_its_columns(draw):
     text = draw(Screen.ENV_VARS, "blog")
 
-    for heading in ("NAME", "VALUE", "TYPE"):
+    for heading in ("NAME", "VALUE"):
         assert heading in text
+    # The TYPE column reported "secret"/"plain" from a heuristic run over an
+    # already-redacted value. It was wrong in both directions.
+    assert "TYPE" not in text
 
 
 # -- backups --------------------------------------------------------------------------
 
 
-@pytest.mark.parametrize(
-    ("size", "expected"),
-    [(512, "512B"), (2048, "2KB"), (5 * 1024 * 1024, "5MB"), (3 * 1024**3, "3GB")],
-)
-def test_a_backup_size_reads_in_the_largest_unit(size: int, expected: str):
-    assert backups_screen.human_size(size) == expected
+def test_a_backup_row_shows_the_size_the_server_rendered():
+    """`backup list` formats the size; the screen read a `size_bytes` field that
+    the wire never carries, so every row's size column was a dash."""
+    backup = BackupModel(id="bk-1", app_name="blog", size="5MB", created="today")
 
-
-def test_a_missing_backup_size_shows_a_dash():
-    assert backups_screen.human_size(None) == "-"
-
-
-def test_a_zero_backup_size_shows_a_dash():
-    assert backups_screen.human_size(0) == "-"
+    assert backups_screen.table_rows([backup])[0][2] == "5MB"
 
 
 def test_the_backups_table_has_its_columns(draw):

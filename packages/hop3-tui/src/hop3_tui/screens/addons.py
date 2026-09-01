@@ -62,8 +62,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     addons: tuple[dict[str, Any], ...]
     addons, set_addons = ui.state(NO_ADDONS)

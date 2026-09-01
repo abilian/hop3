@@ -92,10 +92,18 @@ async def test_get_system_status_is_accepted(api: Hop3Client):
     await api.get_system_status()
 
 
-async def test_get_system_info_is_accepted_and_parses(api: Hop3Client):
-    info = await api.get_system_info()
+async def test_backups_carry_the_columns_the_screen_reads(api: Hop3Client):
+    """`backup list` renders the size and the timestamp itself.
 
-    assert isinstance(info, dict)
+    Modelling them as `size_bytes: int` / `created_at: datetime` meant the screen
+    read fields the wire never fills, so every row showed a dash.
+    """
+    backups = await api.list_backups()
+
+    for backup in backups:
+        assert backup.id
+        assert backup.app_name
+        assert backup.size != "-", "the server always renders a size"
 
 
 async def test_get_system_logs_is_accepted_and_parses(api: Hop3Client):
@@ -148,10 +156,21 @@ async def test_env_vars_parse_into_the_model(api: Hop3Client, deployed_app: str)
 
     `config` is a real server-side alias, so this one never broke — which is why the
     static check had to learn to read `aliases:` before it stopped crying wolf.
+
+    Asserting only `isinstance(v, EnvVar)` is what let the real defect through: the
+    response was parsed as a mapping, so this passed on two `EnvVar`s named `t` and
+    `text` — the JSON envelope's own keys. A shape check has to name something the
+    app actually sets.
     """
     variables = await api.get_env_vars(deployed_app)
 
     assert all(isinstance(v, EnvVar) for v in variables)
+    names = [v.name for v in variables]
+    # `env show` reports the *configured* environment, so this is HOST_NAME (which
+    # Hop3 sets on every app it deploys) rather than a runtime value like PORT.
+    assert "HOST_NAME" in names, f"a deployed app has a HOST_NAME; got {names}"
+    # The envelope, not the data. Present iff the table parse regressed.
+    assert not {"t", "text", "rows", "columns"} & set(names), names
 
 
 async def test_processes_parse_as_the_scaling_summary(

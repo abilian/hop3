@@ -12,7 +12,6 @@ here `dialog.confirm` is awaited, so the answer and what to do with it stay toge
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import UTC, datetime
 
 from turbodesk import UI, Size, View, hcat, vcat
 from turbodesk.widgets import Cell, Column, dialog, table, textbox
@@ -32,9 +31,6 @@ COLUMNS = [
     Column("instances", width=10, align="right"),
 ]
 
-MINUTE, HOUR, DAY = 60, 3600, 86400
-
-
 #: What this screen's keys do. `bind` below is built from the same list, and a test
 #: asserts they match — a help panel that drifts from the bindings is worse than none.
 KEYS = (
@@ -47,22 +43,6 @@ KEYS = (
     ("R", "Refresh"),
     ("/", "Filter"),
 )
-
-
-def relative_time(moment: datetime | None) -> str:
-    """ "3m ago" and friends. Lifted from the original unchanged in behaviour."""
-    if moment is None:
-        return "N/A"
-    now = datetime.now(UTC)
-    when = moment.replace(tzinfo=UTC) if moment.tzinfo is None else moment
-    seconds = (now - when).total_seconds()
-    if seconds < MINUTE:
-        return "just now"
-    if seconds < HOUR:
-        return f"{int(seconds / MINUTE)}m ago"
-    if seconds < DAY:
-        return f"{int(seconds / HOUR)}h ago"
-    return f"{int(seconds / DAY)}d ago"
 
 
 def matching(apps: list[App], needle: str) -> list[App]:
@@ -88,8 +68,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     apps: tuple[App, ...]
     apps, set_apps = ui.state(())
@@ -152,7 +132,7 @@ def render(
         ui.spawn(ask())
 
     def view() -> None:
-        if push is not None and (app := chosen()) is not None:
+        if (app := chosen()) is not None:
             push(Screen.APP_DETAIL, app.name)
 
     def delete() -> None:

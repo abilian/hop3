@@ -20,7 +20,7 @@ def state_style(theme: Theme, state: AppState) -> Style:
     match state:
         case AppState.RUNNING:
             return Style(fg=theme.crust, bg=theme.green, bold=True)
-        case AppState.FAILED:
+        case AppState.FAILED | AppState.CRASHED:
             return Style(fg=theme.crust, bg=theme.red, bold=True)
         case AppState.STARTING | AppState.STOPPING:
             return Style(fg=theme.crust, bg=theme.yellow, bold=True)

@@ -122,12 +122,18 @@ class TUIConfig:
 
     @classmethod
     def _load_from_file(cls, path: Path, config: TUIConfig) -> TUIConfig:
-        """Load configuration from a TOML file."""
+        """Load configuration from a TOML file.
+
+        A file we cannot read is not a file we can ignore: silently returning the
+        defaults meant a typo in `tui.toml` presented as the TUI quietly talking to
+        the wrong server, with nothing anywhere saying why.
+        """
         try:
             with path.open("rb") as f:
                 data = tomllib.load(f)
-        except Exception:
-            return config
+        except (OSError, tomllib.TOMLDecodeError) as error:
+            msg = f"TUI config can't be read: {path} is not valid TOML ({error})"
+            raise ValueError(msg) from error
 
         cls._load_server_settings(data, config)
         cls._load_display_settings(data, config)

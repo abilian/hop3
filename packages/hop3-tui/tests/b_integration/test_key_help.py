@@ -18,6 +18,7 @@ compares `KEYS` against what `bind` actually receives when the screen renders.
 from __future__ import annotations
 
 import pytest
+from hop3_tui import app as app_module
 from hop3_tui.app import FOOTER_BINDINGS, Hop3TUI, help_text
 from hop3_tui.config import TUIConfig
 from hop3_tui.screens import SCREENS, Screen, _common as common, screen_keys
@@ -88,7 +89,7 @@ def test_a_screen_binds_every_key_it_advertises(monkeypatch, hop3, screen):
     assert advertised <= live
 
 
-def test_the_dashboard_panel_lists_only_keys_it_binds(monkeypatch, hop3):
+def test_the_dashboard_panel_lists_only_keys_it_binds(hop3):
     """The specific regression: three of four advertised actions did nothing."""
 
     def wrapper(ui):
@@ -104,7 +105,7 @@ def test_the_dashboard_panel_lists_only_keys_it_binds(monkeypatch, hop3):
     assert "System logs" in text
 
 
-def test_help_shows_more_than_the_footer(monkeypatch, hop3):
+def test_help_shows_more_than_the_footer(hop3):
     """`?` used to repeat the footer verbatim, which is why it read as useless."""
     text = help_text(Screen.APPS)
 
@@ -115,7 +116,23 @@ def test_help_shows_more_than_the_footer(monkeypatch, hop3):
         assert f"{key:<6} {label}" in text
 
 
-def test_help_says_so_for_a_screen_with_no_keys_of_its_own():
-    assert "no keys of its own" in help_text(Screen.SYSTEM_LOGS) or screen_keys(
-        Screen.SYSTEM_LOGS
-    )
+def test_help_says_so_for_a_screen_with_no_keys_of_its_own(monkeypatch):
+    """The empty branch, exercised.
+
+    This used to read `assert "no keys" in help_text(SYSTEM_LOGS) or
+    screen_keys(SYSTEM_LOGS)` — and the right-hand side is never empty, so the
+    assertion held whatever the left-hand side did.
+    """
+    monkeypatch.setattr(app_module, "screen_keys", lambda _: ())
+
+    assert "no keys of its own" in help_text(Screen.SYSTEM_LOGS)
+
+
+def test_the_log_screens_borrow_their_keys_from_the_shared_view():
+    """Both log screens render `_logview`, so `?` must show `_logview`'s keys.
+
+    A second table mapping those two screens to that module is what this replaces:
+    it agreed with the registry until someone moved a render function.
+    """
+    for screen in (Screen.LOGS, Screen.SYSTEM_LOGS):
+        assert dict(screen_keys(screen))["/"] == "Filter"

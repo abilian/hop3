@@ -263,3 +263,23 @@ def test_the_addon_table_shows_the_app_an_addon_is_attached_to(drive, client):
 
     assert "blogdb" in text
     assert "blog" in text.replace("blogdb", ""), "the APP column lost the app name"
+
+
+# -- env vars: revealing a secret is a request, not a redraw ---------------------------
+
+
+def test_revealing_asks_the_server_rather_than_unmasking_locally(client, drive):
+    """`env show` redacts before it answers, so a local mask hides nothing.
+
+    Pressing `t` has to fetch again (with `--show-secrets`, which
+    `test_client_calls` pins on the argv); the screen used to flip a flag and
+    re-render the same redacted strings it already had.
+    """
+    before = drive(Screen.ENV_VARS, argument="blog")
+    fetches_on_arrival = [c for c, _ in client.calls].count("get_env_vars")
+
+    client.calls.clear()
+    drive(Screen.ENV_VARS, [KeyPress("t")], argument="blog")
+
+    assert fetches_on_arrival >= 1, before
+    assert [c for c, _ in client.calls].count("get_env_vars") > fetches_on_arrival

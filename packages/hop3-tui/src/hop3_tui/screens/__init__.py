@@ -11,8 +11,10 @@ enum below is what the navigation state holds.
 
 from __future__ import annotations
 
+import sys
 from collections.abc import Callable
 from enum import Enum
+from functools import cache
 from typing import TYPE_CHECKING, Protocol
 
 if TYPE_CHECKING:
@@ -56,8 +58,14 @@ class Render(Protocol):
     ) -> View: ...
 
 
+@cache
 def _registry() -> dict[Screen, Render]:
-    """Imported inside a function: every screen imports `Screen` from this module."""
+    """Imported inside a function: every screen imports `Screen` from this module.
+
+    Cached rather than assembled behind a hand-rolled lazy dict, so importing the
+    app still does not drag in all eleven screens and there is no half-built state
+    to guard against.
+    """
     from hop3_tui.screens import (
         addons,
         app_detail,
@@ -88,35 +96,25 @@ def _registry() -> dict[Screen, Render]:
 
 
 class _Screens:
-    """Lazy dict, so importing the app does not import all eleven screens at once."""
-
-    def __init__(self) -> None:
-        self._table: dict[Screen, Render] | None = None
+    """`SCREENS[screen]`, without importing every screen to answer the first one."""
 
     def __getitem__(self, screen: Screen) -> Render:
-        if self._table is None:
-            self._table = _registry()
-        return self._table[screen]
+        return _registry()[screen]
 
 
 SCREENS = _Screens()
-
-#: Screens whose keys live in a shared module rather than their own.
-_SHARED_KEYS = {Screen.LOGS: "_logview", Screen.SYSTEM_LOGS: "_logview"}
 
 
 def screen_keys(screen: Screen) -> tuple[tuple[str, str], ...]:
     """The (key, description) pairs a screen declares, for the help overlay.
 
-    Imported on demand, like the render functions: `?` should not be the reason
-    every screen module loads.
+    The module is the one the render function came from, so a screen that borrows
+    another's body (the two log views share `_logview`) borrows its keys too. A
+    second table naming those modules was one rename away from disagreeing with
+    this one.
     """
-    import importlib
-
-    module = importlib.import_module(
-        f"hop3_tui.screens.{_SHARED_KEYS.get(screen, screen.value)}"
-    )
-    return getattr(module, "KEYS", ())
+    module = sys.modules[_registry()[screen].__module__]
+    return module.KEYS
 
 
 __all__ = ["SCREENS", "Render", "Screen", "screen_keys"]

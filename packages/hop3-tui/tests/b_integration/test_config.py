@@ -11,6 +11,7 @@ import os
 from typing import TYPE_CHECKING
 from unittest.mock import patch
 
+import pytest
 from hop3_tui.config import TUIConfig, get_config, reset_config
 
 if TYPE_CHECKING:
@@ -126,12 +127,10 @@ class TestConfigFromEnv:
 class TestConfigFromFile:
     """Tests for loading config from TOML file."""
 
-    def test_load_from_nonexistent_file(self, tmp_path: Path):
-        """Test loading from a file that doesn't exist."""
-        config = TUIConfig()
-        result = TUIConfig._load_from_file(tmp_path / "nonexistent.toml", config)
-        # Should return original config unchanged
-        assert result.server_url == ""  # unconfigured; see test_cli_config_inheritance
+    def test_load_from_unreadable_file_says_so(self, tmp_path: Path):
+        """`load` only calls this for a file that exists, so a miss is worth saying."""
+        with pytest.raises(ValueError, match="can't be read"):
+            TUIConfig._load_from_file(tmp_path / "nonexistent.toml", TUIConfig())
 
     def test_load_from_toml_file(self, tmp_path: Path):
         """Test loading from a valid TOML file."""
@@ -177,14 +176,17 @@ url = "https://partial.com"
         assert result.theme == "dark"  # Default
         assert result.refresh_interval == 5  # Default
 
-    def test_load_invalid_toml_ignored(self, tmp_path: Path):
-        """Test that invalid TOML files are ignored."""
+    def test_invalid_toml_is_reported_not_ignored(self, tmp_path: Path):
+        """A malformed config used to be swallowed.
+
+        The defaults were returned instead, so a typo in `tui.toml` presented as
+        the TUI quietly talking to a different server than the file asked for.
+        """
         config_file = tmp_path / "tui.toml"
         config_file.write_text("this is not valid toml {{{")
-        config = TUIConfig()
-        result = TUIConfig._load_from_file(config_file, config)
-        # Should return original config unchanged
-        assert result.server_url == ""  # unconfigured; see test_cli_config_inheritance
+
+        with pytest.raises(ValueError, match="is not valid TOML"):
+            TUIConfig._load_from_file(config_file, TUIConfig())
 
 
 class TestConfigSave:

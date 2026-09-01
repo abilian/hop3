@@ -22,20 +22,19 @@ from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.screens import Screen
 from hop3_tui.screens._common import bind, fill
 
+# Every command `run_command` (or `submit`, for `clear`) actually answers, and
+# nothing else. This list is the completion source *and* what `help` prints, so a
+# name that is here but not below is advertised twice and works nowhere: `app`,
+# `logs`, `env`, `deploy`, `backup` and `restore` all sat here answering
+# "unknown command", which is the dashboard's dead-key defect in a second place.
 COMMANDS = [
     "apps",
-    "app",
-    "start",
-    "stop",
-    "restart",
-    "logs",
-    "env",
-    "status",
     "clear",
     "help",
-    "deploy",
-    "backup",
-    "restore",
+    "restart",
+    "start",
+    "status",
+    "stop",
 ]
 
 BANNER = "[green]Hop3 console.[/] Type [bold]help[/] for commands."
@@ -84,7 +83,12 @@ async def run_command(hop3, command: str) -> list[Line]:
         case "status":
             return [Line(f"connection: {hop3.connection_state.value}")]
         case "start" | "stop" | "restart" if rest:
-            call = getattr(hop3.api_client, f"{verb}_app")
+            client = hop3.api_client
+            call = {
+                "start": client.start_app,
+                "stop": client.stop_app,
+                "restart": client.restart_app,
+            }[verb]
             try:
                 await call(rest)
             except Hop3ClientError as error:
@@ -102,8 +106,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     transcript, set_transcript = ui.state(OPENING)
 

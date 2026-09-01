@@ -154,30 +154,27 @@ class TestAddon:
 
 
 class TestBackup:
-    """Tests for Backup model."""
+    """Tests for Backup model.
+
+    The fields mirror one `backup list` row, which arrives already rendered — the
+    size as "5MB", not as bytes.
+    """
 
     def test_basic_backup(self):
-        """Test creating a basic backup."""
-        now = datetime.now(timezone.utc)
-        backup = Backup(
-            id="20240315_120000",
-            app_name="myapp",
-            created_at=now,
-        )
+        backup = Backup(id="20240315_120000", app_name="myapp")
         assert backup.id == "20240315_120000"
         assert backup.app_name == "myapp"
-        assert backup.size_bytes == 0
-        assert backup.addons == []
+        assert backup.size == "-"
+        assert backup.addons == "-"
 
     def test_backup_with_addons(self):
-        """Test backup with addons."""
-        now = datetime.now(timezone.utc)
         backup = Backup(
             id="20240315_120000",
             app_name="myapp",
-            created_at=now,
-            size_bytes=1024000,
-            addons=["postgresql", "redis"],
+            size="1000KB",
+            created="2024-03-15 12:00:00",
+            state="done",
+            addons="postgresql, redis",
         )
-        assert backup.size_bytes == 1024000
-        assert len(backup.addons) == 2
+        assert backup.size == "1000KB"
+        assert backup.addons == "postgresql, redis"

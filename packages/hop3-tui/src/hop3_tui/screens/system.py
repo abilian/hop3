@@ -26,7 +26,7 @@ from turbodesk import UI, Size, View, hcat, markup, vcat
 from turbodesk.widgets import dialog
 
 from hop3_tui.screens import Screen
-from hop3_tui.screens._common import Bindings, bind, fill, halves
+from hop3_tui.screens._common import bind, fill, halves
 from hop3_tui.widgets import SystemStats, panel, status_panel
 from hop3_tui.widgets.util import UNAVAILABLE
 
@@ -85,15 +85,17 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
-    actions: Bindings = {}
-    if push is not None:
-        actions["l"] = lambda: push(Screen.SYSTEM_LOGS)
-        actions["p"] = lambda: _ask_for_app(ui, push)
-    actions["r"] = lambda: ui.notify(NOTHING_TO_REFRESH)
-    bind(ui, actions)
+    bind(
+        ui,
+        {
+            "l": lambda: push(Screen.SYSTEM_LOGS),
+            "p": lambda: _ask_for_app(ui, push),
+            "r": lambda: ui.notify(NOTHING_TO_REFRESH),
+        },
+    )
 
     left, right = halves(size.width)
     top_height = max(5, size.height // 2)

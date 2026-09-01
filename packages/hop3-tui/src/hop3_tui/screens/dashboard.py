@@ -10,13 +10,13 @@ and `hcat`/`vcat` place them — eight lines, and the panels are the same four.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from typing import NamedTuple
 
 from turbodesk import UI, Size, View, hcat, markup, vcat
 
 from hop3_tui.api.client import Hop3ClientError
-from hop3_tui.api.models import AppState
+from hop3_tui.api.models import App, AppState
 from hop3_tui.screens import Screen
 from hop3_tui.screens._common import bind, poll
 from hop3_tui.widgets import SystemStats, panel, status_panel
@@ -38,11 +38,14 @@ class AppCounts(NamedTuple):
     failed: int = 0
 
     @classmethod
-    def of(cls, apps: list) -> AppCounts:
+    def of(cls, apps: Sequence[App]) -> AppCounts:
+        #: CRASHED is what `app status` calls a RUNNING row with no process behind
+        #: it. It belongs under Failed, not in a fourth number nobody watches.
+        failed = {AppState.FAILED, AppState.CRASHED}
         return cls(
             running=sum(1 for app in apps if app.state == AppState.RUNNING),
             stopped=sum(1 for app in apps if app.state == AppState.STOPPED),
-            failed=sum(1 for app in apps if app.state == AppState.FAILED),
+            failed=sum(1 for app in apps if app.state in failed),
         )
 
 
@@ -62,8 +65,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     """Four panels in a 2x2 grid, refreshed on the configured interval."""
     counts: AppCounts
@@ -82,8 +85,7 @@ def render(
     poll(ui, float(hop3.config.refresh_interval), refresh)
 
     def show_logs() -> None:
-        if push is not None:
-            push(Screen.SYSTEM_LOGS)
+        push(Screen.SYSTEM_LOGS)
 
     def do_refresh() -> None:
         ui.spawn(refresh())
@@ -110,9 +112,8 @@ def render(
         cell,
     )
 
-    if switch is not None:
-        apps_panel = apps_panel.on_click(lambda: switch(Screen.APPS))
-        system = system.on_click(lambda: switch(Screen.SYSTEM))
+    apps_panel = apps_panel.on_click(lambda: switch(Screen.APPS))
+    system = system.on_click(lambda: switch(Screen.SYSTEM))
 
     return vcat([
         hcat([apps_panel, system]),

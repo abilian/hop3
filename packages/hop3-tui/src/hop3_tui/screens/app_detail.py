@@ -41,16 +41,22 @@ KEYS = (
 
 
 def info_panel(ui: UI, app: App | None) -> View:
+    """What `app status` reports, and nothing it doesn't.
+
+    `Runtime` used to sit at the top of this panel reading the model's `"unknown"`
+    default: the server has no runtime field, so the line said the same word about
+    every application forever.
+    """
     if app is None:
         return markup.render(ui.theme, "[dim]loading…[/]")
+    lines = [f"Name:     {app.name}", f"Port:     {app.port or '-'}"]
+    if app.hostname:
+        lines.append(f"URL:      https://{app.hostname}")
+    if app.error_message:
+        lines.append(f"[red]Error:[/]    {app.error_message}")
     return vcat([
         hcat([View.text("State:    "), status_badge(ui.theme, app.state)]),
-        markup.render_lines(
-            ui.theme,
-            f"Runtime:  {app.runtime}\n"
-            f"Port:     {app.port or '-'}\n"
-            f"Name:     {app.name}",
-        ),
+        markup.render_lines(ui.theme, "\n".join(lines)),
     ])
 
 
@@ -60,8 +66,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     name = argument or "(no app)"
     app: App | None
@@ -104,9 +110,8 @@ def render(
         "r": lambda: ui.spawn(act("restart", hop3.api_client.restart_app)),
         "R": lambda: ui.spawn(refresh()),
     }
-    if push is not None:
-        actions["l"] = lambda: push(Screen.LOGS, name)
-        actions["e"] = lambda: push(Screen.ENV_VARS, name)
+    actions["l"] = lambda: push(Screen.LOGS, name)
+    actions["e"] = lambda: push(Screen.ENV_VARS, name)
     bind(ui, actions)
 
     left, right = halves(size.width)
