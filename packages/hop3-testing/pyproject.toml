@@ -43,6 +43,11 @@ dependencies = [
     "tomlkit>=0.12",
 ]
 
+# Registered as a pytest plugin so any package's e2e layer can use the shared
+# Docker fixtures. Nothing heavy is imported until a fixture is actually requested.
+[project.entry-points.pytest11]
+hop3_testing = "hop3_testing.pytest_plugin"
+
 [project.scripts]
 hop3-test = "hop3_testing.cli:main"
 
