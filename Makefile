@@ -102,8 +102,8 @@ lint:
 		packages/hop3-server/src \
 		packages/hop3-testing/src \
 		packages/hop3-testlab/src \
-		packages/hop3-tooling/src
-		# packages/hop3-tui/src
+		packages/hop3-tooling/src \
+		packages/hop3-tui/src
 	uv run mypy packages/hop3-*/src
 	cd packages/hop3-server && uv run deptry src
 	@echo ""
@@ -144,7 +144,7 @@ test-fast:
 	  packages/hop3-cli/tests \
 	  packages/hop3-rootd/tests/a_unit \
 	  packages/hop3-installer/tests/a_unit \
-	  packages/hop3-tui/tests \
+	  packages/hop3-tui/tests/a_unit \
 	  packages/hop3-testing/tests \
 	  packages/hop3-testlab/tests/a_unit \
 	  packages/hop3-marketplace/tests \
@@ -161,7 +161,8 @@ test:
 	  packages/hop3-rootd/tests \
 	  packages/hop3-installer/tests/a_unit \
 	  packages/hop3-installer/tests/b_integration \
-	  packages/hop3-tui/tests \
+	  packages/hop3-tui/tests/a_unit \
+	  packages/hop3-tui/tests/b_integration \
 	  packages/hop3-testing/tests \
 	  packages/hop3-testlab/tests/a_unit \
 	  packages/hop3-marketplace/tests \
@@ -172,9 +173,10 @@ test:
 ## Always Docker-only: the root conftest makes HOP3_DEV_HOST/HOP3_TEST_HOST taboo
 ## for pytest, so no `unset` dance is needed. Remote is opt-in via `--ssh-host`.
 test-e2e:
-	@echo "--> Docker e2e tests (c_e2e) — server + installer"
+	@echo "--> Docker e2e tests (c_e2e) — server + installer + tui"
 	uv run pytest packages/hop3-server/tests/c_e2e
 	uv run pytest packages/hop3-installer/tests/c_e2e --docker
+	uv run pytest packages/hop3-tui/tests/c_e2e
 	@echo ""
 
 ## Coverage — the in-process layers (what coverage.py can actually see)
