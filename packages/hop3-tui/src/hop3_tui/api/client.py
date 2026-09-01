@@ -47,12 +47,15 @@ class Hop3Client:
         self,
         base_url: str = "",
         unconfigured_hint: str = "",
+        transport_hint: str = "",
         token: str | None = None,
         verify_ssl: bool = True,
         ssl_cert: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
         self.unconfigured_hint = unconfigured_hint
+        #: Appended to transport failures, to explain a route the URL does not show.
+        self.transport_hint = transport_hint
         self.token = token
         # SECURITY: when a pinned cert is configured we always pass its
         # path (chain-verified against the cert). Disabling verification
@@ -107,7 +110,7 @@ class Hop3Client:
                 msg = f"HTTP error: {e.response.status_code}"
                 raise Hop3ClientError(msg) from e
             except httpx.RequestError as e:
-                msg = f"Request failed: {e}"
+                msg = f"Request failed: {e} {self.transport_hint}".rstrip()
                 raise Hop3ClientError(msg) from e
 
             data = response.json()

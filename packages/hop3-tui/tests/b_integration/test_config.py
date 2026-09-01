@@ -276,75 +276,10 @@ class TestFindConfigFile:
             assert result == config_file
 
 
-class TestCLIConfigFallback:
-    """Tests for loading config from hop3-cli config file."""
-
-    def test_load_from_cli_config(self, tmp_path: Path):
-        """Test loading from a hop3-cli config file."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("""
-api_url = "https://cli-server.com:8000"
-api_token = "cli-token-123"
-ssl_cert = "/path/to/cert.crt"
-verify_ssl = "false"
-""")
-        config = TUIConfig()
-        result = TUIConfig._load_from_cli_config(config_file, config)
-
-        assert result.server_url == "https://cli-server.com:8000"
-        assert result.auth_token == "cli-token-123"
-        # Other fields should remain default
-        assert result.theme == "dark"
-        assert result.refresh_interval == 5
-
-    def test_load_partial_cli_config(self, tmp_path: Path):
-        """Test loading a partial CLI config file."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("""
-api_url = "https://partial-cli.com"
-""")
-        config = TUIConfig()
-        result = TUIConfig._load_from_cli_config(config_file, config)
-
-        assert result.server_url == "https://partial-cli.com"
-        assert result.auth_token is None  # Not in file, remains default
-
-    def test_cli_config_invalid_toml_ignored(self, tmp_path: Path):
-        """Test that invalid CLI config is ignored."""
-        config_file = tmp_path / "config.toml"
-        config_file.write_text("invalid { toml }")
-        config = TUIConfig()
-        result = TUIConfig._load_from_cli_config(config_file, config)
-        # Should return original config unchanged
-        assert result.server_url == ""  # unconfigured; see test_cli_config_inheritance
-
-    def test_tui_config_overrides_cli_config(self, tmp_path: Path):
-        """Test that TUI config takes priority over CLI config."""
-        # Create CLI config
-        cli_config = tmp_path / "cli" / "config.toml"
-        cli_config.parent.mkdir(parents=True)
-        cli_config.write_text("""
-api_url = "https://cli-server.com"
-api_token = "cli-token"
-""")
-
-        # Create TUI config
-        tui_config = tmp_path / "tui.toml"
-        tui_config.write_text("""
-[server]
-url = "https://tui-server.com"
-""")
-
-        config = TUIConfig()
-        # First load CLI config (lower priority)
-        config = TUIConfig._load_from_cli_config(cli_config, config)
-        # Then load TUI config (higher priority)
-        config = TUIConfig._load_from_file(tui_config, config)
-
-        # TUI config should override CLI config for server_url
-        assert config.server_url == "https://tui-server.com"
-        # But CLI token should remain (not overridden by TUI)
-        assert config.auth_token == "cli-token"
+# `TestCLIConfigFallback` lived here and drove `_load_from_cli_config(path, config)`,
+# which parsed hop3-cli's TOML by hand. That reader is gone: the TUI now asks
+# hop3-cli to resolve its own server and token, so there is one resolution rather
+# than two that drift. See tests/b_integration/test_cli_config_inheritance.py.
 
 
 class TestGetConfig:
