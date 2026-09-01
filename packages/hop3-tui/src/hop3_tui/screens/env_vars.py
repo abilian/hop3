@@ -4,13 +4,14 @@
 
 """Environment variables for one application.
 
-`t` toggles whether secret values are shown — the one piece of screen-local state the
-original kept as a reactive.
+`t` asks the server to send the secrets in full. It has to be a re-fetch, not a
+local unmasking: `env show` redacts by name before it answers, so a mask applied
+on this side could only ever hide `abcd***` behind a different set of asterisks.
 """
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from turbodesk import UI, Size, View
 from turbodesk.widgets import Column, dialog, table
@@ -27,49 +28,28 @@ NO_VARIABLES: tuple[EnvVar, ...] = ()
 COLUMNS = [
     Column("name", weight=2),
     Column("value", weight=3),
-    Column("type", width=10),
 ]
-MASK = "****hidden****"
 MAX_VALUE = 50
-# Matched against the value, not the name: `API_URL=https://…` is not a secret, and
-# `TOKEN` is only interesting because of what is stored in it.
-SECRET_HINTS = ("sk-", "key", "secret", "password", "token", "auth", "credential")
 
 
 KEYS = (
     ("a", "Add variable"),
     ("e", "Edit variable"),
     ("d", "Delete variable"),
-    ("t", "Toggle secret values"),
+    ("t", "Reveal secret values"),
     ("R", "Refresh"),
 )
 
 
-def is_secret(value: str) -> bool:
-    lowered = value.lower()
-    return any(hint in lowered for hint in SECRET_HINTS)
-
-
-def format_value(value: str, *, reveal: bool) -> str:
-    """What a cell shows: masked if secret and hidden, elided if long."""
-    if not reveal and is_secret(value):
-        return MASK
+def format_value(value: str) -> str:
+    """What a cell shows: the server's value, elided when it is too long to fit."""
     if len(value) > MAX_VALUE:
         return value[: MAX_VALUE - 3] + "..."
     return value
 
 
-def table_rows(variables: list, *, reveal: bool) -> list[list[str]]:
-    rows = []
-    for variable in variables:
-        name = str(getattr(variable, "key", getattr(variable, "name", "")))
-        value = str(getattr(variable, "value", ""))
-        rows.append([
-            name,
-            format_value(value, reveal=reveal),
-            "secret" if is_secret(value) else "plain",
-        ])
-    return rows
+def table_rows(variables: Sequence[EnvVar]) -> list[list[str]]:
+    return [[variable.name, format_value(variable.value)] for variable in variables]
 
 
 def render(
@@ -78,32 +58,42 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     name = argument or "(no app)"
-    variables: tuple
+    variables: tuple[EnvVar, ...]
     variables, set_variables = ui.state(NO_VARIABLES)
     selected: int
     selected, set_selected = ui.state(0)
     reveal: bool
     reveal, set_reveal = ui.state(False)
 
-    async def refresh() -> None:
+    async def load(*, show_secrets: bool) -> None:
         try:
-            fetched = await hop3.api_client.get_env_vars(name)
+            fetched = await hop3.api_client.get_env_vars(
+                name, show_secrets=show_secrets
+            )
         except Hop3ClientError as error:
             ui.notify(f"Server error: {error}", kind="error", seconds=5)
         else:
             set_variables(tuple(fetched))
 
+    async def refresh() -> None:
+        await load(show_secrets=reveal)
+
     poll(ui, 30.0, refresh)
     rows = list(variables)
+
+    def toggle_reveal() -> None:
+        """Flip the flag, then go and ask again — the values are on the server."""
+        set_reveal(not reveal)
+        ui.spawn(load(show_secrets=not reveal))
 
     def chosen_key() -> str | None:
         if not (0 <= selected < len(rows)):
             return None
-        return str(getattr(rows[selected], "key", getattr(rows[selected], "name", "")))
+        return rows[selected].name
 
     def delete_var() -> None:
         key = chosen_key()
@@ -162,7 +152,7 @@ def render(
     bind(
         ui,
         {
-            "t": lambda: set_reveal(not reveal),
+            "t": toggle_reveal,
             "d": delete_var,
             "a": add_var,
             "e": edit_var,
@@ -175,7 +165,7 @@ def render(
         table(
             ui,
             COLUMNS,
-            table_rows(rows, reveal=reveal),
+            table_rows(rows),
             selected,
             size=size,
             on_move=set_selected,

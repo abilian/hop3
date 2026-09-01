@@ -16,13 +16,19 @@ from pydantic import BaseModel
 
 
 class AppState(str, Enum):
-    """Application state enumeration."""
+    """Application state enumeration.
+
+    ``CRASHED`` is not a stored state: `app status` reports it when the database
+    says RUNNING and no process answers. The client had no member for it, so
+    reading a crashed app raised ValueError out of a render.
+    """
 
     STOPPED = "STOPPED"
     STARTING = "STARTING"
     RUNNING = "RUNNING"
     STOPPING = "STOPPING"
     FAILED = "FAILED"
+    CRASHED = "CRASHED"
 
 
 class EnvVar(BaseModel):
@@ -79,10 +85,16 @@ class Addon(BaseModel):
 
 
 class Backup(BaseModel):
-    """Backup model."""
+    """One row of `backup list`, as the server renders it.
+
+    The size and the timestamp arrive already formatted for reading, so they are
+    kept as text. Modelling them as ``size_bytes: int`` meant the screen read a
+    field the wire never fills, and every row's size column showed a dash.
+    """
 
     id: str
     app_name: str
-    created_at: datetime
-    size_bytes: int = 0
-    addons: list[str] = []
+    size: str = "-"
+    created: str = "-"
+    state: str = ""
+    addons: str = "-"

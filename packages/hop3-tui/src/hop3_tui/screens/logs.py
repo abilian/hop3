@@ -11,7 +11,11 @@ from collections.abc import Callable
 from turbodesk import UI, Size, View
 
 from hop3_tui.screens import Screen
-from hop3_tui.screens._logview import log_view
+from hop3_tui.screens._logview import KEYS, log_view
+
+#: Re-exported so `screen_keys` finds this screen's keys where its render
+#: function lives. Both log screens are `_logview`, keys included.
+__all__ = ["KEYS", "render"]
 
 LOG_LINES = 200
 
@@ -22,8 +26,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     name = argument or "(no app)"
 

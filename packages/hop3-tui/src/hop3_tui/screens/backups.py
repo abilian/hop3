@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 from turbodesk import UI, Size, View
 from turbodesk.widgets import Column, dialog, table
@@ -28,9 +28,6 @@ COLUMNS = [
     Column("addons", weight=2),
 ]
 
-KILOBYTE = 1024.0
-
-
 KEYS = (
     ("n", "New backup"),
     ("d", "Delete"),
@@ -39,27 +36,10 @@ KEYS = (
 )
 
 
-def human_size(size: int | None) -> str:
-    """Bytes as something a person reads. The original inlined this per row."""
-    if not size:
-        return "-"
-    value = float(size)
-    for unit in ("B", "KB", "MB", "GB"):
-        if value < KILOBYTE:
-            return f"{value:.0f}{unit}"
-        value /= KILOBYTE
-    return f"{value:.0f}TB"
-
-
-def table_rows(backups: list) -> list[list[str]]:
+def table_rows(backups: Sequence[Backup]) -> list[list[str]]:
+    """The row as the server sent it. `backup list` formats the size itself."""
     return [
-        [
-            str(getattr(backup, "id", "")),
-            str(getattr(backup, "app_name", "")),
-            human_size(getattr(backup, "size", None)),
-            str(getattr(backup, "created_at", "") or "-"),
-            ", ".join(getattr(backup, "addons", []) or []) or "-",
-        ]
+        [backup.id, backup.app_name, backup.size, backup.created, backup.addons]
         for backup in backups
     ]
 
@@ -70,10 +50,10 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
-    backups: tuple
+    backups: tuple[Backup, ...]
     backups, set_backups = ui.state(NO_BACKUPS)
     selected: int
     selected, set_selected = ui.state(0)
@@ -90,7 +70,7 @@ def render(
     rows = list(backups)
 
     def chosen_id() -> str | None:
-        return str(rows[selected].id) if 0 <= selected < len(rows) else None
+        return rows[selected].id if 0 <= selected < len(rows) else None
 
     def new_backup() -> None:
         async def ask() -> None:

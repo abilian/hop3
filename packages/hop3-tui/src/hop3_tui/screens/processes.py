@@ -2,7 +2,7 @@
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
-"""Running processes, with a kill action behind a confirmation."""
+"""How many workers of each type one application is scaled to."""
 
 from __future__ import annotations
 
@@ -45,8 +45,8 @@ def render(
     size: Size,
     *,
     argument: str = "",
-    push: Callable[..., None] | None = None,
-    switch: Callable[[Screen], None] | None = None,
+    push: Callable[..., None],
+    switch: Callable[[Screen], None],
 ) -> View:
     processes: tuple[dict[str, Any], ...]
     processes, set_processes = ui.state(NO_PROCESSES)

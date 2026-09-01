@@ -7,8 +7,8 @@
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
 from typing import Any
+from urllib.parse import urlparse
 
 import httpx
 
@@ -40,20 +40,81 @@ def _as_count(cell: Any) -> int:
         return 0
 
 
+def _table_rows(result: list[Any]) -> list[list[Any]]:
+    """The rows of the table in a response, or none when it carries no table.
+
+    Every list-returning method here reads the same envelope, and each one that
+    invented its own reading of it got something wrong: the apps table showed the
+    instance count under PORT, the add-ons table read a status column that does not
+    exist, and `env show` was parsed as a mapping — which made the environment
+    screen list the envelope's own keys (`t`, `text`) as if they were variables.
+    """
+    for node in result:
+        if isinstance(node, dict) and node.get("t") == "table":
+            return list(node.get("rows", []))
+    return []
+
+
+def _text(result: list[Any]) -> str:
+    """The text nodes of a response, joined. What `logs` and `system logs` send."""
+    return "\n".join(
+        str(node.get("text", ""))
+        for node in result
+        if isinstance(node, dict) and node.get("t") == "text"
+    )
+
+
+def _pairs(result: list[Any]) -> dict[str, str]:
+    """A two-column `[label, value]` table as a mapping. What `app status` sends."""
+    return {
+        str(row[0]).strip(): str(row[1]).strip()
+        for row in _table_rows(result)
+        if len(row) > 1
+    }
+
+
+def _as_state(cell: Any) -> AppState:
+    """An `AppState` from a status cell, or a loud failure.
+
+    Not a default: a state we cannot name is a client that has fallen behind its
+    server, and showing it as STOPPED would be an invented answer about whether
+    someone's application is up.
+    """
+    try:
+        return AppState(str(cell).strip().upper())
+    except ValueError as error:
+        msg = f"Server reported an unknown application state: {cell!r}"
+        raise Hop3ClientError(msg) from error
+
+
+def _attached(cell: Any) -> str | None:
+    """The apps an add-on is attached to, or None. The server writes "-" for none."""
+    attached = str(cell).strip()
+    return None if attached in {"", "-"} else attached
+
+
+def _as_port(url: str) -> int | None:
+    """The port of `app status`'s `Local URL` row (`http://127.0.0.1:8000`)."""
+    return urlparse(url).port if url else None
+
+
+def _hostname(url: str) -> str | None:
+    """The host of `app status`'s `URL` row (`https://blog.example.com`)."""
+    return urlparse(url).hostname if url else None
+
+
 class Hop3Client:
     """Client for communicating with Hop3 server via JSON-RPC."""
 
     def __init__(
         self,
         base_url: str = "",
-        unconfigured_hint: str = "",
         transport_hint: str = "",
         token: str | None = None,
         verify_ssl: bool = True,
         ssl_cert: str | None = None,
     ) -> None:
         self.base_url = base_url.rstrip("/")
-        self.unconfigured_hint = unconfigured_hint
         #: Appended to transport failures, to explain a route the URL does not show.
         self.transport_hint = transport_hint
         self.token = token
@@ -82,10 +143,10 @@ class Hop3Client:
         self,
         cli_args: list[str],
         extra_args: dict[str, Any] | None = None,
-    ) -> Any:
-        """Make a JSON-RPC call to the server."""
+    ) -> list[Any]:
+        """Send one CLI command, and return the list of output nodes it answered with."""
         if not self.base_url:
-            raise Hop3ClientError(f"{self.unconfigured_hint} {NOT_CONFIGURED}".strip())
+            raise Hop3ClientError(NOT_CONFIGURED)
 
         payload = {
             "jsonrpc": "2.0",
@@ -117,37 +178,50 @@ class Hop3Client:
             if "error" in data:
                 raise Hop3ClientError(data["error"].get("message", "Unknown error"))
             result = data.get("result")
-            # Server returns result as a list - extract first element if present
-            if isinstance(result, list) and len(result) > 0:
-                return result[0]
-            return result
+            # A command answers with a *list* of output nodes — `env show` sends a
+            # caption, a table and a footnote. Keeping only the first threw the
+            # table away and left the caption to be parsed as the data.
+            return result if isinstance(result, list) else []
 
     # Application methods
 
     async def list_apps(self) -> list[App]:
         """Get list of all applications."""
         result = await self._rpc_call(["app", "list"])
-        apps = []
-        if result and result.get("t") == "table":
-            # `app list` sends [Name, Status, Instances] — no port, runtime or
-            # timestamp. The third column used to be read as a port, so the apps
-            # table showed the instance count under PORT.
-            for row in result.get("rows", []):
-                app = App(
-                    name=row[0] if len(row) > 0 else "unknown",
-                    state=AppState(row[1]) if len(row) > 1 else AppState.STOPPED,
-                    workers=_as_count(row[2]) if len(row) > 2 else 1,
-                )
-                apps.append(app)
-        return apps
+        # `app list` sends [Name, Status, Instances] — no port, runtime or
+        # timestamp. The third column used to be read as a port, so the apps
+        # table showed the instance count under PORT.
+        return [
+            App(
+                name=row[0] if len(row) > 0 else "unknown",
+                state=_as_state(row[1]) if len(row) > 1 else AppState.STOPPED,
+                workers=_as_count(row[2]) if len(row) > 2 else 1,
+            )
+            for row in _table_rows(result)
+        ]
 
     async def get_app(self, name: str) -> App | None:
-        """Get details for a specific application."""
+        """Get details for one application, from `app status`'s property table.
+
+        The response used to be fetched and then dropped on the floor, and an
+        `App(name=name)` — every other field its model default — handed back as if
+        it had been read from the server. The detail screen showed those defaults:
+        a STOPPED badge on a running app, and a port of `-`.
+        """
         result = await self._rpc_call(["app", "status", "--app", name])
-        if result:
-            # Parse the result based on the format returned
-            return App(name=name)
-        return None
+        properties = _pairs(result)
+        if not properties:
+            return None
+        return App(
+            name=properties.get("Name", name),
+            state=_as_state(properties.get("Status", "")),
+            workers=_as_count(properties["Instances"])
+            if "Instances" in properties
+            else 1,
+            port=_as_port(properties.get("Local URL", "")),
+            hostname=_hostname(properties.get("URL", "")),
+            error_message=properties.get("Error"),
+        )
 
     async def start_app(self, name: str) -> bool:
         """Start an application."""
@@ -174,9 +248,7 @@ class Hop3Client:
             "--lines",
             str(lines),
         ])
-        if result and result.get("t") == "text":
-            return result.get("text", "").split("\n")
-        return []
+        return _text(result).split("\n")
 
     # System methods
 
@@ -195,56 +267,56 @@ class Hop3Client:
         _ = await self._rpc_call(["system", "status"])
         return SystemStatus()
 
-    async def get_system_info(self) -> dict[str, Any]:
-        """Get system information."""
-        result = await self._rpc_call(["system", "info"])
-        return result or {}
-
     # Backup methods
 
     async def list_backups(self) -> list[Backup]:
-        """
-        Get list of all backups.
+        """Every backup the server knows about.
 
-        STUB: the RPC is invoked but the response is not yet parsed into
-        ``Backup`` models. The TUI backup list will be empty until this
-        parse is wired up.
+        `backup list` sends [BACKUP ID, APP, SIZE, CREATED, STATUS, SERVICES], with
+        the size and the timestamp already formatted for reading. `Backup` mirrors
+        that, rather than parsing a rendered size back into bytes so the screen can
+        render it again — which is the round trip that left every row's size blank.
         """
-        # TODO(tui): parse the ``backup list`` response into Backup models.
-        _ = await self._rpc_call(["backup", "list"])
-        return []
+        result = await self._rpc_call(["backup", "list"])
+        return [
+            Backup(
+                id=str(row[0]),
+                app_name=str(row[1]),
+                size=str(row[2]),
+                created=str(row[3]),
+                state=str(row[4]),
+                addons=str(row[5]),
+            )
+            for row in _table_rows(result)
+            if len(row) > 5
+        ]
 
-    async def create_backup(self, app_name: str) -> str:
+    async def create_backup(self, app_name: str) -> None:
         """Create a backup for an application."""
-        result = await self._rpc_call(["backup", "create", "--app", app_name])
-        return result.get("backup_id", "") if result else ""
+        await self._rpc_call(["backup", "create", "--app", app_name])
 
     # Environment variable methods
 
-    async def get_env_vars(self, app_name: str) -> list[EnvVar]:
-        """Get environment variables for an application."""
-        result = await self._rpc_call(["env", "show", "--app", app_name])
-        env_vars = []
-        if result:
-            # Result is expected to be a dict or list of env vars
-            if isinstance(result, dict):
-                for key, value in result.items():
-                    # Service vars typically have specific prefixes
-                    is_service = key.startswith(("DATABASE_", "REDIS_", "PORT", "HOST"))
-                    env_vars.append(
-                        EnvVar(name=key, value=str(value), is_service_var=is_service)
-                    )
-            elif isinstance(result, list):
-                for item in result:
-                    if isinstance(item, dict):
-                        env_vars.append(
-                            EnvVar(
-                                name=item.get("name", ""),
-                                value=item.get("value", ""),
-                                is_service_var=item.get("is_service_var", False),
-                            )
-                        )
-        return env_vars
+    async def get_env_vars(
+        self, app_name: str, *, show_secrets: bool = False
+    ) -> list[EnvVar]:
+        """The app's configured environment, as `env show` sends it.
+
+        `env show` answers with a `[Key, Value]` table, and redacts every value
+        whose name looks like a credential unless `--show-secrets` is passed. This
+        used to read the response as a mapping of names to values: what it got was
+        the JSON envelope, so the screen listed `t` and `text` as an app's two
+        environment variables and never showed a real one.
+        """
+        args = ["env", "show", "--app", app_name]
+        if show_secrets:
+            args.append("--show-secrets")
+        result = await self._rpc_call(args)
+        return [
+            EnvVar(name=str(row[0]), value=str(row[1]))
+            for row in _table_rows(result)
+            if len(row) > 1
+        ]
 
     async def set_env_var(self, app_name: str, key: str, value: str) -> bool:
         """Set an environment variable."""
@@ -261,14 +333,13 @@ class Hop3Client:
         await self._rpc_call(["app", "destroy", "--app", name])
         return True
 
-    async def deploy_app(self, name: str) -> dict[str, Any]:
+    async def deploy_app(self, name: str) -> None:
         """Build and start an application from the source it was created with.
 
         `deploy` takes no repository: the source is fixed when the app is created
         (see `create_app`). The old `--from` flag was never a server option.
         """
-        result = await self._rpc_call(["deploy", "--app", name])
-        return result or {}
+        await self._rpc_call(["deploy", "--app", name])
 
     async def create_app(self, name: str, repo_url: str) -> bool:
         """Create an application from a git repository.
@@ -284,25 +355,17 @@ class Hop3Client:
     async def list_addons(self) -> list[dict[str, Any]]:
         """Get list of all addons."""
         result = await self._rpc_call(["addon", "list"])
-        addons = []
-        if result and result.get("t") == "table":
-            for row in result.get("rows", []):
-                # `addon list` sends [Name, Type, Attached apps] — three columns,
-                # the third a comma-joined list of apps or "-". There is no status
-                # column; reading a fourth gave every add-on "unknown".
-                attached = str(row[2]).strip() if len(row) > 2 else ""
-                addon = {
-                    "name": row[0] if len(row) > 0 else "",
-                    "type": row[1] if len(row) > 1 else "",
-                    "app_name": None if attached in {"", "-"} else attached,
-                }
-                addons.append(addon)
-        return addons
-
-    async def get_addon(self, name: str) -> dict[str, Any] | None:
-        """Get addon details."""
-        result = await self._rpc_call(["addon", "show", name])
-        return result
+        # `addon list` sends [Name, Type, Attached apps] — three columns, the third
+        # a comma-joined list of apps or "-". There is no status column; reading a
+        # fourth gave every add-on "unknown".
+        return [
+            {
+                "name": row[0] if len(row) > 0 else "",
+                "type": row[1] if len(row) > 1 else "",
+                "app_name": _attached(row[2]) if len(row) > 2 else None,
+            }
+            for row in _table_rows(result)
+        ]
 
     async def create_addon(self, addon_type: str, name: str) -> bool:
         """Create a new addon."""
@@ -324,28 +387,6 @@ class Hop3Client:
         await self._rpc_call(["addon", "destroy", name])
         return True
 
-    # Extended backup methods
-
-    async def get_backup(self, backup_id: str) -> Backup | None:
-        """Get backup details."""
-        result = await self._rpc_call(["backup", "show", backup_id])
-        if result:
-            # Parse created_at from result or use current time as fallback
-            created_at_str = result.get("created_at")
-            if created_at_str:
-                created_at = datetime.fromisoformat(created_at_str)
-            else:
-                created_at = datetime.now(timezone.utc)
-
-            return Backup(
-                id=backup_id,
-                app_name=result.get("app_name", ""),
-                created_at=created_at,
-                size_bytes=result.get("size_bytes", 0),
-                addons=result.get("addons", []),
-            )
-        return None
-
     async def restore_backup(self, backup_id: str) -> bool:
         """Restore a backup."""
         await self._rpc_call(["backup", "restore", backup_id])
@@ -364,23 +405,19 @@ class Hop3Client:
         `ps` is app-scoped on the server — there is no server-wide process list.
         """
         result = await self._rpc_call(["ps", "--app", app_name])
-        processes = []
-        if result and result.get("t") == "table":
-            for row in result.get("rows", []):
-                # `ps` sends [Process Type, Count]: how many workers of each type
-                # the app is scaled to. It is not a process list — there is no pid,
-                # status, CPU or uptime on the server at all, and the client used to
-                # parse six columns out of these two.
-                process = {
-                    "type": row[0] if len(row) > 0 else "",
-                    "count": _as_count(row[1]) if len(row) > 1 else 0,
-                }
-                processes.append(process)
-        return processes
+        # `ps` sends [Process Type, Count]: how many workers of each type the app is
+        # scaled to. It is not a process list — there is no pid, status, CPU or
+        # uptime on the server at all, and the client used to parse six columns out
+        # of these two.
+        return [
+            {
+                "type": row[0] if len(row) > 0 else "",
+                "count": _as_count(row[1]) if len(row) > 1 else 0,
+            }
+            for row in _table_rows(result)
+        ]
 
     async def get_system_logs(self, lines: int = 100) -> list[str]:
         """Get system logs."""
         result = await self._rpc_call(["system", "logs", "--lines", str(lines)])
-        if result and result.get("t") == "text":
-            return result.get("text", "").split("\n")
-        return []
+        return _text(result).split("\n")

@@ -74,10 +74,8 @@ ARGV = [
     ("create_backup", ("blog",), ["backup", "create", "--app", "blog"]),
     ("delete_backup", ("bk-1",), ["backup", "destroy", "bk-1"]),
     ("restore_backup", ("bk-1",), ["backup", "restore", "bk-1"]),
-    ("get_backup", ("bk-1",), ["backup", "show", "bk-1"]),
     ("list_apps", (), ["app", "list"]),
     ("list_addons", (), ["addon", "list"]),
-    ("get_addon", ("db",), ["addon", "show", "db"]),
     ("create_addon", ("postgres", "db"), ["addon", "create", "postgres", "db"]),
     ("delete_addon", ("db",), ["addon", "destroy", "db"]),
     ("attach_addon", ("db", "blog"), ["addon", "attach", "db", "--app", "blog"]),
@@ -110,8 +108,13 @@ async def test_a_transport_failure_becomes_a_client_error(sent):
 # -- parsing the table the server sends back -------------------------------------------
 
 
-def _table(*rows: list[str]) -> dict[str, Any]:
-    return {"t": "table", "headers": [], "rows": list(rows)}
+def _table(*rows: list[str]) -> list[dict[str, Any]]:
+    """A response carrying one table — a *list* of nodes, as the server sends.
+
+    The caption and footnote around it are what `env show` adds, and what the
+    client used to keep instead of the table.
+    """
+    return [{"t": "table", "headers": [], "rows": list(rows)}]
 
 
 @pytest.mark.asyncio
@@ -165,6 +168,83 @@ async def test_an_unattached_addon_reads_as_unattached(sent):
 @pytest.mark.asyncio
 async def test_a_missing_table_yields_nothing_rather_than_raising(sent):
     """A server that answers with text where a table was expected must not crash."""
-    _, addons = await sent("list_addons", result={"t": "text", "text": "no addons"})
+    _, addons = await sent("list_addons", result=[{"t": "text", "text": "no addons"}])
 
     assert addons == []
+
+
+@pytest.mark.asyncio
+async def test_env_show_is_read_from_the_table_not_the_caption(sent):
+    """The response is a *list*: a caption, the table, and a footnote.
+
+    Keeping only the first node and reading it as a mapping is what the client did,
+    so the environment screen listed `t` and `text` — the envelope's own keys — as
+    an application's two variables, and never showed a real one.
+    """
+    _, variables = await sent(
+        "get_env_vars",
+        "blog",
+        result=[
+            {"t": "text", "text": "Configured environment for 'blog':"},
+            {"t": "table", "headers": ["Key", "Value"], "rows": [["PORT", "8000"]]},
+            {"t": "text", "text": "\nNote: These are configured values."},
+        ],
+    )
+
+    assert [(v.name, v.value) for v in variables] == [("PORT", "8000")]
+
+
+@pytest.mark.asyncio
+async def test_revealing_secrets_is_a_flag_on_the_request(sent):
+    """`env show` redacts before it answers, so revealing has to be a re-fetch."""
+    argv, _ = await sent("get_env_vars", "blog", show_secrets=True)
+
+    assert argv == ["env", "show", "--app", "blog", "--show-secrets"]
+
+
+@pytest.mark.asyncio
+async def test_app_status_fills_the_model_it_used_to_discard(sent):
+    """`get_app` awaited the response and returned `App(name=name)` regardless."""
+    _, app = await sent(
+        "get_app",
+        "blog",
+        result=_table(
+            ["Name", "blog"],
+            ["Status", "RUNNING"],
+            ["Instances", "3"],
+            ["Local URL", "http://127.0.0.1:8123"],
+            ["URL", "https://blog.example.com"],
+        ),
+    )
+
+    assert app is not None
+    assert (app.state.value, app.workers, app.port) == ("RUNNING", 3, 8123)
+    assert app.hostname == "blog.example.com"
+
+
+@pytest.mark.asyncio
+async def test_a_crashed_app_is_a_state_the_client_can_name(sent):
+    """`app status` reports CRASHED; `AppState(...)` raised out of the render."""
+    _, app = await sent("get_app", "blog", result=_table(["Status", "CRASHED"]))
+
+    assert app is not None
+    assert app.state.value == "CRASHED"
+
+
+@pytest.mark.asyncio
+async def test_an_unknown_state_fails_loudly_rather_than_reading_as_stopped(sent):
+    with pytest.raises(Hop3ClientError, match="unknown application state"):
+        await sent("get_app", "blog", result=_table(["Status", "ASCENDED"]))
+
+
+@pytest.mark.asyncio
+async def test_backups_keep_the_size_the_server_formatted(sent):
+    """`backup list` renders the size itself; the model read `size_bytes`, so
+    every row showed a dash."""
+    _, backups = await sent(
+        "list_backups",
+        result=_table(["bk-1", "blog", "5MB", "2026-03-15 12:00:00", "done", "pg"]),
+    )
+
+    assert (backups[0].id, backups[0].size) == ("bk-1", "5MB")
+    assert backups[0].created == "2026-03-15 12:00:00"

@@ -78,17 +78,20 @@ class TestHop3ClientAsync:
         mock_client, mock_response = mock_httpx_client
         mock_response.json.return_value = {
             "jsonrpc": "2.0",
-            "result": {
-                "t": "table",
-                # What `app list` actually sends. This test used to invent a
-                # PORT header, which is what legitimised reading the instance
-                # count as a port number.
-                "headers": ["Name", "Status", "Instances"],
-                "rows": [
-                    ["myapp", "RUNNING", "2"],
-                    ["api", "STOPPED", None],
-                ],
-            },
+            # A list of output nodes, which is what a command answers with.
+            "result": [
+                {
+                    "t": "table",
+                    # What `app list` actually sends. This test used to invent a
+                    # PORT header, which is what legitimised reading the instance
+                    # count as a port number.
+                    "headers": ["Name", "Status", "Instances"],
+                    "rows": [
+                        ["myapp", "RUNNING", "2"],
+                        ["api", "STOPPED", None],
+                    ],
+                }
+            ],
             "id": 1,
         }
 
@@ -194,10 +197,7 @@ class TestHop3ClientAsync:
         mock_client, mock_response = mock_httpx_client
         mock_response.json.return_value = {
             "jsonrpc": "2.0",
-            "result": {
-                "t": "text",
-                "text": "line1\nline2\nline3",
-            },
+            "result": [{"t": "text", "text": "line1\nline2\nline3"}],
             "id": 1,
         }
 
