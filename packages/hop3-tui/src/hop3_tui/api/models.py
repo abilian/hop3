@@ -8,7 +8,7 @@
 from __future__ import annotations
 
 from datetime import (
-    datetime,  # ruff:ignore[typing-only-standard-library-import] - Pydantic needs this at runtime
+    datetime,
 )
 from enum import Enum
 

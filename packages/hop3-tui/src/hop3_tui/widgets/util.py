@@ -7,7 +7,13 @@
 
 from __future__ import annotations
 
-__all__ = ["make_bar"]
+__all__ = ["LABEL_WIDTH", "UNAVAILABLE", "gauge", "make_bar"]
+
+#: Shown wherever the server has not (yet) supplied a value. `0%` is a measurement
+#: and a plausible constant is a lie, so an unknown has to say that it is one.
+UNAVAILABLE = "[dim]not reported by the server[/]"
+
+LABEL_WIDTH = 8
 
 
 def make_bar(percent: float, width: int = 10) -> str:
@@ -24,3 +30,9 @@ def make_bar(percent: float, width: int = 10) -> str:
         color = "green"
 
     return f"[{color}]{'█' * filled}[/][dim]{'░' * empty}[/]"
+
+
+def gauge(label: str, percent: float | None) -> str:
+    """A labelled bar and a number, or a statement that there is no measurement."""
+    value = UNAVAILABLE if percent is None else f"{make_bar(percent)} {percent:.0f}%"
+    return f"{label + ':':<{LABEL_WIDTH}}{value}"

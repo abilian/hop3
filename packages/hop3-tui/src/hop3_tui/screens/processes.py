@@ -1,223 +1,92 @@
-# Copyright (c) 2025, Abilian SAS
 # SPDX-FileCopyrightText: 2024-2025 Abilian SAS <https://abilian.com>
 # SPDX-FileCopyrightText: 2024-2025 Stefane Fermigier
 # SPDX-License-Identifier: Apache-2.0
 
-"""Processes viewing screen."""
+"""Running processes, with a kill action behind a confirmation."""
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from collections.abc import Callable, Sequence
+from typing import Any
 
-from textual.binding import Binding
-from textual.coordinate import Coordinate
-from textual.screen import Screen
-from textual.widgets import DataTable, Footer, Header, Static
+from turbodesk import UI, Size, View, markup
+from turbodesk.widgets import Column, table
 
-if TYPE_CHECKING:
-    from textual.app import ComposeResult
+from hop3_tui.api.client import Hop3ClientError
+from hop3_tui.screens import Screen
+from hop3_tui.screens._common import bind, fill, poll
 
-    from hop3_tui.app import Hop3TUI
+# Declared: `ui.state(())` would type the slot as the empty tuple and then refuse
+# the values put into it later.
+NO_PROCESSES: tuple[dict[str, Any], ...] = ()
+
+# `ps` answers "how many workers of each type is this app scaled to". The screen
+# used to advertise pid, status, CPU, memory and uptime — five columns the server
+# has no data for at all, on a table it only ever sends two.
+COLUMNS = [
+    Column("process type", weight=3),
+    Column("count", width=8, align="right"),
+]
 
 
-class ProcessesScreen(Screen):
-    """Screen for viewing running processes."""
-
-    CSS = """
-    ProcessesScreen {
-        layout: vertical;
-    }
-
-    #processes-header {
-        height: 3;
-        padding: 0 1;
-        background: $primary-darken-2;
-    }
-
-    #processes-title {
-        text-style: bold;
-    }
-
-    #processes-table {
-        height: 1fr;
-    }
-
-    #processes-footer {
-        height: 3;
-        padding: 0 1;
-        background: $surface;
-    }
-    """
-
-    BINDINGS: ClassVar = [
-        Binding("escape", "go_back", "Back"),
-        Binding("r", "refresh", "Refresh"),
-        Binding("k", "kill_process", "Kill"),
+def table_rows(processes: Sequence[dict[str, Any]]) -> list[list[str]]:
+    return [
+        [str(process.get("type", "")), str(process.get("count", 0))]
+        for process in processes
     ]
 
-    def __init__(self) -> None:
-        super().__init__()
-        self._processes: list[dict[str, Any]] = []
 
-    @property
-    def hop3_app(self) -> Hop3TUI | None:
-        """Get the Hop3TUI app instance if available."""
-        if hasattr(self.app, "api_client"):
-            return cast("Hop3TUI", self.app)
-        return None
+def render(
+    ui: UI,
+    hop3,
+    size: Size,
+    *,
+    argument: str = "",
+    push: Callable[..., None] | None = None,
+    switch: Callable[[Screen], None] | None = None,
+) -> View:
+    processes: tuple[dict[str, Any], ...]
+    processes, set_processes = ui.state(NO_PROCESSES)
+    selected: int
+    selected, set_selected = ui.state(0)
 
-    def compose(self) -> ComposeResult:
-        yield Header()
-        with Static(id="processes-header"):
-            yield Static("Running Processes", id="processes-title")
-        yield DataTable(id="processes-table")
-        with Static(id="processes-footer"):
-            yield Static("[r] Refresh  [k] Kill  [Esc] Back")
-        yield Footer()
-
-    def on_mount(self) -> None:
-        """Set up the processes table."""
-        table = self.query_one("#processes-table", DataTable)
-        table.cursor_type = "row"
-        table.add_columns("NAME", "PID", "STATUS", "CPU %", "MEM %", "UPTIME")
-        self._refresh_data()
-        self.set_interval(5, self._refresh_data)
-
-    def _refresh_data(self) -> None:
-        """Refresh processes from server."""
-        self.run_worker(self._fetch_processes(), exclusive=True)
-
-    async def _fetch_processes(self) -> None:
-        """Fetch processes from server asynchronously."""
-        if not self.hop3_app:
-            # Mock data for testing
-            self._processes = [
-                {
-                    "name": "nginx",
-                    "pid": 1234,
-                    "status": "running",
-                    "cpu": 2.5,
-                    "memory": 1.2,
-                    "uptime": "14d 3h",
-                },
-                {
-                    "name": "supervisord",
-                    "pid": 1235,
-                    "status": "running",
-                    "cpu": 0.1,
-                    "memory": 0.5,
-                    "uptime": "14d 3h",
-                },
-                {
-                    "name": "postgresql",
-                    "pid": 1240,
-                    "status": "running",
-                    "cpu": 5.2,
-                    "memory": 8.3,
-                    "uptime": "14d 3h",
-                },
-                {
-                    "name": "redis-server",
-                    "pid": 1245,
-                    "status": "running",
-                    "cpu": 1.0,
-                    "memory": 2.1,
-                    "uptime": "14d 3h",
-                },
-                {
-                    "name": "myapp:web",
-                    "pid": 2001,
-                    "status": "running",
-                    "cpu": 15.3,
-                    "memory": 12.5,
-                    "uptime": "2d 5h",
-                },
-                {
-                    "name": "myapp:worker",
-                    "pid": 2002,
-                    "status": "running",
-                    "cpu": 8.7,
-                    "memory": 6.2,
-                    "uptime": "2d 5h",
-                },
-                {
-                    "name": "api-server:web",
-                    "pid": 2010,
-                    "status": "running",
-                    "cpu": 12.1,
-                    "memory": 9.8,
-                    "uptime": "5d 12h",
-                },
-            ]
-            self._update_table()
+    async def refresh() -> None:
+        if not argument:
             return
-
         try:
-            self._processes = await self.hop3_app.api_client.get_processes()
-            self._update_table()
-        except Exception as e:
-            self.notify(f"Failed to fetch processes: {e}", severity="error", timeout=5)
+            fetched = await hop3.api_client.get_processes(argument)
+        except Hop3ClientError as error:
+            ui.notify(f"Server error: {error}", kind="error", seconds=5)
+        else:
+            set_processes(tuple(fetched))
 
-    def _update_table(self) -> None:
-        """Update the table with current processes."""
-        table = self.query_one("#processes-table", DataTable)
-        table.clear()
+    poll(ui, 5.0, refresh)
 
-        for proc in sorted(self._processes, key=lambda p: p.get("name", "")):
-            status = proc.get("status", "unknown")
-            status_style = "green" if status == "running" else "red"
-            cpu = proc.get("cpu", 0)
-            memory = proc.get("memory", 0)
+    rows = list(processes)
 
-            # Color CPU/memory based on usage
-            cpu_style = "red" if cpu > 50 else ("yellow" if cpu > 25 else "green")
-            mem_style = "red" if memory > 50 else ("yellow" if memory > 25 else "green")
+    bind(ui, {"r": lambda: ui.spawn(refresh())})
 
-            table.add_row(
-                proc.get("name", ""),
-                str(proc.get("pid", "")),
-                f"[{status_style}]{status.upper()}[/]",
-                f"[{cpu_style}]{cpu:.1f}%[/]",
-                f"[{mem_style}]{memory:.1f}%[/]",
-                proc.get("uptime", ""),
-                key=str(proc.get("pid", "")),
-            )
+    if not argument:
+        # `ps` is app-scoped on the server; there is no server-wide process list.
+        return fill(
+            ui,
+            markup.render(
+                ui.theme, "[dim]No app selected. Open processes from an app.[/]"
+            ),
+            size,
+        )
 
-    def _get_selected_process(self) -> dict[str, Any] | None:
-        """Get the currently selected process."""
-        table = self.query_one("#processes-table", DataTable)
-        cursor_row = table.cursor_row
-        if table.row_count > 0 and cursor_row is not None:
-            pid = str(table.get_cell_at(Coordinate(cursor_row, 1)))
-            for proc in self._processes:
-                if str(proc.get("pid", "")) == pid:
-                    return proc
-        return None
-
-    def action_go_back(self) -> None:
-        """Go back to previous screen."""
-        self.app.pop_screen()
-
-    def action_refresh(self) -> None:
-        """Refresh the processes list."""
-        self._refresh_data()
-        self.notify("Refreshing processes...")
-
-    def action_kill_process(self) -> None:
-        """Kill the selected process."""
-        proc = self._get_selected_process()
-        if not proc:
-            self.notify("No process selected", severity="warning")
-            return
-
-        name = proc.get("name", "unknown")
-        # Don't allow killing system services
-        system_services = ["nginx", "supervisord", "postgresql", "redis-server"]
-        if name in system_services:
-            self.notify(
-                f"Cannot kill system service: {name}",
-                severity="error",
-            )
-            return
-
-        self.notify(f"[yellow]Kill process not yet implemented: {name}[/]")
+    return fill(
+        ui,
+        table(
+            ui,
+            COLUMNS,
+            table_rows(rows),
+            selected,
+            size=size,
+            on_move=set_selected,
+            focus="processes",
+            empty="(no processes)",
+        ),
+        size,
+    )
