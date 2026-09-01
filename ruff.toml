@@ -57,14 +57,6 @@ lint.extend-ignore = [
     "PERF401", #  7 - PERF401	manual-list-comprehension
     "RUF067", # `__init__` module should only contain docstrings and re-exports
     "RUF070", # unnecessary-assign-before-yield
-    # Preview rule (no short code assigned yet) that flags every `autouse=True`
-    # fixture. All of ours are the legitimate use: environment isolation, resetting
-    # a singleton or global between tests, registry population, cleanup, and
-    # weakening KDFs for speed. Its advice — request the fixture explicitly in each
-    # test — would make cross-cutting isolation opt-in, which is how the ambient
-    # `HOP3_*` env-var leak of ADR 043 comes back as an order-dependent flake.
-    # Revisit if it stabilises with a code and a per-fixture escape hatch.
-    "pytest-fixture-autouse",
     "RUF001", # ambiguous-unicode-character-string
     "RUF201", # use rule codes
     #
@@ -107,6 +99,7 @@ known-first-party = ["hop3"]
     "B904", #    raise-without-from-inside-except
     "C901", #    complex-structure
     "PLR0912", # too-many-branches
+    "pytest-fixture-autouse",
 ]
 "**/noxfile.py" = [
     "ANN",
