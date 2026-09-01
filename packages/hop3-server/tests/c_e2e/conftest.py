@@ -7,8 +7,6 @@
 from __future__ import annotations
 
 import contextlib
-import hashlib
-import json
 import os
 import subprocess
 import time
@@ -16,8 +14,6 @@ from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING, Any, cast
 
-import docker
-import docker.errors
 import httpx
 import pytest
 from hop3_testing.bundle import collect_diagnostic_bundle
@@ -52,6 +48,8 @@ FLASK_REQUIREMENTS = "flask==3.0.0\n"
 
 if TYPE_CHECKING:
     from collections.abc import Generator
+
+    import docker
 
 # Note: test_full_deployment.py now uses Docker fixtures like other d_e2e tests
 # No need to import c_system fixtures anymore
@@ -130,152 +128,6 @@ def _persist_pytest_bundle(app: str, bundle: Any) -> None:
         test=test,
     )
     ResultStore().save(cast("Any", result))
-
-
-@pytest.fixture(scope="session")
-def docker_client(
-    tmp_path_factory: pytest.TempPathFactory,
-) -> Generator[docker.DockerClient]:
-    """
-    Provide a Docker client for tests.
-
-    Point ``DOCKER_CONFIG`` at a copy of the user's config with the
-    credential-helper directives (``credsStore``/``credHelpers``) stripped, so
-    building or pulling public images never shells out to a credential helper
-    (e.g. ``docker-credential-osxkeychain``) — which pops an interactive keychain
-    prompt and fails the run if declined (docker-py's ``build()`` eagerly
-    resolves all credentials). The docker context (``currentContext``) and inline
-    ``auths`` are preserved, so connectivity is unchanged.
-    """
-    cfg_dir = tmp_path_factory.mktemp("docker-config")
-    real_cfg = Path.home() / ".docker" / "config.json"
-    data: dict[str, Any] = {}
-    if real_cfg.exists():
-        with contextlib.suppress(OSError, ValueError):
-            data = json.loads(real_cfg.read_text())
-    data.pop("credsStore", None)
-    data.pop("credHelpers", None)
-    (cfg_dir / "config.json").write_text(json.dumps(data))
-
-    prev = os.environ.get("DOCKER_CONFIG")
-    os.environ["DOCKER_CONFIG"] = str(cfg_dir)
-    try:
-        client = docker.from_env()
-        client.ping()  # connectivity check (context preserved)
-        yield client
-        client.close()
-    finally:
-        if prev is None:
-            os.environ.pop("DOCKER_CONFIG", None)
-        else:
-            os.environ["DOCKER_CONFIG"] = prev
-
-
-# Label carrying a content hash of everything the image bakes in. Reuse is
-# gated on it, so the cached image can never silently test stale code.
-_SRC_HASH_LABEL = "cloud.hop3.e2e-src-hash"
-
-
-def _e2e_build_inputs() -> list[Path]:
-    """
-    Every file whose content the e2e image bakes in (COPY / ``pip install -e``).
-
-    Covers the e2e Dockerfile + entrypoint and the ``pyproject.toml`` / ``README``
-    / full ``src`` tree of hop3-server and hop3-rootd — including non-``.py`` data
-    files (e.g. the WAF CRS rules the server loads at runtime). ``__pycache__`` is
-    excluded (the Dockerfile strips it, and it isn't a build input).
-    """
-    project_root = Path(__file__).parents[4]
-    docker_dir = Path(__file__).parent / "docker"
-    inputs = [docker_dir / "Dockerfile", docker_dir / "entrypoint.sh"]
-    for pkg in ("hop3-server", "hop3-rootd"):
-        base = project_root / "packages" / pkg
-        inputs.append(base / "pyproject.toml")
-        inputs.append(base / "README.md")
-        inputs += [
-            p
-            for p in (base / "src").rglob("*")
-            if p.is_file() and "__pycache__" not in p.parts
-        ]
-    return inputs
-
-
-def _compute_e2e_src_hash() -> str:
-    """SHA-256 over the build inputs (relative path + bytes), truncated."""
-    project_root = Path(__file__).parents[4]
-    digest = hashlib.sha256()
-    for path in sorted(_e2e_build_inputs()):
-        digest.update(path.relative_to(project_root).as_posix().encode())
-        digest.update(b"\0")
-        digest.update(path.read_bytes())
-        digest.update(b"\0")
-    return digest.hexdigest()[:16]
-
-
-@pytest.fixture(scope="session")
-def hop3_image(docker_client: docker.DockerClient) -> str:
-    """
-    Build the hop3 E2E test image, reusing it only when it is up to date.
-
-    The image bakes hop3-server + hop3-rootd source (and the e2e Dockerfile) at
-    build time. We stamp the build with a content hash of those inputs
-    (``_SRC_HASH_LABEL``) and reuse the cached image only when the hash still
-    matches — so a ``git pull`` or a source edit can never silently test stale
-    code (the class of bug where a WAF deploy went "green" against a server with
-    no WAF support). ``HOP3_E2E_FORCE_REBUILD=1`` forces a rebuild regardless.
-    """
-    image_tag = "hop3-e2e:test"
-    src_hash = _compute_e2e_src_hash()
-
-    if not os.environ.get("HOP3_E2E_FORCE_REBUILD"):
-        try:
-            existing = docker_client.images.get(image_tag)
-        except docker.errors.ImageNotFound:
-            existing = None
-        if existing is not None:
-            baked = (existing.labels or {}).get(_SRC_HASH_LABEL)
-            if baked == src_hash:
-                print(f"Using existing Docker image: {image_tag} (src {src_hash})")
-                return image_tag
-            print(
-                f"Rebuilding {image_tag}: baked source {baked or '<none>'} != "
-                f"current {src_hash} — server/rootd/Dockerfile changed since the "
-                f"cached image was built."
-            )
-
-    # Build the image. The Dockerfile copies source and installs with
-    # ``pip install -e``, so the build always reflects the current tree.
-    print(f"Building Docker image: {image_tag} (src {src_hash})")
-    print("This may take 5-10 minutes on first run...")
-
-    project_root = Path(__file__).parents[4]
-    dockerfile_path = Path(__file__).parent / "docker" / "Dockerfile"
-
-    try:
-        _image, logs = docker_client.images.build(
-            path=str(project_root),
-            dockerfile=str(dockerfile_path),
-            tag=image_tag,
-            labels={_SRC_HASH_LABEL: src_hash},
-            rm=True,  # Remove intermediate containers
-            forcerm=True,  # Always remove intermediate containers
-        )
-
-        # Print build logs
-        for log in logs:
-            if "stream" in log:
-                print(log["stream"].strip())
-
-        print(f"Successfully built image: {image_tag}")
-        return image_tag
-
-    except docker.errors.BuildError as e:
-        print(f"Build failed: {e}")
-        for log in e.build_log:
-            if "stream" in log:
-                print(log["stream"].strip())
-        msg = f"Failed to build Docker image: {e}"
-        raise AssertionError(msg)
 
 
 def _start_hop3_container(

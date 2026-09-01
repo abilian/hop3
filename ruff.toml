@@ -125,6 +125,13 @@ known-first-party = ["hop3"]
     "FBT",
     "T20", # flake8-print
 ]
+"packages/hop3-testing/src/hop3_testing/pytest_plugin.py" = [
+    # This module is a `pytest11` entry point, so it is imported on EVERY pytest
+    # run, `make test-fast` included. `import docker` costs ~140ms measured, and a
+    # session that never asks for the Docker fixtures should not pay it — so the
+    # heavy imports stay inside the fixture bodies.
+    "PLC0415", # import-outside-top-level
+]
 "packages/hop3-tui/**/*.py" = [
     "ANN",
     "FBT",
