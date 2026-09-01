@@ -14,7 +14,7 @@ from turbodesk.widgets import dialog
 from hop3_tui.api.client import Hop3ClientError
 from hop3_tui.api.models import App
 from hop3_tui.screens import Screen
-from hop3_tui.screens._common import bind, fill, halves, poll
+from hop3_tui.screens._common import Bindings, bind, fill, halves, poll
 from hop3_tui.widgets import panel
 from hop3_tui.widgets.status_badge import status_badge
 
@@ -29,6 +29,15 @@ ACTIONS = (
     "[r] Restart",
 )
 PREVIEW_LINES = 8
+
+
+KEYS = (
+    ("s", "Stop"),
+    ("r", "Restart"),
+    ("l", "Logs"),
+    ("e", "Environment"),
+    ("R", "Refresh"),
+)
 
 
 def info_panel(ui: UI, app: App | None) -> View:
@@ -90,7 +99,7 @@ def render(
 
         ui.spawn(ask())
 
-    actions: dict[str, Callable[[], None]] = {
+    actions: Bindings = {
         "s": stop,
         "r": lambda: ui.spawn(act("restart", hop3.api_client.restart_app)),
         "R": lambda: ui.spawn(refresh()),

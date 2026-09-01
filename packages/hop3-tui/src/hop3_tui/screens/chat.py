@@ -15,6 +15,7 @@ from collections.abc import Callable
 from typing import NamedTuple
 
 from turbodesk import UI, Size, Style, View, hcat, markup, vcat
+from turbodesk.events import Key
 from turbodesk.widgets import scroller, textbox
 
 from hop3_tui.api.client import Hop3ClientError
@@ -38,6 +39,12 @@ COMMANDS = [
 ]
 
 BANNER = "[green]Hop3 console.[/] Type [bold]help[/] for commands."
+
+
+KEYS = (
+    ("enter", "Run command"),
+    ("tab", "Complete"),
+)
 
 
 class Line(NamedTuple):
@@ -122,7 +129,7 @@ def render(
         if completion:
             prompt.set(completion)
 
-    bind(ui, {"\r": submit, "\t": complete})
+    bind(ui, {Key.ENTER: submit, Key.TAB: complete})
 
     t = ui.theme
     colours = {"in": t.mauve, "err": t.red, "out": t.subtext1}

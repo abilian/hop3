@@ -28,6 +28,15 @@ NO_LINES: tuple[str, ...] = ()
 LEVEL_ROLES = {"[ERROR]": "red", "[WARN]": "yellow", "[DEBUG]": "overlay1"}
 
 
+KEYS = (
+    ("space", "Pause / resume"),
+    ("/", "Filter"),
+    ("g", "Top"),
+    ("G", "Bottom"),
+    ("d", "Download"),
+)
+
+
 class Status(NamedTuple):
     """What the heading says about the poll: a label, a detail, and a theme role."""
 

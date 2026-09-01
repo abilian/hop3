@@ -101,4 +101,22 @@ class _Screens:
 
 SCREENS = _Screens()
 
-__all__ = ["SCREENS", "Render", "Screen"]
+#: Screens whose keys live in a shared module rather than their own.
+_SHARED_KEYS = {Screen.LOGS: "_logview", Screen.SYSTEM_LOGS: "_logview"}
+
+
+def screen_keys(screen: Screen) -> tuple[tuple[str, str], ...]:
+    """The (key, description) pairs a screen declares, for the help overlay.
+
+    Imported on demand, like the render functions: `?` should not be the reason
+    every screen module loads.
+    """
+    import importlib
+
+    module = importlib.import_module(
+        f"hop3_tui.screens.{_SHARED_KEYS.get(screen, screen.value)}"
+    )
+    return getattr(module, "KEYS", ())
+
+
+__all__ = ["SCREENS", "Render", "Screen", "screen_keys"]

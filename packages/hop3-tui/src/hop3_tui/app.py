@@ -23,10 +23,11 @@ from hop3_cli.config import get_config as cli_config
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from turbodesk import UI, Size, Style, View, vcat, zcat
 from turbodesk.events import Event, Key, KeyPress
+from turbodesk.widgets import dialog
 
 from hop3_tui.api.client import Hop3Client, Hop3ClientError
 from hop3_tui.config import TUIConfig, get_config
-from hop3_tui.screens import SCREENS, Screen
+from hop3_tui.screens import SCREENS, Screen, screen_keys
 from hop3_tui.screens._common import poll
 from hop3_tui.widgets import footer, header
 
@@ -54,10 +55,22 @@ FOOTER_BINDINGS = [
     ("q", "Quit"),
 ]
 
-HELP_TEXT = (
-    "Navigation: d=Dashboard, a=Apps, s=System, o=Addons, b=Backups, c=Chat\n"
-    "Actions: q=Quit, ?=Help"
-)
+
+def help_text(screen: Screen) -> str:
+    """Global keys, then this screen's own — which the footer has no room for.
+
+    The footer already lists the global ones, so a help panel that repeats only
+    those says nothing. The per-screen bindings are the part nothing else shows.
+    """
+    lines = [f"  {key:<6} {label}" for key, label in FOOTER_BINDINGS]
+    lines += ["", f"On this screen ({screen.value}):"]
+    keys = screen_keys(screen)
+    lines += (
+        [f"  {key:<6} {label}" for key, label in keys]
+        if keys
+        else ["  (no keys of its own)"]
+    )
+    return "\n".join(["Global:", *lines])
 
 
 class ConnectionState(Enum):
@@ -200,7 +213,9 @@ def app(hop3: Hop3TUI) -> Callable[[UI], View]:
                 case "q":
                     ui.exit()
                 case "?":
-                    ui.notify(HELP_TEXT, seconds=5)
+                    ui.spawn(
+                        dialog.alert(ui, "Keys", help_text(nav.current[0]), ok="Close")
+                    )
                 case Key.ESCAPE if nav.stack:
                     set_nav(nav.pop())
                 case Key.ESCAPE if nav.mode is not Screen.DASHBOARD:

@@ -31,6 +31,14 @@ COLUMNS = [
 KILOBYTE = 1024.0
 
 
+KEYS = (
+    ("n", "New backup"),
+    ("d", "Delete"),
+    ("r", "Restore"),
+    ("R", "Refresh"),
+)
+
+
 def human_size(size: int | None) -> str:
     """Bytes as something a person reads. The original inlined this per row."""
     if not size:

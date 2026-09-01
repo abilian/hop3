@@ -14,16 +14,24 @@ from collections.abc import Callable
 from typing import Any
 
 from turbodesk import UI, Size, Style, View, zcat
-from turbodesk.events import Event, KeyPress
+from turbodesk.events import Event, Key, KeyPress
 
 Action = Callable[[], None]
+#: A key is `str` when printable, a `Key` member otherwise.
+Bindings = dict["str | Key", Action]
 
 
-def bind(ui: UI, actions: dict[str, Action]) -> None:
-    """Run `actions[key]` when that key arrives, and consume it."""
+def bind(ui: UI, actions: Bindings) -> None:
+    """Run `actions[key]` when that key arrives, and consume it.
+
+    Keys are `str` for printable ones and `Key` members for the rest. This used to
+    accept only `str`, which silently dropped every special key — `Key.ENTER` is an
+    enum member, not `"\r"`, so the console's Enter binding never fired and typing
+    a command did nothing.
+    """
 
     def keys(event: Event) -> bool:
-        if not isinstance(event, KeyPress) or not isinstance(event.key, str):
+        if not isinstance(event, KeyPress):
             return False
         action = actions.get(event.key)
         if action is None:

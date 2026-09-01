@@ -15,7 +15,7 @@ import pytest
 from hop3_tui.api.models import AppState
 from hop3_tui.widgets import SystemStats, footer, header, make_bar, panel, status_panel
 from hop3_tui.widgets.status_badge import state_style, status_badge
-from turbodesk import UI, Size, View, vcat
+from turbodesk import UI, Size, View, markup, vcat
 from turbodesk.testing import to_text
 from turbodesk.theme import MOCHA
 
@@ -202,3 +202,23 @@ def test_a_cropped_panel_says_it_is_cropped(ui: UI):
 
 def test_a_panel_with_room_to_spare_is_not_marked(ui: UI):
     assert "…" not in to_text(panel(ui, "S", View.text("body"), Size(30, 10)))
+
+
+# -- markup: key hints are not markup -------------------------------------------------
+
+
+@pytest.mark.parametrize("hint", ["[b] Create backup", "[i] Info", "[u] Undo"])
+def test_a_single_letter_key_hint_survives_the_markup_parser(ui: UI, hint: str):
+    """`[b]`, `[i]` and `[u]` are Rich's abbreviations for bold/italic/underline.
+
+    A TUI is full of square-bracket key hints, so the parser accepts spelled-out
+    names only. Found by the port when `[b] Create backup` rendered as
+    ` Create backup`; asserted here against the parser rather than through a
+    screen's copy, which is what made it break when that copy changed.
+    """
+    assert hint in to_text(markup.render(ui.theme, hint))
+
+
+def test_a_spelled_out_tag_is_still_markup(ui: UI):
+    """The other half: the parser must not have simply stopped parsing."""
+    assert "[bold]" not in to_text(markup.render(ui.theme, "[bold]x[/]"))

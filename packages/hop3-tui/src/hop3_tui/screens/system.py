@@ -26,7 +26,7 @@ from turbodesk import UI, Size, View, hcat, markup, vcat
 from turbodesk.widgets import dialog
 
 from hop3_tui.screens import Screen
-from hop3_tui.screens._common import Action, bind, fill, halves
+from hop3_tui.screens._common import Bindings, bind, fill, halves
 from hop3_tui.widgets import SystemStats, panel, status_panel
 from hop3_tui.widgets.util import UNAVAILABLE
 
@@ -34,6 +34,13 @@ NAME_WIDTH = 12
 #: Pressing `r` cannot refresh what is never fetched, and saying "refreshed" would be
 #: the same defect one layer up.
 NOTHING_TO_REFRESH = "System metrics are not reported by the server yet."
+
+
+KEYS = (
+    ("l", "System logs"),
+    ("p", "Processes"),
+    ("r", "Refresh"),
+)
 
 
 def services_panel(ui: UI, services: dict[str, bool] | None) -> View:
@@ -81,7 +88,7 @@ def render(
     push: Callable[..., None] | None = None,
     switch: Callable[[Screen], None] | None = None,
 ) -> View:
-    actions: dict[str, Action] = {}
+    actions: Bindings = {}
     if push is not None:
         actions["l"] = lambda: push(Screen.SYSTEM_LOGS)
         actions["p"] = lambda: _ask_for_app(ui, push)

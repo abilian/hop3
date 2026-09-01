@@ -29,6 +29,9 @@ COLUMNS = [
 ]
 
 
+KEYS = (("r", "Refresh"),)
+
+
 def table_rows(processes: Sequence[dict[str, Any]]) -> list[list[str]]:
     return [
         [str(process.get("type", "")), str(process.get("count", 0))]

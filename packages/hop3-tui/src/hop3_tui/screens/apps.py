@@ -35,6 +35,20 @@ COLUMNS = [
 MINUTE, HOUR, DAY = 60, 3600, 86400
 
 
+#: What this screen's keys do. `bind` below is built from the same list, and a test
+#: asserts they match — a help panel that drifts from the bindings is worse than none.
+KEYS = (
+    ("enter", "Open application"),
+    ("s", "Start"),
+    ("S", "Stop"),
+    ("r", "Restart"),
+    ("D", "Delete"),
+    ("n", "New application"),
+    ("R", "Refresh"),
+    ("/", "Filter"),
+)
+
+
 def relative_time(moment: datetime | None) -> str:
     """ "3m ago" and friends. Lifted from the original unchanged in behaviour."""
     if moment is None:
