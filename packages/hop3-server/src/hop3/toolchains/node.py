@@ -12,6 +12,7 @@ from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
 from hop3.lib import Abort, chdir, check_binaries, log, prepend_to_path
+from hop3.run.uwsgi.naming import vassal_glob
 
 from ._base import LanguageToolchain
 
@@ -198,7 +199,7 @@ class NodeToolchain(LanguageToolchain):
             log(f"Node is installed at {version}.", level=3, fg="green")
             return
 
-        started = list(c.UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+        started = list(c.UWSGI_ENABLED.glob(vassal_glob(self.app_name)))
         if installed and started:
             # Raise an error if the app is running
             msg = "Warning: Can't update node with app running. Stop the app & retry."

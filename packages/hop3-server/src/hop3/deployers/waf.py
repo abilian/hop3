@@ -37,6 +37,7 @@ from hop3.core.plugins import get_waf_engine
 from hop3.lib import Diagnosis, abort_with_diagnosis, get_free_port, log
 from hop3.orm import Ban, BanRepository, NetworkRepository
 from hop3.project.schema import validate_hop3_toml
+from hop3.run.uwsgi.naming import vassal_name
 from hop3.waf import WafCompileError
 from hop3.waf.bans import parse_duration, sources_to_ban, utcnow
 
@@ -68,8 +69,8 @@ def _resolve_networks(db_session: Session | None) -> dict[str, list[str]]:
 
 
 def _vassal_name(app_name: str) -> str:
-    # `{app}_waf.1.ini` so the app teardown's `{app}*.ini` sweep also reaps it.
-    return f"{app_name}_waf.1.ini"
+    # `{app}_waf.1.ini` so the app teardown's vassal_glob() sweep also reaps it.
+    return vassal_name(app_name, "waf", 1)
 
 
 def configure_waf_preflight(

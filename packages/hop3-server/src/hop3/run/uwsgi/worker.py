@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING
 from hop3 import config as c
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.settings import parse_settings
+from hop3.run.uwsgi.naming import vassal_name
 
 from .settings import UwsgiSettings
 
@@ -324,7 +325,7 @@ class UwsgiWorker:
         'UWSGI_AVAILABLE' directory, and then copies this file to the
         'UWSGI_ENABLED' directory to make the settings active.
         """
-        name = f"{self.app_name:s}_{self.kind:s}.{self.ordinal:d}.ini"
+        name = vassal_name(self.app_name, self.kind, self.ordinal)
         uwsgi_available_path = c.UWSGI_AVAILABLE / name
         uwsgi_enabled_path = c.UWSGI_ENABLED / name
         self.settings.write(uwsgi_available_path)

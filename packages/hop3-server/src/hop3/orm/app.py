@@ -24,6 +24,7 @@ from hop3.core.env import Env
 from hop3.core.plugins import get_deployer_by_name
 from hop3.lib import Abort, get_free_port, log, robust_rmtree
 from hop3.run.spawn import spawn_app, verify_nix_closure
+from hop3.run.uwsgi.naming import vassal_glob
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -508,7 +509,7 @@ class App(BigIntAuditBase):
 
         cfg = HopConfig.get_instance()
         for p in [cfg.UWSGI_AVAILABLE, cfg.UWSGI_ENABLED]:
-            for f in Path(p).glob(f"{app_name}*.ini"):
+            for f in Path(p).glob(vassal_glob(app_name)):
                 remove_file(f)
 
         remove_file(cfg.NGINX_ROOT / f"{app_name}.conf")
@@ -692,7 +693,7 @@ class App(BigIntAuditBase):
         cfg = HopConfig.get_instance()
 
         # Remove uWSGI config files - emperor will stop the vassal
-        for config_file in cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"):
+        for config_file in cfg.UWSGI_ENABLED.glob(vassal_glob(self.name)):
             config_file.unlink()
 
         if self.run_state == AppStateEnum.RUNNING:
@@ -1042,7 +1043,7 @@ class App(BigIntAuditBase):
         verify_nix_closure(self)
 
         cfg = HopConfig.get_instance()
-        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.name}*.ini"))
+        config_files = list(cfg.UWSGI_ENABLED.glob(vassal_glob(self.name)))
         if config_files:
             for config_file in config_files:
                 config_file.touch()
