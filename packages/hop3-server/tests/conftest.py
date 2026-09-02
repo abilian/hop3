@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 
 import pytest
 from filelock import FileLock
@@ -109,6 +110,38 @@ def pytest_addoption(parser):
     )
 
 
+#: Addon types that are NOT installer features. PostgreSQL is always installed,
+#: and `--with postgres` is rejected as an unknown feature.
+_ADDONS_ALWAYS_PRESENT = frozenset({"postgres", "postgresql"})
+
+#: Where the e2e fixture apps live (platform fixtures, not the app catalog).
+_FIXTURE_APP_DIRS = ("apps/test-apps-procfile", "apps/test-apps-nix")
+
+
+def _declared_addon_features() -> list[str]:
+    """
+    Installer features (`--with`) for every addon the fixture apps declare.
+
+    Derived, not hardcoded: the apps' own `[[addons]]` blocks are the source of
+    truth, so adding a test app that needs mysql provisions mysql instead of
+    failing on a target that could never have satisfied it. Deriving them only
+    to *skip* the affected tests would be the silent skip the platform rules
+    forbid — the target is ours to provision.
+    """
+    root = find_project_root()
+    wanted: set[str] = set()
+    for rel in _FIXTURE_APP_DIRS:
+        for toml in (root / rel).glob("*/hop3.toml"):
+            text = toml.read_text()
+            for block in re.findall(
+                r"^\[\[addons\]\](.*?)(?=^\[|\Z)", text, re.DOTALL | re.MULTILINE
+            ):
+                m = re.search(r'^\s*type\s*=\s*"([^"]+)"', block, re.MULTILINE)
+                if m and m.group(1) not in _ADDONS_ALWAYS_PRESENT:
+                    wanted.add(m.group(1))
+    return sorted(wanted)
+
+
 # 2. Create a session-scoped fixture for the deployment target
 @pytest.fixture(scope="session")
 def deployment_target(request, tmp_path_factory):
@@ -155,11 +188,16 @@ def deployment_target(request, tmp_path_factory):
     docker_config = DockerConfig(
         container_name="hop3-server-test",
     )
-    # Deploy Hop3 from local source code
+    # Deploy Hop3 from local source code, WITH the backing services the test
+    # apps declare. Installing none of them meant every app carrying an
+    # `[[addons]]` block that isn't postgres failed the deploy on a reason the
+    # target could never satisfy — `redis-cli: No such file or directory` for
+    # 155-flask-redis, missing MinIO credentials for 150-flask-s3.
     deployment_config = DeploymentConfig(
         source="local",
         clean=False,
         verbose=False,
+        features=_declared_addon_features(),
     )
 
     if is_xdist:
