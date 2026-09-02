@@ -152,5 +152,37 @@ def bootstrap_probe_account(
         )
         return
 
+    verify_cmd = probe.get("verify")
+    if verify_cmd:
+        try:
+            run_create(verify_cmd)
+        except Exception as e:
+            # The marker means "this account exists". `create` exiting 0 is the
+            # app CLI's claim, not evidence (Gitea/Forgejo print an error and
+            # exit 0 for a reserved name). With verify declared and failing, we
+            # know the claim is false, so the marker must not be written —
+            # otherwise the smoke test signs in as an account that isn't there
+            # and reports the app broken for the wrong reason.
+            log(
+                f"  Probe account for '{app.name}' could not be verified "
+                f"([probe].create exited 0 but [probe].verify failed: {e}); "
+                f"the smoke test will fall back to the operator credential.",
+                level=0,
+                fg="yellow",
+            )
+            server_log.warning(
+                "probe account verification failed",
+                app_name=app.name,
+                error=str(e),
+            )
+            return
+
     set_env_vars(app, {PROBE_CREATED_ENV: "1"}, db_session)
-    log("  Probe account created", level=2, fg="green")
+    if verify_cmd:
+        log("  Probe account created and verified", level=2, fg="green")
+    else:
+        log(
+            "  Probe account created (unverified: no [probe].verify)",
+            level=2,
+            fg="green",
+        )

@@ -134,3 +134,58 @@ def test_an_app_that_self_bootstraps_needs_no_create_command(captured) -> None:
         "it must not mark one as existing — marking it took matomo from PASS to "
         "FAIL and left uptime-kuma failing on an account nobody had made"
     )
+
+
+# --- [probe].verify: exit 0 from `create` is not evidence -------------------
+
+
+def test_verify_failure_does_not_mark_the_account_created(captured):
+    """
+    The marker means "this account exists".
+
+    `create` exiting 0 is the app CLI's claim, not proof: Gitea and Forgejo
+    print an error and still exit 0 for the reserved name 'admin'. When a
+    declared `verify` fails, the claim is known false, so the marker must not
+    be written — otherwise the smoke test signs in as an absent account and
+    blames the app.
+    """
+    ran: list[str] = []
+
+    def run_create(command: str) -> None:
+        ran.append(command)
+        if command == "verify-cmd":
+            msg = "no such user"
+            raise RuntimeError(msg)
+
+    bootstrap_probe_account(
+        _App(),
+        {"username": "hop3probe", "create": "create-cmd", "verify": "verify-cmd"},
+        db_session=None,
+        run_create=run_create,
+    )
+
+    assert ran == ["create-cmd", "verify-cmd"]
+    assert captured == {}, "marker written despite verification failing"
+
+
+def test_verify_success_marks_the_account_created(captured):
+    bootstrap_probe_account(
+        _App(),
+        {"username": "hop3probe", "create": "create-cmd", "verify": "verify-cmd"},
+        db_session=None,
+        run_create=lambda command: None,
+    )
+
+    assert captured, "marker not written after create and verify both succeeded"
+
+
+def test_without_verify_the_old_behaviour_is_kept(captured):
+    # Recipes that predate `verify` keep working; the log says it is unverified.
+    bootstrap_probe_account(
+        _App(),
+        {"username": "hop3probe", "create": "create-cmd"},
+        db_session=None,
+        run_create=lambda command: None,
+    )
+
+    assert captured

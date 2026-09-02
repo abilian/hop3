@@ -137,6 +137,15 @@ def bootstrap_admin_account(
     the command must also be idempotent (create-if-absent) as defense in depth.
     A failure aborts loudly — a running app the operator can't log into is not a
     successful deploy.
+
+    **A zero exit from ``create`` is not evidence the account exists.** Gitea
+    and Forgejo reject the reserved name ``admin`` by printing an error and
+    exiting 0, so `create` "succeeding" has already meant handing the operator
+    a password for an account that was never made. When the recipe declares
+    ``[admin].verify``, that command is run afterwards and must succeed before
+    the credential is marked bootstrapped. Without it Hop3 reports only what it
+    actually established — that the command ran — and never claims the account
+    exists.
     """
     create_cmd = admin.get("create")
     if not create_cmd:
@@ -158,10 +167,40 @@ def bootstrap_admin_account(
         )
         raise AdminBootstrapError(msg) from e
 
+    verify_cmd = admin.get("verify")
+    if verify_cmd:
+        try:
+            run_create(verify_cmd)
+        except Exception as e:
+            msg = (
+                f"Admin-account bootstrap for '{app.name}' could not be "
+                f"verified: [admin].create exited 0 but [admin].verify failed "
+                f"({e}). Treat the account as NOT created — some app CLIs "
+                f"report an error and still exit 0 (Gitea and Forgejo do this "
+                f"for the reserved name 'admin'). Fix [admin].create and "
+                f"redeploy."
+            )
+            raise AdminBootstrapError(msg) from e
+
     credential.bootstrapped = True
     db_session.add(credential)
     db_session.commit()
-    log(f"  ✓ Admin account created for '{app.name}'", level=1, fg="green")
+
+    if verify_cmd:
+        log(
+            f"  ✓ Admin account created and verified for '{app.name}'",
+            level=1,
+            fg="green",
+        )
+    else:
+        # Say what was established, not what we hope. Claiming "created" on a
+        # bare exit code is the fake success the platform rules forbid.
+        log(
+            f"  ✓ Ran [admin].create for '{app.name}' (exit 0; unverified — "
+            f"add [admin].verify to prove the account exists)",
+            level=1,
+            fg="green",
+        )
 
 
 def read_admin_credential(app: App, db_session: Session) -> dict | None:
