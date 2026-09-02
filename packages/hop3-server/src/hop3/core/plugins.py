@@ -11,12 +11,12 @@ from __future__ import annotations
 import importlib
 import inspect
 import pkgutil
-import traceback
 from typing import TYPE_CHECKING
 
 import pluggy
 from pluggy import PluginManager
 
+from hop3.lib.console import Abort
 from hop3.lib.decision_log import get_decision_logger
 
 from . import hookspecs
@@ -139,10 +139,19 @@ def get_plugin_manager() -> PluginManager:
         # This allows both module-level hooks and plugin-class hooks
         plugin = getattr(module, "plugin", None)
         if plugin is not None and not inspect.ismodule(plugin):
-            pm.register(plugin)
+            # Register under the plugin's own `name`. Without it pluggy keys the
+            # plugin by str(id(obj)), so get_plugin("nginx") / set_blocked() /
+            # entry-point dedup can never find it despite every plugin
+            # declaring a name. A duplicate name now raises at startup, which
+            # is the correct answer to two plugins claiming one identity.
+            pm.register(plugin, name=getattr(plugin, "name", None) or None)
 
     # For plugins that are not built-in, we load them from setuptools entry points
     pm.load_setuptools_entrypoints("hop3")
+
+    # A hookimpl whose spec doesn't exist (a typo, or a hook that was renamed
+    # without updating its implementers) is otherwise a permanent silent no-op.
+    pm.check_pending()
 
     # Cache the initialized manager in the global variable.
     _plugin_manager = pm
@@ -172,11 +181,7 @@ def get_builder(context: DeploymentContext) -> Builder:
     pm = get_plugin_manager()
 
     # The result is a list of lists, e.g., [[LocalBuilder], [DockerBuilder]]
-    try:
-        builder_classes_list = pm.hook.get_builders()
-    except:
-        traceback.print_exc()
-        raise
+    builder_classes_list = pm.hook.get_builders()
 
     # Flatten the list of lists into a single list of classes
     builder_classes: list[type[Builder]] = [
@@ -224,6 +229,14 @@ def get_builder(context: DeploymentContext) -> Builder:
                 # Builder didn't accept - record reason if available
                 reason = getattr(builder, "rejection_reason", "no matching files")
                 rejection_reasons.append(f"  - {builder_name}: {reason}")
+            except Abort:
+                # A builder's accept() raising Abort is a deliberate refusal of
+                # a misconfigured app (e.g. NixBuilder rejecting an app that has
+                # both hop3.nix and [nix].template). It is an answer, not a
+                # failed probe: swallowing it into a rejection reason falls
+                # through to the next builder and silently builds the app the
+                # wrong way. Let it reach the operator.
+                raise
             except Exception as e:
                 rejection_reasons.append(f"  - {builder_name}: error - {e}")
 
