@@ -17,7 +17,7 @@ import pytest
 
 from hop3.core.env import Env
 from hop3.core.identifiers import InvalidIdentifierError
-from hop3.lib.util import CommandError
+from hop3.lib.rootd import RootdError
 from hop3.orm import App
 from hop3.plugins.proxy.caddy import CaddyVirtualHost, _setup as caddy_setup
 
@@ -221,8 +221,11 @@ def test_reload_proxy_raises_when_all_methods_fail(monkeypatch):
     monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     def _boom(*_a, **_k):
-        raise CommandError(["caddy", "reload"], "no reload method available")
+        msg = "no reload method available"
+        raise RootdError(msg)
 
-    monkeypatch.setattr(caddy_setup, "try_commands", _boom)
+    # The reload now goes through hop3-rootd, not `sudo -n`. Patching the old
+    # try_commands would have left this test passing while exercising nothing.
+    monkeypatch.setattr(caddy_setup, "reload_service", _boom)
     with pytest.raises(RuntimeError, match="Could not reload caddy"):
         host.reload_proxy()

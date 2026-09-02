@@ -17,6 +17,7 @@ from unittest.mock import patch
 import psycopg2
 import pytest
 
+from hop3.lib.rootd import RootdUnavailableError
 from hop3.plugins.postgresql import postgres as pg
 from hop3.plugins.postgresql.postgres import (
     ALLOWED_EXTENSIONS,
@@ -286,7 +287,14 @@ def test_pg_hba_allows_all_docker_network_pools(tmp_path):
     hba = tmp_path / "pg_hba.conf"
     hba.write_text("local all all peer\n")
 
-    with patch.object(pg, "_find_pg_hba", return_value=hba):
+    # The reload now goes through hop3-rootd (it used to be a `sudo -n
+    # systemctl` whose result was discarded, so a rewrite that never applied
+    # looked like one that did). This test is about the file's contents; the
+    # reload has its own tests in hop3-rootd.
+    with (
+        patch.object(pg, "_find_pg_hba", return_value=hba),
+        patch.object(pg, "reload_service", return_value="systemctl reload"),
+    ):
         pg._ensure_pg_hba_docker_access()
         first = hba.read_text()
         pg._ensure_pg_hba_docker_access()  # second run must be a no-op
@@ -295,3 +303,28 @@ def test_pg_hba_allows_all_docker_network_pools(tmp_path):
     for net in ("10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"):
         assert net in first
     assert first == second  # idempotent — no duplicate entries
+
+
+def test_pg_hba_rewrite_that_cannot_be_applied_fails_loudly(tmp_path):
+    """
+    A rewritten pg_hba.conf that was never reloaded is not a success.
+
+    This used to be `sudo -n systemctl reload postgresql` with `check=False`
+    and the result discarded, so on a host where the hop3 user has no
+    passwordless sudo the file changed, nothing applied, and the failure
+    surfaced much later as an opaque "no pg_hba.conf entry for host" from a
+    Docker app.
+    """
+    hba = tmp_path / "pg_hba.conf"
+    hba.write_text("local all all peer\n")
+
+    def _unavailable(_service):
+        msg = "hop3-rootd socket not found"
+        raise RootdUnavailableError(msg)
+
+    with (
+        patch.object(pg, "_find_pg_hba", return_value=hba),
+        patch.object(pg, "reload_service", _unavailable),
+        pytest.raises(RuntimeError, match="NOT live"),
+    ):
+        pg._ensure_pg_hba_docker_access()

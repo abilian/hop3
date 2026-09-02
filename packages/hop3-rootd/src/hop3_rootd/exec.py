@@ -36,6 +36,9 @@ ALLOWED_BINARIES: Final[frozenset[str]] = frozenset({
     "/sbin/nft",  # some distros
     "/usr/bin/systemctl",
     "/bin/systemctl",  # some distros
+    # Service reloads in containers, where there is no systemd (service.reload).
+    "/usr/bin/supervisorctl",
+    "/usr/local/bin/supervisorctl",  # pip-installed supervisor
     "/usr/sbin/nginx",
     "/sbin/nginx",  # some distros
     # Email loopback relay (ADR 054) — configure + rebuild the sasl map.

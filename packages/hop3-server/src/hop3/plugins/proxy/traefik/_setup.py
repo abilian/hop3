@@ -16,7 +16,7 @@ from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
-from hop3.lib.util import CommandError, try_commands
+from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.platform.certificates import (
     CertificatesManager,
     verify_cert,
@@ -295,18 +295,17 @@ class TraefikVirtualHost(BaseProxy):
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
 
-        # Try reload methods in order of preference
-        reload_methods = [
-            (["sudo", "-n", "supervisorctl", "restart", "traefik"], "supervisorctl"),
-            (["sudo", "-n", "systemctl", "reload", "traefik"], "systemctl"),
-        ]
-
+        # Through hop3-rootd, like nginx and caddy — `sudo -n` fails on a host
+        # without passwordless sudo for the hop3 user. Unlike caddy this stays
+        # non-fatal: traefik's file provider watches its config directory, so
+        # the change lands without an explicit reload. The warning is what
+        # keeps that from being a silent assumption.
         try:
-            method = try_commands(reload_methods, timeout=5)
-            log(f"traefik reloaded via {method}", level=2)
-        except CommandError as e:
+            method = reload_service("traefik")
+            log(f"traefik reloaded via {method} (hop3-rootd)", level=2)
+        except (RootdError, RootdUnavailableError) as e:
             log(
-                f"⚠ Could not explicitly reload traefik ({e.message}); relying on "
+                f"⚠ Could not explicitly reload traefik ({e}); relying on "
                 "its file-watch to apply the new config — verify the app is served.",
                 level=1,
                 fg="yellow",
