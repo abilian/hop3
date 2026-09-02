@@ -313,6 +313,7 @@ username = "admin"                         # omit when the app keys admins by em
 email    = "operator"                      # "operator" -> the server's OPERATOR_EMAIL, or a literal address
 password = { generate = "password", length = 24 }   # always generated (never a literal)
 create   = "…"                             # optional: idempotent command run once to create the account
+verify   = "…"                             # optional but recommended: proves the account exists
 ```
 
 **How it works:**
@@ -321,6 +322,7 @@ create   = "…"                             # optional: idempotent command run 
 - `email = "operator"` uses the server's `OPERATOR_EMAIL` (which defaults to `ACME_EMAIL`). A recipe that needs an admin email fails loud at deploy if no operator email is set.
 - The account is created either by the app's own `[run] before-run` (consuming the injected vars — the usual path, correct timing after migrations) or by an optional `[admin].create` command the platform runs once after deploy. `create` is **not** supported for Docker-Compose apps (they self-bootstrap in the container entrypoint); declaring it on one is a loud error.
 - The stored password is the **initial** one — if the user changes it inside the app it is stale. Retrieve it any time with `hop3 app credentials --app <app>`; to change it, change it inside the app.
+- **A zero exit from `create` does not prove the account exists.** Gitea and Forgejo reject the reserved name `admin` by printing an error and exiting 0, which once had Hop3 hand an operator a password for an account that was never made. Declare `verify` — a command that fails when the account is absent — and the platform runs it after `create` and refuses to mark the bootstrap done unless it succeeds. Without it Hop3 reports only that the command ran, and says so.
 
 **Fields:**
 
@@ -330,6 +332,7 @@ create   = "…"                             # optional: idempotent command run 
 | `email` | string | one of username/email | `"operator"` (→ `OPERATOR_EMAIL`) or a literal address. |
 | `password` | table | yes | A [generated secret](#generated-secrets) spec (always generated). |
 | `create` | string | no | Idempotent create-if-absent command; receives `HOP3_ADMIN_*` in its env. |
+| `verify` | string | no | Command that exits non-zero when the account is absent. Run after `create`; a failure aborts the deploy. |
 
 ### `[probe]` - Hop3's Own Verification Account
 
@@ -340,6 +343,7 @@ Declares a second account, owned by Hop3 rather than the operator, that the app'
 username = "hop3probe"                     # avoid names the app reserves
 email    = "probe@hop3.invalid"            # only when the app requires one
 create   = "app-cli user create ..."       # REQUIRED: idempotent, run once after deploy
+verify   = "app-cli user show hop3probe"   # optional but recommended: proves the account exists
 ```
 
 **Why a second account.** The `[admin]` credential is handed to the operator, so Hop3 stops owning it the moment they change the password. A later sign-in failure then means either the app broke or the password moved, and from outside those look identical — a check that cannot tell them apart cries wolf. Nobody else uses the probe account, so a refused probe sign-in means the app broke.

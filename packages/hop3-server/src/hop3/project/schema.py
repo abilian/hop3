@@ -1216,6 +1216,17 @@ class AdminSection(BaseModel):
             "environment. Omit when the app bootstraps itself from those vars."
         ),
     )
+    verify: str | None = Field(
+        default=None,
+        description=(
+            "Command proving the account actually exists, run right after "
+            "`create` and required to exit 0. Needed because a bootstrap CLI "
+            "can print an error and still exit 0 — Gitea and Forgejo reject "
+            "the reserved name 'admin' exactly that way — so `create`'s exit "
+            "status is not evidence the account was made. Without this Hop3 "
+            "reports only that the command ran, never that the account exists."
+        ),
+    )
     login: Literal["username", "email"] | None = Field(
         default=None,
         description=(
@@ -1308,6 +1319,18 @@ class ProbeSection(BaseModel):
             "account. Receives HOP3_PROBE_USER/EMAIL/PASSWORD in its "
             "environment, runs after the app is up, and must exit non-zero if "
             "the account does not end up existing."
+        ),
+    )
+    verify: str | None = Field(
+        default=None,
+        description=(
+            "Command proving the probe account exists, run after `create` and "
+            "required to exit 0. `create` is documented as having to exit "
+            "non-zero on failure, but that is a promise the app's own CLI "
+            "makes and some break it (Gitea and Forgejo print an error and "
+            "exit 0 for the reserved name 'admin'). Declare this and the "
+            "'account exists' marker rests on evidence rather than on an app "
+            "keeping that promise."
         ),
     )
 
