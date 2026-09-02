@@ -7,11 +7,14 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
+from urllib.parse import quote_plus
 
 from litestar import Controller, get, post
 from litestar.response import Redirect, Template
+from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3.core.backup import BackupManager
+from hop3.lib.logging import server_log
 from hop3.orm.repositories import (
     AddonCredentialRepository,
     AppRepository,
@@ -23,6 +26,8 @@ from hop3.server.lib.database import get_session
 from .helpers import format_size
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from litestar.params import FromPath
     from sqlalchemy.orm import Session
 
@@ -118,36 +123,75 @@ class BackupsController(Controller):
             except FileNotFoundError:
                 return Redirect(path="/dashboard/backups")
             except Exception as e:
-                print(f"Error getting backup info: {e}")
-                return Redirect(path="/dashboard/backups")
+                server_log.exception(
+                    "Could not read backup info", backup_id=backup_id, error=str(e)
+                )
+                reason = quote_plus(f"{type(e).__name__}: {e}")
+                return Redirect(
+                    path=f"/dashboard/backups?success=false&error={reason}",
+                    status_code=HTTP_303_SEE_OTHER,
+                )
 
-    @post("/{backup_id:str}/restore", status_code=303, sync_to_thread=False)
+    # Restore untars an archive and reloads addon databases; delete removes an
+    # archive. Both are multi-second filesystem/DB work and the server runs one
+    # worker, so they are offloaded to a thread — on the loop they would freeze
+    # every other request (see the note in dashboard/apps.py).
+
+    @post("/{backup_id:str}/restore", status_code=303, sync_to_thread=True)
     def backup_restore(self, backup_id: FromPath[str]) -> Redirect:
         """Restore a backup."""
-        with get_session() as db_session:
-            manager = _get_backup_manager(db_session)
 
-            try:
-                manifest = manager.get_backup_info(backup_id)
-                manager.restore_backup(backup_id)
-                print(
-                    f"Backup {backup_id} restored successfully to {manifest.app_name}"
-                )
-            except Exception as e:
-                print(f"Error restoring backup {backup_id}: {e}")
+        def _restore(manager: BackupManager) -> str:
+            manifest = manager.get_backup_info(backup_id)
+            manager.restore_backup(backup_id)
+            return f"Restored backup {backup_id} to {manifest.app_name}"
 
-        return Redirect(path="/dashboard/backups")
+        return self._run_backup_action(backup_id, "restore", _restore)
 
-    @post("/{backup_id:str}/delete", status_code=303, sync_to_thread=False)
+    @post("/{backup_id:str}/delete", status_code=303, sync_to_thread=True)
     def backup_delete(self, backup_id: FromPath[str]) -> Redirect:
         """Delete a backup."""
+
+        def _delete(manager: BackupManager) -> str:
+            manager.delete_backup(backup_id)
+            return f"Deleted backup {backup_id}"
+
+        return self._run_backup_action(backup_id, "delete", _delete)
+
+    def _run_backup_action(
+        self, backup_id: str, action: str, do: Callable[[BackupManager], str]
+    ) -> Redirect:
+        """
+        Run one backup mutation and report its real outcome to the browser.
+
+        A failed **restore** used to be pixel-identical to a successful one:
+        the exception went to the server's stdout via `print()` and the browser
+        got the same redirect either way. For an operation whose whole purpose
+        is recovering data, silently reporting success is the worst available
+        failure mode, and the project's fail-loud rule forbids it outright.
+        """
         with get_session() as db_session:
             manager = _get_backup_manager(db_session)
-
             try:
-                manager.delete_backup(backup_id)
-                print(f"Backup {backup_id} deleted successfully")
+                message = do(manager)
             except Exception as e:
-                print(f"Error deleting backup {backup_id}: {e}")
+                db_session.rollback()
+                server_log.exception(
+                    "Dashboard backup action failed",
+                    backup_id=backup_id,
+                    action=action,
+                    error=str(e),
+                )
+                reason = quote_plus(f"{type(e).__name__}: {e}")
+                return Redirect(
+                    path=f"/dashboard/backups?action={action}&success=false&error={reason}",
+                    status_code=HTTP_303_SEE_OTHER,
+                )
+            server_log.info(
+                "Backup action succeeded", backup_id=backup_id, action=action
+            )
 
-        return Redirect(path="/dashboard/backups")
+        return Redirect(
+            path=f"/dashboard/backups?action={action}&success=true&message={quote_plus(message)}",
+            status_code=HTTP_303_SEE_OTHER,
+        )

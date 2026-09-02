@@ -40,6 +40,8 @@
                         Application "{{ app.name }}" is restarting.
                     {% elif request.query_params.get('action') == 'stop' %}
                         Application "{{ app.name }}" has been stopped.
+                    {% elif request.query_params.get('action') == 'backup' %}
+                        Backup of "{{ app.name }}" completed.
                     {% endif %}
                 </p>
             </div>
@@ -56,14 +58,22 @@
             <div class="ml-3">
                 <h3 class="text-sm font-medium text-red-800">Action Failed!</h3>
                 <p class="mt-1 text-sm text-red-700">
-                    {% if request.query_params.get('action') == 'restart' %}
-                        Failed to restart application "{{ app.name }}". Check the logs for details.
-                    {% elif request.query_params.get('action') == 'stop' %}
-                        Failed to stop application "{{ app.name }}". Check the logs for details.
-                    {% endif %}
+                    Failed to {{ request.query_params.get('action', 'complete the action') }}
+                    application "{{ app.name }}".
                 </p>
+                {% if request.query_params.get('error') %}
+                <pre class="mt-2 p-2 text-xs text-red-900 bg-red-100 rounded overflow-x-auto whitespace-pre-wrap">{{ request.query_params.get('error') }}</pre>
+                {% endif %}
             </div>
         </div>
+    </div>
+    {% endif %}
+
+    {% if app.config_error %}
+    <div class="mb-6 bg-amber-50 border border-amber-200 rounded-lg p-4">
+        <h3 class="text-sm font-medium text-amber-800">Could not read this app's configuration</h3>
+        <p class="mt-1 text-sm text-amber-700">Worker information below may be incomplete.</p>
+        <pre class="mt-2 p-2 text-xs text-amber-900 bg-amber-100 rounded overflow-x-auto whitespace-pre-wrap">{{ app.config_error }}</pre>
     </div>
     {% endif %}
 

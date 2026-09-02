@@ -8,12 +8,15 @@ from __future__ import annotations
 
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Annotated
+from typing import TYPE_CHECKING, Annotated
+from urllib.parse import quote_plus
 
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
+from litestar.exceptions import NotFoundException
 from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
+from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3.core.backup import BackupManager
 from hop3.deployers.admin_bootstrap import read_admin_credential
@@ -34,6 +37,11 @@ from .helpers import (
     get_display_state,
     get_worker_count,
 )
+
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from sqlalchemy.orm import Session
 
 # Builder configuration list used by app creation forms
 BUILDER_OPTIONS = [
@@ -200,14 +208,23 @@ class AppsController(Controller):
                 return Redirect(path="/dashboard")
 
             workers = {}
+            config_error = None
             worker_count = get_worker_count(app)
             app_path = Path(app.app_path)
             if app_path.exists():
                 try:
                     config_obj = AppConfig.from_dir(app_path)
                     workers = config_obj.workers
-                except Exception:
-                    pass
+                except Exception as e:
+                    # An unreadable Procfile/hop3.toml used to render as "this
+                    # app has no workers", which is indistinguishable from a
+                    # genuinely worker-less app. Show the parse error instead.
+                    config_error = f"{type(e).__name__}: {e}"
+                    server_log.warning(
+                        "Could not read app config for dashboard",
+                        app_name=app_name,
+                        error=str(e),
+                    )
 
             addons = get_addons_for_app(app)
 
@@ -226,6 +243,7 @@ class AppsController(Controller):
                     "workers": workers,
                     "worker_count": worker_count,
                     "env_var_count": len(app.env_vars),
+                    "config_error": config_error,
                 },
                 "addons": addons,
                 # Existence only — the password itself is revealed on its own
@@ -299,67 +317,88 @@ class AppsController(Controller):
 
         return Template(template_name="dashboard/_app_status.html", context=ctx)
 
-    @post("/{app_name:str}/restart", status_code=303, sync_to_thread=False)
+    # These three run app lifecycle work — App.restart/stop shell out to docker
+    # or uwsgi with multi-second timeouts, and a backup tars the app tree and
+    # dumps its addons. The server runs a single worker (server/cli/serve.py),
+    # so `sync_to_thread=False` would execute them *on the event loop* and
+    # freeze auth, /rpc and every SSE deploy stream for the duration. They are
+    # sync handlers offloaded to a thread; nothing here may become `async def`
+    # without moving the blocking call off the loop first.
+
+    @post("/{app_name:str}/restart", status_code=303, sync_to_thread=True)
     def app_restart(self, app_name: FromPath[str]) -> Redirect:
         """Restart an application."""
-        with get_session() as db_session:
-            app = get_app_or_none(db_session, app_name)
+        return self._run_app_action(app_name, "restart", lambda app: app.restart())
 
-            if not app:
-                return Redirect(path="/dashboard")
-
-            try:
-                app.restart()
-                db_session.commit()
-                return Redirect(
-                    path=f"/dashboard/apps/{app_name}?action=restart&success=true"
-                )
-            except Exception as e:
-                print(f"Error restarting app {app_name}: {e}")
-                return Redirect(
-                    path=f"/dashboard/apps/{app_name}?action=restart&success=false"
-                )
-
-    @post("/{app_name:str}/stop", status_code=303, sync_to_thread=False)
+    @post("/{app_name:str}/stop", status_code=303, sync_to_thread=True)
     def app_stop(self, app_name: FromPath[str]) -> Redirect:
         """Stop an application."""
-        with get_session() as db_session:
-            app = get_app_or_none(db_session, app_name)
+        return self._run_app_action(app_name, "stop", lambda app: app.stop())
 
-            if not app:
-                return Redirect(path="/dashboard")
-
-            try:
-                app.stop()
-                db_session.commit()
-                return Redirect(
-                    path=f"/dashboard/apps/{app_name}?action=stop&success=true"
-                )
-            except Exception as e:
-                print(f"Error stopping app {app_name}: {e}")
-                return Redirect(
-                    path=f"/dashboard/apps/{app_name}?action=stop&success=false"
-                )
-
-    @post("/{app_name:str}/backup", status_code=303, sync_to_thread=False)
+    @post("/{app_name:str}/backup", status_code=303, sync_to_thread=True)
     def app_backup(self, app_name: FromPath[str]) -> Redirect:
         """Create a backup of an application."""
+
+        def _backup(app: App, db_session: Session) -> None:
+            manager = BackupManager(
+                BackupRepository(session=db_session),
+                AppRepository(session=db_session),
+                AddonCredentialRepository(session=db_session),
+            )
+            backup_id, backup_path = manager.create_backup(app, include_addons=True)
+            server_log.info(
+                "Backup created",
+                app_name=app.name,
+                backup_id=backup_id,
+                path=str(backup_path),
+            )
+
+        return self._run_app_action(app_name, "backup", _backup, wants_session=True)
+
+    def _run_app_action(
+        self,
+        app_name: str,
+        action: str,
+        do: Callable[..., object],
+        *,
+        wants_session: bool = False,
+    ) -> Redirect:
+        """
+        Run one app mutation and report its real outcome to the browser.
+
+        The failure path is the point. These handlers used to `print()` the
+        exception to the server's stdout and redirect exactly as they do on
+        success, so a failed action was indistinguishable from a successful one
+        in the UI and invisible in structured logs — the fake success the
+        project's fail-loud rule forbids. The reason now reaches both the
+        operator (`?error=`) and the log.
+        """
         with get_session() as db_session:
             app = get_app_or_none(db_session, app_name)
-
             if not app:
-                return Redirect(path="/dashboard")
+                raise NotFoundException(detail=f"No such app: {app_name}")
 
             try:
-                # Create repositories for BackupManager
-                backup_repo = BackupRepository(session=db_session)
-                app_repo = AppRepository(session=db_session)
-                addon_credential_repo = AddonCredentialRepository(session=db_session)
-
-                manager = BackupManager(backup_repo, app_repo, addon_credential_repo)
-                backup_id, backup_path = manager.create_backup(app, include_addons=True)
-                print(f"Backup created successfully: {backup_id} at {backup_path}")
+                do(app, db_session) if wants_session else do(app)
+                db_session.commit()
             except Exception as e:
-                print(f"Error creating backup for app {app_name}: {e}")
+                db_session.rollback()
+                server_log.exception(
+                    "Dashboard app action failed",
+                    app_name=app_name,
+                    action=action,
+                    error=str(e),
+                )
+                reason = quote_plus(f"{type(e).__name__}: {e}")
+                return Redirect(
+                    path=(
+                        f"/dashboard/apps/{app_name}"
+                        f"?action={action}&success=false&error={reason}"
+                    ),
+                    status_code=HTTP_303_SEE_OTHER,
+                )
 
-        return Redirect(path=f"/dashboard/apps/{app_name}")
+        return Redirect(
+            path=f"/dashboard/apps/{app_name}?action={action}&success=true",
+            status_code=HTTP_303_SEE_OTHER,
+        )
