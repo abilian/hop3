@@ -9,7 +9,7 @@ This module implements the Addon protocol for MySQL,
 allowing applications to create, attach, and manage MySQL databases.
 
 Admin credentials are configured via environment variables:
-- MYSQL_HOST (default: localhost)
+- MYSQL_HOST (default: 127.0.0.1)
 - MYSQL_PORT (default: 3306)
 - MYSQL_SUPERUSER (default: root)
 - MYSQL_SUPERUSER_PASSWORD (required for most setups)
