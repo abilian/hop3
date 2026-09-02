@@ -2,8 +2,6 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff:file-ignore[raise-vanilla-args, raw-string-in-exception, f-string-in-exception, complex-structure, too-many-branches, too-many-statements]
-
 
 """
 php-app template.
@@ -55,62 +53,119 @@ class PhpAppTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
+        """Render hop3.nix for a PHP app.
+
+        Each `_`-prefixed helper below owns one section of the expression; this
+        stays an orchestrator so the whole file no longer needs a file-scope
+        ruff suppression for complexity/branches/statements.
+        """
         p = spec.payload_as(PhpAppPayload)
         binding = f"{spec.pname}-src"
-        source_nix = spec.source.as_nix(binding)
 
-        # PHP let-binding with extensions
-        php_binding = _format_php_binding(p)
-        composer_binding = ""  # buildComposerProject brings its own composer
+        composer_project = _composer_project(spec, p, binding)
+        unpack_phase = _unpack_phase(spec, p)
 
-        # Native build inputs. Composer apps are built by buildComposerProject
-        # (below); the wrapping derivation only copies its output, so it needs
-        # neither php nor composer here.
-        native_inputs: list[str] = []
-        if spec.source.needs_unzip:
-            native_inputs.append("pkgs.unzip")
-        native_inputs.extend(p.extra_native_build_inputs)
+        # Must precede the wrapper: the writable-tree copy belongs in the
+        # runtime prelude (before the generated config files), not pre_exec.
+        spec = _with_writable_prelude(spec, p)
 
-        native_build_inputs = ""
-        if native_inputs:
-            native_build_inputs = (
-                f"    nativeBuildInputs = [ {' '.join(native_inputs)} ];\n"
-            )
+        install_lines = [
+            *_source_install_lines(spec, p),
+            "",
+            _wrapper_section(spec, p),
+            "",
+            _runtime_json_section(spec, p),
+        ]
 
-        # Composer apps are compiled from source by buildComposerProject — the
-        # nixpkgs composer builder, the composer analogue of buildGoModule.
-        # composer.lock fixes the dependency set (a `dist.shasum` per package)
-        # and vendorHash pins the resolved tree, so the build is hermetic. Its
-        # output may legitimately reference store paths (bin proxies -> bash),
-        # which a fixed-output derivation vendoring the tree by hand may not —
-        # that constraint is why the earlier FOD approach could not build.
-        no_chroot = ""
-        build_phase = ""
-        composer_project = ""
-        if p.needs_composer:
-            if not p.composer_deps_hash:
-                raise ValueError(_NO_COMPOSER_HASH.format(pname=spec.pname))
-            source_root_attr = (
-                f'\n    sourceRoot = "{spec.source_root}";' if spec.source_root else ""
-            )
-            # buildComposerProject does its OWN unpack, so unzip must be in ITS
-            # inputs. On the wrapping derivation alone (which sets dontUnpack)
-            # nix answered `do not know how to unpack source archive` for any
-            # composer app shipped as a .zip — and a release zip is exactly what
-            # you want to package when the git tag lacks built assets.
-            composer_unzip = (
-                "\n    nativeBuildInputs = [ pkgs.unzip ];"
-                if spec.source.needs_unzip
-                else ""
-            )
-            # composer validate is pedantic; skip it explicitly when a
-            # third-party release fails it for benign reasons.
-            strict_attr = (
-                ""
-                if p.composer_strict_validation
-                else "\n    composerStrictValidation = false;"
-            )
-            composer_project = f"""
+        runtime_env = _runtime_env(spec, p)
+
+        return f"""# hop3.nix - Nix expression for {spec.pname}
+#
+# GENERATED from template 'php-app' by hop3-nix-gen.
+# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
+
+{pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
+
+let
+  version = "{spec.version}";
+
+{_format_php_binding(p)}
+{spec.source.as_nix(binding)}
+{composer_project}
+
+  app = pkgs.stdenv.mkDerivation {{
+    pname = "{spec.pname}";
+    inherit version;
+    meta = {{
+      description = "{spec.description}";
+    }};
+
+    src = {binding};
+{_native_build_inputs(spec, p)}{unpack_phase}
+    installPhase = \'\'
+{chr(10).join(install_lines)}
+    \'\';
+  }};
+
+in
+{{
+  package = app;
+
+  env = {{{format_nix_env_attrs(runtime_env)}}};
+}}
+"""
+
+
+def _native_build_inputs(spec: AppSpec, p: PhpAppPayload) -> str:
+    """`nativeBuildInputs` for the wrapping derivation, or "".
+
+    Composer apps are built by buildComposerProject; the wrapping derivation
+    only copies its output, so it needs neither php nor composer here.
+    """
+    native_inputs: list[str] = []
+    if spec.source.needs_unzip:
+        native_inputs.append("pkgs.unzip")
+    native_inputs.extend(p.extra_native_build_inputs)
+    if not native_inputs:
+        return ""
+    return f"    nativeBuildInputs = [ {' '.join(native_inputs)} ];\n"
+
+
+def _composer_project(spec: AppSpec, p: PhpAppPayload, binding: str) -> str:
+    """The `composerProject` let-binding, or "" for non-composer apps.
+
+    buildComposerProject is the composer analogue of buildGoModule:
+    composer.lock fixes the dependency set (a `dist.shasum` per package) and
+    vendorHash pins the resolved tree, so the build is hermetic. Its output may
+    legitimately reference store paths (bin proxies -> bash), which a
+    fixed-output derivation vendoring the tree by hand may not — that
+    constraint is why the earlier FOD approach could not build.
+    """
+    if not p.needs_composer:
+        return ""
+    if not p.composer_deps_hash:
+        msg = _NO_COMPOSER_HASH.format(pname=spec.pname)
+        raise ValueError(msg)
+
+    source_root_attr = (
+        f'\n    sourceRoot = "{spec.source_root}";' if spec.source_root else ""
+    )
+    # buildComposerProject does its OWN unpack, so unzip must be in ITS inputs.
+    # On the wrapping derivation alone (which sets dontUnpack) nix answered
+    # `do not know how to unpack source archive` for any composer app shipped
+    # as a .zip — and a release zip is exactly what you want to package when
+    # the git tag lacks built assets.
+    composer_unzip = (
+        "\n    nativeBuildInputs = [ pkgs.unzip ];" if spec.source.needs_unzip else ""
+    )
+    # composer validate is pedantic; skip it explicitly when a third-party
+    # release fails it for benign reasons.
+    strict_attr = (
+        ""
+        if p.composer_strict_validation
+        else "\n    composerStrictValidation = false;"
+    )
+    return f"""
   # Built from source, offline, inside the sandbox; result at
   # $out/share/php/{spec.pname}/.
   composerProject = pkgs.{p.php_version}.buildComposerProject {{
@@ -122,137 +177,141 @@ class PhpAppTemplate:
   }};
 """
 
-        # Unpack phase
-        if p.single_file or p.needs_composer:
-            # single-file: $src is the file itself. composer: buildComposerProject
-            # already unpacked + built the source, so the wrapping derivation
-            # only copies its output.
-            unpack_phase = "    dontUnpack = true;\n    dontBuild = true;\n"
-        elif spec.source.archive is None:
-            raise ValueError(
-                f"{spec.pname}: php-app with non-single-file source requires "
-                f"an archive type (e.g., archive='tar-gz')"
-            )
-        else:
-            unpack_cmd = spec.source.unpack_command(spec.strip_components)
-            unpack_phase = f"""    unpackPhase = ''
+
+def _unpack_phase(spec: AppSpec, p: PhpAppPayload) -> str:
+    """The unpack/build phase attributes."""
+    if p.single_file or p.needs_composer:
+        # single-file: $src is the file itself. composer: buildComposerProject
+        # already unpacked + built the source, so the wrapping derivation only
+        # copies its output.
+        return "    dontUnpack = true;\n    dontBuild = true;\n"
+    if spec.source.archive is None:
+        msg = (
+            f"{spec.pname}: php-app with non-single-file source requires "
+            f"an archive type (e.g., archive='tar-gz')"
+        )
+        raise ValueError(msg)
+    unpack_cmd = spec.source.unpack_command(spec.strip_components)
+    return f"""    unpackPhase = \'\'
       {unpack_cmd}
-    '';
+    \'\';
     dontBuild = true;
 """
 
-        # Install phase body
-        install_lines: list[str] = [
-            "      mkdir -p $out/app $out/bin $out/hop3",
-            "",
-        ]
 
-        if p.single_file:
-            # For single-file PHP apps like adminer: the file is $src itself
-            install_lines.append("      cp $src $out/app/index.php")
-        elif p.needs_composer:
-            # The composer-built tree (source + vendor/ + optimized autoloader).
-            install_lines.append(
-                f"      cp -r ${{composerProject}}/share/php/{spec.pname}/. $out/app/"
-            )
-            install_lines.append("      chmod -R u+w $out/app")
-        elif not p.skip_source_copy:
-            # If source_root is set, copy from that subdir (e.g., limesurvey's
-            # zip contains a wrapper directory).
-            copy_src = f"{spec.source_root}/." if spec.source_root else "."
-            install_lines.append(f"      cp -r {copy_src} $out/app/")
+def _with_writable_prelude(spec: AppSpec, p: PhpAppPayload) -> AppSpec:
+    """Fold the writable-dir setup into the runtime prelude.
 
-        if p.post_install_dirs:
-            dirs = " ".join(f"$out/app/{d}" for d in p.post_install_dirs)
-            install_lines.append(f"      mkdir -p {dirs}")
+    This MUST land in the runtime prelude, not pre_exec: the wrapper emits
+    prelude -> config-files -> pre-exec, so a copy sitting in pre_exec runs
+    AFTER the generated config files and copies the upstream tree straight over
+    them. Today that is harmless only by luck — these apps ship
+    `config-sample.php` / `.env.example`, never the real filename — but any app
+    shipping a default `config.php` would have Hop3's rendered config silently
+    replaced by the upstream default, and serve unconfigured.
 
-        # Ship recipe-local install/aux files into $out/app, so a pre-exec
-        # install step can run the app's own installer script (e.g. WordPress's
-        # wp-install.php, which is NOT in the upstream tarball). `${./<f>}`
-        # resolves against the generated hop3.nix's own directory (the recipe
-        # dir), so Nix imports each file from there; `install -D` recreates any
-        # parent dirs. Copied AFTER the source so an aux file overrides a
-        # same-named upstream file (intended), and lands in the writable cwd via
-        # the needs_writable_dir prelude below.
-        for f in p.install_files:
-            install_lines.append(f"      install -D ${{./{f}}} $out/app/{f}")
+    Note there is no `cp -a APPDIR/. .` here. Hop3 materialises the tree at
+    deploy time from the `writable_tree` key in runtime.json, so it is in place
+    before `[run] before-run` rather than after; copying here as well would
+    overwrite a tree the bootstrap had just configured.
+    """
+    if not p.needs_writable_dir:
+        return spec
+    prelude_parts = []
+    if p.post_install_dirs:
+        prelude_parts.append(f"mkdir -p {' '.join(p.post_install_dirs)}")
+    if spec.runtime_prelude:
+        prelude_parts.append(spec.runtime_prelude)
+    return replace(spec, runtime_prelude="\n\n".join(prelude_parts))
 
-        install_lines.append("")
 
-        # When needs_writable_dir is set, materialize the store tree into the
-        # writable cwd. The Nix store is read-only, so apps that need .env,
-        # config.php, or writable storage/ must operate from a cwd-based copy.
-        #
-        # This MUST land in the runtime prelude, not pre_exec: the wrapper emits
-        # prelude -> config-files -> pre-exec, so a copy sitting in pre_exec runs
-        # AFTER the generated config files and copies the upstream tree straight
-        # over them. Today that is harmless only by luck — these apps ship
-        # `config-sample.php` / `.env.example`, never the real filename — but any
-        # app shipping a default `config.php` would have Hop3's rendered config
-        # silently replaced by the upstream default, and serve unconfigured.
-        # Ordering now: copy tree -> render config -> pre-exec (install commands,
-        # which legitimately depend on the config) -> exec.
-        if p.needs_writable_dir:
-            # cp -a (not symlinks) because PHP's __DIR__ resolves symlinks, and
-            # when it resolves back into the read-only Nix store, Laravel/PHP
-            # can't find .env, write to storage/, etc. Disk cost ~50-200 MB/app.
-            # NOT a `cp -a APPDIR/. .` here. Hop3 materialises the tree at
-            # deploy time from the `writable_tree` key in runtime.json, so it is
-            # in place before `[run] before-run` rather than after. Copying here
-            # as well would overwrite a tree the bootstrap had just configured.
-            prelude_parts = []
-            if p.post_install_dirs:
-                dirs = " ".join(p.post_install_dirs)
-                prelude_parts.append(f"mkdir -p {dirs}")
-            if spec.runtime_prelude:
-                prelude_parts.append(spec.runtime_prelude)
+def _source_install_lines(spec: AppSpec, p: PhpAppPayload) -> list[str]:
+    """installPhase lines that put the application tree into $out/app."""
+    lines = ["      mkdir -p $out/app $out/bin $out/hop3", ""]
 
-            spec = replace(spec, runtime_prelude="\n\n".join(prelude_parts))
+    if p.single_file:
+        # For single-file PHP apps like adminer: the file is $src itself.
+        lines.append("      cp $src $out/app/index.php")
+    elif p.needs_composer:
+        # The composer-built tree (source + vendor/ + optimized autoloader).
+        lines.append(
+            f"      cp -r ${{composerProject}}/share/php/{spec.pname}/. $out/app/"
+        )
+        lines.append("      chmod -R u+w $out/app")
+    elif not p.skip_source_copy:
+        # If source_root is set, copy from that subdir (e.g. limesurvey's zip
+        # contains a wrapper directory).
+        copy_src = f"{spec.source_root}/." if spec.source_root else "."
+        lines.append(f"      cp -r {copy_src} $out/app/")
 
-        # Wrapper script. Uses APPDIR and PHPBIN placeholders which are
-        # sed-replaced during the install phase — APPDIR → $out/app,
-        # PHPBIN → ${{php}}/bin (the latter is Nix-interpolated to the
-        # actual php store path before sed runs).
-        exec_line = _php_exec_line(spec, p)
-        wrapper_body = format_wrapper_body(spec, exec_line)
-        wrapper_section = f"""      cat > $out/bin/{spec.pname} << 'WRAPPER'
+    if p.post_install_dirs:
+        dirs = " ".join(f"$out/app/{d}" for d in p.post_install_dirs)
+        lines.append(f"      mkdir -p {dirs}")
+
+    # Ship recipe-local install/aux files into $out/app, so a pre-exec install
+    # step can run the app's own installer script (e.g. WordPress's
+    # wp-install.php, which is NOT in the upstream tarball). `${./<f>}` resolves
+    # against the generated hop3.nix's own directory (the recipe dir), so Nix
+    # imports each file from there; `install -D` recreates any parent dirs.
+    # Copied AFTER the source so an aux file overrides a same-named upstream
+    # file (intended), and lands in the writable cwd via the prelude above.
+    lines.extend(f"      install -D ${{./{f}}} $out/app/{f}" for f in p.install_files)
+    return lines
+
+
+def _wrapper_section(spec: AppSpec, p: PhpAppPayload) -> str:
+    """The heredoc that writes $out/bin/<pname>.
+
+    Uses APPDIR and PHPBIN placeholders which are sed-replaced during the
+    install phase — APPDIR -> $out/app, PHPBIN -> ${php}/bin (the latter is
+    Nix-interpolated to the actual php store path before sed runs).
+    """
+    wrapper_body = format_wrapper_body(spec, _php_exec_line(spec, p))
+    return f"""      cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
 WRAPPER
       sed -i "s|APPDIR|$out/app|g" $out/bin/{spec.pname}
       sed -i "s|PHPBIN|${{php}}/bin|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}"""
-        install_lines.append(wrapper_section)
-        install_lines.append("")
 
-        # runtime.json — extra_paths can include "${php}/bin" etc., which Nix
-        # interpolates at build time (they're inside the installPhase string).
-        # PHP's built-in server handles one request at a time, so an app that
-        # fetches its own URL deadlocks against its only worker. The platform
-        # sets this for Procfile apps by matching `php -S` in the worker
-        # command, which a Nix app never looks like: its command is an opaque
-        # wrapper path in the store. The template that *chose* the built-in
-        # server is what knows it needs workers, so it declares them here.
-        runtime_env = dict(spec.runtime_env)
-        if p.serve_mode in _CONCURRENT_SERVE_MODES:
-            runtime_env.setdefault("PHP_CLI_SERVER_WORKERS", PHP_BUILTIN_SERVER_WORKERS)
-        runtime_env_json = format_runtime_env_json(runtime_env)
-        paths_json = format_paths_json(spec.extra_paths)
-        # `writable_tree` names the store path Hop3 must copy into the app's
-        # own directory BEFORE anything runs there. It is declared here rather
-        # than done in the wrapper because the wrapper runs when the app starts,
-        # which is after `[run] before-run` — so a bootstrap script found a
-        # directory holding the recipe and none of the application. Matomo's
-        # installer died on `Failed opening required core/bootstrap.php` for
-        # exactly that reason, on a build that was otherwise fine.
-        # `$out/app`, not `$out`: the application lives in that subdirectory,
-        # while `$out` also holds the generated wrapper and hop3/runtime.json.
-        # Copying `$out` puts the app one level down from where it expects to
-        # be, and drops build metadata into the app's directory where the next
-        # deploy trips over it.
-        writable_tree = (
-            '\n  "writable_tree": "$out/app",' if p.needs_writable_dir else ""
-        )
-        runtime_json_section = f"""      cat > $out/hop3/runtime.json << EOF
+
+def _runtime_env(spec: AppSpec, p: PhpAppPayload) -> dict[str, str]:
+    """Runtime env, with the built-in server's worker count filled in.
+
+    PHP's built-in server handles one request at a time, so an app that fetches
+    its own URL deadlocks against its only worker. The platform sets this for
+    Procfile apps by matching `php -S` in the worker command, which a Nix app
+    never looks like: its command is an opaque wrapper path in the store. The
+    template that *chose* the built-in server is what knows it needs workers.
+    """
+    runtime_env = dict(spec.runtime_env)
+    if p.serve_mode in _CONCURRENT_SERVE_MODES:
+        runtime_env.setdefault("PHP_CLI_SERVER_WORKERS", PHP_BUILTIN_SERVER_WORKERS)
+    return runtime_env
+
+
+def _runtime_json_section(spec: AppSpec, p: PhpAppPayload) -> str:
+    """The heredoc that writes $out/hop3/runtime.json.
+
+    `writable_tree` names the store path Hop3 must copy into the app's own
+    directory BEFORE anything runs there. It is declared here rather than done
+    in the wrapper because the wrapper runs when the app starts, which is after
+    `[run] before-run` — so a bootstrap script found a directory holding the
+    recipe and none of the application. Matomo's installer died on `Failed
+    opening required core/bootstrap.php` for exactly that reason, on a build
+    that was otherwise fine.
+
+    `$out/app`, not `$out`: the application lives in that subdirectory, while
+    `$out` also holds the generated wrapper and hop3/runtime.json. Copying
+    `$out` puts the app one level down from where it expects to be, and drops
+    build metadata into the app's directory where the next deploy trips over it.
+    """
+    # extra_paths can include "${php}/bin" etc., which Nix interpolates at
+    # build time (they are inside the installPhase string).
+    runtime_env_json = format_runtime_env_json(_runtime_env(spec, p))
+    paths_json = format_paths_json(spec.extra_paths)
+    writable_tree = '\n  "writable_tree": "$out/app",' if p.needs_writable_dir else ""
+    return f"""      cat > $out/hop3/runtime.json << EOF
 {{{writable_tree}
   "workers": {{
     "web": "$out/bin/{spec.pname}"
@@ -265,46 +324,6 @@ WRAPPER
   ]
 }}
 EOF"""
-        install_lines.append(runtime_json_section)
-        install_body = "\n".join(install_lines)
-
-        nix_env_attrs = format_nix_env_attrs(runtime_env)
-
-        return f"""# hop3.nix - Nix expression for {spec.pname}
-#
-# GENERATED from template 'php-app' by hop3-nix-gen.
-# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
-
-{pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
-
-let
-  version = "{spec.version}";
-
-{php_binding}{composer_binding}
-{source_nix}
-{composer_project}
-
-  app = pkgs.stdenv.mkDerivation {{
-{no_chroot}    pname = "{spec.pname}";
-    inherit version;
-    meta = {{
-      description = "{spec.description}";
-    }};
-
-    src = {binding};
-{native_build_inputs}{unpack_phase}{build_phase}
-    installPhase = ''
-{install_body}
-    '';
-  }};
-
-in
-{{
-  package = app;
-
-  env = {{{nix_env_attrs}}};
-}}
-"""
 
 
 def _format_php_binding(p: PhpAppPayload) -> str:
@@ -345,6 +364,8 @@ def _php_exec_line(spec: AppSpec, p: PhpAppPayload) -> str:
         return f"PHPBIN/php {artisan} serve --host=0.0.0.0 --port=${{PORT:-8080}}"
     if p.serve_mode == "custom":
         if spec.exec_target is None:
-            raise ValueError("serve_mode='custom' requires exec_target")
+            msg = "serve_mode='custom' requires exec_target"
+            raise ValueError(msg)
         return spec.exec_target
-    raise ValueError(f"Unknown serve_mode: {p.serve_mode}")
+    msg = f"Unknown serve_mode: {p.serve_mode}"
+    raise ValueError(msg)
