@@ -35,6 +35,7 @@ from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
+from hop3.run.uwsgi.naming import vassal_glob, vassal_name
 
 from .nix_closure import (
     NIX_STORE_CANDIDATES,
@@ -309,7 +310,7 @@ class AppLauncher:
     def _handle_auto_restart(self, env: Env) -> None:
         """Handle auto-restart by removing uwsgi configs if enabled."""
         if env.get_bool("HOP3_AUTO_RESTART", default=True):
-            configs = list(UWSGI_ENABLED.glob(f"{self.app_name}*.ini"))
+            configs = list(UWSGI_ENABLED.glob(vassal_glob(self.app_name)))
             if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
@@ -879,7 +880,7 @@ class AppLauncher:
         # Create new workers
         for kind, v in to_create.items():
             for w in v:
-                enabled = UWSGI_ENABLED / f"{self.app_name:s}_{kind:s}.{w:d}.ini"
+                enabled = UWSGI_ENABLED / vassal_name(self.app_name, kind, w)
                 if enabled.exists():
                     # Skip if the worker configuration already exists
                     continue
@@ -899,7 +900,7 @@ class AppLauncher:
         # Remove unnecessary workers (leave logfiles)
         for k, v in to_destroy.items():
             for w in v:
-                enabled = UWSGI_ENABLED / f"{self.app_name:s}_{k:s}.{w:d}.ini"
+                enabled = UWSGI_ENABLED / vassal_name(self.app_name, k, w)
                 if not enabled.exists():
                     continue  # Skip if the file does not exist
 

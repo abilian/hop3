@@ -24,6 +24,7 @@ from hop3.core.plugins import get_waf_engine
 from hop3.deployers.waf import _read_audit, reconcile_bans, reload_proxy
 from hop3.lib.registry import register
 from hop3.orm import AppRepository, BanRepository
+from hop3.run.uwsgi.naming import vassal_name
 from hop3.waf.bans import utcnow
 
 from ._base import Command
@@ -60,7 +61,7 @@ class WafStatusCmd(Command):
         now = utcnow()
         rows = []
         for app in waf_apps:
-            vassal = c.UWSGI_ENABLED / f"{app.name}_waf.1.ini"
+            vassal = c.UWSGI_ENABLED / vassal_name(app.name, "waf", 1)
             rows.append([
                 app.name,
                 str(app.waf_port),
