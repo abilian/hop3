@@ -92,7 +92,15 @@ def get_session_factory(database_uri: str = "") -> sessionmaker:
     engine_kwargs = {}
 
     is_sqlite = database_uri.startswith("sqlite")
-    is_memory_sqlite = is_sqlite and ":memory:" in database_uri
+    # SQLite names an in-memory database two ways, and both must be detected:
+    # the classic `:memory:` and the URI form `?mode=memory` (which the xdist
+    # test fixtures use, one DB per worker). Matching only the first left
+    # SQLAlchemy choosing SingletonThreadPool for a `mode=memory` URI while we
+    # passed it pool_size/max_overflow, so `pytest -n auto` died at
+    # create_engine with "Invalid argument(s) 'max_overflow'".
+    is_memory_sqlite = is_sqlite and (
+        ":memory:" in database_uri or "mode=memory" in database_uri
+    )
 
     if is_sqlite:
         # SQLite-specific: allow multi-threaded access
