@@ -15,7 +15,7 @@ from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
 from hop3.lib import command_output, expand_vars, log
-from hop3.lib.util import CommandError, try_commands
+from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.platform.certificates import (
     CertificatesManager,
     verify_cert,
@@ -253,19 +253,16 @@ class CaddyVirtualHost(BaseProxy):
         if os.environ.get("PYTEST_CURRENT_TEST"):
             return
 
-        # Try reload methods in order of preference
-        reload_methods = [
-            (["sudo", "-n", "supervisorctl", "restart", "caddy"], "supervisorctl"),
-            (["sudo", "-n", "systemctl", "reload", "caddy"], "systemctl"),
-            (["sudo", "-n", "caddy", "reload"], "caddy reload"),
-        ]
-
+        # Through hop3-rootd, like nginx. This used to run `sudo -n
+        # supervisorctl/systemctl` directly, which fails outright on a host
+        # where the hop3 user has no passwordless sudo — and since a failed
+        # caddy reload is fatal, *every* caddy deploy aborted on such a box.
         try:
-            method = try_commands(reload_methods, timeout=5)
-            log(f"caddy reloaded via {method}", level=2)
-        except CommandError as e:
+            method = reload_service("caddy")
+            log(f"caddy reloaded via {method} (hop3-rootd)", level=2)
+        except (RootdError, RootdUnavailableError) as e:
             msg = (
-                f"Could not reload caddy: {e.message}. The new configuration / "
+                f"Could not reload caddy: {e}. The new configuration / "
                 f"certificate is not live; refusing to report a successful deploy."
             )
             log(f"✗ {msg}", level=1, fg="red")

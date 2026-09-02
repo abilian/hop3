@@ -9,7 +9,7 @@ This module implements the Addon protocol for PostgreSQL,
 allowing applications to create, attach, and manage PostgreSQL databases.
 
 Admin credentials are configured via environment variables:
-- POSTGRES_HOST (default: localhost)
+- POSTGRES_HOST (default: 127.0.0.1)
 - POSTGRES_PORT (default: 5432)
 - POSTGRES_SUPERUSER (default: postgres)
 - POSTGRES_SUPERUSER_PASSWORD (required for most setups)
@@ -36,6 +36,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from hop3.config import HOP3_ROOT
 from hop3.core.backup import resolve_backup_file
 from hop3.lib.logging import server_log
+from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.plugins.addons import (
     delete_addon_secrets,
     load_addon_secrets,
@@ -188,12 +189,22 @@ def _ensure_pg_hba_docker_access() -> None:
     pg_hba.write_text(content)
     server_log.info(f"Added pg_hba.conf entries for Docker networks: {docker_networks}")
 
-    # Reload PostgreSQL to apply changes
-    subprocess.run(
-        ["sudo", "-n", "systemctl", "reload", "postgresql"],
-        check=False,
-        capture_output=True,
-    )
+    # Apply the rewrite. This used to be `sudo -n systemctl reload postgresql`
+    # with check=False and the result thrown away, so on a host without
+    # passwordless sudo the file was rewritten and never applied — and the
+    # failure surfaced much later, as an opaque "no pg_hba.conf entry for host"
+    # from a Docker app. A rewritten config that is not live is not a success.
+    try:
+        method = reload_service("postgresql")
+    except (RootdError, RootdUnavailableError) as e:
+        msg = (
+            f"pg_hba.conf was updated for Docker networks but PostgreSQL could "
+            f"not be reloaded ({e}), so the change is NOT live: containers will "
+            f"still be refused with 'no pg_hba.conf entry for host'. Reload "
+            f"PostgreSQL and retry."
+        )
+        raise RuntimeError(msg) from e
+    server_log.info(f"Reloaded PostgreSQL via {method} to apply pg_hba.conf")
 
 
 def _find_pg_conf() -> Path | None:
@@ -251,12 +262,20 @@ def _ensure_pg_listen_addresses() -> None:
     pg_conf.write_text(content)
     server_log.info("Updated PostgreSQL listen_addresses to '*'")
 
-    # Restart PostgreSQL (listen_addresses requires restart, not reload)
-    subprocess.run(
-        ["sudo", "-n", "systemctl", "restart", "postgresql"],
-        check=False,
-        capture_output=True,
-    )
+    # listen_addresses needs a restart, not a reload; `service.reload` maps to
+    # `supervisorctl restart` / `systemctl reload-or-restart`, both of which
+    # do restart the unit. Same reasoning as pg_hba above: a config written but
+    # never applied is a silent failure that surfaces as a refused connection.
+    try:
+        method = reload_service("postgresql")
+    except (RootdError, RootdUnavailableError) as e:
+        msg = (
+            f"postgresql.conf listen_addresses was updated but PostgreSQL could "
+            f"not be restarted ({e}), so it is still listening on the old "
+            f"addresses. Restart PostgreSQL and retry."
+        )
+        raise RuntimeError(msg) from e
+    server_log.info(f"Restarted PostgreSQL via {method} to apply listen_addresses")
 
 
 def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) -> None:

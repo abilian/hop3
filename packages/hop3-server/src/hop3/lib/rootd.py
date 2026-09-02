@@ -277,3 +277,25 @@ def _client_version() -> str:
         return version("hop3-server")
     except PackageNotFoundError:
         return "unknown"
+
+
+def reload_service(service: str) -> str:
+    """
+    Reload a Hop3-managed system service through hop3-rootd.
+
+    Returns the method that worked (for logging). Raises ``RootdError`` or
+    ``RootdUnavailableError`` — the CALLER decides whether that is fatal,
+    because it depends on what the reload was publishing: a proxy that has
+    just been handed new routes must not report a successful deploy, while a
+    proxy whose file-watch will pick the config up anyway may warn.
+
+    This exists so the three call sites that used to shell out to
+    ``sudo -n systemctl reload <svc>`` share one path. ``sudo -n`` fails
+    outright on a host where the ``hop3`` user has no passwordless sudo — the
+    configuration documented as "failed on real servers" — and privileged
+    operations belong behind the daemon rather than in a growing list of
+    sudo shortcuts in the deployer.
+    """
+    with LocalRootdClient() as client:
+        result = client.call("service.reload", {"service": service})
+    return str(result.get("method", "rootd"))

@@ -20,6 +20,7 @@ from hop3_rootd.ops import (  # ruff:ignore[unused-import]
     nginx,
     postfix,
     proxy,
+    service,
 )
 from hop3_rootd.ops._base import (
     OpContext,

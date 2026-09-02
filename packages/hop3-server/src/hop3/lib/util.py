@@ -183,17 +183,21 @@ def try_commands(
     Raises:
         CommandError: If all commands fail, raises with combined error message.
 
+    NOT for privileged operations. Service reloads and anything else needing
+    root go through hop3-rootd (``hop3.lib.rootd.reload_service``): `sudo -n`
+    fails outright where the hop3 user has no passwordless sudo, and the
+    privilege model keeps privileged work behind the daemon rather than in a
+    growing list of sudo shortcuts. This helper is for unprivileged probes.
+
     Example:
-        reload_methods = [
-            (["sudo", "-n", "supervisorctl", "restart", "nginx"], "supervisorctl"),
-            (["sudo", "-n", "systemctl", "reload", "nginx"], "systemctl"),
-            (["sudo", "-n", "nginx", "-s", "reload"], "nginx -s reload"),
+        detect_methods = [
+            (["git", "--version"], "git"),
+            (["hg", "--version"], "mercurial"),
         ]
         try:
-            method = try_commands(reload_methods)
-            log(f"nginx reloaded via {method}")
+            vcs = try_commands(detect_methods)
         except CommandError as e:
-            log(f"All reload methods failed: {e}")
+            log(f"No supported VCS found: {e}")
     """
     errors = []
 
