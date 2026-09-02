@@ -840,7 +840,8 @@ def _log_runtime_hints(app: App) -> None:
     if app.runtime == "uwsgi":
         log("  - Check uWSGI emperor logs: journalctl -u uwsgi-emperor -n 50", level=0)
         log(
-            f"  - Check app uWSGI config: cat /home/hop3/uwsgi-enabled/{app.name}.ini",
+            f"  - Check app uWSGI config: cat "
+            f"{HopConfig.get_instance().UWSGI_ENABLED}/{app.name}_*.ini",
             level=0,
         )
     elif app.runtime == "docker-compose":

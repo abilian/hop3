@@ -2,7 +2,9 @@
 
 **Updated**: 2026-06-25 - from the hop3-testlab "can't log in / `CSRF token verification failed`" investigation.
 
-Cookie-based CSRF and session auth (Litestar's CSRF middleware, used by both hop3-testlab and hop3-server) has two sharp edges that combine into a permanent, self-inflicted lockout. Both are platform bugs.
+Cookie-based CSRF and session auth (Litestar's CSRF middleware, used by **hop3-testlab**) has two sharp edges that combine into a permanent, self-inflicted lockout. Both are platform bugs.
+
+> **Scope.** This is about hop3-testlab. **hop3-server has no CSRF middleware and never has** — see [security-model.md §3.7](../security/security-model.md). Its posture rests on `samesite=lax` plus the invariant that every state-changing route is a POST, which `tests/b_integration/server/test_auth_transport_and_logout.py::test_no_mutating_get_routes_remain` enforces by walking the route map. A double-submit token for hop3-server is tracked there as a separate hardening item. Don't read the lockout below as describing hop3-server.
 
 ## Don't derive the CSRF/session secret from a rotatable credential
 

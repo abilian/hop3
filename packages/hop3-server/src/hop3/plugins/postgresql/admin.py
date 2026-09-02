@@ -52,7 +52,7 @@ class PostgresAdmin:
        - POSTGRES_ADMIN_URL=postgresql://user:password@host:port/dbname
 
     2. Individual settings (with POSTGRES_ prefix):
-       - POSTGRES_HOST (default: localhost)
+       - POSTGRES_HOST (default: 127.0.0.1)
        - POSTGRES_PORT (default: 5432)
        - POSTGRES_SUPERUSER (default: postgres)
        - POSTGRES_SUPERUSER_PASSWORD (optional)
