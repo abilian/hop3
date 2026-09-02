@@ -29,6 +29,7 @@ from typing import Any
 from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
 from hop3.lib import log
+from hop3.lib.path import is_under
 from hop3.orm import App, AppStateEnum, Backup, BackupStateEnum, EnvVar
 
 # Runtime imports for Dishka DI (not just type hints)
@@ -162,12 +163,6 @@ def _matches_exclude(rel: str, patterns: list[str]) -> bool:
     return False
 
 
-def _is_under(path: Path, root: Path) -> bool:
-    """True if ``path`` is ``root`` or below it (both already normalised)."""
-    p, r = str(path), str(root)
-    return p == r or p.startswith(r + os.sep)
-
-
 def resolve_backup_file(path: Path | str, backup_root: Path) -> Path:
     """
     Resolve a caller-supplied backup path, confined to ``backup_root``.
@@ -199,7 +194,7 @@ def resolve_backup_file(path: Path | str, backup_root: Path) -> Path:
 
     # Containment before existence: probing arbitrary paths for existence is
     # itself a (small) disclosure, and the caller has no business there.
-    if not _is_under(resolved, root):
+    if not is_under(resolved, root):
         msg = (
             f"Backup path is outside the backup directory: {resolved}. "
             f"Restores read only from {root}."
@@ -866,7 +861,7 @@ class BackupManager:
         with tarfile.open(tar_path, "w:gz") as tar:
             for rel in paths:
                 real = Path(os.path.realpath(app.src_path / rel))
-                if os.path.isabs(rel) or not _is_under(real, app_root):
+                if os.path.isabs(rel) or not is_under(real, app_root):
                     msg = (
                         f"[backup].paths entry {rel!r} escapes the app tree "
                         f"({app_root}); a backup can only read inside the app"

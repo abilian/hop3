@@ -24,6 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from hop3.config import HOP3_USER
 from hop3.lib import log
+from hop3.lib.path import is_confined_to
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -78,10 +79,11 @@ def _realize_persist_volume(
     link_path = src_root / target
 
     # Defense in depth: the link must stay within src/. The schema already
-    # rejects absolute paths and '..', but recheck against the normalized path
-    # in case validation was bypassed (HOP3_SKIP_CONFIG_VALIDATION).
-    norm = os.path.normpath(link_path)
-    if norm != str(src_root) and not norm.startswith(str(src_root) + os.sep):
+    # rejects absolute paths and '..', but recheck in case validation was
+    # bypassed (HOP3_SKIP_CONFIG_VALIDATION). realpath both sides — a lexical
+    # check passes an in-tree symlink (src/data -> /etc) that this function
+    # would then seed from and replace.
+    if not is_confined_to(link_path.parent, src_root):
         msg = f"[[volumes]] {name!r}: target {target!r} escapes the app source tree."
         raise ValueError(msg)
 
