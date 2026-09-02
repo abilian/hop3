@@ -11,104 +11,52 @@ contributed to the RPC dispatch table via the plugin's `cli_commands()` hook.
 
 from __future__ import annotations
 
-import base64
-import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, cast
 
 from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
-from hop3.commands._response import blob, error, summary, table, text
-from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
+from hop3.commands._response import summary, text
 from hop3.core.plugins import get_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
+from hop3.plugins.addons.generic_cli import (
+    AddonCliSpec,
+    generic_addon_commands,
+)
 
 if TYPE_CHECKING:
     from .redis import RedisAddon
 
 _TYPE = "redis"
 
+_GENERIC = AddonCliSpec(
+    type_name=_TYPE,
+    label="Redis",
+    example="mycache",
+    dump_suffix=".rdb",
+    dump_filename="dump.rdb",
+    dump_contents="keys",
+    restore_target="the current contents of the addon's database",
+    clone_example=("prod-cache", "staging-cache"),
+)
+
+#: credentials / dump / restore / clone / export / import — identical
+#: for every addon type, so they are built from the spec above rather
+#: than written out a fourth time. Engine-specific verbs stay below.
+_GENERIC_COMMANDS = generic_addon_commands(_GENERIC)
+for _cmd in _GENERIC_COMMANDS:
+    register(_cmd)
+    # Bind each generated class under the name it had when it was written out
+    # by hand (AddonRedisExportCmd, ...), so this is a drop-in replacement:
+    # anything importing one by name — the existing unit tests included —
+    # keeps working, and those tests keep testing the real command.
+    globals()[_cmd.__name__] = _cmd
+
 
 def _addon(name: str) -> RedisAddon:
     """Typed accessor for the concrete Redis addon (engine-specific methods)."""
     return cast("RedisAddon", get_addon(_TYPE, name))
-
-
-def _clone(args: tuple) -> list[dict]:
-    """Create a new addon and copy the source addon's data into it."""
-    if len(args) < 2:
-        return [text(f"Usage: hop3 addon {_TYPE} clone <source> <new-name>")]
-    source, target = args[0], args[1]
-    try:
-        validate_service_name(target)
-    except InvalidIdentifierError as exc:
-        return [error(str(exc))]
-    with command_context("cloning addon", addon_name=source, service_type=_TYPE):
-        dst = get_addon(_TYPE, target)
-        if hasattr(dst, "exists") and dst.exists():
-            return [error(f"Addon '{target}' already exists.")]
-        dst.create()
-        dst.restore(get_addon(_TYPE, source).backup())
-    return [
-        text(f"Cloned {_TYPE} addon '{source}' into '{target}'."),
-        summary(f"cloned addon '{source}' -> '{target}' ({_TYPE})."),
-    ]
-
-
-@register
-@dataclass(frozen=True)
-class AddonRedisCredentialsCmd(Command):
-    """
-    Show connection credentials for a Redis addon.
-
-    Usage: hop3 addon redis credentials <name>
-
-    Examples:
-        hop3 addon redis credentials mycache
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "credentials")
-
-    def call(self, *args: str) -> list[dict]:
-        if not args:
-            return [text("Usage: hop3 addon redis credentials <name>")]
-        addon_name = args[0]
-        with command_context(
-            "reading addon credentials", addon_name=addon_name, service_type=_TYPE
-        ):
-            details = get_addon(_TYPE, addon_name).get_connection_details()
-        rows = [[key, value] for key, value in details.items()]
-        return [table(headers=["Variable", "Value"], rows=rows)]
-
-
-@register
-@dataclass(frozen=True)
-class AddonRedisDumpCmd(Command):
-    """
-    Dump a Redis addon's keys to a backup file.
-
-    Usage: hop3 addon redis dump <name>
-
-    Examples:
-        hop3 addon redis dump mycache
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "dump")
-
-    def call(self, *args: str) -> list[dict]:
-        if not args:
-            return [text("Usage: hop3 addon redis dump <name>")]
-        addon_name = args[0]
-        with command_context(
-            "dumping addon", addon_name=addon_name, service_type=_TYPE
-        ):
-            path = get_addon(_TYPE, addon_name).backup()
-        return [
-            text(f"Dumped Redis addon '{addon_name}' to {path}."),
-            summary(f"dumped addon '{addon_name}' ({_TYPE}) to {path}."),
-        ]
 
 
 @register
@@ -202,138 +150,6 @@ class AddonRedisInfoCmd(Command):
         return [text(output or "(empty)")]
 
 
-@register
-@dataclass(frozen=True)
-class AddonRedisRestoreCmd(Command):
-    """
-    Restore a Redis addon from a dump file.
-
-    Usage: hop3 addon redis restore <name> <path>
-
-    WARNING: overwrites the current contents of the addon's database.
-
-    Examples:
-        hop3 addon redis restore mycache /home/hop3/backups/redis/mycache.rdb
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "restore")
-    destructive: ClassVar[bool] = True
-
-    def call(self, *args: str) -> list[dict]:
-        if len(args) < 2:
-            return [text("Usage: hop3 addon redis restore <name> <path>")]
-        addon_name, backup_path = args[0], args[1]
-        with command_context(
-            "restoring addon", addon_name=addon_name, service_type=_TYPE
-        ):
-            get_addon(_TYPE, addon_name).restore(Path(backup_path))
-        return [
-            text(f"Restored Redis addon '{addon_name}' from {backup_path}."),
-            summary(f"restored addon '{addon_name}' ({_TYPE}) from {backup_path}."),
-        ]
-
-
-@register
-@dataclass(frozen=True)
-class AddonRedisCloneCmd(Command):
-    """
-    Clone a Redis addon into a new one (copies all data).
-
-    Usage: hop3 addon redis clone <source> <new-name>
-
-    Creates <new-name>, then loads a dump of <source> into it. Refuses if
-    <new-name> already exists.
-
-    Examples:
-        hop3 addon redis clone prod-cache staging-cache
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "clone")
-
-    def call(self, *args: str) -> list[dict]:
-        return _clone(args)
-
-
-@register
-@dataclass(frozen=True)
-class AddonRedisExportCmd(Command):
-    """
-    Stream a Redis addon dump to stdout.
-
-    Usage: hop3 addon redis export <name> > dump.rdb
-
-    Writes the addon's dump to the client's stdout — redirect it to a file or
-    pipe it elsewhere.
-
-    Examples:
-        hop3 addon redis export mycache > mycache.rdb
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "export")
-
-    def call(self, *args: str) -> list[dict]:
-        if not args:
-            return [text("Usage: hop3 addon redis export <name> > dump.rdb")]
-        addon_name = args[0]
-        with command_context(
-            "exporting addon", addon_name=addon_name, service_type=_TYPE
-        ):
-            path = Path(get_addon(_TYPE, addon_name).backup())
-            encoded = base64.b64encode(path.read_bytes()).decode("ascii")
-        return [
-            blob(encoded, filename=path.name),
-            summary(f"exported addon '{addon_name}' ({_TYPE})."),
-        ]
-
-
-@register
-@dataclass(frozen=True)
-class AddonRedisImportCmd(Command):
-    """
-    Import a dump into a Redis addon from stdin.
-
-    Usage: hop3 addon redis import <name> --confirm=<name> < dump.rdb
-
-    Loads the piped dump into the addon. Overwrites existing data; since stdin
-    carries the dump (so it can't prompt), pass --confirm=<name> or --yes.
-
-    Examples:
-        hop3 addon redis import mycache --confirm=mycache < mycache.rdb
-    """
-
-    name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "import")
-    destructive: ClassVar[bool] = True
-
-    def call(
-        self, *args: str, import_data: str | None = None, **kwargs: object
-    ) -> list[dict]:
-        if not args:
-            return [text("Usage: hop3 addon redis import <name> < dump.rdb")]
-        addon_name = args[0]
-        if not import_data:
-            return [
-                error(
-                    "No dump provided. Pipe one on stdin: "
-                    "hop3 addon redis import <name> < dump.rdb"
-                )
-            ]
-        with command_context(
-            "importing addon", addon_name=addon_name, service_type=_TYPE
-        ):
-            content = base64.b64decode(import_data)
-            with tempfile.NamedTemporaryFile(suffix=".rdb", delete=False) as tmp:
-                tmp.write(content)
-                tmp_path = Path(tmp.name)
-            try:
-                get_addon(_TYPE, addon_name).restore(tmp_path)
-            finally:
-                tmp_path.unlink(missing_ok=True)
-        return [
-            text(f"Imported dump into Redis addon '{addon_name}'."),
-            summary(f"imported dump into addon '{addon_name}' ({_TYPE})."),
-        ]
-
-
 # Contributed to the RPC dispatch table via RedisPlugin.cli_commands().
 @register
 class AddonRedisCmd(NamespaceCommand):
@@ -355,14 +171,9 @@ class AddonRedisCmd(NamespaceCommand):
 
 
 COMMANDS: list[type[Command]] = [
+    *_GENERIC_COMMANDS,
     AddonRedisCmd,
-    AddonRedisCredentialsCmd,
-    AddonRedisDumpCmd,
-    AddonRedisRestoreCmd,
     AddonRedisFlushCmd,
     AddonRedisQueryCmd,
-    AddonRedisCloneCmd,
-    AddonRedisExportCmd,
-    AddonRedisImportCmd,
     AddonRedisInfoCmd,
 ]
