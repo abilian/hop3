@@ -13,25 +13,46 @@ from hop3_testing.apps import DeploymentSession
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.exceptions import DeploymentError
 
-# Get all test apps from apps/test-apps/ and apps/nix-apps/
+# Get all test apps from the platform fixture directories.
+#
+# These were `test-apps/` and `nix-apps/` until they were renamed. Nothing
+# noticed, because a missing directory collected zero params and pytest
+# reported "1 skipped" — so the repo's main e2e deploy test ran against
+# nothing at all while looking green. `_collect_apps` now refuses a missing
+# directory rather than quietly yielding an empty set.
 APPS_ROOT = Path(__file__).parents[4] / "apps"
-TEST_APPS_DIR = APPS_ROOT / "test-apps"
-NIX_APPS_DIR = APPS_ROOT / "nix-apps"
+TEST_APPS_DIR = APPS_ROOT / "test-apps-procfile"
+NIX_APPS_DIR = APPS_ROOT / "test-apps-nix"
 
 # Apps that require nix (from nix-apps directory)
 NIX_APP_NAMES: set[str] = set()
 
 
 def _collect_apps(app_dir: Path, is_nix: bool = False) -> list:
-    """Collect test apps from a directory."""
+    """
+    Collect test apps from a directory, which must exist and be non-empty.
+
+    The `return []` this used to start with is what let a directory rename go
+    unnoticed: the parametrize list went empty, pytest said "1 skipped", and
+    the e2e deploy suite tested nothing for as long as nobody read the reason.
+    A fixture directory that isn't there is a broken checkout, not zero apps.
+    """
     if not app_dir.exists():
-        return []
+        msg = (
+            f"e2e fixture directory {app_dir} does not exist. This suite "
+            f"deploys the apps found there; with no directory it would collect "
+            f"zero tests and report success without deploying anything."
+        )
+        raise RuntimeError(msg)
     apps = []
     for d in sorted(app_dir.iterdir()):
         if d.is_dir() and not d.name.startswith("."):
             if is_nix:
                 NIX_APP_NAMES.add(d.name)
             apps.append(pytest.param(d, id=d.name))
+    if not apps:
+        msg = f"e2e fixture directory {app_dir} contains no app directories."
+        raise RuntimeError(msg)
     return apps
 
 
