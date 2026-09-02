@@ -13,6 +13,27 @@
         </div>
     </div>
 
+    {# Outcome of restore/delete. Without this the two mutations redirected
+       here identically whether they succeeded or failed — a silently failed
+       restore looked exactly like a successful one. #}
+    {% if request.query_params.get('success') == 'true' %}
+    <div class="mt-6 bg-green-50 border border-green-200 rounded-lg p-4">
+        <h3 class="text-sm font-medium text-green-800">Action Successful!</h3>
+        <p class="mt-1 text-sm text-green-700">
+            {{ request.query_params.get('message', 'Done.') }}
+        </p>
+    </div>
+    {% elif request.query_params.get('success') == 'false' %}
+    <div class="mt-6 bg-red-50 border border-red-200 rounded-lg p-4">
+        <h3 class="text-sm font-medium text-red-800">
+            Failed to {{ request.query_params.get('action', 'complete the action') }} backup
+        </h3>
+        {% if request.query_params.get('error') %}
+        <pre class="mt-2 p-2 text-xs text-red-900 bg-red-100 rounded overflow-x-auto whitespace-pre-wrap">{{ request.query_params.get('error') }}</pre>
+        {% endif %}
+    </div>
+    {% endif %}
+
     {% if backups %}
     <!-- Backups Table -->
     <div class="mt-8 flow-root">
