@@ -5,11 +5,11 @@
 from __future__ import annotations
 
 import types
-from typing import TYPE_CHECKING, Protocol
+from typing import TYPE_CHECKING, ClassVar, Protocol
 
 from hop3.config import HOP3_PROXY_TYPE
 from hop3.core.plugins import get_plugin_manager
-from hop3.lib.console import bold, dim, green
+from hop3.lib.console import bold, dim, echo, green
 from hop3.lib.registry import register
 from hop3.server.asgi import create_app
 
@@ -117,103 +117,62 @@ class Plugins(Command):
         print(dim(f"{green('✓')} = active/detected on this system"))
         print(dim("Use --verbose for detailed plugin information."))
 
+    # (capability key, hook name, how to name one contributed object).
+    # Six methods used to do this, differing only in these three values and
+    # each ending in `except Exception: pass` — so a plugin that raised while
+    # being listed vanished from `hop3 plugins` output with no indication that
+    # anything was missing.
+    _CAPABILITY_SOURCES: ClassVar[tuple[tuple[str, str, str], ...]] = (
+        ("builders", "get_builders", "name"),
+        ("deployers", "get_deployers", "name"),
+        ("toolchains", "get_language_toolchains", "language"),
+        ("proxies", "get_proxies", "proxy"),
+        ("os_support", "get_os_implementations", "lower"),
+        ("addons", "get_addons", "lower"),
+    )
+
     def _gather_capabilities(self, pm: PluginManager) -> dict[str, set[str]]:
-        """Gather all capabilities from registered plugins."""
+        """
+        Gather all capabilities from registered plugins.
+
+        A hook that raises is reported, not hidden: this output is what an
+        operator reads to find out what the server can do, so quietly dropping
+        a broken plugin turns a plugin bug into "that feature doesn't exist".
+        """
         capabilities: dict[str, set[str]] = {
-            "builders": set(),
-            "deployers": set(),
-            "toolchains": set(),
-            "proxies": set(),
-            "os_support": set(),
-            "addons": set(),
+            key: set() for key, _, _ in self._CAPABILITY_SOURCES
         }
 
-        self._gather_builders(pm, capabilities)
-        self._gather_deployers(pm, capabilities)
-        self._gather_toolchains(pm, capabilities)
-        self._gather_proxies(pm, capabilities)
-        self._gather_os_support(pm, capabilities)
-        self._gather_addons(pm, capabilities)
+        for key, hook_name, naming in self._CAPABILITY_SOURCES:
+            try:
+                contributed = getattr(pm.hook, hook_name)()
+            except Exception as e:
+                echo(
+                    f"Warning: plugin hook {hook_name}() failed, so the "
+                    f"{key} list below is incomplete: {type(e).__name__}: {e}",
+                    fg="red",
+                )
+                continue
+            for group in contributed:
+                for obj in group:
+                    if name := self._capability_name(obj, naming):
+                        capabilities[key].add(name)
 
         return capabilities
 
-    def _gather_builders(
-        self, pm: PluginManager, capabilities: dict[str, set[str]]
-    ) -> None:
-        """Gather builder capabilities from plugins."""
-        try:
-            for builder_list in pm.hook.get_builders():
-                for builder in builder_list:
-                    name: str = getattr(builder, "name", None) or builder.__name__
-                    if name != "dummy":
-                        capabilities["builders"].add(name)
-        except Exception:
-            pass
+    def _capability_name(self, obj: object, naming: str) -> str | None:
+        """Display name for one contributed plugin object, or None to skip."""
+        if naming == "proxy":
+            return self._extract_proxy_name(obj)
 
-    def _gather_deployers(
-        self, pm: PluginManager, capabilities: dict[str, set[str]]
-    ) -> None:
-        """Gather deployer capabilities from plugins."""
-        try:
-            for deployer_list in pm.hook.get_deployers():
-                for deployer in deployer_list:
-                    name: str = getattr(deployer, "name", None) or deployer.__name__
-                    if name != "dummy":
-                        capabilities["deployers"].add(name)
-        except Exception:
-            pass
-
-    def _gather_toolchains(
-        self, pm: PluginManager, capabilities: dict[str, set[str]]
-    ) -> None:
-        """Gather toolchain capabilities from plugins."""
-        try:
-            for toolchain_list in pm.hook.get_language_toolchains():
-                for toolchain in toolchain_list:
-                    name: str = getattr(toolchain, "name", None) or toolchain.__name__
-                    lang_name = self._toolchain_to_language(name)
-                    if lang_name:
-                        capabilities["toolchains"].add(lang_name)
-        except Exception:
-            pass
-
-    def _gather_proxies(
-        self, pm: PluginManager, capabilities: dict[str, set[str]]
-    ) -> None:
-        """Gather proxy capabilities from plugins."""
-        try:
-            for proxy_list in pm.hook.get_proxies():
-                for proxy in proxy_list:
-                    name = self._extract_proxy_name(proxy)
-                    capabilities["proxies"].add(name)
-        except Exception:
-            pass
-
-    def _gather_os_support(
-        self, pm: PluginManager, capabilities: dict[str, set[str]]
-    ) -> None:
-        """Gather OS support capabilities from plugins."""
-        try:
-            for os_list in pm.hook.get_os_implementations():
-                for os_impl in os_list:
-                    name: str = (
-                        getattr(os_impl, "name", None) or os_impl.__name__.lower()
-                    )
-                    capabilities["os_support"].add(name)
-        except Exception:
-            pass
-
-    def _gather_addons(
-        self, pm: PluginManager, capabilities: dict[str, set[str]]
-    ) -> None:
-        """Gather addon capabilities from plugins."""
-        try:
-            for addon_list in pm.hook.get_addons():
-                for addon in addon_list:
-                    name: str = getattr(addon, "name", None) or addon.__name__.lower()
-                    capabilities["addons"].add(name)
-        except Exception:
-            pass
+        raw: str = str(getattr(obj, "name", "") or getattr(obj, "__name__", ""))
+        if not raw:
+            return None
+        if naming == "language":
+            return self._toolchain_to_language(raw)
+        if naming == "lower":
+            return raw.lower()
+        return None if raw == "dummy" else raw
 
     def _toolchain_to_language(self, toolchain_name: str) -> str | None:
         """
@@ -235,36 +194,49 @@ class Plugins(Command):
         }
         return mapping.get(toolchain_name.lower())
 
-    def _extract_proxy_name(self, proxy_class: type) -> str:
+    def _extract_proxy_name(self, proxy_class: object) -> str:
         """Extract clean proxy name from class."""
         # First try explicit name attribute
         if hasattr(proxy_class, "name"):
             return proxy_class.name
 
         # Extract from class name (e.g., NginxVirtualHost -> nginx)
-        class_name = proxy_class.__name__
+        class_name = getattr(proxy_class, "__name__", type(proxy_class).__name__)
         # Remove common suffixes
         for suffix in ["VirtualHost", "Proxy", "Strategy"]:
             class_name = class_name.removesuffix(suffix)
         return class_name.lower()
 
-    def _get_active_proxy(self) -> str | None:
+    def _get_active_proxy(self) -> str:
         """Get the currently configured proxy type."""
-        try:
-            return HOP3_PROXY_TYPE.lower()
-        except Exception:
-            return None
+        # HOP3_PROXY_TYPE is a str constant; .lower() cannot fail. The
+        # try/except that used to wrap this guarded nothing.
+        return HOP3_PROXY_TYPE.lower()
 
     def _get_detected_os(self, pm: PluginManager) -> str | None:
-        """Get the detected OS for this system."""
-        try:
-            for os_list in pm.hook.get_os_implementations():
-                for os_class in os_list:
-                    os_instance = os_class()
-                    if hasattr(os_instance, "detect") and os_instance.detect():
-                        return getattr(os_class, "name", os_class.__name__.lower())
-        except Exception:
-            pass
+        """
+        Get the detected OS for this system, or None if no plugin claims it.
+
+        A detect() that raises is reported rather than swallowed: "no OS
+        plugin matched" and "the matching OS plugin is broken" need different
+        fixes, and this output is where an operator goes to tell them apart.
+        """
+        for os_list in pm.hook.get_os_implementations():
+            for os_class in os_list:
+                os_instance = os_class()
+                if not hasattr(os_instance, "detect"):
+                    continue
+                try:
+                    detected = os_instance.detect()
+                except Exception as e:
+                    echo(
+                        f"Warning: {os_class.__name__}.detect() failed: "
+                        f"{type(e).__name__}: {e}",
+                        fg="red",
+                    )
+                    continue
+                if detected:
+                    return getattr(os_class, "name", os_class.__name__.lower())
         return None
 
     def _print_verbose(self, pm: PluginManager) -> None:
