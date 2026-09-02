@@ -13,6 +13,7 @@ from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
 
 from hop3.orm.repositories import UserRepository
+from hop3.orm.security import burn_password_check
 from hop3.server.guards import auth_guard
 from hop3.server.lib.database import get_session
 from hop3.server.security.proxy_headers import client_ip
@@ -134,10 +135,23 @@ class AuthController(Controller):
             # Look up the user
             user = user_repo.get_by_username(username)
 
-            if not user or not user.active or not user.check_password(password):
-                return Redirect(
-                    path=f"/auth/login?error=Invalid username or password&username={username}"
-                )
+            # All three failures must be indistinguishable, in *time* as well
+            # as in the reply: short-circuiting before check_password answers
+            # an unknown or disabled account measurably faster than a wrong
+            # password, which enumerates valid usernames (CWE-204). Burn an
+            # equivalent bcrypt round on the paths that skip the real one.
+            # `hop3 auth login` (commands/auth.py) does the same; keep in step.
+            invalid = Redirect(
+                path=f"/auth/login?error=Invalid username or password&username={username}"
+            )
+            if not user:
+                burn_password_check(password)
+                return invalid
+            if not user.active:
+                burn_password_check(password)
+                return invalid
+            if not user.check_password(password):
+                return invalid
 
             # Update login tracking
             user.last_login_at = user.current_login_at
