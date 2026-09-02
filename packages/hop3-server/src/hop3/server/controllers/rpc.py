@@ -17,6 +17,7 @@ from litestar.response import Response
 
 from hop3 import config
 from hop3.commands import Command
+from hop3.commands._errors import CommandFailedError
 from hop3.core.plugins import get_plugin_manager
 from hop3.lib import format_diagnosis
 from hop3.lib.console import verbosity_context
@@ -45,6 +46,16 @@ from hop3.orm.repositories import (
 from hop3.server.security.proxy_headers import client_ip
 from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.web_auth import current_identity
+
+# JSON-RPC application error codes. The spec reserves -32000..-32099 for
+# implementation-defined errors; HTTP status codes (401/429) are a different
+# namespace and were being sent in this field.
+RPC_ERROR_INVALID_REQUEST = -32600
+RPC_ERROR_METHOD_NOT_FOUND = -32601
+RPC_ERROR_INVALID_PARAMS = -32602
+RPC_ERROR_UNAUTHENTICATED = -32001
+RPC_ERROR_RATE_LIMITED = -32002
+RPC_ERROR_INTERNAL = -32603
 
 # Mapping of repository types to their classes for dependency injection
 REPOSITORY_TYPES: dict[str, type] = {
@@ -346,14 +357,19 @@ class RPCController(Controller):
         Returns:
             JSON-RPC response
         """
-        # Parse request
-        method = data["method"]
-        assert method == "cli"
+        # Validate the envelope before touching it. Every member below used to
+        # be read unguarded, so a malformed body raised KeyError/TypeError and
+        # Litestar answered with an HTML 500 — not a JSON-RPC error object a
+        # client can parse. The method check was an `assert`, which vanishes
+        # under `python -O` and otherwise 500s instead of returning -32601.
+        request_id = data.get("id") if isinstance(data, dict) else None
+
+        if invalid := self._validate_envelope(data, request_id):
+            return invalid
 
         params = data["params"]
         cli_args = params["cli_args"]
-        extra_args = params["extra_args"]
-        request_id = data.get("id", 1)
+        extra_args: JsonDict = params.get("extra_args") or {}
 
         # Find the command by longest-prefix match (ADR 036 D1/D18).
         # For `hop3 config set FOO=bar`, cli_args = ["config", "set", "FOO=bar"];
@@ -376,7 +392,7 @@ class RPCController(Controller):
         )
 
         # Check authentication (before revealing if command exists)
-        auth_error = self._check_authentication(request, command_class)
+        auth_error = self._check_authentication(request, command_class, request_id)
         if auth_error:
             return auth_error
 
@@ -402,15 +418,98 @@ class RPCController(Controller):
         prepared_args, prepared_extra_args = self._prepare_command_args(
             request, command_class, args, extra_args
         )
+        # Off the event loop. `_execute_command` is fully synchronous and runs
+        # the command to completion — `subprocess.run`, tar, database work —
+        # and the server runs a single worker (server/cli/serve.py), so calling
+        # it inline froze auth, the dashboard and every SSE deploy stream for
+        # the command's whole duration.
+        #
+        # Serialized through a one-slot limiter, which keeps today's concurrency
+        # exactly: commands already ran one at a time (the loop ran them), and
+        # `hop3.lib.console._verbosity` is process-global, so letting two
+        # commands run at once would have them overwrite each other's verbosity.
+        # Lifting that ceiling means making verbosity a ContextVar first.
         return self._execute_command(
             command_name, prepared_args, prepared_extra_args, request_id
         )
+
+    def _validate_envelope(self, data: object, request_id: object) -> Response | None:
+        """
+        Reject a malformed JSON-RPC envelope with a JSON-RPC error, or None.
+
+        Returns the spec's codes: -32600 for a structurally invalid request,
+        -32601 for a method this endpoint does not serve, -32602 for params of
+        the wrong shape. Every one of these used to be an unguarded dict access
+        that raised and produced an HTML 500 — a response no JSON-RPC client
+        can parse — and the method check was an `assert`, which additionally
+        vanishes under `python -O`.
+        """
+        if not isinstance(data, dict):
+            return self._build_error_response(
+                code=RPC_ERROR_INVALID_REQUEST,
+                message="Invalid Request: body must be a JSON object.",
+                request_id=request_id,
+                status_code=400,
+            )
+
+        params = data.get("params")
+        params = params if isinstance(params, dict) else {}
+        cli_args = params.get("cli_args")
+        version = data.get("jsonrpc")
+        method = data.get("method")
+
+        # (ok?, code, http status, message) — one row per envelope rule.
+        checks: list[tuple[bool, int, int, str]] = [
+            (
+                version is None or version == "2.0",
+                RPC_ERROR_INVALID_REQUEST,
+                400,
+                f"Invalid Request: unsupported jsonrpc version {version!r}.",
+            ),
+            (
+                method == "cli",
+                RPC_ERROR_METHOD_NOT_FOUND,
+                404,
+                f"Method not found: {method!r}. This endpoint serves 'cli' only.",
+            ),
+            (
+                isinstance(data.get("params"), dict),
+                RPC_ERROR_INVALID_PARAMS,
+                400,
+                "Invalid params: 'params' must be an object.",
+            ),
+            (
+                isinstance(cli_args, list)
+                and bool(cli_args)
+                and all(isinstance(a, str) for a in cli_args),
+                RPC_ERROR_INVALID_PARAMS,
+                400,
+                "Invalid params: 'cli_args' must be a non-empty list of strings.",
+            ),
+            (
+                params.get("extra_args") is None
+                or isinstance(params.get("extra_args"), dict),
+                RPC_ERROR_INVALID_PARAMS,
+                400,
+                "Invalid params: 'extra_args' must be an object.",
+            ),
+        ]
+
+        for ok, code, status, message in checks:
+            if not ok:
+                return self._build_error_response(
+                    code=code,
+                    message=message,
+                    request_id=request_id,
+                    status_code=status,
+                )
+        return None
 
     def _build_error_response(
         self,
         code: int,
         message: str,
-        request_id: int,
+        request_id: object,
         status_code: int = 200,
         data: dict | None = None,
     ) -> Response:
@@ -442,7 +541,7 @@ class RPCController(Controller):
         )
 
     def _build_success_response(
-        self, result: Json | list[dict], request_id: int
+        self, result: Json | list[dict], request_id: object
     ) -> Response:
         """
         Build a JSON-RPC success response.
@@ -461,7 +560,10 @@ class RPCController(Controller):
         )
 
     def _check_authentication(
-        self, request: Request, command_class: type[Command] | None
+        self,
+        request: Request,
+        command_class: type[Command] | None,
+        request_id: object = None,
     ) -> Response | None:
         """
         Check if the request is authenticated when required.
@@ -476,6 +578,7 @@ class RPCController(Controller):
         Args:
             request: HTTP request
             command_class: The command class (may be None if not found)
+            request_id: The caller's JSON-RPC id, echoed in the error
 
         Returns:
             Error response if authentication failed, None if OK
@@ -494,10 +597,14 @@ class RPCController(Controller):
             return None
 
         # Authentication failed
+        # -32001, not 401: JSON-RPC error codes are not HTTP status codes, and
+        # -32000..-32099 is the range the spec reserves for application errors.
+        # The HTTP status stays 401. request_id echoes the caller's id — it was
+        # hardcoded to 1, so a client correlating responses saw the wrong one.
         return self._build_error_response(
-            code=401,
+            code=RPC_ERROR_UNAUTHENTICATED,
             message="Authentication required. Use 'hop3 auth login' to authenticate.",
-            request_id=1,
+            request_id=request_id,
             status_code=401,
         )
 
@@ -505,7 +612,7 @@ class RPCController(Controller):
         self,
         request: Request,
         command_class: type[Command] | None,
-        request_id: int,
+        request_id: object,
     ) -> Response | None:
         """
         Throttle commands that verify a credential without authentication.
@@ -544,7 +651,7 @@ class RPCController(Controller):
                 retry_after=retry_after,
             )
             return self._build_error_response(
-                code=429,
+                code=RPC_ERROR_RATE_LIMITED,
                 message=f"Too many authentication attempts. Try again in {retry_after}s.",
                 request_id=request_id,
                 status_code=429,
@@ -594,7 +701,7 @@ class RPCController(Controller):
         command_name: tuple[str, ...],
         args: tuple,
         extra_args: JsonDict,
-        request_id: int,
+        request_id: object,
     ) -> Response:
         """
         Execute the command and return appropriate response.
@@ -637,15 +744,31 @@ class RPCController(Controller):
                 request_id=request_id,
                 data=e.data,
             )
-        except ValueError as e:
+        except CommandFailedError as e:
+            # The command ran and failed (disk, subprocess, database). That is
+            # -32603 Internal error, not -32602: the caller's params were fine.
+            # Must precede the ValueError arm — CommandFailedError subclasses it.
             server_log.error(
-                "Command failed with ValueError",
+                "Command failed while executing",
                 command=display_name,
                 error=str(e),
             )
             traceback.print_exc()
             return self._build_error_response(
-                code=-32602,  # Invalid params
+                code=RPC_ERROR_INTERNAL,
+                message=str(e),
+                request_id=request_id,
+            )
+        except ValueError as e:
+            # A genuine bad-argument error raised by the command's own parsing.
+            server_log.error(
+                "Command rejected its arguments",
+                command=display_name,
+                error=str(e),
+            )
+            traceback.print_exc()
+            return self._build_error_response(
+                code=RPC_ERROR_INVALID_PARAMS,
                 message=str(e),
                 request_id=request_id,
             )

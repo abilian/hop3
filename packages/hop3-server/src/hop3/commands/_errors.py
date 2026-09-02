@@ -57,6 +57,20 @@ class CommandError(Exception):
         return self.message
 
 
+class CommandFailedError(ValueError):
+    """
+    A command failed while *doing* its work — not because of bad arguments.
+
+    ``command_context`` funnels every exception into ``ValueError``, and the
+    RPC layer maps ``ValueError`` to JSON-RPC ``-32602 Invalid params``. That
+    told the caller its parameters were wrong when the truth was a full disk,
+    a dead subprocess or an unreachable database. This subclass keeps that
+    ``ValueError`` inheritance (so every existing ``except ValueError`` still
+    catches it) while letting the RPC layer answer ``-32603 Internal error``
+    for the failures that are genuinely ours.
+    """
+
+
 @dataclass
 class ErrorContext:
     """Context for error handling within a command."""
@@ -199,15 +213,15 @@ def command_context(
         # ValueError is already our error format, just re-raise
         raise
     except CommandError as e:
-        # CommandError is already structured, log and convert to ValueError
+        # CommandError is already structured, log and convert.
         _log_error(operation, e, context_vars)
-        raise ValueError(e.message) from e
+        raise CommandFailedError(e.message) from e
     except Exception as e:
         # Log detailed error for debugging
         _log_error(operation, e, context_vars)
         # Convert to user-friendly message
         error_msg = ctx.format_error(e)
-        raise ValueError(error_msg) from e
+        raise CommandFailedError(error_msg) from e
 
 
 # Convenience function for simple cases without custom handlers
