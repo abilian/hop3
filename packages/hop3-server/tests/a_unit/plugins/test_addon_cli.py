@@ -15,6 +15,7 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+from hop3.plugins.addons import generic_cli
 from hop3.plugins.mysql import cli as mysql_cli
 from hop3.plugins.postgresql import cli as pg_cli
 from hop3.plugins.redis import cli as redis_cli
@@ -78,6 +79,22 @@ class _FakeExistingAddon:
         return True
 
 
+def _patch_get_addon(monkeypatch, plugin_module, factory) -> None:
+    """
+    Route ``get_addon`` for both command families.
+
+    The six shared verbs (credentials/dump/restore/clone/export/import) are
+    generated once in ``plugins.addons.generic_cli`` and resolve ``get_addon``
+    there; the engine-specific verbs still live in their own plugin module and
+    resolve it there. Patching only one seam silently exercises a real addon.
+    """
+    # generic_cli always has it; a plugin module only does when it still has
+    # engine-specific commands of its own (s3's are all generic now).
+    monkeypatch.setattr(generic_cli, "get_addon", factory)
+    if hasattr(plugin_module, "get_addon"):
+        monkeypatch.setattr(plugin_module, "get_addon", factory)
+
+
 def _types(items: list[dict]) -> list[str]:
     return [item.get("t") for item in items]
 
@@ -87,7 +104,7 @@ def _types(items: list[dict]) -> list[str]:
 
 def test_credentials_returns_table(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: fake)
 
     out = pg_cli.AddonPostgresCredentialsCmd().call("mydb")
 
@@ -99,7 +116,7 @@ def test_credentials_returns_table(monkeypatch):
 
 def test_dump_calls_backup_and_reports_path(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(mysql_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, mysql_cli, lambda t, n: fake)
 
     out = mysql_cli.AddonMysqlDumpCmd().call("mydb")
 
@@ -110,7 +127,7 @@ def test_dump_calls_backup_and_reports_path(monkeypatch):
 
 def test_restore_calls_restore_with_path_and_is_destructive(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: fake)
 
     assert pg_cli.AddonPostgresRestoreCmd.destructive is True
     pg_cli.AddonPostgresRestoreCmd().call("mydb", "/tmp/backup.sql")
@@ -120,7 +137,7 @@ def test_restore_calls_restore_with_path_and_is_destructive(monkeypatch):
 
 def test_extensions_installs_listed_extensions(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: fake)
 
     pg_cli.AddonPostgresExtensionsCmd().call("mydb", "postgis", "pgvector")
 
@@ -129,7 +146,7 @@ def test_extensions_installs_listed_extensions(monkeypatch):
 
 def test_redis_flush_calls_flush_and_is_destructive(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: fake)
 
     assert redis_cli.AddonRedisFlushCmd.destructive is True
     redis_cli.AddonRedisFlushCmd().call("mycache")
@@ -139,7 +156,7 @@ def test_redis_flush_calls_flush_and_is_destructive(monkeypatch):
 
 def test_sql_query_renders_table_with_stringified_cells(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: fake)
 
     out = pg_cli.AddonPostgresQueryCmd().call("mydb", "--command", "SELECT n FROM t")
 
@@ -151,7 +168,7 @@ def test_sql_query_renders_table_with_stringified_cells(monkeypatch):
 
 
 def test_sql_query_renders_status_for_non_select(monkeypatch):
-    monkeypatch.setattr(mysql_cli, "get_addon", lambda t, n: _FakeStatusAddon())
+    _patch_get_addon(monkeypatch, mysql_cli, lambda t, n: _FakeStatusAddon())
     out = mysql_cli.AddonMysqlQueryCmd().call("mydb", "--command", "DELETE FROM t")
     assert out[0]["t"] == "text"
     assert "row(s) affected" in out[0]["text"]
@@ -159,7 +176,7 @@ def test_sql_query_renders_status_for_non_select(monkeypatch):
 
 def test_redis_query_returns_text(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: fake)
 
     out = redis_cli.AddonRedisQueryCmd().call("mycache", "--command", "PING")
 
@@ -175,7 +192,7 @@ def test_query_without_command_returns_usage():
 
 def test_diagnostics_use_superuser_path_and_right_queries(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: fake)
 
     table_ps = pg_cli.AddonPostgresPsCmd().call("mydb")
     pg_cli.AddonPostgresLocksCmd().call("mydb")
@@ -197,7 +214,7 @@ def test_diagnostic_missing_name_returns_usage():
 
 def test_mysql_diagnostics_use_admin_path(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(mysql_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, mysql_cli, lambda t, n: fake)
 
     out = mysql_cli.AddonMysqlPsCmd().call("mydb")
     mysql_cli.AddonMysqlSettingsCmd().call("mydb")
@@ -210,7 +227,7 @@ def test_mysql_diagnostics_use_admin_path(monkeypatch):
 
 def test_clone_creates_target_and_copies_data(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: fake)
 
     out = pg_cli.AddonPostgresCloneCmd().call("prod-db", "staging-db")
 
@@ -222,7 +239,7 @@ def test_clone_creates_target_and_copies_data(monkeypatch):
 
 
 def test_clone_refuses_existing_target(monkeypatch):
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: _FakeExistingAddon())
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: _FakeExistingAddon())
 
     out = pg_cli.AddonPostgresCloneCmd().call("prod-db", "staging-db")
 
@@ -243,7 +260,7 @@ def test_export_streams_dump_as_blob(monkeypatch, tmp_path):
         def backup(self):
             return dump
 
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: _Exporter())
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: _Exporter())
 
     out = pg_cli.AddonPostgresExportCmd().call("mydb")
 
@@ -258,7 +275,7 @@ def test_import_restores_decoded_dump_and_is_destructive(monkeypatch):
         def restore(self, path):
             seen["content"] = Path(path).read_bytes()
 
-    monkeypatch.setattr(pg_cli, "get_addon", lambda t, n: _Importer())
+    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: _Importer())
 
     assert pg_cli.AddonPostgresImportCmd.destructive is True
     payload = base64.b64encode(b"CREATE TABLE t();").decode()
@@ -275,7 +292,7 @@ def test_import_without_data_returns_error():
 
 def test_redis_info_uses_run_command(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: fake)
 
     out = redis_cli.AddonRedisInfoCmd().call("mycache")
 
@@ -288,7 +305,7 @@ def test_redis_info_uses_run_command(monkeypatch):
 
 def test_redis_restore_calls_restore_and_is_destructive(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: fake)
 
     assert redis_cli.AddonRedisRestoreCmd.destructive is True
     redis_cli.AddonRedisRestoreCmd().call("mycache", "/tmp/dump.rdb")
@@ -298,7 +315,7 @@ def test_redis_restore_calls_restore_and_is_destructive(monkeypatch):
 
 def test_redis_clone_creates_target_and_copies_data(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: fake)
 
     out = redis_cli.AddonRedisCloneCmd().call("prod-cache", "staging-cache")
 
@@ -314,7 +331,7 @@ def test_redis_import_restores_decoded_dump_and_is_destructive(monkeypatch):
         def restore(self, path):
             seen["content"] = Path(path).read_bytes()
 
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: _Importer())
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: _Importer())
 
     assert redis_cli.AddonRedisImportCmd.destructive is True
     payload = base64.b64encode(b"REDISDUMP").decode()
@@ -331,7 +348,7 @@ def test_redis_export_streams_dump_as_blob(monkeypatch, tmp_path):
         def backup(self):
             return dump
 
-    monkeypatch.setattr(redis_cli, "get_addon", lambda t, n: _Exporter())
+    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: _Exporter())
 
     out = redis_cli.AddonRedisExportCmd().call("mycache")
     blob = next(i for i in out if i["t"] == "blob")
@@ -340,7 +357,7 @@ def test_redis_export_streams_dump_as_blob(monkeypatch, tmp_path):
 
 def test_s3_restore_calls_restore_and_is_destructive(monkeypatch):
     fake = FakeAddon()
-    monkeypatch.setattr(s3_cli, "get_addon", lambda t, n: fake)
+    _patch_get_addon(monkeypatch, s3_cli, lambda t, n: fake)
 
     assert s3_cli.AddonS3RestoreCmd.destructive is True
     s3_cli.AddonS3RestoreCmd().call("mybucket", "/tmp/bucket.dump")
@@ -355,7 +372,7 @@ def test_s3_import_restores_decoded_dump(monkeypatch):
         def restore(self, path):
             seen["content"] = Path(path).read_bytes()
 
-    monkeypatch.setattr(s3_cli, "get_addon", lambda t, n: _Importer())
+    _patch_get_addon(monkeypatch, s3_cli, lambda t, n: _Importer())
 
     assert s3_cli.AddonS3ImportCmd.destructive is True
     s3_cli.AddonS3ImportCmd().call(
