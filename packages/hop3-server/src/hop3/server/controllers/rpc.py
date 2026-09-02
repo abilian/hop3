@@ -11,6 +11,8 @@ import json
 import traceback
 from typing import TYPE_CHECKING
 
+import anyio
+import anyio.to_thread
 from advanced_alchemy.exceptions import RepositoryError
 from litestar import Controller, Request, post
 from litestar.response import Response
@@ -46,6 +48,9 @@ from hop3.orm.repositories import (
 from hop3.server.security.proxy_headers import client_ip
 from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.web_auth import current_identity
+
+#: One command at a time — see the note at the call site in handle_rpc.
+_COMMAND_SLOT = anyio.Semaphore(1)
 
 # JSON-RPC application error codes. The spec reserves -32000..-32099 for
 # implementation-defined errors; HTTP status codes (401/429) are a different
@@ -429,9 +434,14 @@ class RPCController(Controller):
         # `hop3.lib.console._verbosity` is process-global, so letting two
         # commands run at once would have them overwrite each other's verbosity.
         # Lifting that ceiling means making verbosity a ContextVar first.
-        return self._execute_command(
-            command_name, prepared_args, prepared_extra_args, request_id
-        )
+        async with _COMMAND_SLOT:
+            return await anyio.to_thread.run_sync(
+                self._execute_command,
+                command_name,
+                prepared_args,
+                prepared_extra_args,
+                request_id,
+            )
 
     def _validate_envelope(self, data: object, request_id: object) -> Response | None:
         """
