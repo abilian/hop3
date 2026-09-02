@@ -17,6 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hop3.deployers import docker_runtime
 from hop3.orm import App, AppStateEnum
 
 
@@ -51,24 +52,26 @@ class TestStopDockerVerifies:
     def test_reports_stopped_when_no_container_remains(self, monkeypatch):
         app = self._app()
         monkeypatch.setattr(
-            "hop3.orm.app.subprocess.run",
+            "hop3.deployers.docker_runtime.subprocess.run",
             lambda *a, **k: SimpleNamespace(returncode=0, stderr="", stdout=""),
         )
-        monkeypatch.setattr(App, "_app_container_ids", lambda self, **k: [])
+        monkeypatch.setattr(docker_runtime, "app_container_ids", lambda app, **k: [])
 
-        app._stop_docker_compose()
+        docker_runtime.stop_docker_compose(app)
 
         assert app.run_state == AppStateEnum.STOPPED
 
     def test_raises_when_a_container_survives_stop_and_kill(self, monkeypatch):
         app = self._app()
         monkeypatch.setattr(
-            "hop3.orm.app.subprocess.run",
+            "hop3.deployers.docker_runtime.subprocess.run",
             lambda *a, **k: SimpleNamespace(returncode=0, stderr="", stdout=""),
         )
         # Container keeps showing up even after the force-kill.
-        monkeypatch.setattr(App, "_app_container_ids", lambda self, **k: ["c1"])
+        monkeypatch.setattr(
+            docker_runtime, "app_container_ids", lambda app, **k: ["c1"]
+        )
 
         with pytest.raises(RuntimeError, match="still"):
-            app._stop_docker_compose()
+            docker_runtime.stop_docker_compose(app)
         assert app.run_state != AppStateEnum.STOPPED

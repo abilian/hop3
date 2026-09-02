@@ -209,7 +209,7 @@ class StateSyncService:
         """
         if app.run_state == AppStateEnum.STARTING:
             # Failed to start in time
-            app._transition_state(  # ruff:ignore[private-member-access]
+            app.transition_state(
                 AppStateEnum.FAILED,
                 f"Failed to start within {self.timeout:.0f}s",
             )
@@ -230,7 +230,7 @@ class StateSyncService:
 
             survivors = reap_app_processes(app.name)
             if survivors:
-                app._transition_state(  # ruff:ignore[private-member-access]
+                app.transition_state(
                     AppStateEnum.FAILED,
                     f"Stop timed out; {len(survivors)} process(es) still running",
                 )
@@ -241,7 +241,7 @@ class StateSyncService:
                     fg="red",
                 )
             else:
-                app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
+                app.transition_state(AppStateEnum.STOPPED)
                 log(
                     f"App '{app.name}' stop timed out, reaped, forced to STOPPED",
                     level=1,

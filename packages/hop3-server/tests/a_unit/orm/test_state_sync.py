@@ -51,8 +51,8 @@ class MockApp:
         self._sync_state_called = True
         return self._sync_state_returns
 
-    def _transition_state(self, new_state: AppStateEnum, error_msg: str = "") -> None:
-        """Mock _transition_state that just updates the state."""
+    def transition_state(self, new_state: AppStateEnum, error_msg: str = "") -> None:
+        """Mock transition_state that just updates the state."""
         self.run_state = new_state
         self.state_changed_at = datetime.now(UTC)
         if error_msg:

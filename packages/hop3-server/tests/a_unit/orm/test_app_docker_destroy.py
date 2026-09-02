@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+from hop3.deployers import docker_runtime
 from hop3.orm import App
 
 
@@ -39,8 +40,8 @@ def test_destroy_docker_compose_removes_the_app_image():
     )
     calls, fake_run = _record_subprocess()
 
-    with patch("hop3.orm.app.subprocess.run", side_effect=fake_run):
-        app._destroy_docker_compose()
+    with patch("hop3.deployers.docker_runtime.subprocess.run", side_effect=fake_run):
+        docker_runtime.destroy_docker_compose(app)
 
     # The compose-down must request image removal...
     down = next(c for c in calls if "down" in c)
@@ -58,7 +59,7 @@ def test_force_cleanup_docker_image_targets_only_the_app_image():
     app = App(name="myapp", runtime="docker-compose", image_tag="hop3/myapp:latest")
     calls, fake_run = _record_subprocess()
 
-    with patch("hop3.orm.app.subprocess.run", side_effect=fake_run):
-        app._force_cleanup_docker_image()
+    with patch("hop3.deployers.docker_runtime.subprocess.run", side_effect=fake_run):
+        docker_runtime.force_cleanup_docker_image(app)
 
     assert calls == [["docker", "rmi", "-f", "hop3/myapp:latest"]]

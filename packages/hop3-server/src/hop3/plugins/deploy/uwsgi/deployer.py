@@ -21,6 +21,7 @@ from hop3.run.reaper import (
     reap_app_processes,
 )
 from hop3.run.spawn import spawn_app, verify_nix_closure
+from hop3.run.uwsgi.naming import vassal_glob
 
 # Process detection/reaping moved to hop3.run.reaper so the ORM teardown
 # (app.stop()/destroy()) shares it. Keep this name importable here for tests.
@@ -89,7 +90,7 @@ class UWSGIDeployer:
 
         # Transition to STARTING (handles both STOPPED and FAILED states)
         if current_state in {AppStateEnum.STOPPED, AppStateEnum.FAILED}:
-            self.app._transition_state(AppStateEnum.STARTING)  # ruff:ignore[private-member-access]
+            self.app.transition_state(AppStateEnum.STARTING)
 
         spawn_app(self.app, deltas)
 
@@ -97,7 +98,7 @@ class UWSGIDeployer:
         # Note: The background state sync service may have already transitioned
         # the app to RUNNING if it detected processes started. Handle gracefully.
         if self.app.run_state != AppStateEnum.RUNNING:
-            self.app._transition_state(AppStateEnum.RUNNING)  # ruff:ignore[private-member-access]
+            self.app.transition_state(AppStateEnum.RUNNING)
 
         # Return HTTP socket info (apps now listen on HTTP ports)
         bind_address = "127.0.0.1"
@@ -122,14 +123,14 @@ class UWSGIDeployer:
 
         # Use state machine transition: RUNNING -> STOPPING
         if self.app.run_state == AppStateEnum.RUNNING:
-            self.app._transition_state(AppStateEnum.STOPPING)  # ruff:ignore[private-member-access]
+            self.app.transition_state(AppStateEnum.STOPPING)
 
-        config_files = list(UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
+        config_files = list(UWSGI_ENABLED.glob(vassal_glob(self.app.name)))
         if not config_files:
             log(f"App '{self.app.name}' is already stopped or not deployed.", level=3)
             # If already stopped in filesystem, ensure DB state matches
             if self.app.run_state != AppStateEnum.STOPPED:
-                self.app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
+                self.app.transition_state(AppStateEnum.STOPPED)
             return
 
         for config_file in config_files:
@@ -151,7 +152,7 @@ class UWSGIDeployer:
             raise RuntimeError(msg)
 
         # Complete transition: STOPPING -> STOPPED
-        self.app._transition_state(AppStateEnum.STOPPED)  # ruff:ignore[private-member-access]
+        self.app.transition_state(AppStateEnum.STOPPED)
         log(f"App '{self.app.name}' stopped.", level=2, fg="green")
 
     def _app_pids(self) -> list[int]:
@@ -173,7 +174,7 @@ class UWSGIDeployer:
         # implementations means two ways to bypass it.
         verify_nix_closure(self.app)
 
-        config_files = list(UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
+        config_files = list(UWSGI_ENABLED.glob(vassal_glob(self.app.name)))
         if not config_files:
             log(
                 f"App '{self.app.name}' not running, cannot restart. Starting instead.",
@@ -249,7 +250,7 @@ class UWSGIDeployer:
             pass
 
         # Check if config files exist (could be starting up)
-        config_files = list(cfg.UWSGI_ENABLED.glob(f"{self.app.name}*.ini"))
+        config_files = list(cfg.UWSGI_ENABLED.glob(vassal_glob(self.app.name)))
         if len(config_files) > 0:
             # Config files exist but no running processes detected
             # Could be starting up or crashed - return False to be conservative
