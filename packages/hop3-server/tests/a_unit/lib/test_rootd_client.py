@@ -53,13 +53,20 @@ def short_tmp_dir() -> Iterator[Path]:
 # --- Fake daemon ----------------------------------------------------------
 
 
-# In-process localhost AF_UNIX sockets answer in well under a millisecond, so
-# this timeout only bounds how fast the daemon notices shutdown (the accept
-# loop) or a dangling client connection (a refused-handshake test that leaves
-# the socket half-open while the client raises and hasn't GC'd yet — the
-# server's readline then waits this long for EOF). 0.01s is well above the
-# actual round-trip but 25x faster than the old 0.25s.
-_SOCKET_TIMEOUT = 0.01
+# Two different waits, two different bounds — sharing one constant made this
+# suite flaky.
+#
+# The accept loop only needs to notice .stop() promptly, so it can spin fast.
+_ACCEPT_TIMEOUT = 0.01
+# The per-connection read is a different thing: it waits for the *client* to
+# send its next request, which costs a thread wake-up. Sub-millisecond is the
+# quiet-machine round-trip, not the bound — under a loaded full-suite run the
+# request can easily miss a 10ms window, at which point the daemon hung up and
+# the test saw a protocol error instead of its response (an order-dependent
+# failure that never reproduced when the file was run alone). One second is
+# ~1000x the real round-trip and still bounds a half-open connection (a
+# refused-handshake test leaves one dangling until GC).
+_READ_TIMEOUT = 1.0
 
 
 class FakeDaemon:
@@ -78,7 +85,7 @@ class FakeDaemon:
             socket_path.unlink()
         self._sock.bind(str(socket_path))
         self._sock.listen(2)
-        self._sock.settimeout(_SOCKET_TIMEOUT)
+        self._sock.settimeout(_ACCEPT_TIMEOUT)
         self._thread = threading.Thread(target=self._run, daemon=True)
         self._stopping = False
 
@@ -94,7 +101,7 @@ class FakeDaemon:
             self._serve(client)
 
     def _serve(self, client: socket.socket) -> None:
-        client.settimeout(_SOCKET_TIMEOUT)
+        client.settimeout(_READ_TIMEOUT)
         try:
             f = client.makefile("rb")
             while True:
