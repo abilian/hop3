@@ -120,7 +120,12 @@ class App(BigIntAuditBase):
 
     __tablename__ = "app"
 
-    name: Mapped[str] = mapped_column(String(128))
+    # Unique: the app name is the identity for every lookup *and* the
+    # on-disk path (APP_ROOT / name). Without the constraint two rows can
+    # share a name, after which every get_app_or_none() raises
+    # MultipleResultsFound and the app is unreachable from CLI and dashboard
+    # alike — the row is insertable, so nothing stops it happening.
+    name: Mapped[str] = mapped_column(String(128), unique=True)
     runtime: Mapped[str] = mapped_column(String(64), default="uwsgi")
     run_state: Mapped[AppStateEnum] = mapped_column(
         IntEnum(AppStateEnum), default=AppStateEnum.STOPPED
@@ -136,7 +141,10 @@ class App(BigIntAuditBase):
         DateTime, default=None, nullable=True
     )
     # Image tag for container-based runtimes (e.g., "hop3/myapp:latest")
-    image_tag: Mapped[str] = mapped_column(String(256), default="", nullable=True)
+    # Not nullable: the annotation says `str` and the code reads it as one
+    # (`self.image_tag or ...`). nullable=True let the DB hand back None where
+    # the type promised a string.
+    image_tag: Mapped[str] = mapped_column(String(256), default="", nullable=False)
     # Timestamp of last successful deployment (for --since-deploy log filter)
     last_deployed_at: Mapped[datetime | None] = mapped_column(
         DateTime, default=None, nullable=True
