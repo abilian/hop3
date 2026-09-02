@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from hop3.config import HopConfig
+from hop3.deployers import docker_runtime
 from hop3.orm import App
 
 if TYPE_CHECKING:
@@ -30,7 +31,9 @@ def _tmp_hop3(tmp_path: Path, monkeypatch):
     HopConfig.set_instance(HopConfig(hop3_root=tmp_path))
     # Isolate destroy() from process reaping and Docker cleanup.
     monkeypatch.setattr("hop3.run.reaper.reap_app_processes", lambda _name: [])
-    monkeypatch.setattr(App, "_cleanup_orphan_docker_resources", lambda self: None)
+    monkeypatch.setattr(
+        docker_runtime, "cleanup_orphan_docker_resources", lambda app: None
+    )
     yield
     HopConfig.reset_instance()
 

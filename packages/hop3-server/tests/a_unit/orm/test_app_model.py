@@ -7,7 +7,7 @@ Unit tests for the pure / hermetic surface of the App ORM model.
 
 These tests exercise the parts of ``hop3.orm.app`` that need no DB session,
 no subprocess, and no Docker: the IntEnum TypeDecorator, the state machine
-(``_transition_state``), the path properties, log parsing/reading, and the
+(``transition_state``), the path properties, log parsing/reading, and the
 runtime-env accessors.
 
 I/O-heavy and Docker/subprocess methods (create, deploy, destroy, start,
@@ -27,6 +27,7 @@ import pytest
 
 from hop3.config import HopConfig
 from hop3.core.env import Env
+from hop3.deployers import docker_runtime
 from hop3.orm import App
 from hop3.orm.app import (
     AppStateEnum,
@@ -173,7 +174,7 @@ class TestPathProperties:
 
 
 # ---------------------------------------------------------------------------
-# _transition_state (state machine)
+# transition_state (state machine)
 # ---------------------------------------------------------------------------
 
 
@@ -213,7 +214,7 @@ class TestTransitionState:
     ) -> None:
         app = App(name="demo", run_state=from_state)
 
-        app._transition_state(to_state)
+        app.transition_state(to_state)
 
         assert app.run_state is to_state
 
@@ -224,7 +225,7 @@ class TestTransitionState:
         app = App(name="demo", run_state=from_state)
         before = datetime.now(UTC)
 
-        app._transition_state(to_state)
+        app.transition_state(to_state)
 
         assert app.state_changed_at is not None
         assert app.state_changed_at >= before
@@ -236,7 +237,7 @@ class TestTransitionState:
         app = App(name="demo", run_state=from_state)
 
         with pytest.raises(StateTransitionError):
-            app._transition_state(to_state)
+            app.transition_state(to_state)
 
         assert app.run_state is from_state
 
@@ -244,18 +245,18 @@ class TestTransitionState:
         app = App(name="demo", run_state=AppStateEnum.RUNNING)
 
         with pytest.raises(StateTransitionError, match="already running"):
-            app._transition_state(AppStateEnum.RUNNING)
+            app.transition_state(AppStateEnum.RUNNING)
 
     def test_cross_state_invalid_transition_message(self) -> None:
         app = App(name="demo", run_state=AppStateEnum.STOPPED)
 
         with pytest.raises(StateTransitionError, match="from STOPPED to RUNNING"):
-            app._transition_state(AppStateEnum.RUNNING)
+            app.transition_state(AppStateEnum.RUNNING)
 
     def test_transition_to_failed_records_error_message(self) -> None:
         app = App(name="demo", run_state=AppStateEnum.RUNNING, error_message="")
 
-        app._transition_state(AppStateEnum.FAILED, error_msg="boom")
+        app.transition_state(AppStateEnum.FAILED, error_msg="boom")
 
         assert app.run_state is AppStateEnum.FAILED
         assert app.error_message == "boom"
@@ -269,7 +270,7 @@ class TestTransitionState:
             error_message="previous failure",
         )
 
-        app._transition_state(AppStateEnum.STARTING)
+        app.transition_state(AppStateEnum.STARTING)
 
         assert app.run_state is AppStateEnum.STARTING
         assert app.error_message == ""
@@ -360,7 +361,7 @@ class TestFindComposeFile:
         compose = app.src_path / filename
         compose.write_text("services: {}\n")
 
-        assert app._find_compose_file() == compose
+        assert docker_runtime.find_compose_file(app) == compose
 
     def test_user_file_preferred_over_generated(self, app_root: Path) -> None:
         app = App(name="myapp")
@@ -369,7 +370,7 @@ class TestFindComposeFile:
         user.write_text("services: {}\n")
         (app.src_path / ".hop3-compose.yml").write_text("services: {}\n")
 
-        assert app._find_compose_file() == user
+        assert docker_runtime.find_compose_file(app) == user
 
     def test_falls_back_to_generated_file_when_present(self, app_root: Path) -> None:
         app = App(name="myapp")
@@ -377,7 +378,7 @@ class TestFindComposeFile:
         generated = app.src_path / ".hop3-compose.yml"
         generated.write_text("services: {}\n")
 
-        assert app._find_compose_file() == generated
+        assert docker_runtime.find_compose_file(app) == generated
 
     def test_returns_generated_path_when_no_compose_file(self, app_root: Path) -> None:
         # When nothing exists, the generated path is returned anyway so that
@@ -385,7 +386,9 @@ class TestFindComposeFile:
         app = App(name="myapp")
         app.src_path.mkdir(parents=True)
 
-        assert app._find_compose_file() == app.src_path / ".hop3-compose.yml"
+        assert (
+            docker_runtime.find_compose_file(app) == app.src_path / ".hop3-compose.yml"
+        )
 
 
 # ---------------------------------------------------------------------------

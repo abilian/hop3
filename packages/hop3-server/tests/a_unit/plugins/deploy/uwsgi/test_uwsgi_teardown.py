@@ -87,7 +87,7 @@ def _deployer_with_app(transitions: list):
     app = SimpleNamespace(
         name="owncast-1",
         run_state=AppStateEnum.RUNNING,
-        _transition_state=lambda state, *a, **k: transitions.append(state),
+        transition_state=lambda state, *a, **k: transitions.append(state),
     )
     return UWSGIDeployer(context=SimpleNamespace(app=app), artifact=None)  # type: ignore[arg-type]
 
