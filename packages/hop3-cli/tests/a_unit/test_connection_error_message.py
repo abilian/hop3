@@ -33,3 +33,22 @@ def test_refused_connection_still_suggests_the_server_is_down(capsys) -> None:
     exc = requests.exceptions.ConnectionError("[Errno 61] Connection refused")
     out = _report(exc, capsys)
     assert "Is it running?" in out
+
+
+def test_tunnel_forward_failure_reports_what_ssh_saw(capsys) -> None:
+    # Over `ssh -L`, a remote port with nothing listening surfaces to requests
+    # as a bare reset; ssh's stderr carries the real cause.
+    exc = requests.exceptions.ConnectionError((
+        "Connection aborted.",
+        ConnectionResetError(54, "Connection reset by peer"),
+    ))
+    with pytest.raises(SystemExit):
+        _handle_connection_error(
+            exc,
+            "ssh://root@hop3.example.com",
+            ssh_stderr="channel 2: open failed: connect failed: Connection refused",
+        )
+    out = capsys.readouterr().err
+    assert "ssh://root@hop3.example.com" in out
+    assert "connect failed: Connection refused" in out
+    assert "nothing answers on the remote port" in out
