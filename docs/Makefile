@@ -3,7 +3,7 @@
 ZENSICAL := uv run zensical
 PYTHON := uv run python
 
-.PHONY: help build serve clean convert-tutorials convert-adrs generate-blog-index preprocess schema lint-cli
+.PHONY: help build serve clean convert-tutorials convert-adrs generate-blog-index preprocess schema lint-cli llms-full
 
 help:
 	@echo "Hop3 Documentation (Zensical)"
@@ -16,6 +16,7 @@ help:
 	@echo "  make convert-adrs        - Publish ADRs (notes/adrs/) and update nav"
 	@echo "  make generate-blog-index - Generate blog index and update nav"
 	@echo "  make schema              - Publish the hop3.toml JSON Schema into site/"
+	@echo "  make llms-full           - Publish llms-full.txt (whole docs, one file) into site/"
 	@echo "  make lint-cli            - Check every documented \`hop3 ...\` command exists"
 	@echo ""
 
@@ -38,6 +39,12 @@ preprocess: convert-tutorials convert-adrs generate-blog-index
 schema:
 	$(PYTHON) ../scripts/generate-toml-schema.py --site-dir site
 
+# llms-full.txt (llmstxt.org): the whole documentation inlined, the companion to
+# the hand-written src/llms.txt index. Runs AFTER zensical build for the same
+# reason as `schema` — that step rewrites site/.
+llms-full:
+	$(PYTHON) scripts/generate_llms_full.py
+
 # Every `hop3 ...` in the docs must name a real command. Runs after preprocess
 # so the generated trees (tutorials, ADRs, blog) are checked as published.
 # Deprecated aliases are warnings; add --strict to fail on them too.
@@ -48,6 +55,7 @@ build: preprocess lint-cli
 	$(ZENSICAL) build
 	uv run hop3-install bundle --all --output-dir site/
 	@make schema
+	@make llms-full
 
 serve: preprocess
 	$(ZENSICAL) serve --open
