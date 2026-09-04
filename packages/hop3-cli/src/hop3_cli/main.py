@@ -992,6 +992,10 @@ def _execute_rpc_command(
         except requests.exceptions.SSLError:
             _handle_ssl_error(client.rpc_url)
         except requests.exceptions.ConnectionError as e:
+            if client.tunnel:
+                _handle_connection_error(
+                    e, client.api_url, ssh_stderr=client.tunnel.stderr_tail
+                )
             _handle_connection_error(e, client.rpc_url)
         except requests.exceptions.HTTPError as e:
             err(f"HTTP error while connecting to the Hop3 server:\n{e}")
@@ -1022,7 +1026,9 @@ def _handle_ssl_error(rpc_url: str) -> None:
 _NEVER_CONNECTED_MARKERS = ("refused", "name or service", "nodename", "unreachable")
 
 
-def _handle_connection_error(e: Exception, rpc_url: str) -> None:
+def _handle_connection_error(
+    e: Exception, rpc_url: str, *, ssh_stderr: str = ""
+) -> None:
     """
     Report a transport failure with the cause it actually had.
 
@@ -1038,7 +1044,16 @@ def _handle_connection_error(e: Exception, rpc_url: str) -> None:
         _handle_ssl_error(rpc_url)
 
     message = f"Connection to the Hop3 server at {rpc_url} failed:\n  {e}"
-    if any(marker in error_str for marker in _NEVER_CONNECTED_MARKERS):
+    if ssh_stderr:
+        # Over `ssh -L`, requests only sees a reset: ssh accepted the local
+        # connection, then could not open the channel. ssh's stderr has why.
+        message += f"\n  ssh: {ssh_stderr}"
+        if "connect failed" in ssh_stderr:
+            message += (
+                "\nThe SSH tunnel is up but nothing answers on the remote port. "
+                "Is hop3-server running there?"
+            )
+    elif any(marker in error_str for marker in _NEVER_CONNECTED_MARKERS):
         message += "\nIs it running?"
     err(message)
     sys.exit(ExitCode.NETWORK_ERROR)

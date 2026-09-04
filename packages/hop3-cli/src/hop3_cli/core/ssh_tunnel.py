@@ -224,6 +224,12 @@ class SshTunnel:
         )
         raise SshTunnelError(msg)
 
+    @property
+    def stderr_tail(self) -> str:
+        """ssh's latest stderr line, e.g. why a forwarded connection was reset."""
+        lines = self._read_stderr().splitlines()
+        return lines[-1].strip() if lines else ""
+
     def _read_stderr(self) -> str:
         """Everything ssh wrote to stderr so far (best-effort, decoded)."""
         if self._stderr is None:
