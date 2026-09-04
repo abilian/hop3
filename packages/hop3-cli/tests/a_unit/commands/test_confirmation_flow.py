@@ -10,7 +10,9 @@ import sys
 from io import StringIO
 from unittest.mock import patch
 
+import pytest
 from hop3_cli.commands.flags import CliFlags
+from hop3_cli.exit_codes import ExitCode
 from hop3_cli.main import (
     confirm_destructive_action,
     is_destructive_command,
@@ -20,8 +22,8 @@ from hop3_cli.ui.rich_printer import RichPrinter
 
 def test_is_destructive_command_app_destroy():
     """Test detection of app:destroy and destroy commands."""
-    assert is_destructive_command(["app", "destroy", "my-app"]) is True
-    assert is_destructive_command(["destroy", "my-app"]) is True
+    assert is_destructive_command(["app", "destroy", "--app", "my-app"]) is True
+    assert is_destructive_command(["destroy", "--app", "my-app"]) is True
     assert is_destructive_command(["app", "destroy"]) is True
 
 
@@ -69,7 +71,9 @@ def test_confirm_destructive_action_app_destroy_confirmed():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="my-app"):
-        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app", "my-app"], printer
+        )
         assert result is True
 
 
@@ -78,7 +82,9 @@ def test_confirm_destructive_action_app_destroy_cancelled():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="wrong-app"):
-        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app", "my-app"], printer
+        )
         assert result is False
 
 
@@ -196,7 +202,8 @@ def test_confirm_destructive_action_json_mode_does_not_auto_confirm():
     # Non-interactive stdin (CI): input() raises EOFError → prompt fails closed.
     with patch("builtins.input", side_effect=EOFError):
         assert (
-            confirm_destructive_action(["app", "destroy", "my-app"], printer) is False
+            confirm_destructive_action(["app", "destroy", "--app", "my-app"], printer)
+            is False
         )
         assert (
             confirm_destructive_action(["backup", "destroy", "backup-123"], printer)
@@ -214,7 +221,9 @@ def test_confirm_destructive_action_json_mode_honors_confirm_flag():
     flags = CliFlags(json_output=True, confirm_value="my-app")
 
     assert (
-        confirm_destructive_action(["app", "destroy", "my-app"], printer, flags=flags)
+        confirm_destructive_action(
+            ["app", "destroy", "--app", "my-app"], printer, flags=flags
+        )
         is True
     )
 
@@ -224,11 +233,11 @@ def test_confirm_destructive_action_destroy_alias():
     printer = RichPrinter()
 
     with patch("builtins.input", return_value="my-app"):
-        result = confirm_destructive_action(["destroy", "my-app"], printer)
+        result = confirm_destructive_action(["destroy", "--app", "my-app"], printer)
         assert result is True
 
     with patch("builtins.input", return_value="wrong"):
-        result = confirm_destructive_action(["destroy", "my-app"], printer)
+        result = confirm_destructive_action(["destroy", "--app", "my-app"], printer)
         assert result is False
 
 
@@ -241,7 +250,7 @@ def test_confirm_destructive_action_shows_warnings():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="my-app"),
     ):
-        confirm_destructive_action(["app", "destroy", "my-app"], printer)
+        confirm_destructive_action(["app", "destroy", "--app", "my-app"], printer)
 
     output = stderr_capture.getvalue()
     assert "⚠  WARNING: DESTRUCTIVE ACTION" in output
@@ -258,7 +267,7 @@ def test_confirm_destructive_action_app_destroy_warning_details():
         patch.object(sys, "stderr", stderr_capture),
         patch("builtins.input", return_value="my-app"),
     ):
-        confirm_destructive_action(["app", "destroy", "my-app"], printer)
+        confirm_destructive_action(["app", "destroy", "--app", "my-app"], printer)
 
     output = stderr_capture.getvalue()
     assert "All files, data, and configuration will be permanently deleted." in output
@@ -301,7 +310,9 @@ def test_confirm_destructive_action_keyboard_interrupt():
     printer = RichPrinter()
 
     with patch("builtins.input", side_effect=KeyboardInterrupt):
-        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app", "my-app"], printer
+        )
         assert result is False
 
 
@@ -310,7 +321,9 @@ def test_confirm_destructive_action_eof():
     printer = RichPrinter()
 
     with patch("builtins.input", side_effect=EOFError):
-        result = confirm_destructive_action(["app", "destroy", "my-app"], printer)
+        result = confirm_destructive_action(
+            ["app", "destroy", "--app", "my-app"], printer
+        )
         assert result is False
 
 
@@ -323,7 +336,7 @@ def test_confirm_flag_matches_target_succeeds():
     flags = CliFlags(confirm_value="my-app")
     # No input mock — should not prompt
     result = confirm_destructive_action(
-        ["app", "destroy", "my-app"], printer, flags=flags
+        ["app", "destroy", "--app", "my-app"], printer, flags=flags
     )
     assert result is True
 
@@ -333,7 +346,7 @@ def test_confirm_flag_mismatch_fails():
     printer = RichPrinter()
     flags = CliFlags(confirm_value="wrong-name")
     result = confirm_destructive_action(
-        ["app", "destroy", "my-app"], printer, flags=flags
+        ["app", "destroy", "--app", "my-app"], printer, flags=flags
     )
     assert result is False
 
@@ -343,7 +356,7 @@ def test_no_input_refuses_with_actionable_error(capsys):
     printer = RichPrinter()
     flags = CliFlags(no_input=True)
     result = confirm_destructive_action(
-        ["app", "destroy", "my-app"], printer, flags=flags
+        ["app", "destroy", "--app", "my-app"], printer, flags=flags
     )
     assert result is False
     err = capsys.readouterr().err
@@ -369,3 +382,54 @@ def test_confirm_flag_for_addon_destroy():
         ["addon", "destroy", "mydb"], printer, flags=flags
     )
     assert result is True
+
+
+# ---- Stray positional on app destroy ----
+
+
+def _assert_refuses_stray_positional(cli_args: list[str], flags=None, **kw):
+    printer = RichPrinter()
+    with (
+        patch("builtins.input", side_effect=AssertionError("must not prompt")),
+        pytest.raises(SystemExit) as exc,
+    ):
+        confirm_destructive_action(cli_args, printer, flags=flags)
+    assert exc.value.code == ExitCode.USAGE_ERROR
+
+
+def test_app_destroy_refuses_stray_positional_before_prompting(capsys):
+    """
+    Regression: `hop3 app destroy ac-sciences-2` (positional, no --app) had the
+    AMBIENT app injected as `--app ac-sciences`, so the prompt asked to confirm
+    destroying the wrong app; the server rejected the stray token only after the
+    confirmation. A positional must be refused before any prompt, naming both
+    apps and the intended command.
+    """
+    _assert_refuses_stray_positional([
+        "app",
+        "destroy",
+        "--app",
+        "ac-sciences",
+        "ac-sciences-2",
+    ])
+    err = capsys.readouterr().err
+    assert "got 'ac-sciences-2'" in err
+    assert "ambient app 'ac-sciences'" in err
+    assert "hop3 app destroy --app ac-sciences-2" in err
+
+
+def test_app_destroy_refuses_stray_positional_even_with_confirm_flag(capsys):
+    """--confirm=<stray> must not degrade into a confusing 'does not match' decline."""
+    _assert_refuses_stray_positional(
+        ["app", "destroy", "--app", "ac-sciences", "ac-sciences-2"],
+        flags=CliFlags(confirm_value="ac-sciences-2"),
+    )
+    assert "hop3 app destroy --app ac-sciences-2" in capsys.readouterr().err
+
+
+def test_app_destroy_refuses_bare_positional_without_app_flag(capsys):
+    """The positional form is never valid, injected app or not (also `destroy`)."""
+    _assert_refuses_stray_positional(["destroy", "my-app"])
+    err = capsys.readouterr().err
+    assert "`hop3 destroy` takes no positional argument" in err
+    assert "hop3 destroy --app my-app" in err

@@ -9,6 +9,7 @@ from __future__ import annotations
 import sys
 from typing import TYPE_CHECKING
 
+from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.prompts import confirm, show_destructive_warning, type_to_confirm
 
 if TYPE_CHECKING:
@@ -98,6 +99,9 @@ def _first_positional(args: list[str]) -> str | None:
     return None
 
 
+_APP_DESTROY: frozenset[tuple[str, ...]] = frozenset({("app", "destroy"), ("destroy",)})
+
+
 def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | None:
     """
     The resource name the user must type (or pass to `--confirm`).
@@ -106,9 +110,34 @@ def _resolve_target_name(command: tuple[str, ...], args: list[str]) -> str | Non
     every other destructive command names its resource positionally (addon
     type, backup id, username, context). Returns None when absent.
     """
-    if command in {("app", "destroy"), ("destroy",)}:
-        return _extract_app_flag(args) or _first_positional(args)
-    return _first_positional(args)
+    if command not in _APP_DESTROY:
+        return _first_positional(args)
+    stray = _first_positional(args)
+    if stray is not None:
+        _refuse_stray_positional(command, stray, _extract_app_flag(args))
+    return _extract_app_flag(args)
+
+
+def _refuse_stray_positional(
+    command: tuple[str, ...], stray: str, injected_app: str | None
+) -> None:
+    """
+    Fail loud on `hop3 app destroy NAME` (positional) BEFORE any prompt.
+
+    The client forwards a bare positional untouched and injects the AMBIENT
+    app as `--app`, so the prompt would ask to confirm destroying the wrong
+    app; the server rejects the stray token only after that confirmation.
+    """
+    verb = " ".join(command)
+    lines = [f"Error: `hop3 {verb}` takes no positional argument; got '{stray}'."]
+    if injected_app:
+        lines.append(
+            f"  The app is named with --app; without it, the ambient app "
+            f"'{injected_app}' was resolved and would have been the target."
+        )
+    lines.append(f"  Did you mean: hop3 {verb} --app {stray}")
+    print("\n".join(lines), file=sys.stderr)
+    sys.exit(ExitCode.USAGE_ERROR)
 
 
 def confirm_destructive_action(  # ruff:ignore[too-many-return-statements] — sequential decision tree, each return is a distinct escape hatch (no-match, missing-args, --confirm, --no-input, …) with its own side effects; flattening into a result var would obscure the safety story.
