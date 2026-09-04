@@ -136,9 +136,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # way every other connecting command does (resolve-or-abort on an explicit
     # `--context`), before it dispatches.
     if cli_args[:1] == ["tunnel"] and not flags.why:
-        _wire_active_server(
-            cli_args, flags, config, resolve_context(cli_context=flags.context)
-        )
+        _wire_active_server(flags, config, resolve_context(cli_context=flags.context))
 
     # Handle local commands (init, config) that don't need server
     if is_local_command(cli_args):
@@ -157,7 +155,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     # the project-mismatch guard, and the deploy preview. Avoids running
     # the git subprocess twice.
     context_resolution, app_resolution = _compute_resolutions(cli_args, flags, config)
-    _wire_active_server(cli_args, flags, config, context_resolution)
+    _wire_active_server(flags, config, context_resolution)
 
     if flags.why:
         # Always print the resolution trace to stderr, regardless of verbosity
@@ -295,7 +293,6 @@ def _resolve_active_server(
 
 
 def _wire_active_server(
-    cli_args: list[str],
     flags: CliFlags,
     config: Config,
     context_resolution: ContextResolution | None,
@@ -318,9 +315,7 @@ def _wire_active_server(
     if active_server := _resolve_active_server(context_resolution, config):
         config.set_active_server(active_server)
         return
-    if requires_authentication(cli_args) and (
-        ambient := _resolve_ambient_server(config)
-    ):
+    if ambient := _resolve_ambient_server(config):
         config.set_active_server(ambient)
 
 
@@ -438,9 +433,8 @@ def _compute_resolutions(
     """
     Run the context+app resolvers (or no-op when not needed).
 
-    Returns ``(context_resolution, app_resolution)``. Both may be None when the
-    command is not app-scoped and ``--why`` wasn't requested — the resolvers do
-    real work (file reads) and must not fire for ``hop3 version``/``hop3 help``.
+    Returns ``(context_resolution, app_resolution)``. The app resolution is None
+    when the command is not app-scoped and ``--why`` wasn't requested.
 
     ADR 042: the context IS the server (one noun), so there is no separate
     server resolution; the app resolves CWD-only.
@@ -453,14 +447,14 @@ def _compute_resolutions(
         app_resolution = resolve_app(cli_app=flags.app, context=context_resolution)
         return context_resolution, app_resolution
 
-    # Non-app-scoped commands (apps, addon list, backup list, …) still target a
-    # server, so they must honor $HOP3_CONTEXT / the .hop3-local.toml pin / a
-    # sole project context — not silently fall through to the global default
-    # (audit 2026-06 C2). Resolve the context for them too, but only when the
-    # command actually connects, so `version`/`help` still read no files.
-    if requires_authentication(cli_args):
-        return resolve_context(cli_context=flags.context), None
-    return None, None
+    # Every command that reaches this point connects to a server, the no-auth
+    # ones (`help`, `auth get-token`) included: local commands and offline help
+    # were dispatched above. So each must honor $HOP3_CONTEXT / the
+    # .hop3-local.toml pin / a sole project context, never fall through to the
+    # legacy default server (audit 2026-06 C2). Gating this on "requires
+    # authentication" sent `hop3 app logs --help` to a retired default_server
+    # while `hop3 app logs` reached the default context's server.
+    return resolve_context(cli_context=flags.context), None
 
 
 def _inject_resolved_app(
@@ -762,9 +756,6 @@ def _print_debug_info(
     context_name = config.get_current_context_name()
     if context_name:
         printer.print_debug(f"Context: {context_name}")
-
-    api_url = config.get_api_url() or "(not configured)"
-    printer.print_debug(f"API URL: {api_url}")
 
 
 def _context_deploy_override(
