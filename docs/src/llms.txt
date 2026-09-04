@@ -1,0 +1,78 @@
+# Hop3
+
+> Hop3 is an open-source, self-hostable Platform as a Service: a distribution for web applications. It runs your own code and off-the-shelf applications side by side on servers you control, without requiring Docker or Kubernetes, and is built around simplicity, security and digital sovereignty.
+
+An application is described by a `hop3.toml` file and deployed with the `hop3` CLI or a `git push`. The server builds it (native language toolchains, Nix, or Docker), runs it under uWSGI, configures a reverse proxy (nginx, Caddy or Traefik), provisions the backing services it declares — PostgreSQL, MySQL, Redis, S3, email — and issues TLS certificates.
+
+Hop3 is beta-quality software: its architecture and APIs can still change between releases. It is developed by Abilian SAS under the Apache-2.0 licence, with funding from NGI Zero. The source lives on [GitHub](https://github.com/abilian/hop3).
+
+The full text of every page listed below is also available as a single file: https://hop3.cloud/llms-full.txt
+
+Terminology used throughout the docs: an *app* is one deployed application; an *addon* is a backing service attached to an app; a *recipe* is the `hop3.toml` that describes how to build and run an app; the *catalog* is the published set of ready-to-install recipes.
+
+## Getting started
+
+- [Documentation home](https://hop3.cloud/): what Hop3 is, with entry points into each section
+- [Features](https://hop3.cloud/features/): supported languages, frameworks, proxies and backing services
+- [Get started overview](https://hop3.cloud/get-started/): the path from a bare server to a running app
+- [Server setup](https://hop3.cloud/get-started/server-setup/): installing hop3-server on a machine you control
+- [Quick start](https://hop3.cloud/get-started/quickstart/): deploying a first application end to end
+- [Installer options](https://hop3.cloud/get-started/installer/): `hop3-install` flags, including `--with` for optional backing services
+
+## Using Hop3
+
+- [User guide](https://hop3.cloud/guides/user-guide/): the main task-oriented guide for deploying and operating apps
+- [Security](https://hop3.cloud/guides/security/): hardening and the security posture an operator is responsible for
+- [Domains and hostnames](https://hop3.cloud/guides/domains/): how apps get hostnames, and how TLS is issued
+- [Addons](https://hop3.cloud/guides/addons/): attaching PostgreSQL, MySQL, Redis, S3 and email to an app
+- [App catalog](https://hop3.cloud/guides/app-catalog/): installing off-the-shelf applications from the published catalog
+- [Packaging applications](https://hop3.cloud/guides/packaging-applications/): writing a recipe for an application
+- [Migrating to Hop3](https://hop3.cloud/guides/migration-guide/): moving from Heroku, Dokku, CapRover and other platforms
+- [FAQ](https://hop3.cloud/guides/faq/)
+- [Troubleshooting](https://hop3.cloud/guides/troubleshooting/): diagnosing a failed deploy or an app that will not start
+
+## Reference
+
+- [Reference overview](https://hop3.cloud/reference/): index of the lookup material
+- [CLI reference](https://hop3.cloud/reference/cli/): every `hop3` command, its arguments and output
+- [Configuration reference](https://hop3.cloud/reference/config/): the full `hop3.toml` schema, section by section
+
+## Tutorials
+
+- [Tutorials overview](https://hop3.cloud/tutorials/): every tutorial, indexed by language and framework
+- [Flask tutorial](https://hop3.cloud/tutorials/python/flask/): one complete walkthrough, from `hop3.toml` to a running app; every other tutorial follows the same steps
+
+## Architecture and internals
+
+- [Developer overview](https://hop3.cloud/developers/): how to work on Hop3 itself
+- [Architecture](https://hop3.cloud/developers/architecture/): the packages, the deploy pipeline and how they fit together
+- [Security model](https://hop3.cloud/developers/security-model/): trust boundaries, the privilege model and the reasoning behind them
+- [Packages](https://hop3.cloud/developers/packages/): hop3-server, hop3-cli, hop3-installer, hop3-tui, hop3-testing
+
+## Optional
+
+- [Cheat sheet](https://hop3.cloud/guides/cheat-sheet/): the commonly used commands in one page
+- [Administration](https://hop3.cloud/guides/administration/): operator tasks, user accounts and the account model
+- [Deploying with Nix](https://hop3.cloud/guides/nix-deployment/): reproducible builds via Nix instead of native toolchains
+- [Backup and restore](https://hop3.cloud/guides/backup-restore/): backing up an app together with its addons
+- [Nix integration](https://hop3.cloud/reference/nix/): the `[nix]` section and the generated-expression templates
+- [Static sites](https://hop3.cloud/tutorials/static/): plain HTML, Hugo, Astro, Eleventy, Jekyll
+- [Python](https://hop3.cloud/tutorials/python/): Flask, Django, FastAPI, Litestar, Starlette, Bottle, Falcon, Eve, DRF, Pyramid, Sanic, Robyn
+- [JavaScript](https://hop3.cloud/tutorials/javascript/): Express, Fastify, Next.js, Nuxt.js, NestJS
+- [Go](https://hop3.cloud/tutorials/go/): Gin, Fiber
+- [Ruby](https://hop3.cloud/tutorials/ruby/): Rails, Sinatra
+- [Rust](https://hop3.cloud/tutorials/rust/): Axum, Actix-web
+- [Java](https://hop3.cloud/tutorials/java/): Spring Boot, Quarkus
+- [PHP](https://hop3.cloud/tutorials/php/): Laravel, Symfony
+- [Elixir](https://hop3.cloud/tutorials/elixir/): Phoenix
+- [.NET](https://hop3.cloud/tutorials/dotnet/): ASP.NET Core
+- [Nix](https://hop3.cloud/tutorials/nix/nix-flask/): deploying a Flask app through a Nix build
+- [Changelog](https://hop3.cloud/reference/changelog/): what changed in each release
+- [Security policy](https://hop3.cloud/reference/policies/security-policy/): how to report a vulnerability
+- [Protocol reference](https://hop3.cloud/developers/protocol-reference/): the JSON-RPC protocol between the CLI and the server
+- [Plugin development](https://hop3.cloud/developers/plugin-development/): adding builders, deployers, addons, proxies and toolchains
+- [Hook specifications](https://hop3.cloud/developers/hook-specifications/): the pluggy hooks a plugin can implement
+- [Architecture Decision Records](https://hop3.cloud/developers/adrs/): the design decisions, with the reasoning that produced them
+- [Contributing](https://hop3.cloud/developers/contributing/): how to propose a change
+- [Testing guide](https://hop3.cloud/developers/testing/): the test tiers and how to run them
+- [Blog](https://hop3.cloud/blog/): release notes and longer write-ups on design decisions
