@@ -145,10 +145,17 @@ def test_non_app_scoped_auth_command_resolves_context():
     assert app_res is None  # but the command is not app-scoped
 
 
-def test_non_connecting_command_skips_resolution():
-    # `version`/`help` don't connect -> no file reads, no resolution.
+def test_no_auth_connecting_command_resolves_context():
+    # Regression: `help` needs no token but still connects, so it must target
+    # the same server as any other command. Gating resolution on "requires
+    # authentication" sent `hop3 app logs --help` to the retired legacy
+    # default_server while `hop3 app logs` reached the default context.
     flags = SimpleNamespace(why=False, context=None, app=None)
-    assert _compute_resolutions(["version"], flags, Config(data={})) == (None, None)
+    ctx_res, app_res = _compute_resolutions(
+        ["help", "app", "logs"], flags, Config(data={})
+    )
+    assert ctx_res is not None
+    assert app_res is None
 
 
 # ---- Config honors the active server ----
