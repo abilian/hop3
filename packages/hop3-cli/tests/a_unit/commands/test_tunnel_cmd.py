@@ -21,8 +21,8 @@ from hop3_cli.commands.local.tunnel_cmd import (
     _fetch_endpoint,
     _parse_args,
     _rewrite_url,
-    _ssh_params,
     handle_tunnel,
+    ssh_params,
 )
 from hop3_cli.exit_codes import ExitCode
 from jsonrpcclient import Error, Ok
@@ -83,14 +83,14 @@ def test_rewrite_url_without_credentials():
     assert _rewrite_url("redis://127.0.0.1:6379/0", 6000) == "redis://127.0.0.1:6000/0"
 
 
-# ---- _ssh_params ----
+# ---- ssh_params ----
 
 
 def test_ssh_params_from_ssh_url():
     config = MagicMock()
     config.get_api_url.return_value = "ssh://root@server.example.com:2222"
     config.get.side_effect = lambda key, default=None: default
-    params = _ssh_params(config)
+    params = ssh_params(config)
     assert params["host"] == "server.example.com"
     assert params["user"] == "root"
     assert params["port"] == 2222
@@ -100,7 +100,7 @@ def test_ssh_params_rejects_non_ssh_url():
     config = MagicMock()
     config.get_api_url.return_value = "https://server.example.com"
     with pytest.raises(SystemExit) as exc:
-        _ssh_params(config)
+        ssh_params(config)
     assert exc.value.code == ExitCode.USAGE_ERROR
 
 
@@ -158,7 +158,7 @@ def test_handle_tunnel_opens_prints_and_cleans_up(capsys):
         patch.object(tunnel_cmd, "_fetch_endpoint", return_value=_ENDPOINT),
         patch.object(
             tunnel_cmd,
-            "_ssh_params",
+            "ssh_params",
             return_value={"host": "srv", "user": "root", "port": 22, "key": None},
         ),
         patch.object(tunnel_cmd, "_start_forwarder", return_value=forwarder),
@@ -190,7 +190,7 @@ def test_handle_tunnel_dropped_connection_fails_loud(capsys):
         patch.object(tunnel_cmd, "_fetch_endpoint", return_value=_ENDPOINT),
         patch.object(
             tunnel_cmd,
-            "_ssh_params",
+            "ssh_params",
             return_value={"host": "srv", "user": "root", "port": 22, "key": None},
         ),
         patch.object(tunnel_cmd, "_start_forwarder", return_value=forwarder),

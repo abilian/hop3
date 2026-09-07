@@ -45,6 +45,11 @@ PACKAGE_ALIASES: dict[str, dict[str, str | None]] = {
     "libicu-dev": {"debian": "libicu-dev", "fedora": "libicu-devel"},
     "libssl-dev": {"debian": "libssl-dev", "fedora": "openssl-devel"},
     "libsqlite3-dev": {"debian": "libsqlite3-dev", "fedora": "sqlite-devel"},
+    # Use this, NOT `default-libmysqlclient-dev`. That alias resolves to
+    # MariaDB's headers on Debian but to MySQL 8.0's `libmysqlclient-dev` on
+    # Ubuntu, which Conflicts+Breaks `libmariadb-dev` — so declaring it aborts
+    # the whole baseline install on any host that already has the MariaDB
+    # headers. `mysqlclient` and friends build fine against these.
     "libmariadb-dev": {
         "debian": "libmariadb-dev",
         "fedora": "mariadb-connector-c-devel",
@@ -61,6 +66,34 @@ PACKAGE_ALIASES: dict[str, dict[str, str | None]] = {
     # --- Database clients (runtime) ---
     "postgresql-client": {"debian": "postgresql-client", "fedora": "postgresql"},
     "mariadb-client": {"debian": "mariadb-client", "fedora": "mariadb"},
+    # --- Shared libraries loaded at runtime (not the -dev headers above) ---
+    # Debian splits the library from its headers; Fedora's runtime package is
+    # the unsuffixed name. An app that only *loads* libpq (a prebuilt psycopg
+    # wheel) or libmagic (python-magic, via ctypes) needs these, not -dev.
+    "libpq5": {"debian": "libpq5", "fedora": "libpq"},
+    "libmagic1": {"debian": "libmagic1", "fedora": "file-libs"},
+    "libzbar0": {"debian": "libzbar0", "fedora": "zbar"},
+    # --- OCR / document pipeline ---
+    # ocrmypdf shells out to every one of these; a missing one surfaces as a
+    # document that ingests and then fails in the task queue, not as a boot
+    # error. Language packs are per-language, so the table names them
+    # individually rather than trying to express a family.
+    "tesseract-ocr": {"debian": "tesseract-ocr", "fedora": "tesseract"},
+    "tesseract-ocr-eng": {
+        "debian": "tesseract-ocr-eng",
+        "fedora": "tesseract-langpack-eng",
+    },
+    "ghostscript": {"debian": "ghostscript", "fedora": "ghostscript"},
+    "unpaper": {"debian": "unpaper", "fedora": "unpaper"},
+    "qpdf": {"debian": "qpdf", "fedora": "qpdf"},
+    "pngquant": {"debian": "pngquant", "fedora": "pngquant"},
+    # The sRGB profile ocrmypdf converts against when producing PDF/A.
+    "icc-profiles-free": {
+        "debian": "icc-profiles-free",
+        "fedora": "icc-profiles-openicc",
+    },
+    "fonts-liberation": {"debian": "fonts-liberation", "fedora": "liberation-fonts"},
+    "gnupg": {"debian": "gnupg", "fedora": "gnupg2"},
 }
 
 

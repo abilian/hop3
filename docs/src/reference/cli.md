@@ -2185,6 +2185,29 @@ hop3 app run --app myapp python manage.py shell
 hop3 app run --app myapp node scripts/cleanup.js
 ```
 
+### `hop3 app shell`
+
+Open an interactive shell in an app's runtime context. `hop3 ssh` is a top-level alias. The shell starts in the app's working tree with the environment its processes see (addon URLs, the `[env]` block, the toolchain on `PATH`), as the `hop3` user. It is `hop3 app run` with a terminal attached: REPLs, `tail -f`, pagers and debuggers work. Exit the shell to end the session; its exit status becomes the command's.
+
+This is a client-side command over SSH, not RPC: the CLI opens `ssh -t` to the configured `ssh://` server and hands the terminal to the server. It needs an `ssh://` server. With stdin redirected, no terminal is allocated and the shell runs what it is piped, then exits.
+
+**Usage:**
+```bash
+hop3 app shell [--app <app>]
+```
+
+**Examples:**
+```bash
+# Shell into the app resolved from context
+hop3 app shell
+
+# Shell into an explicit app
+hop3 app shell --app myapp
+
+# Scripted: no terminal, commands from stdin
+echo 'flask db upgrade' | hop3 app shell --app myapp
+```
+
 ### `hop3 app sbom`
 
 Generate a Software Bill of Materials (SBOM) for an app.

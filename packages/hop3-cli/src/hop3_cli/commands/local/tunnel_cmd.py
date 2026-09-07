@@ -50,7 +50,7 @@ def handle_tunnel(args: list[str], config: Config, printer: RichPrinter) -> None
     remote_port = int(info["port"])
     bind_port = local_port if local_port is not None else remote_port
 
-    ssh = _ssh_params(config)
+    ssh = ssh_params(config)
     forwarder = _start_forwarder(ssh, remote_port, bind_port)
     _install_signal_cleanup(forwarder)
 
@@ -163,14 +163,15 @@ def _first_message(items: list) -> str | None:
     return None
 
 
-def _ssh_params(config: Config) -> dict:
+def ssh_params(config: Config, *, what: str = "Tunnel") -> dict:
     """Derive SSH connection parameters from the configured api_url."""
     api_url = config.get_api_url()
     parsed = urlparse(api_url or "")
     if parsed.scheme != "ssh":
+        current = f"the current server is '{api_url}'" if api_url else "none is set"
         print(
-            "Tunnel needs an SSH server connection, but the current server is "
-            f"'{api_url}'. Configure an ssh:// server (e.g. "
+            f"{what} needs an SSH server connection, but {current}. "
+            "Configure an ssh:// server (e.g. "
             "`hop3 settings set server ssh://root@host`).",
             file=sys.stderr,
         )

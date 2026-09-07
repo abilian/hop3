@@ -71,6 +71,33 @@ def spawn_uwsgi_worker(
     worker.spawn()
 
 
+def _quote_env_value(value: object) -> str:
+    """
+    An env value, safe to sit inside ``'...'`` inside ``sh -c "..."``.
+
+    Two layers of quoting apply to every exported value, and the second one is
+    easy to miss. The value is wrapped in single quotes, so an apostrophe has to
+    be closed and reopened (``'\\''``) — but that whole ``export K='v'`` string
+    is then embedded in the double-quoted argument of ``sh -c "…"``, and inside
+    double quotes the shell still interprets ``$``, a backtick, a backslash and
+    a double quote. Single quotes do not protect it there.
+
+    Handling only the apostrophe silently corrupted any value containing those
+    characters. A JSON-valued setting lost its quotes outright — paperless-ngx's
+    ``PAPERLESS_PROXY_SSL_HEADER='["HTTP_X_FORWARDED_PROTO","https"]'`` reached
+    Django as ``[HTTP_X_FORWARDED_PROTO,https]`` and crashed every worker on
+    ``json.loads`` — and a generated password containing ``$`` would have been
+    mangled into a credential nobody could reproduce.
+
+    The command itself is deliberately NOT escaped this way: a start command is
+    written to use ``$PORT``, and that expansion is the point.
+    """
+    text = str(value)
+    for char in ("\\", "`", '"', "$"):
+        text = text.replace(char, "\\" + char)
+    return text.replace("'", "'\\''")
+
+
 @dataclass
 class UwsgiWorker:
     app_name: str
@@ -265,11 +292,7 @@ class UwsgiWorker:
             # PATH is folded into path_value above; NGINX_ACL is not the app's.
             if key in {"NGINX_ACL", "PATH"}:
                 continue
-            # Escape single quotes in values so a literal apostrophe in
-            # ``value`` doesn't break out of the surrounding ``'...'``.
-            # Correctness, not security — see the trust-model note above.
-            safe_value = str(value).replace("'", "'\\''")
-            exports.append(f"export {key}='{safe_value}'")
+            exports.append(f"export {key}='{_quote_env_value(value)}'")
 
         # Wrap command in shell with all exports and explicit cd to src/
         # Note: uWSGI's chdir directive may not apply to attach-daemon processes,

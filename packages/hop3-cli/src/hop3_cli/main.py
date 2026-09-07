@@ -34,6 +34,7 @@ from .commands import (
     serve_offline_help,
 )
 from .commands.arguments import describe_archive
+from .commands.local.shell_cmd import intercept_app_shell
 from .config import Config, get_config
 from .core.alias_registry import (
     build_registry,
@@ -168,6 +169,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
         sys.exit(ExitCode.SUCCESS)
 
     cli_args = _inject_resolved_app(cli_args, flags, app_resolution, printer)
+    # `app shell` is the one command that never goes over RPC: it needs a
+    # terminal, so the CLI opens it over ssh itself, with the app resolved
+    # like any other app-scoped command.
+    intercept_app_shell(cli_args, config)
     _check_project_mismatch(cli_args, flags, app_resolution)
     _check_workspace_dependency(cli_args, flags)
     _check_stray_dry_run(cli_args, flags)
