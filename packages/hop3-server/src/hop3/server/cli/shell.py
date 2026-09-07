@@ -92,7 +92,7 @@ class AppShellExecCmd(Command):
             ssh_key_fingerprint=os.environ.get("FINGERPRINT", ""),
         )
         os.chdir(spec.cwd)
-        os.execve(spec.argv[0], list(spec.argv), spec.env)
+        os.execve(spec.argv[0], spec.argv, spec.env)
 
 
 def _pick_shell() -> str:

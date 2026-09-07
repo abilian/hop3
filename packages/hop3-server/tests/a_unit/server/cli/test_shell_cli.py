@@ -91,7 +91,7 @@ def test_execs_the_session_in_the_app_context(lookup, tmp_path, monkeypatch) -> 
 
     assert seen["cwd"] == lookup.app.src_path
     assert seen["path"] == "/bin/bash"
-    assert seen["argv"] == ["/bin/bash", "--norc"]
+    assert seen["argv"] == ("/bin/bash", "--norc")
     assert seen["env"]["APP"] == "myapp"
     assert seen["env"]["TERM"] == "xterm"
     assert "HOP3_SECRET_KEY" not in seen["env"]
