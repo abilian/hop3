@@ -293,6 +293,7 @@ def cached_subcommand_index() -> dict[str, set[str]]:
             "start",
             "stop",
             "restart",
+            "shell",
         },
         "addon": {
             "list",

@@ -54,6 +54,7 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "upgrade"),
     ("app", "rollback"),
     ("app", "run"),  # canonical form of top-level `run` (alias). See run special-case.
+    ("app", "shell"),  # canonical form of top-level `ssh`; run by the CLI over SSH.
     # ("app", "launch") and ("app", "list") are NOT app-scoped: launch creates
     # an app from a repo arg; list takes no app.
     # ("app", "rename") — second arg is the new name, not a second app; app is positional and unambiguous

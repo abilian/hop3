@@ -73,4 +73,7 @@ CORE_ALIASES: tuple[Alias, ...] = (
     # also stay registered as local commands so `--no-alias` still bootstraps.
     Alias("login", ("auth", "login"), "built-in"),
     Alias("logout", ("auth", "logout"), "built-in"),
+    # ADR 036 D2 reserves `ssh` as the top-level verb; `app shell` is the
+    # canonical form. The CLI runs it itself over ssh (commands/local/shell_cmd).
+    Alias("ssh", ("app", "shell"), "built-in"),
 )

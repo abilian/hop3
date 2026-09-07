@@ -459,7 +459,23 @@ def install_catalogue_baseline(os_family: str) -> None:
     is_apt = pkg_manager == "apt-get"
     lock_flags = APT_LOCK_FLAGS if is_apt else []
     apt_env = APT_NONINTERACTIVE_ENV if is_apt else None
-    install_cmd = [pkg_manager, "install", "-y", *lock_flags, *packages]
+    # --no-install-recommends, as every other apt call in the provisioning path
+    # already does. The baseline is a list of packages the catalogue *declared*;
+    # recommends are by definition not declared, and on a server they are mostly
+    # wrong. Concretely: `imagemagick` alone pulled ~50 extra packages including
+    # systemd-resolved, an icon theme and a font cache rebuild. A wider graph is
+    # also a wider surface for an unsatisfiable conflict to abort the whole step
+    # — which is exactly how a 25-package baseline started failing where an
+    # 8-package one did not.
+    recommends_flags = ["--no-install-recommends"] if is_apt else []
+    install_cmd = [
+        pkg_manager,
+        "install",
+        "-y",
+        *recommends_flags,
+        *lock_flags,
+        *packages,
+    ]
     with Spinner(f"Installing catalogue baseline ({len(packages)} package(s))..."):
         result = run_cmd(install_cmd, env=apt_env, check=False)
 
@@ -471,12 +487,17 @@ def install_catalogue_baseline(os_family: str) -> None:
     # build, and a warning here is how a real conflict (e.g. NodeSource vs the
     # distro nodejs) stayed hidden while every Node app failed downstream. Abort
     # loudly so the operator fixes provisioning instead of chasing per-app errors.
-    tail = "\n".join((result.stderr or "").strip().split("\n")[-5:])
     print_error("Catalogue baseline install failed")
+    # Same reasoning as install_base_packages above, and the same helper: apt
+    # reports *why* on stdout and only the one-line verdict on stderr, so the
+    # stderr tail alone gave "E: Error, pkgProblemResolver::Resolve generated
+    # breaks" with no way to tell which package. Echo both, stdout last.
+    _print_failure_output("stderr", result.stderr)
+    _print_failure_output("stdout", result.stdout)
     raise CommandError(
         cmd=install_cmd,
         returncode=result.returncode,
-        stderr=tail,
+        stderr="\n".join(filter(None, [result.stdout, result.stderr])),
         stdout=result.stdout or "",
     )
 

@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import shlex
 import subprocess
 import tempfile
@@ -16,13 +15,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
-from hop3.config import HOP3_ROOT, HOP3_USER
 from hop3.deployers import do_deploy
 from hop3.lib.args import pop_app_flag, reject_extra_args
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
 from hop3.lib.util import CommandError, CommandFailedError, run_command
 from hop3.project.procfile import parse_procfile
+from hop3.run.app_env import build_app_env, load_artifact
 
 from ._base import Command, NamespaceCommand
 from ._errors import command_context
@@ -31,8 +30,6 @@ from ._response import error, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-    from hop3.orm import App
 
 
 # --- Version Command ---
@@ -260,8 +257,7 @@ class RunCmd(Command):
         cmd_to_run = args_list
         app = get_app(self.db_session, app_name)
 
-        # Build complete environment with PATH including virtualenv
-        env = self._build_app_env(app)
+        env = build_app_env(app, load_artifact(app))
 
         try:
             result = run_command(
@@ -307,32 +303,44 @@ class RunCmd(Command):
         except CommandError as e:
             return [error(e.message)]
 
-    def _build_app_env(self, app: App) -> dict[str, str]:
-        """
-        Build complete environment for running commands in app context.
 
-        This mirrors the environment setup in spawn.py make_env() to ensure
-        commands have access to the virtualenv, proper PATH, etc.
-        """
-        virtualenv_path = app.virtualenv_path
+@register
+@dataclass(frozen=True)
+class AppShellCmd(Command):
+    """
+    Open an interactive shell in an app's runtime context.
 
-        # Start with system PATH, prepend virtualenv bin
-        system_path = os.environ.get("PATH", "/usr/bin:/bin")
-        venv_bin = virtualenv_path / "bin"
+    Usage: hop3 app shell [--app <app>]
 
-        env = {
-            "APP": app.name,
-            "HOME": str(HOP3_ROOT),
-            "USER": HOP3_USER,
-            "PATH": f"{venv_bin}:{system_path}",
-            "PWD": str(app.src_path),
-            "VIRTUAL_ENV": str(virtualenv_path),
-        }
+    `hop3 ssh` is a top-level alias. The shell starts in the app's working
+    tree with the environment its processes see (addon URLs, the [env] block,
+    the toolchain on PATH), as the hop3 user. It is `hop3 run` with a terminal
+    attached: REPLs, `tail -f`, pagers and debuggers work. Exit the shell to
+    end the session; its exit status is the command's.
 
-        # Add app's stored environment variables
-        env.update(dict(app.get_runtime_env().items()))
+    This command travels over SSH, not the RPC API: the CLI opens `ssh -t` to
+    the configured ssh:// server and hands the terminal to the server-side
+    `hop3-server app-shell`. It needs an ssh:// server; an http:// server
+    cannot carry a terminal.
 
-        return env
+    Examples:
+        hop3 app shell --app myapp
+        hop3 ssh                      # app from context
+    """
+
+    name: ClassVar[tuple[str, ...]] = ("app", "shell")
+
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
+        # The CLI runs this command itself, over SSH; only a client that does
+        # not know it (older than the server) sends it here. Say so loudly
+        # rather than pretend a terminal can be opened over RPC.
+        return [
+            error(
+                "`hop3 app shell` opens a terminal over SSH; the hop3 CLI runs it "
+                "itself and never sends it here. This client sent it over RPC: "
+                "upgrade hop3-cli and connect through an ssh:// server."
+            )
+        ]
 
 
 # --- SBOM Command ---
