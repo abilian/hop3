@@ -50,7 +50,7 @@ def _simulate_reload(monkeypatch, *, applied: bool, reason: str | None = None) -
     The real /proc / error-log parsing behind these seams is covered by the
     dedicated helper tests below.
     """
-    monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _since: applied)
+    monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _since, _offset: applied)
     monkeypatch.setattr(nginx_ops, "_last_reload_error", lambda _offset: reason)
 
 
@@ -255,7 +255,7 @@ def test_reload_timeout_falls_through_to_next_method(monkeypatch):
     A wedged systemctl (CommandTimeoutError) must not strand the deploy —
     the `nginx -s reload` fallback still runs.
     """
-    monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _s: True)
+    monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _s, _o: True)
     exc = CommandTimeoutError(["/usr/bin/systemctl", "reload", "nginx"], 10.0)
     ctx = _ctx_with(
         _RaisingExec(
@@ -270,7 +270,7 @@ def test_reload_timeout_falls_through_to_next_method(monkeypatch):
 
 
 def test_reload_invalid_binary_falls_through_to_next_method(monkeypatch):
-    monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _s: True)
+    monkeypatch.setattr(nginx_ops, "_reload_applied", lambda _s, _o: True)
     exc = InvalidBinaryError("/usr/bin/systemctl")
     ctx = _ctx_with(
         _RaisingExec(
@@ -324,21 +324,70 @@ def test_reload_applied_true_when_worker_forked_after_threshold(tmp_path, monkey
     proc = _make_proc(tmp_path, [(11, 100), (12, 300)])
     monkeypatch.setattr(nginx_ops, "_PROC_ROOT", proc)
     monkeypatch.setattr(nginx_ops, "_sleep", lambda _s: None)
-    assert nginx_ops._reload_applied(250.0) is True
+    assert nginx_ops._reload_applied(250.0, 0) is True
 
 
 def test_reload_applied_false_when_all_workers_predate_threshold(tmp_path, monkeypatch):
     proc = _make_proc(tmp_path, [(11, 100), (12, 200)])
     monkeypatch.setattr(nginx_ops, "_PROC_ROOT", proc)
     monkeypatch.setattr(nginx_ops, "_sleep", lambda _s: None)
-    assert nginx_ops._reload_applied(250.0) is False
+    assert nginx_ops._reload_applied(250.0, 0) is False
 
 
 def test_reload_applied_false_when_threshold_unknown(monkeypatch):
     # No /proc uptime (since_ticks=None) -> inconclusive -> False (caller fails loud),
     # never a false "applied".
     monkeypatch.setattr(nginx_ops, "_sleep", lambda _s: None)
-    assert nginx_ops._reload_applied(None) is False
+    assert nginx_ops._reload_applied(None, 0) is False
+
+
+# --- _reload_applied: two phases, gated on the error log -----------------
+#
+# A reload nginx accepted without logging an error always forks workers; on a
+# loaded host that can take more than the 2 s an idle one needs (an e2e deploy
+# failed on exactly that while a build ran alongside). A rejected reload logs
+# [emerg] at once and must not wait the long budget.
+
+
+def _count_sleeps(monkeypatch) -> list[float]:
+    sleeps: list[float] = []
+    monkeypatch.setattr(nginx_ops, "_sleep", sleeps.append)
+    return sleeps
+
+
+def test_reload_applied_fails_fast_when_nginx_logged_a_rejection(monkeypatch):
+    monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", lambda: [100.0])
+    monkeypatch.setattr(
+        nginx_ops, "_last_reload_error", lambda _o: "[emerg] bind() failed"
+    )
+    sleeps = _count_sleeps(monkeypatch)
+    assert nginx_ops._reload_applied(250.0, 0) is False
+    assert len(sleeps) == nginx_ops._RELOAD_VERIFY_ATTEMPTS
+
+
+def test_reload_applied_keeps_waiting_when_nginx_logged_nothing(monkeypatch):
+    polls = 0
+
+    def slow_fork() -> list[float]:
+        nonlocal polls
+        polls += 1
+        return [300.0] if polls > nginx_ops._RELOAD_VERIFY_ATTEMPTS + 30 else [100.0]
+
+    monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", slow_fork)
+    monkeypatch.setattr(nginx_ops, "_last_reload_error", lambda _o: None)
+    sleeps = _count_sleeps(monkeypatch)
+    assert nginx_ops._reload_applied(250.0, 0) is True
+    assert len(sleeps) > nginx_ops._RELOAD_VERIFY_ATTEMPTS
+
+
+def test_reload_applied_gives_up_after_the_slow_budget(monkeypatch):
+    monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", lambda: [100.0])
+    monkeypatch.setattr(nginx_ops, "_last_reload_error", lambda _o: None)
+    sleeps = _count_sleeps(monkeypatch)
+    assert nginx_ops._reload_applied(250.0, 0) is False
+    assert len(sleeps) == (
+        nginx_ops._RELOAD_VERIFY_ATTEMPTS + nginx_ops._RELOAD_VERIFY_SLOW_ATTEMPTS
+    )
 
 
 # --- _last_reload_error: scoped to bytes written during this reload ------
