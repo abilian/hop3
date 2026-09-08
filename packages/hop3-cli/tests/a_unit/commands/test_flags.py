@@ -311,3 +311,35 @@ def test_parse_flags_combined():
     assert flags.app == "myapp"
     assert flags.context == "prod"
     assert args == ["config", "set", "FOO=bar"]
+
+
+# ---- end of flags: `--`, and the program of a `run` ----
+
+
+def test_run_hands_the_program_its_own_flags():
+    """`-c` after the program is python's, not --context (it read as one)."""
+    flags, args = parse_flags(["run", "--app", "x", "python", "-c", "print(1)"])
+    assert flags.app == "x"
+    assert flags.context is None
+    assert args == ["run", "python", "-c", "print(1)"]
+
+
+def test_app_run_passes_the_program_line_through_verbatim():
+    flags, args = parse_flags(["app", "run", "-v", "--app", "x", "sh", "-c", "ls -v"])
+    assert flags.app == "x"
+    assert flags.verbosity == 2
+    assert args == ["app", "run", "sh", "-c", "ls -v"]
+
+
+def test_run_input_flag_precedes_the_program_without_ending_our_flags():
+    flags, args = parse_flags(["run", "--input", "pw", "--app", "x", "cmd", "-y"])
+    assert flags.app == "x"
+    assert flags.skip_confirm is False  # `-y` belongs to cmd
+    assert args == ["run", "--input", "pw", "cmd", "-y"]
+
+
+def test_double_dash_ends_flag_parsing_for_any_command():
+    flags, args = parse_flags(["env", "set", "--app", "x", "--", "K=-v", "-j"])
+    assert flags.app == "x"
+    assert flags.json_output is False
+    assert args == ["env", "set", "K=-v", "-j"]

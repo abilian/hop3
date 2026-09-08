@@ -153,9 +153,17 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         Tuple of (CliFlags, remaining_args)
         remaining_args has flags removed
 
+    Two things end flag parsing, after which every token passes through
+    verbatim: a ``--`` (POSIX end-of-options), and, for ``run`` / ``app run``,
+    the program to run. ``hop3 run --app x python -c "..."`` must hand
+    ``-c`` to python, not read it as ``--context``; the flags the CLI needs
+    for a run (``--app``, ``--context``, ``-v``) come before the program.
+
     Examples:
         >>> parse_flags(['deploy', 'my-app', '--json'])
         (CliFlags(json_output=True, ...), ['deploy', 'my-app'])
+        >>> parse_flags(['run', '--app', 'x', 'python', '-c', 'print(1)'])
+        (CliFlags(app='x', ...), ['run', 'python', '-c', 'print(1)'])
 
         >>> parse_flags(['destroy', 'my-app', '-y', '-vv'])
         (CliFlags(verbosity=3, skip_confirm=True, ...), ['destroy', 'my-app'])
@@ -184,16 +192,44 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
     }
 
     remaining_args: list[str] = []
+    command: list[str] = []  # the command's own positional tokens, so far
     i = 0
     while i < len(args):
+        arg = args[i]
+        if arg == _END_OF_FLAGS:
+            remaining_args.extend(args[i + 1 :])
+            break
+        in_run = tuple(command) in _RUN_COMMANDS
+        if in_run and arg in _RUN_PAIR_FLAGS:
+            # `--input <data>` belongs to `run`, and its value is not the
+            # program: keep parsing our own flags after it.
+            remaining_args.extend(args[i : i + 2])
+            i += 2
+            continue
         consumed = _apply_flag(args, i, state)
-        if consumed == 0:
-            remaining_args.append(args[i])
-            i += 1
-        else:
+        if consumed:
             i += consumed
+            continue
+        remaining_args.append(arg)
+        i += 1
+        if in_run and not arg.startswith("-"):
+            # The program to run: what follows is its command line.
+            remaining_args.extend(args[i:])
+            break
+        if not arg.startswith("-"):
+            command.append(arg)
 
     return CliFlags(**state), remaining_args
+
+
+#: POSIX end-of-options: everything after it passes through verbatim.
+_END_OF_FLAGS = "--"
+
+#: The commands that wrap a program's own command line (`hop3 run ...`).
+_RUN_COMMANDS: frozenset[tuple[str, ...]] = frozenset({("run",), ("app", "run")})
+
+#: `run`'s own two-token flags, which may precede the program.
+_RUN_PAIR_FLAGS = frozenset({"--input"})
 
 
 # Boolean flags: token → state field to set True. One row per logical flag,
