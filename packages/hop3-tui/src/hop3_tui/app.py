@@ -20,6 +20,7 @@ from typing import NamedTuple
 from urllib.parse import urlparse
 
 from hop3_cli.config import get_config as cli_config
+from hop3_cli.core.ssh_target import SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from turbodesk import UI, Size, Style, View, vcat, zcat
 from turbodesk.events import Event, Key, KeyPress
@@ -139,12 +140,13 @@ def open_tunnel(server: str) -> tuple[SshTunnel, str]:
         msg = f"SSH server URL has no hostname: {server!r}"
         raise ValueError(msg)
     cli = cli_config()
+    settings = SshSettings.from_config(cli)  # the key, port and options hop3-cli uses
     tunnel = SshTunnel(
         parsed.hostname,
         cli.get("server_port", 8000),
         user=parsed.username or cli.get("ssh_user", "root"),
-        ssh_port=parsed.port or 22,
-        key=key if isinstance(key := cli.get("ssh_key", None), str) else None,
+        ssh_port=parsed.port or settings.port,
+        settings=settings,
     )
     tunnel.start()
     return tunnel, f"http://localhost:{tunnel.local_bind_port}"
