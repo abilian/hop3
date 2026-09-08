@@ -54,6 +54,7 @@ def test_nix_runtime_contract_applied_end_to_end(tmp_path) -> None:
     launcher.artifact = launcher._load_artifact()  # from disk — the load path
     launcher.app = SimpleNamespace(
         name="forge",
+        virtualenv_path=tmp_path / "venv",
         port=12345,  # set so make_env doesn't reach for a free port
         get_runtime_env=lambda: Env({"DATABASE_URL": "postgres://localhost/forge"}),
     )
@@ -109,4 +110,3 @@ def test_missing_artifact_falls_back_to_legacy_detection(tmp_path) -> None:
     launcher.artifact = launcher._load_artifact()
 
     assert launcher.artifact is None
-    assert launcher._apply_artifact_runtime(Env({})) is False

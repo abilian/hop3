@@ -96,6 +96,10 @@ class RuntimeConfig:
     healthcheck_timeout: int = 30  # Seconds to wait for healthy response
 
 
+#: Where the build phase persists the artifact, under the app's directory.
+ARTIFACT_FILENAME = "BUILD_ARTIFACT.json"
+
+
 @dataclass
 class BuildArtifact:
     """
