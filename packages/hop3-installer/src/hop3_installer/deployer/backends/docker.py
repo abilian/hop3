@@ -227,8 +227,8 @@ class DockerDeployBackend(DeployBackend):
         print(f"  ✓ Image built: {self.TEST_IMAGE}")
         return True
 
-    def _docker_available(self) -> bool:
-        """Whether ``docker info`` succeeds; on failure, print why it did not."""
+    def _docker_unavailable_reason(self) -> str | None:
+        """Why ``docker info`` fails, or None when Docker answers."""
         try:
             result = subprocess.run(
                 ["docker", "info"],
@@ -237,19 +237,14 @@ class DockerDeployBackend(DeployBackend):
                 check=False,
             )
         except FileNotFoundError:
-            print("  ✗ Docker is not available: no `docker` command on PATH")
-            return False
+            return "no `docker` command on PATH"
         if result.returncode == 0:
-            return True
+            return None
         # The CLI names the cause (daemon down, context not found, permission
         # denied); a bare "not available" sent people to check the daemon when
         # the fault was their DOCKER_CONFIG.
         lines = [line for line in result.stderr.splitlines() if line.strip()]
-        reason = (
-            lines[-1].strip() if lines else f"docker info exited {result.returncode}"
-        )
-        print(f"  ✗ Docker is not available: {reason}")
-        return False
+        return lines[-1].strip() if lines else f"docker info exited {result.returncode}"
 
     def _container_exists(self) -> bool:
         """Check if the container exists."""
@@ -533,7 +528,8 @@ class DockerDeployBackend(DeployBackend):
         Docker's layer caching means subsequent builds are fast if
         the Dockerfile hasn't changed.
         """
-        if not self._docker_available():
+        if reason := self._docker_unavailable_reason():
+            print(f"  ✗ Docker is not available: {reason}")
             return False
 
         # Reuse a running container unless --clean was asked for: a second
