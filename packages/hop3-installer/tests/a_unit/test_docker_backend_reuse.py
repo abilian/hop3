@@ -19,7 +19,7 @@ def _backend(*, clean: bool, running: bool):
     """A backend with its container primitives stubbed; records remove/start."""
     backend = DockerDeployBackend(DeployConfig(use_docker=True, clean_before=clean))
     calls: list[str] = []
-    backend._docker_available = lambda: True
+    backend._docker_unavailable_reason = lambda: None
     backend._container_running = lambda: running
     backend._check_ports_available = list
     backend._build_image = lambda: True

@@ -19,6 +19,7 @@ import ssl
 import tempfile
 import urllib.error
 import urllib.request
+from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
 
@@ -97,8 +98,18 @@ def install_nix() -> None:
     print_success(f"Nix package manager installed ({mode_str} mode)")
 
 
+@dataclass
+class NixInstallError(CommandError):
+    """A ``--with nix`` install that did not end with a working Nix."""
+
+    def __str__(self) -> str:
+        return self.stderr
+
+
 def _fail(reason: str) -> NoReturn:
-    raise CommandError(cmd=["install-nix"], returncode=1, stderr=reason)
+    raise NixInstallError(
+        cmd=["hop3-install", "--with", "nix"], returncode=1, stderr=reason
+    )
 
 
 def _is_nix_installed() -> bool:
