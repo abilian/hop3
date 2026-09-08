@@ -60,7 +60,7 @@ def test_before_run_receives_a_fully_resolved_environment() -> None:
 
     make_env = inspect.getsource(AppLauncher.make_env)
     assert '"PORT" not in env' in make_env, "port resolution must live in make_env"
-    assert "_apply_artifact_runtime" in make_env, "artifact PATH must be applied there"
+    assert "build_app_env" in make_env, "artifact PATH must be applied there"
 
     # before-run is handed the prepared environment, not a fresh one.
     spawn = inspect.getsource(AppLauncher.spawn_app)

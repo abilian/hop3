@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 import shutil
 import stat
@@ -17,8 +16,8 @@ from typing import TYPE_CHECKING
 
 from sqlalchemy.orm import object_session
 
-from hop3.config import HOP3_ROOT, HOP3_USER, UWSGI_ENABLED
-from hop3.core.artifacts import BuildArtifact
+from hop3.config import UWSGI_ENABLED
+from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.lib import (
@@ -35,6 +34,7 @@ from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
+from hop3.run.app_env import build_app_env
 from hop3.run.uwsgi.naming import vassal_glob, vassal_name
 
 from .nix_closure import (
@@ -112,7 +112,7 @@ class AppLauncher:
         Returns:
             BuildArtifact if found and valid, None otherwise
         """
-        artifact_path = self.app_path / "BUILD_ARTIFACT.json"
+        artifact_path = self.app_path / ARTIFACT_FILENAME
         artifact = BuildArtifact.load(artifact_path)
         if artifact:
             server_log.info(
@@ -127,47 +127,6 @@ class AppLauncher:
                 app_name=self.app_name,
             )
         return artifact
-
-    def _apply_artifact_runtime(self, env: Env) -> bool:
-        """
-        Apply runtime configuration from build artifact.
-
-        Args:
-            env: Environment to update
-
-        Returns:
-            True if artifact was applied, False otherwise
-        """
-        if not self.artifact or not self.artifact.runtime:
-            return False
-
-        runtime = self.artifact.runtime
-
-        # Apply environment variables from artifact
-        for key, value in runtime.env_vars.items():
-            if key not in env:  # Don't override explicit user config
-                env[key] = value
-
-        # Prepend paths to PATH
-        current_path = env.get("PATH", "")
-        for path in runtime.path_prepend:
-            if path and path not in current_path:
-                env["PATH"] = f"{path}:{env.get('PATH', '')}"
-
-        return True
-
-    def _toolchain_owned_keys(self) -> set[str]:
-        """
-        Env keys owned by the build artifact's toolchain.
-
-        These hold absolute, per-app, per-deploy paths (MIX_HOME, HEX_HOME, …)
-        the toolchain bakes into the artifact runtime. A persisted [env] must
-        never override them: a hardcoded value (another app's MIX_HOME) would
-        point the runtime at a directory the toolchain never populated.
-        """
-        if not self.artifact or not self.artifact.runtime:
-            return set()
-        return set(self.artifact.runtime.env_vars)
 
     # Build/run-once hooks — never persistent processes, so they must never be
     # handed to uWSGI as daemons. Matches RuntimeManifestBuilder's filter.
@@ -789,18 +748,22 @@ class AppLauncher:
         Returns:
         - Env: An environment configuration object with various settings for the application.
         """
-        # Bootstrap environment
-        env = Env(
-            {
-                "APP": self.app_name,
-                # "LOG_ROOT": LOG_ROOT,
-                "HOME": HOP3_ROOT,
-                "USER": HOP3_USER,
-                "PATH": f"{self.virtualenv_path / 'bin'}:{os.environ['PATH']}",
-                "PWD": str(self.app_path),
-                "VIRTUAL_ENV": str(self.virtualenv_path),
-            },
-        )
+        # The shared core (hop3.run.app_env, also behind `hop3 run` and
+        # `hop3 app shell`): bootstrap, the artifact's toolchain env and PATH,
+        # then the persisted [env] block, never over a toolchain-owned key. The
+        # toolchain's env_vars (MIX_HOME, HEX_HOME, …) are absolute, per-app,
+        # per-deploy paths; a stale or hand-copied [env] value (another app's
+        # MIX_HOME) would point the runtime at a directory the toolchain never
+        # populated. Same precedence RuntimeManifestBuilder applies at build time.
+        env = Env(build_app_env(self.app, self.artifact, cwd=self.app_path))
+        runtime_env = self.app.get_runtime_env()
+        if self.artifact is None:
+            # Legacy, pre-artifact app: detect language paths at runtime, then
+            # let the persisted [env] win over them, as it always did.
+            self._setup_node_paths(env)
+            self._setup_ruby_paths(env)
+            self._setup_python_paths(env)
+            env.update(runtime_env)
 
         safe_defaults = {
             "NGINX_IPV4_ADDRESS": "0.0.0.0",
@@ -809,26 +772,9 @@ class AppLauncher:
             # No default HOST_NAME - apps without hostname don't get proxy config
         }
 
-        # Apply runtime config from build artifact (preferred)
-        # Falls back to legacy detection if no artifact exists
-        if not self._apply_artifact_runtime(env):
-            # Legacy: detect language-specific paths at runtime
-            self._setup_node_paths(env)
-            self._setup_ruby_paths(env)
-            self._setup_python_paths(env)
-
-        # Load environment variables from the ORM (the persisted [env] block),
-        # but never let them clobber a toolchain-owned absolute path. The build
-        # artifact's runtime env_vars (MIX_HOME, HEX_HOME, …) are computed per
-        # app, per deploy by the toolchain; a stale or hand-copied [env] value
-        # (e.g. another app's MIX_HOME) would point the runtime at a directory
-        # the toolchain never populated. This mirrors the precedence
-        # RuntimeManifestBuilder already applies at build time: toolchain wins.
-        toolchain_keys = self._toolchain_owned_keys()
-        runtime_env = self.app.get_runtime_env()
+        toolchain_keys = set(self.artifact.runtime.env_vars) if self.artifact else set()
         overridden = sorted(toolchain_keys & set(runtime_env))
         applied_env = {k: v for k, v in runtime_env.items() if k not in toolchain_keys}
-        env.update(applied_env)
         if overridden:
             log(
                 f"Ignoring [env] override of toolchain-owned {', '.join(overridden)} "

@@ -24,12 +24,13 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.config import HOP3_ROOT, HOP3_USER
-from hop3.core.artifacts import BuildArtifact
+from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact
 
 if TYPE_CHECKING:
-    from hop3.orm import App
+    from collections.abc import MutableMapping
 
-ARTIFACT_FILE = "BUILD_ARTIFACT.json"
+    from hop3.core.artifacts import RuntimeConfig
+    from hop3.orm import App
 
 
 @dataclass(frozen=True, slots=True)
@@ -43,17 +44,21 @@ class ShellSession:
 
 def load_artifact(app: App) -> BuildArtifact | None:
     """The app's build artifact, or None when it was never built."""
-    return BuildArtifact.load(app.app_path / ARTIFACT_FILE)
+    return BuildArtifact.load(app.app_path / ARTIFACT_FILENAME)
 
 
-def build_app_env(app: App, artifact: BuildArtifact | None) -> dict[str, str]:
+def build_app_env(
+    app: App, artifact: BuildArtifact | None, *, cwd: Path | None = None
+) -> dict[str, str]:
     """
-    Environment for a one-off process in ``app``'s runtime context.
+    The environment of a process in ``app``'s runtime context.
 
-    Mirrors what ``AppLauncher.make_env`` gives the app's own workers, minus
-    what only a worker needs (port allocation, proxy defaults): the toolchain's
-    env and ``PATH`` entries from the build artifact, then the persisted
-    ``[env]`` block, which never overrides a toolchain-owned key.
+    The core that ``AppLauncher.make_env`` gives the app's own workers and that
+    ``hop3 run`` and ``hop3 app shell`` give a one-off process: the bootstrap
+    (identity, the virtualenv first on ``PATH``), the toolchain's env and
+    ``PATH`` entries from the build artifact, then the persisted ``[env]``
+    block, which never overrides a toolchain-owned key. What only a worker
+    needs (port allocation, proxy defaults) stays in ``make_env``.
     """
     venv_bin = app.virtualenv_path / "bin"
     env = {
@@ -61,23 +66,33 @@ def build_app_env(app: App, artifact: BuildArtifact | None) -> dict[str, str]:
         "HOME": str(HOP3_ROOT),
         "USER": HOP3_USER,
         "PATH": f"{venv_bin}:{os.environ.get('PATH', '/usr/bin:/bin')}",
-        "PWD": str(app.src_path),
+        "PWD": str(cwd or app.src_path),
         "VIRTUAL_ENV": str(app.virtualenv_path),
     }
     toolchain_keys: set[str] = set()
     if artifact is not None:
-        runtime = artifact.runtime
-        for key, value in runtime.env_vars.items():
-            env.setdefault(key, value)
-        for path in runtime.path_prepend:
-            if path and path not in env["PATH"].split(":"):
-                env["PATH"] = f"{path}:{env['PATH']}"
-        toolchain_keys = set(runtime.env_vars)
+        apply_artifact_runtime(env, artifact.runtime)
+        toolchain_keys = set(artifact.runtime.env_vars)
     persisted = app.get_runtime_env().items()
     env.update({k: v for k, v in persisted if k not in toolchain_keys})
     if app.port:
         env.setdefault("PORT", str(app.port))
     return env
+
+
+def apply_artifact_runtime(
+    env: MutableMapping[str, str], runtime: RuntimeConfig
+) -> None:
+    """
+    The toolchain's contribution: its env vars, never over a key already set,
+    and its ``PATH`` entries in front (a Nix runtime's store binaries, a
+    toolchain's own bin directory).
+    """
+    for key, value in runtime.env_vars.items():
+        env.setdefault(key, value)
+    for path in runtime.path_prepend:
+        if path and path not in env["PATH"].split(":"):
+            env["PATH"] = f"{path}:{env['PATH']}"
 
 
 def shell_session(

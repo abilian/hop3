@@ -11,6 +11,7 @@ from urllib.parse import urlparse
 
 from hop3.commands._helpers import check_hostname_conflict
 from hop3.config import HopConfig
+from hop3.core.artifacts import ARTIFACT_FILENAME
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
@@ -241,7 +242,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     )
 
     # Persist build artifact for run phase
-    artifact_path = app.app_path / "BUILD_ARTIFACT.json"
+    artifact_path = app.app_path / ARTIFACT_FILENAME
     build_artifact.save(artifact_path)
     log(f"Build artifact saved to: {artifact_path}", level=2)
 
@@ -1039,7 +1040,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
             BuildArtifact,
         )
 
-        artifact = BuildArtifact.load(app.app_path / "BUILD_ARTIFACT.json")
+        artifact = BuildArtifact.load(app.app_path / ARTIFACT_FILENAME)
         if artifact is not None:
             artifact_kind = artifact.kind
     except Exception:
