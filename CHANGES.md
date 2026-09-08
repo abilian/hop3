@@ -5,6 +5,72 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [0.7.3] - 2026/09/08
+
+### Added
+
+- **`hop3 app shell` opens a shell inside a deployed app.** It runs with the environment the app's own workers get: the toolchain's `PATH` and variables from the build artifact, the addon credentials, `PORT`, and the app's source directory as the working directory. The session goes over `ssh -t` as the `hop3` user through the forced command that already serves `git push`, so nothing new listens on the server. A pty when stdin is a terminal, plain pipes otherwise, so `echo cmd | hop3 app shell` can be scripted. The shell's exit status is the session's. An app that does not exist, was never deployed, or runs under docker-compose is refused with a reason. `hop3 ssh` is an alias. `hop3 run` was fixed on the way: it built its environment without the build artifact, so a Nix app's store binaries were not on its `PATH`; it now shares the workers' environment builder.
+
+- **`hop3 env set` takes secrets without putting them on the command line.** `KEY=-` reads the value from stdin, `KEY=@path` from a file, and a bare `KEY` prompts with echo off, so the value never appears in the shell history or in `ps`. A value that really starts with `@`, or really is `-`, is written `@@…` or `--`. The command's own output is redacted, including the previous value it reports on an overwrite, which used to print the old secret in clear. (ADR 036)
+
+- **`hop3` answers help and did-you-mean without a server.** `hop3 help` and `hop3 help <command>` work before `hop3 login`, from a command list the client refreshes at every successful login. A mistyped command gets a suggestion the server computes from what you typed and what was valid at that point, carried as data on the error; the client no longer scrapes the error's wording. `hop3 help --all --json` emits the whole command tree as JSON.
+
+- **One SSH configuration for everything the CLI spawns.** The RPC tunnel, `hop3 tunnel`, `hop3 app shell` and the `hop3 login --ssh` bootstrap read the same `ssh_key`, `ssh_port` and new `ssh_options` settings (`HOP3_SSH_KEY`, `HOP3_SSH_PORT`, `HOP3_SSH_OPTIONS`). A port in the target (`root@host:2222`) is honoured everywhere. `ssh_options` takes extra `-o` values: a `ProxyJump`, a private `UserKnownHostsFile`. Until now `login --ssh` ran a bare `ssh user@host`, so a server on a non-standard port answered through the tunnel while the login that sets that tunnel up could not reach it.
+
+- **`[admin].verify` and `[probe].verify` prove a bootstrap account exists.** A zero exit from `create` is not evidence: Gitea and Forgejo reject the reserved name `admin` by printing an error and exiting 0, which once had Hop3 hand an operator a password for an account that was never made. With `verify` declared, the command runs after `create` and must succeed before the credential is marked bootstrapped. Without it, the deploy log says the command ran and claims nothing more.
+
+- **`hop3-tui` is rewritten on turbodesk and reaches `ssh://` servers.** It takes the server and token from hop3-cli by asking hop3-cli, contexts and tunnel included, so the two clients can no longer disagree about which server they talk to. It gained a command line (`--server`, `--token`, `--version`, and a `--help` that lists the key bindings) and a help dialog with each screen's own keys. Its commands, `--app` flag and response handling were realigned with the server, pinned by a Docker e2e that exercises the client and server contract.
+
+- **The documentation build produces `llms.txt` and `llms-full.txt`**, an index and a single-file rendering of the documentation for language-model readers.
+
+### Changed
+
+- **PostgreSQL, Caddy and Traefik are reloaded through rootd.** Three call sites ran `sudo -n systemctl reload <service>` from the unprivileged deployer, which fails on any host where the `hop3` user has no passwordless sudo. The PostgreSQL one also threw the result away, so a rewritten `pg_hba.conf` that was never applied looked exactly like one that was; Docker apps then failed with `Host 'x' is not allowed`. A new `service.reload` daemon operation, allow-listed to the services Hop3 configures, handles it under systemd or supervisor.
+
+- **JSON-RPC errors carry JSON-RPC codes.** A malformed request body got an HTML 500 no client could parse. The method check was an `assert`. The endpoint now answers -32600, -32601 and -32602 for a bad envelope, -32001 for unauthenticated, -32002 for rate-limited, and -32603 for a command that failed while doing its work, which used to be reported as "invalid params" whether the cause was a full disk or a dead subprocess.
+
+- **RPC commands and dashboard actions run off the event loop.** The server runs a single worker. A command, or a restart, stop or backup clicked in the dashboard, ran inline on it, so a multi-minute deploy froze authentication, the dashboard and every streaming deploy log for its duration. They now run in a thread, one command at a time as before.
+
+### Security
+
+- **Stopping or destroying an app can no longer remove another app's worker configuration.** The worker files of app `wiki` were swept with the pattern `wiki*.ini`, which also matched `wiki-js_web.1.ini`, so destroying one app ripped the configuration out from under an unrelated one; the leftover showed up as an order-dependent failure in whatever was deployed next. The sweep now stops at the app-name boundary, at all eight sites.
+
+- **A symlink inside an app's tree can no longer point a backup or a volume outside it.** The containment check for `[backup].paths` and `[[volumes]]` compared paths lexically, so `src/data -> /etc` counted as inside the tree and would have been read, seeded or deleted through. Both sides are resolved before comparison, and a regression test tries to escape.
+
+- **Login failures are indistinguishable, including in time.** An unknown username answered faster than a wrong password, because a real user's hash was verified with bcrypt while an unknown one returned before any hashing. A disabled account had its own message. All three now get one message and the same bcrypt cost, so the response no longer says whether an account exists (CWE-204).
+
+- **A builder's refusal reaches you.** A builder that refused a misconfigured app (the Nix builder, for an app carrying both `hop3.nix` and `[nix].template`) had its refusal swallowed as "this builder does not apply", so the next builder in line built the app the wrong way. The refusal now stops the deploy with its message. Plugins are also registered under their own name, so two plugins claiming one identity fail at startup. A hook implementation whose specification no longer exists is an error, where it used to be a permanent no-op.
+
+- **The PostgreSQL addon refuses a name that would give PostgreSQL a reserved role.** An addon named `pg-…` derived the role `pg_…`, which PostgreSQL reserves, so the server rejected it after the database had been created. It is refused up front, naming the addon name that caused it.
+
+### Fixed
+
+- **A deploy no longer fails because nginx took more than two seconds to reload.** rootd verifies a reload by watching for new worker processes, since `nginx -s reload` returns 0 whether or not the configuration was accepted. The check gave nginx two seconds. On a busy host a reload nginx had accepted forked its workers later than that, so the deploy was refused with "did not apply the new config" for a configuration that was fine. A rejected reload logs `[emerg]` at once and an accepted one logs nothing, so the check now fails immediately on a logged error and otherwise waits up to fifteen seconds.
+
+- **`--with nix` either installs Nix or stops the install.** A failed Nix install printed a warning and reported success, so every Nix app on that server failed to build later. The installer also never installed `xz`, which the Nix installer needs and a bare Ubuntu 24.04 does not have.
+
+- **A restart against a garbage-collected Nix closure is refused for static sites too.** The guard that refuses to start a Nix app whose store paths were collected ran only for artifacts of kind `nix`. A Nix-built static site is a `static` artifact, so for that case the guard returned before looking and the restart reported success over missing files. It now gates on the builder and counts the artifact's own store path as a root.
+
+- **`hop3 run … python -c "…"` no longer loses `-c` to `--context`.** Global flags were parsed anywhere in argv, so a flag meant for the program was taken by the CLI and the command failed on an unknown context. Flag parsing stops at the program for `run` and `app run`, and at a POSIX `--` for every command.
+
+- **`hop3 app destroy <name>` no longer asks you to confirm the wrong app.** A stray positional was rejected only after the confirmation prompt, which had already named the app resolved from the current directory, so `hop3 app destroy other-app` inside a project asked you to type the project's app name. The positional is refused before anything is asked; the app is always `--app`.
+
+- **`hop3 app logs --help` reaches the same server as `hop3 app logs`.** Commands that need no authentication skipped context resolution and fell through to the legacy default server, which could be a retired one, while the command itself went to the default context's server.
+
+- **A reset tunneled request says why.** Over `ssh -L`, the client only sees a connection reset when ssh cannot open the channel; the reason is on ssh's stderr. The error now carries it. On "connect failed" it adds that the tunnel is up but nothing answers on the remote port.
+
+- **The shell-completion cache survives a crash mid-write.** An interrupted write left a NUL-padded file that read as an empty command list, so suggestions and completion silently did nothing, for months on one machine. The cache is now written atomically with fsync and honours `HOP3_CONFIG_DIR` like the configuration does.
+
+- **`hop3.toml` accepts `[cli]`.** The CLI reads `[cli].app` as one of its app-resolution sources, but the schema forbade the section, so a project following the CLI README was rejected at deploy. The schema now also documents what `[env]` takes: a scalar, `generate`, `ref`, and the `[env.computed]` table.
+
+- **Dashboard actions report their failure.** A restart, stop or backup that failed printed the error to the server's stdout and redirected to a page saying only "failed"; the page now shows the error. An app whose `Procfile` or `hop3.toml` could not be read was rendered as "no workers"; it now shows the parse error.
+
+- **`hop3-server plugins` reports a broken plugin instead of dropping it.** A plugin that raised while being listed vanished from the capability listing with nothing said, turning a plugin bug into "that feature does not exist".
+
+- **Two apps can no longer share a name.** `app.name` is unique in the database and `image_tag` is NOT NULL. The migration aborts, naming the duplicates, if a database already holds two apps of the same name: each duplicate owned its own env vars and addon credentials, while every lookup by name raised once a second row existed.
+
+- **hop3-test and the Docker e2e suite test what they claim.** The main deploy suite pointed at fixture directories renamed long ago, collected zero tests and reported "1 skipped"; it now runs 22 fixture deploys and a missing fixture directory is an error. The test runner installs the backing services the test apps declare instead of expecting `--with` by hand. Eighteen e2e tests that skipped on a default run now run: Nix in the image and on the target, PostgreSQL backups and restores, archive integrity, and the SSH transport including `hop3 login --ssh` and `app shell`. A sanitized `DOCKER_CONFIG` that had lost its `contexts/` directory, so `docker` failed under OrbStack, Colima and Docker Desktop with "Docker is not available", keeps it. The tests keep their known_hosts in a private file of their own, away from the developer's.
+
 ## [0.7.2] - 2026/08/30
 
 ### Added

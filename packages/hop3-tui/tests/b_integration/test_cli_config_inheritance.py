@@ -121,8 +121,8 @@ STARTED: list[tuple[Any, ...]] = []
 class StubTunnel:
     """Records the forward it was asked for, without running ssh."""
 
-    def __init__(self, host, remote_port, *, user, ssh_port=22, key=None) -> None:
-        self.args = (host, remote_port, user, ssh_port, key)
+    def __init__(self, host, remote_port, *, user, ssh_port=22, settings=None) -> None:
+        self.args = (host, remote_port, user, ssh_port, settings)
         self.stopped = False
 
     def start(self) -> None:
@@ -147,7 +147,7 @@ def test_an_ssh_server_is_reached_through_a_tunnel(stub_tunnel):
     """`hop3` forwards a local port to the remote hop3-server; so does the TUI."""
     hop3 = Hop3TUI(TUIConfig(server_url=PROD))
 
-    host, remote_port, user, ssh_port, _key = stub_tunnel[0]
+    host, remote_port, user, ssh_port, _settings = stub_tunnel[0]
     assert (host, user, ssh_port) == ("prod.test", "root", 22)
     assert remote_port == 8000, "the port hop3-server listens on remotely"
     assert hop3.api_client.base_url == "http://localhost:54321"
