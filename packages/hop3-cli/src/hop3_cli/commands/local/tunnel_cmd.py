@@ -23,6 +23,7 @@ import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
+from hop3_cli.core.ssh_target import ssh_options_from
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exit_codes import ExitCode
 
@@ -181,6 +182,7 @@ def ssh_params(config: Config, *, what: str = "Tunnel") -> dict:
         "user": parsed.username or config.get("ssh_user", "root"),
         "port": parsed.port or config.get("ssh_port", 22),
         "key": config.get("ssh_key", None),
+        "options": ssh_options_from(config.get("ssh_options", "")),
     }
 
 
@@ -193,6 +195,7 @@ def _start_forwarder(ssh: dict, remote_port: int, bind_port: int) -> SshTunnel:
         ssh_port=ssh["port"],
         key=ssh["key"],
         local_port=bind_port,
+        options=ssh.get("options", ()),
     )
     try:
         forwarder.start()

@@ -37,9 +37,12 @@ import socket
 import subprocess
 import tempfile
 import time
-from typing import IO, Final
+from typing import IO, TYPE_CHECKING, Final
 
 from hop3_cli.core.ssh_target import is_safe_ssh_target
+
+if TYPE_CHECKING:
+    from collections.abc import Sequence
 
 _LOOPBACK: Final = "127.0.0.1"
 
@@ -121,9 +124,11 @@ class SshTunnel:
         key: str | None = None,
         local_port: int | str | None = None,
         ready_timeout: float = _READY_TIMEOUT,
+        options: Sequence[str] = (),
     ) -> None:
         self._host = host
         self._user = user
+        self._options = tuple(options)  # extra `ssh -o` values (ssh_options)
         self._remote_port = _coerce_port(remote_port, "remote port")
         self._ssh_port = _coerce_port(ssh_port, "ssh port")
         self._key = key
@@ -196,6 +201,8 @@ class SshTunnel:
             "-o", f"ServerAliveCountMax={_ALIVE_COUNT_MAX}",
             "-L", forward,
         ]  # fmt: skip
+        for option in self._options:
+            argv += ["-o", option]
         if self._key:
             argv += ["-i", self._key]
         if self._ssh_port != _DEFAULT_SSH_PORT:

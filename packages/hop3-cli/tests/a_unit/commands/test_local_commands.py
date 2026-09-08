@@ -537,7 +537,7 @@ class TestHandleLogin:
                 mock_printer,
             )
 
-        remote_cmd = mock_run.call_args[0][0][2]  # ["ssh", target, remote_cmd]
+        remote_cmd = mock_run.call_args[0][0][-1]  # ["ssh", ..., target, remote_cmd]
         assert "auth:magic-link" in remote_cmd
         assert "auth magic-link" not in remote_cmd
 

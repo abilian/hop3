@@ -95,6 +95,8 @@ def ssh_argv(ssh: dict, remote_command: str, *, tty: bool) -> list[str]:
         "-o", f"ConnectTimeout={_CONNECT_TIMEOUT}",
         "-o", f"ServerAliveInterval={_ALIVE_INTERVAL}",
     ]  # fmt: skip
+    for option in ssh.get("options", ()):
+        argv += ["-o", option]
     if tty:
         argv.append("-t")
     if ssh["key"]:

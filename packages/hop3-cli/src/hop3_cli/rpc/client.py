@@ -15,6 +15,7 @@ import requests
 from jsonrpcclient import Error, Ok, parse, request
 from loguru import logger
 
+from hop3_cli.core.ssh_target import ssh_options_from
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
 from hop3_cli.ui.upload_progress import upload_body
@@ -210,6 +211,7 @@ class Client:
             user=ssh_user,
             ssh_port=ssh_port,
             key=ssh_key,
+            options=ssh_options_from(self.config.get("ssh_options", "")),
         )
         logger.debug(
             f"Starting SSH tunnel to {ssh_host}:{ssh_port} (remote port: {remote_server_port})"

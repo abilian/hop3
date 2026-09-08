@@ -14,7 +14,11 @@ newlines outright.
 from __future__ import annotations
 
 import pytest
-from hop3_cli.core.ssh_target import is_safe_ssh_target
+from hop3_cli.core.ssh_target import (
+    is_safe_ssh_target,
+    split_ssh_target,
+    ssh_options_from,
+)
 
 
 @pytest.mark.parametrize(
@@ -39,3 +43,26 @@ def test_accepts_plain_targets(target) -> None:
 )
 def test_rejects_unsafe_targets(target) -> None:
     assert is_safe_ssh_target(target) is False
+
+
+# ---- user@host[:port] and the ssh_options setting ----
+
+
+def test_split_target_takes_the_port_off() -> None:
+    assert split_ssh_target("root@host:2222") == ("root@host", 2222)
+    assert split_ssh_target("root@host") == ("root@host", None)
+
+
+@pytest.mark.parametrize("target", ["root@host:abc", "root@host:0", "root@host:70000"])
+def test_split_target_refuses_a_bad_port(target) -> None:
+    with pytest.raises(ValueError, match="invalid SSH port"):
+        split_ssh_target(target)
+
+
+def test_ssh_options_split_like_a_shell_and_default_to_none() -> None:
+    assert ssh_options_from("ProxyJump=bastion UserKnownHostsFile='/tmp/k h'") == [
+        "ProxyJump=bastion",
+        "UserKnownHostsFile=/tmp/k h",
+    ]
+    assert ssh_options_from("") == []
+    assert ssh_options_from(None) == []
