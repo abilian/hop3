@@ -32,11 +32,16 @@ from hop3.run.spawn import AppLauncher, _extract_nix_store_paths
 _H1, _H2, _H3 = "a" * 32, "b" * 32, "c" * 32
 
 
-def _nix_launcher(worker_cmd: str, *, kind: str = "nix") -> AppLauncher:
+def _nix_launcher(
+    worker_cmd: str, *, kind: str = "nix", builder: str = "local", location: str = ""
+) -> AppLauncher:
     launcher = AppLauncher.__new__(AppLauncher)
     launcher.app_name = "forge"
     launcher.artifact = BuildArtifact(
-        kind=kind, runtime=RuntimeConfig(workers={"web": worker_cmd})
+        kind=kind,
+        builder=builder,
+        location=location,
+        runtime=RuntimeConfig(workers={"web": worker_cmd}),
     )
     return launcher
 
@@ -110,6 +115,30 @@ def test_skips_non_nix_artifact(monkeypatch) -> None:
     launcher.verify_nix_closure_intact()  # early return
 
     assert not called  # never shells out for a non-nix artifact
+
+
+def test_guards_a_static_artifact_built_by_nix(monkeypatch) -> None:
+    """
+    The Nix builder emits `kind="static"` for a site the proxy serves from the
+    store; gating on the kind let exactly that closure vanish unnoticed.
+    """
+    root = f"/nix/store/{_H1}-static-hello-0.1.0"
+    launcher = _nix_launcher(f"{root}/public", kind="static", builder="nix")
+    _patch_exists(monkeypatch, present=set(), absent={root})
+
+    with pytest.raises(Abort, match="garbage-collected"):
+        launcher.verify_nix_closure_intact()
+
+
+def test_artifact_location_is_a_root_even_when_no_worker_names_one(
+    monkeypatch,
+) -> None:
+    root = f"/nix/store/{_H1}-app-1.0"
+    launcher = _nix_launcher("python -m http.server", builder="nix", location=root)
+    _patch_exists(monkeypatch, present=set(), absent={root})
+
+    with pytest.raises(Abort, match="garbage-collected"):
+        launcher.verify_nix_closure_intact()
 
 
 def test_aborts_when_nix_store_unavailable(monkeypatch) -> None:
