@@ -17,6 +17,13 @@ when a command name is a prefix of another.
 
 from __future__ import annotations
 
+#: The commands that wrap a program's own command line, and the flags of their
+#: own that may precede the program. Read by the flag parser (where global-flag
+#: parsing stops) and by the argument resolver (which flags take a §D14 value
+#: source), so the two cannot disagree about what `run` looks like.
+RUN_COMMANDS: frozenset[tuple[str, ...]] = frozenset({("run",), ("app", "run")})
+RUN_VALUE_FLAGS: tuple[str, ...] = ("--input",)
+
 # Top-level daily verbs. All operate on one app (D2 rule 1).
 _TOP_LEVEL_APP_SCOPED: set[tuple[str, ...]] = {
     ("deploy",),
