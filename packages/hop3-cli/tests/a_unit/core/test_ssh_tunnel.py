@@ -282,3 +282,11 @@ def test_stop_escalates_to_sigkill(monkeypatch) -> None:
 def test_local_bind_port_before_start_raises() -> None:
     with pytest.raises(SshTunnelError, match="not started"):
         _ = _tunnel().local_bind_port
+
+
+def test_build_argv_passes_the_ssh_options_setting_through() -> None:
+    argv = _tunnel(
+        options=["ProxyJump=bastion", "UserKnownHostsFile=/tmp/kh"]
+    )._build_argv("root@host.example.com", 55000)
+    assert argv[argv.index("ProxyJump=bastion") - 1] == "-o"
+    assert "UserKnownHostsFile=/tmp/kh" in argv

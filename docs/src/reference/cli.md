@@ -482,6 +482,9 @@ Type 'myapp' to confirm: myapp
 | Variable | Description |
 |----------|-------------|
 | `HOP3_CONTEXT` | Override the current context for this shell |
+| `HOP3_SSH_KEY` | Private key for every `ssh` the CLI spawns: the `ssh://` tunnel, `hop3 tunnel`, `hop3 app shell`, `hop3 login --ssh`. Default: ssh's own keys and config. |
+| `HOP3_SSH_PORT` | SSH port when the server address has none (`ssh://root@host`). A port in the address, or in a `login --ssh root@host:2222` target, wins. |
+| `HOP3_SSH_OPTIONS` | Extra `ssh -o` values, whitespace-separated, for every `ssh` the CLI spawns: `"ProxyJump=bastion UserKnownHostsFile=/path"`. |
 
 **Example `.bashrc` setup:**
 ```bash

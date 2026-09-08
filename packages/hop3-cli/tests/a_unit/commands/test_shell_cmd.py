@@ -96,3 +96,15 @@ def test_handle_refuses_an_http_server(capsys) -> None:
         handle_app_shell(["--app", "myapp"], _config("http://srv:8000"))
     assert exc.value.code == ExitCode.USAGE_ERROR
     assert "needs an SSH server connection" in capsys.readouterr().err
+
+
+def test_ssh_argv_passes_the_ssh_options_setting_through() -> None:
+    ssh = {
+        "host": "srv",
+        "user": "root",
+        "port": 22,
+        "key": None,
+        "options": ["ProxyJump=b"],
+    }
+    argv = ssh_argv(ssh, "app-shell x", tty=False)
+    assert argv[argv.index("ProxyJump=b") - 1] == "-o"

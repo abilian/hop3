@@ -31,7 +31,12 @@ import subprocess
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
-from hop3_cli.core.ssh_target import is_safe_ssh_target
+from hop3_cli.config import get_config
+from hop3_cli.core.ssh_target import (
+    is_safe_ssh_target,
+    split_ssh_target,
+    ssh_options_from,
+)
 from hop3_cli.tokens import extract_jwt
 
 if TYPE_CHECKING:
@@ -81,14 +86,39 @@ def _run_ssh(
     validation (against SSH option injection, audit M1) happens exactly once
     instead of being duplicated at each call site.
     """
-    validate_ssh_target(ssh_target)
     return subprocess.run(
-        ["ssh", ssh_target, remote_cmd],
+        ssh_command_argv(ssh_target, remote_cmd),
         check=False,
         input=input,
         capture_output=True,
         text=True,
     )
+
+
+def ssh_command_argv(ssh_target: str, remote_cmd: str) -> list[str]:
+    """
+    The ``ssh`` command line for one remote command, from the CLI's settings.
+
+    The target may carry a port (``root@host:2222``): a server on a
+    non-standard SSH port was reachable through the ``ssh://`` tunnel and not
+    through ``login --ssh``, which ran a bare ``ssh user@host``. The key
+    (``ssh_key``) and the extra options (``ssh_options``) are the same
+    settings the tunnel honours, so the bootstrap and the transport it sets up
+    reach the same box the same way; new host keys are accepted as the tunnel
+    accepts them.
+    """
+    validate_ssh_target(ssh_target)
+    user_host, port = split_ssh_target(ssh_target)
+    config = get_config()
+    argv = ["ssh", "-o", "StrictHostKeyChecking=accept-new"]
+    for option in ssh_options_from(config.get("ssh_options", "")):
+        argv += ["-o", option]
+    key = config.get("ssh_key", None)
+    if isinstance(key, str) and key:
+        argv += ["-i", key]
+    if port is not None:
+        argv += ["-p", str(port)]
+    return [*argv, user_host, remote_cmd]
 
 
 def create_admin_via_ssh(
