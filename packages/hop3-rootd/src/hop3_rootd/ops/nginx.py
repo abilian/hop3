@@ -45,11 +45,17 @@ class NginxReloadNotAppliedError(Exception):
     """
 
 
-# Verification budget: a valid reload forks fresh workers within a second, and
-# _reload_applied returns the moment one appears. A REJECTED reload forks none,
-# so it runs to this ceiling before failing loud — kept short because the poll
-# blocks the single-threaded daemon (server.py) from serving other clients.
-_RELOAD_VERIFY_ATTEMPTS = 20
+# Verification budget, in two phases. Phase 1: a valid reload forks fresh
+# workers within a second on an idle host, and _reload_applied returns the
+# moment one appears. Phase 2 runs only when phase 1 saw no worker AND nginx
+# logged no error for this reload: the config was accepted, so the fork is
+# coming, just late (an e2e deploy on a host running a build alongside took
+# more than 2 s and failed for a reload that then applied). A REJECTED reload
+# logs [emerg] at once and is reported without the long wait. Both are kept as
+# short as they can be because the poll blocks the single-threaded daemon
+# (server.py) from serving other clients.
+_RELOAD_VERIFY_ATTEMPTS = 20  # phase 1: 2 s
+_RELOAD_VERIFY_SLOW_ATTEMPTS = 130  # phase 2: 13 s more, 15 s in all
 _RELOAD_VERIFY_POLL_S = 0.1
 _NGINX_ERROR_LOG = Path("/var/log/nginx/error.log")
 _PROC_ROOT = Path("/proc")
@@ -107,7 +113,7 @@ def _nginx_worker_starttimes() -> list[float]:
     return starttimes
 
 
-def _reload_applied(since_ticks: float | None) -> bool:
+def _reload_applied(since_ticks: float | None, log_offset: int) -> bool:
     """
     True once an nginx worker forked at/after ``since_ticks`` (a real reload).
 
@@ -115,10 +121,25 @@ def _reload_applied(since_ticks: float | None) -> bool:
     miss can't make an old worker look new, so it can't report a rejected reload
     as applied. When ``since_ticks`` is None (no /proc uptime) the check is
     inconclusive rather than falsely positive — the caller fails loud.
+
+    Polls in two phases: the short budget every valid reload meets on an idle
+    host, then, only if nginx logged no error for this reload (so the config was
+    accepted and the fork is coming), a longer one for a loaded host. A rejected
+    reload logs at once and is reported without the long wait. When the log is
+    unreadable the long phase runs too: the two cases cannot be told apart.
     """
     if since_ticks is None:
         return False
-    for _ in range(_RELOAD_VERIFY_ATTEMPTS):
+    if _poll_fresh_worker(since_ticks, _RELOAD_VERIFY_ATTEMPTS):
+        return True
+    if _last_reload_error(log_offset) is not None:
+        return False
+    return _poll_fresh_worker(since_ticks, _RELOAD_VERIFY_SLOW_ATTEMPTS)
+
+
+def _poll_fresh_worker(since_ticks: float, attempts: int) -> bool:
+    """Whether a worker forked at/after ``since_ticks`` shows up within the budget."""
+    for _ in range(attempts):
         if any(st >= since_ticks for st in _nginx_worker_starttimes()):
             return True
         _sleep(_RELOAD_VERIFY_POLL_S)
@@ -228,14 +249,18 @@ def reload_nginx(_req: Request, ctx: OpContext) -> dict[str, Any]:
             last_error = str(e)
             continue
         if result.success:
-            if _reload_applied(since_ticks):
+            if _reload_applied(since_ticks, log_offset):
                 return {"method": label}
             # rc=0 but the config was rejected at reload time. Retrying another
             # method would hit the same rejection (it's the config, not the
             # method), so fail loud with nginx's own reason.
+            budget = (
+                _RELOAD_VERIFY_ATTEMPTS + _RELOAD_VERIFY_SLOW_ATTEMPTS
+            ) * _RELOAD_VERIFY_POLL_S
             reason = _last_reload_error(log_offset) or (
-                "no fresh worker processes appeared, so nginx kept the previous "
-                "config (run `nginx -t` and check /var/log/nginx/error.log)"
+                f"no fresh worker processes appeared within {budget:g}s, so nginx "
+                "kept the previous config (run `nginx -t` and check "
+                "/var/log/nginx/error.log)"
             )
             raise NginxReloadNotAppliedError(
                 f"nginx accepted the reload (via {label}) but did not apply the "
