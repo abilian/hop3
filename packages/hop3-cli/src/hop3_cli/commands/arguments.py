@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 
 import pathspec
 
+from hop3_cli.core.app_scope import RUN_COMMANDS, RUN_VALUE_FLAGS
 from hop3_cli.core.hop3_toml import read_hop3_toml
 from hop3_cli.ui.prompts import require_input_allowed
 
@@ -203,7 +204,7 @@ def read_value_source(value: str, *, label: str) -> str:
 
 # Flags whose value follows the §D14 source convention, per command prefix.
 _VALUE_SOURCE_FLAGS: list[tuple[tuple[str, ...], str]] = [
-    (("run",), "--input"),
+    *((command, flag) for command in sorted(RUN_COMMANDS) for flag in RUN_VALUE_FLAGS),
     (("addon", "email", "create"), "--smtp-password"),
 ]
 

@@ -10,6 +10,8 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
+from hop3_cli.core.app_scope import RUN_COMMANDS, RUN_VALUE_FLAGS
+
 
 def _get_env_verbosity() -> int | None:
     """
@@ -199,8 +201,8 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         if arg == _END_OF_FLAGS:
             remaining_args.extend(args[i + 1 :])
             break
-        in_run = tuple(command) in _RUN_COMMANDS
-        if in_run and arg in _RUN_PAIR_FLAGS:
+        in_run = tuple(command) in RUN_COMMANDS
+        if in_run and arg in RUN_VALUE_FLAGS:
             # `--input <data>` belongs to `run`, and its value is not the
             # program: keep parsing our own flags after it.
             remaining_args.extend(args[i : i + 2])
@@ -224,12 +226,6 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
 
 #: POSIX end-of-options: everything after it passes through verbatim.
 _END_OF_FLAGS = "--"
-
-#: The commands that wrap a program's own command line (`hop3 run ...`).
-_RUN_COMMANDS: frozenset[tuple[str, ...]] = frozenset({("run",), ("app", "run")})
-
-#: `run`'s own two-token flags, which may precede the program.
-_RUN_PAIR_FLAGS = frozenset({"--input"})
 
 
 # Boolean flags: token → state field to set True. One row per logical flag,
