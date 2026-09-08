@@ -216,6 +216,7 @@ def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
         docker_packages=docker_packages,
         mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
         redis_packages=["redis-server"],
+        nix_packages=["xz-utils"],
         # npm is not a conditional package: the distro `npm` would drag in
         # the distro's Node 18 as a dependency. NodeSource's `nodejs`
         # (installed in _install_node_toolchain) provides npm.

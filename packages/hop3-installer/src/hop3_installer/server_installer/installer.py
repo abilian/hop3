@@ -71,7 +71,8 @@ def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
     Install optional toolchains that need hop3 user to exist.
 
     By default these are non-critical — failures are warnings.
-    `--with=rust` promotes the Rust install to critical (raises).
+    `--with=rust` promotes the Rust install to critical (raises), and
+    `--with=nix` is critical outright: the operator asked for it by name.
 
     Args:
         config: Installation configuration.
@@ -103,12 +104,10 @@ def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
     except CommandError as e:
         print_warning(f"Elixir installation failed: {e.stderr[:100]}")
 
-    # Install Nix package manager (single-user mode needs hop3 user)
+    # Install Nix package manager (single-user mode needs hop3 user). Asked for
+    # by name, so a failure aborts the install rather than warn and go on.
     if config.with_nix:
-        try:
-            install_nix()
-        except Exception as e:
-            print_warning(f"Nix installation failed: {e}")
+        install_nix()
 
 
 def _install_package_step(config: ServerInstallerConfig) -> bool:
