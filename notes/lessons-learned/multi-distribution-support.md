@@ -122,3 +122,11 @@ for name in _top_level_names(code):
 ```
 
 Silent shadowing is the worst bug class here: the symptoms present as application-level bugs, so no one thinks to look at the bundler.
+
+## The Installer Starts What It Installs
+
+Redis was installed and the demos failed, because `apt install` had not started the service. An installer step owns the package, the enablement, the start and the base configuration (bind address, protected mode), under whichever process manager the host runs (see "Init System Detection").
+
+## `--with <feature>` Is a Promise
+
+Core dependencies are mandatory. Optional services and toolchains are asked for by name (`--with mysql,redis,nix`), and each demo or app documents which it needs. A feature the operator asked for by name and did not get is a failed install. `--with nix` used to print a warning when Nix failed to install and report success, so every Nix app on that box failed to build later and the e2e suite skipped its Nix fixtures for months (see [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md)). It now aborts. Two related facts: a bare Ubuntu 24.04 ships neither `xz` nor `curl`, and the Nix installer needs `xz`, so the feature installs its prerequisite first. The single-user install for non-systemd hosts is the same code path a container gets, so it is tested.

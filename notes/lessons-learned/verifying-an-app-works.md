@@ -1,6 +1,6 @@
 # Lessons Learned: Verifying That an App Actually Works
 
-**Updated**: 2026-07-28, written after the catalog acceptance campaign (all 20 catalog apps installed by hand through the Web UI).
+**Updated**: 2026-09-08. Written 2026-07-28 after the catalog acceptance campaign (all 20 catalog apps installed by hand through the Web UI).
 
 Every level of "it worked" we have trusted has, at some point, hidden a broken app. This file records where each level failed and what replaced it.
 
@@ -45,7 +45,7 @@ A bootstrap CLI can print an error and exit 0. Gitea's `admin user create` did e
 
 ## Retry has to be first-class if you do not roll back
 
-Hop3 deliberately does not roll back a failed deploy; the half-built state is diagnostic. But `catalog install` committed the app row *before* deploying, so a failed deploy left a row that refused every subsequent attempt with "already exists". The operator had an app they could neither use nor reinstall, and no stated way forward.
+Hop3 does not roll back a failed deploy, because the half-built state is diagnostic. But `catalog install` committed the app row *before* deploying, so a failed deploy left a row that refused every subsequent attempt with "already exists". The operator had an app they could neither use nor reinstall, and no stated way forward.
 
 **The general shape:** any path that commits a record before the side effect succeeds must define what a second attempt does. "We don't roll back" is only a coherent position when paired with "so you can resume".
 
@@ -57,6 +57,10 @@ Twice in this campaign the check harness could not do something, and the correct
 - The check deadlocked during nextcloud's install. PHP's built-in server is **single-threaded**, and Hop3 was running it with one worker, so any app that sub-requests itself hangs. Ten of the twenty catalog apps sit on that runtime.
 
 When the harness struggles, ask whether a user would struggle identically. Usually they would.
+
+## A platform question is answered by a test
+
+Whether restoring a plain-SQL dump over a live PostgreSQL database brings a deleted row back was an open question for the whole time the test that would answer it sat skipped with a stale reason. Written for real (insert a row through the app's own environment, back up, delete, restore, read it back), it answered yes in ten minutes. A claim about the platform that can be turned into a deploy and an assertion is settled faster that way, and stays settled.
 
 ## Related
 

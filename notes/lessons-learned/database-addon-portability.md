@@ -128,3 +128,15 @@ PGDATABASE=mydb
 ```
 
 Rails and Django use `DATABASE_URL`. Psycopg2 uses `PG*` variables. Some Go libraries use the URL, others use individual vars. Injecting both covers all cases.
+
+## A Name Derived From User Input Can Hit a Reserved Prefix
+
+The PostgreSQL addon derives its database and role from the addon name, so an addon named `pg-restore` produced the role `pg_restore_…_user`, and PostgreSQL reserves role names starting with `pg_`. The server rejected it after the database had been created, naming a role the operator never typed. Validate derived identifiers up front, against the target system's reserved forms, and name the user's own input in the refusal.
+
+## `mysqladmin ping` Needs More Privilege Than an App User Has
+
+`mysqladmin ping -u app -p…` can fail while the database is perfectly reachable, because its handshake checks privileges a per-app addon user does not hold. Apps using it as a readiness probe wait forever. Probe with a plain connection to the app's own database, which exercises exactly what the app will do.
+
+## Rails and MySQL Over a Self-Signed Certificate
+
+The `mysql2` gem under Rails ignored every client-side `ssl_mode: disabled` spelling in `database.yml`; only `skip_ssl` on the server side worked. Some driver and framework pairs have SSL quirks that no client configuration reaches; document the server-side setting and prefer PostgreSQL for Rails apps where the choice exists.

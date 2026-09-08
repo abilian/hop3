@@ -28,12 +28,11 @@ Corollary: when you change a mechanism, grep for the documents that describe it.
 
 The project advertises twenty curated catalog applications, in the report, the blog, the README and the dashboard. The published catalog index carried fifty-five entries: each application's `-nix` and `-nixgen` packaging variants shipped as separate installable entries, so an operator browsing saw BookStack three times.
 
-Nothing was wrong with any single component. The variants are legitimate, the loader is correct, the count is correct for what it counts. The number we advertise was never checked against the artefact we publish.
-Any figure repeated across several documents should have exactly one gate that fails when it drifts, and the gate belongs at the point of publication.
+Nothing was wrong with any single component. The variants are legitimate, the loader is correct, the count is correct for what it counts. The number we advertise was never checked against the artefact we publish. Any figure repeated across several documents should have exactly one gate that fails when it drifts, and the gate belongs at the point of publication.
 
 ## Edit the source tree, not the generated one
 
-Two traps, both of which cost time:
+Two traps cost time:
 
 - `docs/blog/posts/` is the source; `docs/src/blog/posts/` is generated from it by `preprocess_markdown.py`. An edit to the generated copy survives until the next build.
 - The tutorials work the same way: source in `docs/tutorials/`, generated into `docs/src/tutorials/`.
@@ -75,6 +74,21 @@ Three review passes over one 20,000-word report, each finding a different class,
 **State the limitation.** One sentence that a mechanism was verified by fault injection and fixed carries the same information as a paragraph reconstructing how it was missed.
 
 Two mechanical habits that paid: fix cross-references and numbering *last*, because earlier passes move things; and recompute every number from its source, which is how the corpus counts and the deploy-time medians were caught disagreeing with the tables they were drawn from.
+
+## Executable tutorials are tests, with a test's discipline
+
+The tutorials run on every fresh server, so their failure modes are test failures:
+
+- **A virtualenv must never ship.** `venv/` holds symlinks to the local interpreter; archived and sent to the server they are dead links (`'venv/bin/python3.12' is a link to an absolute path`). The CLI filters the deploy archive by `.gitignore`, so the tutorial's `.gitignore` excludes `venv/`, and the server recreates it.
+- **A background server needs a bound life.** `python app.py &` in a tutorial hangs the runner forever; `timeout 5 python app.py &` ends when the check has run.
+- **Fences come in pairs.** An unclosed ` ```output ` block swallows the next section and the parser fails well past the cause; verify fence pairs after any bulk edit.
+- **Scaffolders prompt.** `npx create-next-app` asks about TypeScript and waits on a stdin that CI does not have; every scaffold takes `--yes` or runs under `CI=true`.
+- **Verify a plain endpoint.** A health endpoint returning nested JSON invites a check that matches the wrong field; a `/up` that answers `OK` is verified by equality. Keep `/health` for humans.
+- **The server provides runtimes; the tutorial installs its framework.** "rails not found" on a fresh server is correct behaviour: Ruby is the platform's, `gem install rails` is the tutorial's, which is how a real developer's server looks.
+
+## A proposal's alternatives are undecided until someone decides
+
+A plan listing alternatives to its proposals filed them as "considered and not adopted" on the author's behalf. The author had not decided; the document had. The maintainer's correction: they are "undecided potential alternatives", each with what it buys, what it costs, and what evidence or event would settle it. A document that records an unmade decision misleads the next reader and closes an open question. Reserve "not adopted" for choices made in the conversation or in an ADR.
 
 ## Related
 

@@ -50,14 +50,14 @@ def stop(self):
 
 If a Python app has no `wsgi` worker configured (e.g., missing Procfile entry or hop3.toml `[run.workers]`), uWSGI starts in "Operational MODE: no-workers". The master process runs, logs look normal, but no HTTP workers exist. Health checks time out after 60s with no useful error.
 
-**Fix 1:** Detect early - check for web-facing workers before spawning:
+**Fix 1:** Detect early: check for web-facing workers before spawning:
 
 ```python
 if not self.web_workers and self.artifact.kind in {"python", "buildpack", "virtualenv"}:
     log_diagnosis(...)  # name the missing worker and how to add one
 ```
 
-**Fix 2:** Auto-discover WSGI modules - probe for `wsgi.py`, `app.py`, Django convention:
+**Fix 2:** Auto-discover WSGI modules: probe for `wsgi.py`, `app.py`, Django convention:
 
 ```python
 if (src_path / "wsgi.py").exists():
@@ -138,3 +138,11 @@ DISABLE_SSH = true
 For Forgejo / Gitea this lands in `custom/conf/app.ini`. The setting turns off the app's git-over-SSH server; Hop3's CLI-over-SSH tunnel is unaffected. The app still accepts git pushes over HTTPS, which is what most operators use anyway.
 
 Worse are apps that silently *scan* `~/.ssh/authorized_keys`: the behaviour shows up as a logic bug later. If an app is strict about authorized_keys, the operator should know up front, so this deserves a note in the app's scaffolded `hop3.toml` or per-app README.
+
+## Strict Mode, and the Directive That Never Existed
+
+The uWSGI configuration inherited from piku carried a `project` directive that uWSGI does not have. uWSGI ignores unknown directives by default, so it did nothing for months; `strict = true` turned it into an error on the next start. Run uWSGI strict, and treat any configuration a tool accepts silently as unverified.
+
+## Two Quoting Layers on the attach-daemon Line
+
+Every exported value on the daemon line sits inside `'…'`, which sits inside the double-quoted argument of `sh -c "…"`. Escaping the apostrophe (`'\''`) handles the inner layer only; inside double quotes the shell still interprets `$`, a backtick, a backslash and a double quote. A JSON-valued setting lost its quotes outright, paperless-ngx received `[HTTP_X_FORWARDED_PROTO,https]` for `["HTTP_X_FORWARDED_PROTO","https"]` and crashed every worker on `json.loads`, and a generated password containing `$` would have been mangled into an unreproducible credential. Escape all four for the outer layer, then the apostrophe for the inner one, and leave the command itself alone: a start command is written to use `$PORT` and must keep expanding it.

@@ -1,8 +1,8 @@
 # Lessons Learned: Deployment Diagnostics
 
-**Updated**: 2026-04-22 - CLI examples migrated from colon syntax to space form per ADR 036.
+**Updated**: 2026-09-08, adding the rootd reload check and disk exhaustion. 2026-04-22: CLI examples migrated from colon syntax to space form per ADR 036.
 
-How to make deployment failures diagnosable, and the patterns that cause "silent nothing" failures.
+How deployment failures become diagnosable, and the patterns behind "silent nothing" failures.
 
 ## The Silent Timeout Anti-Pattern
 
@@ -154,9 +154,9 @@ When a deploy fails, gather and display (in order):
 ssh root@<host> 'tr "\0" "\n" < /proc/$(pgrep -f "uvicorn <app>")/environ | grep <VAR>'
 ```
 
-**`hop3 env set` + `hop3 app restart` *does* re-bake env into the uWSGI daemon command** (the `sh -c "export VAR=...; exec uvicorn ..."` that uWSGI runs in no-workers mode) and recycles the process. For this platform, stored == live after a restart. (See [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) for the attach-daemon env mechanism.)
+`hop3 env set` + `hop3 app restart` *does* re-bake env into the uWSGI daemon command (the `sh -c "export VAR=...; exec uvicorn ..."` that uWSGI runs in no-workers mode) and recycles the process. For this platform, stored == live after a restart. (See [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) for the attach-daemon env mechanism.)
 
-**The moment your own evidence contradicts a hypothesis, drop the hypothesis. Don't leave a hedge standing.** During this exact bug I floated "a restart may not re-bake the env" *after* having already shown the new password worked at login (which only happens if the running process sees it). The user's correction ("don't guess, verify") was right: read `/proc/<pid>/environ`, settle it, move on. A plausible-sounding maybe, left next to evidence that disproves it, is worse than silence.
+The moment your own evidence contradicts a hypothesis, drop the hypothesis. During this bug the first analysis floated "a restart may not re-bake the env" *after* having already shown the new password worked at login (which only happens if the running process sees it). The maintainer's correction ("don't guess, verify") was right: read `/proc/<pid>/environ` and move on. A plausible-sounding maybe, left next to evidence that disproves it, is worse than silence.
 
 ## A queued user action that nothing advances is a silent failure
 
@@ -166,3 +166,17 @@ Two rules:
 
 - **A user-initiated action must not be gated behind an unrelated background-feature toggle.** Clicking "Start" enqueued the work; whether the *nightly cron* is enabled is irrelevant to whether that manual build runs. Decouple them: the dispatcher runs whenever the app serves for real; only the nightly *enqueue* is gated.
 - **A `pending`/`queued` state that nothing can advance is a silent lie** (CLAUDE.md "fail loud"). Either make it run, or surface *why* it can't (no worker available) where the user looks. Never leave it sitting with a `-` detail.
+
+## Match the process manager's words
+
+A crash detector that searched app output for "error" marked apps as crashed because their own logging wrote `ERROR:searx:` on ordinary lines. Detect crashes from the process manager's vocabulary (`throttling`, `respawning`, `fatal error`), and keep in mind whose line it is: the app's `ERROR` is ordinary output, while the Emperor's `throttling` is a crash.
+
+## A timing ceiling is a false failure under load
+
+**September 2026.** rootd verifies an nginx reload by watching for fresh worker processes, because `nginx -s reload` returns 0 whether or not nginx accepted the new configuration. The check gave nginx two seconds. On a host running an e2e alongside a Nix build, a reload that nginx had accepted forked its workers later than that, the deploy was refused with "did not apply the new config", and nothing was wrong with the config.
+
+The discriminator was already in reach: a rejected reload logs `[emerg]` to the error log at once, an accepted one logs nothing. The check now fails immediately on a logged rejection and waits up to fifteen seconds only when nginx logged nothing, since an accepted reload always forks. When a check has a timing budget, ask what evidence distinguishes "slow" from "refused" and use it before giving up.
+
+## Disk exhaustion presents as a PostgreSQL PANIC
+
+`PANIC: could not write to file "pg_wal/...": No space left on device` takes PostgreSQL down and every addon-backed app with it, and recovery is manual and ordered: free space, start PostgreSQL, start hop3-server, redeploy. A deploy should refuse to start when free space is below a floor, and the platform should say so before the database does; the guard is on the 0.8 list.
