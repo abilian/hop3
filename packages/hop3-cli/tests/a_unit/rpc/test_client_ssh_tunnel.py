@@ -23,12 +23,12 @@ from stubs import StubConfig
 class _StubTunnel:
     """Records its construction args; start()/stop() are no-ops."""
 
-    def __init__(self, host, remote_port, *, user, ssh_port=22, key=None, **_kw):
+    def __init__(self, host, remote_port, *, user, ssh_port=22, settings=None):
         self.host = host
         self.remote_port = remote_port
         self.user = user
         self.ssh_port = ssh_port
-        self.key = key
+        self.settings = settings
         self.local_bind_port = 54321
         self.started = False
         self.stopped = False
@@ -56,7 +56,10 @@ def test_ssh_client_builds_tunnel_and_derives_params(monkeypatch) -> None:
     assert tunnel.user == "root"
     assert tunnel.ssh_port == 22
     assert tunnel.remote_port == 8000  # config server_port default
-    assert tunnel.key is None
+    assert tunnel.settings is not None, (
+        "the client hands its ssh settings to the tunnel"
+    )
+    assert tunnel.settings.key is None  # StubConfig sets no ssh_key
     # RPC is routed through the tunnel's local port.
     assert client.using_ssh_tunnel is True
     assert client.rpc_url == "http://localhost:54321/rpc"

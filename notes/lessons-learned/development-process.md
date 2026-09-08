@@ -30,7 +30,7 @@ Before claiming a cross-cutting fix, grep for the concern (the constant, the fun
 
 ## A signature change is workspace-wide
 
-Packages import each other's internals: hop3-tui uses hop3-cli's `SshTunnel` and its config; hop3-testing is a pytest plugin every package loads. Renaming `SshTunnel(key=…)` to `settings=…` was grepped only inside hop3-cli, so the TUI kept the old keyword and `make test-e2e` failed in the TUI suite. Grep the whole tree for callers, and run the fast suite of every package, before changing a public name.
+Packages import each other's internals: hop3-tui uses hop3-cli's `SshTunnel` and its config; hop3-testing is a pytest plugin every package loads. Renaming `SshTunnel(key=…)` to `settings=…` was grepped only inside hop3-cli, so the TUI kept the old keyword and `make test-e2e` failed in the TUI suite. The same rename then broke the TUI's own integration test, whose stub of the tunnel still took `key=`, and left a CLI test asserting on a keyword the client no longer sent. Grep the whole tree for callers and for test stubs of the class, and run the check tier (`make test`), since the fast tier does not run the integration suites.
 
 ## Review your own duplication before committing
 
