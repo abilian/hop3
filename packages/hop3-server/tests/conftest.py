@@ -101,13 +101,6 @@ def pytest_addoption(parser):
         default=False,
         help="Force rebuild of Docker image without layer cache",
     )
-    # Options for nix tests
-    parser.addoption(
-        "--run-nix",
-        action="store_true",
-        default=False,
-        help="Run tests for Nix-based apps (requires Nix installed on target)",
-    )
 
 
 #: Addon types that are NOT installer features. PostgreSQL is always installed,
@@ -118,15 +111,18 @@ _ADDONS_ALWAYS_PRESENT = frozenset({"postgres", "postgresql"})
 _FIXTURE_APP_DIRS = ("apps/test-apps-procfile", "apps/test-apps-nix")
 
 
-def _declared_addon_features() -> list[str]:
+def _declared_features() -> list[str]:
     """
-    Installer features (`--with`) for every addon the fixture apps declare.
+    Installer features (`--with`) for everything the fixture apps declare.
 
-    Derived, not hardcoded: the apps' own `[[addons]]` blocks are the source of
-    truth, so adding a test app that needs mysql provisions mysql instead of
+    Derived, not hardcoded: the apps' own `[[addons]]` blocks and `[build]`
+    builder are the source of truth, so adding a test app that needs mysql
+    provisions mysql, and a Nix-built fixture provisions Nix, instead of
     failing on a target that could never have satisfied it. Deriving them only
     to *skip* the affected tests would be the silent skip the platform rules
-    forbid — the target is ours to provision.
+    forbid — the target is ours to provision. (Eight Nix fixtures skipped on
+    every default run for months that way, behind a `--run-nix` option nothing
+    read.)
     """
     root = find_project_root()
     wanted: set[str] = set()
@@ -139,6 +135,8 @@ def _declared_addon_features() -> list[str]:
                 m = re.search(r'^\s*type\s*=\s*"([^"]+)"', block, re.MULTILINE)
                 if m and m.group(1) not in _ADDONS_ALWAYS_PRESENT:
                     wanted.add(m.group(1))
+            if re.search(r'^\s*builder\s*=\s*"nix"', text, re.MULTILINE):
+                wanted.add("nix")
     return sorted(wanted)
 
 
@@ -197,7 +195,7 @@ def deployment_target(request, tmp_path_factory):
         source="local",
         clean=False,
         verbose=False,
-        features=_declared_addon_features(),
+        features=_declared_features(),
     )
 
     if is_xdist:

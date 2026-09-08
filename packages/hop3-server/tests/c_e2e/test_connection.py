@@ -3,180 +3,219 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Remote-server diagnostic tests for SSH connectivity and CLI availability.
+The SSH transport, end to end: the tunnel, the token commands over it, and the
+root path into `hop3 app shell`.
 
-These tests poke a REAL remote server, so they are opt-in: they run only when
-``--ssh-host HOST`` is passed (the ``remote_server`` fixture skips otherwise).
-They deliberately do NOT read HOP3_DEV_HOST / HOP3_TEST_HOST — an ambient env
-var must never redirect a pytest run at a real box (ADR 043).
+``hop3`` reaches an ``ssh://`` server by opening ``ssh -L`` to it and speaking
+JSON-RPC through the tunnel; ``hop3 app shell`` is the one command that opens
+``ssh -t`` instead. Nothing else in the suite drives either: every other test
+talks HTTP to the container's published API port, because the ``hop3`` account's
+key carries the forced command and ``no-port-forwarding``. So the e2e image also
+authorises the same key for ``root``, plain, which is the production shape (the
+operator's key in root's authorized_keys) and the account ``hop3 login --ssh``
+connects as.
+
+These ran as opt-in "remote diagnostics" before, and so never ran. They still
+accept ``--ssh-host HOST`` and then target that box instead of the container
+(HOP3_DEV_HOST / HOP3_TEST_HOST are ignored on purpose, ADR 043); the shell test
+is container-only, since it deploys an app to open a shell in.
+
+The CLI subprocesses get a private ``HOME``: the tunnel accepts new host keys,
+and a container's key must not land in the developer's known_hosts, where a
+rebuilt image on a reused port would later read as a changed host.
 """
 
 from __future__ import annotations
 
+import os
 import subprocess
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from .conftest import (
+    E2E_TEST_SECRET_KEY,
+    FLASK_REQUIREMENTS,
+    create_flask_app,
+    create_test_token,
+    deploy_app_dir,
+    init_git_repo,
+)
 
-@pytest.fixture
-def remote_server(remote_ssh_host: str | None) -> str:
-    """
-    The explicit remote target as ``user@host``; skip when not opted in.
+if TYPE_CHECKING:
+    from pathlib import Path
 
-    ``remote_ssh_host`` is the root-conftest fixture backed by ``--ssh-host``.
+pytestmark = [pytest.mark.e2e]
+
+_USER = "test-diagnostic-user"
+_PASSWORD = "test-pass-12345"
+
+
+@dataclass(frozen=True)
+class SshTarget:
+    user: str
+    host: str
+    port: int
+    key: str | None  # None: the developer's own keys (a real box)
+
+    @property
+    def api_url(self) -> str:
+        return f"ssh://{self.user}@{self.host}:{self.port}"
+
+    def ssh_argv(self, *remote: str) -> list[str]:
+        argv = [
+            "ssh",
+            "-o",
+            "ConnectTimeout=10",
+            "-o",
+            "StrictHostKeyChecking=accept-new",
+        ]
+        if self.key:
+            argv += ["-i", self.key, "-o", "UserKnownHostsFile=/dev/null"]
+        argv += ["-p", str(self.port), f"{self.user}@{self.host}", *remote]
+        return argv
+
+
+@pytest.fixture(scope="class")
+def ssh_target(
+    request: pytest.FixtureRequest, hop3_container: dict[str, Any]
+) -> SshTarget:
+    """The explicit ``--ssh-host`` box when given, else the container as root."""
+    remote = request.config.getoption("--ssh-host")
+    if remote:
+        user, _, host = remote.rpartition("@")
+        return SshTarget(user=user or "root", host=host, port=22, key=None)
+    return SshTarget(
+        user="root",
+        host="localhost",
+        port=int(hop3_container["ssh_port"]),
+        key=hop3_container["ssh_key"],
+    )
+
+
+def _cli_env(target: SshTarget, home: Path, *, token: bool = False) -> dict[str, str]:
     """
-    if not remote_ssh_host:
-        pytest.skip(
-            "remote diagnostics: pass --ssh-host HOST to run "
-            "(HOP3_DEV_HOST / HOP3_TEST_HOST are ignored on purpose)"
+    Point ``hop3`` at the target over ssh://.
+
+    Against the container the CLI gets its own config dir (the login stores a
+    token there), the container's key and port, and a private known_hosts, so
+    an ephemeral container's host key never lands in the developer's own, where
+    a rebuilt image on a reused port would later read as a changed host. ssh
+    resolves ``~`` through the passwd entry, not ``$HOME``, so the private file
+    goes through ``HOP3_SSH_OPTIONS``, which every ssh the CLI spawns honours.
+    Against a real box (``--ssh-host``) the developer's keys and known_hosts
+    are exactly what should be used.
+    """
+    env = os.environ.copy()
+    env.pop("HOP3_API_TOKEN", None)
+    env["HOP3_API_URL"] = target.api_url
+    env["HOP3_NO_INPUT"] = "1"
+    if target.key:
+        env["HOP3_CONFIG_DIR"] = str(home / "hop3-cli")
+        env["HOP3_SSH_KEY"] = target.key
+        env["HOP3_SSH_PORT"] = str(target.port)
+        env["HOP3_SSH_OPTIONS"] = f"UserKnownHostsFile={home / 'known_hosts'}"
+    if token:
+        env["HOP3_API_TOKEN"] = create_test_token(secret_key=E2E_TEST_SECRET_KEY)
+    return env
+
+
+def _hop3(
+    target: SshTarget, home: Path, *args: str, **kw: Any
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        ["hop3", *args],
+        env=_cli_env(target, home, token=kw.pop("token", False)),
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=kw.pop("timeout", 60),
+        **kw,
+    )
+
+
+class TestSshTransport:
+    def test_ssh_reaches_the_target(self, ssh_target: SshTarget) -> None:
+        result = subprocess.run(
+            ssh_target.ssh_argv("echo", "ok"),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
         )
-    return remote_ssh_host if "@" in remote_ssh_host else f"root@{remote_ssh_host}"
+        assert result.returncode == 0, f"ssh failed: {result.stderr}"
+        assert result.stdout.strip() == "ok"
 
+    def test_help_arrives_through_the_tunnel(
+        self, ssh_target: SshTarget, tmp_path: Path
+    ) -> None:
+        """`hop3 help` is a server command: it only answers if the tunnel works."""
+        result = _hop3(ssh_target, tmp_path, "help")
+        assert result.returncode == 0, f"hop3 help over ssh failed: {result.stderr}"
+        assert "auth" in result.stdout, result.stdout[:500]
 
-def test_ssh_connection(remote_server: str) -> None:
-    """Test basic SSH connectivity."""
-    result = subprocess.run(
-        ["ssh", "-o", "ConnectTimeout=10", remote_server, "echo", "ok"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=15,
-    )
+    def test_login_over_ssh_then_user_add_and_get_token(
+        self, ssh_target: SshTarget, tmp_path: Path
+    ) -> None:
+        """
+        The bootstrap, end to end: `hop3 login --ssh root@host` mints an admin
+        token through `su - hop3 -c "hop3-server admin:ssh-token"` and records
+        the server as the default; `user add` (admin-only) and `auth get-token`
+        then run against that recorded server with that token, no env override.
+        A user left by an earlier run on a real box is fine.
+        """
+        env = _cli_env(ssh_target, tmp_path)
+        del env["HOP3_API_URL"]  # the login must record the server itself
 
-    assert result.returncode == 0, f"SSH connection failed: {result.stderr}"
+        def hop3(*args: str) -> subprocess.CompletedProcess:
+            return subprocess.run(
+                ["hop3", *args],
+                env=env,
+                capture_output=True,
+                text=True,
+                check=False,
+                timeout=90,
+            )
 
+        login = hop3(
+            "login", "--ssh", f"{ssh_target.user}@{ssh_target.host}:{ssh_target.port}"
+        )
+        assert login.returncode == 0, (
+            f"login --ssh failed: {login.stdout}\n{login.stderr}"
+        )
 
-def test_hop3_cli_available() -> None:
-    """Test if hop3-cli is installed (local check; always runs)."""
-    result = subprocess.run(
-        ["which", "hop3"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=5,
-    )
+        added = hop3("user", "add", _USER, "test@example.com", _PASSWORD)
+        assert (
+            added.returncode == 0 or "already exists" in added.stdout + added.stderr
+        ), f"user add failed: {added.stdout}\n{added.stderr}"
+        got = hop3("auth", "get-token", _USER, _PASSWORD)
+        assert got.returncode == 0, f"get-token failed: {got.stdout}\n{got.stderr}"
+        jwt = got.stdout.strip().splitlines()[-1]
+        assert jwt.count(".") == 2, f"not a JWT: {jwt!r}"
 
-    assert result.returncode == 0, (
-        "hop3 command not found in PATH. Install with: pip install -e packages/hop3-cli"
-    )
-    assert result.stdout.strip(), "hop3 command returned empty output"
+    def test_app_shell_runs_as_hop3_through_root(
+        self, hop3_container: dict[str, Any], ssh_target: SshTarget, tmp_path: Path
+    ) -> None:
+        """
+        `hop3 app shell` from a client connected as root: `su - hop3 -c
+        hop3-server app-shell`, the production path. Scripted stdin, so no pty.
+        """
+        if ssh_target.key is None:
+            pytest.fail(
+                "the shell test deploys into the container; run it without --ssh-host"
+            )
+        app_dir = create_flask_app(
+            tmp_path, "shell-over-ssh", requirements=FLASK_REQUIREMENTS
+        )
+        init_git_repo(app_dir)
+        deployed = deploy_app_dir(hop3_container, app_dir, "shell-over-ssh")
+        assert deployed.returncode == 0, deployed.stdout[-800:] + deployed.stderr[-400:]
 
-
-def test_hop3_cli_connection(
-    remote_server: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test hop3-cli connection to server."""
-    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
-
-    result = subprocess.run(
-        ["hop3", "help"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=30,
-    )
-
-    assert result.returncode == 0, f"hop3-cli connection failed: {result.stderr}"
-
-
-def test_auth_commands_available(
-    remote_server: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test if authentication commands are available on the server."""
-    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
-
-    result = subprocess.run(
-        ["hop3", "help"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-
-    # This is informational - don't fail if auth not available
-    if not any(
-        marker in result.stdout
-        for marker in ("auth:", "auth login", "auth get-token", "auth whoami")
-    ):
-        pytest.skip("Authentication commands not available on server")
-
-
-def test_auth_register_command(
-    remote_server: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Test if auth:register command works."""
-    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
-
-    result = subprocess.run(
-        [
-            "hop3",
-            "auth",
-            "register",
-            "test-diagnostic-user",
-            "test@example.com",
-            "test-pass-12345",
-        ],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-
-    combined_output = result.stdout + result.stderr
-
-    # Authentication not enabled is OK - skip the test
-    if "Authentication not enabled" in combined_output:
-        pytest.skip("Authentication not enabled on server")
-
-    # User already exists is OK
-    assert result.returncode == 0 or "already exists" in combined_output, (
-        f"auth:register failed: {result.stderr}\n{result.stdout}"
-    )
-
-
-def test_auth_get_token_command(
-    remote_server: str, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """
-    Test that `auth get-token` verifies credentials and prints a JWT.
-
-    `auth get-token` is the non-interactive primitive behind `hop3 login`: it
-    takes a username + password and prints the bare token (for scripts). The
-    interactive `auth login` / `hop3 login` flow is client-side and prompts, so
-    it can't be exercised non-interactively here.
-    """
-    monkeypatch.setenv("HOP3_API_URL", f"ssh://{remote_server}")
-
-    result = subprocess.run(
-        ["hop3", "auth", "get-token", "test-diagnostic-user", "test-pass-12345"],
-        check=False,
-        capture_output=True,
-        text=True,
-        timeout=10,
-    )
-
-    combined_output = result.stdout + result.stderr
-
-    # Skip if server isn't properly configured
-    if "HOP3_SECRET_KEY must be set" in combined_output:
-        pytest.skip("Remote server is not configured with HOP3_SECRET_KEY")
-
-    # Authentication not enabled is OK - skip the test
-    if "Authentication not enabled" in combined_output:
-        pytest.skip("Authentication not enabled on server")
-
-    assert result.returncode == 0, (
-        f"auth get-token failed (exit code {result.returncode}):\n"
-        f"stdout: {result.stdout[:200]}\n"
-        f"stderr: {result.stderr[:200]}"
-    )
-    # Output is the bare JWT (header.payload.signature).
-    token = next(
-        (
-            line.strip()
-            for line in result.stdout.splitlines()
-            if line.strip().count(".") == 2 and line.strip().startswith("ey")
-        ),
-        None,
-    )
-    assert token, f"auth get-token did not return a JWT:\nstdout: {result.stdout[:200]}"
+        result = _hop3(
+            ssh_target, tmp_path, "app", "shell", "--app", "shell-over-ssh",
+            input="echo APP=$APP; pwd; exit 7\n", timeout=120,
+        )  # fmt: skip
+        assert result.returncode == 7, result.stdout + result.stderr
+        assert "APP=shell-over-ssh" in result.stdout
+        assert "/home/hop3/apps/shell-over-ssh/src" in result.stdout

@@ -44,6 +44,7 @@ RUN apt-get update && \
         libpcre3-dev \
         zlib1g-dev \
         wget \
+        xz-utils \
         # Python (venv is built into Python 3.3+)
         python3 \
         python3-pip \
@@ -120,7 +121,14 @@ RUN mkdir -p /var/run/sshd && \
     mkdir -p /home/hop3/.ssh && \
     ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N "" && \
     chmod 700 /home/hop3/.ssh && \
-    chown -R hop3:hop3 /home/hop3/.ssh
+    chown -R hop3:hop3 /home/hop3/.ssh && \
+    mkdir -m 0700 /root/.ssh && \
+    cp /home/hop3/.ssh/id_rsa.pub /root/.ssh/authorized_keys && \
+    chmod 0600 /root/.ssh/authorized_keys
+# The same key is authorised for root, plain (no forced command): that is the
+# production shape the ssh:// transport and `hop3 login --ssh` connect through,
+# and the only way the tunnel (`ssh -L`) is allowed, since the hop3 account's
+# key carries `no-port-forwarding`. See test_connection.py.
 
 # Configure SSH
 RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/sshd_config && \
@@ -131,6 +139,15 @@ RUN sed -i 's/#PermitRootLogin prohibit-password/PermitRootLogin yes/' /etc/ssh/
 # =============================================================================
 
 # Create virtualenv first (this layer is stable)
+# Nix, single-user for the hop3 account, provisioned by the installer's own
+# module so the image gets it exactly the way `hop3-install server --with nix`
+# does (the e2e Nix fixtures and the closure-guard tests need it). The final
+# test makes a broken Nix a broken image build, never a skipped test.
+COPY packages/hop3-installer/src /opt/hop3-installer/src
+RUN PYTHONPATH=/opt/hop3-installer/src python3 -c \
+        "from hop3_installer.server_installer.nix import install_nix; install_nix()" && \
+    test -x /home/hop3/.nix-profile/bin/nix-build
+
 RUN su - hop3 -c "python3 -m venv ~/venv && \
     ~/venv/bin/pip install --no-cache-dir --upgrade pip"
 
@@ -181,6 +198,14 @@ RUN mkdir -p /var/lib/hop3-rootd && chmod 0700 /var/lib/hop3-rootd && \
 # Create hop3 environment file.
 # HOP3_UNSAFE_ACK is the safety interlock from wave-2 hardening (core/unsafe_gate.py):
 # the daemon refuses to start with HOP3_UNSAFE=true unless the ACK is also present.
+# The signing key where a real install keeps it (ADR 048): /etc/hop3/secret-key,
+# 0640 root:hop3, read by the service and by the `su - hop3` CLI alike. The
+# supervisor environment below reaches only the service; without this file,
+# `hop3-server admin:ssh-token` (the `hop3 login --ssh` bootstrap) found no key.
+RUN mkdir -p /etc/hop3 && \
+    echo 'e2e-test-secret-key-do-not-use-in-production' > /etc/hop3/secret-key && \
+    chown root:hop3 /etc/hop3/secret-key && \
+    chmod 0640 /etc/hop3/secret-key
 RUN echo 'HOP3_SECRET_KEY=e2e-test-secret-key-do-not-use-in-production' > /home/hop3/.env && \
     echo 'HOP3_UNSAFE=true' >> /home/hop3/.env && \
     echo 'HOP3_UNSAFE_ACK=yes-I-understand' >> /home/hop3/.env && \

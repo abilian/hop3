@@ -39,10 +39,10 @@ Coverage breakdown:
 
   - Happy paths: create, env-var preservation in backups, in-place
     restore, restore-to-different-app-name (clone), list, delete.
-  - Skipped, blocked on infrastructure: PostgreSQL service
-    backup/restore (needs the d_e2e Postgres path that's under
-    construction) and integrity verification with deliberate
-    checksum corruption.
+  - An app with an attached PostgreSQL addon: the backup carries the
+    dump, and a restore brings a deleted row back.
+  - Integrity: a backup whose archive was corrupted on disk is reported
+    by `backup info` and refused by `backup restore`.
 
 Negative paths (name collision, corrupted manifest, etc.) and the
 register / cross-instance flows are in `test_backup_migration.py`.
@@ -57,6 +57,7 @@ References
 
 from __future__ import annotations
 
+import contextlib
 import json
 
 import pytest
@@ -64,6 +65,7 @@ from hop3_testing.apps import DeploymentSession
 from hop3_testing.apps.catalog import AppSource
 
 from .conftest import (
+    BACKUP_DIR_IN_CONTAINER,
     backup_in_table,
     create_flask_app,
     extract_backup_id,
@@ -284,62 +286,132 @@ def index():
                 f"Backup ID {backup_id} still found after deletion"
             )
 
-    @pytest.mark.skip(
-        reason="PostgreSQL service integration not yet available in E2E tests"
-    )
     def test_backup_app_with_postgres(self, deployment_target, tmp_path):
-        """Test creating a backup of an app with PostgreSQL service."""
-        app_dir = create_flask_app(
-            tmp_path,
-            "postgres-app",
-            response='f"PostgreSQL: {version}"',
-            extra_imports="import psycopg2\nimport os",
-            extra_code="""conn = psycopg2.connect(os.getenv("DATABASE_URL"))
-cur = conn.cursor()
-cur.execute("SELECT version();")
-version = cur.fetchone()[0]
-cur.close()
-conn.close()""",
-            requirements="flask==3.0.0\npsycopg2-binary==2.9.9\n",
-        )
+        """A backup of an app with an attached PostgreSQL addon carries its dump."""
+        app_dir = create_flask_app(tmp_path, "postgres-app", requirements=_PG_REQS)
 
         app = AppSource(name="postgres-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
             session.deploy()  # Raises DeploymentError on failure
+            with _postgres_addon(deployment_target, session.app_name) as addon:
+                _sql(
+                    deployment_target,
+                    session.app_name,
+                    "CREATE TABLE marker (v text); "
+                    "INSERT INTO marker VALUES ('row-before-backup')",
+                )
+                backup_id = _create_backup(deployment_target, session.app_name)
 
-            # Create PostgreSQL service
-            result = deployment_target.run_command("postgres:create", "test-db")
-            assert result.success, f"Failed to create PostgreSQL: {result.stderr}"
+                result = deployment_target.run_command("backup", "info", backup_id)
+                assert result.success, result.stderr
+                assert f"postgres:{addon}" in result.stdout, result.stdout
 
-            # Attach to app
-            result = deployment_target.run_command(
-                "postgres:attach", "test-db", session.app_name
-            )
-            assert result.success, f"Failed to attach PostgreSQL: {result.stderr}"
+                # The dump in the backup directory holds the row, not just the
+                # manifest entry: a listed-but-empty dump is a backup that lies.
+                addons_dir = (
+                    f"{BACKUP_DIR_IN_CONTAINER}/{session.app_name}/{backup_id}/addons"
+                )
+                code, _out, err = deployment_target.exec_run([
+                    "sh", "-c", f"grep -rl row-before-backup {addons_dir}"
+                ])  # fmt: skip
+                assert code == 0, f"no dump under {addons_dir} holds the row: {err}"
 
-            # Create backup (should include PostgreSQL dump)
-            result = deployment_target.run_command(
-                "backup", "create", "--app", session.app_name
-            )
-            assert result.success
-
-            backup_id = extract_backup_id(result.stdout)
-            assert backup_id is not None
-
-            # Verify backup info shows PostgreSQL service
-            result = deployment_target.run_command("backup", "info", backup_id)
-            assert result.success
-            assert "postgres" in result.stdout.lower()
-            assert "test-db" in result.stdout
-
-    @pytest.mark.skip(
-        reason="PostgreSQL service integration not yet available in E2E tests"
-    )
     def test_restore_app_with_postgres(self, deployment_target, tmp_path):
-        """Test restoring an app with PostgreSQL service and verifying data integrity."""
-        # Implementation pending full PostgreSQL service support in E2E environment
+        """Restoring an app with a PostgreSQL addon brings its data back."""
+        # Not "pg-…": the addon takes its database and role names from the app,
+        # and PostgreSQL reserves role names starting with `pg_`.
+        app_dir = create_flask_app(tmp_path, "restore-pg", requirements=_PG_REQS)
 
-    @pytest.mark.skip(reason="Requires checksum corruption simulation")
+        app = AppSource(name="restore-pg", path=app_dir)
+        with DeploymentSession(app, deployment_target) as session:
+            session.deploy()  # Raises DeploymentError on failure
+            with _postgres_addon(deployment_target, session.app_name):
+                _sql(
+                    deployment_target,
+                    session.app_name,
+                    "CREATE TABLE marker (v text); "
+                    "INSERT INTO marker VALUES ('row-before-backup')",
+                )
+                backup_id = _create_backup(deployment_target, session.app_name)
+
+                _sql(deployment_target, session.app_name, "DELETE FROM marker")
+                gone = _sql(deployment_target, session.app_name, "SELECT v FROM marker")
+                assert "row-before-backup" not in gone
+
+                result = deployment_target.run_command("backup", "restore", backup_id)
+                assert result.success, f"Restore failed: {result.stderr}"
+                assert "Restore completed successfully!" in result.stdout
+
+                back = _sql(deployment_target, session.app_name, "SELECT v FROM marker")
+                assert "row-before-backup" in back, (
+                    f"the restored database does not hold the row: {back!r}"
+                )
+
     def test_backup_integrity_verification(self, deployment_target, tmp_path):
-        """Test backup integrity verification with checksums."""
-        # Implementation pending direct filesystem access to backup directory
+        """A backup corrupted on disk is reported by info and refused by restore."""
+        app_dir = create_flask_app(tmp_path, "corrupt-app", "Original version")
+
+        app = AppSource(name="corrupt-app", path=app_dir)
+        with DeploymentSession(app, deployment_target) as session:
+            session.deploy()  # Raises DeploymentError on failure
+            backup_id = _create_backup(deployment_target, session.app_name)
+
+            archive = f"{BACKUP_DIR_IN_CONTAINER}/{session.app_name}/{backup_id}/source.tar.gz"
+            code, _out, err = deployment_target.exec_run([
+                "sh", "-c", f"printf corrupt >> {archive}"
+            ])  # fmt: skip
+            assert code == 0, f"could not corrupt {archive}: {err}"
+
+            result = deployment_target.run_command("backup", "info", backup_id)
+            assert result.success, result.stderr
+            assert "✗ source.tar.gz" in result.stdout, result.stdout
+
+            result = deployment_target.run_command("backup", "restore", backup_id)
+            assert not result.success, "restore accepted a backup with a bad checksum"
+            assert "checksum" in (result.stdout + result.stderr).lower()
+
+
+_PG_REQS = "flask==3.0.0\npsycopg2-binary==2.9.9\n"
+
+_SQL_RUNNER = """
+import os, psycopg2
+conn = psycopg2.connect(os.environ["DATABASE_URL"])
+conn.autocommit = True
+cur = conn.cursor()
+cur.execute({sql!r})
+print(cur.fetchall() if cur.description else "ok")
+"""
+
+
+def _sql(target, app_name: str, sql: str) -> str:
+    """Run SQL against the app's attached database, from the app's own env."""
+    result = target.run_command(
+        "run", "--app", app_name, "python", "-c", _SQL_RUNNER.format(sql=sql)
+    )
+    assert result.success, f"SQL failed: {sql}\n{result.stdout}\n{result.stderr}"
+    return result.stdout
+
+
+def _create_backup(target, app_name: str) -> str:
+    result = target.run_command("backup", "create", "--app", app_name)
+    assert result.success, f"backup create failed: {result.stderr}"
+    backup_id = extract_backup_id(result.stdout)
+    assert backup_id is not None, result.stdout
+    return backup_id
+
+
+@contextlib.contextmanager
+def _postgres_addon(target, app_name: str):
+    """A PostgreSQL addon attached to the app for the block, destroyed after."""
+    name = f"{app_name}-db"
+    result = target.run_command("addon", "create", "postgres", name)
+    assert result.success, f"addon create failed: {result.stderr}"
+    try:
+        result = target.run_command("addon", "attach", name, "--app", app_name)
+        assert result.success, f"addon attach failed: {result.stderr}"
+        yield name
+    finally:
+        target.run_command("addon", "detach", name, "--app", app_name)
+        destroyed = target.run_command("addon", "destroy", name, "-y")
+        if not destroyed.success:
+            print(f"⚠ addon {name} not destroyed: {destroyed.stderr}")
