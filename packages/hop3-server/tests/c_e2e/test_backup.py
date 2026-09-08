@@ -410,8 +410,18 @@ def _postgres_addon(target, app_name: str):
         result = target.run_command("addon", "attach", name, "--app", app_name)
         assert result.success, f"addon attach failed: {result.stderr}"
         yield name
-    finally:
-        target.run_command("addon", "detach", name, "--app", app_name)
-        destroyed = target.run_command("addon", "destroy", name, "-y")
-        if not destroyed.success:
-            print(f"⚠ addon {name} not destroyed: {destroyed.stderr}")
+    except BaseException:
+        # The test is already failing: clean up as far as possible, and let the
+        # original failure through rather than a destroy error masking it.
+        _destroy_addon(target, name, app_name)
+        raise
+    else:
+        # A destroy that fails on a green test is a finding of its own: it leaks
+        # an addon on a reused target and hides a destroy bug.
+        destroyed = _destroy_addon(target, name, app_name)
+        assert destroyed.success, f"addon destroy failed: {destroyed.stderr}"
+
+
+def _destroy_addon(target, name: str, app_name: str):
+    target.run_command("addon", "detach", name, "--app", app_name)
+    return target.run_command("addon", "destroy", name, "-y")
