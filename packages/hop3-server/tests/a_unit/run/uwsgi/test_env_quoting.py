@@ -41,7 +41,7 @@ def _export_and_read_back(value: str) -> str:
     line = (
         f"""sh -c "cd /tmp && export V='{_quote_env_value(value)}'; exec printenv V" """
     )
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         ["/bin/sh", "-c", line],
         capture_output=True,
         text=True,
@@ -59,7 +59,7 @@ def test_unescaped_value_is_what_regressed() -> None:
     """The old single-quote-only escaping loses the JSON quotes — pin the bug."""
     naive = '["HTTP_X_FORWARDED_PROTO","https"]'.replace("'", "'\\''")
     line = f"""sh -c "cd /tmp && export V='{naive}'; exec printenv V" """
-    result = subprocess.run(  # noqa: S603
+    result = subprocess.run(
         ["/bin/sh", "-c", line], capture_output=True, text=True, check=True
     )
     assert result.stdout.rstrip("\n") == "[HTTP_X_FORWARDED_PROTO,https]"
