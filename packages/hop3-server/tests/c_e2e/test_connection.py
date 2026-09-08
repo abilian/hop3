@@ -35,10 +35,8 @@ from typing import TYPE_CHECKING, Any
 import pytest
 
 from .conftest import (
-    E2E_TEST_SECRET_KEY,
     FLASK_REQUIREMENTS,
     create_flask_app,
-    create_test_token,
     deploy_app_dir,
     init_git_repo,
 )
@@ -94,7 +92,7 @@ def ssh_target(
     )
 
 
-def _cli_env(target: SshTarget, home: Path, *, token: bool = False) -> dict[str, str]:
+def _cli_env(target: SshTarget, home: Path) -> dict[str, str]:
     """
     Point ``hop3`` at the target over ssh://.
 
@@ -116,22 +114,24 @@ def _cli_env(target: SshTarget, home: Path, *, token: bool = False) -> dict[str,
         env["HOP3_SSH_KEY"] = target.key
         env["HOP3_SSH_PORT"] = str(target.port)
         env["HOP3_SSH_OPTIONS"] = f"UserKnownHostsFile={home / 'known_hosts'}"
-    if token:
-        env["HOP3_API_TOKEN"] = create_test_token(secret_key=E2E_TEST_SECRET_KEY)
     return env
 
 
 def _hop3(
-    target: SshTarget, home: Path, *args: str, **kw: Any
+    target: SshTarget,
+    home: Path,
+    *args: str,
+    timeout: int = 60,
+    input: str | None = None,
 ) -> subprocess.CompletedProcess:
     return subprocess.run(
         ["hop3", *args],
-        env=_cli_env(target, home, token=kw.pop("token", False)),
+        env=_cli_env(target, home),
+        input=input,
         capture_output=True,
         text=True,
         check=False,
-        timeout=kw.pop("timeout", 60),
-        **kw,
+        timeout=timeout,
     )
 
 
