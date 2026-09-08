@@ -228,7 +228,7 @@ class DockerDeployBackend(DeployBackend):
         return True
 
     def _docker_available(self) -> bool:
-        """Check if Docker is available."""
+        """Whether ``docker info`` succeeds; on failure, print why it did not."""
         try:
             result = subprocess.run(
                 ["docker", "info"],
@@ -236,9 +236,20 @@ class DockerDeployBackend(DeployBackend):
                 text=True,
                 check=False,
             )
-            return result.returncode == 0
         except FileNotFoundError:
+            print("  ✗ Docker is not available: no `docker` command on PATH")
             return False
+        if result.returncode == 0:
+            return True
+        # The CLI names the cause (daemon down, context not found, permission
+        # denied); a bare "not available" sent people to check the daemon when
+        # the fault was their DOCKER_CONFIG.
+        lines = [line for line in result.stderr.splitlines() if line.strip()]
+        reason = (
+            lines[-1].strip() if lines else f"docker info exited {result.returncode}"
+        )
+        print(f"  ✗ Docker is not available: {reason}")
+        return False
 
     def _container_exists(self) -> bool:
         """Check if the container exists."""
@@ -523,7 +534,6 @@ class DockerDeployBackend(DeployBackend):
         the Dockerfile hasn't changed.
         """
         if not self._docker_available():
-            print("  ✗ Docker is not available")
             return False
 
         # Reuse a running container unless --clean was asked for: a second

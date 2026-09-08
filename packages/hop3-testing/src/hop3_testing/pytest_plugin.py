@@ -43,20 +43,16 @@ def docker_client(
     building or pulling public images never shells out to a credential helper
     (e.g. ``docker-credential-osxkeychain``) — which pops an interactive keychain
     prompt and fails the run if declined (docker-py's ``build()`` eagerly
-    resolves all credentials). The docker context (``currentContext``) and inline
-    ``auths`` are preserved, so connectivity is unchanged.
+    resolves all credentials). Everything else is preserved: the inline
+    ``auths``, and the docker context (``currentContext``) together with the
+    ``contexts/`` directory it resolves through, so the ``docker`` CLI a test
+    shells out to (``hop3-deploy-server``, ``docker build``) reaches the same
+    daemon as this client. See ``write_docker_config``.
     """
     import docker
 
     cfg_dir = tmp_path_factory.mktemp("docker-config")
-    real_cfg = Path.home() / ".docker" / "config.json"
-    data: dict[str, Any] = {}
-    if real_cfg.exists():
-        with contextlib.suppress(OSError, ValueError):
-            data = json.loads(real_cfg.read_text())
-    data.pop("credsStore", None)
-    data.pop("credHelpers", None)
-    (cfg_dir / "config.json").write_text(json.dumps(data))
+    write_docker_config(cfg_dir, Path.home() / ".docker")
 
     prev = os.environ.get("DOCKER_CONFIG")
     os.environ["DOCKER_CONFIG"] = str(cfg_dir)
@@ -70,6 +66,32 @@ def docker_client(
             os.environ.pop("DOCKER_CONFIG", None)
         else:
             os.environ["DOCKER_CONFIG"] = prev
+
+
+def write_docker_config(cfg_dir: Path, real_dir: Path) -> None:
+    """
+    Populate ``cfg_dir`` as a ``DOCKER_CONFIG`` without credential helpers.
+
+    ``config.json`` is copied minus ``credsStore``/``credHelpers``. The
+    ``contexts/`` directory is symlinked, not omitted: the CLI resolves
+    ``currentContext`` through ``contexts/meta/<id>/meta.json`` (endpoint) and
+    ``contexts/tls/``, and a config that names a context it cannot find makes
+    every ``docker`` invocation fail with "context not found" — which the
+    deployer reports as "Docker is not available" (OrbStack, Colima and Docker
+    Desktop all run under a named context). docker-py ignores contexts, which is
+    why the SDK-driven tests never noticed.
+    """
+    data: dict[str, Any] = {}
+    real_cfg = real_dir / "config.json"
+    if real_cfg.exists():
+        with contextlib.suppress(OSError, ValueError):
+            data = json.loads(real_cfg.read_text())
+    data.pop("credsStore", None)
+    data.pop("credHelpers", None)
+    (cfg_dir / "config.json").write_text(json.dumps(data))
+    contexts = real_dir / "contexts"
+    if contexts.is_dir():
+        (cfg_dir / "contexts").symlink_to(contexts, target_is_directory=True)
 
 
 @pytest.fixture(scope="session")
