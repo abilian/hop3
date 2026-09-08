@@ -571,9 +571,21 @@ class AppLauncher:
         on a normally-installed host, so the check logged a skip every time and
         never once fired.
         """
-        if not (self.artifact and self.artifact.kind == "nix"):
+        # Gate on the BUILDER, not the artifact kind: the Nix builder emits a
+        # `static` artifact for a site the proxy serves straight from the store,
+        # and gating on `kind == "nix"` let that closure vanish unnoticed (the
+        # e2e guard test found it the first time it ran). The artifact's own
+        # location is a root too, so a worker line that names no store path
+        # still gets its closure checked.
+        if not self.artifact or "nix" not in {
+            self.artifact.builder,
+            self.artifact.kind,
+        }:
             return
-        roots = _extract_nix_store_paths(self.workers.values())
+        roots = _extract_nix_store_paths([
+            self.artifact.location,
+            *self.workers.values(),
+        ])
         if not roots:
             return
 
