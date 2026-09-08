@@ -22,14 +22,16 @@ from hop3_cli.commands.local.tunnel_cmd import (
     _parse_args,
     _rewrite_url,
     handle_tunnel,
-    ssh_params,
+    ssh_endpoint,
 )
+from hop3_cli.core.ssh_target import SshEndpoint, SshSettings
 from hop3_cli.exit_codes import ExitCode
 from jsonrpcclient import Error, Ok
 from stubs import StubClient
 
 _PG_URL = "postgresql://u:secret@127.0.0.1:5432/mydb"
 _ENDPOINT = {"type": "postgres", "host": "127.0.0.1", "port": 5432, "url": _PG_URL}
+_SRV = SshEndpoint(host="srv", user="root", port=22, settings=SshSettings())
 
 
 @pytest.fixture(autouse=True)
@@ -83,24 +85,24 @@ def test_rewrite_url_without_credentials():
     assert _rewrite_url("redis://127.0.0.1:6379/0", 6000) == "redis://127.0.0.1:6000/0"
 
 
-# ---- ssh_params ----
+# ---- ssh_endpoint ----
 
 
-def test_ssh_params_from_ssh_url():
+def test_ssh_endpoint_from_ssh_url():
     config = MagicMock()
     config.get_api_url.return_value = "ssh://root@server.example.com:2222"
     config.get.side_effect = lambda key, default=None: default
-    params = ssh_params(config)
-    assert params["host"] == "server.example.com"
-    assert params["user"] == "root"
-    assert params["port"] == 2222
+    endpoint = ssh_endpoint(config)
+    assert endpoint.host == "server.example.com"
+    assert endpoint.user == "root"
+    assert endpoint.port == 2222
 
 
-def test_ssh_params_rejects_non_ssh_url():
+def test_ssh_endpoint_rejects_non_ssh_url():
     config = MagicMock()
     config.get_api_url.return_value = "https://server.example.com"
     with pytest.raises(SystemExit) as exc:
-        ssh_params(config)
+        ssh_endpoint(config)
     assert exc.value.code == ExitCode.USAGE_ERROR
 
 
@@ -158,8 +160,8 @@ def test_handle_tunnel_opens_prints_and_cleans_up(capsys):
         patch.object(tunnel_cmd, "_fetch_endpoint", return_value=_ENDPOINT),
         patch.object(
             tunnel_cmd,
-            "ssh_params",
-            return_value={"host": "srv", "user": "root", "port": 22, "key": None},
+            "ssh_endpoint",
+            return_value=_SRV,
         ),
         patch.object(tunnel_cmd, "_start_forwarder", return_value=forwarder),
         patch.object(tunnel_cmd.time, "sleep", side_effect=KeyboardInterrupt),
@@ -190,8 +192,8 @@ def test_handle_tunnel_dropped_connection_fails_loud(capsys):
         patch.object(tunnel_cmd, "_fetch_endpoint", return_value=_ENDPOINT),
         patch.object(
             tunnel_cmd,
-            "ssh_params",
-            return_value={"host": "srv", "user": "root", "port": 22, "key": None},
+            "ssh_endpoint",
+            return_value=_SRV,
         ),
         patch.object(tunnel_cmd, "_start_forwarder", return_value=forwarder),
         pytest.raises(SystemExit) as exc,

@@ -42,3 +42,8 @@ def test_new_host_keys_are_accepted_like_the_tunnel_does() -> None:
 def test_target_is_still_validated_first() -> None:
     with pytest.raises(BootstrapError):
         ssh_command_argv("-oProxyCommand=evil@host", "echo ok")
+
+
+def test_a_bad_port_is_refused_like_any_bad_target() -> None:
+    with pytest.raises(BootstrapError, match="invalid SSH port"):
+        ssh_command_argv("root@host:abc", "echo ok")

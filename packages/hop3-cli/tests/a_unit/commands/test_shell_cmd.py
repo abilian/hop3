@@ -19,6 +19,7 @@ from hop3_cli.commands.local.shell_cmd import (
 )
 from hop3_cli.config import Config
 from hop3_cli.core.app_scope import is_app_scoped
+from hop3_cli.core.ssh_target import SshEndpoint, SshSettings
 from hop3_cli.exit_codes import ExitCode
 
 
@@ -46,15 +47,20 @@ def test_remote_command_as_root_switches_to_hop3() -> None:
     )
 
 
+def _endpoint(**kw) -> SshEndpoint:
+    fields = {"host": "srv", "user": "root", "port": 22, "settings": SshSettings()}
+    fields.update(kw)
+    return SshEndpoint(**fields)
+
+
 def test_ssh_argv_requests_a_pty_only_with_a_terminal() -> None:
-    ssh = {"host": "srv", "user": "root", "port": 22, "key": None}
-    assert "-t" in ssh_argv(ssh, "app-shell x", tty=True)
-    assert "-t" not in ssh_argv(ssh, "app-shell x", tty=False)
+    assert "-t" in ssh_argv(_endpoint(), "app-shell x", tty=True)
+    assert "-t" not in ssh_argv(_endpoint(), "app-shell x", tty=False)
 
 
 def test_ssh_argv_carries_port_key_and_target() -> None:
-    ssh = {"host": "srv", "user": "root", "port": 2222, "key": "/k"}
-    argv = ssh_argv(ssh, "app-shell x", tty=False)
+    endpoint = _endpoint(port=2222, settings=SshSettings(key="/k"))
+    argv = ssh_argv(endpoint, "app-shell x", tty=False)
     assert argv[-2:] == ["root@srv", "app-shell x"]
     assert argv[argv.index("-p") + 1] == "2222"
     assert argv[argv.index("-i") + 1] == "/k"
@@ -99,12 +105,6 @@ def test_handle_refuses_an_http_server(capsys) -> None:
 
 
 def test_ssh_argv_passes_the_ssh_options_setting_through() -> None:
-    ssh = {
-        "host": "srv",
-        "user": "root",
-        "port": 22,
-        "key": None,
-        "options": ["ProxyJump=b"],
-    }
-    argv = ssh_argv(ssh, "app-shell x", tty=False)
+    endpoint = _endpoint(settings=SshSettings(options=("ProxyJump=b",)))
+    argv = ssh_argv(endpoint, "app-shell x", tty=False)
     assert argv[argv.index("ProxyJump=b") - 1] == "-o"

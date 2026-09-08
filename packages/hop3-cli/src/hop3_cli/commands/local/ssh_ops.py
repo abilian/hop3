@@ -33,9 +33,10 @@ from urllib.parse import urlparse
 
 from hop3_cli.config import get_config
 from hop3_cli.core.ssh_target import (
+    SshSettings,
     is_safe_ssh_target,
     split_ssh_target,
-    ssh_options_from,
+    ssh_base_argv,
 )
 from hop3_cli.tokens import extract_jwt
 
@@ -74,6 +75,10 @@ def validate_ssh_target(ssh_target: str) -> None:
             f"user@host (no leading '-' or special characters)."
         )
         raise BootstrapError(msg)
+    try:
+        split_ssh_target(ssh_target)
+    except ValueError as e:
+        raise BootstrapError(str(e)) from e
 
 
 def _run_ssh(
@@ -109,16 +114,8 @@ def ssh_command_argv(ssh_target: str, remote_cmd: str) -> list[str]:
     """
     validate_ssh_target(ssh_target)
     user_host, port = split_ssh_target(ssh_target)
-    config = get_config()
-    argv = ["ssh", "-o", "StrictHostKeyChecking=accept-new"]
-    for option in ssh_options_from(config.get("ssh_options", "")):
-        argv += ["-o", option]
-    key = config.get("ssh_key", None)
-    if isinstance(key, str) and key:
-        argv += ["-i", key]
-    if port is not None:
-        argv += ["-p", str(port)]
-    return [*argv, user_host, remote_cmd]
+    settings = SshSettings.from_config(get_config())
+    return [*ssh_base_argv(settings, port=port), user_host, remote_cmd]
 
 
 def create_admin_via_ssh(

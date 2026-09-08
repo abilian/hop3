@@ -29,14 +29,15 @@ import subprocess
 import sys
 from typing import TYPE_CHECKING, NoReturn
 
-from hop3_cli.core.ssh_target import is_safe_ssh_target
+from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_base_argv
 from hop3_cli.exit_codes import ExitCode
 
 from .ssh_ops import HOP_SERVER_PATH
-from .tunnel_cmd import ssh_params
+from .tunnel_cmd import ssh_endpoint
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
+    from hop3_cli.core.ssh_target import SshEndpoint
 
 #: The argv prefixes the CLI intercepts instead of sending over RPC.
 SHELL_COMMANDS: tuple[tuple[str, ...], ...] = (("app", "shell"), ("ssh",))
@@ -45,8 +46,6 @@ _HOP3_USER = "hop3"
 # The server's app-name charset. The name lands unquoted in the SSH forced
 # command's `$SSH_ORIGINAL_COMMAND`, so it must stay one shell word.
 _APP_NAME_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_-]*\Z")
-_CONNECT_TIMEOUT = 10
-_ALIVE_INTERVAL = 15
 
 
 def shell_command_args(cli_args: list[str]) -> list[str] | None:
@@ -68,16 +67,16 @@ def intercept_app_shell(cli_args: list[str], config: Config) -> None:
 def handle_app_shell(args: list[str], config: Config) -> NoReturn:
     """Open the shell over ssh and exit with the shell's status."""
     app = _app_from_args(args)
-    ssh = ssh_params(config, what="`hop3 app shell`")
-    target = f"{ssh['user']}@{ssh['host']}"
-    if not is_safe_ssh_target(target):
+    endpoint = ssh_endpoint(config, what="`hop3 app shell`")
+    if not is_safe_ssh_target(endpoint.target):
         print(
-            f"Refusing unsafe SSH target {target!r}: expected a plain user@host.",
+            f"Refusing unsafe SSH target {endpoint.target!r}: expected a plain "
+            "user@host.",
             file=sys.stderr,
         )
         sys.exit(ExitCode.USAGE_ERROR)
-    argv = ssh_argv(ssh, remote_shell_command(ssh["user"], app), tty=sys.stdin.isatty())
-    sys.exit(subprocess.call(argv))
+    remote = remote_shell_command(endpoint.user, app)
+    sys.exit(subprocess.call(ssh_argv(endpoint, remote, tty=sys.stdin.isatty())))
 
 
 def remote_shell_command(ssh_user: str, app: str) -> str:
@@ -87,24 +86,12 @@ def remote_shell_command(ssh_user: str, app: str) -> str:
     return f"su - {_HOP3_USER} -c {shlex.quote(f'{HOP_SERVER_PATH} app-shell {app}')}"
 
 
-def ssh_argv(ssh: dict, remote_command: str, *, tty: bool) -> list[str]:
+def ssh_argv(endpoint: SshEndpoint, remote_command: str, *, tty: bool) -> list[str]:
     """The exact ``ssh`` command line; a pty only when we have a terminal."""
-    argv = [
-        "ssh",
-        "-o", "StrictHostKeyChecking=accept-new",
-        "-o", f"ConnectTimeout={_CONNECT_TIMEOUT}",
-        "-o", f"ServerAliveInterval={_ALIVE_INTERVAL}",
-    ]  # fmt: skip
-    for option in ssh.get("options", ()):
-        argv += ["-o", option]
+    argv = ssh_base_argv(endpoint.settings, port=endpoint.port)
     if tty:
         argv.append("-t")
-    if ssh["key"]:
-        argv += ["-i", ssh["key"]]
-    if ssh["port"] != 22:
-        argv += ["-p", str(ssh["port"])]
-    argv += [f"{ssh['user']}@{ssh['host']}", remote_command]
-    return argv
+    return [*argv, endpoint.target, remote_command]
 
 
 def _app_from_args(args: list[str]) -> str:

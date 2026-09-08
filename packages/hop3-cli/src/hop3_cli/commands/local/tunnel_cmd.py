@@ -23,7 +23,7 @@ import time
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse, urlunparse
 
-from hop3_cli.core.ssh_target import ssh_options_from
+from hop3_cli.core.ssh_target import SshEndpoint, SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exit_codes import ExitCode
 
@@ -51,15 +51,15 @@ def handle_tunnel(args: list[str], config: Config, printer: RichPrinter) -> None
     remote_port = int(info["port"])
     bind_port = local_port if local_port is not None else remote_port
 
-    ssh = ssh_params(config)
-    forwarder = _start_forwarder(ssh, remote_port, bind_port)
+    endpoint = ssh_endpoint(config)
+    forwarder = _start_forwarder(endpoint, remote_port, bind_port)
     _install_signal_cleanup(forwarder)
 
     bound = forwarder.local_bind_port
     local_url = _rewrite_url(info["url"], bound)
     print(f"Tunnel open to {info['type']} addon '{name}'.")
     print(f"  Local URL:  {local_url}")
-    print(f"  Forwarding: 127.0.0.1:{bound} -> {ssh['host']}:{remote_port}")
+    print(f"  Forwarding: 127.0.0.1:{bound} -> {endpoint.host}:{remote_port}")
     print("  Press Ctrl-C to close.")
     try:
         while forwarder.is_active:
@@ -164,8 +164,8 @@ def _first_message(items: list) -> str | None:
     return None
 
 
-def ssh_params(config: Config, *, what: str = "Tunnel") -> dict:
-    """Derive SSH connection parameters from the configured api_url."""
+def ssh_endpoint(config: Config, *, what: str = "Tunnel") -> SshEndpoint:
+    """The configured ssh:// server, or a usage error naming what needs one."""
     api_url = config.get_api_url()
     parsed = urlparse(api_url or "")
     if parsed.scheme != "ssh":
@@ -177,25 +177,26 @@ def ssh_params(config: Config, *, what: str = "Tunnel") -> dict:
             file=sys.stderr,
         )
         sys.exit(ExitCode.USAGE_ERROR)
-    return {
-        "host": parsed.hostname,
-        "user": parsed.username or config.get("ssh_user", "root"),
-        "port": parsed.port or config.get("ssh_port", 22),
-        "key": config.get("ssh_key", None),
-        "options": ssh_options_from(config.get("ssh_options", "")),
-    }
+    settings = SshSettings.from_config(config)
+    return SshEndpoint(
+        host=parsed.hostname or "",
+        user=parsed.username or config.get("ssh_user", "root"),
+        port=parsed.port or settings.port,
+        settings=settings,
+    )
 
 
-def _start_forwarder(ssh: dict, remote_port: int, bind_port: int) -> SshTunnel:
+def _start_forwarder(
+    endpoint: SshEndpoint, remote_port: int, bind_port: int
+) -> SshTunnel:
     """Open the SSH port-forward; fail loud (don't silently re-pick a port)."""
     forwarder = SshTunnel(
-        ssh["host"],
+        endpoint.host,
         remote_port,
-        user=ssh["user"],
-        ssh_port=ssh["port"],
-        key=ssh["key"],
+        user=endpoint.user,
+        ssh_port=endpoint.port,
+        settings=endpoint.settings,
         local_port=bind_port,
-        options=ssh.get("options", ()),
     )
     try:
         forwarder.start()
