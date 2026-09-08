@@ -35,6 +35,12 @@ def postgres_service():
     return PostgresAddon(addon_name="test-db")
 
 
+def test_postgres_addon_refuses_a_reserved_role_prefix():
+    """`pg-restore` would become the role `pg_restore_user`, which PostgreSQL reserves."""
+    with pytest.raises(ValueError, match="reserved"):
+        PostgresAddon(addon_name="pg-restore")
+
+
 def test_postgres_addon_requires_service_name():
     """Test that PostgresAddon requires a service_name."""
     with pytest.raises(ValueError, match="addon_name is required"):

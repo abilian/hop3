@@ -337,9 +337,19 @@ class PostgresAddon:
     addon_name: str = ""
 
     def __post_init__(self) -> None:
-        """Validate that addon_name is provided."""
+        """Validate the addon name, and the identifiers PostgreSQL will get."""
         if not self.addon_name:
             msg = "addon_name is required for PostgresAddon"
+            raise ValueError(msg)
+        # PostgreSQL reserves role names starting with `pg_`. Refuse here with
+        # the name the user typed; the server's own "role name is reserved" came
+        # back after the database had been created and named a role nobody typed.
+        if self.db_name.startswith("pg_"):
+            msg = (
+                f"addon name {self.addon_name!r} would give PostgreSQL the role "
+                f"{self.db_user!r}, and role names starting with 'pg_' are "
+                "reserved; choose a name that does not start with 'pg-' or 'pg_'."
+            )
             raise ValueError(msg)
 
     @property
