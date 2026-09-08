@@ -32,7 +32,8 @@ Two properties, deliberately separate:
 
 Runs on any target provisioned `--with nix`, Docker included — the installer
 falls back to single-user Nix in containers, so this needs no special host.
-Skipped, visibly, where Nix is absent. See `local-notes/plans/30-nix-runtime-1.0.md`.
+Fails, by name, where Nix is absent: the e2e image bakes it. See
+`local-notes/plans/30-nix-runtime-1.0.md`.
 """
 
 from __future__ import annotations
@@ -94,10 +95,12 @@ def nix_test_app_dir(test_app_dir: Path) -> Path:
 
 @pytest.fixture
 def nix_bin(hop3_container: dict[str, Any]) -> str:
-    """The Nix profile present on the target, or a visible skip.
+    """The Nix profile present on the target, or a failure that names it.
 
     An invisible skip is what let the guard's own breakage go unnoticed for a
-    release, so the reason names what was looked for and how to provide it.
+    release. The e2e image bakes Nix (its Dockerfile runs the installer's
+    single-user install), so a target without one is a broken image, and the
+    failure says what was looked for.
     """
     for profile in NIX_PROFILES:
         if (
@@ -105,10 +108,10 @@ def nix_bin(hop3_container: dict[str, Any]) -> str:
             == 0
         ):
             return f"{profile}/bin"
-    pytest.skip(
-        "target carries no nix-store under "
+    pytest.fail(
+        "the e2e image carries no nix-store under "
         + " or ".join(NIX_PROFILES)
-        + ": provision it with `--with nix` to exercise the closure guard"
+        + "; its Dockerfile is meant to bake Nix, so the image build is broken"
     )
     raise AssertionError  # unreachable; satisfies the type checker
 

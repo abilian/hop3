@@ -37,8 +37,9 @@ PROJECT_ROOT = Path(__file__).resolve().parents[4]
 #: The Dockerfile bakes hop3-server, so it lives with hop3-server's e2e layer.
 DOCKER_DIR = PROJECT_ROOT / "packages/hop3-server/tests/c_e2e/docker"
 
-#: Packages whose full source the image installs with `pip install -e`.
-BAKED_PACKAGES = ("hop3-server", "hop3-rootd")
+#: Packages whose full source the image bakes: hop3-server and hop3-rootd are
+#: installed with `pip install -e`; hop3-installer provisions Nix at build time.
+BAKED_PACKAGES = ("hop3-server", "hop3-rootd", "hop3-installer")
 
 
 def build_inputs() -> list[Path]:

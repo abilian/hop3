@@ -24,11 +24,8 @@ APPS_ROOT = Path(__file__).parents[4] / "apps"
 TEST_APPS_DIR = APPS_ROOT / "test-apps-procfile"
 NIX_APPS_DIR = APPS_ROOT / "test-apps-nix"
 
-# Apps that require nix (from nix-apps directory)
-NIX_APP_NAMES: set[str] = set()
 
-
-def _collect_apps(app_dir: Path, is_nix: bool = False) -> list:
+def _collect_apps(app_dir: Path) -> list:
     """
     Collect test apps from a directory, which must exist and be non-empty.
 
@@ -47,8 +44,6 @@ def _collect_apps(app_dir: Path, is_nix: bool = False) -> list:
     apps = []
     for d in sorted(app_dir.iterdir()):
         if d.is_dir() and not d.name.startswith("."):
-            if is_nix:
-                NIX_APP_NAMES.add(d.name)
             apps.append(pytest.param(d, id=d.name))
     if not apps:
         msg = f"e2e fixture directory {app_dir} contains no app directories."
@@ -56,21 +51,7 @@ def _collect_apps(app_dir: Path, is_nix: bool = False) -> list:
     return apps
 
 
-TEST_APPS = _collect_apps(TEST_APPS_DIR) + _collect_apps(NIX_APPS_DIR, is_nix=True)
-
-# Network error patterns that indicate infrastructure issues, not code bugs
-NETWORK_ERROR_PATTERNS = [
-    "ERR_SOCKET_TIMEOUT",
-    "ETIMEDOUT",
-    "ECONNREFUSED",
-    "network connectivity",
-    "Socket timeout",
-]
-
-
-def _is_network_error(error_message: str) -> bool:
-    """Check if an error message indicates a network/infrastructure issue."""
-    return any(pattern in error_message for pattern in NETWORK_ERROR_PATTERNS)
+TEST_APPS = _collect_apps(TEST_APPS_DIR) + _collect_apps(NIX_APPS_DIR)
 
 
 @pytest.mark.e2e
@@ -79,21 +60,19 @@ def test_app_deployment(app_dir: Path, deployment_target, request):
     """Test deployment of an application from apps/test-apps/ or apps/nix-apps/."""
     app_name = app_dir.name
 
-    # Skip nix apps when nix-build is not available on the target
-    if app_name in NIX_APP_NAMES:
-        exit_code, _stdout, _ = deployment_target.exec_run("which nix-build")
-        if exit_code != 0:
-            pytest.skip("nix-build not available on target")
-
+    # No "is Nix there?" probe: the target is provisioned `--with nix` because
+    # these fixtures exist (conftest `_declared_features`), and if it is not,
+    # the server's own diagnosis says so by name. A probe here was a second
+    # copy of where Nix lives, and it looked in root's PATH for a single-user
+    # install that lives in the hop3 account's profile.
     app = AppSource(name=app_name, path=app_dir)
     with DeploymentSession(app, deployment_target) as session:
         try:
             session.deploy()  # Raises DeploymentError on failure
         except DeploymentError as e:
-            # Check for network errors in deployment and skip if found
-            error_msg = str(e)
-            if _is_network_error(error_msg):
-                pytest.skip(f"Skipping due to network error: {error_msg[:100]}")
+            # A deploy that fails for any reason, a flaky network included, is a
+            # failure: reporting it as a skip hid real breakage for as long as
+            # nobody read the skip reason.
             pytest.fail(f"Deploy failed: {e}")
 
         assert session.check_deployed(), (
