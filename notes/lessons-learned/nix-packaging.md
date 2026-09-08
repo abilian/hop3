@@ -278,7 +278,7 @@ Nix store paths are **read-only**. Apps that try to write config files, create d
 - **Data directories:** Create relative dirs (`mkdir -p data`), they land in `src/`
 - **Gitea's `custom/conf/`:** Must be relative to working dir, outside the Nix store
 
-**Symptom:** Gitea shows `WorkPath: /nix/store/.../bin` and `ConfigFile: /nix/store/.../bin/custom/conf/app.ini` - the config is in the read-only store.
+**Symptom:** Gitea shows `WorkPath: /nix/store/.../bin` and `ConfigFile: /nix/store/.../bin/custom/conf/app.ini`: the config is in the read-only store.
 
 **Fix:** The wrapper must `cd` to a writable directory before creating configs:
 
@@ -294,7 +294,7 @@ exec /nix/store/.../bin/gitea web
 
 ### Missing Entry Points
 
-Pre-built release tarballs may have different directory layouts than source archives. HedgeDoc's release tarball doesn't have `app.js` at the root - it has a different entry point.
+Pre-built release tarballs may have different directory layouts than source archives. HedgeDoc's release tarball doesn't have `app.js` at the root; it has a different entry point.
 
 **Symptom:** `Cannot find module '/nix/store/.../app/app.js'`
 
@@ -393,7 +393,7 @@ Some apps deprecate their binary names between versions (Grafana: `grafana-serve
 ./apps/build-nix-apps.py real-apps-nix --fix-hashes
 ```
 
-The `--fix-hashes` flag detects `got: sha256-...` in nix-build errors, replaces the placeholder in `hop3.nix`, and retries. Handles multiple `fetchurl` calls (up to 3 retries).
+The `--fix-hashes` flag detects `got: sha256-...` in nix-build errors, replaces the placeholder in `hop3.nix`, and retries. It handles multiple `fetchurl` calls (up to 3 retries).
 
 ### E2E Testing
 
@@ -418,3 +418,18 @@ sha256 = "0000000000000000000000000000000000000000000000000000";
 # Replace with the reported hash
 sha256 = "sha256-abc123...=";
 ```
+
+## Wrapper Script Traps (April 2026 round)
+
+- **A single-quoted heredoc keeps `$out` literal.** `cat > $out/bin/app << 'EOF'` followed by `cd $out/app` writes the four characters `$out` into the script; at runtime the shell finds it unset, `cd /app` fails, and the daemon loops. Write a placeholder and substitute it after (`__APPDIR__`, then `sed -i "s|__APPDIR__|$out/app|g"`), or unquote the heredoc and escape Nix's `$` as `''$`, which is easier to get wrong.
+- **Placeholders must not be prefixes of shell identifiers.** `sed "s|VENV|$out/venv|g"` also rewrote `VENV_LIB=$(…)` into `$out/venv_LIB=…`, turning an assignment into a command. `__UPPER_WITH_UNDERSCORES__` cannot collide with a real name; the `BINDIR` example above predates this rule.
+- **Pillow's wheels vendor their libraries under `site-packages/pillow.libs/`** with hashed names; `LD_LIBRARY_PATH` pointing at `site-packages/` alone does not find them. Matrix Synapse's bundled Pillow was the case.
+- **Vikunja 2.x refuses to start without `service.publicurl`** when CORS is on; the deprecated `frontendurl` alias no longer satisfies it. Configuration through environment variables outlasts version bumps better than a generated YAML.
+
+## Pre-Built Binaries Are a Shortcut, Not a Package
+
+Seven of the first twenty Nix apps fetched a release binary from upstream. It was expedient, and it is neither reproducible nor portable off x86_64, and a supply-chain exposure in a project that advertises reproducible builds. Treat a `fetchurl` of a binary as the lowest reproducibility tier and a temporary state; the source builds are `buildGoModule` for Go and `buildNpmPackage` for Node, with the effort ranging from Miniflux (small) to Grafana (Go plus a webpack frontend). Apps that need several processes (a cron worker, a queue, a streaming server) are a separate problem, one the packaging model answers at the platform level (ADR 038).
+
+## The Closure Guard Gated on the Wrong Field
+
+The guard that refuses to start a Nix app whose store closure was garbage-collected ran only for artifacts of `kind == "nix"`. The Nix builder emits a `static` artifact for a site served straight from the store, so for exactly that app the guard returned before looking, and a restart against a deleted closure reported success. It was found in September 2026 by an e2e test that had been skipped since it was written, because the image had no Nix. The gate is the artifact's `builder`, and the artifact's own `location` counts as a root whether or not a worker line names a store path. A guard with a "not my kind" early return needs a test per kind the builder can emit.

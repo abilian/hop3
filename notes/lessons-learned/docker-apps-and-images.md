@@ -1,0 +1,46 @@
+# Lessons Learned: Containerized Apps and Images
+
+**Updated**: 2026-09-08, consolidated from the internal notes of the December 2025 demo campaign (the first sixty apps, most of them Docker at the time).
+
+What went wrong inside containers, and the build policy that came out of it. Network ranges and the `localhost` rewrite live in [`database-addon-portability.md`](./database-addon-portability.md).
+
+## Build from source, on the base the server runs
+
+The hierarchy, best first: a native build on the server; a Dockerfile that builds from source on `debian:bookworm-slim` (later `trixie-slim`), the same libc and packages the server has; an upstream pre-built image as a last resort. `FROM wordpress:latest` is a shortcut that hides every dependency the app has, and each hidden dependency is a native build that will fail later for an unrecorded reason. The catalog rule that followed: no upstream images, base images pinned by digest, and the builder refuses a tag-only `FROM`.
+
+Two consequences of building on a distribution base:
+
+- **Architecture.** Upstream images are often x86_64 only; the language base images (`python:X-slim`, `node:X-alpine`, `golang:X-alpine`) and a source build are multi-arch, which is what an ARM64 server needs.
+- **Language versions.** A base ships one Python, one PHP, one Node. When an app wants a newer one than the base has, pinning an older app release is usually cheaper than a newer runtime: Linkding 1.44 wanted Python 3.13 on a base with 3.11, and 1.23.1 did not.
+
+## Compose only recreates what it thinks changed
+
+`docker compose up -d` recreates a container when the service definition changes. An environment it reads from an external file can change without it noticing: after an addon attach, the running container kept the old environment. Use `--force-recreate` whenever the environment may have changed underneath a running service.
+
+## Frameworks refuse hostnames they do not know
+
+Sinatra 4 ships `Rack::Protection::HostAuthorization` on by default, and an app reached through a hostname it does not expect answers 403 with `attack prevented by Rack::Protection::HostAuthorization` in its log. Rails has the same guard. An app deployed under a PaaS-assigned hostname must either be told that hostname or told to accept any; check for host validation middleware before blaming the proxy.
+
+## Files copied into an image keep their permissions
+
+`COPY` preserves the source file's mode, so a file readable only by its owner on the build machine is unreadable by the web server in the container: PHP's `Failed opening required '/var/www/html/index.php'` was a permission problem. Use `COPY --chmod=644` for files a server reads and `--chmod=755` for what it executes, and stop depending on the umask of whoever built the image.
+
+## Dependencies that used to be bundled no longer are
+
+Sinatra 4 needs `rackup` and a server gem in the Gemfile; `webrick` left the Ruby standard library. `Sinatra could not start, the required gems weren't found!` is the whole diagnosis. Read the framework's notes for the major version before packaging it.
+
+## An image that only configures itself through a browser cannot be automated
+
+LinuxServer.io images take their database settings from a first-run web wizard and ignore the environment, so there is no way to provision one non-interactively. Build from source, or choose an image that reads its configuration from the environment.
+
+## Log what you expected, what you ran, and what came back
+
+"Application not accessible" was the whole failure report until the check logged the expected content, the exact `curl` command, the exit code and the first kilobyte of the body. The first run with that logging showed a PHP fatal error in the response body, and the permission bug above was fixed in minutes. A verifier that prints only its verdict has hidden the evidence; see [`verifying-an-app-works.md`](./verifying-an-app-works.md).
+
+## The checklist, when a container fails
+
+1. `docker logs` first: startup errors, and the 403s from a security middleware.
+2. File permissions in the image (`COPY --chmod`).
+3. The framework's explicit dependencies for its major version.
+4. The framework's security defaults: host authorization, CSRF, `Secure` cookies over plain HTTP.
+5. The environment the container actually has, after `--force-recreate`.

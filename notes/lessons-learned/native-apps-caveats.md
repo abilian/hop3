@@ -119,7 +119,7 @@ For simpler PHP apps (not Laravel), use PHP's built-in server:
 start = "php -S 0.0.0.0:${PORT:-8080}"
 ```
 
-Or with a specific document root:
+With a specific document root, add `-t`:
 
 ```toml
 [run]
@@ -331,3 +331,7 @@ When a native app fails to deploy or start:
 6. **Check uWSGI config**: `cat /home/hop3/uwsgi-enabled/{app}_web.1.ini`
 7. **For Laravel**: Look for "Environment modified. Restarting server..." in logs
 8. **For database issues**: Check addon is provisioned and env vars are correct
+
+## Elixir and Mix
+
+Mix keeps dependency metadata separate from the dependency files, so `rm -rf deps` leaves it believing every dependency is up to date, and the next compile fails on files that are not there (`could not read file "lib/plug/debugger.ex"`). A clean build is `mix deps.clean --all` before `mix deps.get`. A `before-build` hook that does the cleaning must never also be a worker; see [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md), "Build hooks are not workers".

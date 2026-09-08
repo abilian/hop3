@@ -1,6 +1,6 @@
 # Lessons Learned: Async ↔ Thread Boundaries
 
-**Updated**: 2026-06-07 - Written after the "every deploy takes ~30s" investigation.
+**Updated**: 2026-06-07, written after the "every deploy takes ~30s" investigation.
 
 How a background thread talking to an `asyncio` primitive made *every* deployment appear to take ~30s, how it was diagnosed (after a wrong first guess), and the rule that prevents the whole class.
 
@@ -52,7 +52,7 @@ The whole bug class is "wrong primitive for the boundary". Choose by which side 
 
 | Producer → Consumer | Use | Wake mechanism |
 |---------------------|-----|----------------|
-| thread → thread | `queue.Queue`, `threading.Event` | built-in (`threading.Condition`) - thread-safe |
+| thread → thread | `queue.Queue`, `threading.Event` | built-in (`threading.Condition`), thread-safe |
 | coroutine → coroutine (same loop) | `asyncio.Queue`, `asyncio.Event` | the loop |
 | **thread → coroutine** | `loop.call_soon_threadsafe(...)` or `asyncio.run_coroutine_threadsafe(...)` | explicitly bridges onto the loop |
 | coroutine → thread | a thread-safe object (`queue.Queue`, `threading.Event`) | the thread's blocking wait |
@@ -61,9 +61,9 @@ The whole bug class is "wrong primitive for the boundary". Choose by which side 
 
 Litestar/Granian handlers run on the event loop; any `threading.Thread` you spawn does not. This bug lives at that boundary.
 
-## Diagnosis lesson: instrument, don't theorize
+## Diagnosis lesson: instrument first
 
-The first hypothesis was **wrong**: SQLite uses `busy_timeout=30000`, and a blocked writer waits *exactly* 30s - a seductive match for the observed 30.0s. A reproduction even confirmed the mechanism *exists*. But it wasn't the cause.
+The first hypothesis was **wrong**: SQLite uses `busy_timeout=30000`, and a blocked writer waits *exactly* 30s, a seductive match for the observed 30.0s. A reproduction even confirmed the mechanism *exists*. But it wasn't the cause.
 
 Instrumentation found it, in order:
 1. Per-phase timing inside `do_deploy` → the deploy work was ~2s. (Killed the "slow build/cert/nginx" theories.)
@@ -98,9 +98,9 @@ A hit is a **real bug only if** a non-loop thread *mutates* a loop-owned primiti
 
 As of this writing the only `asyncio.Queue` in the codebase is the (now-fixed) `DeploymentStream`. Examples of the boundary done **correctly** elsewhere (use these as the reference pattern):
 
-- `server/state_sync.py` - background sync thread coordinates via `threading.Event` and a per-thread **sync** SQLAlchemy session; nothing is awaited.
-- `hop3_testing/util/streaming.py` - subprocess reader thread feeds a stdlib `queue.Queue` drained by a synchronous caller; no event loop involved.
-- `hop3_testlab` scheduler/worker - APScheduler fires jobs on a worker thread that only touch a **sync** sessionmaker (`check_same_thread=False`) and `subprocess`; no asyncio primitive is shared with the async web handlers.
-- `hop3_installer` `Spinner` - daemon thread signalled by `threading.Event`; the package has no asyncio at all.
+- `server/state_sync.py`: background sync thread coordinates via `threading.Event` and a per-thread **sync** SQLAlchemy session; nothing is awaited.
+- `hop3_testing/util/streaming.py`: subprocess reader thread feeds a stdlib `queue.Queue` drained by a synchronous caller; no event loop involved.
+- `hop3_testlab` scheduler/worker: APScheduler fires jobs on a worker thread that only touch a **sync** sessionmaker (`check_same_thread=False`) and `subprocess`; no asyncio primitive is shared with the async web handlers.
+- `hop3_installer` `Spinner`: daemon thread signalled by `threading.Event`; the package has no asyncio at all.
 
 Match the primitive to the boundary, and the one boundary that always needs an explicit bridge is **thread → coroutine**.
