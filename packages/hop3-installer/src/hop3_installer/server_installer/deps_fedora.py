@@ -319,6 +319,7 @@ def _create_fedora_package_spec(distro_info: DistroInfo) -> PackageSpec:
         docker_packages=docker_packages,
         mysql_packages=mysql_packages,
         redis_packages=["redis"],
+        nix_packages=["xz"],
         conditional_packages={"npm": "npm"},
     )
 

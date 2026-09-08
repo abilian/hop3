@@ -80,6 +80,9 @@ class PackageSpec:
     docker_packages: list[str] = field(default_factory=list)
     mysql_packages: list[str] = field(default_factory=list)
     redis_packages: list[str] = field(default_factory=list)
+    # What the official Nix installer needs and a minimal image lacks: `xz`
+    # to unpack its tarball (ubuntu:24.04 ships neither xz nor curl).
+    nix_packages: list[str] = field(default_factory=list)
 
     # Commands that need special handling (check before install)
     conditional_packages: dict[str, str] = field(default_factory=dict)
@@ -194,6 +197,8 @@ def install_optional_packages(
             print_success("Redis already installed")
         configure_redis_func()
 
+    if config.with_nix and not cmd_exists("xz"):
+        install_feature_packages("Nix prerequisite", spec.nix_packages, spec)
     if config.with_s3:
         # S3 (MinIO) is downloaded as a standalone binary, not from apt.
         # Delegate to the distro-agnostic configure_s3 function.

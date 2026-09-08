@@ -20,15 +20,16 @@ import tempfile
 import urllib.error
 import urllib.request
 from pathlib import Path
+from typing import NoReturn
 
 from hop3_installer.common import (
+    CommandError,
     Spinner,
     cmd_exists,
     has_systemd,
     print_detail,
     print_info,
     print_success,
-    print_warning,
     run_cmd,
 )
 from hop3_installer.constants import HOME_DIR
@@ -50,16 +51,25 @@ def install_nix() -> None:
     Uses multi-user (daemon) mode when systemd is available,
     falls back to single-user mode for containers/non-systemd environments.
 
-    This is the main entry point called from deps_common.py.
-    Nix installation is non-critical - failures warn but don't abort.
+    Called when the operator asked for ``--with nix``, so a Nix that did not
+    install is a failed install: raise ``CommandError`` rather than warn. A
+    warning let the install report success while every Nix app on the box then
+    failed to build, and the e2e suite skipped its Nix fixtures for months.
     """
     print_info("Installing Nix package manager...")
 
     # Check if Nix is already installed
     if _is_nix_installed():
         print_success("Nix already installed")
-        _verify_nix_installation()
+        if not _verify_nix_installation():
+            _fail("Nix is installed but the hop3 user cannot run it")
         return
+
+    if not cmd_exists("xz"):
+        _fail(
+            "the Nix installer needs `xz`; the Nix prerequisite packages were "
+            "not installed"
+        )
 
     # Determine installation mode
     use_daemon_mode = _has_systemd()
@@ -71,23 +81,24 @@ def install_nix() -> None:
     # Download the official installer
     installer_path = _download_nix_installer()
     if not installer_path:
-        print_warning("Failed to download Nix installer")
-        return
+        _fail(f"could not download the Nix installer from {NIX_INSTALLER_URL}")
 
     # Run installer
     if not _run_nix_installer(installer_path, daemon_mode=use_daemon_mode):
-        print_warning("Nix installation failed")
-        return
+        _fail("the Nix installer exited with an error (its output is above)")
 
     # Configure hop3 user access
     _configure_hop3_nix_access(daemon_mode=use_daemon_mode)
 
     # Verify installation
-    if _verify_nix_installation():
-        mode_str = "multi-user" if use_daemon_mode else "single-user"
-        print_success(f"Nix package manager installed ({mode_str} mode)")
-    else:
-        print_warning("Nix installed but verification failed")
+    if not _verify_nix_installation():
+        _fail("Nix installed but the hop3 user cannot run `nix --version`")
+    mode_str = "multi-user" if use_daemon_mode else "single-user"
+    print_success(f"Nix package manager installed ({mode_str} mode)")
+
+
+def _fail(reason: str) -> NoReturn:
+    raise CommandError(cmd=["install-nix"], returncode=1, stderr=reason)
 
 
 def _is_nix_installed() -> bool:
