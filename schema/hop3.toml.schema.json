@@ -307,6 +307,27 @@
       "title": "BuildSection",
       "type": "object"
     },
+    "CliSection": {
+      "additionalProperties": false,
+      "description": "The ``[cli]`` block \u2014 per-project CLI preferences (ADR 042 \u00a7Resolution).\n\nClient-side only, exactly like ``[contexts.*]``: the CLI reads it while\nresolving which app a command acts on (source #4 of the resolution chain,\nbelow ``.hop3-app`` and above ``[contexts.<sel>].app``), and the deployer\nignores it. It is declared here because the schema is ``extra=\"forbid\"``\nand validates the whole committed file \u2014 without this block, a project\nthat follows the CLI's own documented resolution chain is rejected at\ndeploy, which is a contradiction between two halves of the same product\nrather than a config error.",
+      "properties": {
+        "app": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "App instance name this project binds to, when it differs from [metadata].id. Read by the CLI, ignored by the deployer.",
+          "title": "App"
+        }
+      },
+      "title": "CliSection",
+      "type": "object"
+    },
     "ContextSection": {
       "additionalProperties": false,
       "description": "A single ``[contexts.<name>]`` block \u2014 one deploy environment (ADR 042 r2).\n\nA \"context\" is a (server, app, domains, env) bundle answering \"where does\n*this* project go for environment ``<name>``?\". Multiple contexts express the\ndev / staging / prod story for one codebase. Carries NO secrets: ``server``\nis a literal address (the token lives in the CLI's per-server store), and a\ncommitted-credential tripwire rejects secret-shaped values. Resolved\nCLIENT-SIDE; the deployer ignores ``[contexts.*]``.",
@@ -1527,6 +1548,18 @@
       ],
       "default": null
     },
+    "cli": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/CliSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-project CLI preferences (ADR 042). Currently just `app`, the app name this project binds to. Non-secret; resolved client-side; ignored by the deployer."
+    },
     "contexts": {
       "anyOf": [
         {
@@ -1588,7 +1621,7 @@
         }
       ],
       "default": null,
-      "description": "Environment variables. Set _policy = 'override' to update existing values on redeploy.",
+      "description": "Environment variables. A value is a scalar, or one of three typed tables (ADR 046): { generate = 'hex' | 'base64' | 'urlsafe' | 'password' | 'uuid', length = N } for a secret minted once on first deploy; { from = '<addon>', key = '<VAR>' } or { key = 'domain' } for a value copied from an addon or an app fact; and the [env.computed] sub-table, whose values are ${VAR} templates interpolated against the app's env AFTER addons are provisioned \u2014 the way to expose an addon's DATABASE_URL under the name an app expects. Set _policy = 'override' to update existing values on redeploy. Typed as free-form because the three forms and the sub-table share one namespace; the validator below is what actually constrains it.",
       "title": "Env"
     },
     "healthcheck": {

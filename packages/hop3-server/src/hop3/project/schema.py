@@ -1085,6 +1085,44 @@ def _reject_committed_env_secret(name: str, value: object, where: str) -> None:
         raise ValueError(msg)
 
 
+class CliSection(BaseModel):
+    """
+    The ``[cli]`` block — per-project CLI preferences (ADR 042 §Resolution).
+
+    Client-side only, exactly like ``[contexts.*]``: the CLI reads it while
+    resolving which app a command acts on (source #4 of the resolution chain,
+    below ``.hop3-app`` and above ``[contexts.<sel>].app``), and the deployer
+    ignores it. It is declared here because the schema is ``extra="forbid"``
+    and validates the whole committed file — without this block, a project
+    that follows the CLI's own documented resolution chain is rejected at
+    deploy, which is a contradiction between two halves of the same product
+    rather than a config error.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    app: str | None = Field(
+        default=None,
+        description=(
+            "App instance name this project binds to, when it differs from "
+            "[metadata].id. Read by the CLI, ignored by the deployer."
+        ),
+    )
+
+    @field_validator("app")
+    @classmethod
+    def validate_app(cls, v: str | None) -> str | None:
+        if v is None:
+            return v
+        if not v or v != v.strip():
+            msg = (
+                "[cli].app must be a non-empty app name without surrounding "
+                "whitespace. Omit it to inherit [metadata].id."
+            )
+            raise ValueError(msg)
+        return v
+
+
 class ContextSection(BaseModel):
     """
     A single ``[contexts.<name>]`` block — one deploy environment (ADR 042 r2).
@@ -1409,8 +1447,18 @@ class Hop3TomlSchema(BaseModel):
     env: dict[str, Any] | None = Field(
         default=None,
         description=(
-            "Environment variables. "
-            "Set _policy = 'override' to update existing values on redeploy."
+            "Environment variables. A value is a scalar, or one of three typed "
+            "tables (ADR 046): { generate = 'hex' | 'base64' | 'urlsafe' | "
+            "'password' | 'uuid', length = N } for a secret minted once on "
+            "first deploy; { from = '<addon>', key = '<VAR>' } or "
+            "{ key = 'domain' } for a value copied from an addon or an app "
+            "fact; and the [env.computed] sub-table, whose values are ${VAR} "
+            "templates interpolated against the app's env AFTER addons are "
+            "provisioned — the way to expose an addon's DATABASE_URL under the "
+            "name an app expects. Set _policy = 'override' to update existing "
+            "values on redeploy. Typed as free-form because the three forms "
+            "and the sub-table share one namespace; the validator below is "
+            "what actually constrains it."
         ),
     )
     port: dict[str, PortValue] | None = None
@@ -1450,6 +1498,14 @@ class Hop3TomlSchema(BaseModel):
             "Per-project deploy environments (ADR 042, 2nd revision). Each "
             "[contexts.<name>] bundles (server, app, domains, env) for one "
             "environment — dev/staging/prod. Non-secret; resolved client-side; "
+            "ignored by the deployer."
+        ),
+    )
+    cli: CliSection | None = Field(
+        default=None,
+        description=(
+            "Per-project CLI preferences (ADR 042). Currently just `app`, the "
+            "app name this project binds to. Non-secret; resolved client-side; "
             "ignored by the deployer."
         ),
     )
