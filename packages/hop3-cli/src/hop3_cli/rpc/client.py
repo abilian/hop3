@@ -15,7 +15,7 @@ import requests
 from jsonrpcclient import Error, Ok, parse, request
 from loguru import logger
 
-from hop3_cli.core.ssh_target import ssh_options_from
+from hop3_cli.core.ssh_target import SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
 from hop3_cli.ui.upload_progress import upload_body
@@ -197,21 +197,18 @@ class Client:
         if not ssh_host:
             msg = f"SSH server URL has no hostname: {self.api_url!r}"
             raise CliError(msg)
+        settings = SshSettings.from_config(self.config)
         ssh_user = parsed_url.username or self.config.get("ssh_user", "root")
-        ssh_port = parsed_url.port or self.config.get("ssh_port", 22)
+        ssh_port = parsed_url.port or settings.port
         # The remote port is the one hop3-server listens on *on the remote box*.
         remote_server_port = self.config.get("server_port", 8000)
-        # Optional key; when absent, ssh uses ~/.ssh/config / agent / default keys.
-        ssh_key_value = self.config.get("ssh_key", None)
-        ssh_key = ssh_key_value if isinstance(ssh_key_value, str) else None
 
         self.tunnel = SshTunnel(
             ssh_host,
             remote_server_port,
             user=ssh_user,
             ssh_port=ssh_port,
-            key=ssh_key,
-            options=ssh_options_from(self.config.get("ssh_options", "")),
+            settings=settings,
         )
         logger.debug(
             f"Starting SSH tunnel to {ssh_host}:{ssh_port} (remote port: {remote_server_port})"

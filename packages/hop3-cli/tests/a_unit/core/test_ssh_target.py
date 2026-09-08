@@ -15,8 +15,10 @@ from __future__ import annotations
 
 import pytest
 from hop3_cli.core.ssh_target import (
+    SshSettings,
     is_safe_ssh_target,
     split_ssh_target,
+    ssh_base_argv,
     ssh_options_from,
 )
 
@@ -66,3 +68,32 @@ def test_ssh_options_split_like_a_shell_and_default_to_none() -> None:
     ]
     assert ssh_options_from("") == []
     assert ssh_options_from(None) == []
+
+
+# ---- SshSettings and the base argv every ssh starts from ----
+
+
+class _Config:
+    def __init__(self, **values: object) -> None:
+        self._values = values
+
+    def get(self, key: str, default: object = None) -> object:
+        return self._values.get(key, default)
+
+
+def test_settings_drop_a_key_that_is_not_a_string() -> None:
+    assert SshSettings.from_config(_Config(ssh_key=42)).key is None
+    assert SshSettings.from_config(_Config(ssh_key="/k")).key == "/k"
+
+
+def test_settings_read_port_and_options() -> None:
+    settings = SshSettings.from_config(_Config(ssh_port="2222", ssh_options="A=1 B=2"))
+    assert settings.port == 2222
+    assert settings.options == ("A=1", "B=2")
+
+
+def test_base_argv_adds_dash_p_only_off_the_default_port() -> None:
+    assert "-p" not in ssh_base_argv(SshSettings())
+    assert ssh_base_argv(SshSettings(port=2222))[-2:] == ["-p", "2222"]
+    assert "-p" not in ssh_base_argv(SshSettings(port=2222), port=22)
+    assert ssh_base_argv(SshSettings(), port=2200)[-2:] == ["-p", "2200"]

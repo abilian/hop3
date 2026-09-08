@@ -19,6 +19,7 @@ import subprocess
 
 import pytest
 from hop3_cli.core import ssh_tunnel as st
+from hop3_cli.core.ssh_target import SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel, SshTunnelError
 
 
@@ -104,12 +105,13 @@ def _tunnel(**kw) -> SshTunnel:
 def test_build_argv_minimal() -> None:
     argv = _tunnel(local_port=55000)._build_argv("root@host.example.com", 55000)
     assert argv == [
-        "ssh", "-N",
-        "-o", "ExitOnForwardFailure=yes",
+        "ssh",
         "-o", "StrictHostKeyChecking=accept-new",
-        "-o", "BatchMode=yes",
         "-o", "ConnectTimeout=10",
         "-o", "ServerAliveInterval=15",
+        "-N",
+        "-o", "ExitOnForwardFailure=yes",
+        "-o", "BatchMode=yes",
         "-o", "ServerAliveCountMax=3",
         "-L", "127.0.0.1:55000:127.0.0.1:8000",
         "root@host.example.com",
@@ -117,9 +119,9 @@ def test_build_argv_minimal() -> None:
 
 
 def test_build_argv_with_key_and_nonstandard_port() -> None:
-    argv = _tunnel(ssh_port=2222, key="/home/me/id_ed25519")._build_argv(
-        "root@host.example.com", 55000
-    )
+    argv = _tunnel(
+        ssh_port=2222, settings=SshSettings(key="/home/me/id_ed25519")
+    )._build_argv("root@host.example.com", 55000)
     assert "-i" in argv
     assert argv[argv.index("-i") + 1] == "/home/me/id_ed25519"
     assert "-p" in argv
@@ -285,8 +287,7 @@ def test_local_bind_port_before_start_raises() -> None:
 
 
 def test_build_argv_passes_the_ssh_options_setting_through() -> None:
-    argv = _tunnel(
-        options=["ProxyJump=bastion", "UserKnownHostsFile=/tmp/kh"]
-    )._build_argv("root@host.example.com", 55000)
+    settings = SshSettings(options=("ProxyJump=bastion", "UserKnownHostsFile=/tmp/kh"))
+    argv = _tunnel(settings=settings)._build_argv("root@host.example.com", 55000)
     assert argv[argv.index("ProxyJump=bastion") - 1] == "-o"
     assert "UserKnownHostsFile=/tmp/kh" in argv

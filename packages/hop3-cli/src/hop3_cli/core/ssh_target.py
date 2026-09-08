@@ -17,6 +17,18 @@ from __future__ import annotations
 
 import re
 import shlex
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Final
+
+if TYPE_CHECKING:
+    from hop3_cli.config import Config
+
+#: What every ssh the CLI spawns carries: a bounded connect, keepalives so a
+#: dropped link surfaces, and trust on first use for the host key (the tunnel
+#: always accepted new keys; the bootstrap and the shell now do the same).
+CONNECT_TIMEOUT_S: Final = 10
+ALIVE_INTERVAL_S: Final = 15
+DEFAULT_SSH_PORT: Final = 22
 
 # A well-formed ssh target: ``[user@]host[:port]`` over a conservative charset.
 # The leading character must NOT be ``-`` (that is the whole point). We always
@@ -24,6 +36,69 @@ import shlex
 # input, never a legitimate target. Anchored with ``\A``/``\Z`` (not ``$``,
 # which in Python also matches just before a trailing newline).
 _SSH_TARGET_RE = re.compile(r"\A[A-Za-z0-9_.][A-Za-z0-9_.@:+-]*\Z")
+
+
+@dataclass(frozen=True, slots=True)
+class SshSettings:
+    """
+    The CLI's ssh settings: ``ssh_key``, ``ssh_port``, ``ssh_options``.
+
+    Read once from the config (``HOP3_SSH_KEY``, ``HOP3_SSH_PORT``,
+    ``HOP3_SSH_OPTIONS`` override the file), then applied by ``ssh_base_argv``
+    to every ssh the CLI spawns: the RPC tunnel, ``hop3 tunnel``,
+    ``hop3 app shell`` and the ``login --ssh`` bootstrap.
+    """
+
+    key: str | None = None
+    port: int = DEFAULT_SSH_PORT
+    options: tuple[str, ...] = ()
+
+    @classmethod
+    def from_config(cls, config: Config) -> SshSettings:
+        key = config.get("ssh_key", None)
+        return cls(
+            key=key if isinstance(key, str) and key else None,
+            port=int(config.get("ssh_port", DEFAULT_SSH_PORT)),
+            options=tuple(ssh_options_from(config.get("ssh_options", ""))),
+        )
+
+
+@dataclass(frozen=True, slots=True)
+class SshEndpoint:
+    """The ``ssh://`` server the CLI is pointed at, with the settings to reach it."""
+
+    host: str
+    user: str
+    port: int
+    settings: SshSettings
+
+    @property
+    def target(self) -> str:
+        return f"{self.user}@{self.host}"
+
+
+def ssh_base_argv(settings: SshSettings, *, port: int | None = None) -> list[str]:
+    """
+    ``ssh`` with the settings applied, for a caller to add its flags and target.
+
+    ``port`` is the one the caller resolved (from an ``ssh://`` URL or a
+    ``host:port`` target); it falls back to the settings' port, and ``-p`` is
+    passed only when that differs from ssh's default.
+    """
+    argv = [
+        "ssh",
+        "-o", "StrictHostKeyChecking=accept-new",
+        "-o", f"ConnectTimeout={CONNECT_TIMEOUT_S}",
+        "-o", f"ServerAliveInterval={ALIVE_INTERVAL_S}",
+    ]  # fmt: skip
+    for option in settings.options:
+        argv += ["-o", option]
+    if settings.key:
+        argv += ["-i", settings.key]
+    effective_port = settings.port if port is None else port
+    if effective_port != DEFAULT_SSH_PORT:
+        argv += ["-p", str(effective_port)]
+    return argv
 
 
 def split_ssh_target(target: str) -> tuple[str, int | None]:

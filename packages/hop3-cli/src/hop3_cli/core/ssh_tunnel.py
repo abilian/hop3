@@ -37,19 +37,19 @@ import socket
 import subprocess
 import tempfile
 import time
-from typing import IO, TYPE_CHECKING, Final
+from typing import IO, Final
 
-from hop3_cli.core.ssh_target import is_safe_ssh_target
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
+from hop3_cli.core.ssh_target import (
+    DEFAULT_SSH_PORT,
+    SshSettings,
+    is_safe_ssh_target,
+    ssh_base_argv,
+)
 
 _LOOPBACK: Final = "127.0.0.1"
 
-# ssh -o values for an unattended, fail-loud forward (mirrors the deployer's
-# SSHDeployBackend option set).
-_CONNECT_TIMEOUT: Final = 10
-_ALIVE_INTERVAL: Final = 15
+# Keepalive misses before ssh gives the forward up (the interval itself, and
+# the connect timeout, are the shared ones in core.ssh_target).
 _ALIVE_COUNT_MAX: Final = 3
 
 # Readiness: wait this long for the forwarded port to accept a connection before
@@ -63,7 +63,6 @@ _TERM_GRACE: Final = 5.0
 
 _MIN_PORT: Final = 1
 _MAX_PORT: Final = 65535
-_DEFAULT_SSH_PORT: Final = 22
 
 
 class SshTunnelError(Exception):
@@ -120,18 +119,16 @@ class SshTunnel:
         remote_port: int | str,
         *,
         user: str,
-        ssh_port: int | str = _DEFAULT_SSH_PORT,
-        key: str | None = None,
+        ssh_port: int | str = DEFAULT_SSH_PORT,
+        settings: SshSettings | None = None,
         local_port: int | str | None = None,
         ready_timeout: float = _READY_TIMEOUT,
-        options: Sequence[str] = (),
     ) -> None:
         self._host = host
         self._user = user
-        self._options = tuple(options)  # extra `ssh -o` values (ssh_options)
+        self._settings = settings or SshSettings()
         self._remote_port = _coerce_port(remote_port, "remote port")
         self._ssh_port = _coerce_port(ssh_port, "ssh port")
-        self._key = key
         self._local_port: int | None = (
             _coerce_port(local_port, "local port") if local_port is not None else None
         )
@@ -190,25 +187,17 @@ class SshTunnel:
     def _build_argv(self, target: str, local_port: int) -> list[str]:
         """The exact ``ssh`` command line — every value a separate argv element."""
         forward = f"{_LOOPBACK}:{local_port}:{_LOOPBACK}:{self._remote_port}"
-        argv = [
-            "ssh",
+        # Unattended and fail-loud on top of the shared base: no prompt for a
+        # passphrase, a lost forward is an exit, a few missed keepalives too.
+        return [
+            *ssh_base_argv(self._settings, port=self._ssh_port),
             "-N",
             "-o", "ExitOnForwardFailure=yes",
-            "-o", "StrictHostKeyChecking=accept-new",
             "-o", "BatchMode=yes",
-            "-o", f"ConnectTimeout={_CONNECT_TIMEOUT}",
-            "-o", f"ServerAliveInterval={_ALIVE_INTERVAL}",
             "-o", f"ServerAliveCountMax={_ALIVE_COUNT_MAX}",
             "-L", forward,
+            target,
         ]  # fmt: skip
-        for option in self._options:
-            argv += ["-o", option]
-        if self._key:
-            argv += ["-i", self._key]
-        if self._ssh_port != _DEFAULT_SSH_PORT:
-            argv += ["-p", str(self._ssh_port)]
-        argv.append(target)
-        return argv
 
     def _await_ready(self, proc: subprocess.Popen, local_port: int) -> None:
         deadline = time.monotonic() + self._ready_timeout
