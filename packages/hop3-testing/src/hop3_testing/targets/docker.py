@@ -411,6 +411,7 @@ class DockerTarget(DeploymentTarget):
             features=config.features,
             command_prefix=config.command_prefix,
             cwd=config.cwd,
+            deployer_command=config.deployer_command,
             diagnostics=self.diagnostics,
         )
         if not success:
@@ -451,6 +452,7 @@ class DockerTarget(DeploymentTarget):
                 # run an old version's deployer via `uv run` in its worktree.
                 command_prefix=self.deployment.command_prefix,
                 cwd=self.deployment.cwd,
+                deployer_command=self.deployment.deployer_command,
                 diagnostics=self.diagnostics,
             )
 

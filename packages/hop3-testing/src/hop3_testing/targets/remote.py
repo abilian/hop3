@@ -218,6 +218,7 @@ class RemoteTarget(DeploymentTarget):
             ssh_key=rc.ssh_key,
             command_prefix=config.command_prefix,
             cwd=config.cwd,
+            deployer_command=config.deployer_command,
             diagnostics=self.diagnostics,
         )
         if not success:
@@ -269,6 +270,7 @@ class RemoteTarget(DeploymentTarget):
                 # Cloud path only: run `uv run hop3-deploy-server` from a checkout.
                 command_prefix=deployment.command_prefix,
                 cwd=deployment.cwd,
+                deployer_command=deployment.deployer_command,
                 diagnostics=self.diagnostics,
             )
 

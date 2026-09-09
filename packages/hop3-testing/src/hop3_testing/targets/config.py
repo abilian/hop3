@@ -59,6 +59,12 @@ class DeploymentConfig:
     path leaves this None and invokes the installed console script directly."""
 
     cwd: Path | None = None
+    #: The deployer's console-script name. It was `hop3-deploy` before 0.7.0 and
+    #: is `hop3-deploy-server` since; a caller driving an old checkout's own
+    #: deployer (the upgrade chain) reads the name from that checkout, because
+    #: `uv run <missing-script>` falls through to PATH without a word and runs
+    #: whatever deployer the developer's own environment has.
+    deployer_command: str = "hop3-deploy-server"
     """Working directory for the deploy subprocess (the cloud path's cloned/local
     repo). None on the run path -> current directory."""
 
