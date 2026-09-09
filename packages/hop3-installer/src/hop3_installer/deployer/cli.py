@@ -290,6 +290,17 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
     ``!= default``: an explicit ``--ssh-user root`` must win over an env-supplied
     value even though ``root`` is the default (ADR 052 D7).
     """
+    # Validate the target words BEFORE acting on any of them. This check used
+    # to sit after the provisioning branch, so `--docker --provider hetzner`
+    # rebuilt a real server and only then refused the combination; a unit test
+    # of the refusal rebuilt the developer's dev box on every run for a month.
+    # A destructive step never precedes argument validation.
+    if args.docker and (args.host or args.provider):
+        msg = (
+            "--docker deploys to a local container, so it cannot be combined "
+            "with --host or --provider, which name a different target. Pick one."
+        )
+        raise SystemExit(msg)
     if args.provider:
         # Provision FIRST: the rebuilt server's address becomes the deploy
         # target, so --provider and --host are alternatives, not companions.
@@ -303,12 +314,6 @@ def _apply_target_overrides(config: DeployConfig, args: argparse.Namespace) -> N
         # sent a `--docker` deploy off to configure the CLI against that box.
         # Clear it rather than carry it: an ambient variable must not decide
         # which machine a run touches.
-        if args.host or args.provider:
-            msg = (
-                "--docker deploys to a local container, so it cannot be combined "
-                "with --host or --provider, which name a different target. Pick one."
-            )
-            raise SystemExit(msg)
         config.use_docker = True
         config.host = ""
     if args.docker_image is not None:

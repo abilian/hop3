@@ -41,6 +41,15 @@ _TABOO_REMOTE_TARGET_VARS = (
     "HOP3_DEV_HOST",
     "HOP3_TEST_HOST",
     "HOP3_TEST_SERVER",
+    # Cloud credentials and the server they point at. With these ambient, a
+    # unit test that walked the deployer's --provider path rebuilt the
+    # developer's dev server (Hetzner 115746898) on every run of the installer
+    # suite for a month (2026-08-13 to 2026-09-09) and passed. No pytest layer
+    # may hold a token that can rebuild a machine; provisioning is a CLI
+    # operation (hop3-test run / hop3-deploy-server --provider), never a test.
+    "HETZNER_API_TOKEN",
+    "HCLOUD_TOKEN",
+    "HETZNER_SERVER_ID",
 )
 
 

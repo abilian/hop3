@@ -355,7 +355,8 @@ Cloud E2E testing is part of `run`: `hop3-test run --provider hetzner --images .
 runs the suite across cloud OS images (Hetzner). Each image is a full
 `hop3-test run --provider hetzner`, so a cloud run shares `run`'s lexicon
 (positional apps, `--from`, `--with`). Requires `HETZNER_API_TOKEN` and
-`HETZNER_SERVER_ID`.
+`HETZNER_SERVER_ID`, and the server must carry the label `hop3-throwaway=true`
+(`hcloud server add-label <id> hop3-throwaway=true`): a rebuild wipes it.
 
 ```bash
 hop3-test run --list-images                                       # Available OS images

@@ -125,7 +125,10 @@ Run full E2E tests across cloud OS images with `hop3-test run --provider hetzner
 --images ...`. Each image is a full `hop3-test run --provider hetzner` (provision a
 fresh box → deploy → test → persist), so a cloud run shares `run`'s lexicon:
 positional app names, `--from`, `--branch`, `--with`. Requires `HETZNER_API_TOKEN`
-and `HETZNER_SERVER_ID` (a dedicated throwaway box).
+and `HETZNER_SERVER_ID` (a dedicated throwaway box). A rebuild wipes the box, so
+it refuses any server that does not carry the Hetzner label
+`hop3-throwaway=true`; set it once, on that server only:
+`hcloud server add-label $HETZNER_SERVER_ID hop3-throwaway=true`.
 
 ```bash
 # List available images

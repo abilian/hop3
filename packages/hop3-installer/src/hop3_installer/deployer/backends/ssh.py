@@ -133,6 +133,8 @@ class SSHDeployBackend(DeployBackend):
         # threads through every ssh/scp call below since they splat _ssh_opts.
         if config.ssh_key:
             self._ssh_opts.extend(["-i", config.ssh_key])
+        for option in config.ssh_options:
+            self._ssh_opts.extend(["-o", option])
         # The port flag differs per tool: ssh takes `-p`, scp takes `-P` and
         # reads `-p` as "preserve times". Kept out of `_ssh_opts`, which every
         # tool splats, so a non-default port no longer hands scp a `-p` and a

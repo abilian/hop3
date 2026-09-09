@@ -787,7 +787,11 @@ hop3-test run --host server.example.com --reuse
 | `-x`, `--fail-fast` | Stop on the first failing image |
 
 The Hetzner server (`HETZNER_SERVER_ID`, a dedicated throwaway box) and API token
-(`HETZNER_API_TOKEN`) come from the environment.
+(`HETZNER_API_TOKEN`) come from the environment. A rebuild wipes the box, so it
+refuses any server that does not carry the Hetzner label `hop3-throwaway=true`;
+set it once, on that server only (`hcloud server add-label <id>
+hop3-throwaway=true`), and never on a box anyone deploys to. pytest strips both
+variables for the whole session: provisioning is a CLI operation, never a test.
 
 ### Environment Setup
 

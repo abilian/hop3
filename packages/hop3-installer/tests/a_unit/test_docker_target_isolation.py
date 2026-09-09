@@ -85,7 +85,23 @@ def test_docker_and_an_explicit_host_are_refused(ambient_host):
         _apply_target_overrides(config, _Args(docker=True, host="someserver"))
 
 
-def test_docker_and_a_provider_are_refused(ambient_host):
+def test_docker_and_a_provider_are_refused(ambient_host, monkeypatch):
+    """
+    Refused BEFORE anything is provisioned.
+
+    The refusal used to come after the provisioning branch, so this very test
+    rebuilt the developer's real dev server (the id from HETZNER_SERVER_ID, the
+    token from the shell) on every run of the suite for a month, waited for it,
+    and then passed on the refusal. Provisioning must not be reached at all.
+    """
+
+    def _never(_args):
+        msg = "provisioning was attempted before the argument check"
+        raise AssertionError(msg)
+
+    monkeypatch.setattr(
+        "hop3_installer.deployer.cli._provision_pristine_server", _never
+    )
     config = DeployConfig.from_env()
 
     with pytest.raises(SystemExit, match="cannot be combined"):

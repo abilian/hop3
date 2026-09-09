@@ -58,3 +58,19 @@ def test_default_port_adds_nothing():
     ssh = _argv_of(backend, lambda b: b.run("true", check=False))
     assert "-p" not in ssh
     assert "-P" not in ssh
+
+
+def test_ssh_options_reach_ssh_scp_and_rsync():
+    backend = SSHDeployBackend(
+        DeployConfig(host="h.test", ssh_options=["UserKnownHostsFile=/tmp/kh"])
+    )
+    ssh = _argv_of(backend, lambda b: b.run("true", check=False))
+    scp = _argv_of(backend, lambda b: b.upload_file(Path("/tmp/f"), "/tmp/f"))
+    down = _argv_of(backend, lambda b: b.download_dir("/tmp/d", Path("/tmp/local")))
+    assert (
+        ssh[ssh.index("-o", ssh.index("ConnectTimeout=10")) + 1]
+        == "UserKnownHostsFile=/tmp/kh"
+        or "UserKnownHostsFile=/tmp/kh" in ssh
+    )
+    assert "UserKnownHostsFile=/tmp/kh" in scp
+    assert "UserKnownHostsFile=/tmp/kh" in down[down.index("-e") + 1]

@@ -100,6 +100,10 @@ class ServerInfo:
         )
 
 
+#: The label a server must carry before this module will rebuild it.
+THROWAWAY_LABEL = "hop3-throwaway"
+
+
 class HetznerError(Exception):
     """Base exception for Hetzner operations."""
 
@@ -258,6 +262,31 @@ class HetznerManager:
         )
         raise ServerResetError(msg)
 
+    @staticmethod
+    def _require_throwaway(server: Server) -> None:
+        """
+        Refuse to rebuild a server that is not labelled as a throwaway.
+
+        A rebuild destroys everything on the box. The server id comes from a
+        config file or the environment, and both have pointed at a box people
+        were using (the dev server was rebuilt on every unit-test run for a
+        month before anyone found out). The server itself must say it is
+        expendable: a Hetzner label, set once by the operator, that a wrong id
+        will not carry.
+        """
+        labels: dict[str, str] = getattr(server, "labels", None) or {}
+        if labels.get(THROWAWAY_LABEL) == "true":
+            return
+        name = getattr(server, "name", "?")
+        msg = (
+            f"refusing to rebuild server {server.id} ({name}): it is not labelled "
+            f"{THROWAWAY_LABEL}=true. Rebuilds wipe the box; label the dedicated "
+            f"test server once with `hcloud server add-label {server.id} "
+            f"{THROWAWAY_LABEL}=true`, or point --server-id / HETZNER_SERVER_ID at "
+            f"a server that carries it."
+        )
+        raise ServerResetError(msg)
+
     def rebuild_server(
         self,
         image: str | None = None,
@@ -281,6 +310,7 @@ class HetznerManager:
         """
         image_name = image or self.config.image
         server = self.get_server()
+        self._require_throwaway(server)
 
         # Find the image
         image_obj = self._find_image(image_name)

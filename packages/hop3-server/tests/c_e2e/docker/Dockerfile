@@ -58,6 +58,9 @@ RUN apt-get update && \
         # Nginx
         nginx \
         acl \
+        # rsync: every real server has it (the installer's base list); the
+        # deployer uploads with it and hop3-backup-server fetches with it
+        rsync \
         # uWSGI
         uwsgi-core \
         uwsgi-plugin-python3 \
@@ -227,6 +230,23 @@ RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-prod
 # all SSH commands through hop3-server (including git-receive-pack)
 RUN su - hop3 -c "export HOP3_SECRET_KEY='e2e-test-secret-key-do-not-use-in-production' && \
     ~/venv/bin/hop3-server setup:ssh ~/.ssh/id_rsa.pub"
+
+# PostgreSQL, configured by the installer's own module (role, superuser
+# password, pg_hba for Docker networks) exactly as `hop3-install server` does
+# it, with the password in hop3-server.toml where the service reads it. The
+# entrypoint runs the cluster under supervisor. The package was installed above
+# and never started or configured, so an e2e that attached a PostgreSQL addon
+# failed with "connection refused" while the deployer-built container had a
+# working one: the image must carry what an install carries.
+RUN PYTHONPATH=/opt/hop3-installer/src python3 -c "\
+from hop3_installer.server_installer.config import ServerInstallerConfig; \
+from hop3_installer.server_installer.postgres import setup_postgres; \
+from hop3_installer.server_installer.verify import write_server_config; \
+pw = setup_postgres(ServerInstallerConfig(), 'debian'); \
+assert pw, 'PostgreSQL setup did not yield a superuser password'; \
+write_server_config(pw, None, None, 'e2e-test-secret-key-do-not-use-in-production', operator_email='hop3-test@example.com')" && \
+    grep -q POSTGRES_SUPERUSER_PASSWORD /home/hop3/hop3-server.toml && \
+    pg_ctlcluster "$(ls /etc/postgresql)" main stop
 
 # Configure nginx to include hop3 configs
 RUN echo 'include /home/hop3/nginx/*.conf;' > /etc/nginx/sites-enabled/hop3 && \
