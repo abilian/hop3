@@ -62,6 +62,13 @@ _VERSION_PROBE = (
 )
 
 
+# The global context `hop3 login` writes for the server this deployer just set
+# up. Named rather than unnamed: an unnamed default target (`[cli].default_server`)
+# resolves *below* every context, so it is silently ignored by any operator who
+# has one. See tasks/cli-auth-target-model.md.
+CLI_CONTEXT_NAME = "default"
+
+
 class Deployer:
     """Handles Hop3 deployment to various targets."""
 
@@ -1525,7 +1532,7 @@ class Deployer:
 
     def _setup_cli(self) -> None:
         """
-        Configure local CLI to connect to the deployed server.
+        Point the local CLI at the server just deployed.
 
         The server just deployed — NOT whatever ``HOP3_HOST`` / ``HOP3_DEV_HOST``
         happens to hold. In Docker mode the target is the container, reached on
@@ -1536,74 +1543,102 @@ class Deployer:
         this time, but the next `hop3` command would have gone to it — an
         ambient variable silently redirecting at a real server is the failure
         ADR 043 forbids for pytest, and it is no better here.
+
+        Through `hop3 login`, not `hop3 settings set`. The latter is deprecated
+        — it says so on stderr, which this call discarded with
+        ``capture_output`` — and it writes `api_url` / `api_token` into
+        config.toml, which ``Config.get_api_url`` consults *last*, below every
+        context. An operator with any context configured was told "CLI
+        configured to connect to <host>" and then had every command go
+        somewhere else. `login` writes the per-server credential store and a
+        named context, at the rank the rest of the resolution chain uses.
         """
+        token = self._fetch_admin_token()
+        if not token:
+            return
+        self._login_local_cli(self._deployed_api_url(), token)
+
+    def _deployed_api_url(self) -> str:
+        """The address of the server this run deployed, never the ambient one."""
+        host = (
+            "localhost" if self.config.use_docker else (self.config.host or "localhost")
+        )
+        return f"http://{host}:8000" if "://" not in host else host
+
+    def _fetch_admin_token(self) -> str | None:
+        """Create the admin user if needed and return an API token for it."""
+        user = self.config.admin_user
+        # Quote user-controlled values to prevent command injection.
+        # The password no longer flows through argv; see _create_admin_user.
+        safe_user = shlex.quote(user)
+        safe_email = shlex.quote(f"{user}@hop3.dev")
+        hop3_server = str(HOP3_SERVER_BIN)
+
+        # Create the admin user with --password-stdin (a no-op if it exists).
+        # See _create_admin_user above for the stdin-vs-echo rationale.
+        self.backend.run(
+            f"sudo -u hop3 {hop3_server} "
+            f"admin:create {safe_user} {safe_email} --password-stdin",
+            check=False,
+            stdin=self.config.admin_password,
+        )
+
+        result = self.backend.run(
+            f"sudo -u hop3 {hop3_server} admin:token {safe_user}",
+            check=False,
+        )
+        if not result.success or not result.stdout.strip():
+            self.log("Could not get an auth token (check server logs)", "warning")
+            self.log_output(result)
+            return None
+
+        # JWT tokens start with "eyJ"; the command may print other lines.
+        for line in result.stdout.strip().splitlines():
+            if line.strip().startswith("eyJ"):
+                return line.strip()
+
+        self.log("Could not parse an auth token from the output", "warning")
+        return None
+
+    def _login_local_cli(self, api_url: str, token: str) -> None:
+        """
+        Run `hop3 login` on this machine, and report what it actually did.
+
+        The old code logged "CLI configured to connect to <url>" unconditionally
+        — after a failed token fetch, after a failed write, always. A success
+        line is a promise; this one reports the outcome it got.
+        """
+        # The token travels on argv, where `ps` can see it for the length of the
+        # call. `hop3 login` has no stdin form for --token yet; the surface work
+        # in tasks/cli-auth-target-model.md Phase 3 is where that belongs.
+        argv = [
+            "hop3",
+            "login",
+            "--token",
+            token,
+            "--url",
+            api_url,
+            "--context",
+            CLI_CONTEXT_NAME,
+        ]
         try:
-            host = (
-                "localhost"
-                if self.config.use_docker
-                else (self.config.host or "localhost")
-            )
-            # Build the full API URL
-            api_url = f"http://{host}:8000" if "://" not in host else host
-            subprocess.run(
-                ["hop3", "settings", "set", "server", api_url],
-                capture_output=True,
-                check=False,
-            )
-
-            # Create admin user and get token for CLI authentication
-            user = self.config.admin_user
-            password = self.config.admin_password
-
-            # Quote user-controlled values to prevent command injection.
-            # The password no longer flows through argv; see _create_admin_user.
-            safe_user = shlex.quote(user)
-            safe_email = shlex.quote(f"{user}@hop3.dev")
-
-            # Create admin user on server using --password-stdin (ignore if already exists).
-            # See _create_admin_user above for the stdin-vs-echo rationale.
-            hop3_server = str(HOP3_SERVER_BIN)
-            self.backend.run(
-                f"sudo -u hop3 {hop3_server} "
-                f"admin:create {safe_user} {safe_email} --password-stdin",
-                check=False,
-                stdin=password,
-            )
-
-            # Get token from server (admin:token only needs username)
-            result = self.backend.run(
-                f"sudo -u hop3 {hop3_server} admin:token {safe_user}",
-                check=False,
-            )
-
-            if result.success and result.stdout.strip():
-                # Parse token from output - JWT tokens start with "eyJ"
-                token = None
-                for line in result.stdout.strip().splitlines():
-                    line = line.strip()
-                    if line.startswith("eyJ"):
-                        token = line
-                        break
-
-                if token:
-                    # Set token in local CLI config
-                    subprocess.run(
-                        ["hop3", "settings", "set", "token", token],
-                        capture_output=True,
-                        check=False,
-                    )
-                    self.log("CLI configured with authentication token", "success")
-                else:
-                    self.log(
-                        "Could not parse auth token from output (no JWT found)",
-                        "warning",
-                    )
-            else:
-                self.log("Could not get auth token (check server logs)", "warning")
-
-            self.log(f"CLI configured to connect to {api_url}", "success")
+            result = subprocess.run(argv, capture_output=True, check=False, text=True)
         except FileNotFoundError:
             self.log("hop3 CLI not found, skipping CLI setup", "warning")
+            return
+
+        if result.returncode != 0:
+            self.log(f"Could not configure the local CLI for {api_url}", "warning")
+            # Through `log`, not `print`: it honours --quiet and, unlike a bare
+            # print, reaches the deploy log file where a post-mortem looks.
+            for stream in (result.stdout, result.stderr):
+                if stream.strip():
+                    self.log(stream.strip(), "warning")
+            return
+
+        self.log(
+            f"CLI configured: context {CLI_CONTEXT_NAME!r} -> {api_url}", "success"
+        )
 
     def _deploy_method(self) -> str:
         """Classify the deploy source: local | git | pypi."""
