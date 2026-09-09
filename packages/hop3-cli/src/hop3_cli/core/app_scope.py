@@ -24,6 +24,45 @@ from __future__ import annotations
 RUN_COMMANDS: frozenset[tuple[str, ...]] = frozenset({("run",), ("app", "run")})
 RUN_VALUE_FLAGS: tuple[str, ...] = ("--input",)
 
+
+def run_passthrough_index(args: list[str]) -> int:
+    """
+    Where a ``run`` program's own command line starts; ``len(args)`` if never.
+
+    ``hop3 run <program> …`` hands everything after ``<program>`` to the
+    program, so those tokens are not ours to read. ``parse_flags`` already stops
+    consuming global flags there; this states the same boundary for every other
+    pass over argv that has to respect it.
+
+    Callers see argv *after* ``parse_flags`` has removed the global flags, so a
+    token here is the command, one of its own flags, or the program's.
+
+        >>> run_passthrough_index(["run", "cli", "sub", "--help"])
+        2
+        >>> run_passthrough_index(["run", "--help"])
+        2
+        >>> run_passthrough_index(["app", "run", "cli", "--help"])
+        3
+        >>> run_passthrough_index(["apps", "--help"])
+        2
+    """
+    command: list[str] = []
+    i = 0
+    while i < len(args):
+        arg = args[i]
+        in_run = tuple(command) in RUN_COMMANDS
+        if in_run and arg in RUN_VALUE_FLAGS:
+            # `--input <data>`: the value is data, not the program.
+            i += 2
+            continue
+        if not arg.startswith("-"):
+            if in_run:
+                return i + 1  # args[i] is the program; its command line follows
+            command.append(arg)
+        i += 1
+    return len(args)
+
+
 # Top-level daily verbs. All operate on one app (D2 rule 1).
 _TOP_LEVEL_APP_SCOPED: set[tuple[str, ...]] = {
     ("deploy",),
