@@ -19,6 +19,13 @@ PREFIX = "HOP3_"
 _marker = object()
 
 
+#: The context a login writes when the operator names none. Every target is a
+#: named context (ADR 042 / tasks/cli-auth-target-model.md): an *unnamed*
+#: default target resolved below every context, so it was silently ignored by
+#: anyone who had one. Reserved for the global scope — a project may not use it.
+DEFAULT_CONTEXT_NAME = "default"
+
+
 @dataclasses.dataclass
 class Context:
     """
@@ -350,13 +357,20 @@ class Config:
         Priority (ADR 042 §Resolution chains, post-Step-7):
         1. Context override (--context flag)
         2. HOP3_CONTEXT environment variable
-        3. ``[cli].current_context`` in the global config file
-        4. None if no contexts configured
+        3. ``[cli].default_context`` — what a login persists
+        4. ``[cli].current_context`` in the global config file (legacy)
+        5. None if no contexts configured
 
-        Per-project context selection now goes through
-        ``.hop3-local.toml [local].context`` (read by
-        ``hop3_cli.core.resolution.resolve_context``, not by this method).
-        The legacy ``.hop3-context`` one-liner was retired in Step 7.
+        Step 3 used to be missing, so this disagreed with the resolver that
+        actually picks the connection (``_resolve_ambient_server`` reads
+        ``default_context``): after ``hop3 login --context prod`` this returned
+        None, and the destructive-command warning — the one thing that tells you
+        which server you are about to act on — printed nothing at all.
+
+        Per-project context selection goes through ``.hop3-local.toml
+        [local].context`` (read by ``hop3_cli.core.resolution.resolve_context``,
+        not by this method). The legacy ``.hop3-context`` one-liner was retired
+        in Step 7.
         """
         # 1. Check override from --context flag
         if self._context_override:
@@ -367,8 +381,8 @@ class Config:
         if env_context:
             return env_context
 
-        # 3. Check global config file ([cli].current_context, legacy fallback)
-        return self._read_current_context_pointer()
+        # 3. What `hop3 login` persists; 4. the legacy pointer.
+        return self.get_default_context() or self._read_current_context_pointer()
 
     # ---- current-context pointer (ADR 042: [cli].current_context) ----------
 

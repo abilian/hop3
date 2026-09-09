@@ -33,7 +33,7 @@ from hop3_cli.commands.local.login_cmd import (
     _verify_token,
 )
 from hop3_cli.commands.local.ssh_ops import validate_ssh_target
-from hop3_cli.config import Config
+from hop3_cli.config import DEFAULT_CONTEXT_NAME, Config
 from hop3_cli.core import credential_store as cs
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.rich_printer import RichPrinter
@@ -375,9 +375,11 @@ class TestHandleInit:
 
         # ADR 042 r2: token goes to the per-server store, server becomes default.
         assert cs.get_token("https://test.com") == mock_token
-        assert temp_config.get_default_server() == "https://test.com"
-        # config.toml stays secret-free — no [contexts.*] written.
-        assert "contexts" not in temp_config.data
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME) == "https://test.com"
+        )
+        # The context is written address-only; config.toml stays secret-free.
+        assert mock_token not in repr(temp_config.data)
 
     def test_init_password_stdin_does_not_prompt_for_server(
         self, temp_config, mock_printer
@@ -419,7 +421,10 @@ class TestHandleInit:
             )
 
         assert captured["password"] == "s3cret"
-        assert temp_config.get_default_server() == "https://hop3.example.com"
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "https://hop3.example.com"
+        )
         assert cs.get_token("https://hop3.example.com") == _FAKE_JWT_ADMIN
 
     def test_init_password_stdin_does_not_prompt_when_no_server(
@@ -460,7 +465,10 @@ class TestHandleInit:
 
         assert captured["password"] == "pw42"
         # URL inferred from the SSH host, not prompted.
-        assert temp_config.get_default_server() == "https://host.example.com"
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "https://host.example.com"
+        )
 
 
 class TestHandleLogin:
@@ -512,8 +520,11 @@ class TestHandleLogin:
         # ADR 042 r2: SSH login stores the token in the per-server store keyed by
         # the SSH-tunnel URL, and sets it as the default server.
         assert cs.get_token("ssh://root@test.com") == mock_token
-        assert temp_config.get_default_server() == "ssh://root@test.com"
-        assert "contexts" not in temp_config.data
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "ssh://root@test.com"
+        )
+        assert mock_token not in repr(temp_config.data)
 
     def test_login_web_invokes_colon_command(self, temp_config, mock_printer, capsys):
         """
@@ -683,7 +694,10 @@ class TestHandleLogin:
 
         # ADR 042 r2: token to the per-server store keyed by the --url server.
         assert cs.get_token("http://localhost:8000") == mock_token
-        assert temp_config.get_default_server() == "http://localhost:8000"
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "http://localhost:8000"
+        )
 
     def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
         """Test token login uses the existing default server when no --url given."""
@@ -701,7 +715,10 @@ class TestHandleLogin:
             )
 
         assert cs.get_token("https://existing-server.com") == mock_token
-        assert temp_config.get_default_server() == "https://existing-server.com"
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "https://existing-server.com"
+        )
 
     def test_login_token_missing_token(self, temp_config, mock_printer):
         """Test token login fails when token not provided."""
@@ -741,7 +758,10 @@ class TestHandleLogin:
 
         # ADR 042 r2: token to the per-server store keyed by the embedded URL.
         assert cs.get_token("http://localhost:8000") == mock_token
-        assert temp_config.get_default_server() == "http://localhost:8000"
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "http://localhost:8000"
+        )
 
     def test_login_url_with_token_and_path(self, temp_config, mock_printer, capsys):
         """Test login with URL containing path and embedded token."""
@@ -755,7 +775,10 @@ class TestHandleLogin:
 
         # ADR 042 r2: token to the per-server store keyed by the embedded URL.
         assert cs.get_token("https://my-server.com/api") == mock_token
-        assert temp_config.get_default_server() == "https://my-server.com/api"
+        assert (
+            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
+            == "https://my-server.com/api"
+        )
 
 
 class TestHandleVersion:

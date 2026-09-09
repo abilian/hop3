@@ -36,6 +36,7 @@ import tomlkit
 import tomlkit.exceptions  # ken: explicit import for except clause below
 
 from hop3_cli.commands.local.help_text import print_context_help
+from hop3_cli.config import DEFAULT_CONTEXT_NAME
 from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
 from hop3_cli.core.local_overlay import atomic_write_text, read_overlay, write_overlay
 
@@ -50,6 +51,28 @@ _CONTEXT_NAME_RE: re.Pattern[str] = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}
 
 def _validate_context_name(name: str) -> bool:
     return bool(_CONTEXT_NAME_RE.fullmatch(name))
+
+
+def refuse_reserved_project_name(name: str) -> None:
+    """
+    Refuse ``default`` as a *project* context name.
+
+    It names the global context a login writes when the operator gives no name.
+    A project context resolves BEFORE a global one, so a committed
+    ``[contexts.default]`` would silently shadow every reader's own default
+    target for as long as they stood in that checkout. The server-side schema
+    refuses it too (``project/schema.py``), so a hand-edited hop3.toml does not
+    slip past this.
+    """
+    if name != DEFAULT_CONTEXT_NAME:
+        return
+    print(
+        f"{name!r} is reserved for the global context a login writes when no "
+        f"name is given.\nA project context of that name would shadow it for "
+        f"everyone in this checkout.\nPick another name.",
+        file=sys.stderr,
+    )
+    sys.exit(2)
 
 
 def _use_global_scope(args: list[str]) -> bool:
@@ -388,6 +411,7 @@ def _context_add_project(
     name: str, server: str, app: str, domains: list[str], env: dict[str, str]
 ) -> None:
     """Add a project `[contexts.<name>]` to the nearest hop3.toml (comments kept)."""
+    refuse_reserved_project_name(name)
     path = _require_project_toml()
     doc = _load_doc(path)
     contexts = doc.get("contexts")

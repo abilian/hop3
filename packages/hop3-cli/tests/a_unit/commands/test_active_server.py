@@ -17,7 +17,7 @@ from types import SimpleNamespace
 
 import pytest
 from hop3_cli.commands.local.login_cmd import record_server_login
-from hop3_cli.config import Config
+from hop3_cli.config import DEFAULT_CONTEXT_NAME, Config
 from hop3_cli.core import credential_store as cs
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.main import (
@@ -199,11 +199,19 @@ def test_clearing_active_server_restores_legacy_path():
 
 
 def test_record_server_login(tmp_path, capsys):
+    """
+    An unnamed login writes the `default` CONTEXT, never `[cli].default_server`.
+
+    That unnamed key resolved below every context, so a login that wrote it
+    reported success and then had every command go somewhere else.
+    """
     cfg = Config(data={}, config_file=tmp_path / "config.toml")
     record_server_login(cfg, ADDR, "eyJtok")
     assert cs.get_token(ADDR) == "eyJtok"
-    assert cfg.get_default_server() == ADDR
-    assert "default server is now" in capsys.readouterr().out
-    # Re-login to the same server doesn't re-announce the default.
+    assert cfg.get_context_server(DEFAULT_CONTEXT_NAME) == ADDR
+    assert cfg.get_default_context() == DEFAULT_CONTEXT_NAME
+    assert cfg.get_default_server() is None, "the unnamed key is never written"
+    assert "context 'default' -> " in capsys.readouterr().out
+    # Re-login to the same server is a token refresh; it doesn't re-announce.
     record_server_login(cfg, ADDR, "eyJtok2")
-    assert "default server is now" not in capsys.readouterr().out
+    assert "now the default" not in capsys.readouterr().out

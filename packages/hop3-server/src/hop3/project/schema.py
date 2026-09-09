@@ -1045,6 +1045,12 @@ class WafSection(BaseModel):
 # (hop3_cli.commands.local.context_cmd._CONTEXT_NAME_RE).
 _CONTEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
+# `default` names the global context a login writes when the operator names
+# none. A project context resolves BEFORE a global one, so a committed
+# `[contexts.default]` would silently shadow every reader's own default target
+# for as long as they stood in that checkout. Reserved for the global scope.
+RESERVED_GLOBAL_CONTEXT = "default"
+
 # Committed-credential tripwire (ADR 042, 2nd revision). hop3.toml is secret-free
 # by convention; this backs the convention with a LOUD refusal when an obvious
 # secret is committed. Best-effort known-shapes, not a proof — high-entropy
@@ -1608,6 +1614,14 @@ class Hop3TomlSchema(BaseModel):
                     msg = (
                         f"Invalid context name {name!r}. Names start with a "
                         "letter or digit, then letters/digits/'-'/'_', max 64 chars."
+                    )
+                    raise ValueError(msg)
+                if name == RESERVED_GLOBAL_CONTEXT:
+                    msg = (
+                        f"{name!r} is reserved for the global context a login "
+                        "writes when no name is given. A project context of that "
+                        "name would shadow it for everyone in this checkout. "
+                        "Pick another name."
                     )
                     raise ValueError(msg)
         return v
