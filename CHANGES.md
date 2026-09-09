@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **`hop3-backup-server` snapshots a server before an upgrade.** Run from your machine (`--host`, `--version` for the label, `--fetch DIR` to bring the snapshot home), it uploads the server-side script it ships with and runs it as root. The script copies the control-plane database consistently while the server runs, archives every config and secret file, the service units, the proxy and uWSGI trees and the apps tree, and dumps each backing service that is installed (PostgreSQL, MySQL, Redis; Docker volumes on request). Every step reports ok, skip or FAIL, the result carries checksums and a `RESTORE.md`, and a snapshot that says it finished is complete.
+
+### Fixed
+
+- **Uploads to a server on a non-standard SSH port work.** The deployer passed ssh's `-p PORT` to scp as well, which reads `-p` as "preserve times" and took the port number for a file; every `scp` to such a server failed while the ssh commands around it worked.
+- **An in-place server upgrade now upgrades rootd and the client too, and proves what it installed.** Every update path of `hop3-deploy-server` installed `hop3-server` alone, so `hop3-rootd` and `hop3-cli` stayed at the old version beside the new server. The 0.7.3 server calls a daemon op that a 0.6.2 rootd does not have, so the first PostgreSQL addon change after such an upgrade would have failed with "no such op", far from the upgrade that caused it. The three packages are now installed at one version from the same source (a pinned PyPI release, a git ref, or the local checkout), the venv is checked to hold exactly one version before the migrations run, rootd is restarted before the server, and the revert hint names all three.
+- **A `--from local` update on the Docker backend reinstalled the old code with a green message.** `docker cp` copies a directory *into* an existing destination, so the second upload of the server tree nested the new one inside the old one and `pip install /tmp/hop3-server` reinstalled the old tree; the deployer then reported "Migrations applied" and "Local code deployed" with the old version still running. The upload now replaces the destination, and the version check above catches the case regardless.
+- **The Docker backend's update path failed on a container created by an older deployer.** Its supervisor setup chowned the download-cache mountpoint, which a container the 0.6.2 deployer had created did not have; the directory is created first.
+- **`hop3-test upgrade-chain` was passing without upgrading anything.** The chain installs an old release by running that release's own deployer from a worktree of its tag. The deployer was renamed at 0.7.0, the harness asked every worktree for the new name, and `uv run` answered a missing script by falling through to `PATH`, where the developer's current deployer was. A "fresh 0.6.2 install" therefore installed the current version and the "upgrade" reinstalled it over itself. The harness now reads the script name from each checkout, syncs the checkout's environment before running it, refuses to run when the script is not there, and asserts after every hop that the installed version is the one the hop claims. It also pins each worktree to the interpreter the harness runs on, since a tag's worktree carries no `.python-version` of its own and the newest interpreter on a machine may have no wheel for a dependency.
+- **The administration guide no longer presents the single-file installer as the upgrade path.** Re-running it on an existing server does not migrate the schema, does not upgrade the code unless a version is pinned, and restarts the uWSGI emperor, which restarts every app. The guide now gives the `hop3-deploy-server` sequence, the rootd step, and the snapshot to take first.
+
 ## [0.7.3] - 2026/09/08
 
 ### Added
