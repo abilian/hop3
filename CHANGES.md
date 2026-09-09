@@ -7,9 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Security
+
+- **A unit test rebuilt the operator's cloud server on every run.** `hop3-deploy-server` validated the `--docker` and `--provider` combination only *after* acting on `--provider`. A unit test of that check (added 2026-08-13) walked the path with `--provider hetzner`; on any machine whose shell exported `HETZNER_API_TOKEN` and `HETZNER_SERVER_ID`, every run of the installer unit suite sent a real `rebuild_server` for that server, waited for it, then passed. The dev box named by those variables was wiped on every `make test-fast` for four weeks before the pattern was seen in Hetzner's action log. Three changes, each sufficient alone: the deployer now validates every target word before it provisions anything; every pytest session strips `HETZNER_API_TOKEN`, `HCLOUD_TOKEN` and `HETZNER_SERVER_ID` the way it already strips the dev-host variables, so no test layer can hold a credential that rebuilds a machine; and a rebuild now refuses any server that does not carry the Hetzner label `hop3-throwaway=true`, which the operator sets once on the dedicated test server (`hcloud server add-label <id> hop3-throwaway=true`), so a wrong id in a config file or the environment can no longer reach a box anyone uses.
+
 ### Added
 
 - **`hop3-backup-server` snapshots a server before an upgrade.** Run from your machine (`--host`, `--version` for the label, `--fetch DIR` to bring the snapshot home), it uploads the server-side script it ships with and runs it as root. The script copies the control-plane database consistently while the server runs, archives every config and secret file, the service units, the proxy and uWSGI trees and the apps tree, and dumps each backing service that is installed (PostgreSQL, MySQL, Redis; Docker volumes on request). Every step reports ok, skip or FAIL, the result carries checksums and a `RESTORE.md`, and a snapshot that says it finished is complete.
+
+- **`hop3-restore-server` puts a server back to a snapshot.** The control-plane database, config and secrets, the apps tree, and the PostgreSQL, MySQL, Redis and Docker-volume dumps a snapshot holds; `--only` restores a subset, `--from-local` uploads a snapshot fetched earlier. It stops the server and the apps while it works, keeps a `.pre-restore` copy of everything it replaces, migrates the restored database to the installed code, and reports success only once the server answers. Both commands take `--ssh-option` for a ProxyJump or a private known_hosts, and both are proven end to end by a Docker e2e that deploys an app with data, snapshots it, destroys it, restores it and checks the data is back; the same test runs against a real box with `--ssh-host`.
 
 ### Fixed
 

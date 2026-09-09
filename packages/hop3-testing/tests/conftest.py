@@ -8,6 +8,20 @@ import pytest
 
 
 @pytest.fixture(autouse=True)
+def _isolate_failure_bundles(tmp_path, monkeypatch):
+    """
+    Failure bundles go under ``tmp_path``, never the developer's ``~/.hop3``.
+
+    The runner writes a diagnostic bundle on every failed deploy, and the unit
+    tests that exercise it left six ``fake-app`` bundles in the real
+    ``~/.hop3/test-runs`` in one morning; they read as runs against a server.
+    """
+    monkeypatch.setattr(
+        "hop3_testing.bundle_ids.DEFAULT_RUNS_DIR", tmp_path / "test-runs"
+    )
+
+
+@pytest.fixture(autouse=True)
 def _isolate_test_modes(tmp_path, monkeypatch):
     """
     Never read the developer's real ~/.hop3/test-modes.toml during tests.

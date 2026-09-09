@@ -18,6 +18,14 @@ echo "========================================"
 
 # Generate supervisord configuration based on proxy type
 # NOTE: Use <<EOF (without quotes) to allow variable expansion
+# PostgreSQL runs under supervisor, as the postgres user and in the foreground,
+# under the name its systemd unit has, so `supervisorctl restart postgresql`
+# and `systemctl restart postgresql` name the same thing (see
+# notes/lessons-learned/e2e-test-infrastructure.md). The cluster was
+# configured at image build through the installer's own module.
+PG_VER=$(ls /etc/postgresql | head -1)
+mkdir -p /var/run/postgresql && chown postgres:postgres /var/run/postgresql
+
 cat > /etc/supervisor/supervisord.conf <<EOF
 [supervisord]
 nodaemon=true
@@ -40,6 +48,15 @@ autorestart=true
 priority=1
 stdout_logfile=/var/log/supervisor/hop3-rootd.log
 stderr_logfile=/var/log/supervisor/hop3-rootd_err.log
+
+[program:postgresql]
+command=/usr/lib/postgresql/${PG_VER}/bin/postgres -D /var/lib/postgresql/${PG_VER}/main -c config_file=/etc/postgresql/${PG_VER}/main/postgresql.conf
+user=postgres
+priority=1
+autostart=true
+autorestart=true
+stdout_logfile=/var/log/supervisor/postgresql.log
+stderr_logfile=/var/log/supervisor/postgresql_err.log
 
 [program:sshd]
 command=/usr/sbin/sshd -D

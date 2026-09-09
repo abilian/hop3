@@ -75,6 +75,10 @@ class DeployConfig:
     # identity (~/.ssh/id_*, agent). Needed when the invoking user has no usable
     # default key, e.g. a server-resident automation user.
     ssh_key: str | None = None
+    # Extra `-o` values for every ssh/scp/rsync the deploy runs (a ProxyJump, a
+    # private UserKnownHostsFile for a throwaway target). The CLI's own
+    # `ssh_options` setting has the same shape.
+    ssh_options: list[str] = field(default_factory=list)
 
     # Installation settings
     branch: str = DEFAULT_BRANCH

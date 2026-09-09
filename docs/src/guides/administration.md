@@ -377,6 +377,20 @@ hop3-backup-server --host server.example.com --skip-apps --dest /mnt/backup/hop3
 
 The server-side script can also be run directly on the box, as root: `hop3-server-backup.sh --label NAME [--dest DIR] [--skip-apps] [--docker-volumes]`.
 
+### Restoring a server from a snapshot
+
+`hop3-restore-server` puts a server back to a snapshot: the control-plane database, every config and secret file, the apps tree, and each backing service the snapshot holds a dump of. It stops `hop3-server` and the app processes while it works, keeps a `.pre-restore-<stamp>` copy of everything it replaces, migrates the restored database forward to the installed code, starts everything again, and reports success only once the server answers. Hop3 must be installed on the box first (the same release the snapshot came from, or a newer one); the command refuses a snapshot from a newer Hop3 than the box runs.
+
+```bash
+hop3-restore-server --host server.example.com --snapshot prod-pre-0.7.3 --yes                 # a snapshot still on the server
+hop3-restore-server --host server.example.com --snapshot prod-pre-0.7.3 --from-local ~/backups/prod-pre-0.7.3 --yes
+hop3-restore-server --host server.example.com --snapshot prod-weekly --only db,config --yes   # a subset
+```
+
+`--yes` is required: the command replaces the server's state. The server-side script is `hop3-server-restore.sh SNAPSHOT_DIR --yes [--only …]`.
+
+Both commands are exercised end to end by `packages/hop3-server/tests/c_e2e/test_server_backup_restore.py`: an app with a PostgreSQL addon and data is deployed, snapshotted, destroyed, restored and verified, against the Docker e2e container by default and against a real, expendable box with `--ssh-host`.
+
 What it covers, for a manual backup:
 
 | Path | Contents |

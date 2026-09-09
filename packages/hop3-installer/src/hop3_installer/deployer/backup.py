@@ -115,6 +115,48 @@ def run_backup(
     return 0
 
 
+def add_ssh_arguments(parser: argparse.ArgumentParser) -> None:
+    """The target flags `hop3-backup-server` and `hop3-restore-server` share."""
+    parser.add_argument("--host", required=True, help="Server to reach over ssh")
+    parser.add_argument(
+        "--user",
+        "--ssh-user",
+        "-u",
+        dest="ssh_user",
+        default=DEFAULT_SSH_USER,
+        help=f"SSH user (default: {DEFAULT_SSH_USER}); the server-side script needs root",
+    )
+    parser.add_argument("--port", type=int, default=22, help="SSH port (default: 22)")
+    parser.add_argument(
+        "--identity",
+        "--ssh-key",
+        "-i",
+        dest="ssh_key",
+        help="SSH private key (like `ssh -i`; default: ssh's own identity)",
+    )
+    parser.add_argument(
+        "--ssh-option",
+        dest="ssh_options",
+        action="append",
+        default=[],
+        metavar="OPT",
+        help="Extra ssh -o value, repeatable (ProxyJump=…, UserKnownHostsFile=…)",
+    )
+
+
+def backend_from(args: argparse.Namespace) -> SSHDeployBackend:
+    """The ssh backend for the target the shared flags describe."""
+    return SSHDeployBackend(
+        DeployConfig(
+            host=args.host,
+            ssh_user=args.ssh_user,
+            ssh_port=args.port,
+            ssh_key=args.ssh_key,
+            ssh_options=list(args.ssh_options),
+        )
+    )
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="hop3-backup-server",
@@ -127,23 +169,7 @@ def build_parser() -> argparse.ArgumentParser:
         ),
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
-    parser.add_argument("--host", required=True, help="Server to snapshot")
-    parser.add_argument(
-        "--user",
-        "--ssh-user",
-        "-u",
-        dest="ssh_user",
-        default=DEFAULT_SSH_USER,
-        help=f"SSH user (default: {DEFAULT_SSH_USER}); the script needs root",
-    )
-    parser.add_argument("--port", type=int, default=22, help="SSH port (default: 22)")
-    parser.add_argument(
-        "--identity",
-        "--ssh-key",
-        "-i",
-        dest="ssh_key",
-        help="SSH private key (like `ssh -i`; default: ssh's own identity)",
-    )
+    add_ssh_arguments(parser)
     parser.add_argument(
         "--version",
         help="The release about to be installed; labels the snapshot pre-<version>",
@@ -172,11 +198,8 @@ def build_parser() -> argparse.ArgumentParser:
 
 def main(argv: list[str] | None = None) -> int:
     args = build_parser().parse_args(argv)
-    config = DeployConfig(
-        host=args.host, ssh_user=args.ssh_user, ssh_port=args.port, ssh_key=args.ssh_key
-    )
     return run_backup(
-        SSHDeployBackend(config),
+        backend_from(args),
         label=infer_label(args.label, args.version),
         dest=args.dest,
         skip_apps=args.skip_apps,
