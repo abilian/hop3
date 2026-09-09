@@ -72,18 +72,26 @@ systemctl status uwsgi-hop3
 
 ## Upgrading Hop3
 
-Upgrading the **server** (Hop3 itself) is done with the installer / deployer. Re-run the same tool you installed with:
+Upgrading the **server** (Hop3 itself) is done with `hop3-deploy-server`, run from your machine against the server:
 
 ```bash
-# Production (single-file installer): re-run to pull the latest release
-curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+# Take a snapshot first (from your machine; see Full Server Backup below)
+hop3-backup-server --host server.example.com --version 0.7.3 --fetch ~/backups
 
-# Development / self-hosted from source
-hop3-deploy-server --host server.example.com            # git
-hop3-deploy-server --host server.example.com --local    # local checkout
+# Upgrade to a released version
+hop3-deploy-server --host server.example.com --from pypi --version 0.7.3
+
+# Or, self-hosted from source
+hop3-deploy-server --host server.example.com --from git              # a branch
+hop3-deploy-server --host server.example.com --from local            # this checkout
+
+# Afterwards, on the server: the three packages report one version
+/home/hop3/venv/bin/pip list | grep hop3
 ```
 
-Each upgrade runs the same sequence: **install the new code → `hop3-server db:upgrade` (migrations) → restart → verify the server answers.**
+Each upgrade runs the same sequence: **install `hop3-server`, `hop3-rootd` and `hop3-cli` at one version → check the venv holds exactly that version → `hop3-server db:upgrade` (migrations) → restart `hop3-rootd`, then `hop3-server` → verify the server answers.** Running apps are not touched: the uWSGI emperor, its vassals and nginx keep serving throughout. Do not pass `--clean`, which wipes the installation and its addon databases.
+
+**Do not upgrade by re-running the single-file installer** (`install-server.py`). On an existing server it does not run the migrations, does not upgrade the code unless a version is pinned, and restarts the uWSGI emperor, which restarts every app. The single-file installer is for a first install.
 
 **What the upgrade guarantees.** Migrations run *between* install and restart, and both ends are gated so a broken upgrade never leaves you silently down:
 
@@ -359,7 +367,17 @@ hop3 backup restore <id>         # Restore from backup
 
 ### Full Server Backup
 
-For disaster recovery, backup these directories:
+`hop3-backup-server` (installed with `hop3-deploy-server`) takes a complete snapshot of a server from your machine, without stopping anything on it: a consistent copy of the control-plane database, every config and secret file, the service units, the proxy and uWSGI trees, the apps tree, and a dump of each backing service that is installed (PostgreSQL, MySQL, Redis; Docker volumes with `--docker-volumes`). It uploads the server-side script it ships with, runs it as root, and streams the report: every step prints ok, skip or FAIL, the result carries checksums and a `RESTORE.md`, and the directory is mode 0700 because it holds every secret the server has. `--fetch DIR` copies the snapshot to your machine, which is where a backup belongs if the server itself is the thing that might fail.
+
+```bash
+hop3-backup-server --host server.example.com --version 0.7.3           # /var/backups/hop3/<host>-pre-0.7.3
+hop3-backup-server --host server.example.com --label weekly --fetch ~/backups
+hop3-backup-server --host server.example.com --skip-apps --dest /mnt/backup/hop3
+```
+
+The server-side script can also be run directly on the box, as root: `hop3-server-backup.sh --label NAME [--dest DIR] [--skip-apps] [--docker-volumes]`.
+
+What it covers, for a manual backup:
 
 | Path | Contents |
 |------|----------|

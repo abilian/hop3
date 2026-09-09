@@ -40,6 +40,8 @@ hop3-install = "hop3_installer.main:main"
 # `hop3-deploy` stays a deprecated warn-and-delegate alias for one release
 # (ADR 052 D10).
 hop3-deploy-server = "hop3_installer.deployer:main"
+# Snapshot a server before upgrading it (the step before hop3-deploy-server).
+hop3-backup-server = "hop3_installer.deployer.backup:main"
 hop3-deploy = "hop3_installer.deployer:deprecated_main"
 
 #
