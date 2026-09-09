@@ -80,7 +80,9 @@ COMMAND_POSITION_RE = re.compile(r"(?:^|[|;&(]|\$\(|`|^\s*[$#>❯❮]\s*)\s*$")
 SUBCOMMAND_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 # Stop collecting tokens at the first one that cannot be part of a command name.
-STOP_PREFIXES = ("-", "$", "<", "{", '"', "'")
+# `#` is here because a trailing shell comment is not part of the command: without
+# it, `hop3 apps  # ask dev` was reported as the invocation `hop3 apps # ask dev`.
+STOP_PREFIXES = ("-", "$", "<", "{", '"', "'", "#")
 
 FENCE_RE = re.compile(r"^\s*(?:```|~~~)(\w*)")
 INLINE_CODE_RE = re.compile(r"`([^`]+)`")
@@ -179,16 +181,19 @@ def load_surface() -> Surface:
     names |= {(alias.source_token,) for alias in CORE_ALIASES}
 
     # A table key that is not the command's own name is a legacy alias
-    # (`run` → `app run`, `domains` → `domain`, `config` → `env`).
+    # (`run` → `app run`, `domains` → `domain`, `config` → `env`) — a rename's
+    # old spelling, which the docs should stop teaching.
+    #
+    # `CORE_ALIASES` is NOT that. It is the deliberate short-form surface (ADR
+    # 036 D9): the plural list shortcuts (`apps`, `addons`), the cross-platform
+    # synonym `whoami`, the short `login`/`logout` for `auth login`/`auth
+    # logout`, and `ssh`, which D2 *reserves* as a top-level verb. Those are
+    # supported spellings people type every day, so documenting them is correct
+    # and warning about them told the reader their daily command was obsolete.
     deprecated = {
         key: command.name
         for key, command in rpc_commands.items()
         if key and command.name and key != command.name
-    }
-    deprecated |= {
-        (alias.source_token,): alias.expansion
-        for alias in CORE_ALIASES
-        if alias.expansion
     }
     return Surface(
         names=frozenset(names),
