@@ -66,6 +66,9 @@ class _UpdateBackend(_Backend):
             stdout = "OLDSHA123"
         elif "pip show hop3-server" in cmd:
             stdout = "Name: hop3-server\nVersion: 0.6.2\n"
+        elif "importlib.metadata" in cmd:
+            # The one-version check after the install: all three, one version.
+            stdout = "hop3_server 0.7.3\nhop3_rootd 0.7.3\nhop3_cli 0.7.3\n"
         ok = "curl" not in cmd or self.healthy
         return SimpleNamespace(
             success=ok, stdout=stdout, stderr="", returncode=0 if ok else 1

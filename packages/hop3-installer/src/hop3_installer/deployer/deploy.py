@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import json
 import pathlib
+import re
 import shlex
 import subprocess
 import time
@@ -26,6 +27,7 @@ from hop3_installer.constants import (
     DEFAULT_ADMIN_EMAIL,
     HOP3_SERVER_BIN,
     HOP3_SERVER_BIND,
+    VENV_DIR,
 )
 from hop3_installer.nginx_templates import (
     generate_full_ssl_config,
@@ -44,6 +46,20 @@ if TYPE_CHECKING:
 _HEALTH_RETRIES = 15
 _HEALTH_DELAY_S = 2.0
 _HEALTH_PROBE_TIMEOUT_S = 3
+
+#: What one release of Hop3 puts in the server venv. Every update path installs
+#: all three at one version and then checks that it did: rootd and cli used to
+#: be left at the old version beside a new server, and a botched upload once
+#: reinstalled the old server under a green message.
+_VERSIONED_PACKAGES = ("hop3-server", "hop3-rootd", "hop3-cli")
+_VERSION_PROBE = (
+    "import importlib.metadata as m\n"
+    "for p in ('hop3_server', 'hop3_rootd', 'hop3_cli'):\n"
+    "    try:\n"
+    "        print(p, m.version(p))\n"
+    "    except m.PackageNotFoundError:\n"
+    "        print(p, '')\n"
+)
 
 
 class Deployer:
@@ -711,13 +727,87 @@ class Deployer:
 
     def _finish_upgrade(self, revert: str, success_msg: str) -> bool:
         """
-        Shared tail of every upgrade path: restart, verify the server answers,
-        report. Returns False (fail loud) if the server does not come back up.
+        Shared tail of every upgrade path: restart rootd, restart the server,
+        verify it answers, report. Returns False (fail loud) if either does not
+        come back.
         """
-        if not self._restart_and_verify("the upgrade", self._upgrade_recovery(revert)):
+        recovery = self._upgrade_recovery(revert)
+        if not self._restart_rootd(recovery):
+            return False
+        if not self._restart_and_verify("the upgrade", recovery):
             return False
         self.log(success_msg, "success")
         return True
+
+    def _restart_rootd(self, recovery: str) -> bool:
+        """
+        Restart the privileged daemon so it runs the code just installed.
+
+        The server calls rootd for every nginx reload and, since 0.7.3, for
+        service reloads. A daemon left at the old version answers the new
+        server's ops with "no such op", at the next deploy, far from here.
+        """
+        self.log("Restarting hop3-rootd")
+        result = self.backend.restart_service("hop3-rootd")
+        if result.success:
+            return True
+        self.log(
+            "hop3-rootd did not restart: "
+            f"{self.backend.service_restart_command('hop3-rootd')}",
+            "error",
+        )
+        self.log_output(result, always=True)
+        self.log(f"  Recover: {recovery}", "error")
+        self.log(
+            f"  Diagnose: {self.backend.service_logs_command('hop3-rootd')}", "error"
+        )
+        return False
+
+    def _installed_versions(self) -> dict[str, str]:
+        """The version of each Hop3 package in the server venv, "" when absent."""
+        probe = f"{VENV_DIR}/bin/python -c {shlex.quote(_VERSION_PROBE)}"
+        result = self.backend.run(probe, check=False)
+        versions = dict.fromkeys(_VERSIONED_PACKAGES, "")
+        for line in (result.stdout or "").splitlines():
+            name, _, version = line.strip().partition(" ")
+            name = name.replace("_", "-")
+            if name in versions:
+                versions[name] = version.strip()
+        return versions
+
+    def _check_one_version(self, expected: str | None) -> bool:
+        """
+        Fail loud unless the venv holds hop3-server, hop3-rootd and hop3-cli at
+        one version, and at ``expected`` when the caller knows what it installed.
+
+        Runs after the install and before the migrations, so a wrong install
+        aborts with the old server still running on the old schema.
+        """
+        versions = self._installed_versions()
+        found = set(versions.values())
+        consistent = len(found) == 1 and "" not in found
+        if consistent and (expected is None or found == {expected}):
+            self.log(
+                f"hop3-server, hop3-rootd and hop3-cli at {found.pop()}", "success"
+            )
+            return True
+        self.log("The server venv does not hold one version of Hop3:", "error")
+        for name, version in versions.items():
+            self.log(f"  {name}: {version or 'not installed'}", "error")
+        if expected:
+            self.log(f"  expected: {expected}", "error")
+        return False
+
+    @staticmethod
+    def _package_version(pyproject: Path) -> str:
+        """The ``version`` a package's pyproject declares (fail loud if none)."""
+        match = re.search(
+            r'^version\s*=\s*"([^"]+)"', pyproject.read_text(), re.MULTILINE
+        )
+        if not match:
+            msg = f'{pyproject}: no version = "..." line'
+            raise ValueError(msg)
+        return match.group(1)
 
     def _wait_until_server_healthy(
         self, retries: int = _HEALTH_RETRIES, delay: float = _HEALTH_DELAY_S
@@ -761,6 +851,8 @@ class Deployer:
             # [waf] extra: install the LeWAF engine by default (ADR 050). No-op on
             # <3.12 (marker-gated); without it, WAF-enabled apps abort the deploy.
             "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]'",
+            # The daemon and the client ride along at the same commit.
+            "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e packages/hop3-rootd -e packages/hop3-cli",
         ]
 
         for cmd in update_commands:
@@ -772,6 +864,14 @@ class Deployer:
                 self.log_output(result)
                 return False
 
+        declared = self.backend.run(
+            "grep -m1 '^version' /home/hop3/hop3/packages/hop3-server/pyproject.toml",
+            check=False,
+        )
+        found = re.search(r'"([^"]+)"', declared.stdout or "")
+        if not self._check_one_version(found.group(1) if found else None):
+            return False
+
         if not self._run_migrations():
             return False
 
@@ -779,7 +879,8 @@ class Deployer:
         restart = self.backend.service_restart_command("hop3-server")
         revert = (
             f"cd /home/hop3/hop3 && git reset --hard {ref} && "
-            f"/home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]' && {restart}"
+            "/home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]' "
+            f"-e packages/hop3-rootd -e packages/hop3-cli && {restart}"
         )
         return self._finish_upgrade(revert, "Update complete")
 
@@ -798,10 +899,11 @@ class Deployer:
 
         # Build package spec
         if self.config.pypi_version:
-            package_spec = f"hop3-server=={shlex.quote(self.config.pypi_version)}"
+            pinned = shlex.quote(self.config.pypi_version)
+            package_spec = " ".join(f"{p}=={pinned}" for p in _VERSIONED_PACKAGES)
             self.log(f"Upgrading to version {self.config.pypi_version} from PyPI")
         else:
-            package_spec = "hop3-server"
+            package_spec = " ".join(_VERSIONED_PACKAGES)
             if self.config.pypi_pre:
                 self.log("Upgrading to latest (including pre-releases) from PyPI")
             else:
@@ -821,13 +923,18 @@ class Deployer:
             self.log_output(result)
             return False
 
+        if not self._check_one_version(self.config.pypi_version):
+            return False
+
         if not self._run_migrations():
             return False
 
         version = old_version or "<previous-version>"
         restart = self.backend.service_restart_command("hop3-server")
         revert = (
-            f"{pip} install hop3-server=={version} && {restart} "
+            f"{pip} install "
+            + " ".join(f"{p}=={version}" for p in _VERSIONED_PACKAGES)
+            + f" && {restart} "
             "(the upgrade bumped dependencies eagerly; if the old server still "
             "fails, reinstall into a fresh venv)"
         )
@@ -925,6 +1032,17 @@ class Deployer:
         if not (self._upload_rootd_package() and self._upload_cli_package()):
             return False
 
+        if not self._install_uploaded_code(server_pkg, remote_path):
+            return False
+
+        if not self._run_migrations():
+            return False
+
+        revert = "re-deploy the previous local checkout: hop3-deploy-server --local"
+        return self._finish_upgrade(revert, "Local code deployed")
+
+    def _install_uploaded_code(self, server_pkg: Path, remote_path: str) -> bool:
+        """Install the uploaded server, daemon and client, and check the venv holds one version."""
         # Uninstall the existing hop3-server *first*, so the install step
         # writes a fresh .dist-info directory. Without this, repeated
         # --local deploys can leave stale metadata: the new code lands in
@@ -956,11 +1074,19 @@ class Deployer:
             self.log_output(result)
             return False
 
-        if not self._run_migrations():
+        self.log("Installing hop3-rootd and hop3-cli from uploaded code")
+        result = self.backend.run(
+            "/home/hop3/venv/bin/pip install --upgrade --upgrade-strategy=eager "
+            "/tmp/hop3-rootd /tmp/hop3-cli",
+            check=False,
+        )
+        if not result.success:
+            self.log("Failed to install hop3-rootd and hop3-cli", "error")
+            self.log_output(result)
             return False
 
-        revert = "re-deploy the previous local checkout: hop3-deploy-server --local"
-        return self._finish_upgrade(revert, "Local code deployed")
+        expected = self._package_version(server_pkg / "pyproject.toml")
+        return self._check_one_version(expected)
 
     def _platform_nginx_target(self) -> tuple[str, bool]:
         """
