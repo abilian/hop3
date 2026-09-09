@@ -118,6 +118,90 @@ def ssh_command_argv(ssh_target: str, remote_cmd: str) -> list[str]:
     return [*ssh_base_argv(settings, port=port), user_host, remote_cmd]
 
 
+def _ssh_user(ssh_target: str) -> str:
+    """The account the SSH connection runs as; bare hosts default to root."""
+    return ssh_target.split("@", maxsplit=1)[0] if "@" in ssh_target else "root"
+
+
+def refuse_hop3_ssh_user(ssh_target: str) -> None:
+    """
+    Refuse ``hop3@host`` before dialling it.
+
+    That account's key carries a forced command in ``~hop3/.ssh/authorized_keys``
+    which prepends ``hop3-server`` to whatever it is given (the path `git push`
+    and `app shell` take). Everything below sends ``su - hop3 -c '…'``, so the
+    remote line becomes ``hop3-server su - hop3 -c '…'`` and fails with a
+    baffling complaint about an unknown `su` command. Say what is wrong instead.
+    """
+    if _ssh_user(ssh_target) != "hop3":
+        return
+    host = _host_from_ssh_target(ssh_target)
+    msg = (
+        f"Hop3 can't bootstrap through the 'hop3' account on {host}.\n"
+        f"\n"
+        f"That account's SSH key is the deploy key: its forced command runs "
+        f"hop3-server\nfor you, so it cannot run the admin command this needs. "
+        f"Connect as root:\n"
+        f"\n"
+        f"  hop3 login --ssh root@{host}"
+    )
+    raise BootstrapError(msg)
+
+
+def _run_hop3_server(
+    ssh_target: str, hop3_cmd: str, action: str, *, input: str | None = None
+) -> str:
+    """
+    Run one ``hop3-server`` command as the server's ``hop3`` user, over SSH.
+
+    Single choke point for the four bootstrap operations. Each used to repeat
+    the same three lines and surface ``su``'s own message verbatim, so a
+    perfectly ordinary mistake — connecting as a non-root admin account —
+    reported "Failed to get SSH token: su: Authentication failure" and left the
+    operator to work out that root is the requirement.
+    """
+    refuse_hop3_ssh_user(ssh_target)
+    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+    result = _run_ssh(ssh_target, remote_cmd, input=input)
+    if result.returncode != 0:
+        raise BootstrapError(_bootstrap_failure(ssh_target, remote_cmd, result, action))
+    return result.stdout
+
+
+def _bootstrap_failure(
+    ssh_target: str,
+    remote_cmd: str,
+    result: subprocess.CompletedProcess[str],
+    action: str,
+) -> str:
+    """
+    Name the input, the command run, its output, and the way forward.
+
+    The root requirement is stated whenever the SSH user is not root, rather
+    than pattern-matched out of ``su``'s wording: the connecting account is
+    something we know for certain, and scraping a tool's prose to decide what
+    to advise is how the advice goes stale.
+    """
+    output = result.stderr.strip() or result.stdout.strip() or "(no output)"
+    host = _host_from_ssh_target(ssh_target)
+    user = _ssh_user(ssh_target)
+    lines = [
+        f"Hop3 can't {action} on {host} as {user!r}.",
+        "",
+        f"  ran:  ssh {ssh_target} {remote_cmd}",
+        f"  got:  {output}",
+    ]
+    if user != "root":
+        lines += [
+            "",
+            "This runs one command as the server's 'hop3' account, which needs",
+            "root. Connect as root:",
+            "",
+            f"  hop3 login --ssh root@{host}",
+        ]
+    return "\n".join(lines)
+
+
 def create_admin_via_ssh(
     ssh_target: str, username: str, email: str, password: str
 ) -> str:
@@ -136,26 +220,16 @@ def create_admin_via_ssh(
     Raises:
         BootstrapError: If the command fails
     """
-    # Build the remote command - run as hop3 user to ensure correct file ownership
-    # The database is created on first access, so running as hop3 ensures it's owned by hop3:hop3
-    hop3_cmd = f"{HOP_SERVER_PATH} admin:create {shlex.quote(username)} {shlex.quote(email)} --password-stdin"
-    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
-
-    # Run via SSH
-    result = _run_ssh(ssh_target, remote_cmd, input=password)
-
-    if result.returncode != 0:
-        error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-        msg = f"Failed to create admin: {error_msg}"
-        raise BootstrapError(msg)
-
-    # Parse token from output
-    token = extract_token(result.stdout)
-    if not token:
-        msg = f"Could not extract token from server response:\n{result.stdout}"
-        raise BootstrapError(msg)
-
-    return token
+    # Run as the hop3 user so the database it creates on first access is owned
+    # by hop3:hop3 rather than root.
+    hop3_cmd = (
+        f"{HOP_SERVER_PATH} admin:create "
+        f"{shlex.quote(username)} {shlex.quote(email)} --password-stdin"
+    )
+    stdout = _run_hop3_server(
+        ssh_target, hop3_cmd, "create an admin user", input=password
+    )
+    return _require_token(stdout)
 
 
 def get_token_via_ssh(ssh_target: str, username: str) -> str:
@@ -172,23 +246,9 @@ def get_token_via_ssh(ssh_target: str, username: str) -> str:
     Raises:
         BootstrapError: If the command fails
     """
-    # Run as hop3 user for consistency and proper file access
     hop3_cmd = f"{HOP_SERVER_PATH} admin:token {shlex.quote(username)}"
-    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
-
-    result = _run_ssh(ssh_target, remote_cmd)
-
-    if result.returncode != 0:
-        error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-        msg = f"Failed to get token: {error_msg}"
-        raise BootstrapError(msg)
-
-    token = extract_token(result.stdout)
-    if not token:
-        msg = f"Could not extract token from server response:\n{result.stdout}"
-        raise BootstrapError(msg)
-
-    return token
+    stdout = _run_hop3_server(ssh_target, hop3_cmd, f"issue a token for {username!r}")
+    return _require_token(stdout)
 
 
 def get_ssh_token(ssh_target: str) -> str:
@@ -211,21 +271,8 @@ def get_ssh_token(ssh_target: str) -> str:
         BootstrapError: If the command fails
     """
     hop3_cmd = f"{HOP_SERVER_PATH} admin:ssh-token"
-    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
-
-    result = _run_ssh(ssh_target, remote_cmd)
-
-    if result.returncode != 0:
-        error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-        msg = f"Failed to get SSH token: {error_msg}"
-        raise BootstrapError(msg)
-
-    token = extract_token(result.stdout)
-    if not token:
-        msg = f"Could not extract token from server response:\n{result.stdout}"
-        raise BootstrapError(msg)
-
-    return token
+    stdout = _run_hop3_server(ssh_target, hop3_cmd, "sign in")
+    return _require_token(stdout)
 
 
 def fetch_and_save_certificate(
@@ -288,6 +335,15 @@ def fetch_and_save_certificate(
     return str(cert_path)
 
 
+def _require_token(stdout: str) -> str:
+    """The JWT in a bootstrap command's output, or a loud failure."""
+    token = extract_token(stdout)
+    if not token:
+        msg = f"Could not extract token from server response:\n{stdout}"
+        raise BootstrapError(msg)
+    return token
+
+
 def extract_token(output: str) -> str | None:
     """
     Extract JWT token from command output.
@@ -321,17 +377,12 @@ def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
         BootstrapError: If the command fails
     """
     hop3_cmd = f"{HOP_SERVER_PATH} auth:magic-link {shlex.quote(username)}"
-    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+    stdout = _run_hop3_server(
+        ssh_target, hop3_cmd, f"generate a dashboard link for {username!r}"
+    )
 
-    result = _run_ssh(ssh_target, remote_cmd)
-
-    if result.returncode != 0:
-        error_msg = result.stderr.strip() or result.stdout.strip() or "Unknown error"
-        msg = f"Failed to generate magic link: {error_msg}"
-        raise BootstrapError(msg)
-
-    # The token is returned directly (just the JWT, no extra formatting)
-    token = result.stdout.strip()
+    # The token is returned directly (just the JWT, no extra formatting).
+    token = stdout.strip()
     if not token:
         msg = "Server returned empty response for magic link"
         raise BootstrapError(msg)
