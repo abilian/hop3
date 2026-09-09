@@ -133,12 +133,13 @@ class SSHDeployBackend(DeployBackend):
         # threads through every ssh/scp call below since they splat _ssh_opts.
         if config.ssh_key:
             self._ssh_opts.extend(["-i", config.ssh_key])
-        # Add port option if not default
-        if config.ssh_port != 22:
-            self._ssh_opts.extend(["-p", str(config.ssh_port)])
-        self._scp_port_opts = (
-            ["-P", str(config.ssh_port)] if config.ssh_port != 22 else []
-        )
+        # The port flag differs per tool: ssh takes `-p`, scp takes `-P` and
+        # reads `-p` as "preserve times". Kept out of `_ssh_opts`, which every
+        # tool splats, so a non-default port no longer hands scp a `-p` and a
+        # stray argument.
+        port = str(config.ssh_port)
+        self._ssh_port_opts = ["-p", port] if config.ssh_port != 22 else []
+        self._scp_port_opts = ["-P", port] if config.ssh_port != 22 else []
 
     def setup(self) -> bool:
         """Verify SSH connectivity to the target."""
@@ -180,6 +181,7 @@ class SSHDeployBackend(DeployBackend):
         ssh_cmd = [
             "ssh",
             *self._ssh_opts,
+            *self._ssh_port_opts,
             self.config.ssh_target,
             command,
         ]
@@ -203,6 +205,7 @@ class SSHDeployBackend(DeployBackend):
         ssh_cmd = [
             "ssh",
             *self._ssh_opts,
+            *self._ssh_port_opts,
             self.config.ssh_target,
             f"PYTHONUNBUFFERED=1 DEBIAN_FRONTEND=noninteractive {command}",
         ]
@@ -248,7 +251,7 @@ class SSHDeployBackend(DeployBackend):
         # so every token must be shell-escaped.  shlex.join() does
         # that — it joins argv into a single string that the shell can
         # round-trip safely.
-        ssh_opts_str = shlex.join(self._ssh_opts)
+        ssh_opts_str = shlex.join([*self._ssh_opts, *self._ssh_port_opts])
         rsync_cmd = [
             "rsync",
             "-avz",
@@ -276,6 +279,29 @@ class SSHDeployBackend(DeployBackend):
             # Fix permissions
             self.run(f"chmod -R a+rX {remote_path}", check=False)
 
+        return result.returncode == 0
+
+    def download_dir(self, remote_path: str, local_path: Path) -> bool:
+        """
+        Fetch a directory from the server via rsync, into ``local_path``.
+
+        The mirror of ``upload_dir``: same transport, same options, no
+        excludes, because what comes back is a snapshot and every file in it
+        is wanted.
+        """
+        local_path.mkdir(parents=True, exist_ok=True)
+        ssh_opts_str = shlex.join([*self._ssh_opts, *self._ssh_port_opts])
+        rsync_cmd = [
+            "rsync",
+            "-az",
+            "-e",
+            f"ssh {ssh_opts_str}",
+            f"{self.config.ssh_target}:{remote_path}/",
+            f"{local_path}/",
+        ]
+        result = subprocess.run(rsync_cmd, capture_output=True, text=True, check=False)
+        if result.returncode != 0:
+            print(f"  ✗ rsync failed: {(result.stderr or result.stdout).strip()}")
         return result.returncode == 0
 
     def clean(self) -> None:
