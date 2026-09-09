@@ -77,6 +77,13 @@ class CliFlags:
     # the command (diagnostic-only — avoids `hop3 deploy --why` deploying).
     why: bool = False
 
+    # The rescue path. Everyday traffic goes to the context's `server` (HTTPS
+    # for a server with an admin domain); this forces ONE invocation through
+    # its `bootstrap` SSH route instead, for when the certificate has expired,
+    # the proxy is down, or DNS is wrong — the cases where the ordinary route
+    # is exactly what is broken.
+    via_ssh: bool = False
+
     # ADR 036: `--no-alias` bypasses alias resolution.
     no_alias: bool = False
 
@@ -183,6 +190,7 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
         "context": None,
         "app": None,
         "why": False,
+        "via_ssh": False,
         "no_alias": False,
         "confirm_value": None,
         # Default from the environment so a non-interactive caller (CI, the
@@ -234,6 +242,7 @@ _BOOL_FLAGS: dict[tuple[str, ...], str] = {
     ("--json", "-j"): "json_output",
     ("-y", "--yes"): "skip_confirm",
     ("--why",): "why",
+    ("--via-ssh",): "via_ssh",
     ("--no-alias",): "no_alias",
     ("--no-input",): "no_input",
     ("--dry-run",): "dry_run",

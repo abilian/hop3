@@ -15,6 +15,7 @@ import requests
 from jsonrpcclient import Error, Ok, parse, request
 from loguru import logger
 
+from hop3_cli.core.auto_auth import auto_authenticate, can_auto_authenticate
 from hop3_cli.core.ssh_target import SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
@@ -296,37 +297,18 @@ class Client:
         return self._parse_response(response, json_request)
 
     def _can_auto_auth(self) -> bool:
-        """Check if we can auto-authenticate via SSH."""
-        parsed = urlparse(self.api_url)
-        return parsed.scheme in {"ssh", "ssh+http"}
+        """Whether this connection knows an SSH route to mint a token through."""
+        return can_auto_authenticate(self.config)
 
     def _auto_authenticate(self) -> None:
         """
-        Get a new token via SSH and save it to config.
+        Get a new token over the context's bootstrap route and save it.
 
         Raises:
             AuthenticationError: If authentication fails.
         """
-        from hop3_cli.commands.local.ssh_ops import (  # ruff:ignore[import-outside-top-level]
-            BootstrapError,
-            get_ssh_token,
-        )
-
-        parsed = urlparse(self.api_url)
-        ssh_user = parsed.username or self.config.get("ssh_user", "root")
-        ssh_host = parsed.hostname
-        ssh_target = f"{ssh_user}@{ssh_host}"
-
-        logger.debug(f"Auto-authenticating via SSH to {ssh_target}")
-
-        try:
-            token = get_ssh_token(ssh_target)
-        except BootstrapError as e:
-            msg = f"SSH authentication to {ssh_target} failed: {e}"
-            raise AuthenticationError(msg) from e
-
-        # Save token to current context (or legacy config)
-        self.config.update_context_token(token)
+        target = auto_authenticate(self.config)
+        logger.debug(f"Auto-authenticated via SSH to {target}")
 
     def _get_ssl_verification(self) -> bool | str:
         """

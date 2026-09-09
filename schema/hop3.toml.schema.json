@@ -345,6 +345,19 @@
           "description": "App instance name for this environment; inherits [metadata].id when absent.",
           "title": "App"
         },
+        "bootstrap": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "SSH target used ONLY to mint tokens, e.g. ssh://root@prod.example.com. Everyday traffic goes to `server`; when that is an https:// address the client still needs an SSH route to renew an expired token, and this is it. Omit when `server` is itself ssh:// \u2014 it bootstraps through that.",
+          "title": "Bootstrap"
+        },
         "domains": {
           "anyOf": [
             {

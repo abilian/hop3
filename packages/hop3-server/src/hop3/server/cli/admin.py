@@ -40,6 +40,7 @@ class Admin(Command):
         admin:token          Generate a new token for an existing user
         admin:list           List all users
         admin:reset-password Reset a user's password
+        admin:server-url     Print the server's public base URL
 
     Use 'hop3-server admin:<subcommand> --help' for details.
     """
@@ -254,6 +255,33 @@ class AdminList(Command):
 
             print()
             print(f"Total users: {len(users)}")
+
+
+@register
+class AdminServerUrl(Command):
+    """
+    Print the server's public base URL, or nothing when it has none.
+
+    Usage:
+        hop3-server admin:server-url
+
+    The address clients should use for everyday RPC: ``https://<ADMIN_DOMAIN>``.
+    Only the server knows its own public identity — a client holds an SSH
+    target, which says nothing about how nginx and TLS front the API.
+
+    Prints nothing and exits 0 when no admin domain is configured. There is no
+    HTTPS endpoint in that case, so the caller keeps tunnelling over SSH; the
+    empty answer is the answer, not a failure. A server too old to have this
+    command exits non-zero instead, which the caller reports differently.
+    """
+
+    name = "admin:server-url"
+
+    def run(self) -> None:
+        from hop3.config import config  # ruff:ignore[import-outside-top-level]
+
+        if config.ADMIN_DOMAIN:
+            print(f"https://{config.ADMIN_DOMAIN}")
 
 
 @register

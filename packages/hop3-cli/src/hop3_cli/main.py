@@ -279,15 +279,39 @@ def _context_server(name: str | None, config: Config) -> str | None:
     [contexts.<name>].server``. Returns None when ``name`` is unset or names no
     context with a server.
     """
+    return _context_address(name, config, "server")
+
+
+def _context_bootstrap(name: str | None, config: Config) -> str | None:
+    """
+    Resolve a context NAME to its ``ssh://`` bootstrap route, if it has one.
+
+    Same project-first chain as ``_context_server``: one resolution order for
+    both addresses, so a project context cannot end up talking to one server
+    and renewing against another. A context whose ``server`` is itself
+    ``ssh://`` bootstraps through that.
+    """
+    if address := _context_address(name, config, "bootstrap"):
+        return address
+    server = _context_server(name, config)
+    if server and server.startswith(("ssh://", "ssh+http://")):
+        return server
+    return None
+
+
+def _context_address(name: str | None, config: Config, key: str) -> str | None:
+    """One key of a context, project hop3.toml first, then global config.toml."""
     if not name:
         return None
     path, data = first_hop3_toml(Path.cwd(), Path.home())
     if path is not None and isinstance(data, dict):
         block = (data.get("contexts") or {}).get(name)
-        if isinstance(block, dict) and isinstance(block.get("server"), str):
-            if block["server"]:
-                return block["server"]
-    return config.get_context_server(name)
+        if isinstance(block, dict) and isinstance(block.get(key), str):
+            if block[key]:
+                return block[key]
+    if key == "server":
+        return config.get_context_server(name)
+    return config.get_context_bootstrap(name)
 
 
 def _resolve_active_server(
@@ -298,6 +322,39 @@ def _resolve_active_server(
 
 
 def _wire_active_server(
+    flags: CliFlags,
+    config: Config,
+    context_resolution: ContextResolution | None,
+) -> None:
+    """Resolve this invocation's target, then apply the `--via-ssh` rescue."""
+    _wire_resolved_target(flags, config, context_resolution)
+    if flags.via_ssh:
+        _force_bootstrap_route(config)
+
+
+def _force_bootstrap_route(config: Config) -> None:
+    """
+    Send this one invocation through the context's SSH route (``--via-ssh``).
+
+    The rescue path. Everyday traffic goes to the context's ``server``; this is
+    for when that is precisely what is broken — an expired certificate, a proxy
+    that is down, DNS pointing somewhere else. It refuses rather than quietly
+    using the ordinary route, which would look like the flag did nothing.
+    """
+    target = config.get_bootstrap_target()
+    if not target:
+        print(
+            "Error: --via-ssh, but this target has no SSH bootstrap route.\n"
+            "  It was recorded by a token or password login, which cannot know "
+            "one.\n"
+            "  Sign in over SSH once to record it: hop3 login <user>@<host>",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.USAGE_ERROR)
+    config.set_active_server(f"ssh://{target}")
+
+
+def _wire_resolved_target(
     flags: CliFlags,
     config: Config,
     context_resolution: ContextResolution | None,
@@ -316,12 +373,18 @@ def _wire_active_server(
         server = _require_context_server(flags.context, config)
         _abort_if_env_url_shadows_context(flags.context, server, config)
         config.set_active_server(server)
+        config.set_active_bootstrap(_context_bootstrap(flags.context, config))
         return
+    ambient_name = getattr(context_resolution, "context", None)
     if active_server := _resolve_active_server(context_resolution, config):
         config.set_active_server(active_server)
+        config.set_active_bootstrap(_context_bootstrap(ambient_name, config))
         return
     if ambient := _resolve_ambient_server(config):
         config.set_active_server(ambient)
+        config.set_active_bootstrap(
+            _context_bootstrap(config.get_default_context(), config)
+        )
 
 
 def _require_context_server(name: str, config: Config) -> str:
@@ -871,47 +934,28 @@ def _check_prerequisites(
 
 def _try_auto_authenticate(config: Config, printer: RichPrinter) -> None:
     """
-    Try to authenticate automatically via SSH if available.
+    Mint a token over the context's SSH bootstrap route, if it has one.
 
     Raises:
         AuthenticationError: If auto-auth is not available or fails.
     """
-    from urllib.parse import urlparse  # ruff:ignore[import-outside-top-level]
-
-    from hop3_cli.commands.local.ssh_ops import (  # ruff:ignore[import-outside-top-level]
-        BootstrapError,
-        get_ssh_token,
+    from hop3_cli.core.auto_auth import (  # ruff:ignore[import-outside-top-level]
+        auto_authenticate,
     )
 
-    api_url = config.get_api_url()
-    if not api_url:
+    if not config.get_api_url():
         msg = "No API URL configured"
         raise AuthenticationError(msg)
 
-    parsed = urlparse(api_url)
-    if parsed.scheme not in {"ssh", "ssh+http"}:
-        msg = f"Auto-auth requires SSH URL (got {parsed.scheme}://)"
-        raise AuthenticationError(msg)
-
-    # We have SSH access - try auto-auth
-    ssh_user = parsed.username or config.get("ssh_user", "root")
-    ssh_host = parsed.hostname
-    ssh_target = f"{ssh_user}@{ssh_host}"
-
-    if printer.verbosity >= 1:
-        printer.print_debug(f"Auto-authenticating via SSH to {ssh_target}...")
-
     try:
-        token = get_ssh_token(ssh_target)
-    except BootstrapError as e:
+        target = auto_authenticate(config)
+    except AuthenticationError as e:
         if printer.verbosity >= 1:
             printer.print_debug(f"Auto-auth failed: {e}")
-        msg = f"SSH authentication to {ssh_target} failed: {e}"
-        raise AuthenticationError(msg) from e
+        raise
 
-    config.update_context_token(token)
     if printer.verbosity >= 1:
-        printer.print_debug("Auto-authentication successful")
+        printer.print_debug(f"Auto-authenticated via SSH to {target}")
 
 
 def requires_authentication(cli_args: list[str]) -> bool:

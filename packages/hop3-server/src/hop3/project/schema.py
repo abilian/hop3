@@ -1149,6 +1149,16 @@ class ContextSection(BaseModel):
             "ssh://root@prod.example.com. Never a symbolic name, never credentials."
         ),
     )
+    bootstrap: str | None = Field(
+        default=None,
+        description=(
+            "SSH target used ONLY to mint tokens, e.g. ssh://root@prod.example.com. "
+            "Everyday traffic goes to `server`; when that is an https:// address "
+            "the client still needs an SSH route to renew an expired token, and "
+            "this is it. Omit when `server` is itself ssh:// — it bootstraps "
+            "through that."
+        ),
+    )
     app: str | None = Field(
         default=None,
         description="App instance name for this environment; inherits [metadata].id when absent.",
@@ -1167,6 +1177,17 @@ class ContextSection(BaseModel):
             "server-side via `hop3 env set`, never here."
         ),
     )
+
+    @field_validator("bootstrap")
+    @classmethod
+    def validate_bootstrap(cls, v: str | None) -> str | None:
+        """An SSH route, held to the same no-credentials rule as ``server``."""
+        if v is None:
+            return None
+        if not v.startswith("ssh://"):
+            msg = f"Context.bootstrap must be an ssh:// address, got {v!r}."
+            raise ValueError(msg)
+        return cls.validate_server(v)
 
     @field_validator("server")
     @classmethod

@@ -211,7 +211,7 @@ def test_record_server_login(tmp_path, capsys):
     assert cfg.get_context_server(DEFAULT_CONTEXT_NAME) == ADDR
     assert cfg.get_default_context() == DEFAULT_CONTEXT_NAME
     assert cfg.get_default_server() is None, "the unnamed key is never written"
-    assert "context 'default' -> " in capsys.readouterr().out
-    # Re-login to the same server is a token refresh; it doesn't re-announce.
+    assert "context 'default' is now the default target" in capsys.readouterr().out
+    # Re-login to the same server is a token refresh; it announces nothing.
     record_server_login(cfg, ADDR, "eyJtok2")
-    assert "now the default" not in capsys.readouterr().out
+    assert capsys.readouterr().out.strip() == ""

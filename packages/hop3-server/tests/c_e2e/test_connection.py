@@ -33,6 +33,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 import pytest
+import tomllib
 
 from .conftest import (
     FLASK_REQUIREMENTS,
@@ -219,3 +220,106 @@ class TestSshTransport:
         assert result.returncode == 7, result.stdout + result.stderr
         assert "APP=shell-over-ssh" in result.stdout
         assert "/home/hop3/apps/shell-over-ssh/src" in result.stdout
+
+
+class TestHttpsIsTheEverydayTransport:
+    """
+    SSH mints the token; it should not also carry every later command.
+
+    A login used to record `ssh://root@host` as the connection, so `hop3 apps`
+    and every other read opened a root shell once per invocation. The server is
+    now asked for its own public address (`admin:server-url`), and that becomes
+    the everyday one.
+
+    The container has no admin domain and no trusted certificate, so what it can
+    prove is the *fallback* half and the server-side probe. The trusted-HTTPS
+    half is unit-tested (`test_https_transport.py`) and needs a box with a real
+    domain — a self-signed container would take the untrusted-certificate branch
+    and pass for the wrong reason.
+    """
+
+    def _server_url(self, target: SshTarget, admin_domain: str | None = None) -> str:
+        """Run `admin:server-url` on the target, optionally overriding the domain."""
+        prefix = f"ADMIN_DOMAIN={admin_domain} " if admin_domain is not None else ""
+        remote = (
+            f"su - hop3 -c '{prefix}/home/hop3/venv/bin/hop3-server admin:server-url'"
+        )
+        result = subprocess.run(
+            target.ssh_argv(remote),
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=60,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        return result.stdout.strip()
+
+    def test_the_server_reports_no_url_without_an_admin_domain(
+        self, ssh_target: SshTarget
+    ) -> None:
+        """Empty and exit 0 — the answer, not a failure. The client keeps the tunnel."""
+        assert self._server_url(ssh_target, admin_domain="") == ""
+
+    def test_the_server_reports_its_url_when_it_has_a_domain(
+        self, ssh_target: SshTarget
+    ) -> None:
+        """Env beats the config file, so this probes without mutating the server."""
+        assert (
+            self._server_url(ssh_target, admin_domain="hop3.example.com")
+            == "https://hop3.example.com"
+        )
+
+    def test_login_falls_back_to_the_tunnel_and_says_why(
+        self, ssh_target: SshTarget, tmp_path: Path
+    ) -> None:
+        """
+        No admin domain: the SSH tunnel stays, and the operator is told.
+
+        A silent fallback is the failure to avoid — a working CLI whose every
+        command opens a root shell the operator never chose.
+        """
+        env = _cli_env(ssh_target, tmp_path)
+        del env["HOP3_API_URL"]  # the login must record the address itself
+        result = subprocess.run(
+            ["hop3", "login", "--ssh", f"{ssh_target.user}@{ssh_target.host}"],
+            env=env,
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=120,
+        )
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert "tunnel over SSH" in result.stderr, result.stderr
+        assert "no admin domain" in result.stderr, result.stderr
+
+        config = tomllib.loads((tmp_path / "hop3-cli" / "config.toml").read_text())
+        recorded = config["contexts"]["default"]["server"]
+        assert recorded.startswith("ssh://"), recorded
+
+    def test_an_expired_token_renews_over_the_bootstrap_route(
+        self, ssh_target: SshTarget, tmp_path: Path
+    ) -> None:
+        """
+        Renewal is gated on knowing an SSH route, not on the connection being one.
+
+        Clearing the stored token leaves the context intact; the next command
+        must mint a fresh one by itself rather than failing the operator.
+        """
+        env = _cli_env(ssh_target, tmp_path)
+        del env["HOP3_API_URL"]
+        login = subprocess.run(
+            ["hop3", "login", "--ssh", f"{ssh_target.user}@{ssh_target.host}"],
+            env=env, capture_output=True, text=True, check=False, timeout=120,
+        )  # fmt: skip
+        assert login.returncode == 0, login.stdout + login.stderr
+
+        credentials = tmp_path / "hop3-cli" / "credentials.toml"
+        assert credentials.exists(), "the login stored a token"
+        credentials.unlink()
+
+        result = subprocess.run(
+            ["hop3", "apps"],
+            env=env, capture_output=True, text=True, check=False, timeout=120,
+        )  # fmt: skip
+        assert result.returncode == 0, result.stdout + result.stderr
+        assert credentials.exists(), "a fresh token was minted and stored"
