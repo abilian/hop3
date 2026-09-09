@@ -93,6 +93,20 @@ def test_context_env_hostname_and_domains_mutually_exclusive():
     )
 
 
+def test_default_is_reserved_for_the_global_context():
+    """
+    A project `[contexts.default]` would shadow the global one for the checkout.
+
+    `default` is what a login writes when the operator names no context, and a
+    project context resolves before a global one — so committing this name
+    silently retargets everyone who stands in this directory.
+    """
+    _reject(
+        '[metadata]\nid="a"\n[contexts.default]\nserver="ssh://root@h"\n',
+        "reserved",
+    )
+
+
 def test_invalid_context_name_rejected():
     _reject(
         '[metadata]\nid="a"\n[contexts."has space"]\nserver="ssh://root@h"\n',

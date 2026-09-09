@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import sys
 from typing import TYPE_CHECKING
 
@@ -237,21 +238,29 @@ def confirm_destructive_action(  # ruff:ignore[too-many-return-statements] — s
 
 def _maybe_show_context_warning(config: Config | None) -> None:
     """
-    Emit a context-mismatch warning before destructive ops (ADR 036 D14).
+    Name the server this destroy is about to run against (ADR 036 D14).
 
-    "Mismatch" here is shallow: we just print the active context so the
-    user can spot at a glance if they're about to destroy in production.
-    A deeper version would compare against an explicit "non-destructive"
-    context — left for later if real usage shows the noise level matters.
+    The address, not just the context name. A name alone answers the wrong
+    question: every single-server install calls its context the same thing, so
+    "Acting in context 'default'" carries no information at the one moment the
+    operator needs some. And when `HOP3_API_URL` is set it overrides every
+    context silently (`Config.get_api_url` checks it first), so the name would
+    have been actively misleading — that case is called out by source instead.
     """
     if config is None:
         return
+    target = config.get_api_url()
+    if not target:
+        return
+    print(f"\n  ⚠  Acting on {_target_origin(config, target)}.\n", file=sys.stderr)
+
+
+def _target_origin(config: Config, target: str) -> str:
+    """The address, plus where it came from when that is worth saying."""
+    if os.environ.get("HOP3_API_URL"):
+        return f"{target}  (from HOP3_API_URL, which overrides every context)"
     name = config.get_current_context_name()
-    if name:
-        print(
-            f"\n  ⚠  Acting in context '{name}'. Verify this is correct.\n",
-            file=sys.stderr,
-        )
+    return f"{target}  (context {name!r})" if name else target
 
 
 def _confirm_app_destroy(app_name: str) -> bool:

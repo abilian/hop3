@@ -1084,15 +1084,21 @@ def _run_config_migration() -> None:
         MigrationError as MigrationErrorV2,
         migrate_config_to_token_store,
     )
+    from hop3_cli.core.config_migration_v3 import (  # ruff:ignore[import-outside-top-level]
+        migrate_to_named_targets,
+    )
     from hop3_cli.core.paths import config_dir  # ruff:ignore[import-outside-top-level]
 
     cfg_dir = config_dir()
     try:
         # Stage 1 (ADR 042 r1): consolidate every legacy shape into
         # config.toml [contexts.*]. Stage 2 (r2): drain those tokens into the
-        # per-server store and leave config.toml secret-free. Sequential.
+        # per-server store and leave config.toml secret-free. Stage 3: give the
+        # unnamed default target a name and settle one current-context key.
+        # Sequential — each assumes its predecessor has run.
         notes = migrate_legacy_config_042(cfg_dir)
         notes += migrate_config_to_token_store(cfg_dir)
+        notes += migrate_to_named_targets(cfg_dir)
     except (MigrationError, MigrationErrorV2) as exc:
         print(f"Error: {exc}", file=sys.stderr)
         sys.exit(ExitCode.GENERAL_ERROR)

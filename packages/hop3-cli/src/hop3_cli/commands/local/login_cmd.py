@@ -14,6 +14,8 @@ from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
 
+from hop3_cli.config import DEFAULT_CONTEXT_NAME
+from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import extract_jwt
 
 from .help_text import print_login_help
@@ -425,6 +427,37 @@ def _get_ssh_target_from_config(config: Config) -> str | None:
     return None
 
 
+def refuse_unnamed_retarget(config: Config, server_url: str) -> None:
+    """
+    Refuse to repoint the `default` context at a different server, unasked.
+
+    Only when the operator named nothing. `--context prod` is a deliberate
+    choice and repoints with an announcement; an unnamed login cannot tell
+    "I replaced my server" from "I have two now", and quietly answering with
+    the first is how `hop3 apps` starts reporting on the wrong machine.
+
+    Re-logging the same address is a token refresh and passes through.
+    """
+    if config.get_context_override():
+        return
+    current = config.get_context_server(DEFAULT_CONTEXT_NAME)
+    if not current or current == server_url:
+        return
+    print(
+        f"Hop3 won't repoint the {DEFAULT_CONTEXT_NAME!r} context.\n"
+        f"\n"
+        f"  it names   {current}\n"
+        f"  this login is for {server_url}\n"
+        f"\n"
+        f"Name this one, or drop the old one first:\n"
+        f"\n"
+        f"  hop3 login … --context <name>\n"
+        f"  hop3 context remove {DEFAULT_CONTEXT_NAME}",
+        file=sys.stderr,
+    )
+    sys.exit(ExitCode.GENERAL_ERROR)
+
+
 def record_server_login(config: Config, server_url: str, token: str) -> None:
     """
     ADR 042: stash the token + set this server as the default target.
@@ -439,6 +472,9 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
     """
     if not server_url:
         return
+
+    refuse_unnamed_retarget(config, server_url)
+
     from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
     from .completion_cmd import (  # ruff:ignore[import-outside-top-level]
@@ -457,18 +493,28 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
             file=sys.stderr,
         )
 
-    context_name = config.get_context_override()
-    if context_name:
-        config.set_context_server(context_name, server_url)
-        previous_context = config.get_default_context()
-        config.set_default_context(context_name)
-        if previous_context != context_name:
-            print(f"  context {context_name!r} -> {server_url} (now the default)")
-    else:
-        previous_server = config.get_default_server()
-        config.set_default_server(server_url)
-        if previous_server != server_url:
-            print(f"  default server is now {server_url}")
+    # The same lie, one rank higher: `Config.get_api_url` checks HOP3_API_URL
+    # before any context, so a stale export sends every later command somewhere
+    # else entirely and this login applies to nothing. Only worth saying when
+    # the two disagree — CI that exports the server it just logged into is fine.
+    env_url = os.environ.get("HOP3_API_URL")
+    if env_url and env_url != server_url:
+        print(
+            f"  warning: HOP3_API_URL is set to {env_url} in your environment and "
+            f"overrides this login's target ({server_url}) for every command "
+            f"until you `unset HOP3_API_URL`.",
+            file=sys.stderr,
+        )
+
+    # Every target is a named context. The unnamed `[cli].default_server` this
+    # used to write resolves BELOW every context, so an operator who had one
+    # was told the login succeeded and then had every command go elsewhere.
+    context_name = config.get_context_override() or DEFAULT_CONTEXT_NAME
+    config.set_context_server(context_name, server_url)
+    previous_context = config.get_default_context()
+    config.set_default_context(context_name)
+    if previous_context != context_name:
+        print(f"  context {context_name!r} -> {server_url} (now the default)")
 
     # Now that there is a server to ask, fill the caches shell completion and
     # the offline command list read from (ADR 036 M9.3).

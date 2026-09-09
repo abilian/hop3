@@ -63,3 +63,24 @@ def test_startup_migration_is_noop_on_fresh_machine(tmp_path: Path, capsys) -> N
 
     assert not (tmp_path / "hop3-config" / "servers.toml").exists()
     assert "Migrated" not in capsys.readouterr().err
+
+
+def test_startup_migration_names_the_unnamed_default_target(
+    tmp_path: Path, capsys
+) -> None:
+    """
+    Stage 3 runs at startup too, so no config keeps an unnamed default target.
+
+    `[cli].default_server` resolves below every context, so leaving one in place
+    means the CLI can be pointed at a server it then silently ignores.
+    """
+    cfgdir = _config_dir(tmp_path)
+    (cfgdir / "config.toml").write_text('[cli]\ndefault_server = "ssh://root@a.com"\n')
+
+    run_command_from_args(["version"])
+
+    cfg = tomllib.loads((cfgdir / "config.toml").read_text())
+    assert cfg["contexts"]["default"] == {"server": "ssh://root@a.com"}
+    assert cfg["cli"]["default_context"] == "default"
+    assert "default_server" not in cfg["cli"]
+    assert "default" in capsys.readouterr().err, "the migration says what it did"

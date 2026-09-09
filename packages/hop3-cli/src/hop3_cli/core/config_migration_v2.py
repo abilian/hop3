@@ -61,7 +61,7 @@ def migrate_config_to_token_store(config_dir: Path) -> list[str]:
     if not config_path.is_file():
         return []
 
-    data = _load_or_abort(config_path)
+    data = load_or_abort(config_path)
     contexts = data.get("contexts")
     if not isinstance(contexts, dict) or not contexts:
         return []  # no-op: no contexts at all
@@ -74,7 +74,7 @@ def migrate_config_to_token_store(config_dir: Path) -> list[str]:
     backup = config_dir / (CONFIG_FILENAME + BACKUP_SUFFIX)
     if not backup.exists():
         shutil.copy2(config_path, backup)
-        _chmod_600(backup)
+        chmod_600(backup)
 
     # 2. Drain every token to the store (durable) and rewrite each context
     # address-only (``{server = url}``) — a secret-free global context.
@@ -99,7 +99,7 @@ def migrate_config_to_token_store(config_dir: Path) -> list[str]:
     else:
         new_config.pop("cli", None)
     atomic_write_toml(config_path, new_config)
-    _chmod_600(config_path)
+    chmod_600(config_path)
 
     summary = (
         f"Moved {len(drained)} server token(s) to the per-server store; "
@@ -167,8 +167,13 @@ def _pointer(data: dict[str, Any]) -> object:
     return data.get("current_context")
 
 
-def _load_or_abort(path: Path) -> dict[str, Any]:
-    """Parse ``path`` as TOML; malformed → abort loud (change nothing)."""
+def load_or_abort(path: Path) -> dict[str, Any]:
+    """
+    Parse ``path`` as TOML; malformed → abort loud (change nothing).
+
+    Public because stage 3 (``config_migration_v3``) runs under the same
+    crash-safety contract and must fail the same way on the same input.
+    """
     try:
         with path.open("rb") as f:
             return tomllib.load(f)
@@ -180,7 +185,7 @@ def _load_or_abort(path: Path) -> dict[str, Any]:
         raise MigrationError(msg) from exc
 
 
-def _chmod_600(path: Path) -> None:
+def chmod_600(path: Path) -> None:
     """Best-effort 0o600 (config.toml may transiently hold a JWT mid-migration)."""
     with contextlib.suppress(OSError):
         os.chmod(path, 0o600)
