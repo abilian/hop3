@@ -47,7 +47,7 @@ def test_rich_printer_print_text_preserves_square_brackets():
     Plain text with square brackets must print literally (not as Rich markup).
 
     Help output uses literal brackets the user must see: the ``[top]`` /
-    ``[addon]`` markers in ``hop help --all`` and ``[options]`` / ``[aliases]``
+    ``[addon]`` markers in ``hop3 help --all`` and ``[options]`` / ``[aliases]``
     / ``[local]`` in command help. Rich's markup parser would otherwise treat
     these as style tags and strip them.
     """

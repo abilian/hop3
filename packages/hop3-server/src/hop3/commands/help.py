@@ -80,16 +80,16 @@ class HelpCmd(Command):
     Display useful help messages.
 
     Usage:
-        hop help                  Show top-level commands grouped by category
-        hop help <command>        Show detailed help for a command
-        hop help <ns> <verb>      Show detailed help for a namespaced command
-        hop help --all            Show all commands flat with markers
-        hop help --all -v         Show the full help for every command
-        hop help --all --json     Emit the whole command tree as JSON
+        hop3 help                  Show top-level commands grouped by category
+        hop3 help <command>        Show detailed help for a command
+        hop3 help <ns> <verb>      Show detailed help for a namespaced command
+        hop3 help --all            Show all commands flat with markers
+        hop3 help --all -v         Show the full help for every command
+        hop3 help --all --json     Emit the whole command tree as JSON
 
     Examples:
-        hop help auth             Show auth command help and its subcommands
-        hop help config set       Show help for 'config set' command
+        hop3 help auth             Show auth command help and its subcommands
+        hop3 help config set       Show help for 'config set' command
     """
 
     name: ClassVar[tuple[str, ...]] = ("help",)
@@ -125,9 +125,9 @@ class HelpCmd(Command):
         """Show top-level commands grouped by category (ADR 036 D11)."""
         output = [
             "USAGE",
-            "  $ hop <command> <args>",
-            "  $ hop help <command>    # Show help for a command",
-            "  $ hop help --all        # Show all commands flat",
+            "  $ hop3 <command> <args>",
+            "  $ hop3 help <command>    # Show help for a command",
+            "  $ hop3 help --all        # Show all commands flat",
             "",
         ]
 
@@ -157,16 +157,16 @@ class HelpCmd(Command):
                 output.append(f"  {display:<16} {help_text}")
             output.append("")
 
-        output.append("Use 'hop help <command>' to see subcommands and detailed help.")
+        output.append("Use 'hop3 help <command>' to see subcommands and detailed help.")
         return [text("\n".join(output))]
 
     def _show_all_commands(self) -> list[dict]:
         """Show all commands flat, alphabetical, with `[top]` / `[ns]` markers."""
         output = [
             "USAGE",
-            "  $ hop <command> <args>",
-            "  $ hop help <command>    # Show help for a command",
-            "  $ hop help --all        # Show all commands flat",
+            "  $ hop3 <command> <args>",
+            "  $ hop3 help <command>    # Show help for a command",
+            "  $ hop3 help --all        # Show all commands flat",
             "",
             "ALL COMMANDS",
         ]
@@ -202,7 +202,7 @@ class HelpCmd(Command):
 
         output.append("")
         output.append(
-            "Use 'hop help --all -v' to print the full help for every command."
+            "Use 'hop3 help --all -v' to print the full help for every command."
         )
         return [text("\n".join(output))]
 
@@ -210,8 +210,8 @@ class HelpCmd(Command):
         """
         Aggregate the full detailed help for every command, recursively.
 
-        `hop help --all -v` renders, for each non-hidden command (top-level and
-        namespaced), the same D11 page produced by `hop help <command>`, joined
+        `hop3 help --all -v` renders, for each non-hidden command (top-level and
+        namespaced), the same D11 page produced by `hop3 help <command>`, joined
         with separators. This is the long "manual" view of the whole CLI.
         """
         all_commands = lookup(Command)
@@ -225,7 +225,7 @@ class HelpCmd(Command):
             "ALL COMMANDS — FULL HELP",
             "",
             f"Full help for every command ({len(visible)} total), recursively.",
-            "Use 'hop help <command>' to view a single entry.",
+            "Use 'hop3 help <command>' to view a single entry.",
             "",
         ]
         for cmd in visible:
@@ -257,7 +257,7 @@ class HelpCmd(Command):
         if matched is None:
             return [
                 error(f"Unknown command: {' '.join(command_name)}"),
-                text("\nRun 'hop help' to see all available commands."),
+                text("\nRun 'hop3 help' to see all available commands."),
             ]
 
         cmd = commands[matched]
@@ -292,7 +292,7 @@ class HelpCmd(Command):
 
         # "Part of:" line for namespaced commands.
         if len(display_name) > 1:
-            output.append(f"Part of: hop {display_name[0]} namespace.")
+            output.append(f"Part of: hop3 {display_name[0]} namespace.")
 
         return output
 
@@ -335,7 +335,7 @@ class HelpCommandsCmd(Command):
     Used by the CLI to generate and cache shell completion scripts.
 
     Usage:
-        hop help commands
+        hop3 help commands
 
     Output:
         {"commands": ["addon", "addon attach", "app", "app logs", ...]}

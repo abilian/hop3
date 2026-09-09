@@ -71,29 +71,45 @@ Examples:
 
 LOGIN_HELP = """Usage: hop3 login [options]
 
-Authenticate to a Hop3 server.
+Authenticate this CLI to a Hop3 server:
 
-SSH-based login (recommended):
   hop3 login --ssh root@my-server.com
 
-  SSH access IS authentication - no username or password needed.
-  The server automatically creates or selects an admin user.
+Your SSH access to the server IS the credential, so there is no password to
+type: this asks the server for an API token over SSH and stores it, creating
+or selecting an admin user as needed. `hop3 apps` and the rest then work
+against that server.
 
-Other authentication methods:
-  <url>?token=<token>    URL with embedded token (for local dev)
-  --token <token>        Use a pre-generated token
-  (default)              Username/password authentication
+The web dashboard holds a SEPARATE credential — a browser session, not this
+token — and signing in here does not sign you in there. To get one:
+
+  hop3 login --web root@my-server.com
+
+Despite the flag names, that is not the alternative to --ssh. It travels over
+SSH too, and it is not a login: it prints a one-time URL for you to open,
+which expires in 5 minutes and works once.
+
+Without SSH access, both surfaces fall back to username/password: `hop3 login`
+here, the dashboard's own form in the browser.
 
 Options:
-  --ssh <user@server>    SSH-based authentication (recommended)
+  --ssh <user@server>    Mint a CLI token over SSH (recommended)
+  --web [<user@server>]  Print a one-time link for the web dashboard
+  --context <name>       Name this server, and make it the default target
   --username <name>      Specific user (optional, defaults to auto-select)
   --url <url>            Server URL (HTTP API; pair with --token for token auth)
   --token <token>        Use a pre-generated API token
   -d, -dd, -ddd          Debug output (more d's = more verbose)
 
 Examples:
-  # SSH-based login (simplest - just works)
+  # Authenticate the CLI (simplest - just works)
   hop3 login --ssh root@my-server.com
+
+  # Get into the web dashboard without a password
+  hop3 login --web root@my-server.com
+
+  # Name the server, so `--context prod` selects it from anywhere
+  hop3 login --context prod --ssh root@prod.example.com
 
   # URL with embedded token (for local development)
   hop3 login "http://localhost:8000?token=eyJ..."
@@ -101,8 +117,13 @@ Examples:
   # Password-based login (for users without SSH access)
   hop3 login
 
-Note: With contexts, login is often not needed - auto-auth happens
-automatically when you run commands. See 'hop3 context --help'.
+Lost the admin password? You don't need it to get in, and you don't need to
+reset it on the server:
+  hop3 login --ssh root@my-server.com
+  hop3 user set-password admin --stdin
+
+Note: when a context's server is an ssh:// address, login is often not needed —
+the CLI mints a token over SSH by itself. See 'hop3 context --help'.
 """
 
 

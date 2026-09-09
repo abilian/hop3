@@ -139,6 +139,25 @@ def find_command(cli_args: list[str]) -> tuple[type[Command] | None, int]:
     return None, 0
 
 
+def typed_command_name(cli_args: list[str]) -> tuple[str, ...]:
+    """
+    Name the command the operator meant, for an unknown-command failure.
+
+    Walks the registry's prefix tree as far as it goes, then adds the token
+    that broke the walk: `admin set-password` is reported in full instead of
+    just `admin`, so the suggestion is drawn against what was actually typed
+    (`user set-password`) rather than against every command starting with a
+    similar first word (`domain`, `addon`). Tokens past the break are the
+    command's arguments and stay out of the name.
+    """
+    prefixes = {name[:n] for name in commands for n in range(1, len(name))}
+    depth = 0
+    limit = min(len(cli_args), _MAX_COMMAND_DEPTH)
+    while depth < limit and tuple(cli_args[: depth + 1]) in prefixes:
+        depth += 1
+    return tuple(cli_args[: depth + 1])
+
+
 def _unknown_command_error(message: str, display_name: str) -> DidYouMeanError:
     """Attach the closest registered command names to an unknown-command error."""
     known = [format_command_name(name) for name in commands]
@@ -380,11 +399,12 @@ class RPCController(Controller):
         # For `hop3 config set FOO=bar`, cli_args = ["config", "set", "FOO=bar"];
         # the command name is the tuple ("config", "set") and args is ["FOO=bar"].
         command_class, n_consumed = find_command(cli_args)
-        command_name: tuple[str, ...] = (
-            command_class.name if command_class is not None else tuple(cli_args[:1])
-        )
-        args = cli_args[n_consumed:] if command_class is not None else cli_args[1:]
-
+        if command_class is None:
+            command_name = typed_command_name(cli_args)
+            args = cli_args[len(command_name) :]
+        else:
+            command_name = command_class.name
+            args = cli_args[n_consumed:]
         display_name = format_command_name(command_name)
 
         # Log all incoming RPC commands for debugging

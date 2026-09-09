@@ -153,12 +153,12 @@ def test_classify_doc_line_non_header() -> None:
 
 
 def test_detailed_help_has_d11_structure() -> None:
-    """Detailed help output follows 'hop <name> — <summary>' + structured sections."""
+    """Detailed help output follows 'hop3 <name> — <summary>' + structured sections."""
     cmd = HelpCmd()
     result = cmd.call("help")
     text = result[0]["text"]
     # Header
-    assert "hop help" in text
+    assert "hop3 help" in text
     assert "Display useful help messages" in text
     # Structured sections
     assert "USAGE" in text
@@ -170,7 +170,7 @@ def test_detailed_help_for_namespaced_command_shows_part_of() -> None:
     cmd = HelpCmd()
     result = cmd.call("config", "set")
     text = result[0]["text"]
-    assert "Part of: hop config namespace." in text
+    assert "Part of: hop3 config namespace." in text
 
 
 def test_detailed_help_for_top_level_no_part_of() -> None:
@@ -233,7 +233,7 @@ def _fake_registry(monkeypatch, cmds) -> None:
 
 
 def test_get_help_scopes_into_a_subgroup(monkeypatch) -> None:
-    """`hop addon postgres` renders the postgres subtree, not all of addon."""
+    """`hop3 addon postgres` renders the postgres subtree, not all of addon."""
     cmds = [
         _FakeCmd(("addon",), "Manage addons."),
         _FakeCmd(("addon", "postgres"), "PostgreSQL addon operations."),
@@ -246,14 +246,14 @@ def test_get_help_scopes_into_a_subgroup(monkeypatch) -> None:
 
     text = ns.get_help(("postgres",))[0]["text"]
 
-    assert text.splitlines()[0] == "hop addon postgres — PostgreSQL addon operations."
+    assert text.splitlines()[0] == "hop3 addon postgres — PostgreSQL addon operations."
     assert "addon postgres dump" in text  # the subgroup's own verb is listed
     assert "addon list" not in text  # a sibling of the subgroup is not
-    assert "Part of: hop addon namespace." in text
+    assert "Part of: hop3 addon namespace." in text
 
 
 def test_get_help_bare_namespace_collapses_subgroups(monkeypatch) -> None:
-    """`hop addon` shows the postgres subgroup as one row, not its verbs."""
+    """`hop3 addon` shows the postgres subgroup as one row, not its verbs."""
     cmds = [
         _FakeCmd(("addon",), "Manage addons."),
         _FakeCmd(("addon", "postgres"), "PostgreSQL addon operations."),

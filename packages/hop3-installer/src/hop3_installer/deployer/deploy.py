@@ -217,23 +217,57 @@ class Deployer:
         admin_domain = self.config.effective_admin_domain
         if admin_domain:
             print(f"Admin URL: https://{admin_domain}")
-            print(f"Admin user: {self.config.admin_user}")
-            # Only show password if we created a new user.
-            # SECURITY: do not print partial-masked forms (e.g. first-4 +
-            # last-4). Even small fractions of a token leak entropy and
-            # narrow brute-force search; either show the full secret
-            # under --verbose so the operator can capture it, or show
-            # nothing and let them rotate via ``hop3 admin set-password``.
-            if self.admin_user_created:
-                if self.verbose:
-                    print(f"Admin password: {self.config.admin_password}")
-                else:
-                    print(
-                        "Admin password: [hidden — re-run with --verbose to "
-                        "display, or rotate via 'hop3 admin set-password']"
-                    )
 
+        self._print_how_to_log_in()
         print("=" * 60)
+
+    def _print_how_to_log_in(self) -> None:
+        """
+        Give the operator one command to run, and say why it needs no password.
+
+        One command, not two. `login --ssh` and `login --web` look like a pair
+        and are not: `--ssh` names a transport, `--web` names a destination and
+        travels over SSH as well, and only the first is a login — the second
+        prints a URL. Offering them as two bullets taught a symmetry that does
+        not exist, so the dashboard link is mentioned in prose, after the one
+        command that actually has to be run.
+
+        The generated admin password comes last because it opens neither.
+        Leading with it sent operators hunting for a way to recover a secret
+        they never had to hold.
+
+        A Docker target has no SSH target to name and its CLI was configured in
+        place by `_setup_cli`, so it gets no login block.
+        """
+        if self.config.use_docker or not self.config.host:
+            return
+
+        target = self.config.ssh_target
+        print()
+        print("Sign in from this machine. Your SSH access to the server is the")
+        print("credential, so there is no password to type:")
+        print()
+        print(f"  hop3 login --ssh {target}")
+        print()
+        print("That authenticates the CLI — `hop3 apps` and the rest work from")
+        print(f"here. For the dashboard in a browser, `hop3 login --web {target}`")
+        print("prints a one-time link (it authenticates over SSH too).")
+        print()
+        print(f"Admin user: {self.config.admin_user}")
+
+        if not self.admin_user_created:
+            return
+        # SECURITY: never a partially-masked form (e.g. first-4 + last-4).
+        # Even small fractions of a secret narrow a brute-force search; show
+        # all of it under --verbose so the operator can capture it, or none.
+        if self.verbose:
+            print(f"Admin password: {self.config.admin_password}")
+            return
+        print("Admin password: [hidden — re-run with --verbose to display]")
+        print("  Neither command above uses it. To set one you know, sign in")
+        print(
+            f"  as above, then: hop3 user set-password {self.config.admin_user} --stdin"
+        )
 
     def _setup_and_prepare(self) -> tuple[bool, int, str | None]:
         """

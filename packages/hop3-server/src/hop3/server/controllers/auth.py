@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
 
+from hop3.config import config
 from hop3.orm.repositories import UserRepository
 from hop3.orm.security import burn_password_check
 from hop3.server.guards import auth_guard
@@ -95,6 +96,11 @@ class AuthController(Controller):
             "username": request.query_params.get("username", ""),
             # Warn before they type a password, not after the login loops.
             "insecure_transport": cookie_would_be_dropped(request),
+            # The passwordless way in, for the operator who never held the
+            # generated admin password. The server's own configured domain, not
+            # `request.url.hostname` — the Host header is the caller's to choose
+            # and this string is a command we are telling someone to run.
+            "admin_domain": config.ADMIN_DOMAIN,
         }
         return Template(template_name="auth/login.html", context=ctx)
 

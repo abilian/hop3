@@ -30,8 +30,8 @@ def test_help_overview():
 
     # Check for usage section
     assert "USAGE" in text
-    assert "$ hop <command> <args>" in text
-    assert "$ hop help <command>" in text
+    assert "$ hop3 <command> <args>" in text
+    assert "$ hop3 help <command>" in text
 
     # Check for a category header (ADR 036 D4/D11 categorized layout)
     assert "UTILITIES" in text or "DAILY OPERATIONS" in text
@@ -49,9 +49,9 @@ def test_help_detailed_for_specific_command():
     assert result[0]["t"] == "text"
     text = result[0]["text"]
 
-    # Per D11, detailed help starts with "hop <cmd> — <summary>" and then
+    # Per D11, detailed help starts with "hop3 <cmd> — <summary>" and then
     # structured sections (USAGE, EXAMPLES, etc.).
-    assert "hop help" in text
+    assert "hop3 help" in text
     assert "Display useful help messages" in text
     assert "USAGE" in text
 
@@ -67,7 +67,7 @@ def test_help_for_unknown_command():
     assert "Unknown command: nonexistent-command" in result[0]["text"]
 
     assert result[1]["t"] == "text"
-    assert "hop help" in result[1]["text"]
+    assert "hop3 help" in result[1]["text"]
 
 
 def test_get_short_help_extracts_first_line():
@@ -152,15 +152,15 @@ def test_help_detailed_shows_full_docstring():
     # Should succeed (not show error)
     assert result[0]["t"] == "text"
     text = result[0]["text"]
-    # D11 header: "hop <cmd> — <summary>"
-    assert "hop help" in text
+    # D11 header: "hop3 <cmd> — <summary>"
+    assert "hop3 help" in text
     # Should show the docstring content (summary + examples)
     assert "Display useful help messages" in text
     assert "EXAMPLES" in text
 
 
 def test_help_all_shows_all_commands():
-    """Test that 'hop help --all' shows all commands including subcommands."""
+    """Test that 'hop3 help --all' shows all commands including subcommands."""
     cmd = HelpCmd()
     result = cmd.call("--all")
 
@@ -191,7 +191,7 @@ def test_help_all_flat_hints_at_verbose():
 
 
 def test_help_all_lists_aliases_with_alias_marker():
-    """`hop help --all` lists aliases tagged [alias], pointing at the canonical."""
+    """`hop3 help --all` lists aliases tagged [alias], pointing at the canonical."""
     cmd = HelpCmd()
     text = cmd.call("--all")[0]["text"]
     lines = [ln.strip() for ln in text.split("\n")]
@@ -216,7 +216,7 @@ def test_help_all_lists_aliases_with_alias_marker():
 
 def test_help_all_verbose_aggregates_full_help():
     """
-    `hop help --all -v` aggregates the full help for every command.
+    `hop3 help --all -v` aggregates the full help for every command.
 
     Verbosity is forwarded by the client and applied as a context (see
     rpc.call); here we set it directly. The document must contain detailed
@@ -238,7 +238,7 @@ def test_help_all_verbose_aggregates_full_help():
     assert "Part of: hop" in text
     # Spot-check that specific top-level and namespaced commands are present
     # as full-help headers.
-    for header in ("hop deploy —", "hop env set —", "hop auth get-token —"):
+    for header in ("hop3 deploy —", "hop3 env set —", "hop3 auth get-token —"):
         assert header in text, header
 
 
@@ -251,7 +251,7 @@ def test_help_default_shows_only_top_level():
     text = result[0]["text"]
 
     # Should have hint about using help --all
-    assert "hop help --all" in text
+    assert "hop3 help --all" in text
 
     # Commands section should not include subcommand lines
     # (lines starting with "  " followed by a name containing ":")
@@ -278,7 +278,7 @@ def test_help_default_shows_only_top_level():
 
 
 def test_help_shows_subcommands_for_namespace():
-    """Test that 'hop help <namespace>' shows subcommands."""
+    """Test that 'hop3 help <namespace>' shows subcommands."""
     cmd = HelpCmd()
     # 'auth' is a namespace command with subcommands like auth:login, etc.
     result = cmd.call("auth")

@@ -6,7 +6,7 @@ Command Docstring Convention
 
 When writing CLI commands, follow this docstring convention:
 
-- **First Line**: A brief one-line summary (shown in ``hop --help`` overview)
+- **First Line**: A brief one-line summary (shown in ``hop3 --help`` overview)
 - **Blank Line**: Separate the summary from detailed help
 - **Detailed Help**: Usage instructions, examples, and detailed description (shown when asking for specific command help)
 
@@ -20,11 +20,11 @@ Example:
         This is the detailed help that includes usage instructions,
         examples, and more detailed explanations.
 
-        Usage: hop mycommand <arg1> <arg2>
+        Usage: hop3 mycommand <arg1> <arg2>
 
         Examples:
-            hop mycommand foo bar
-            hop mycommand --option value
+            hop3 mycommand foo bar
+            hop3 mycommand --option value
         '''
 """
 
@@ -85,16 +85,16 @@ class Command:
         """
         Default help for namespace-bare invocations (ADR 036 M4.3).
 
-        Produces the same D11-structured output as `hop help <ns>`:
-        `hop <ns> — <summary>`, USAGE (inferred), EXAMPLES (from docstring),
+        Produces the same D11-structured output as `hop3 help <ns>`:
+        `hop3 <ns> — <summary>`, USAGE (inferred), EXAMPLES (from docstring),
         DESCRIPTION (body), SUBCOMMANDS, and "Part of:" line for nested
         namespaces. The shared renderer lives in `_help_render.py` so this
         stays in sync with `HelpCmd._detailed_help`.
 
         `extra` are the tokens typed after this namespace (e.g. `postgres` in
-        `hop addon postgres`). They scope the help into a sub-namespace, so a
+        `hop3 addon postgres`). They scope the help into a sub-namespace, so a
         parent namespace can render a child's page even when the child has no
-        namespace command of its own (`hop server email`, `hop waf bans`). When
+        namespace command of its own (`hop3 server email`, `hop3 waf bans`). When
         the child *does* have a registered command, the dispatcher routes there
         directly and this path is not needed.
         """
@@ -128,14 +128,14 @@ class Command:
         # If the docstring doesn't supply a Usage block, synthesize one for
         # namespace commands.
         if not sections["usage"]:
-            sections["usage"] = [f"hop {display_name} <subcommand>"]
+            sections["usage"] = [f"hop3 {display_name} <subcommand>"]
 
         output = render_detailed_help(display_name, sections)
         output.extend(render_subcommands(commands, namespace, short_help))
 
-        # "Part of:" line for nested namespaces (e.g., `hop addon postgres`).
+        # "Part of:" line for nested namespaces (e.g., `hop3 addon postgres`).
         if len(namespace) > 1:
-            output.append(f"Part of: hop {namespace[0]} namespace.")
+            output.append(f"Part of: hop3 {namespace[0]} namespace.")
 
         return [text("\n".join(output))]
 
@@ -147,7 +147,7 @@ class NamespaceCommand(Command):
     """
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
-        # Trailing tokens (e.g. `postgres` in `hop addon postgres`) scope the
+        # Trailing tokens (e.g. `postgres` in `hop3 addon postgres`) scope the
         # help into a sub-namespace when that sub-namespace has no command of
         # its own to route to.
         return self.get_help(args)

@@ -143,7 +143,7 @@ class RichPrinter:
 
         ``markup=False`` is essential: server text is literal and routinely
         contains square brackets that are NOT Rich markup — e.g. the
-        ``[top]`` / ``[addon]`` markers in ``hop help --all`` and ``[options]``
+        ``[top]`` / ``[addon]`` markers in ``hop3 help --all`` and ``[options]``
         / ``[aliases]`` / ``[current]`` in command help. With markup enabled
         Rich would parse those as style tags and silently strip them, mangling
         the output.
