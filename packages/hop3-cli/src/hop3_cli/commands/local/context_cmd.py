@@ -311,14 +311,16 @@ def context_show(args: list[str], config: Config) -> None:
 
 def _parse_add_args(
     args: list[str],
-) -> tuple[str, list[str], dict[str, str]]:
+) -> tuple[str, str, list[str], dict[str, str]]:
     """
-    Parse `--server / --domain / --env` for `context add`.
+    Parse `--server / --bootstrap / --domain / --env` for `context add`.
 
     ``--app`` arrives via the global flag parser (config override), not here.
-    Returns (server, domains, env). Exits on an unknown flag / missing value.
+    Returns (server, bootstrap, domains, env). Exits on an unknown flag or a
+    missing value.
     """
     server = ""
+    bootstrap = ""
     domains: list[str] = []
     env: dict[str, str] = {}
     i = 0
@@ -326,6 +328,9 @@ def _parse_add_args(
         flag = args[i]
         if flag in {"--server", "-s"} and i + 1 < len(args):
             server = args[i + 1]
+            i += 2
+        elif flag == "--bootstrap" and i + 1 < len(args):
+            bootstrap = args[i + 1]
             i += 2
         elif flag in {"--domain", "--domains"} and i + 1 < len(args):
             domains.append(args[i + 1])
@@ -343,11 +348,11 @@ def _parse_add_args(
         else:
             print(f"Unknown or incomplete option: {flag}", file=sys.stderr)
             sys.exit(1)
-    return server, domains, env
+    return server, bootstrap, domains, env
 
 
 def _context_add_global(
-    name: str, server: str, has_project_fields: bool, config: Config
+    name: str, server: str, bootstrap: str, has_project_fields: bool, config: Config
 ) -> None:
     """Define a global context (a named server) in config.toml — secret-free."""
     if has_project_fields:
@@ -367,8 +372,10 @@ def _context_add_global(
             file=sys.stderr,
         )
         sys.exit(1)
-    config.set_context_server(name, server)
+    config.set_context_server(name, server, bootstrap=bootstrap or None)
     print(f"Added global context {name!r} -> {server} (config.toml).")
+    if bootstrap:
+        print(f"  token renewal over {bootstrap}")
     print(f"  select it anywhere with: hop3 <command> --context {name}")
 
 
@@ -376,11 +383,15 @@ def context_add(args: list[str], config: Config) -> None:
     """Add a context — a project `[contexts.<name>]` (hop3.toml) or a global one."""
     if not args or args[0] in {"--help", "-h"}:
         print(
-            "Usage: hop3 context add <name> --server <addr> [--app <app>] "
-            "[--domain <d>]... [--env K=V]...\n"
+            "Usage: hop3 context add <name> --server <addr> [--bootstrap <ssh://…>]\n"
+            "       [--app <app>] [--domain <d>]... [--env K=V]...\n"
             "\n"
             "Adds a deploy environment to the project's hop3.toml. The server is a\n"
-            "literal address (no token — credentials live in the local store)."
+            "literal address (no token — credentials live in the local store).\n"
+            "\n"
+            "--bootstrap is the ssh:// route used ONLY to renew an expired token.\n"
+            "It is what lets an https:// server renew unattended; omit it when the\n"
+            "server is itself ssh://, which bootstraps through itself."
         )
         return
 
@@ -393,22 +404,35 @@ def context_add(args: list[str], config: Config) -> None:
         sys.exit(1)
 
     rest = [a for a in args[1:] if a not in {"--global", "-g"}]
-    server, domains, env = _parse_add_args(rest)
+    server, bootstrap, domains, env = _parse_add_args(rest)
     # --app is consumed by the global flag parser and reaches us via the override.
     app = config.get_app_override() or ""
     if not server:
         print("Error: --server <addr> is required.", file=sys.stderr)
         sys.exit(1)
+    if bootstrap and not bootstrap.startswith("ssh://"):
+        print(
+            f"Error: --bootstrap must be an ssh:// address, got {bootstrap!r}.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
 
     if _use_global_scope(args):
-        _context_add_global(name, server, bool(domains or env or app), config)
+        _context_add_global(
+            name, server, bootstrap, bool(domains or env or app), config
+        )
         return
 
-    _context_add_project(name, server, app, domains, env)
+    _context_add_project(name, server, bootstrap, app, domains, env)
 
 
 def _context_add_project(
-    name: str, server: str, app: str, domains: list[str], env: dict[str, str]
+    name: str,
+    server: str,
+    bootstrap: str,
+    app: str,
+    domains: list[str],
+    env: dict[str, str],
 ) -> None:
     """Add a project `[contexts.<name>]` to the nearest hop3.toml (comments kept)."""
     refuse_reserved_project_name(name)
@@ -431,6 +455,8 @@ def _context_add_project(
 
     block = tomlkit.table()
     block["server"] = server
+    if bootstrap:
+        block["bootstrap"] = bootstrap
     if app:
         block["app"] = app
     if domains:

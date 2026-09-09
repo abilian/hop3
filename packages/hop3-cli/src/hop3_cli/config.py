@@ -6,6 +6,7 @@ import dataclasses
 import os
 from pathlib import Path
 from typing import ClassVar, overload
+from urllib.parse import urlparse
 
 import toml
 
@@ -63,6 +64,7 @@ class Config:
     # resolved from this address + the per-server token store, not the legacy
     # config.toml context. Set per-invocation by main.py after context resolution.
     _active_server: str | None = None
+    _active_bootstrap: str | None = None
 
     # These are the ultimate fallbacks if nothing is configured.
     defaults: ClassVar[dict] = {
@@ -119,6 +121,40 @@ class Config:
 
         context = self.get_current_context()
         return bool(context and context.api_token)
+
+    def set_active_bootstrap(self, address: str | None) -> None:
+        """
+        Record this invocation's ``ssh://`` bootstrap route (ADR 042).
+
+        Wired alongside ``set_active_server`` from the same resolution, so the
+        server a command talks to and the route it renews through always come
+        from one context.
+        """
+        self._active_bootstrap = address or None
+
+    def get_bootstrap_target(self) -> str | None:
+        """
+        The ``user@host`` this connection mints tokens through, if any.
+
+        Renewal used to be gated on the *connection* itself being ``ssh://``,
+        which tied unattended renewal to routing every command through a root
+        shell. They are different roles: a context can speak HTTPS all day and
+        still know an SSH route home for the moment its token expires.
+        """
+        address = self._active_bootstrap
+        if not address:
+            api_url = self.get_api_url()
+            if api_url and api_url.startswith(("ssh://", "ssh+http://")):
+                address = api_url
+        if not address:
+            return None
+        parsed = urlparse(address)
+        if not parsed.hostname:
+            return None
+        user = parsed.username or self.get("ssh_user", "root")
+        host = parsed.hostname
+        port = f":{parsed.port}" if parsed.port else ""
+        return f"{user}@{host}{port}"
 
     def set_active_server(self, address: str | None) -> None:
         """
@@ -439,8 +475,18 @@ class Config:
                 return block["server"] or None
         return None
 
-    def set_context_server(self, name: str, server: str) -> None:
-        """Define (or update) a global context's server address. Persists."""
+    def set_context_server(
+        self, name: str, server: str, *, bootstrap: str | None = None
+    ) -> None:
+        """
+        Define (or update) a global context's addresses. Persists.
+
+        ``server`` is what every command connects to. ``bootstrap`` is the
+        ``ssh://`` target used only to mint tokens — see ``get_context_bootstrap``.
+        Passing ``bootstrap=None`` leaves any recorded one untouched, so a
+        password or token login does not erase the SSH route a previous
+        ``hop3 login <host>`` established.
+        """
         contexts = self.data.get("contexts")
         if not isinstance(contexts, dict):
             contexts = {}
@@ -450,7 +496,36 @@ class Config:
             block = {}
             contexts[name] = block
         block["server"] = server
+        if bootstrap:
+            block["bootstrap"] = bootstrap
         self.save()
+
+    def get_context_bootstrap(self, name: str) -> str | None:
+        """
+        The ``ssh://`` target that mints tokens for a context, if it has one.
+
+        Separate from ``server`` because the two roles are different: everyday
+        traffic goes to ``server`` (HTTPS for a server with an admin domain),
+        while minting a token needs SSH access to the machine. Recording only
+        the SSH target — as every login used to — made routine, read-only work
+        run through a root shell.
+
+        A context whose ``server`` is itself an ``ssh://`` address bootstraps
+        through that, so the two coincide there and no separate key is written.
+        """
+        contexts = self.data.get("contexts")
+        if not isinstance(contexts, dict):
+            return None
+        block = contexts.get(name)
+        if not isinstance(block, dict):
+            return None
+        recorded = block.get("bootstrap")
+        if isinstance(recorded, str) and recorded:
+            return recorded
+        server = block.get("server")
+        if isinstance(server, str) and server.startswith(("ssh://", "ssh+http://")):
+            return server
+        return None
 
     def remove_global_context(self, name: str) -> bool:
         """Drop a global context. Returns True if it existed. Persists."""

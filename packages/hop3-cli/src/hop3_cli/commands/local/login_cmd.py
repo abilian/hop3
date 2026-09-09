@@ -15,6 +15,7 @@ from urllib.parse import parse_qs, urlparse
 from jsonrpcclient import Error, Ok
 
 from hop3_cli.config import DEFAULT_CONTEXT_NAME
+from hop3_cli.core.ssh_target import is_safe_ssh_target
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import extract_jwt
 
@@ -24,6 +25,9 @@ from .ssh_ops import (
     get_magic_link_via_ssh,
     get_ssh_token,
     get_token_via_ssh,
+    host_from_ssh_target,
+    server_url_and_reason,
+    ssh_user,
     web_base_url,
 )
 
@@ -70,16 +74,60 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
                 )
                 return
 
-    # Dispatch based on authentication method
-    if "--web" in args:
+    # Dispatch based on which client gets a credential.
+    if is_browser_form(args):
         handle_login_web(args, config, printer)
-    elif "--ssh" in args:
-        handle_login_ssh(args, config, printer)
     elif "--token" in args:
         handle_login_token(args, config, printer)
+    elif ssh_target_argument(args) or "--ssh" in args:
+        handle_login_ssh(args, config, printer)
     else:
         # Default: password-based authentication
         handle_login_password(args, config, printer)
+
+
+#: The old spellings. `--ssh` named a transport and `--browser`'s predecessor
+#: `--web` named a destination, so they read as alternatives on one axis when
+#: they were on two — and both travel over SSH regardless. The surviving axis
+#: is *which client receives a credential*: this CLI by default, the browser
+#: with `--browser`. Both old flags still dispatch, hidden.
+BROWSER_FLAGS = ("--browser", "--web")
+
+
+def is_browser_form(args: list[str]) -> bool:
+    """Whether this login is for the browser rather than for this CLI."""
+    return any(flag in args for flag in BROWSER_FLAGS)
+
+
+def ssh_target_argument(args: list[str]) -> str | None:
+    """
+    The positional ``[user@]host[:port]`` of a bootstrap login, if there is one.
+
+    SSH is the only transport either login form has, so naming it in a flag said
+    nothing. A bare target is the form now: ``hop3 login root@prod.example.com``.
+    A URL is not one — ``hop3 login https://…`` and the ``?token=`` spelling are
+    handled above — and neither is a flag or its value.
+    """
+    skip_next = False
+    for index, arg in enumerate(args):
+        if skip_next:
+            skip_next = False
+            continue
+        if arg.startswith("-"):
+            skip_next = arg in _LOGIN_VALUE_FLAGS
+            continue
+        if index and args[index - 1] in _LOGIN_VALUE_FLAGS:
+            continue
+        if "://" in arg or "?" in arg:
+            return None
+        if is_safe_ssh_target(arg):
+            return arg
+        return None
+    return None
+
+
+#: Login flags that take a value, so the value is never read as the target.
+_LOGIN_VALUE_FLAGS = ("--username", "--url", "--token", "--context", "-c")
 
 
 def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -304,8 +352,14 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
     if result.startswith(("http://", "https://")):
         magic_link = result
     else:
+        # A bare token means the server has no ADMIN_DOMAIN: `auth:magic-link`
+        # emits a full URL only when it has one. There is then no TLS vhost for
+        # the dashboard, and its session cookie is `Secure` — so the link we are
+        # about to build cannot work. Say so before handing it over, rather than
+        # letting the browser fail with nothing to explain it.
         base = web_base_url(_resolved_server_url(config), ssh_target)
         magic_link = f"{base}/auth/magic/{result}"
+        _warn_dashboard_unreachable(ssh_target, base)
 
     print()
     print("Magic link generated!")
@@ -317,6 +371,20 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
     print("Note: This link expires in 5 minutes and can only be used once.")
 
 
+def _warn_dashboard_unreachable(ssh_target: str, base: str) -> None:
+    """The dashboard has no HTTPS endpoint; the link below will not open."""
+    host = host_from_ssh_target(ssh_target)
+    print(
+        f"\n  warning: {host} has no admin domain, so the dashboard is not served "
+        f"over HTTPS.\n"
+        f"           Its session cookie is Secure, so signing in at {base} cannot "
+        f"hold a session\n"
+        f"           and the link below will not work.\n"
+        f"           {admin_domain_advice(host)}",
+        file=sys.stderr,
+    )
+
+
 def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     """
     Parse arguments for login --web command.
@@ -324,46 +392,26 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     Returns:
         Tuple of (ssh_target, username)
     """
-    ssh_target = None
     username = "admin"  # Default to admin user
+    for index, arg in enumerate(args):
+        if arg == "--username" and index + 1 < len(args):
+            username = args[index + 1]
+            break
 
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--web" and i + 1 < len(args):
-            # Next argument should be the SSH target
-            next_arg = args[i + 1]
-            if not next_arg.startswith("-"):
-                ssh_target = next_arg
-                i += 2
-            else:
-                i += 1
-        elif arg == "--web":
-            # --web without argument - will use context
-            i += 1
-        elif arg == "--username" and i + 1 < len(args):
-            username = args[i + 1]
-            i += 2
-        elif not arg.startswith("-") and not ssh_target:
-            # Positional argument could be SSH target
-            ssh_target = arg
-            i += 1
-        else:
-            i += 1
-
-    # If no SSH target provided, try to get it from the current context
-    if not ssh_target:
-        ssh_target = _get_ssh_target_from_config(config)
+    # The target is optional: bare `--browser` uses the current context, which
+    # is the everyday case once you have logged in. An explicit one is what
+    # makes the form work on a machine that has no context yet.
+    ssh_target = ssh_target_argument(args) or _get_ssh_target_from_config(config)
 
     if not ssh_target:
-        print("Error: No server configured.", file=sys.stderr)
-        print("\nUse one of:", file=sys.stderr)
-        print("  hop3 login --web root@server.com  # Specify server", file=sys.stderr)
         print(
-            "  hop3 login --ssh root@server.com  # Configure context first",
+            "Error: no server to ask for a dashboard link, and none configured.\n"
+            "\n"
+            "  hop3 login --browser root@server.com   # name one\n"
+            "  hop3 login root@server.com             # or sign this CLI in first",
             file=sys.stderr,
         )
-        sys.exit(1)
+        sys.exit(ExitCode.USAGE_ERROR)
 
     # Ensure SSH target has user@ prefix (default to root)
     if "@" not in ssh_target:
@@ -458,7 +506,9 @@ def refuse_unnamed_retarget(config: Config, server_url: str) -> None:
     sys.exit(ExitCode.GENERAL_ERROR)
 
 
-def record_server_login(config: Config, server_url: str, token: str) -> None:
+def record_server_login(
+    config: Config, server_url: str, token: str, *, bootstrap: str | None = None
+) -> None:
     """
     ADR 042: stash the token + set this server as the default target.
 
@@ -510,11 +560,18 @@ def record_server_login(config: Config, server_url: str, token: str) -> None:
     # used to write resolves BELOW every context, so an operator who had one
     # was told the login succeeded and then had every command go elsewhere.
     context_name = config.get_context_override() or DEFAULT_CONTEXT_NAME
-    config.set_context_server(context_name, server_url)
+    # Read what it was BEFORE writing, or the comparison below always matches.
     previous_context = config.get_default_context()
+    previous_server = config.get_context_server(context_name)
+    config.set_context_server(context_name, server_url, bootstrap=bootstrap)
     config.set_default_context(context_name)
+    # Only what changed. A repeat login of the same target says nothing extra;
+    # a switch of the current context, or a context that now points somewhere
+    # else, is exactly what an operator must not discover by surprise later.
     if previous_context != context_name:
-        print(f"  context {context_name!r} -> {server_url} (now the default)")
+        print(f"  context {context_name!r} is now the default target")
+    if previous_server and previous_server != server_url:
+        print(f"  context {context_name!r}: {previous_server} -> {server_url}")
 
     # Now that there is a server to ask, fill the caches shell completion and
     # the offline command list read from (ADR 036 M9.3).
@@ -682,29 +739,106 @@ def _determine_save_url(
     token: str,
     config: Config,
     debug_level: int,
-) -> str:
+) -> tuple[str, str | None]:
     """
-    Determine the API URL to record for this login.
+    The ``(everyday address, bootstrap address)`` to record for this login.
 
-    Returns the connection address: the explicit ``--url`` (verified for HTTPS,
-    aborting on an untrusted cert) or an SSH-tunnel URL built from the target.
+    SSH is how a token is minted; it is not how routine work should travel.
+    Recording ``ssh://root@host`` as the connection — as every SSH login used
+    to — sent `hop3 apps`, `hop3 logs` and every other read through a root
+    shell, once per invocation. So the server is asked for its own public
+    address and that becomes the everyday one, with the SSH target kept as the
+    bootstrap route so an expired token still renews unattended.
+
+    The SSH tunnel remains the answer when the server has no HTTPS endpoint to
+    offer, and the operator is told why.
     """
     if api_url:
         # User explicitly provided URL - use HTTP API
         if debug_level >= 1:
             print(f"[debug] Will use HTTP API at: {api_url}")
         # For HTTPS, verify the connection works with system CA bundle
-        # (aborts the login on an untrusted certificate).
+        # (aborts the login on an untrusted certificate). The operator named
+        # this URL, so a broken one is a mistake to surface, not to route past.
         if api_url.startswith("https://"):
             config_data = {"api_url": api_url, "api_token": token}
             _verify_https_connection(api_url, token, config, config_data, debug_level)
-        return api_url
+        return api_url, _build_ssh_url(ssh_target)
 
-    # Default: use SSH tunnel for all subsequent commands
-    save_url = _build_ssh_url(ssh_target)
-    if debug_level >= 1:
-        print(f"[debug] Will use SSH tunnel: {save_url}")
-    return save_url
+    ssh_url = _build_ssh_url(ssh_target)
+    public_url, reason = server_url_and_reason(ssh_target)
+    if public_url:
+        if problem := _https_unusable_because(public_url, token):
+            _explain_ssh_fallback(ssh_target, f"{public_url} {problem}")
+            return ssh_url, None
+        if debug_level >= 1:
+            print(f"[debug] Will use the server's public URL: {public_url}")
+        return public_url, ssh_url
+
+    _explain_ssh_fallback(ssh_target, reason)
+    return ssh_url, None
+
+
+def _https_unusable_because(api_url: str, token: str) -> str:
+    """``""`` when the URL answers over TLS this machine trusts, else why not.
+
+    Deliberately not ``_verify_https_connection``, which aborts: there the
+    operator named the URL and a broken one is their mistake to see. Here the
+    *server* proposed it and a working fallback exists, so this reports and the
+    caller decides. Any HTTP answer counts — a 401 still proves TLS and reach.
+    """
+    import requests  # ruff:ignore[import-outside-top-level]
+
+    try:
+        requests.get(
+            f"{api_url.rstrip('/')}/health",
+            headers={"Authorization": f"Bearer {token}"},
+            timeout=10,
+            verify=True,
+        )
+    except requests.exceptions.SSLError:
+        return "has a certificate this machine does not trust"
+    except requests.exceptions.RequestException:
+        return "is not reachable from here"
+    return ""
+
+
+def _explain_ssh_fallback(ssh_target: str, reason: str) -> None:
+    """
+    Say that everyday traffic will tunnel over SSH as root, and why.
+
+    A silent fallback here is the worst outcome: the operator keeps a working
+    CLI and never learns that every command opens a root shell, nor that the
+    dashboard is unreachable for the same reason.
+    """
+    host = host_from_ssh_target(ssh_target)
+    if reason == "no-admin-domain":
+        detail = "it has no admin domain, so there is no HTTPS endpoint"
+    elif reason == "outdated-server":
+        detail = "it is too old to report its public address"
+    else:
+        detail = reason
+    print(
+        f"\n  note: every command will tunnel over SSH as {ssh_user(ssh_target)}, "
+        f"because {detail}.",
+        file=sys.stderr,
+    )
+    if reason == "no-admin-domain":
+        print(f"        {admin_domain_advice(host)}", file=sys.stderr)
+
+
+def admin_domain_advice(host: str) -> str:
+    """
+    The single fix for both consequences of having no admin domain.
+
+    Without one there is no TLS vhost: the API has no HTTPS endpoint *and* the
+    dashboard cannot hold a session, because its cookie is `Secure`. One cause,
+    so one sentence, shared by the login and the dashboard-link paths.
+    """
+    return (
+        f"Give it one to serve the API and the dashboard over HTTPS: "
+        f"hop3-deploy-server --host {host} --admin-domain <fqdn>"
+    )
 
 
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -746,13 +880,20 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> N
         print(f"[debug] Token received: {token[:20]}...{token[-10:]}")
 
     # Determine API URL to save
-    save_url = _determine_save_url(api_url, ssh_target, token, config, debug_level)
+    save_url, bootstrap_url = _determine_save_url(
+        api_url, ssh_target, token, config, debug_level
+    )
 
-    record_server_login(config, save_url, token)
+    record_server_login(config, save_url, token, bootstrap=bootstrap_url)
     if debug_level >= 1:
         print(f"[debug] Token stored for: {save_url}")
+        print(f"[debug] Bootstrap route: {bootstrap_url or '(none)'}")
 
-    _print_login_success(display_username, save_url)
+    _print_login_success(
+        display_username,
+        save_url,
+        config.get_context_override() or DEFAULT_CONTEXT_NAME,
+    )
 
 
 def _build_ssh_url(ssh_target: str) -> str:
@@ -801,15 +942,17 @@ def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None,
         else:
             i += 1
 
+    # The positional form: `hop3 login root@server.com`. `--ssh` is the old
+    # spelling of the same thing and still works.
+    ssh_target = ssh_target or ssh_target_argument(args)
+
     if not ssh_target:
         print_login_help()
         print(
-            "\nError: --ssh requires a target (e.g., root@server.com)", file=sys.stderr
+            "\nError: this form needs a target, e.g. `hop3 login root@server.com`.",
+            file=sys.stderr,
         )
         sys.exit(1)
-
-    # Type narrowing: ssh_target is str after the check above
-    assert ssh_target is not None
 
     return ssh_target, username, api_url, debug_level
 
@@ -897,10 +1040,13 @@ def _extract_host(url: str) -> str:
     return f"root@{host}"
 
 
-def _print_login_success(username: str, server_url: str) -> None:
-    """Print success message after login."""
-    print(f"\nToken generated for user '{username}'")
-    print(f"Token stored for {server_url}")
-    print("\nWelcome back! Try:")
-    print("  hop3 apps           # List applications")
-    print("  hop3 auth whoami    # Check current user")
+def _print_login_success(username: str, server_url: str, context_name: str) -> None:
+    """
+    One line: who, where, and under which name.
+
+    All three matter and none was printed together before. "Which name" is the
+    one a reader of `hop3 apps --context <?>` has to guess otherwise, and a
+    server with several contexts gives no way to guess it. Anything that
+    *changed* is announced separately, by the writer that changed it.
+    """
+    print(f"\nSigned in to {server_url} as {username}  (context {context_name!r})")

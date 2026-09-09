@@ -118,12 +118,16 @@ def ssh_command_argv(ssh_target: str, remote_cmd: str) -> list[str]:
     return [*ssh_base_argv(settings, port=port), user_host, remote_cmd]
 
 
-def _ssh_user(ssh_target: str) -> str:
-    """The account the SSH connection runs as; bare hosts default to root."""
+def ssh_user(ssh_target: str) -> str:
+    """The account the SSH connection runs as; bare hosts default to root.
+
+    Public because the login flow reports it: an SSH fallback has to name the
+    account every later command will open a shell as.
+    """
     return ssh_target.split("@", maxsplit=1)[0] if "@" in ssh_target else "root"
 
 
-def refuse_hop3_ssh_user(ssh_target: str) -> None:
+def refuse_hop3ssh_user(ssh_target: str) -> None:
     """
     Refuse ``hop3@host`` before dialling it.
 
@@ -133,9 +137,9 @@ def refuse_hop3_ssh_user(ssh_target: str) -> None:
     remote line becomes ``hop3-server su - hop3 -c '…'`` and fails with a
     baffling complaint about an unknown `su` command. Say what is wrong instead.
     """
-    if _ssh_user(ssh_target) != "hop3":
+    if ssh_user(ssh_target) != "hop3":
         return
-    host = _host_from_ssh_target(ssh_target)
+    host = host_from_ssh_target(ssh_target)
     msg = (
         f"Hop3 can't bootstrap through the 'hop3' account on {host}.\n"
         f"\n"
@@ -160,7 +164,7 @@ def _run_hop3_server(
     reported "Failed to get SSH token: su: Authentication failure" and left the
     operator to work out that root is the requirement.
     """
-    refuse_hop3_ssh_user(ssh_target)
+    refuse_hop3ssh_user(ssh_target)
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
     result = _run_ssh(ssh_target, remote_cmd, input=input)
     if result.returncode != 0:
@@ -183,8 +187,8 @@ def _bootstrap_failure(
     to advise is how the advice goes stale.
     """
     output = result.stderr.strip() or result.stdout.strip() or "(no output)"
-    host = _host_from_ssh_target(ssh_target)
-    user = _ssh_user(ssh_target)
+    host = host_from_ssh_target(ssh_target)
+    user = ssh_user(ssh_target)
     lines = [
         f"Hop3 can't {action} on {host} as {user!r}.",
         "",
@@ -273,6 +277,44 @@ def get_ssh_token(ssh_target: str) -> str:
     hop3_cmd = f"{HOP_SERVER_PATH} admin:ssh-token"
     stdout = _run_hop3_server(ssh_target, hop3_cmd, "sign in")
     return _require_token(stdout)
+
+
+def get_server_url_via_ssh(ssh_target: str) -> str | None:
+    """
+    Ask the server for its public base URL, or None when it has none to give.
+
+    Only the server knows how it is fronted: a client holds an SSH target,
+    which says nothing about nginx, TLS or the admin domain. ``admin:server-url``
+    prints ``https://<ADMIN_DOMAIN>`` when one is configured and nothing when
+    it is not.
+
+    Returns None for both "no admin domain" and "this server predates the
+    command" — the caller falls back to the SSH tunnel either way. It reports
+    the two differently, so ``failure`` distinguishes them.
+    """
+    url, _ = server_url_and_reason(ssh_target)
+    return url
+
+
+def server_url_and_reason(ssh_target: str) -> tuple[str | None, str]:
+    """
+    ``(url, reason)``; ``reason`` is empty when a URL came back.
+
+    ``reason`` is ``"no-admin-domain"`` or ``"outdated-server"`` — the caller
+    words them differently, because the fix differs.
+    """
+    refuse_hop3ssh_user(ssh_target)
+    hop3_cmd = f"{HOP_SERVER_PATH} admin:server-url"
+    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+    result = _run_ssh(ssh_target, remote_cmd)
+
+    if result.returncode != 0:
+        return None, "outdated-server"
+
+    url = result.stdout.strip()
+    if url.startswith(("http://", "https://")):
+        return url, ""
+    return None, "no-admin-domain"
 
 
 def fetch_and_save_certificate(
@@ -390,7 +432,7 @@ def get_magic_link_via_ssh(ssh_target: str, username: str = "admin") -> str:
     return token
 
 
-def _host_from_ssh_target(ssh_target: str) -> str:
+def host_from_ssh_target(ssh_target: str) -> str:
     """Extract the bare host from an SSH target (user@host[:port] -> host)."""
     host = ssh_target.split("@")[1] if "@" in ssh_target else ssh_target
     return host.split(":")[0]  # strip any SSH port
@@ -406,7 +448,7 @@ def infer_server_url(ssh_target: str) -> str:
     Returns:
         HTTPS URL for the server
     """
-    return f"https://{_host_from_ssh_target(ssh_target)}"
+    return f"https://{host_from_ssh_target(ssh_target)}"
 
 
 def web_base_url(server_url: str | None, ssh_target: str) -> str:
@@ -422,7 +464,7 @@ def web_base_url(server_url: str | None, ssh_target: str) -> str:
     ``http://<host>:8000`` sent the magic token in cleartext to the wrong port on
     a TLS-fronted server.
     """
-    host = _host_from_ssh_target(ssh_target)
+    host = host_from_ssh_target(ssh_target)
     if server_url:
         parsed = urlparse(server_url)
         if parsed.scheme in {"http", "https"} and parsed.hostname == host:
