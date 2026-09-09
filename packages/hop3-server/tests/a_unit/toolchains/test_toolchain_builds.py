@@ -421,7 +421,17 @@ class TestPythonBuildAndHelpers:
         monkeypatch.setattr(py_mod.shutil, "which", lambda _b: "/usr/bin/uv")
         assert tc._find_uv_binary() == "/usr/bin/uv"
         monkeypatch.setattr(py_mod.shutil, "which", lambda _b: None)
+        # Control the install locations too. Without this the fallback found
+        # the developer's own ~/.local/bin/uv, so the test passed or failed
+        # depending on whose machine it ran on (and on whether another
+        # package's conftest had overridden HOME first).
+        monkeypatch.setattr(tc, "_uv_candidates", list)
         assert tc._find_uv_binary() == "uv"  # falls through to the bare name
+
+        found = tmp_path / "uv"
+        found.touch()
+        monkeypatch.setattr(tc, "_uv_candidates", lambda: [found])
+        assert tc._find_uv_binary() == str(found)
 
     def test_get_env_sets_python_flags(self, tmp_path):
         _src(tmp_path)

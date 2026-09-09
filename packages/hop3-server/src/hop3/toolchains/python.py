@@ -379,6 +379,20 @@ class PythonToolchain(LanguageToolchain):
             log(f"Error installing uv: {e}", level=1, fg="red")
             return False
 
+    def _uv_candidates(self) -> list[Path]:
+        """
+        Where uv is commonly installed, in preference order.
+
+        Its own method so a test can control it: reading the real filesystem
+        made `_find_uv_binary`'s fallback depend on whether the developer's
+        machine happens to have uv in one of these places.
+        """
+        return [
+            Path.home() / ".local" / "bin" / "uv",
+            Path.home() / ".cargo" / "bin" / "uv",
+            Path("/usr/local/bin/uv"),
+        ]
+
     def _find_uv_binary(self) -> str:
         """Find the uv binary, checking common installation locations."""
         # Check PATH first
@@ -386,13 +400,7 @@ class PythonToolchain(LanguageToolchain):
         if uv_in_path:
             return uv_in_path
 
-        # Check common installation locations
-        candidates = [
-            Path.home() / ".local" / "bin" / "uv",
-            Path.home() / ".cargo" / "bin" / "uv",
-            Path("/usr/local/bin/uv"),
-        ]
-        for candidate in candidates:
+        for candidate in self._uv_candidates():
             if candidate.exists():
                 return str(candidate)
 
