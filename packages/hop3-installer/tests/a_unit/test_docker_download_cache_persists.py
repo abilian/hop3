@@ -86,4 +86,10 @@ def test_the_volume_is_handed_to_the_hop3_user():
     with patch.object(backend, "run", side_effect=record), pytest.raises(_StopError):
         backend.start_services()
 
-    assert issued == [f"chown hop3:hop3 {DOWNLOAD_CACHE_PATH}"]
+    # One command, so it runs before supervisor starts anything: create the
+    # directory (a container made by a pre-0.7 deployer has no cache volume
+    # mounted, and the upgrade chain's second hop died on a bare chown), then
+    # hand it to hop3.
+    assert issued == [
+        f"mkdir -p {DOWNLOAD_CACHE_PATH} && chown hop3:hop3 {DOWNLOAD_CACHE_PATH}"
+    ]

@@ -27,6 +27,7 @@ real deploy.
 from __future__ import annotations
 
 import os
+import shlex
 import subprocess
 import time
 from pathlib import Path
@@ -669,8 +670,14 @@ class DockerDeployBackend(DeployBackend):
         return result.returncode == 0
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
-        """Copy a directory into the container."""
-        # docker cp works for directories too
+        """Copy a directory into the container, replacing what was there."""
+        # `docker cp SRC CONTAINER:DEST` copies SRC *into* DEST when DEST is an
+        # existing directory. On the update path DEST is always there from the
+        # previous upload, so the new tree landed at DEST/<basename> and `pip
+        # install DEST` reinstalled the old tree, with a green message and the
+        # old version still running. Replace, never merge.
+        if not self.run(f"rm -rf {shlex.quote(remote_path)}", check=False).success:
+            return False
         result = subprocess.run(
             ["docker", "cp", str(local_path), f"{self.container_name}:{remote_path}"],
             capture_output=True,
@@ -754,8 +761,14 @@ class DockerDeployBackend(DeployBackend):
         # Docker creates the volume's mountpoint root-owned, but builds run as
         # hop3 — so hand it over before anything tries to write a download there.
         # Non-recursive: existing entries were written by this same uid on an
-        # earlier run.
-        self.run(f"chown hop3:hop3 {DOWNLOAD_CACHE_PATH}")
+        # earlier run. `mkdir -p` first: a container created by a pre-0.7
+        # deployer (the upgrade chain's first hop) has no cache volume mounted
+        # here, and the update path used to die on the chown with "No such file
+        # or directory". Without the volume the cache simply lives in the
+        # container, which is what a test box wants anyway.
+        self.run(
+            f"mkdir -p {DOWNLOAD_CACHE_PATH} && chown hop3:hop3 {DOWNLOAD_CACHE_PATH}"
+        )
 
         # Write supervisor config
         config_cmd = (

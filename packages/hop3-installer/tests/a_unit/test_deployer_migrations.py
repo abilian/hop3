@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-from unittest.mock import MagicMock, patch
+from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
 from hop3_installer.common import CommandResult
@@ -23,6 +23,15 @@ def backend():
     """A backend mock with a configurable .run() result."""
     b = MagicMock()
     b.run.return_value = CommandResult(returncode=0, stdout="", stderr="")
+    # The version probe after an install must see one version, or the update
+    # path stops before the migration these tests are about.
+    b.run.side_effect = lambda cmd, **_kw: (
+        CommandResult(
+            returncode=0, stdout="hop3_server 0.7.3\nhop3_rootd 0.7.3\nhop3_cli 0.7.3\n"
+        )
+        if "importlib.metadata" in cmd
+        else DEFAULT
+    )
     return b
 
 
@@ -174,6 +183,11 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         def fake_run(cmd, **kwargs):
             if "db:upgrade" in cmd:
                 return CommandResult(returncode=1, stdout="", stderr="boom")
+            if "importlib.metadata" in cmd:
+                return CommandResult(
+                    returncode=0,
+                    stdout="hop3_server 0.7.3\nhop3_rootd 0.7.3\nhop3_cli 0.7.3\n",
+                )
             return CommandResult(returncode=0)
 
         backend.run.side_effect = fake_run
