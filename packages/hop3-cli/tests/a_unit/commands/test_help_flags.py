@@ -106,13 +106,13 @@ class TestAppendLocalCommandsFullHelp:
 
     def test_appends_full_local_help_block(self):
         """Full help (not one-liners) for local commands is appended."""
-        result = [{"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop deploy — x"}]
+        result = [{"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop3 deploy — x"}]
         out = append_local_commands_full_help(result)
 
         # Original server document is preserved untouched as the first item.
         assert out[0] == {
             "t": "text",
-            "text": "ALL COMMANDS — FULL HELP\nhop deploy — x",
+            "text": "ALL COMMANDS — FULL HELP\nhop3 deploy — x",
         }
 
         text = out[-1]["text"]
@@ -123,13 +123,13 @@ class TestAppendLocalCommandsFullHelp:
         assert "Usage: hop3 completion" in text
         # Every local command with centralized help appears.
         for name in ("init", "login", "settings", "context", "use", "aliases"):
-            assert f"hop {name}" in text
+            assert f"hop3 {name}" in text
 
 
 def test_verbose_help_all_appends_full_local_help(capsys):
     """`hop3 help --all -v` appends full local help, not one-liners."""
     server_doc = [
-        {"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop deploy — Deploy."}
+        {"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop3 deploy — Deploy."}
     ]
     printer = RichPrinter(verbose=True)
 
@@ -148,7 +148,7 @@ def test_nonverbose_help_all_keeps_oneliner_injection(capsys):
         {
             "t": "text",
             "text": (
-                "USAGE\n  $ hop <command>\n\nALL COMMANDS\n"
+                "USAGE\n  $ hop3 <command>\n\nALL COMMANDS\n"
                 "  apps             List all applications.\n"
             ),
         }
@@ -176,14 +176,14 @@ class TestInjectLocalCommandsIntoHelp:
                 "t": "text",
                 "text": (
                     "USAGE\n"
-                    "  $ hop <command>\n"
+                    "  $ hop3 <command>\n"
                     "\n"
                     "COMMANDS\n"
                     "  admin            Administrative commands.\n"
                     "  apps             List all applications.\n"
                     "  deploy           Deploy an application.\n"
                     "\n"
-                    "Use 'hop help <command>' for details."
+                    "Use 'hop3 help <command>' for details."
                 ),
             }
         ]
@@ -274,7 +274,7 @@ class TestInjectLocalCommandsIntoHelp:
         assert "auth whoami" in whoami
 
     def test_grouped_view_does_not_inject_core_aliases(self):
-        """The narrow grouped view (`hop help`) must not list aliases."""
+        """The narrow grouped view (`hop3 help`) must not list aliases."""
         server_help = [
             {
                 "t": "text",
@@ -312,7 +312,7 @@ class TestInjectLocalCommandsIntoHelp:
                 "t": "text",
                 "text": (
                     "USAGE\n"
-                    "  $ hop <command>\n"
+                    "  $ hop3 <command>\n"
                     "\n"
                     "ALL COMMANDS\n"
                     "  admin            Administrative commands.\n"

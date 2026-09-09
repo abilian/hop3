@@ -170,7 +170,7 @@ class LaunchCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
         if app_name is None or len(rest) != 1:
-            msg = "Usage: hop launch <repo_url> --app <app_name>"
+            msg = "Usage: hop3 launch <repo_url> --app <app_name>"
             raise ValueError(msg)
         repo_url = validate_repo_url(rest[0])
 

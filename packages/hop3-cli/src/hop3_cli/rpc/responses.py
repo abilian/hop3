@@ -298,7 +298,7 @@ def handle_error_response(
         if suggestion:
             clean_message += f"\n\n{suggestion}"
         if code == -32601:  # Method/command not found
-            clean_message += "\n\nRun 'hop help' to see available commands."
+            clean_message += "\n\nRun 'hop3 help' to see available commands."
 
     # Determine exit code from RPC code, falling back to message analysis
     exit_code = map_rpc_code_to_exit(code)

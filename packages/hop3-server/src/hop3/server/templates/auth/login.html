@@ -115,6 +115,22 @@
                 </button>
             </div>
         </form>
+
+        {# The generated admin password is never handed to the operator in the
+           clear, so a first-time visitor arrives here without one. SSH access
+           to this server is the other credential, and it opens this page too —
+           say so here, where someone who is stuck is actually looking. #}
+        <div class="mt-6 border-t border-gray-200 pt-6">
+            <h3 class="text-sm font-medium text-gray-900">No password?</h3>
+            <p class="mt-2 text-sm text-gray-600">
+                If you have SSH access to this server, it is your credential.
+                Run this on your own machine for a one-time sign-in link:
+            </p>
+            <pre class="mt-2 overflow-x-auto rounded-md bg-gray-50 p-3 text-xs text-gray-800"><code>hop3 login --web root@{{ admin_domain or 'your-server' }}</code></pre>
+            <p class="mt-2 text-sm text-gray-600">
+                The link expires in 5 minutes and works once.
+            </p>
+        </div>
     </div>
 </div>
 {% endblock %}

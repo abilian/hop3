@@ -608,7 +608,7 @@ hop3 auth login --web                            # magic link for the web dashbo
 **Notes:**
 - Token stored in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), keyed by the server address; that server becomes the default target
 - With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` — secret-free; the token still lives only in the credential store
-- Token valid for 30 days by default
+- Token valid for 24 hours by default (`HOP3_TOKEN_EXPIRY_HOURS` on the server); the Web UI's browser session lasts 14 days and is a separate credential
 - Set `HOP3_API_TOKEN` environment variable to override
 
 ### `hop3 auth get-token`

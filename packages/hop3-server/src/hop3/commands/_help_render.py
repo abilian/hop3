@@ -93,9 +93,9 @@ def render_detailed_help(display: str, sections: dict) -> list[str]:
     """Render the header + USAGE + EXAMPLES + DESCRIPTION blocks (D11)."""
     output: list[str] = []
     header = (
-        f"hop {display} — {sections['summary']}"
+        f"hop3 {display} — {sections['summary']}"
         if sections["summary"]
-        else f"hop {display}"
+        else f"hop3 {display}"
     )
     output.append(header)
     output.append("")
@@ -126,7 +126,7 @@ def render_subcommands(
     `addon postgres <verb>` / `addon mysql <verb>` commands appear as one
     `addon postgres` / `addon mysql` row each, rather than flattening the whole
     tree — so a namespace lists what you can reach from it, and you drill in
-    (`hop addon postgres`) to see a sub-namespace's own verbs. A sub-namespace's
+    (`hop3 addon postgres`) to see a sub-namespace's own verbs. A sub-namespace's
     summary comes from its registered namespace command when there is one, else a
     synthesized pointer to drill in.
     """
@@ -155,7 +155,7 @@ def render_subcommands(
             rows[name] = short_help_fn(registered.__doc__)
         else:
             noun = "subcommand" if count == 1 else "subcommands"
-            rows[name] = f"{count} {noun} — run 'hop {' '.join(name)}'"
+            rows[name] = f"{count} {noun} — run 'hop3 {' '.join(name)}'"
 
     if not rows:
         return []

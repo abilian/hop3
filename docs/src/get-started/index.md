@@ -9,6 +9,12 @@ Learn how to install Hop3 on your server and set up the CLI on your local machin
 - [Installation Guide](server-setup.md) - Complete installation instructions
 - [Installer Options](installer.md) - Advanced installer configuration
 
+## Signing In
+
+SSH access to your server is your credential — for the CLI and for the web dashboard alike.
+
+- [Signing In](authentication.md) - `hop3 login --ssh`, `hop3 login --web`, and what to do when you can't get in
+
 ## Quick Start
 
 Once installed, follow our quick start guide to deploy your first application.

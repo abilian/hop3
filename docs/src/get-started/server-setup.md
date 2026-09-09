@@ -111,91 +111,39 @@ ssh -L 8000:127.0.0.1:8000 root@your-server
 
 ## Post-Installation Steps
 
-### Create Admin User
+### Sign In
 
-Before using Hop3, create an admin user. The easiest way is SSH-assisted bootstrap from your workstation:
+The installer does **not** create an admin user or print a token — the first `hop3 login` does it for you.
+
+From your own machine:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login --ssh root@your-server.com
 ```
 
-This will:
-1. Connect to your server via SSH
-2. Prompt for admin username, email, and password
-3. Create the admin user on the server
-4. Save the API token to `~/.config/hop3-cli/config.toml`
+SSH access to the server *is* administrator access ([ADR 014](https://github.com/abilian/hop3/blob/main/notes/adrs/014-authentication-bootstrap.md)), so there is no password to type: this runs `admin:ssh-token` on the server, auto-creating a default `admin` if none exists, and stores the token in `~/.config/hop3-cli/credentials.toml`.
 
-Example session:
-```
-$ hop3 init --ssh root@my-server.com
+That signs in the CLI. The Web UI holds a separate credential; `hop3 login --web root@your-server.com` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
 
-Connecting to my-server.com...
-Server URL [https://my-server.com]:
-Admin username: admin
-Admin email: admin@company.com
-Admin password: ********
-Confirm password: ********
-
-Admin user 'admin' created successfully.
-Configuration saved to ~/.config/hop3-cli/config.toml
-
-You're all set! Try:
-  hop3 app list           # List applications
-  hop3 auth whoami    # Check current user
-```
-
-### Alternative: Server-Side Commands
-
-The installer does **not** create an admin user or print a token — you create
-the first admin yourself. SSH in and run the `hop3-server` admin commands as the
-`hop3` user (so the database stays owned by `hop3`, not `root`):
+To do the same on the server itself, run `hop3-server` as the `hop3` user so the database stays owned by `hop3` and not by `root`:
 
 ```bash
 ssh root@your-server.com
 
-# Create the first admin and print an API token:
 sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:create admin admin@example.com
-#   ... enter a password when prompted, then copy the printed token.
-
-# Issue a fresh token for an existing user:
 sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:token admin
-
-# Set or change a password:
 sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:reset-password admin
-
-# List users (sanity check):
+sudo -u hop3 /home/hop3/venv/bin/hop3-server auth:magic-link admin
 sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:list
 ```
 
-Then log into the server from your local CLI with the token:
+Then sign the local CLI in with a token you printed that way:
 
 ```bash
 hop3 auth login --token <paste-token-here> --url https://your-server.com
 ```
 
-> `hop3 auth login --ssh root@your-server.com` does all of the above in one step
-> (SSH access ⇒ admin access): it runs `admin:ssh-token` on the server,
-> auto-creating a default `admin` if none exists, and stores the token locally.
-
-### Magic Links (passwordless Web UI login)
-
-Once an [admin domain](#admin-ui-access) is configured, you can sign into the
-Web UI without a password using a one-time magic link. From your workstation:
-
-```bash
-hop3 auth login --web root@your-server.com
-```
-
-This prints a `https://<admin-domain>/auth/magic/<token>` URL — open it in a
-browser. The link expires after **5 minutes** and is single-use. To mint one
-directly on the server:
-
-```bash
-sudo -u hop3 /home/hop3/venv/bin/hop3-server auth:magic-link admin
-```
-
-A magic link is only usable when the Web UI is reachable at a hostname — i.e.
-when an admin domain is set (see [Admin UI Access](#admin-ui-access)).
+**[Signing In](authentication.md)** covers the whole picture: which credential each surface holds, why the Web UI needs HTTPS, how to name several servers, and what to do when you cannot get in.
 
 ### For Automation (CI/CD)
 

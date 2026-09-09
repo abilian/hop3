@@ -39,6 +39,7 @@ nav = [
     { "Get Started" = [
         { "Overview" = "get-started/index.md" },
         { "Server Setup" = "get-started/server-setup.md" },
+        { "Signing In" = "get-started/authentication.md" },
         { "Quick Start" = "get-started/quickstart.md" },
         { "Installer Options" = "get-started/installer.md" },
     ]},
