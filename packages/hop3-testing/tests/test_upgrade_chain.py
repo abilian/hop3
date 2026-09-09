@@ -13,9 +13,13 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
+import pytest
 from click.testing import CliRunner
 from hop3_testing.cli.commands.upgrade_chain import (
+    _PYTHON,
+    _assert_hop,
     _checkout,
+    _deployer_script,
     _hop_config,
     upgrade_chain,
 )
@@ -23,11 +27,68 @@ from hop3_testing.cli.commands.upgrade_chain import (
 
 def test_hop_config_runs_the_checkouts_own_deployer():
     # Each hop deploys via `uv run` from its checkout, with stable --local flags.
-    cfg = _hop_config(cwd=Path("/tmp/wt"), clean=True, verbose=False)
+    cfg = _hop_config(
+        cwd=Path("/tmp/wt"), script="hop3-deploy", clean=True, verbose=False
+    )
     assert cfg.source == "local"
     assert cfg.legacy_flags is True  # emits --local, accepted by every version
-    assert cfg.command_prefix == ["uv", "run"]
+    # Pinned interpreter: a tag's worktree has no .python-version of its own.
+    assert cfg.command_prefix == ["uv", "run", "--python", _PYTHON]
     assert cfg.cwd == Path("/tmp/wt")
+    assert cfg.deployer_command == "hop3-deploy"
+
+
+def _checkout_with_scripts(tmp_path: Path, scripts: str) -> Path:
+    installer = tmp_path / "packages" / "hop3-installer"
+    installer.mkdir(parents=True)
+    (installer / "pyproject.toml").write_text(
+        f"[project]\nname='x'\n[project.scripts]\n{scripts}\n"
+    )
+    return tmp_path
+
+
+def test_deployer_script_is_read_from_the_checkout(tmp_path):
+    # 0.6.x shipped `hop3-deploy`; 0.7+ ships `hop3-deploy-server` plus a
+    # deprecated `hop3-deploy` alias. The main entry point is the one to run.
+    old = _checkout_with_scripts(
+        tmp_path / "old", 'hop3-deploy = "hop3_installer.deployer:main"'
+    )
+    new = _checkout_with_scripts(
+        tmp_path / "new",
+        'hop3-deploy-server = "hop3_installer.deployer:main"\n'
+        'hop3-deploy = "hop3_installer.deployer:deprecated_main"',
+    )
+    assert _deployer_script(old) == "hop3-deploy"
+    assert _deployer_script(new) == "hop3-deploy-server"
+
+
+def test_deployer_script_fails_loud_when_absent(tmp_path):
+    bare = _checkout_with_scripts(tmp_path, 'hop3-install = "hop3_installer.main:main"')
+    with pytest.raises(RuntimeError, match=r"hop3_installer\.deployer:main"):
+        _deployer_script(bare)
+
+
+class _Box:
+    """A target whose venv reports a fixed hop3-server version."""
+
+    def __init__(self, version: str) -> None:
+        self.version = version
+
+    def exec_run(self, command: str):
+        if "hop3_server" in command:
+            return 0, self.version + "\n", ""
+        if "hop3_rootd" in command:
+            return 0, self.version + "\n", ""
+        return 0, "c9e4a1b7d2f3 (head)\n", ""
+
+
+def test_assert_hop_refuses_a_version_the_hop_did_not_install():
+    # A fresh 0.6.2 hop once ended with 0.7.3 on the box (the wrong deployer
+    # ran via PATH) and the chain passed. The version is now asserted.
+    with pytest.raises(RuntimeError, match=r"expected 0\.6\.2"):
+        _assert_hop(_Box("0.7.3"), "0.6.2", "0.6.2")
+    result = _assert_hop(_Box("0.6.2"), "0.6.2", "0.6.2")
+    assert result["version"] == "0.6.2"
 
 
 def test_checkout_local_is_the_repo_root():
@@ -69,6 +130,8 @@ def test_docker_invocation_reaches_deploy_loop(monkeypatch):
     # `…commands.upgrade_chain` resolves to the command, shadowing the submodule.
     module = importlib.import_module("hop3_testing.cli.commands.upgrade_chain")
     monkeypatch.setattr(module, "DockerTarget", _Boom)
+    # Syncing the checkout's env is a real `uv sync`; not in a unit test.
+    monkeypatch.setattr(module, "_sync_checkout", lambda *_a, **_k: None)
     # `local,local` avoids any git worktree checkout in this unit test.
     result = _invoke("--docker", "--chain", "local,local")
     assert result.exit_code == 1

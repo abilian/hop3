@@ -214,3 +214,9 @@ In the Docker test image, a supervisor program named `redis` while systemd and t
 ## Test configuration differs from production defaults, explicitly
 
 System tests failed because the server defaulted to `certbot`, which a test domain cannot satisfy. Safe defaults for a test run (self-signed certificates, offline-capable options) differ from production's, so the switch is explicit and documented.
+
+## A harness that runs a tool by name runs whatever PATH has
+
+The upgrade-chain test installs an old release by running that release's own deployer with `uv run` inside a git worktree of its tag. The deployer was renamed at 0.7.0, from `hop3-deploy` to `hop3-deploy-server`, and the harness asked every worktree for the new name. `uv run` does not treat a script the environment lacks as an error: it falls through to `PATH`, where the developer's active virtualenv had the current deployer. The "fresh 0.6.2 install" therefore installed 0.7.3, the "upgrade" reinstalled 0.7.3 over itself, and the chain passed, because it asserted the schema and that a version was readable, and never that the version was the one the hop claimed.
+
+Two repairs. The harness reads the script name from the checkout's own `pyproject.toml`, syncs the checkout's environment first and refuses to run when the script is not in it. And every hop asserts that the installed version equals the version the checkout carries, which is the assertion that would have failed on the first run. The general rule: when a test drives a tool from another version by name, resolve the name from that version's metadata and assert the version that ran, since a name lookup that can silently pick a neighbour is a no-op wearing a pass.
