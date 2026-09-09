@@ -28,12 +28,17 @@ def test_help_flags_basic():
     assert handle_help_flags(["run", "--help"]) == ["help", "run"]
     assert handle_help_flags(["run", "-h"]) == ["help", "run"]
 
-    # Command with arguments and --help: forward extra tokens so the server
-    # can show the most specific help (longest-prefix match). `hop3 config show
-    # myapp --help` wants `help config show`; `hop3 run myapp --help` will show
-    # help for `run` via longest-prefix fallback.
-    assert handle_help_flags(["run", "myapp", "--help"]) == ["help", "run", "myapp"]
+    # Command with arguments and --help: forward extra tokens so the server can
+    # show the most specific help (longest-prefix match). `hop3 config show
+    # myapp --help` wants `help config show`.
     assert handle_help_flags(["deploy", "app", "--help"]) == ["help", "deploy", "app"]
+
+    # NOT `run`: its positional is the program, and everything after it is the
+    # program's command line. This used to assert ["help", "run", "myapp"],
+    # which is the bug — `hop3 run mycli sub --help` answered with the help for
+    # `hop3 run` and the program never saw the flag. See
+    # test_run_passthrough_help.py.
+    assert handle_help_flags(["run", "myapp", "--help"]) == ["run", "myapp", "--help"]
 
     # No --help flag
     assert handle_help_flags(["run", "myapp"]) == ["run", "myapp"]

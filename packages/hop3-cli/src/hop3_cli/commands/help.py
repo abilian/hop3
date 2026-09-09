@@ -10,6 +10,7 @@ import sys
 from typing import TYPE_CHECKING
 
 from hop3_cli.core.aliases import CORE_ALIASES
+from hop3_cli.core.app_scope import run_passthrough_index
 from hop3_cli.core.suggest import load_cached_commands
 
 from .local import LOCAL_COMMANDS_INFO
@@ -33,6 +34,7 @@ def handle_help_flags(args: list[str]) -> list[str]:
         ["run", "-h"] -> ["help", "run"]
         ["run", "myapp", "--help"] -> ["help", "run", "myapp"]  # forward extra tokens
         ["config", "show", "--help"] -> ["help", "config", "show"]  # namespaced command
+        ["run", "mycli", "sub", "--help"] -> unchanged  # the program's own flag
 
     With space-separated commands (ADR 036 D1), we forward all non-flag tokens
     before the first --help/-h so the server can show help for the full command path.
@@ -46,27 +48,32 @@ def handle_help_flags(args: list[str]) -> list[str]:
     if not args:
         return args
 
+    # `hop3 run <program> …` hands everything after <program> to the program, so
+    # a --help there is the program's question, not ours. Reading all of argv
+    # answered `hop3 run mycli sub --help` with the help for `hop3 run`, and the
+    # program never saw the flag.
+    ours = args[: run_passthrough_index(args)]
+
     # Handle --version and -V flags
-    if "--version" in args or "-V" in args:
+    if "--version" in ours or "-V" in ours:
         return ["version"]
 
-    # Check if --help or -h is anywhere in the args
-    if "--help" in args or "-h" in args:
-        # Keep all tokens up to the first --help / -h, dropping any help flags.
-        filtered: list[str] = []
-        for arg in args:
-            if arg in {"--help", "-h"}:
-                break
-            filtered.append(arg)
-        # Also strip any later --help / -h (shouldn't happen, but be defensive)
-        filtered = [a for a in filtered if a not in {"--help", "-h"}]
+    if "--help" not in ours and "-h" not in ours:
+        return args
 
-        if not filtered:
-            # Just "--help" with no command -> show general help
-            return ["help"]
-        return ["help", *filtered]
+    # Keep all tokens up to the first --help / -h, dropping any help flags.
+    filtered: list[str] = []
+    for arg in ours:
+        if arg in {"--help", "-h"}:
+            break
+        filtered.append(arg)
+    # Also strip any later --help / -h (shouldn't happen, but be defensive)
+    filtered = [a for a in filtered if a not in {"--help", "-h"}]
 
-    return args
+    if not filtered:
+        # Just "--help" with no command -> show general help
+        return ["help"]
+    return ["help", *filtered]
 
 
 def serve_offline_help(cli_args: list[str], config: Config) -> bool:
