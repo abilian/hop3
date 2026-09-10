@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import shlex
 import subprocess
+from enum import StrEnum
 from typing import TYPE_CHECKING
 from urllib.parse import urlparse
 
@@ -54,6 +55,19 @@ DEFAULT_WEB_PORT = 8000
 
 class BootstrapError(Exception):
     """Error during bootstrap process."""
+
+
+class FallbackReason(StrEnum):
+    """
+    Why a login could not record an HTTPS address and kept the SSH tunnel.
+
+    Named rather than free text because the value crosses a module boundary and
+    the caller words each one differently: the fix for a missing admin domain is
+    the operator's to make, while an outdated server is the platform's.
+    """
+
+    NO_ADMIN_DOMAIN = "no-admin-domain"
+    OUTDATED_SERVER = "outdated-server"
 
 
 def validate_ssh_target(ssh_target: str) -> None:
@@ -127,7 +141,7 @@ def ssh_user(ssh_target: str) -> str:
     return ssh_target.split("@", maxsplit=1)[0] if "@" in ssh_target else "root"
 
 
-def refuse_hop3ssh_user(ssh_target: str) -> None:
+def refuse_hop3_ssh_user(ssh_target: str) -> None:
     """
     Refuse ``hop3@host`` before dialling it.
 
@@ -164,7 +178,7 @@ def _run_hop3_server(
     reported "Failed to get SSH token: su: Authentication failure" and left the
     operator to work out that root is the requirement.
     """
-    refuse_hop3ssh_user(ssh_target)
+    refuse_hop3_ssh_user(ssh_target)
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
     result = _run_ssh(ssh_target, remote_cmd, input=input)
     if result.returncode != 0:
@@ -279,42 +293,30 @@ def get_ssh_token(ssh_target: str) -> str:
     return _require_token(stdout)
 
 
-def get_server_url_via_ssh(ssh_target: str) -> str | None:
+def server_url_and_reason(ssh_target: str) -> tuple[str | None, FallbackReason | None]:
     """
-    Ask the server for its public base URL, or None when it has none to give.
+    Ask the server for its public base URL; ``(url, None)`` when it has one.
 
     Only the server knows how it is fronted: a client holds an SSH target,
-    which says nothing about nginx, TLS or the admin domain. ``admin:server-url``
-    prints ``https://<ADMIN_DOMAIN>`` when one is configured and nothing when
-    it is not.
+    which says nothing about nginx, TLS or the admin domain.
+    ``admin:server-url`` prints ``https://<ADMIN_DOMAIN>`` when one is
+    configured and nothing when it is not.
 
-    Returns None for both "no admin domain" and "this server predates the
-    command" — the caller falls back to the SSH tunnel either way. It reports
-    the two differently, so ``failure`` distinguishes them.
+    A ``FallbackReason`` means the SSH tunnel stays. The two are worded
+    differently by the caller because the fix differs.
     """
-    url, _ = server_url_and_reason(ssh_target)
-    return url
-
-
-def server_url_and_reason(ssh_target: str) -> tuple[str | None, str]:
-    """
-    ``(url, reason)``; ``reason`` is empty when a URL came back.
-
-    ``reason`` is ``"no-admin-domain"`` or ``"outdated-server"`` — the caller
-    words them differently, because the fix differs.
-    """
-    refuse_hop3ssh_user(ssh_target)
+    refuse_hop3_ssh_user(ssh_target)
     hop3_cmd = f"{HOP_SERVER_PATH} admin:server-url"
     remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
     result = _run_ssh(ssh_target, remote_cmd)
 
     if result.returncode != 0:
-        return None, "outdated-server"
+        return None, FallbackReason.OUTDATED_SERVER
 
     url = result.stdout.strip()
     if url.startswith(("http://", "https://")):
-        return url, ""
-    return None, "no-admin-domain"
+        return url, None
+    return None, FallbackReason.NO_ADMIN_DOMAIN
 
 
 def fetch_and_save_certificate(

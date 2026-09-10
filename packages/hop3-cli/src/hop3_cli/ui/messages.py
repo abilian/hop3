@@ -54,7 +54,7 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     print("  hop3 help")
 
 
-def show_unauthenticated_message(config: Config | None = None) -> None:
+def show_unauthenticated_message(config: Config) -> None:
     """
     Say which server has no credential, and how to get one for *that* server.
 
@@ -67,8 +67,8 @@ def show_unauthenticated_message(config: Config | None = None) -> None:
     """
     from hop3_cli.config import ENV_CONTEXT_NAME  # ruff:ignore[import-outside-top-level]
 
-    target = config.get_api_url() if config else None
-    context = config.get_current_context_name() if config else None
+    target = config.get_api_url()
+    context = config.get_current_context_name()
 
     if target:
         where = f"{target}  (context {context!r})" if context else target

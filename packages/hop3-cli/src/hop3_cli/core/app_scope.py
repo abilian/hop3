@@ -17,6 +17,8 @@ when a command name is a prefix of another.
 
 from __future__ import annotations
 
+from dataclasses import dataclass, field
+
 #: The commands that wrap a program's own command line, and the flags of their
 #: own that may precede the program. Read by the flag parser (where global-flag
 #: parsing stops) and by the argument resolver (which flags take a §D14 value
@@ -25,14 +27,50 @@ RUN_COMMANDS: frozenset[tuple[str, ...]] = frozenset({("run",), ("app", "run")})
 RUN_VALUE_FLAGS: tuple[str, ...] = ("--input",)
 
 
-def run_passthrough_index(args: list[str]) -> int:
+@dataclass
+class RunBoundary:
     """
-    Where a ``run`` program's own command line starts; ``len(args)`` if never.
+    Where a ``run`` program's own command line begins.
 
     ``hop3 run <program> …`` hands everything after ``<program>`` to the
-    program, so those tokens are not ours to read. ``parse_flags`` already stops
-    consuming global flags there; this states the same boundary for every other
-    pass over argv that has to respect it.
+    program, so those tokens are not ours to read — not as global flags, and
+    not as a request for our help. Two passes over argv need that rule
+    (``parse_flags`` while it consumes global flags, ``handle_help_flags``
+    after they are gone), and they used to state it twice: `hop3 run mycli sub
+    --help` answered with the help for `hop3 run` because only one of them
+    knew. The rule lives here; both feed it.
+
+    Feed every token in order. It tracks the command's own positional tokens,
+    which is all the rule depends on.
+    """
+
+    command: list[str] = field(default_factory=list)
+
+    @property
+    def in_run(self) -> bool:
+        """Whether the tokens so far name a ``run`` command."""
+        return tuple(self.command) in RUN_COMMANDS
+
+    def is_value_flag(self, arg: str) -> bool:
+        """``--input <data>``: the value is data, never the program."""
+        return self.in_run and arg in RUN_VALUE_FLAGS
+
+    def is_program(self, arg: str) -> bool:
+        """
+        Feed one *positional* token; True when it is the program to run.
+
+        True means passthrough starts after it. Otherwise the token is part of
+        the command's own name and is recorded as such.
+        """
+        if self.in_run:
+            return True
+        self.command.append(arg)
+        return False
+
+
+def run_passthrough_index(args: list[str]) -> int:
+    """
+    Index of the first token belonging to a ``run`` program, or ``len(args)``.
 
     Callers see argv *after* ``parse_flags`` has removed the global flags, so a
     token here is the command, one of its own flags, or the program's.
@@ -46,19 +84,15 @@ def run_passthrough_index(args: list[str]) -> int:
         >>> run_passthrough_index(["apps", "--help"])
         2
     """
-    command: list[str] = []
+    boundary = RunBoundary()
     i = 0
     while i < len(args):
         arg = args[i]
-        in_run = tuple(command) in RUN_COMMANDS
-        if in_run and arg in RUN_VALUE_FLAGS:
-            # `--input <data>`: the value is data, not the program.
+        if boundary.is_value_flag(arg):
             i += 2
             continue
-        if not arg.startswith("-"):
-            if in_run:
-                return i + 1  # args[i] is the program; its command line follows
-            command.append(arg)
+        if not arg.startswith("-") and boundary.is_program(arg):
+            return i + 1
         i += 1
     return len(args)
 

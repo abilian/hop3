@@ -12,6 +12,7 @@ import toml
 
 from hop3_cli.core import credential_store
 from hop3_cli.core.paths import config_dir
+from hop3_cli.core.ssh_target import is_ssh_address
 from hop3_cli.exceptions import ConfigError
 
 # The prefix for all environment variables.
@@ -151,7 +152,7 @@ class Config:
         address = self._active_bootstrap
         if not address:
             api_url = self.get_api_url()
-            if api_url and api_url.startswith(("ssh://", "ssh+http://")):
+            if is_ssh_address(api_url):
                 address = api_url
         if not address:
             return None
@@ -551,9 +552,7 @@ class Config:
         if isinstance(recorded, str) and recorded:
             return recorded
         server = block.get("server")
-        if isinstance(server, str) and server.startswith(("ssh://", "ssh+http://")):
-            return server
-        return None
+        return server if is_ssh_address(server) else None
 
     def remove_global_context(self, name: str) -> bool:
         """Drop a global context. Returns True if it existed. Persists."""
