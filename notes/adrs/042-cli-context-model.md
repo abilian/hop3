@@ -3,10 +3,10 @@
 - **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2026-05-30
-- **Updated**: 2026-06-24
+- **Updated**: 2026-09-10
 - **Related-ADRs**: [014](./014-authentication-bootstrap.md), [018](./018-cli-architecture.md), [019](./019-cli-commands.md), [025](./025-cli-user-experience.md), [031](./031-project-terminology.md), [036](./036-cli-ergonomics.md), [047](./047-cli-invocation-context.md)
 
-> **Revised three times.** The original split deploy targets into a global *server* (connection) and a project-scoped *context*. The first revision collapsed both into one global *connection* called "context". The second made a *context* a deploy **environment** in the committed `hop3.toml` and dropped the connection to invisible plumbing, but it made contexts *project-only*, so project-less commands (`hop3 apps`) lost a named target and grew a separate `--server` flag. The third revision removes that split: a *context* is the **one selector** for every command, existing at two scopes: a **global** named server (`config.toml`, for project-less use) and a **project** environment (`hop3.toml`). `--context <name>` resolves project-first, then global; there is no `--server`.
+> **Revised four times.** The original split deploy targets into a global *server* (connection) and a project-scoped *context*. The first revision collapsed both into one global *connection* called "context". The second made a *context* a deploy **environment** in the committed `hop3.toml` and dropped the connection to invisible plumbing, but it made contexts *project-only*, so project-less commands (`hop3 apps`) lost a named target and grew a separate `--server` flag. The third revision removes that split: a *context* is the **one selector** for every command, existing at two scopes: a **global** named server (`config.toml`, for project-less use) and a **project** environment (`hop3.toml`). `--context <name>` resolves project-first, then global; there is no `--server`. The fourth revision closes the last hole in that claim — an *unnamed* target could still be written, below every context in the resolution chain, so it was ignored by anyone who had one — and separates a context's two addresses: where commands go, and where a token is minted.
 
 ## Context
 
@@ -26,7 +26,8 @@ Multi-environment config belongs in the committed file, now that nothing in it i
 
 | Field | Meaning | Example |
 |-------|---------|---------|
-| `server` | **literal address** of the target Hop3 instance (the only required field) | `ssh://root@prod.example.com` |
+| `server` | **literal address** every command connects to (the only required field) | `https://prod.example.com` |
+| `bootstrap` | `ssh://` route used **only** to mint a token | `ssh://root@prod.example.com` |
 | `app` | the app *instance* name for this environment | `myapp-prod` |
 | `[contexts.<name>.domains]` | hostnames (`list = [...]`, same shape as top-level `[domains]`; full-replace) | `list = ["myapp.com"]` |
 | `[contexts.<name>.env]` | non-secret env overrides (merge over top-level `[env]`) | `LOG_LEVEL = "warning"` |
@@ -34,6 +35,8 @@ Multi-environment config belongs in the committed file, now that nothing in it i
 A **global** context (in `config.toml`, for project-less commands) is the same shape pared to just `server`: a name bound to an address.
 
 The `server` is a **literal address**: the repo is the single source of truth and the local token store is keyed directly by it.
+
+**Every target is a named context.** There is no unnamed default. An address recorded without a name resolved *below* every context, so a login that wrote one reported success and then had every command go elsewhere — the failure mode a single selector was meant to remove. A login given no `--context` records the reserved name `default`; pointing that name at a *different* address without asking for it is refused, because "I replaced my server" and "I have two servers now" are indistinguishable from here and guessing the first silently retargets. Two names are reserved: `default` for the global target a nameless login writes (a *project* context of that name would shadow it for everyone in the checkout), and `env` for the target the environment itself declares.
 
 **`--context` is the one selector.** A global context exists so project-less commands can target a server by name (`hop3 apps --context prod`) exactly like an in-project deploy. `--context <name>` resolves **project-first, then global**, for every command alike. There is no `--server` flag: naming the target is the context's job. (`--context` is honoured strictly: an explicit `--context <name>` that resolves to no server aborts loud; it never silently retargets a different instance.)
 
@@ -48,6 +51,7 @@ The `server` is a **literal address**: the repo is the single source of truth an
 | `~/.config/hop3-cli/credentials.toml` | per-developer | tokens keyed by server address | **yes** (local) |
 | `.hop3-local.toml` (gitignored) | per-checkout | `[local].context`: which project environment this checkout targets | no |
 | `.hop3-app` (gitignored) | per-checkout | per-tree app pin written by `hop3 use` | no |
+| the environment | per-shell | `HOP3_API_URL` / `HOP3_DEV_MODE`: the context named `env` | no |
 
 Both files hold `[contexts.*]` but neither holds a secret: a global context is just `{server = "<addr>"}`, a project context adds app/domains/env, and the token always lives in the credential store.
 
@@ -77,15 +81,36 @@ LOG_LEVEL = "warning"
 
 `hop3 deploy --context prod` reads `[contexts.prod]`, looks up the token for that server, and deploys app `myapp` with its domains and env. A teammate clones the repo, runs `hop3 login` once per server (or lets SSH bootstrap the token on first deploy), and gets the identical environments for free.
 
+## Transport: everyday, bootstrap, rescue
+
+[ADR 014](./014-authentication-bootstrap.md) establishes that **SSH access is authentication**: whoever can reach the machine can mint an administrator token, so no password need be exchanged to get started. That is a statement about *authority*, and it was read as one about *transport*: a login recorded its SSH target as the connection, so every later `hop3 apps`, `hop3 logs` and `hop3 status` opened a root shell — once per invocation, to list applications.
+
+The two roles separate:
+
+| Role | Address | When |
+|------|---------|------|
+| everyday | `server` — `https://<admin domain>` | every command |
+| bootstrap | `bootstrap` — `ssh://user@host` | minting a token, unattended |
+| rescue | `bootstrap`, forced with `--via-ssh` | when the everyday route is what broke |
+
+A bootstrap login asks the server for its own public address, because only the server knows how it is fronted — a client holds an SSH target, which says nothing about the reverse proxy or the certificate. When the answer is a URL this machine can verify, that becomes `server` and the SSH target is kept as `bootstrap`. Routine work then travels over the authenticated HTTP API, and the root key is needed only when a token expires.
+
+**The tunnel remains, and says why.** A server with no admin domain has no HTTPS endpoint, an untrusted certificate cannot be used silently, and a server older than the question cannot answer it. Each falls back to `ssh://` as the everyday address *and names the reason*: a silent fallback would leave an operator with a working CLI, unaware that every command opens a root shell they never chose. The same missing admin domain also makes the web dashboard unreachable — its session cookie is `Secure` — so the two consequences share one explanation and one fix.
+
+**Renewal follows the route, not the scheme.** Gating unattended renewal on the *connection* being `ssh://` tied it to routing everything through a root shell. A context that talks HTTPS all day still knows a route home, and renews through it without asking.
+
 ## Resolution
 
 Context resolution stays **client-side**. First the *name* is chosen:
 
 1. `--context` / `-c` flag
 2. `$HOP3_CONTEXT`
-3. `.hop3-local.toml [local].context` (per-checkout)
-4. single-context fallback (project) / `[cli].default_context` (project-less)
-5. otherwise none (an error for flows that require a context)
+3. `env`, when `HOP3_API_URL` / `HOP3_DEV_MODE` declares one
+4. `.hop3-local.toml [local].context` (per-checkout)
+5. single-context fallback (project) / `[cli].default_context` (project-less)
+6. otherwise none (an error for flows that require a context)
+
+The environment sits at 3 because that is where the connection already resolved from: an exported `HOP3_API_URL` is consulted ahead of any stored context. Naming it `env` puts it in the list the operator reads — `hop3 context` shows it, and the warning before a destructive command names it — instead of leaving an exported variable to override everything invisibly. An explicit `--context` that disagrees with it aborts rather than connecting to either.
 
 The name then resolves to a context **project-first, then global**: the nearest `hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit `--context` that resolves to nothing aborts loud. The CLI reads the chosen block, extracts the server address, looks up its token, computes the effective config (the context's `app`; its `domains` and `env` merged per the rules below), and applies it. The server is never asked to interpret `[contexts.*]`.
 
@@ -104,7 +129,7 @@ Source 5 is trusted only when the context was selected CWD-rooted (`--context` o
 
 ### Global / ambient commands
 
-Project-less commands (`hop3 apps`, `hop3 status`) have no project context, so they select a **global** context: by the same `--context <name>` flag. With no flag the active server falls back through: `[cli].default_context` → a legacy unnamed default-server → the sole entry in the token store (when exactly one is known) → error. So `hop3 apps --context prod` works exactly like an in-project selection, and a bare `hop3 apps` targets your default context.
+Project-less commands (`hop3 apps`, `hop3 status`) have no project context, so they select a **global** context: by the same `--context <name>` flag. With no flag the active server falls back through: `[cli].default_context` → the sole entry in the token store (when exactly one is known) → error. So `hop3 apps --context prod` works exactly like an in-project selection, and a bare `hop3 apps` targets your default context.
 
 ## Server side
 
@@ -119,7 +144,7 @@ The `hop3 context` verbs operate at whichever scope fits where you stand: **proj
 - `hop3 context list / show [name]`: read contexts at the current scope
 - `hop3 context add / remove / rename`: define/edit them (a global context is a named server; a project context adds app/domains/env)
 - `hop3 context use <name>`: pin a *project* context for this checkout (`.hop3-local.toml [local].context`)
-- `hop3 login [--context <name>]` / `hop3 init`: authenticate to a server, store its token, and (when named) record it as a global context + the default
+- `hop3 login <user>@<host> [--context <name>]`: authenticate to a server, store its token, and record it as a global context (`default` when unnamed) + the current target. The target is positional: SSH is the only transport a bootstrap has, so naming it in a flag said nothing. `hop3 login --browser [<target>]` mints a credential for the *browser* instead — the surviving axis is which client receives one, not which wire it travels over.
 - `hop3 deploy [--context <name>]`: deploy the resolved environment
 
 A context can be hand-written in the file or created with `hop3 context add` (mirroring `[env]` vs `hop3 env set`: two interfaces, neither privileged). `add`/`remove`/`rename` edit a **shared** file (committed `hop3.toml`, or the per-developer `config.toml`); `use` edits the **gitignored** `.hop3-local.toml`. Each verb names the file and its sharing in its output.
@@ -127,6 +152,8 @@ A context can be hand-written in the file or created with `hop3 context add` (mi
 ## Migration
 
 Machines that already ran the first-revision rewriter have `[contexts.*]` with tokens in `config.toml`. An automatic, idempotent one-shot migration drains each token into the per-server store and rewrites each context **address-only** (`{server = url}`): so an old named connection ("prod") survives as a **global context** you still select with `--context prod`. The old current-context seeds `[cli].default_context`. `ssh://` servers re-mint tokens on demand (SSH-is-auth); `http(s)://` tokens are preserved by the drain, never stranded. The per-checkout selector key was renamed `[current].context` → `[local].context`, with the legacy key still read for one transitional release.
+
+A third stage completes the "every target is named" rule: an unnamed default-server becomes a context (reusing one that already holds that address, else `default`), and the two keys that both meant "which context is current" collapse into one. Every outcome is reported, including the two that drop something. One shape is unresolvable — an unnamed default *and* a `default` context naming a different server, with nothing current — and aborts rather than guessing which the operator meant.
 
 `[contexts.*]` is a new top-level section, so a v2 `hop3.toml` deploys only to a server new enough to parse it; an older server fails validation **loud**. A CLI shim that strips `[contexts.*]` for old servers would produce exactly the silent compatibility behaviour this project forbids. Pre-1.0: one breaking release, no compat shim.
 
@@ -138,6 +165,8 @@ Machines that already ran the first-revision rewriter have `[contexts.*]` with t
 - The same name works project-lessly (global, a named server) and in a project (full environment); multi-environment and multi-server are both first-class.
 - No secrets in any committed or config file (enforced by the committed-credential tripwire); the token lives only in the credential store.
 - The wrong-app footgun stays closed: trust is keyed on the selection source.
+- Everyday work runs over the authenticated HTTP API, so a root key is needed to mint a token and to rescue a broken route, not to list applications.
+- Every target the CLI can reach has a name, including the one the environment declares — so it can be listed, reported before a destructive command, and reasoned about as one thing.
 
 **Negative**
 
@@ -145,6 +174,9 @@ Machines that already ran the first-revision rewriter have `[contexts.*]` with t
 - A migration for already-migrated machines (`https` tokens are preserved, not re-minted).
 - Per-environment *secret* env is still set manually per instance (`hop3 env set`) until a fleet-scale secret system exists.
 - Secret-freeness rests on a best-effort tripwire: a novel secret shape could slip through to the committed file.
+- A context now carries two addresses, and an operator who reads only `server` will not see how renewal happens.
+- A server with no admin domain keeps the SSH tunnel for everything, so the privilege reduction lands only where TLS is configured — which makes the admin domain load-bearing rather than cosmetic.
+- The CLI depends on a server-side command to learn a server's public address; against a server too old to answer, it falls back to the tunnel and says so.
 
 ## Rejected alternatives
 
@@ -152,3 +184,6 @@ Machines that already ran the first-revision rewriter have `[contexts.*]` with t
 - **Credentials inside `hop3.toml`.** Tokens are secrets and `hop3.toml` is committed; only the non-secret address lives there.
 - **A rich `hop3 server` noun with its own verb namespace.** Rejected: a global context is already a name→address binding managed by `hop3 context` / `hop3 login`; a connection (the token) is plumbing.
 - **Vault-style shared secrets now.** Premature: per-app server-side storage already scopes secrets per environment; cross-environment sharing matters only at fleet scale.
+- **Deriving a context name from the host.** A name like `prod.example.com` cannot be a TOML key without quoting, and shortening to the first label collides across domains. Reserving `default` for a nameless login is predictable and needs no derivation rule; a second server asks to be named.
+- **Keeping `ssh://` as the everyday transport and accepting the privilege.** Rejected: it makes a root key a prerequisite for read-only work, spawns a process per invocation, and routes around the API's own authentication and rate limiting.
+- **Refusing to record a target when the server has no HTTPS endpoint.** Rejected: it would make a domain mandatory to use Hop3 at all. The tunnel stays available and the degraded mode is named.

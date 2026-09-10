@@ -118,12 +118,12 @@ The installer does **not** create an admin user or print a token — the first `
 From your own machine:
 
 ```bash
-hop3 login --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
 
 SSH access to the server *is* administrator access ([ADR 014](https://github.com/abilian/hop3/blob/main/notes/adrs/014-authentication-bootstrap.md)), so there is no password to type: this runs `admin:ssh-token` on the server, auto-creating a default `admin` if none exists, and stores the token in `~/.config/hop3-cli/credentials.toml`.
 
-That signs in the CLI. The Web UI holds a separate credential; `hop3 login --web root@your-server.com` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
+That signs in the CLI, and records the server's own HTTPS address when it has an admin domain — SSH is the bootstrap, not the everyday route. The Web UI holds a separate credential; `hop3 login --browser` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
 
 To do the same on the server itself, run `hop3-server` as the `hop3` user so the database stays owned by `hop3` and not by `root`:
 

@@ -30,7 +30,7 @@ Your Code  →  hop3 deploy  →  Running App on Your Server
 hop3 init --ssh root@hop3.example.com
 
 # Log in to existing server
-hop3 auth login --ssh root@hop3.example.com
+hop3 login root@hop3.example.com
 
 # Check who you're logged in as
 hop3 auth whoami
@@ -518,7 +518,7 @@ hop3 ps scale --app myapp worker=2
 
 - **Declare them in hop3.toml:** `hop3 context add devel --server ssh://root@devel --app myapp`
 - **Select one for this checkout:** `hop3 context use devel` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=devel` for one shell, or `--context devel` for one command.
-- **Log into a server (store its token):** `hop3 auth login --ssh root@your-server.com` — sets it as the default target too. Add `--context devel` to also name it as a global context and make it the default: `hop3 auth login --context devel --ssh root@devel.example.com`.
+- **Log into a server (store its token):** `hop3 login root@your-server.com` — records it as the context `default` and makes it current. Add `--context devel` to name it instead: `hop3 login --context devel root@devel.example.com`. A second, differently-addressed server logged in *without* a name is refused rather than silently replacing `default`.
 - **Project-less commands** (`hop3 app list`, `hop3 system info`): select a server by name with the same flag — `hop3 app list --context devel` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
 - **Create shell aliases:**
   ```bash

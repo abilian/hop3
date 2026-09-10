@@ -103,6 +103,7 @@ All commands support these global flags (per ADR 036 D6). Flags may appear befor
 
 - **`-c, --context <name>`** - Select the target context for this command — the **one selector** for every command, app-bound or not (ADR 042). Resolves project-first (`hop3.toml [contexts.<name>]`) then global (`config.toml [contexts.<name>]`); an explicit `--context` that resolves to nothing aborts loud. There is no `--server` flag.
 - **`-a, --app <name>`** - Target app explicitly. Always a flag, never positional (D5). If not set, the resolver walks the D7 chain — see [App Resolution](#app-resolution) below.
+- **`--via-ssh`** - Send this one command through the context's SSH bootstrap route instead of its everyday address. The rescue path, for when the everyday route is what broke: an expired certificate, a stopped proxy, DNS pointing elsewhere. Refuses when the target has no recorded SSH route rather than quietly using the ordinary one.
 
 ### Diagnostics
 
@@ -482,8 +483,8 @@ Type 'myapp' to confirm: myapp
 | Variable | Description |
 |----------|-------------|
 | `HOP3_CONTEXT` | Override the current context for this shell |
-| `HOP3_SSH_KEY` | Private key for every `ssh` the CLI spawns: the `ssh://` tunnel, `hop3 tunnel`, `hop3 app shell`, `hop3 login --ssh`. Default: ssh's own keys and config. |
-| `HOP3_SSH_PORT` | SSH port when the server address has none (`ssh://root@host`). A port in the address, or in a `login --ssh root@host:2222` target, wins. |
+| `HOP3_SSH_KEY` | Private key for every `ssh` the CLI spawns: the `ssh://` tunnel, `hop3 tunnel`, `hop3 app shell`, the `hop3 login` bootstrap, and `--via-ssh`. Default: ssh's own keys and config. |
+| `HOP3_SSH_PORT` | SSH port when the server address has none (`ssh://root@host`). A port in the address, or in a `hop3 login root@host:2222` target, wins. |
 | `HOP3_SSH_OPTIONS` | Extra `ssh -o` values, whitespace-separated, for every `ssh` the CLI spawns: `"ProxyJump=bastion UserKnownHostsFile=/path"`. |
 
 **Example `.bashrc` setup:**
@@ -598,18 +599,20 @@ scriptable token use [`hop3 auth get-token`](#hop3-auth-get-token).
 
 **Usage:**
 ```bash
-hop3 auth login                                  # password (prompted) for the default server
-hop3 auth login --ssh root@server                # SSH bootstrap (no password needed)
-hop3 auth login --context devel --ssh root@server # SSH bootstrap; also names global context 'devel' + default
-hop3 auth login --token <tok> --url <url>        # pre-generated token + server address
-hop3 auth login --web                            # magic link for the web dashboard
+hop3 login root@server                           # SSH bootstrap (no password needed)
+hop3 login --context devel root@server           # same, recorded as the context 'devel'
+hop3 login                                       # password (prompted) for the current server
+hop3 login --token <tok> --url <url>             # pre-generated token + server address
+hop3 login --browser                             # magic link for the web dashboard
 ```
 
 **Notes:**
-- Token stored in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), keyed by the server address; that server becomes the default target
-- With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` — secret-free; the token still lives only in the credential store
-- Token valid for 24 hours by default (`HOP3_TOKEN_EXPIRY_HOURS` on the server); the Web UI's browser session lasts 14 days and is a separate credential
-- Set `HOP3_API_TOKEN` environment variable to override
+- The target is positional. SSH is the only transport a bootstrap has, so naming it in a flag said nothing; `--ssh <target>` is the old spelling and still works, as does `--web` for `--browser`.
+- The login asks the server for its own public address. With an admin domain and a certificate this machine trusts, that becomes the everyday address (`https://…`) and the SSH target is kept only to renew the token. Without one, everything tunnels over SSH and the login says why.
+- Token stored in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), keyed by the server address.
+- The server is recorded as a global context — `default` when `--context <name>` is not given — and becomes the current target. Logging a *different* address into `default` without naming it is refused.
+- Token valid for 24 hours by default (`HOP3_TOKEN_EXPIRY_HOURS` on the server); the Web UI's browser session lasts 14 days and is a separate credential. An expired token is re-minted over the recorded SSH route without asking.
+- Set `HOP3_API_TOKEN` environment variable to override; `HOP3_API_URL` declares the context named `env`, which outranks anything stored.
 
 ### `hop3 auth get-token`
 
