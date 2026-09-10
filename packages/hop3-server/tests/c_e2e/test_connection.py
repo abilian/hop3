@@ -12,7 +12,7 @@ JSON-RPC through the tunnel; ``hop3 app shell`` is the one command that opens
 talks HTTP to the container's published API port, because the ``hop3`` account's
 key carries the forced command and ``no-port-forwarding``. So the e2e image also
 authorises the same key for ``root``, plain, which is the production shape (the
-operator's key in root's authorized_keys) and the account ``hop3 login --ssh``
+operator's key in root's authorized_keys) and the account ``hop3 login``
 connects as.
 
 These ran as opt-in "remote diagnostics" before, and so never ran. They still
@@ -160,7 +160,7 @@ class TestSshTransport:
         self, ssh_target: SshTarget, tmp_path: Path
     ) -> None:
         """
-        The bootstrap, end to end: `hop3 login --ssh root@host` mints an admin
+        The bootstrap, end to end: `hop3 login root@host` mints an admin
         token through `su - hop3 -c "hop3-server admin:ssh-token"` and records
         the server as the default; `user add` (admin-only) and `auth get-token`
         then run against that recorded server with that token, no env override.
@@ -179,12 +179,8 @@ class TestSshTransport:
                 timeout=90,
             )
 
-        login = hop3(
-            "login", "--ssh", f"{ssh_target.user}@{ssh_target.host}:{ssh_target.port}"
-        )
-        assert login.returncode == 0, (
-            f"login --ssh failed: {login.stdout}\n{login.stderr}"
-        )
+        login = hop3("login", f"{ssh_target.user}@{ssh_target.host}:{ssh_target.port}")
+        assert login.returncode == 0, f"login failed: {login.stdout}\n{login.stderr}"
 
         added = hop3("user", "add", _USER, "test@example.com", _PASSWORD)
         assert (
@@ -281,7 +277,7 @@ class TestHttpsIsTheEverydayTransport:
         env = _cli_env(ssh_target, tmp_path)
         del env["HOP3_API_URL"]  # the login must record the address itself
         result = subprocess.run(
-            ["hop3", "login", "--ssh", f"{ssh_target.user}@{ssh_target.host}"],
+            ["hop3", "login", f"{ssh_target.user}@{ssh_target.host}"],
             env=env,
             capture_output=True,
             text=True,
@@ -308,7 +304,7 @@ class TestHttpsIsTheEverydayTransport:
         env = _cli_env(ssh_target, tmp_path)
         del env["HOP3_API_URL"]
         login = subprocess.run(
-            ["hop3", "login", "--ssh", f"{ssh_target.user}@{ssh_target.host}"],
+            ["hop3", "login", f"{ssh_target.user}@{ssh_target.host}"],
             env=env, capture_output=True, text=True, check=False, timeout=120,
         )  # fmt: skip
         assert login.returncode == 0, login.stdout + login.stderr

@@ -106,7 +106,7 @@ def ssh_command_argv(ssh_target: str, remote_cmd: str) -> list[str]:
 
     The target may carry a port (``root@host:2222``): a server on a
     non-standard SSH port was reachable through the ``ssh://`` tunnel and not
-    through ``login --ssh``, which ran a bare ``ssh user@host``. The key
+    through the ``hop3 login`` bootstrap, which ran a bare ``ssh user@host``. The key
     (``ssh_key``) and the extra options (``ssh_options``) are the same
     settings the tunnel honours, so the bootstrap and the transport it sets up
     reach the same box the same way; new host keys are accepted as the tunnel
@@ -147,7 +147,7 @@ def refuse_hop3ssh_user(ssh_target: str) -> None:
         f"hop3-server\nfor you, so it cannot run the admin command this needs. "
         f"Connect as root:\n"
         f"\n"
-        f"  hop3 login --ssh root@{host}"
+        f"  hop3 login root@{host}"
     )
     raise BootstrapError(msg)
 
@@ -201,7 +201,7 @@ def _bootstrap_failure(
             "This runs one command as the server's 'hop3' account, which needs",
             "root. Connect as root:",
             "",
-            f"  hop3 login --ssh root@{host}",
+            f"  hop3 login root@{host}",
         ]
     return "\n".join(lines)
 

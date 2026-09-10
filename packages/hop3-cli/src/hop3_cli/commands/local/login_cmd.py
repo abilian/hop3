@@ -14,7 +14,7 @@ from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
 
-from hop3_cli.config import DEFAULT_CONTEXT_NAME
+from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME
 from hop3_cli.core.ssh_target import is_safe_ssh_target
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import extract_jwt
@@ -42,15 +42,14 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
     """
     Handle the login command.
 
-    Supports multiple authentication methods:
-    - URL with token: http://server:port?token=eyJ... (easiest for local dev)
-    - --ssh user@server: SSH-based authentication (for remote servers)
-    - --token <token>: Use a pre-generated token with separate --url
-    - (default): Username/password authentication via the server API
+    The axis is which client receives a credential: this CLI by default, the
+    browser with ``--browser``. Both bootstrap over SSH, which is why naming
+    the transport in a flag said nothing.
 
     Usage:
+        hop3 login user@server                           # this CLI, over SSH
+        hop3 login --browser [user@server]               # a link for the browser
         hop3 login "http://localhost:8000?token=eyJ..."  # URL with embedded token
-        hop3 login --ssh user@server                     # SSH-based auth
         hop3 login --token <token> --url <url>           # Separate token and server
         hop3 login                                       # Username/password auth
     """
@@ -220,7 +219,7 @@ def _ensure_server_configured(config: Config) -> None:
         file=sys.stderr,
     )
     print(
-        "  hop3 login --ssh root@your-server.com # If you have SSH access",
+        "  hop3 login root@your-server.com      # If you have SSH access",
         file=sys.stderr,
     )
     print("  hop3 settings set server https://your-server.com", file=sys.stderr)
@@ -289,7 +288,7 @@ def _handle_login_response(
                 server_url = config.get_api_url()
                 if not server_url:
                     print(
-                        "Error: No server configured. Use 'hop3 init' or 'hop3 login --ssh' first.",
+                        "Error: no server configured. Run `hop3 login <user>@<host>` first.",
                         file=sys.stderr,
                     )
                     sys.exit(1)
@@ -331,9 +330,9 @@ def handle_login_web(args: list[str], config: Config, printer: RichPrinter) -> N
     the web dashboard without entering a password. Requires SSH access.
 
     Usage:
-        hop3 login --web                    # Uses current context
-        hop3 login --web server.com         # SSH as root@server.com
-        hop3 login --web user@server.com    # SSH as user@server.com
+        hop3 login --browser                    # Uses current context
+        hop3 login --browser server.com         # SSH as root@server.com
+        hop3 login --browser user@server.com    # SSH as user@server.com
     """
     ssh_target, username = _parse_login_web_args(args, config)
 
@@ -387,7 +386,7 @@ def _warn_dashboard_unreachable(ssh_target: str, base: str) -> None:
 
 def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     """
-    Parse arguments for login --web command.
+    Parse arguments for the browser form.
 
     Returns:
         Tuple of (ssh_target, username)
@@ -428,7 +427,7 @@ def _resolved_server_url(config: Config) -> str | None:
     global): it is the single selector every command honours (ADR 042), and a
     *local* command like ``login`` must honour it too. Local commands dispatch
     before ``main`` wires the active server, so ``get_api_url()`` alone ignores
-    ``--context`` — which is why ``--context prod login --web`` used to hit the
+    ``--context`` — which is why ``--context prod login --browser`` used to hit the
     default server. Falls back to the configured/default server. Returns None if
     the named context isn't defined (the caller decides whether that is fatal).
     """
@@ -547,12 +546,12 @@ def record_server_login(
     # before any context, so a stale export sends every later command somewhere
     # else entirely and this login applies to nothing. Only worth saying when
     # the two disagree — CI that exports the server it just logged into is fine.
-    env_url = os.environ.get("HOP3_API_URL")
+    env_url = config.env_context_server()
     if env_url and env_url != server_url:
         print(
-            f"  warning: HOP3_API_URL is set to {env_url} in your environment and "
-            f"overrides this login's target ({server_url}) for every command "
-            f"until you `unset HOP3_API_URL`.",
+            f"  warning: the {ENV_CONTEXT_NAME!r} context ({env_url}) comes from "
+            f"your environment and overrides this login's target ({server_url}) "
+            f"for every command until you unset HOP3_API_URL.",
             file=sys.stderr,
         )
 
@@ -843,16 +842,16 @@ def admin_domain_advice(host: str) -> str:
 
 def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> None:
     """
-    Handle the login --ssh command for getting token via SSH.
+    Handle the SSH bootstrap: mint a token and record where commands go.
 
     SSH access is the authentication - no username/password needed by default.
     If --username is provided, uses the legacy flow for that specific user.
 
     Usage:
-        hop3 login --ssh user@server                    # Auto-auth (recommended)
-        hop3 login --ssh user@server --username admin   # Specific user (legacy)
-        hop3 login --ssh user@server --url https://...  # Use HTTP API instead
-        hop3 login --ssh user@server -d                 # Show debug info
+        hop3 login user@server                    # Auto-auth (recommended)
+        hop3 login user@server --username admin   # Specific user (legacy)
+        hop3 login user@server --url https://...  # Name the HTTP API explicitly
+        hop3 login user@server -d                 # Show debug info
     """
     ssh_target, username, api_url, debug_level = _parse_login_ssh_args(args)
 
@@ -913,7 +912,7 @@ def _build_ssh_url(ssh_target: str) -> str:
 
 def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None, int]:
     """
-    Parse arguments for login --ssh command.
+    Parse arguments for the SSH bootstrap form.
 
     Returns:
         Tuple of (ssh_target, username, api_url, debug_level)
@@ -1011,7 +1010,7 @@ def _verify_https_connection(
             "token on every subsequent CLI call.\n"
             "\nResolve one of these ways:\n"
             "  1. Use an SSH tunnel (recommended — bypasses TLS entirely):\n"
-            f"       hop3 login --ssh {host}\n"
+            f"       hop3 login {host}\n"
             "  2. Trust the server certificate explicitly:\n"
             "       hop3 settings set ssl_cert /path/to/server.crt\n"
             "  3. Disable verification for this server (last resort):\n"

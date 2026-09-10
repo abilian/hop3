@@ -254,7 +254,7 @@ class AuthMagicLinkCmd(Command):
         ssh user@server hop3-server auth magic-link
 
     Or via the CLI:
-        hop3 login --web
+        hop3 login --browser
 
 
     Examples:
@@ -270,7 +270,7 @@ class AuthMagicLinkCmd(Command):
     # choosing (e.g. "admin") — a privilege-escalation path to mint a magic
     # token for any user. (Audit 2026-06 A1.)
     pass_username: ClassVar[bool] = True
-    # Internal primitive behind `hop3 login --web`; off the user-visible surface.
+    # Internal primitive behind `hop3 login --browser`; off the user-visible surface.
     hidden: ClassVar[bool] = True
 
     def call(

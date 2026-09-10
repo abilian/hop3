@@ -24,7 +24,7 @@ def test_bare_help_is_answered_without_a_server(capsys):
 
     out = capsys.readouterr().out
     assert "Not connected to a server yet" in out
-    assert "hop3 login --ssh" in out
+    assert "hop3 login root@" in out
     for command in ("deploy", "app", "env", "context"):
         assert command in out
 

@@ -26,6 +26,13 @@ _marker = object()
 #: anyone who had one. Reserved for the global scope — a project may not use it.
 DEFAULT_CONTEXT_NAME = "default"
 
+#: The context the environment defines. `HOP3_API_URL` (and `HOP3_DEV_MODE`'s
+#: localhost) name a target the same way a context does, and `get_api_url`
+#: consults them ahead of any stored one. Giving that target a name puts it in
+#: the model the operator already reads: `hop3 context` lists it, and the
+#: warning before a destroy names it instead of needing a special case for it.
+ENV_CONTEXT_NAME = "env"
+
 
 @dataclasses.dataclass
 class Context:
@@ -386,6 +393,19 @@ class Config:
         """Return the app passed via ``--app`` / ``-a``, if any."""
         return self._app_override
 
+    def env_context_server(self) -> str | None:
+        """
+        The target the environment names, if it names one.
+
+        ``HOP3_DEV_MODE``'s localhost, then ``HOP3_API_URL`` — the two values
+        ``get_api_url`` consults before any stored context. Exposed so the rest
+        of the CLI can treat them as a context (``ENV_CONTEXT_NAME``) rather
+        than as a separate system each caller has to remember.
+        """
+        if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
+            return self.get("api_url", "http://localhost:8000")
+        return os.environ.get("HOP3_API_URL") or None
+
     def get_current_context_name(self) -> str | None:
         """
         Get the name of the current context.
@@ -393,9 +413,10 @@ class Config:
         Priority (ADR 042 §Resolution chains, post-Step-7):
         1. Context override (--context flag)
         2. HOP3_CONTEXT environment variable
-        3. ``[cli].default_context`` — what a login persists
-        4. ``[cli].current_context`` in the global config file (legacy)
-        5. None if no contexts configured
+        3. ``env`` — the target `HOP3_API_URL` / `HOP3_DEV_MODE` names
+        4. ``[cli].default_context`` — what a login persists
+        5. ``[cli].current_context`` in the global config file (legacy)
+        6. None if no contexts configured
 
         Step 3 used to be missing, so this disagreed with the resolver that
         actually picks the connection (``_resolve_ambient_server`` reads
@@ -417,7 +438,12 @@ class Config:
         if env_context:
             return env_context
 
-        # 3. What `hop3 login` persists; 4. the legacy pointer.
+        # 3. The environment's own target, when it has one. It outranks the
+        # stored default because `get_api_url` connects there.
+        if self.env_context_server():
+            return ENV_CONTEXT_NAME
+
+        # 4. What `hop3 login` persists; 5. the legacy pointer.
         return self.get_default_context() or self._read_current_context_pointer()
 
     # ---- current-context pointer (ADR 042: [cli].current_context) ----------
@@ -468,6 +494,8 @@ class Config:
 
     def get_context_server(self, name: str) -> str | None:
         """Server address for a global context, or None if it isn't defined."""
+        if name == ENV_CONTEXT_NAME:
+            return self.env_context_server()
         contexts = self.data.get("contexts")
         if isinstance(contexts, dict):
             block = contexts.get(name)
@@ -540,13 +568,22 @@ class Config:
         return False
 
     def list_global_contexts(self) -> dict[str, str]:
-        """Map of ``name -> server`` for every global context with an address."""
+        """
+        Map of ``name -> server`` for every global context with an address.
+
+        Includes the environment's own target under ``ENV_CONTEXT_NAME`` when
+        one is set. It is not in config.toml and outlives no shell, but it IS
+        where commands are going — leaving it out of the list is how an
+        exported variable stays invisible while overriding everything.
+        """
         contexts = self.data.get("contexts")
         out: dict[str, str] = {}
         if isinstance(contexts, dict):
             for name, block in contexts.items():
                 if isinstance(block, dict) and isinstance(block.get("server"), str):
                     out[name] = block["server"]
+        if env_server := self.env_context_server():
+            out[ENV_CONTEXT_NAME] = env_server
         return out
 
     def get_default_context(self) -> str | None:

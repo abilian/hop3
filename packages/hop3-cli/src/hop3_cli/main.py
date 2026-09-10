@@ -907,7 +907,7 @@ def _check_prerequisites(
         try:
             _try_auto_authenticate(config, printer)
         except AuthenticationError:
-            show_unauthenticated_message()
+            show_unauthenticated_message(config)
             sys.exit(ExitCode.AUTH_ERROR)
 
     # For destructive commands, verify token is valid BEFORE asking for confirmation
@@ -919,7 +919,7 @@ def _check_prerequisites(
             try:
                 _try_auto_authenticate(config, printer)
             except AuthenticationError:
-                show_unauthenticated_message()
+                show_unauthenticated_message(config)
                 sys.exit(ExitCode.AUTH_ERROR)
 
     # Prompt for confirmation on destructive commands. `--yes`/`-y`/`--force`

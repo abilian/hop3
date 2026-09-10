@@ -95,7 +95,7 @@ def serve_offline_help(cli_args: list[str], config: Config) -> bool:
 
     print("hop3 — deploy and manage applications on your own server\n")
     print("Not connected to a server yet, so this is the built-in command list.")
-    print("Connect with:  hop3 login --ssh root@<your-server>")
+    print("Connect with:  hop3 login root@<your-server>")
     print("Then `hop3 help` shows the full help for that server's commands.\n")
     print("Commands:")
     for row in _in_columns(names, per_row=6):

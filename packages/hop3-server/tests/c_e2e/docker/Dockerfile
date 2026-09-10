@@ -129,7 +129,7 @@ RUN mkdir -p /var/run/sshd && \
     cp /home/hop3/.ssh/id_rsa.pub /root/.ssh/authorized_keys && \
     chmod 0600 /root/.ssh/authorized_keys
 # The same key is authorised for root, plain (no forced command): that is the
-# production shape the ssh:// transport and `hop3 login --ssh` connect through,
+# production shape the ssh:// transport and `hop3 login` connect through,
 # and the only way the tunnel (`ssh -L`) is allowed, since the hop3 account's
 # key carries `no-port-forwarding`. See test_connection.py.
 
@@ -204,7 +204,7 @@ RUN mkdir -p /var/lib/hop3-rootd && chmod 0700 /var/lib/hop3-rootd && \
 # The signing key where a real install keeps it (ADR 048): /etc/hop3/secret-key,
 # 0640 root:hop3, read by the service and by the `su - hop3` CLI alike. The
 # supervisor environment below reaches only the service; without this file,
-# `hop3-server admin:ssh-token` (the `hop3 login --ssh` bootstrap) found no key.
+# `hop3-server admin:ssh-token` (the `hop3 login` bootstrap) found no key.
 RUN mkdir -p /etc/hop3 && \
     echo 'e2e-test-secret-key-do-not-use-in-production' > /etc/hop3/secret-key && \
     chown root:hop3 /etc/hop3/secret-key && \

@@ -464,7 +464,7 @@ class AuthMagicLink(Command):
     This is designed for SSH-based authentication workflows:
         ssh root@server hop3-server auth:magic-link
 
-    The CLI uses this internally for 'hop3 login --web'.
+    The CLI uses this internally for `hop3 login --browser`.
     """
 
     name = "auth:magic-link"

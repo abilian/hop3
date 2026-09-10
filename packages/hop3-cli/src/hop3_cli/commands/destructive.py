@@ -6,7 +6,6 @@
 
 from __future__ import annotations
 
-import os
 import sys
 from typing import TYPE_CHECKING
 
@@ -243,9 +242,8 @@ def _maybe_show_context_warning(config: Config | None) -> None:
     The address, not just the context name. A name alone answers the wrong
     question: every single-server install calls its context the same thing, so
     "Acting in context 'default'" carries no information at the one moment the
-    operator needs some. And when `HOP3_API_URL` is set it overrides every
-    context silently (`Config.get_api_url` checks it first), so the name would
-    have been actively misleading — that case is called out by source instead.
+    operator needs some. A target set through `HOP3_API_URL` needs no special
+    case here — it is the context named `env`, and says so.
     """
     if config is None:
         return
@@ -256,9 +254,7 @@ def _maybe_show_context_warning(config: Config | None) -> None:
 
 
 def _target_origin(config: Config, target: str) -> str:
-    """The address, plus where it came from when that is worth saying."""
-    if os.environ.get("HOP3_API_URL"):
-        return f"{target}  (from HOP3_API_URL, which overrides every context)"
+    """The address, plus the name of the context it came from."""
     name = config.get_current_context_name()
     return f"{target}  (context {name!r})" if name else target
 

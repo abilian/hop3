@@ -46,7 +46,7 @@ class SshSettings:
     Read once from the config (``HOP3_SSH_KEY``, ``HOP3_SSH_PORT``,
     ``HOP3_SSH_OPTIONS`` override the file), then applied by ``ssh_base_argv``
     to every ssh the CLI spawns: the RPC tunnel, ``hop3 tunnel``,
-    ``hop3 app shell`` and the ``login --ssh`` bootstrap.
+    ``hop3 app shell`` and the ``hop3 login`` bootstrap.
     """
 
     key: str | None = None
@@ -125,7 +125,7 @@ def ssh_options_from(value: object) -> list[str]:
     One string, whitespace-separated, shell-quoted where a value needs it:
     ``"ProxyJump=bastion UserKnownHostsFile=/tmp/kh"``. Every ssh the CLI
     spawns (the RPC tunnel, ``hop3 tunnel``, ``hop3 app shell``, the
-    ``login --ssh`` bootstrap) passes each one as ``-o <value>``.
+    ``hop3 login`` bootstrap) passes each one as ``-o <value>``.
     """
     if not isinstance(value, str) or not value.strip():
         return []

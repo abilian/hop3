@@ -18,7 +18,7 @@ Two ways in, chosen by the configured SSH user:
   prepends ``hop3-server``, so the remote command is the bare
   ``app-shell <app>`` (the path ``git push`` takes).
 - anyone else (root, the usual): ``su - hop3 -c "…/hop3-server app-shell
-  <app>"``, the path ``hop3 login --ssh`` already uses for admin commands.
+  <app>"``, the path the ``hop3 login`` bootstrap already uses for admin commands.
 """
 
 from __future__ import annotations
