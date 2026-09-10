@@ -41,8 +41,8 @@ def test_gives_one_command_to_run():
     """
     out = _banner()
     lines = [ln.strip() for ln in out.splitlines() if ln.startswith("  hop3 login")]
-    assert lines == ["hop3 login --ssh root@server.example.com"]
-    assert "hop3 login --web root@server.example.com" in out  # named, in prose
+    assert lines == ["hop3 login root@server.example.com"]
+    assert "hop3 login --browser" in out  # named, in prose
 
 
 def test_offers_a_reset_that_exists():
@@ -60,7 +60,7 @@ def test_password_is_all_or_nothing():
 def test_existing_admin_gets_no_password_block():
     out = _banner(created=False)
     assert "Admin password" not in out
-    assert "hop3 login --ssh" in out  # still tells them how to get in
+    assert "hop3 login root@" in out  # still tells them how to get in
 
 
 def test_docker_target_has_no_ssh_target_to_name():

@@ -47,7 +47,7 @@ EXAMPLES
   hop3 init --ssh root@your-server.com
 
   # Log in to an existing server
-  hop3 login --ssh root@your-server.com
+  hop3 login root@your-server.com
 
   # Log in with a URL containing a token (for local dev)
   hop3 login "http://localhost:8000?token=eyJ..."

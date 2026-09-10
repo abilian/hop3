@@ -54,7 +54,7 @@ def test_non_root_failure_names_command_output_and_requirement(su_fails):
     assert "su: Authentication failure" in message  # its output
     assert "needs" in message  # the requirement
     assert "root" in message
-    assert "hop3 login --ssh root@prod.example.com" in message  # the way forward
+    assert "hop3 login root@prod.example.com" in message  # the way forward
 
 
 def test_root_failure_does_not_advise_connecting_as_root(su_fails):
@@ -63,7 +63,7 @@ def test_root_failure_does_not_advise_connecting_as_root(su_fails):
         ssh_ops.get_ssh_token("root@prod.example.com")
     message = str(excinfo.value)
     assert "su: Authentication failure" in message
-    assert "hop3 login --ssh root@" not in message
+    assert "hop3 login root@" not in message
 
 
 def test_a_bare_host_is_reported_as_root(su_fails):
@@ -107,7 +107,7 @@ class TestHop3AccountIsRefused:
         message = str(excinfo.value)
         assert connected == [], "must be refused before any SSH call"
         assert "deploy key" in message
-        assert "hop3 login --ssh root@prod.example.com" in message
+        assert "hop3 login root@prod.example.com" in message
 
     def test_root_is_not_refused(self, su_fails):
         # Reaches the SSH call (and fails there), rather than being refused.

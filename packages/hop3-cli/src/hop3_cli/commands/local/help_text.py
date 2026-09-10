@@ -21,7 +21,7 @@ Bootstrap a new Hop3 server with a custom admin user.
 NOTE: For most cases, you don't need this command anymore!
 Authenticate once over SSH, then declare your deploy environment:
 
-  hop3 login --ssh root@my-server.com
+  hop3 login root@my-server.com
   hop3 context add dev --server ssh://root@my-server.com --app myapp
   hop3 apps  # uses the resolved context
 

@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-The ssh line behind `hop3 login --ssh` and the other bootstrap helpers.
+The ssh line behind `hop3 login` and the other bootstrap helpers.
 
 It used to be a bare ``ssh user@host cmd``: a server on a non-standard SSH port
 was reachable through the ``ssh://user@host:port`` tunnel and not through the

@@ -232,12 +232,11 @@ class Deployer:
         """
         Give the operator one command to run, and say why it needs no password.
 
-        One command, not two. `login --ssh` and `login --web` look like a pair
-        and are not: `--ssh` names a transport, `--web` names a destination and
-        travels over SSH as well, and only the first is a login — the second
-        prints a URL. Offering them as two bullets taught a symmetry that does
-        not exist, so the dashboard link is mentioned in prose, after the one
-        command that actually has to be run.
+        One command, not two. The CLI login and the dashboard link look like a
+        pair and are not: both travel over SSH, and only the first is a login —
+        the second prints a URL. Offering them as two bullets taught a symmetry
+        that does not exist, so the dashboard link is mentioned in prose, after
+        the one command that actually has to be run.
 
         The generated admin password comes last because it opens neither.
         Leading with it sent operators hunting for a way to recover a secret
@@ -254,10 +253,10 @@ class Deployer:
         print("Sign in from this machine. Your SSH access to the server is the")
         print("credential, so there is no password to type:")
         print()
-        print(f"  hop3 login --ssh {target}")
+        print(f"  hop3 login {target}")
         print()
         print("That authenticates the CLI — `hop3 apps` and the rest work from")
-        print(f"here. For the dashboard in a browser, `hop3 login --web {target}`")
+        print("here. For the dashboard in a browser, `hop3 login --browser`")
         print("prints a one-time link (it authenticates over SSH too).")
         print()
         print(f"Admin user: {self.config.admin_user}")

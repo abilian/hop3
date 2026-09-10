@@ -17,7 +17,7 @@ from __future__ import annotations
 
 import pytest
 from hop3_cli.commands.destructive import _maybe_show_context_warning
-from hop3_cli.config import Config
+from hop3_cli.config import ENV_CONTEXT_NAME, Config
 
 
 @pytest.fixture(autouse=True)
@@ -60,14 +60,19 @@ def test_names_the_address_with_no_context_name(capsys):
     assert "context" not in out
 
 
-def test_an_env_override_is_named_as_such(capsys, monkeypatch):
-    """`HOP3_API_URL` beats every context, so naming the context would lie."""
+def test_an_env_override_is_named_as_the_env_context(capsys, monkeypatch):
+    """
+    `HOP3_API_URL` beats every context, so naming the stored one would lie.
+
+    It needs no special case here: it is the context called `env`, and the
+    generic line names it. That is the point of giving it a name.
+    """
     monkeypatch.setenv("HOP3_API_URL", "https://elsewhere.example.com")
     config = Config(data={"cli": {"default_context": "prod"}})
     config.set_active_server("https://prod.example.com")
     out = warn(config, capsys)
     assert "https://elsewhere.example.com" in out
-    assert "HOP3_API_URL" in out
+    assert f"context {ENV_CONTEXT_NAME!r}" in out
     assert "prod" not in out
 
 

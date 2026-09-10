@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for local CLI commands (init, settings, login --ssh)."""
+"""Tests for local CLI commands (init, settings, the login bootstrap)."""
 
 from __future__ import annotations
 
@@ -528,7 +528,7 @@ class TestHandleLogin:
 
     def test_login_web_invokes_colon_command(self, temp_config, mock_printer, capsys):
         """
-        Regression: `hop3 login --web` must call `hop3-server auth:magic-link`.
+        Regression: `hop3 login --browser` must call `hop3-server auth:magic-link`.
 
         The space form (`auth magic-link`) makes hop3-server parse `auth` as the
         command and fail with "Unknown command 'auth'", breaking web login.
@@ -589,7 +589,7 @@ class TestHandleLogin:
         self, temp_config, mock_printer, capsys
     ):
         """
-        `--context prod login --web` targets prod, not the default server.
+        `--context prod login --browser` targets prod, not the default server.
 
         Regression: `login` dispatches before main wires the active server, so
         the SSH target used to come from the default server, ignoring --context.

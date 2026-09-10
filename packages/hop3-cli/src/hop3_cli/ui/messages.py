@@ -6,6 +6,11 @@
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from hop3_cli.config import Config
+
 
 def show_unconfigured_message(cli_args: list[str]) -> None:
     """
@@ -40,7 +45,7 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     print("  - Save the server URL and authentication token")
     print("  - Configure SSL certificate trust\n")
     print("If you already have a user account:")
-    print("  hop3 login --ssh root@your-server.com\n")
+    print("  hop3 login root@your-server.com\n")
     print("Or configure manually:")
     print("  hop3 settings set server https://your-server.com")
     print("  hop3 settings set token <your-api-token>\n")
@@ -49,11 +54,39 @@ def show_unconfigured_message(cli_args: list[str]) -> None:
     print("  hop3 help")
 
 
-def show_unauthenticated_message() -> None:
-    """Show helpful login instructions when CLI is not authenticated."""
-    print("Authentication required.\n")
-    print("To authenticate, use one of the following methods:")
-    print("  1. Login: hop3 login <url-with-token>")
-    print("  2. Init:  hop3 init --ssh root@your-server.com\n")
-    print("After logging in, save the token to ~/.config/hop3-cli/config.toml")
-    print("or set the HOP3_API_TOKEN environment variable.")
+def show_unauthenticated_message(config: Config | None = None) -> None:
+    """
+    Say which server has no credential, and how to get one for *that* server.
+
+    It used to advertise `hop3 init` (which the CLI's own help says you no
+    longer need) and claim the token is saved to config.toml (it has not been
+    since tokens moved to the secret-free credential store). Worse, it named no
+    server: when the target comes from `HOP3_API_URL`, `hop3 login` stores a
+    credential under whatever address the login resolves — which is not
+    necessarily the one the next command will use.
+    """
+    from hop3_cli.config import ENV_CONTEXT_NAME  # ruff:ignore[import-outside-top-level]
+
+    target = config.get_api_url() if config else None
+    context = config.get_current_context_name() if config else None
+
+    if target:
+        where = f"{target}  (context {context!r})" if context else target
+        print(f"No credential for {where}.\n")
+    else:
+        print("Authentication required.\n")
+
+    if context == ENV_CONTEXT_NAME:
+        # `hop3 login` would store a token for whatever address it resolves,
+        # while every command keeps going to the exported URL. Say the thing
+        # that actually fixes it.
+        print("That target comes from your environment, so logging in elsewhere")
+        print("will not change where commands go. Either:\n")
+        print("  export HOP3_API_TOKEN=<token>       # a token for that server")
+        print("  unset HOP3_API_URL                  # or use your stored context")
+        return
+
+    print("Sign in — your SSH access to the server is the credential:\n")
+    print("  hop3 login root@your-server.com\n")
+    print("Without SSH access, `hop3 login` prompts for a username and password.")
+    print("For automation, export HOP3_API_TOKEN.")
