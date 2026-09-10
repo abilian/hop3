@@ -132,6 +132,25 @@ def ssh_options_from(value: object) -> list[str]:
     return shlex.split(value)
 
 
+#: The URL schemes that mean "reach this server by opening an SSH tunnel".
+#: ``ssh+http`` is the tunnel that speaks plain HTTP at the far end.
+SSH_SCHEMES: tuple[str, ...] = ("ssh", "ssh+http")
+
+
+def is_ssh_address(address: str | None) -> bool:
+    """
+    Whether ``address`` is reached over SSH — and so is its own bootstrap route.
+
+    One statement of the rule. It was four: two ``startswith`` tuples in
+    ``config``, one in ``main`` and a scheme set in the RPC client, which is
+    three chances for them to drift apart on the day a scheme is added.
+    """
+    if not address:
+        return False
+    scheme, sep, _ = address.partition("://")
+    return bool(sep) and scheme in SSH_SCHEMES
+
+
 def is_safe_ssh_target(target: str) -> bool:
     """
     Whether ``target`` is a plain ``[user@]host[:port]`` safe to pass to ssh.

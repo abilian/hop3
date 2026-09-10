@@ -55,6 +55,7 @@ from .core.resolution import (
     resolve_app,
     resolve_context,
 )
+from .core.ssh_target import is_ssh_address
 from .core.workspace_guard import check_workspace_dependency
 from .exceptions import AuthenticationError, CliError
 from .exit_codes import ExitCode
@@ -293,10 +294,10 @@ def _context_bootstrap(name: str | None, config: Config) -> str | None:
     """
     if address := _context_address(name, config, "bootstrap"):
         return address
+    # An ssh:// server bootstraps through itself. `Config.get_context_bootstrap`
+    # already applies that to a global context, so this covers the project one.
     server = _context_server(name, config)
-    if server and server.startswith(("ssh://", "ssh+http://")):
-        return server
-    return None
+    return server if is_ssh_address(server) else None
 
 
 def _context_address(name: str | None, config: Config, key: str) -> str | None:

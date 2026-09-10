@@ -21,6 +21,7 @@ import subprocess
 
 import pytest
 from hop3_cli.commands.local import login_cmd, ssh_ops
+from hop3_cli.commands.local.ssh_ops import FallbackReason
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, Config
 
 SSH_TARGET = "root@prod.example.com"
@@ -32,7 +33,11 @@ TOKEN = "eyJhbGciOi.p.s"
 def server_says(monkeypatch):
     """Stub what `admin:server-url` answers, and whether HTTPS is usable."""
 
-    def configure(url: str | None, reason: str = "", https_problem: str = ""):
+    def configure(
+        url: str | None,
+        reason: FallbackReason | None = None,
+        https_problem: str = "",
+    ):
         monkeypatch.setattr(
             login_cmd, "server_url_and_reason", lambda _t: (url, reason)
         )
@@ -55,7 +60,7 @@ class TestWhatGetsRecorded:
         assert bootstrap == f"ssh://{SSH_TARGET}", "the SSH route is kept, not used"
 
     def test_no_admin_domain_keeps_the_tunnel(self, server_says, capsys):
-        server_says(None, reason="no-admin-domain")
+        server_says(None, reason=FallbackReason.NO_ADMIN_DOMAIN)
         server, bootstrap = determine(Config(data={}))
         assert server == f"ssh://{SSH_TARGET}"
         assert bootstrap is None, "the server IS the ssh route; no second copy"
@@ -74,7 +79,7 @@ class TestWhatGetsRecorded:
 
     def test_an_old_server_keeps_the_tunnel_and_says_so(self, server_says, capsys):
         """Absence of `admin:server-url` must fall back cleanly, not fail."""
-        server_says(None, reason="outdated-server")
+        server_says(None, reason=FallbackReason.OUTDATED_SERVER)
         server, _ = determine(Config(data={}))
         assert server == f"ssh://{SSH_TARGET}"
         err = capsys.readouterr().err
@@ -147,15 +152,21 @@ class TestTheProbe:
         monkeypatch.setattr(
             ssh_ops, "_run_ssh", lambda *a, **k: _completed(0, f"{PUBLIC}\n")
         )
-        assert ssh_ops.server_url_and_reason(SSH_TARGET) == (PUBLIC, "")
+        assert ssh_ops.server_url_and_reason(SSH_TARGET) == (PUBLIC, None)
 
     def test_empty_output_means_no_admin_domain(self, monkeypatch):
         monkeypatch.setattr(ssh_ops, "_run_ssh", lambda *a, **k: _completed(0, "\n"))
-        assert ssh_ops.server_url_and_reason(SSH_TARGET) == (None, "no-admin-domain")
+        assert ssh_ops.server_url_and_reason(SSH_TARGET) == (
+            None,
+            FallbackReason.NO_ADMIN_DOMAIN,
+        )
 
     def test_a_nonzero_exit_means_an_old_server(self, monkeypatch):
         monkeypatch.setattr(ssh_ops, "_run_ssh", lambda *a, **k: _completed(2, ""))
-        assert ssh_ops.server_url_and_reason(SSH_TARGET) == (None, "outdated-server")
+        assert ssh_ops.server_url_and_reason(SSH_TARGET) == (
+            None,
+            FallbackReason.OUTDATED_SERVER,
+        )
 
 
 def _completed(returncode: int, stdout: str = ""):

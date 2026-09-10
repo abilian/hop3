@@ -22,6 +22,7 @@ from hop3_cli.tokens import extract_jwt
 from .help_text import print_login_help
 from .ssh_ops import (
     BootstrapError,
+    FallbackReason,
     get_magic_link_via_ssh,
     get_ssh_token,
     get_token_via_ssh,
@@ -36,6 +37,10 @@ if TYPE_CHECKING:
 
     from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
+
+#: Seconds to wait when probing a server's HTTPS endpoint, before a login
+#: decides whether to record it as the everyday address.
+HTTPS_PROBE_TIMEOUT = 10
 
 
 def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -126,7 +131,9 @@ def ssh_target_argument(args: list[str]) -> str | None:
 
 
 #: Login flags that take a value, so the value is never read as the target.
-_LOGIN_VALUE_FLAGS = ("--username", "--url", "--token", "--context", "-c")
+#: `--context` is absent on purpose: `parse_flags` consumes it as a global flag
+#: before `handle_login` ever sees argv.
+_LOGIN_VALUE_FLAGS = ("--username", "--url", "--token")
 
 
 def handle_logout(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -774,8 +781,18 @@ def _determine_save_url(
             print(f"[debug] Will use the server's public URL: {public_url}")
         return public_url, ssh_url
 
-    _explain_ssh_fallback(ssh_target, reason)
+    assert reason is not None  # no URL means the probe said why
+    _explain_ssh_fallback(ssh_target, _FALLBACK_DETAIL[reason], advice=reason)
     return ssh_url, None
+
+
+#: How each reason reads in the note the operator sees.
+_FALLBACK_DETAIL: dict[FallbackReason, str] = {
+    FallbackReason.NO_ADMIN_DOMAIN: (
+        "it has no admin domain, so there is no HTTPS endpoint"
+    ),
+    FallbackReason.OUTDATED_SERVER: "it is too old to report its public address",
+}
 
 
 def _https_unusable_because(api_url: str, token: str) -> str:
@@ -792,7 +809,7 @@ def _https_unusable_because(api_url: str, token: str) -> str:
         requests.get(
             f"{api_url.rstrip('/')}/health",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
+            timeout=HTTPS_PROBE_TIMEOUT,
             verify=True,
         )
     except requests.exceptions.SSLError:
@@ -802,27 +819,27 @@ def _https_unusable_because(api_url: str, token: str) -> str:
     return ""
 
 
-def _explain_ssh_fallback(ssh_target: str, reason: str) -> None:
+def _explain_ssh_fallback(
+    ssh_target: str, detail: str, *, advice: FallbackReason | None = None
+) -> None:
     """
-    Say that everyday traffic will tunnel over SSH as root, and why.
+    Say that everyday traffic will tunnel over SSH, and why.
+
+    ``detail`` is already worded — the caller knows whether it is describing a
+    reason the probe reported or a certificate it could not verify, so this
+    does not re-derive it from a string that carried three different shapes.
 
     A silent fallback here is the worst outcome: the operator keeps a working
     CLI and never learns that every command opens a root shell, nor that the
     dashboard is unreachable for the same reason.
     """
-    host = host_from_ssh_target(ssh_target)
-    if reason == "no-admin-domain":
-        detail = "it has no admin domain, so there is no HTTPS endpoint"
-    elif reason == "outdated-server":
-        detail = "it is too old to report its public address"
-    else:
-        detail = reason
     print(
         f"\n  note: every command will tunnel over SSH as {ssh_user(ssh_target)}, "
         f"because {detail}.",
         file=sys.stderr,
     )
-    if reason == "no-admin-domain":
+    if advice is FallbackReason.NO_ADMIN_DOMAIN:
+        host = host_from_ssh_target(ssh_target)
         print(f"        {admin_domain_advice(host)}", file=sys.stderr)
 
 
@@ -988,7 +1005,7 @@ def _verify_https_connection(
         response = requests.get(
             f"{api_url.rstrip('/')}/health",
             headers={"Authorization": f"Bearer {token}"},
-            timeout=10,
+            timeout=HTTPS_PROBE_TIMEOUT,
             verify=True,  # Use system CA bundle
         )
         if response.ok:

@@ -15,8 +15,8 @@ import requests
 from jsonrpcclient import Error, Ok, parse, request
 from loguru import logger
 
-from hop3_cli.core.auto_auth import auto_authenticate, can_auto_authenticate
-from hop3_cli.core.ssh_target import SshSettings
+from hop3_cli.core.auto_auth import auto_authenticate
+from hop3_cli.core.ssh_target import SSH_SCHEMES, SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
 from hop3_cli.ui.upload_progress import upload_body
@@ -118,7 +118,7 @@ class Client:
     def __post_init__(self) -> None:
         """Initialize the SSH tunnel only if the scheme is ssh."""
         parsed_url = urlparse(self.api_url)
-        if parsed_url.scheme in {"ssh", "ssh+http"}:
+        if parsed_url.scheme in SSH_SCHEMES:
             if not self.tunnel:
                 self.start_ssh_tunnel()
 
@@ -240,16 +240,18 @@ class Client:
         """
         response = self._do_rpc(method, cli_args, **extra_args)
 
-        # If 401 and we can auto-auth via SSH, try it
+        # A 401 with a bootstrap route is recoverable: mint a token and retry.
+        # No predicate first — `auto_authenticate` refuses immediately when
+        # there is no route, with the same error a failed attempt raises, so
+        # asking twice only adds a second answer that can disagree.
         if isinstance(response, Error) and response.code == 401:
-            if self._can_auto_auth():
-                logger.debug("Got 401, attempting auto-auth via SSH")
-                try:
-                    self._auto_authenticate()
-                    logger.debug("Auto-auth successful, retrying request")
-                    response = self._do_rpc(method, cli_args, **extra_args)
-                except AuthenticationError:
-                    logger.debug("Auto-auth failed, returning original 401 response")
+            logger.debug("Got 401, attempting auto-auth via SSH")
+            try:
+                target = auto_authenticate(self.config)
+                logger.debug(f"Auto-authenticated via SSH to {target}, retrying")
+                response = self._do_rpc(method, cli_args, **extra_args)
+            except AuthenticationError:
+                logger.debug("Auto-auth failed, returning original 401 response")
 
         return response
 
@@ -295,20 +297,6 @@ class Client:
             )
 
         return self._parse_response(response, json_request)
-
-    def _can_auto_auth(self) -> bool:
-        """Whether this connection knows an SSH route to mint a token through."""
-        return can_auto_authenticate(self.config)
-
-    def _auto_authenticate(self) -> None:
-        """
-        Get a new token over the context's bootstrap route and save it.
-
-        Raises:
-            AuthenticationError: If authentication fails.
-        """
-        target = auto_authenticate(self.config)
-        logger.debug(f"Auto-authenticated via SSH to {target}")
 
     def _get_ssl_verification(self) -> bool | str:
         """

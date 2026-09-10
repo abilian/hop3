@@ -10,6 +10,10 @@ in ``main`` and the 401 retry in the RPC client. They had a copy each, and each
 gated on the *connection* being ``ssh://`` — which tied unattended renewal to
 routing every command through a root shell. The gate is now the context's
 bootstrap route, so an HTTPS context renews just as quietly.
+
+There is no ``can_auto_authenticate`` predicate: this refuses immediately when
+there is no route, with the same error a failed attempt raises, so a caller that
+asks first only gains a second answer that can disagree with the first.
 """
 
 from __future__ import annotations
@@ -20,11 +24,6 @@ from hop3_cli.exceptions import AuthenticationError
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
-
-
-def can_auto_authenticate(config: Config) -> bool:
-    """Whether this connection knows an SSH route to mint a token through."""
-    return config.get_bootstrap_target() is not None
 
 
 def auto_authenticate(config: Config) -> str:

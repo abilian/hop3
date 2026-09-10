@@ -81,7 +81,7 @@ def migrate_config_to_token_store(config_dir: Path) -> list[str]:
     new_contexts, drained = _drain_and_convert(contexts, credential_store)
 
     # 3. Seed the default context from the old current-context pointer.
-    pointer = _str(_pointer(data))
+    pointer = as_text(_pointer(data))
     default_context = pointer if pointer in new_contexts else None
 
     # 4. Rewrite config.toml: address-only contexts, no token, pointer -> default.
@@ -127,8 +127,10 @@ def _drain_and_convert(
     for name, block in contexts.items():
         if not isinstance(block, dict):
             continue
-        server = _str(block.get("server") or block.get("url") or block.get("api_url"))
-        token = _str(block.get("token") or block.get("api_token"))
+        server = as_text(
+            block.get("server") or block.get("url") or block.get("api_url")
+        )
+        token = as_text(block.get("token") or block.get("api_token"))
         if server and token:
             credential_store.set_token(server, token)  # atomic + fsync'd
             drained.append(name)
@@ -139,15 +141,15 @@ def _drain_and_convert(
 
 def _needs_migration(data: dict[str, Any], contexts: dict[str, Any]) -> bool:
     """True iff there is a token to drain, a legacy url to convert, or a stale pointer."""
-    if _str(_pointer(data)):
+    if as_text(_pointer(data)):
         return True
     for block in contexts.values():
         if not isinstance(block, dict):
             continue
-        if _str(block.get("token") or block.get("api_token")):
+        if as_text(block.get("token") or block.get("api_token")):
             return True
         # A legacy connection carries url/api_url but no 'server' yet.
-        if _str(block.get("url") or block.get("api_url")) and not _str(
+        if as_text(block.get("url") or block.get("api_url")) and not as_text(
             block.get("server")
         ):
             return True
@@ -191,5 +193,12 @@ def chmod_600(path: Path) -> None:
         os.chmod(path, 0o600)
 
 
-def _str(value: object) -> str | None:
+def as_text(value: object) -> str | None:
+    """
+    A non-empty string, or None — TOML hands back whatever the file held.
+
+    Public because stage 3 reads the same file under the same contract; a
+    second copy of a two-line coercion is a second place for the definition of
+    "empty" to drift.
+    """
     return value if isinstance(value, str) and value.strip() else None

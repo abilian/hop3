@@ -10,7 +10,7 @@ import os
 from dataclasses import dataclass, field
 from typing import Any
 
-from hop3_cli.core.app_scope import RUN_COMMANDS, RUN_VALUE_FLAGS
+from hop3_cli.core.app_scope import RunBoundary
 
 
 def _get_env_verbosity() -> int | None:
@@ -202,15 +202,16 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
     }
 
     remaining_args: list[str] = []
-    command: list[str] = []  # the command's own positional tokens, so far
+    # The one statement of "where does a run program's command line begin";
+    # `handle_help_flags` walks the same boundary with the same object.
+    boundary = RunBoundary()
     i = 0
     while i < len(args):
         arg = args[i]
         if arg == _END_OF_FLAGS:
             remaining_args.extend(args[i + 1 :])
             break
-        in_run = tuple(command) in RUN_COMMANDS
-        if in_run and arg in RUN_VALUE_FLAGS:
+        if boundary.is_value_flag(arg):
             # `--input <data>` belongs to `run`, and its value is not the
             # program: keep parsing our own flags after it.
             remaining_args.extend(args[i : i + 2])
@@ -222,12 +223,10 @@ def parse_flags(args: list[str]) -> tuple[CliFlags, list[str]]:
             continue
         remaining_args.append(arg)
         i += 1
-        if in_run and not arg.startswith("-"):
+        if not arg.startswith("-") and boundary.is_program(arg):
             # The program to run: what follows is its command line.
             remaining_args.extend(args[i:])
             break
-        if not arg.startswith("-"):
-            command.append(arg)
 
     return CliFlags(**state), remaining_args
 

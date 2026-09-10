@@ -120,6 +120,7 @@ class TestTheAuthFailureNamesTheTarget:
         assert "unset HOP3_API_URL" in out
         assert "hop3 login root@" not in out
 
-    def test_it_still_works_with_no_config(self, capsys):
-        show_unauthenticated_message(None)
+    def test_no_target_falls_back_to_the_generic_line(self, capsys):
+        """A configured CLI with nothing selected still gets an answer."""
+        show_unauthenticated_message(Config(data={}))
         assert "Authentication required" in capsys.readouterr().out

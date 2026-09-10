@@ -36,6 +36,7 @@ from hop3_cli.config import DEFAULT_CONTEXT_NAME
 from hop3_cli.core.config_migration_v2 import (
     CONFIG_FILENAME,
     MigrationError,
+    as_text,
     chmod_600,
     load_or_abort,
 )
@@ -62,14 +63,14 @@ def migrate_to_named_targets(config_dir: Path) -> list[str]:
     cli = data.get("cli")
     cli = dict(cli) if isinstance(cli, dict) else {}
 
-    default_server = _text(cli.get("default_server"))
+    default_server = as_text(cli.get("default_server"))
     pointer = _legacy_pointer(data)
     if not default_server and not pointer:
         return []  # no-op: nothing unnamed, no stale pointer
 
     contexts = data.get("contexts")
     contexts = dict(contexts) if isinstance(contexts, dict) else {}
-    current = _text(cli.get("default_context"))
+    current = as_text(cli.get("default_context"))
     notes: list[str] = []
 
     # The legacy pointer, but only when it names a context that exists and
@@ -125,7 +126,7 @@ def _name_for_default_server(
     """
     for name in sorted(contexts):
         block = contexts[name]
-        if isinstance(block, dict) and _text(block.get("server")) == address:
+        if isinstance(block, dict) and as_text(block.get("server")) == address:
             return name
 
     if DEFAULT_CONTEXT_NAME not in contexts:
@@ -138,7 +139,7 @@ def _name_for_default_server(
     # is the one commands actually reach. Guessing another name would invent a
     # target; overwriting `default` would silently retarget the other one.
     held = contexts[DEFAULT_CONTEXT_NAME]
-    other = _text(held.get("server")) if isinstance(held, dict) else "?"
+    other = as_text(held.get("server")) if isinstance(held, dict) else "?"
     msg = (
         f"config.toml is ambiguous: [cli].default_server is {address} while "
         f"[contexts.{DEFAULT_CONTEXT_NAME}] names {other}, and no context is "
@@ -183,11 +184,6 @@ def _write(
 def _legacy_pointer(data: dict[str, Any]) -> str | None:
     """The old current-context pointer (``[cli].current_context`` or top-level)."""
     cli = data.get("cli")
-    if isinstance(cli, dict) and _text(cli.get("current_context")):
-        return _text(cli["current_context"])
-    return _text(data.get("current_context"))
-
-
-def _text(value: object) -> str | None:
-    """A non-empty string, or None — TOML gives us whatever the file held."""
-    return value if isinstance(value, str) and value else None
+    if isinstance(cli, dict) and as_text(cli.get("current_context")):
+        return as_text(cli["current_context"])
+    return as_text(data.get("current_context"))
