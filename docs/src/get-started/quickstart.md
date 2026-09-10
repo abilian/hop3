@@ -100,7 +100,7 @@ With your application code and configuration ready, you can now deploy it.
 1.  **Sign the CLI in (first time on this machine):**
 
     ```bash
-    hop3 login --ssh root@hop3.example.com
+    hop3 login root@hop3.example.com
     ```
 
     Your SSH access to the server is the credential — no password, and no admin user to create first: the server makes one if there isn't one. The token is stored in `~/.config/hop3-cli/credentials.toml`.

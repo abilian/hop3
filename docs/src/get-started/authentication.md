@@ -14,20 +14,65 @@ Signing into one does not sign you into the other. But one thing opens both: **S
 Run this on your own machine, not on the server:
 
 ```bash
-hop3 login --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
 
-It asks the server for an API token over SSH and stores it, creating an admin account if there isn't one. No password. From then on `hop3 apps`, `hop3 deploy` and the rest work against that server. (`hop3 auth login` is the same command — `hop3 login` is its alias.)
+It asks the server for an API token over SSH and stores it, creating an admin account if there isn't one. No password. It prints what it recorded:
+
+```
+Signed in to https://your-server.com as admin  (context 'default')
+```
+
+From then on `hop3 apps`, `hop3 deploy` and the rest work against that server.
+
+A bare hostname means `root@` — the line above shows the address it resolved to, so you can see the substitution.
+
+## SSH gets you in; HTTPS is what you use
+
+The two are different jobs, and the address above is the giveaway: you signed in over SSH, but the recorded target is `https://`.
+
+| Role | When it is used |
+|---|---|
+| **Everyday** — `https://<your domain>` | every command |
+| **Bootstrap** — `ssh://root@host` | minting a token, including renewing an expired one, unattended |
+| **Rescue** — `hop3 apps --via-ssh` | when the everyday route is what broke |
+
+Only the server knows how it is fronted, so the login asks it. If the answer is a domain your machine can verify, that becomes the everyday address and routine work stops going through a root shell.
+
+If it can't, the login says so and keeps the tunnel:
+
+```
+  note: every command will tunnel over SSH as root, because it has no admin
+        domain, so there is no HTTPS endpoint.
+        Give it one to serve the API and the dashboard over HTTPS:
+        hop3-deploy-server --host your-server.com --admin-domain <fqdn>
+```
+
+The same three causes apply: no admin domain, a certificate your machine doesn't trust, or a server too old to answer. Each is named.
 
 ## Getting into the dashboard
 
 ```bash
-hop3 login --web root@your-server.com
+hop3 login --browser
 ```
 
-Despite the flag names, this is not the alternative to `--ssh`. It travels over SSH too, and it is not a login: it prints a one-time URL for you to open in a browser, which expires after 5 minutes and works once. Opening it is what creates the browser session.
+This is not the alternative to signing the CLI in. It travels over SSH too, and it is not a login: it prints a one-time URL for you to open in a browser, good for 5 minutes and one use. Opening it is what creates the browser session.
 
-You need it *in addition to* `--ssh`, not instead of it — the two surfaces hold separate credentials, and neither grants the other.
+You need it *in addition to* signing the CLI in, not instead — the two surfaces hold separate credentials, and neither grants the other.
+
+Bare `--browser` asks the server you are already signed into. Name one when you aren't yet:
+
+```bash
+hop3 login --browser root@your-server.com
+```
+
+## The dashboard needs HTTPS
+
+The session cookie is marked `Secure`, so a browser on plain `http://` accepts it and then never sends it back: the login would redirect to the dashboard, find no credential, and bounce back to the login page forever. Hop3 refuses that instead of looping, and says so on the login page.
+
+So give the server a domain — `hop3-deploy-server --host hop3.example.com`, or `--admin-domain` for a separate one — and the dashboard works at `https://<that domain>/`. For local development, `HOP3_DEBUG=true` drops the `Secure` flag and plain HTTP works.
+
+This is the same missing piece that keeps the CLI on the SSH tunnel. One cause, two symptoms, one fix.
 
 ## What about the admin password?
 
@@ -36,7 +81,7 @@ You need it *in addition to* `--ssh`, not instead of it — the two surfaces hol
 You need it in exactly one case — signing into the dashboard's own form from a machine with no SSH access to the server. To set one you know:
 
 ```bash
-hop3 login --ssh root@your-server.com
+hop3 login root@your-server.com
 hop3 user set-password admin --stdin      # reads the new password from stdin
 ```
 
@@ -47,27 +92,29 @@ ssh root@your-server.com
 sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:reset-password admin
 ```
 
-## The dashboard needs HTTPS
-
-The session cookie is marked `Secure`, so a browser on plain `http://` accepts it and then never sends it back: the login would redirect to the dashboard, find no credential, and bounce back to the login page forever. Hop3 refuses that instead of looping, and says so on the login page.
-
-So give the server a domain — `hop3-deploy-server --host hop3.example.com`, or `--admin-domain` for a separate one — and the dashboard works at `https://<that domain>/`. For local development, `HOP3_DEBUG=true` drops the `Secure` flag and plain HTTP works.
-
-The CLI has no such constraint: `hop3 login --ssh` works against a bare IP address.
-
 ## Naming your servers
 
-By default the CLI talks to whichever server you signed into last. Name them instead, and a flag picks one:
+Every target has a name. A login that names none records `default`:
 
 ```bash
-hop3 login --context dev  --ssh root@dev.example.com
-hop3 login --context prod --ssh root@prod.example.com
+hop3 login root@dev.example.com                    # context 'default'
+hop3 login --context prod root@prod.example.com    # context 'prod'
 
-hop3 apps --context dev      # ask dev
-hop3 apps                    # ask the last one you named — here, prod
+hop3 apps                    # the current target — here, prod
+hop3 apps --context default  # the other one
 ```
 
-`--context <name>` records the server under that name and makes it the default target, so you only pass the flag when you want the *other* one. Run `hop3 context --help` for the full precedence rules and the project-scoped form, where a context also carries the app, its domains and its environment.
+`--context <name>` records the server under that name and makes it current, so you only pass the flag when you want a different one.
+
+A second server logged in *without* a name is refused rather than quietly replacing `default` — "I replaced my server" and "I have two now" look identical from the CLI's side, and guessing wrong sends your next `hop3 destroy` to the wrong machine. Name it, or drop the old one first; the error says both.
+
+`hop3 context` lists what you have. Run `hop3 context --help` for the project-scoped form, where a context also carries the app, its domains and its environment.
+
+### Two names are taken
+
+`default` is the global target a nameless login writes, so a *project* context cannot use it — a committed `[contexts.default]` would shadow it for everyone working in that checkout.
+
+`env` is the target your shell declares. If `HOP3_API_URL` is set, that is where commands go, ahead of anything stored — so it is listed and named like any other context rather than overriding things invisibly.
 
 ## Checking and clearing
 
@@ -90,8 +137,12 @@ Every Hop3 account is operator-equivalent today: there is no per-app ownership a
 
 | Symptom | Cause | Fix |
 |---|---|---|
-| `hop3` says you are not authenticated | The token expired (24 h) | `hop3 login --ssh root@your-server.com` |
+| `hop3` says there is no credential for a server | The token expired and no SSH route is recorded | `hop3 login root@your-server.com` |
+| Every command is slow and opens an SSH connection | No admin domain, so the tunnel is the only route | Give the server a domain, then sign in again |
+| HTTPS is down but SSH works | Certificate expired, proxy stopped, DNS wrong | `hop3 apps --via-ssh` for one command |
 | The dashboard login bounces back to itself | Plain HTTP, `Secure` cookie dropped | Give the server a domain and a certificate |
-| The magic link says it is invalid | Used already, or older than 5 minutes | Generate another with `hop3 login --web` |
-| `hop3 apps` answers about the wrong server | It went to the default target | `hop3 apps --context <name>`, or sign in again with `--context` |
+| The magic link says it is invalid | Used already, or older than 5 minutes | Generate another with `hop3 login --browser` |
+| `hop3 apps` answers about the wrong server | `HOP3_API_URL` is exported, or the current context is not the one you meant | `hop3 context` to see where it goes; `unset HOP3_API_URL`, or pass `--context <name>` |
 | You have the password but not SSH | Nothing is broken | `hop3 login` prompts for username and password |
+
+The old spellings still work: `hop3 login --ssh <target>` for the positional form, `--web` for `--browser`, and `hop3 auth login` for `hop3 login`.
