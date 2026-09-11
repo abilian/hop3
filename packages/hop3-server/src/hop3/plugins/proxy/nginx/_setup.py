@@ -182,10 +182,10 @@ class NginxVirtualHost(BaseProxy):
 
     def generate_config(self) -> None:
         buffer = self.get_proxy_conf()
-        self.nginx_conf_path.write_text(buffer)
+        self.conf_path.write_text(buffer)
 
     @property
-    def nginx_conf_path(self) -> Path:
+    def conf_path(self) -> Path:
         return NGINX_ROOT / f"{self.app_name}.conf"
 
     def get_proxy_conf(self) -> str:
@@ -307,9 +307,11 @@ class NginxVirtualHost(BaseProxy):
         ``nginx -t`` needs root, so it runs through hop3-rootd (ADR 041,
         ``nginx.validate_config``) — the same privileged path
         :meth:`reload_proxy` uses. A failed check aborts the deploy loudly and
-        leaves the running config untouched. Skipped in unit/integration tests
-        (no live daemon), matching reload_proxy; rootd-availability is enforced
-        by reload_proxy, so an unreachable daemon here defers to it rather than
+        leaves the running config untouched; :meth:`BaseProxy.setup` then rolls
+        the rejected file out of the include directory (see
+        :func:`restore_on_failure`). Skipped in unit/integration tests (no live
+        daemon), matching reload_proxy; rootd-availability is enforced by
+        reload_proxy, so an unreachable daemon here defers to it rather than
         duplicating that diagnosis.
         """
         if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
@@ -326,8 +328,10 @@ class NginxVirtualHost(BaseProxy):
                             action="validate configuration",
                             reason="the generated nginx config failed `nginx -t`",
                             hint=(
-                                "Fix the generated config and redeploy; the "
-                                "running nginx config is left untouched."
+                                f"Fix the app's config and redeploy; the "
+                                f"running nginx config is left untouched and "
+                                f"the rejected one is kept at "
+                                f"{self.rejected_conf_path} for inspection."
                             ),
                         )
                     )
@@ -370,11 +374,11 @@ class NginxVirtualHost(BaseProxy):
                 action="validate configuration",
                 reason="`nginx -t` reported errors via hop3-rootd",
                 hint=(
-                    f"Inspect the generated config at "
-                    f"{self.nginx_conf_path} and re-run validation"
+                    f"Inspect the rejected config at "
+                    f"{self.rejected_conf_path} and redeploy"
                 ),
                 troubleshooting=[
-                    f"cat {self.nginx_conf_path}",
+                    f"cat {self.rejected_conf_path}",
                     *errors,
                     (
                         "If the error mentions a missing include or "

@@ -154,11 +154,11 @@ class TraefikVirtualHost(BaseProxy):
     def generate_config(self) -> None:
         """Generate the Traefik YAML configuration."""
         buffer = self.get_proxy_conf()
-        self.traefik_conf_path.write_text(buffer)
-        log(f"Generated Traefik config at {self.traefik_conf_path}", level=2)
+        self.conf_path.write_text(buffer)
+        log(f"Generated Traefik config at {self.conf_path}", level=2)
 
     @property
-    def traefik_conf_path(self) -> Path:
+    def conf_path(self) -> Path:
         """Path to the Traefik configuration file for this app."""
         return TRAEFIK_ROOT / f"{self.app_name}.yml"
 
@@ -254,10 +254,10 @@ class TraefikVirtualHost(BaseProxy):
         # Traefik doesn't have a built-in validate command for individual files
         # We can do basic YAML syntax checking
         try:
-            with Path(self.traefik_conf_path).open() as f:
+            with Path(self.conf_path).open() as f:
                 yaml.safe_load(f)
             log(
-                f"Traefik config validation passed for {self.traefik_conf_path}",
+                f"Traefik config validation passed for {self.conf_path}",
                 level=2,
             )
         except ImportError:
@@ -271,7 +271,7 @@ class TraefikVirtualHost(BaseProxy):
                 f"Error: invalid YAML in traefik config - {e}",
                 fg="red",
             )
-            content = self.traefik_conf_path.read_text()
+            content = self.conf_path.read_text()
             log(f"Broken config content:\n{content}")
             raise
         except Exception as e:

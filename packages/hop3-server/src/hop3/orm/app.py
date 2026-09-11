@@ -21,6 +21,7 @@ from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.core.plugins import get_deployer_by_name
 from hop3.lib import Abort, log, robust_rmtree
+from hop3.lib.path import REJECTED_SUFFIX
 from hop3.run.spawn import spawn_app, verify_nix_closure
 from hop3.run.uwsgi.naming import vassal_glob
 
@@ -528,6 +529,7 @@ class App(BigIntAuditBase):
                 remove_file(f)
 
         remove_file(cfg.NGINX_ROOT / f"{app_name}.conf")
+        remove_file(cfg.NGINX_ROOT / f"{app_name}.conf{REJECTED_SUFFIX}")
         remove_file(cfg.NGINX_ROOT / f"{app_name}.sock")
         remove_file(cfg.NGINX_ROOT / f"{app_name}.key")
         remove_file(cfg.NGINX_ROOT / f"{app_name}.crt")
