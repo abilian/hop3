@@ -170,6 +170,12 @@ nix-build hop3.nix -A package --no-out-link \
 
 ## Runtime Configuration
 
+### An App That Generates Its Own Config Bakes In a Port
+
+An app whose first run writes its own config file will write the *upstream default* port, not `$PORT`. matrix-synapse's `--generate-config` emits `port: 8008` and ignores the environment entirely, so the wrapper has to rewrite the listener after generating and before exec.
+
+Rewrite it **structurally** — parse the YAML/TOML, change the field, write it back — never with `sed`. Upstream changes indentation and key order between versions, and a regex that matched last release silently matches nothing in the next one, leaving the default port in place and the app unreachable for a reason nothing reports.
+
 ### The PORT Problem
 
 Every Hop3 app must listen on `$PORT` (assigned dynamically). Most apps need a config file that includes the port. Since Nix store paths are read-only, the wrapper script must generate config at runtime:
@@ -224,7 +230,9 @@ npm/pnpm create symlinks between `node_modules/.pnpm/` entries. After `npm insta
 dontFixup = true;
 ```
 
-This is safe: the broken symlinks are dev dependencies that aren't used at runtime.
+This is safe **when the symlinks were produced by your own `npm install`**: the broken ones are dev dependencies pruned by `--production` and unused at runtime.
+
+It is not safe for a **pre-built release tarball whose `node_modules/` was populated by pnpm**. Those symlinks point into the pnpm virtual store as it existed on the release builder, so copying the tree anywhere breaks *runtime* dependencies, and `dontFixup` turns a build error into `Cannot find module 'express'` at first request. HedgeDoc failed exactly this way. When the upstream artefact ships a pnpm layout, re-install from source in `buildPhase` (the `node-pnpm-install` template does this) or use `pkgs.<app>` if nixpkgs has it — do not silence the check.
 
 ## Package Manager Specifics
 
@@ -318,15 +326,31 @@ exec radicale --storage-filesystem-folder ./collections
 
 Apps like Listmonk expect `static/`, `i18n/`, `config.toml.sample` in the working directory. When running from a Nix wrapper, the working directory is `src/`.
 
-**Fix:** Either symlink or copy static assets from the Nix store to the working directory:
+**Fix:** copy the assets from the Nix store into the working directory.
 
 ```bash
 #!/bin/sh
-# Symlink static assets from Nix store to writable cwd
-ln -sf /nix/store/.../static ./static 2>/dev/null
-ln -sf /nix/store/.../i18n ./i18n 2>/dev/null
+cp -rL /nix/store/.../static ./static
+cp -rL /nix/store/.../i18n ./i18n
 exec /nix/store/.../bin/listmonk
 ```
+
+**Prefer `cp` over `ln -sf`.** A symlink looks tidier and loses whenever the upstream launcher resolves its own path: `readlink -f "$0"` lands back in the read-only store, and the app then looks for everything relative to a directory it cannot write. XWiki's Jetty start script and Keycloak's nixpkgs-compiled `kc.sh` both do this. A symlink is only safe for an asset the app reads by the literal path you gave it.
+
+**When the app writes inside its own install tree**, copying one directory is not enough — copy the whole tree once, on first run:
+
+```bash
+#!/bin/sh
+HOME_DIR="$PWD/.myapp-home"
+if [ ! -f "$HOME_DIR/.hop3-ready" ]; then
+  cp -rL /nix/store/.../app "$HOME_DIR"
+  chmod -R u+w "$HOME_DIR"
+  touch "$HOME_DIR/.hop3-ready"
+fi
+cd "$HOME_DIR" && exec ./bin/myapp
+```
+
+Keycloak (Quarkus augmentation), XWiki (Jetty logs), SonarQube (a shared-memory file) and matrix-synapse (generated `homeserver.yaml`) all need this. The nix-gen templates express it as `writable-home-at-runtime` / `writable-home-env-var`; reach for those before hand-writing the wrapper.
 
 ### nixpkgs Sometimes Ships Only the Binary
 

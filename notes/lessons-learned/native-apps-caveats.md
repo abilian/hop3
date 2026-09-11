@@ -278,6 +278,38 @@ start = "php -S 0.0.0.0:${PORT:-8080}"
 
 ---
 
+### 6. Unpacking an Archive Over a Volume
+
+**Symptom**: `before-build` fails while unpacking upstream's archive:
+
+```
+cp: cannot overwrite non-directory '././local' with directory 'piwigo/./local'
+```
+
+**Cause**: `[[volumes]]` are symlinked into the app tree **before** `[build].before-build` runs. Any directory the upstream archive ships that is also a volume target is therefore already a symlink, and `cp -a` refuses to replace a symlink with a directory. Nothing in the recipe is wrong; the ordering is simply not what an unpack script assumes.
+
+Most recipes never meet this, because the directories they declare as volumes (`data`, `media`) are ones they create themselves. It bites when upstream's own tree ships the directory: Piwigo 16.4.0 ships `local/`, `galleries/` and `_data/`, and all three hold state that must survive a redeploy.
+
+**Fix**: copy *through* the symlinks with `rsync --keep-dirlinks`, which treats a symlink-to-directory on the receiving side as the directory it points at. `rsync` is in the installer's base packages.
+
+```bash
+unzip -q piwigo.zip
+rsync -a --keep-dirlinks piwigo/ ./
+rm -rf piwigo piwigo.zip
+```
+
+A useful side effect: upstream's placeholder files land inside the volume, so the volume is seeded with the tree content on first deploy and the app finds the layout it expects.
+
+**Related**: a volume's `name` and its `target` are separate fields with separate rules. `target` is a path and may be anything the tree contains; `name` is a logical identifier and must start with a letter or digit, so `_data` is a legal target and an illegal name. `hop3check` does not enforce the name rule today (platform blocker #34), so a bad name costs a deploy to discover:
+
+```toml
+[[volumes]]
+name = "derivative-cache"   # not "_data"
+target = "_data"
+```
+
+---
+
 ## Recommended hop3.toml Template for PHP Apps
 
 ```toml
