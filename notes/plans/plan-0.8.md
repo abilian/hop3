@@ -41,7 +41,9 @@ A fourth property belongs on that list and is deliberately absent: nothing watch
 
 ### 2. PHP-FPM: a production runtime for ten catalog apps
 
-Ten of the twenty catalog applications (BookStack, Dolibarr, Easy!Appointments, Invoice Ninja, Kanboard, LimeSurvey, Matomo, Nextcloud, Paheko, WordPress) serve through PHP's built-in single-threaded server or `artisan serve`. Requests serialize, and Nextcloud and Matomo issue concurrent internal sub-requests, which is how the installer deadlocked against its own only worker during the verification campaign. 0.7 worked around it by raising the worker count; the fix is a real runtime. **0.7.2 moved the workaround into the generator** (`PHP_CLI_SERVER_WORKERS` is set for every recipe served by the built-in server or `artisan serve`), so it now travels with the template instead of being remembered per recipe. That is still a workaround: requests still serialize per worker, and the item below stands unchanged.
+Ten of the twenty catalog applications (BookStack, Dolibarr, Easy!Appointments, Invoice Ninja, Kanboard, LimeSurvey, Matomo, Nextcloud, Paheko, WordPress) serve through PHP's built-in single-threaded server or `artisan serve`. Requests serialize, and Nextcloud and Matomo issue concurrent internal sub-requests, which is how the installer deadlocked against its own only worker during the verification campaign. 0.7 worked around it by raising the worker count; the fix is a real runtime. **0.7.2 moved the workaround into the generator** (`PHP_CLI_SERVER_WORKERS` is set for every recipe served by the built-in server or `artisan serve`), so it now travels with the template instead of being remembered per recipe. That is still a workaround: requests still serialize per worker.
+
+**The runtime landed 2026-09-11.** php-fpm runs as a uWSGI `attach-daemon`, so the Emperor stays the only process manager and ADR 023 is untouched; nginx speaks FastCGI to the pool and serves the front-controller directory; the readiness gate learned that not every backend speaks HTTP (`notes/readiness-and-non-http-backends.md`). What remains is per-recipe: each of the ten drops its `start` line and is redeployed and checked on a box. Until then they keep serving through `php -S`, which is what the worker-precedence rule guarantees.
 
 **Serve PHP through php-fpm behind the reverse proxy.** One platform fix, ten applications, and it converts the largest ecosystem in the catalog from "works in a demo" to "works under load". This is the highest value-per-unit-work item in the release.
 
@@ -89,6 +91,16 @@ cgroup v2 per-app tracking, CPU/memory/disk collection, a Prometheus-format `/me
 TR-03 §9.5 calls this the substantive open item in the CLI: the resolution chain is hard to reason about, several concepts are reachable under more than one spelling, and the governing records are still drafts. ADR 047 would make the resolved application and environment travel with each invocation so the server sees a decided context.
 
 This is a **breaking change** requiring one coordinated CLI+server release: an unknown `extra_args` key reaches the command as a kwarg and raises `TypeError`, so mixed old-server/new-client is unsupported. The complementary command-manifest ADR (which would also absorb `DESTRUCTIVE_COMMANDS` and `_MISMATCH_GUARDED_PREFIXES`, the two sibling hardcoded lists with the same disease) is unwritten and should precede the work.
+
+**The target and transport half is done** ([ADR 042](../adrs/042-cli-context-model.md), fourth revision). It was the part of "hard to reason about" that could be settled without the breaking change, and it removes three of the disagreements ADR 047 would otherwise inherit:
+
+- **Every target is a named context.** No unnamed default target resolving below every context (and so silently ignored); one key for which context is current, not two read by two functions that disagreed; `default` and `env` reserved, the latter giving the environment's own `HOP3_API_URL` a name in the model rather than an invisible override. A one-shot migration converts existing configurations and aborts rather than guessing on the one ambiguous shape.
+- **HTTPS is the everyday transport; SSH is bootstrap and rescue.** A login asks the server for its public address and records that, keeping the SSH target only to mint tokens. Routine read-only work stops running through a root shell — a privilege reduction that ADR 014's "SSH access is authentication" had been read as forbidding, when it was a claim about authority, not transport. A server with no admin domain keeps the tunnel and says so, which makes the admin domain load-bearing rather than cosmetic.
+- **The login surface names one axis**, which client receives a credential, instead of one flag naming a transport and its apparent sibling naming a destination.
+
+What that leaves for ADR 047 and the manifest: the *app* resolution chain and its conditional trust, the resolved context travelling to the server, and the two hardcoded command lists. The context model underneath them is now one thing.
+
+Not yet proven: the HTTPS path has only been exercised against a server with an admin domain in unit tests. The Docker e2e target has neither a domain nor a trusted certificate, so it covers the SSH fallback and the server-side probe. One run against a real domain is owed before the change is advertised.
 
 ### Catalog: one core behind two front-ends
 
