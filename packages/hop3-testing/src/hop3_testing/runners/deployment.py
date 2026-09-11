@@ -546,7 +546,7 @@ class DeploymentTestRunner:
         session: DeploymentSession,
         start_time: float,
         deploy_logs: str,
-        deploy_failed: bool,
+        deploy_error: str | None,
         validation_results: list[ValidationResult],
     ) -> TestResult:
         """
@@ -561,7 +561,7 @@ class DeploymentTestRunner:
         result back to failed (mirrors the happy-path cleanup in
         `run()`, which also ignores cleanup errors).
         """
-        if deploy_failed:
+        if deploy_error is not None:
             # Visible trace for debugging: this line shows up in the
             # per-test log so operators can tell at a glance whether
             # the inversion actually fired.
@@ -571,7 +571,7 @@ class DeploymentTestRunner:
             validation_results.append(
                 ValidationResult(
                     passed=True,
-                    message="Deploy failed as expected (expects-failure=true)",
+                    message=f"Deploy failed as expected (expects-failure=true): {deploy_error}",
                     duration=time.time() - start_time,
                     validation_type="expects_failure",
                 )
@@ -580,6 +580,7 @@ class DeploymentTestRunner:
             return TestResult(
                 test=test,
                 passed=True,
+                error=deploy_error,
                 validation_results=validation_results,
                 deploy_logs=deploy_logs,
                 total_duration=time.time() - start_time,
@@ -767,7 +768,7 @@ class DeploymentTestRunner:
                     session=session,
                     start_time=start_time,
                     deploy_logs=deploy_logs,
-                    deploy_failed=error is not None,
+                    deploy_error=error,
                     validation_results=validation_results,
                 )
 

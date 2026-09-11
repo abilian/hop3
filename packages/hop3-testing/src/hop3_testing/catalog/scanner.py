@@ -66,10 +66,13 @@ FIXTURE_FAMILIES = ("test-apps-procfile", "test-apps-nix", "test-apps-nix-gen")
 #: nothing to filter and nothing to keep in sync.
 CATALOG_STATUSES = ("golden", "beta", "alpha", "broken", "retired")
 
-#: Catalog statuses worth deploying by default: the ones the catalog publishes
-#: (ADR 059). ``alpha`` and ``broken`` are kept as a record, and running them
-#: would report failures already known and written down.
-CATALOG_SUITES = ("golden", "beta")
+#: Catalog statuses a normal run covers: everything that is meant to work.
+#: ``golden`` and ``beta`` are published; ``alpha`` deploys and is the tier every
+#: new recipe lands in, so leaving it out meant the newest work was the least
+#: tested. ``broken`` and ``retired`` are a record of what does not work — ask
+#: for them by name (``--status broken``) when you want to know whether that is
+#: still true.
+CATALOG_SUITES = ("golden", "beta", "alpha")
 
 
 def default_catalog_apps(root: Path) -> Path | None:
