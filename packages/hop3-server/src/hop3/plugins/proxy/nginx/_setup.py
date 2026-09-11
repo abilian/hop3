@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
+from hop3.core.artifacts import load_backend_protocol
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
@@ -40,6 +41,7 @@ from ._templates import (
     HOP3_INTERNAL_NGINX_STATIC_MAPPING,
     HOP3_INTERNAL_PROXY_CACHE_PATH,
     NGINX_COMMON_FRAGMENT,
+    NGINX_FASTCGI_FRAGMENT,
     NGINX_HTTPS_ONLY_TEMPLATE,
     NGINX_PORTMAP_FRAGMENT,
     NGINX_TEMPLATE,
@@ -205,7 +207,7 @@ class NginxVirtualHost(BaseProxy):
             or "rwsgi" in self.workers
         ):
             self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(
-                NGINX_PORTMAP_FRAGMENT, self.env
+                self._backend_fragment(), self.env
             )
         self.env["HOP3_INTERNAL_NGINX_COMMON"] = expand_vars(
             NGINX_COMMON_FRAGMENT, self.env
@@ -300,6 +302,28 @@ class NginxVirtualHost(BaseProxy):
             tpl = ""
         self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(tpl, self.env)
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
+
+    def _backend_fragment(self) -> str:
+        """
+        The location blocks, chosen by what the app's port actually speaks.
+
+        `proxy_pass` to a php-fpm pool sends it HTTP, which it does not
+        understand. The protocol comes from the build artifact, the same
+        field the readiness gate reads, so the two cannot disagree about
+        which app this is.
+        """
+        if load_backend_protocol(self.app.app_path) != "fastcgi":
+            return NGINX_PORTMAP_FRAGMENT
+        self.env["HOP3_INTERNAL_NGINX_FASTCGI_BACKEND"] = (
+            f"{self.env['BIND_ADDRESS']}:{self.env['PORT']}"
+        )
+        log(
+            f"nginx will speak FastCGI to app '{self.app_name}' on "
+            f"{self.env['HOP3_INTERNAL_NGINX_FASTCGI_BACKEND']}, "
+            f"serving {self.env.get('PHP_DOCUMENT_ROOT', '(unset)')}",
+            level=2,
+        )
+        return NGINX_FASTCGI_FRAGMENT
 
     def check_config(self) -> None:
         """Validate the generated nginx config via hop3-rootd (``nginx -t``).

@@ -95,6 +95,37 @@ NGINX_PORTMAP_FRAGMENT = """
   }
 """
 
+#: A php-fpm pool speaks FastCGI, so nginx is the thing that turns HTTP into
+#: a PHP request: it resolves the file, passes the script name, and serves
+#: everything that is not PHP itself. `try_files` sends unknown paths to the
+#: front controller, which is what every PHP framework expects and what the
+#: built-in server did implicitly.
+NGINX_FASTCGI_FRAGMENT = """
+  root $PHP_DOCUMENT_ROOT;
+  index index.php;
+
+  location / {
+    try_files $uri $uri/ /index.php?$query_string;
+    $NGINX_ACL
+  }
+
+  location ~ [^/]\\.php(/|$) {
+    fastcgi_split_path_info ^(.+?\\.php)(/.*)$;
+    # Refuse a request whose script does not exist rather than handing the
+    # path to index.php, which is the classic arbitrary-code-execution shape
+    # for a misconfigured pool.
+    if (!-f $document_root$fastcgi_script_name) { return 404; }
+    fastcgi_pass $HOP3_INTERNAL_NGINX_FASTCGI_BACKEND;
+    fastcgi_index index.php;
+    include fastcgi_params;
+    fastcgi_param SCRIPT_FILENAME $document_root$fastcgi_script_name;
+    fastcgi_param PATH_INFO $fastcgi_path_info;
+    fastcgi_param HTTPS $https if_not_empty;
+    fastcgi_read_timeout 300;
+    $NGINX_ACL
+  }
+"""
+
 NGINX_ACME_FIRSTRUN_TEMPLATE = """
 server {
   listen      $NGINX_IPV6_ADDRESS:80;

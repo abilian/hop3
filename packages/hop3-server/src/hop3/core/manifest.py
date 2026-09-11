@@ -27,7 +27,7 @@ Example usage:
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Literal
 
 from hop3.core.artifacts import RuntimeConfig
 
@@ -59,6 +59,7 @@ class RuntimeManifestBuilder:
         working_dir: str = "",
         workers: dict[str, str] | None = None,
         writable_tree: str = "",
+        backend_protocol: Literal["http", "fastcgi"] = "http",
     ) -> RuntimeConfig:
         """
         Build RuntimeConfig by merging all configuration sources.
@@ -72,6 +73,9 @@ class RuntimeManifestBuilder:
                 runs in the app directory. Threaded through explicitly because
                 this method REBUILDS the RuntimeConfig rather than amending it,
                 so any field it forgets is silently dropped on the way out.
+            backend_protocol: what the app's own port speaks, from the
+                toolchain. Threaded for the same reason as writable_tree: drop
+                it here and a php-fpm app is probed as if it served HTTP.
 
         Returns:
             Complete RuntimeConfig with all fields populated
@@ -110,6 +114,15 @@ class RuntimeManifestBuilder:
             if hop3_workers:
                 merged_workers.update(hop3_workers)  # hop3.toml overrides
 
+        # The protocol describes the command that actually runs, not the one
+        # the toolchain proposed. A PHP recipe that keeps its own
+        # `start = "php -S ..."` overrides the php-fpm worker and is back to
+        # serving HTTP; declaring FastCGI for it would fail its readiness
+        # gate on every deploy. Ten catalog recipes are in exactly that state
+        # until they drop the line.
+        if merged_workers.get("web") != (workers or {}).get("web"):
+            backend_protocol = "http"
+
         # Get before-run commands
         before_run = self._get_before_run()
 
@@ -129,6 +142,7 @@ class RuntimeManifestBuilder:
             working_dir=working_dir,
             writable_tree=writable_tree,
             workers=merged_workers,
+            backend_protocol=backend_protocol,
             before_run=before_run,
             static_paths=static_paths,
             healthcheck_path=healthcheck_path,

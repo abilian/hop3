@@ -11,7 +11,11 @@ from urllib.parse import urlparse
 
 from hop3.commands._helpers import check_hostname_conflict
 from hop3.config import HopConfig
-from hop3.core.artifacts import ARTIFACT_FILENAME
+from hop3.core.artifacts import (
+    ARTIFACT_FILENAME,
+    BuildArtifact,
+    load_backend_protocol,
+)
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
@@ -56,13 +60,13 @@ from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY
 from hop3.project.config import AppConfig
+from hop3.run.fastcgi import fastcgi_ping
 
 if TYPE_CHECKING:
     from pathlib import Path
 
     from sqlalchemy.orm import Session
 
-    from hop3.core.artifacts import BuildArtifact
     from hop3.core.protocols import DeploymentInfo
     from hop3.orm.app import App
     from hop3.project.hop3_config import Hop3Config
@@ -228,6 +232,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
         working_dir=build_artifact.runtime.working_dir,
         workers=build_artifact.runtime.workers or None,
         writable_tree=build_artifact.runtime.writable_tree,
+        backend_protocol=build_artifact.runtime.backend_protocol,
     )
     build_artifact.runtime = enhanced_runtime
 
@@ -642,11 +647,20 @@ def _app_serves_http(
     to the same app, because an app whose entry point redirects keeps its content
     at the target.
 
+    A backend that does not speak HTTP is probed in its own protocol: php-fpm
+    answers FastCGI and nothing else, so an HTTP probe at it fails on every
+    PHP app however well it is serving. The evidence required is the same one
+    — a *worker* produced this — and `fastcgi_ping` collects it from the pool's
+    ping endpoint, which is answered by a child. See
+    notes/readiness-and-non-http-backends.md.
+
     Returns True for apps with no web ``port`` (background workers): there is no
     HTTP endpoint to probe, so the process/TCP check is all we can assert.
     """
     if not app.port:
         return True
+    if load_backend_protocol(app.app_path) == "fastcgi":
+        return fastcgi_ping("127.0.0.1", app.port, timeout)
     path = healthcheck_path or "/"
     if not path.startswith("/"):
         path = "/" + path
@@ -1036,10 +1050,6 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     # a failure for those would be a false positive.
     artifact_kind: str | None = None
     try:
-        from hop3.core.artifacts import (  # ruff:ignore[import-outside-top-level]
-            BuildArtifact,
-        )
-
         artifact = BuildArtifact.load(app.app_path / ARTIFACT_FILENAME)
         if artifact is not None:
             artifact_kind = artifact.kind

@@ -17,6 +17,7 @@ from __future__ import annotations
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
@@ -96,17 +97,29 @@ def http_server() -> Iterator[tuple[int, list[int]]]:
         t.join(timeout=1)
 
 
+def stub_app(**attributes) -> SimpleNamespace:
+    """
+    An App stand-in for the readiness probe.
+
+    `app_path` has to be there: the probe reads the build artifact to learn
+    which protocol the backend speaks, and a stub without it models an App
+    that cannot exist.
+    """
+    attributes.setdefault("app_path", Path("/nonexistent-app"))
+    return SimpleNamespace(**attributes)
+
+
 # --- _app_serves_http ------------------------------------------------------
 
 
 def test_bound_but_silent_socket_is_not_serving(dead_socket_port: int) -> None:
-    app = SimpleNamespace(port=dead_socket_port, hostname="localhost")
+    app = stub_app(port=dead_socket_port, hostname="localhost")
     assert _app_serves_http(app, "", timeout=0.5) is False
 
 
 def test_live_http_is_serving(http_server: tuple[int, list[int]]) -> None:
     port, _ = http_server
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
     assert _app_serves_http(app, "/", timeout=2.0) is True
 
 
@@ -116,30 +129,30 @@ def test_error_status_still_counts_as_serving(
     # A 500 still proves a worker produced a response — the app IS up.
     port, codes = http_server
     codes[0] = 500
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
     assert _app_serves_http(app, "/", timeout=2.0) is True
 
 
 def test_refused_port_is_not_serving() -> None:
-    app = SimpleNamespace(port=_free_port(), hostname="localhost")
+    app = stub_app(port=_free_port(), hostname="localhost")
     assert _app_serves_http(app, "", timeout=0.5) is False
 
 
 def test_worker_without_port_is_serving() -> None:
     # Background worker: no HTTP endpoint to probe — fall back to True.
-    assert _app_serves_http(SimpleNamespace(port=0, hostname=None), "") is True
+    assert _app_serves_http(stub_app(port=0, hostname=None), "") is True
 
 
 def test_healthcheck_path_is_normalised(http_server: tuple[int, list[int]]) -> None:
     port, _ = http_server
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
     assert _app_serves_http(app, "up", timeout=2.0) is True  # no leading slash
 
 
 def test_contains_match_counts_as_serving(http_server: tuple[int, list[int]]) -> None:
     # The fixture serves body "ok"; [healthcheck].contains="ok" is satisfied.
     port, _ = http_server
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
     assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="ok") is True
 
 
@@ -147,7 +160,7 @@ def test_contains_mismatch_is_not_serving(http_server: tuple[int, list[int]]) ->
     # A 200 whose body lacks the required substring is NOT "serving" — the whole
     # point of [healthcheck].contains: a status-only 200 can be the wrong content.
     port, _ = http_server
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
     assert _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="nope") is False
 
 
@@ -201,7 +214,7 @@ def test_contains_found_after_following_a_redirect(routing_server) -> None:
     port, routes, _ = routing_server
     routes["/"] = (302, "/?controller=AuthController", b"")
     routes["/?controller=AuthController"] = (200, None, b"<h1>AuthController</h1>")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert (
         _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="AuthController")
@@ -214,7 +227,7 @@ def test_a_matching_3xx_body_is_not_made_to_take_another_hop(routing_server) -> 
     port, routes, seen = routing_server
     routes["/"] = (302, "/elsewhere", b"moved to the setup wizard")
     routes["/elsewhere"] = (200, None, b"nothing useful")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert (
         _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="setup wizard")
@@ -232,7 +245,7 @@ def test_an_off_host_redirect_is_not_followed(routing_server) -> None:
     """
     port, routes, seen = routing_server
     routes["/"] = (302, "https://example.com/login", b"")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert (
         _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="anything")
@@ -245,7 +258,7 @@ def test_an_absolute_redirect_to_the_same_app_is_followed(routing_server) -> Non
     port, routes, _ = routing_server
     routes["/"] = (302, "http://localhost/dashboard", b"")
     routes["/dashboard"] = (200, None, b"<title>Dashboard</title>")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert (
         _app_serves_http(app, "/", timeout=2.0, healthcheck_contains="Dashboard")
@@ -257,7 +270,7 @@ def test_a_redirect_loop_terminates(routing_server) -> None:
     port, routes, seen = routing_server
     routes["/a"] = (302, "/b", b"")
     routes["/b"] = (302, "/a", b"")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert (
         _app_serves_http(app, "/a", timeout=2.0, healthcheck_contains="never") is False
@@ -271,7 +284,7 @@ def test_without_contains_a_redirect_counts_as_serving_unfollowed(
     """The status line already answered the question; no hop is needed."""
     port, routes, seen = routing_server
     routes["/"] = (302, "/somewhere", b"")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert _app_serves_http(app, "/", timeout=2.0) is True
     assert seen == ["/"]
@@ -281,7 +294,7 @@ def test_a_non_redirect_status_is_answered_on_the_first_hop(routing_server) -> N
     """isso: `/` is its comment API and answers 400 with a real body."""
     port, routes, seen = routing_server
     routes["/"] = (400, None, b"missing uri query")
-    app = SimpleNamespace(port=port, hostname="localhost")
+    app = stub_app(port=port, hostname="localhost")
 
     assert (
         _app_serves_http(
@@ -297,7 +310,7 @@ def test_a_non_redirect_status_is_answered_on_the_first_hop(routing_server) -> N
 
 def test_wait_fails_when_bound_but_not_serving(dead_socket_port: int) -> None:
     """The regression: TCP listening + RUNNING but no HTTP response => NOT ready."""
-    app = SimpleNamespace(
+    app = stub_app(
         port=dead_socket_port,
         hostname="localhost",
         check_actual_status=lambda: AppStateEnum.RUNNING,
@@ -308,7 +321,7 @@ def test_wait_fails_when_bound_but_not_serving(dead_socket_port: int) -> None:
 
 def test_wait_succeeds_when_app_answers(http_server: tuple[int, list[int]]) -> None:
     port, _ = http_server
-    app = SimpleNamespace(
+    app = stub_app(
         port=port,
         hostname="localhost",
         check_actual_status=lambda: AppStateEnum.RUNNING,
@@ -341,7 +354,7 @@ def test_static_deploy_clears_stale_port_and_skips_health_check(monkeypatch) -> 
         ),
     )
 
-    app = SimpleNamespace(
+    app = stub_app(
         name="docs",
         runtime="uwsgi",  # stale runtime from a prior (dynamic) deploy
         port=48477,  # stale port from a prior deploy
@@ -372,7 +385,7 @@ def test_process_deploy_still_runs_health_check(monkeypatch) -> None:
         ),
     )
 
-    app = SimpleNamespace(
+    app = stub_app(
         name="web",
         runtime="uwsgi",
         port=0,
