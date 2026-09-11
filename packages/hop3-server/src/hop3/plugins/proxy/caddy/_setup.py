@@ -138,11 +138,11 @@ class CaddyVirtualHost(BaseProxy):
     def generate_config(self) -> None:
         """Generate the Caddyfile configuration."""
         buffer = self.get_proxy_conf()
-        self.caddy_conf_path.write_text(buffer)
-        log(f"Generated Caddy config at {self.caddy_conf_path}", level=2)
+        self.conf_path.write_text(buffer)
+        log(f"Generated Caddy config at {self.conf_path}", level=2)
 
     @property
-    def caddy_conf_path(self) -> Path:
+    def conf_path(self) -> Path:
         """Path to the Caddy configuration file for this app."""
         return CADDY_ROOT / f"{self.app_name}.caddy"
 
@@ -221,18 +221,18 @@ class CaddyVirtualHost(BaseProxy):
         try:
             # Caddy can validate a specific config file
             subprocess.run(
-                ["caddy", "validate", "--config", str(self.caddy_conf_path)],
+                ["caddy", "validate", "--config", str(self.conf_path)],
                 check=True,
                 capture_output=True,
                 timeout=5,
             )
-            log(f"Caddy config validation passed for {self.caddy_conf_path}", level=2)
+            log(f"Caddy config validation passed for {self.conf_path}", level=2)
         except subprocess.CalledProcessError as e:
             log(
                 f"Error: broken caddy config - {e.stderr.decode()}",
                 fg="red",
             )
-            content = self.caddy_conf_path.read_text()
+            content = self.conf_path.read_text()
             log(f"Broken config content:\n{content}")
             raise
         except (FileNotFoundError, subprocess.TimeoutExpired) as e:

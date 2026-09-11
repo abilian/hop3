@@ -9,6 +9,7 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 # BuildArtifact is imported from artifacts.py - see ADR 035
 # It includes RuntimeConfig for build/run separation
 from hop3.core.artifacts import BuildArtifact, RuntimeConfig
+from hop3.lib.path import REJECTED_SUFFIX, restore_on_failure
 
 __all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatibility
 
@@ -368,9 +369,15 @@ class BaseProxy(ABC):
         self.setup_cache()
         self.setup_static()
         self.extra_setup()
-        self.generate_config()
-        self.check_config()
-        self.reload_proxy()
+        # An app's config only stays on disk if it is accepted and applied:
+        # the proxy reads every file in the directory, so a rejected one left
+        # behind would break the next app's deploy and every certificate
+        # renewal. A failed reload rolls back too, which is what the running
+        # proxy still has loaded.
+        with restore_on_failure(self.conf_path):
+            self.generate_config()
+            self.check_config()
+            self.reload_proxy()
 
     @abstractmethod
     def setup_backend(self) -> None:
@@ -396,6 +403,17 @@ class BaseProxy(ABC):
     def extra_setup(self) -> None:
         """Perform additional proxy-specific setup."""
         ...
+
+    @property
+    @abstractmethod
+    def conf_path(self) -> Path:
+        """Path of the app's config file in the proxy's include directory."""
+        ...
+
+    @property
+    def rejected_conf_path(self) -> Path:
+        """Where :func:`restore_on_failure` parks a config the proxy refused."""
+        return self.conf_path.with_name(self.conf_path.name + REJECTED_SUFFIX)
 
     @abstractmethod
     def generate_config(self) -> None:

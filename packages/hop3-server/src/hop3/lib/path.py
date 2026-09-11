@@ -5,12 +5,52 @@
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from typing import TYPE_CHECKING
 
-__all__ = ["is_confined_to", "is_under", "prepend_to_path"]
+__all__ = [
+    "REJECTED_SUFFIX",
+    "is_confined_to",
+    "is_under",
+    "prepend_to_path",
+    "restore_on_failure",
+]
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
     from pathlib import Path
+
+
+REJECTED_SUFFIX = ".rejected"
+
+
+@contextmanager
+def restore_on_failure(path: Path) -> Iterator[None]:
+    """Undo writes to ``path`` if the block raises, keeping the rejected copy.
+
+    A candidate config has to be on disk while it is judged: `nginx -t` reads
+    the whole tree, not a file handed to it. So a rejected one must not be
+    left there — every later validation reads the same directory, and one
+    app's bad vhost would fail every other app's deploy and every certificate
+    renewal, naming none of them.
+
+    On failure the candidate moves to ``<name>.rejected`` (outside the
+    ``*.conf`` include glob, so the proxy never reads it) and the previous
+    content comes back, which is also what the running proxy still has
+    loaded. A later success clears the leftover.
+    """
+    rejected = path.with_name(path.name + REJECTED_SUFFIX)
+    previous = path.read_bytes() if path.exists() else None
+    try:
+        yield
+    except BaseException:
+        if path.exists():
+            path.replace(rejected)
+        if previous is not None:
+            path.write_bytes(previous)
+        raise
+    else:
+        rejected.unlink(missing_ok=True)
 
 
 def is_under(path: Path | str, root: Path | str) -> bool:
