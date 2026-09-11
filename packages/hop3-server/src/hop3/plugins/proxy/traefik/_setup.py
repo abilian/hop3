@@ -15,7 +15,13 @@ from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
-from hop3.lib import command_output, expand_vars, log
+from hop3.lib import (
+    Diagnosis,
+    abort_with_diagnosis,
+    command_output,
+    expand_vars,
+    log,
+)
 from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.platform.certificates import (
     CertificatesManager,
@@ -250,36 +256,32 @@ class TraefikVirtualHost(BaseProxy):
             self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_CONFIG"] = ""
 
     def check_config(self) -> None:
-        """Validate the Traefik configuration file."""
-        # Traefik doesn't have a built-in validate command for individual files
-        # We can do basic YAML syntax checking
+        """Check that the generated config parses as YAML.
+
+        Traefik has no validate command for a single dynamic-config file, so
+        this is a syntax check and not a semantic one. It still has to fail
+        the deploy: traefik file-watches this directory and skips a file it
+        cannot parse, so the app would simply never be routed and nothing
+        would say why. :meth:`BaseProxy.setup` rolls the file back.
+        """
         try:
-            with Path(self.conf_path).open() as f:
-                yaml.safe_load(f)
-            log(
-                f"Traefik config validation passed for {self.conf_path}",
-                level=2,
-            )
-        except ImportError:
-            log(
-                "Warning: PyYAML not installed, skipping config validation",
-                level=2,
-                fg="yellow",
-            )
+            yaml.safe_load(self.conf_path.read_text())
         except yaml.YAMLError as e:
-            log(
-                f"Error: invalid YAML in traefik config - {e}",
-                fg="red",
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Traefik",
+                    action="validate configuration",
+                    reason=f"the generated config is not valid YAML: {e}",
+                    hint=(
+                        f"Traefik keeps serving what it already loaded; the "
+                        f"rejected config is kept at {self.rejected_conf_path} "
+                        f"for inspection."
+                    ),
+                    troubleshooting=[f"cat {self.rejected_conf_path}"],
+                )
             )
-            content = self.conf_path.read_text()
-            log(f"Broken config content:\n{content}")
-            raise
-        except Exception as e:
-            log(
-                f"Warning: Could not validate traefik config: {e}",
-                level=2,
-                fg="yellow",
-            )
+
+        log(f"Traefik config validation passed for {self.conf_path}", level=2)
 
     def reload_proxy(self) -> None:
         """

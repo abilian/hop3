@@ -8,13 +8,19 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
 from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
-from hop3.lib import command_output, expand_vars, log
+from hop3.lib import (
+    Diagnosis,
+    abort_with_diagnosis,
+    command_output,
+    expand_vars,
+    log,
+)
 from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.platform.certificates import (
     CertificatesManager,
@@ -38,6 +44,10 @@ from ._templates import (
 if TYPE_CHECKING:
     from hop3.core.env import Env
     from hop3.orm import App
+
+
+#: `caddy validate` reads one file; anything slower than this is broken.
+VALIDATE_TIMEOUT = 5
 
 
 @dataclass(frozen=True)
@@ -217,30 +227,53 @@ class CaddyVirtualHost(BaseProxy):
         self.env["HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES"] = expand_vars(tpl, self.env)
 
     def check_config(self) -> None:
-        """Validate the Caddy configuration file."""
+        """Validate the generated config with ``caddy validate``.
+
+        Unlike nginx, caddy validates the file it is given, so a rejected
+        config is judged on its own. A check that cannot *run* is a failure
+        all the same: continuing would deploy a config nothing has looked at,
+        which is the one thing this method exists to prevent.
+        :meth:`BaseProxy.setup` rolls the file back either way.
+        """
         try:
-            # Caddy can validate a specific config file
             subprocess.run(
                 ["caddy", "validate", "--config", str(self.conf_path)],
                 check=True,
                 capture_output=True,
-                timeout=5,
+                timeout=VALIDATE_TIMEOUT,
             )
-            log(f"Caddy config validation passed for {self.conf_path}", level=2)
         except subprocess.CalledProcessError as e:
-            log(
-                f"Error: broken caddy config - {e.stderr.decode()}",
-                fg="red",
+            self._abort_validation(
+                "`caddy validate` rejected the generated config",
+                e.stderr.decode(errors="replace").splitlines(),
             )
-            content = self.conf_path.read_text()
-            log(f"Broken config content:\n{content}")
-            raise
-        except (FileNotFoundError, subprocess.TimeoutExpired) as e:
-            log(
-                f"Warning: Could not validate caddy config: {e}",
-                level=2,
-                fg="yellow",
+        except FileNotFoundError:
+            self._abort_validation(
+                "the `caddy` binary is not on PATH, so the generated config "
+                "could not be checked",
+                ["caddy version"],
             )
+        except subprocess.TimeoutExpired:
+            self._abort_validation(
+                f"`caddy validate` did not answer within {VALIDATE_TIMEOUT}s",
+                [f"caddy validate --config {self.rejected_conf_path}"],
+            )
+
+        log(f"Caddy config validation passed for {self.conf_path}", level=2)
+
+    def _abort_validation(self, reason: str, troubleshooting: list[str]) -> NoReturn:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Caddy",
+                action="validate configuration",
+                reason=reason,
+                hint=(
+                    f"The running caddy config is left untouched; the rejected "
+                    f"one is kept at {self.rejected_conf_path} for inspection."
+                ),
+                troubleshooting=troubleshooting,
+            )
+        )
 
     def reload_proxy(self) -> None:
         """
