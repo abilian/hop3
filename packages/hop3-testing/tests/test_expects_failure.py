@@ -20,7 +20,6 @@ from typing import Any, cast
 
 import pytest
 from hop3_testing.catalog.loader import (
-    _is_broken_recipe,
     _overrides_from_hop3_test,
     _overrides_from_legacy_test_toml,
     _parse_test_definition,
@@ -71,17 +70,25 @@ class TestLoaderParsesExpectsFailure:
         td = _parse_test_definition(data, tmp_path / "test.toml")
         assert td.expects_failure is True
 
-    def test_hop3_toml_bad_app_is_auto_expects_failure(self):
+    def test_hop3_toml_bad_app_is_not_auto_expects_failure(self):
         """
-        A bad recipe under apps/broken/** is xfail even via hop3.toml (no flag).
+        A recipe under apps/broken/** is a normal test, not a negative one.
 
-        Regression: the hop3.toml path only honoured the explicit config flag,
-        so docker/native bad recipes (which carry hop3.toml) were counted as
-        real failures instead of expected ones.
+        It used to be auto-negative on both load paths. That made a run of
+        `broken/` report seven passes for seven apps that do not deploy, and a
+        deploy that timed out after 30 minutes report as an unexpected success.
+        Only an explicit `expects-failure` inverts an outcome.
         """
         td = generate_test_definition_from_hop3_toml(
             Path("apps/broken/discourse"),
             {"metadata": {"id": "discourse"}},
+        )
+        assert td.expects_failure is False
+
+    def test_hop3_toml_explicit_flag_still_inverts(self):
+        td = generate_test_definition_from_hop3_toml(
+            Path("apps/test-apps-bad/110-flask"),
+            {"metadata": {"id": "flask-bad"}, "test": {"expects-failure": True}},
         )
         assert td.expects_failure is True
 
@@ -177,14 +184,21 @@ class TestRunnerInvertsExpectsFailure:
             session=cast("Any", session),
             start_time=0.0,
             deploy_logs="simulated deploy output",
-            deploy_failed=True,
+            deploy_error="Deploy failed: nix-build failed: undefined variable 'x'",
             validation_results=[],
         )
         assert result.passed is True
-        # Synthetic validation is appended so reports show the inversion.
-        assert any(
-            vr.validation_type == "expects_failure" for vr in result.validation_results
-        )
+        # Synthetic validation is appended so reports show the inversion, and it
+        # carries the deploy error: "failed as expected" on its own proves that
+        # something went wrong, not that the expected thing did.
+        inversions = [
+            vr
+            for vr in result.validation_results
+            if vr.validation_type == "expects_failure"
+        ]
+        assert len(inversions) == 1
+        assert "undefined variable" in inversions[0].message
+        assert "undefined variable" in (result.error or "")
         assert session.cleaned is True
 
     def test_unexpected_success_with_expects_failure_yields_fail(self, tmp_path):
@@ -195,7 +209,7 @@ class TestRunnerInvertsExpectsFailure:
             session=cast("Any", session),
             start_time=0.0,
             deploy_logs="deploy went through",
-            deploy_failed=False,
+            deploy_error=None,
             validation_results=[],
         )
         assert result.passed is False
@@ -203,18 +217,32 @@ class TestRunnerInvertsExpectsFailure:
         assert session.cleaned is True
 
 
-class TestBadDirIsNegativeTest:
-    """Apps under apps/broken/ are auto-marked expects_failure (path-based)."""
+class TestBrokenDirIsNotAutoNegative:
+    """
+    The `broken/` directory no longer makes a recipe a negative test.
 
-    def test_is_broken_recipe_matches(self):
-        assert _is_broken_recipe(Path("apps/broken/wekan/hop3.toml"))
-        assert _is_broken_recipe(Path("/home/x/apps/broken/foo/hop3.toml"))
+    It used to, and the report then called a broken app a pass and a 30-minute
+    deploy timeout an unexpected success. A recipe under `broken/` is expected
+    to fail; a failure is what the report should say. Only an explicit
+    `expects-failure` inverts an outcome now.
+    """
 
-    def test_is_broken_recipe_excludes_normal_apps(self):
-        assert not _is_broken_recipe(
-            Path("apps/real-apps-docker/invoice-ninja/hop3.toml")
+    def _definition(self, path: Path, section: dict | None = None):
+        data = {
+            "test": {"name": "x", "tier": "fast", "priority": "P1", **(section or {})}
+        }
+        return _parse_test_definition(data, path)
+
+    def test_a_broken_recipe_is_a_normal_test(self):
+        definition = self._definition(Path("apps/broken/wekan/hop3.toml"))
+        assert definition.expects_failure is False
+
+    def test_an_explicit_declaration_still_inverts(self):
+        definition = self._definition(
+            Path("apps/test-apps-bad/110-flask/hop3.toml"),
+            {"expects-failure": True},
         )
-        assert not _is_broken_recipe(None)
+        assert definition.expects_failure is True
 
 
 class TestStoreStatusForNegativeTests:

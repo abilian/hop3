@@ -47,12 +47,13 @@ def test_standalone_test_toml_bad_dir_explicit_false_opts_out():
     assert td.expects_failure is False
 
 
-def test_bad_app_with_no_flag_stays_auto_negative():
-    # A genuine bad recipe (no flag, no DEFERRED.md) is still auto-negative.
+def test_bad_app_with_no_flag_is_a_normal_test():
+    # A recipe under broken/ is NOT auto-negative. It was, and the report then
+    # called a broken app a pass; a broken app should read as broken.
     td = generate_test_definition_from_hop3_toml(
         Path("apps/broken/ghost"), {"metadata": {"id": "ghost"}}
     )
-    assert td.expects_failure is True
+    assert td.expects_failure is False
 
 
 # ---- scanner: DEFERRED.md business-drops are skipped (scoped to broken/) ----

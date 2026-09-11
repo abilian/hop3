@@ -110,6 +110,55 @@ class ConsoleReporter:
 
         return f"{colors.get(color, '')}{text}{colors['reset']}"
 
+    @staticmethod
+    def _is_negative(result: TestResult) -> bool:
+        """Is this a test whose recipe is expected NOT to deploy?"""
+        return bool(getattr(result.test, "expects_failure", False))
+
+    def _status(self, result: TestResult) -> tuple[str, str]:
+        """
+        The word for this outcome, and what it means, in the reader's terms.
+
+        A negative test (a recipe under `broken/`, or one declaring
+        `expects-failure`) inverts `passed`: the runner sets it True when the
+        deploy failed. Reporting that as OK made a still-broken app read as a
+        working one, so negative outcomes get their own words.
+        """
+        if not self._is_negative(result):
+            return (
+                (self._colorize("OK", "green"), "")
+                if result.passed
+                else (self._colorize("FAIL", "red"), "")
+            )
+        if result.passed:
+            cause = self._negative_cause(result)
+            return self._colorize("XFAIL", "yellow"), f"failed as expected: {cause}"
+        return (
+            self._colorize("XPASS", "green"),
+            "did NOT fail as expected — triage",
+        )
+
+    def _negative_cause(self, result: TestResult) -> str:
+        """
+        Why a negative test failed, in one line.
+
+        Without it the report says only that the app is still broken, which
+        proves something went wrong and not that the *expected* thing did. The
+        reason lives in the validation the runner records when it inverts the
+        outcome, and its message carries the deploy error.
+        """
+        prefix = "Deploy failed as expected (expects-failure=true):"
+        for validation in getattr(result, "validations", None) or []:
+            if getattr(validation, "type_name", "") == "expects_failure":
+                message = (getattr(validation, "message", "") or "").strip()
+                # The synthetic validation restates the verdict before the
+                # reason; the caller has already said the verdict.
+                message = message.removeprefix(prefix).strip()
+                if message:
+                    return self._extract_root_cause(message)
+        error = (getattr(result, "error", "") or "").strip()
+        return self._extract_root_cause(error) if error else "reason not recorded"
+
     def report_test(self, result: TestResult) -> None:
         """
         Report a single test result.
@@ -117,15 +166,18 @@ class ConsoleReporter:
         Args:
             result: The test result to report
         """
-        if result.passed:
-            status = self._colorize("PASS", "green")
+        if self._is_negative(result):
+            status, gloss = self._status(result)
+        elif result.passed:
+            status, gloss = self._colorize("PASS", "green"), ""
         else:
-            status = self._colorize("FAIL", "red")
+            status, gloss = self._colorize("FAIL", "red"), ""
 
         duration = f"{result.total_duration:.2f}s"
+        suffix = f" — {gloss}" if gloss else ""
 
         # Note: test name is already printed by the runner, just add status
-        print(f"{status} ({duration})", file=self.output)
+        print(f"{status} ({duration}){suffix}", file=self.output)
 
         if not result.passed and (self.verbose or result.error):
             if result.error:
@@ -234,40 +286,30 @@ class ConsoleReporter:
         the tail of the app's own stderr log (the usually-interesting
         part), and a pointer to each test's full log file.
         """
-        print(file=self.output)
-        print(self._colorize("Failed tests:", "bold"), file=self.output)
-        for r in results:
-            if r.passed:
+        # An app filed as broken that deploys is not a failed test. Printing it
+        # under that heading, above its own green "ok" bundle headline, said
+        # both at once. Two groups, two headings, two marks.
+        groups = (
+            (
+                "Failed tests:",
+                "✗",
+                "red",
+                [r for r in results if not r.passed and not self._is_negative(r)],
+            ),
+            (
+                "Deployed unexpectedly (filed as broken — triage these):",
+                "⚑",
+                "green",
+                [r for r in results if not r.passed and self._is_negative(r)],
+            ),
+        )
+        for heading, glyph, color, group in groups:
+            if not group:
                 continue
-            name = r.test.name
-            mark = self._colorize("✗", "red")
-            print(f"  {mark} {name}", file=self.output)
-
-            # Headline-first (ADR 043 §7): the bundle's classifier verdict +
-            # the `why` pointer say what's wrong and where to look. The full
-            # sections stay on disk — terse on screen, rich in the artifact.
-            if r.bundle is not None:
-                for line in r.bundle.headline.splitlines():
-                    print(f"      {line}", file=self.output)
-                if r.bundle.artifact_dir:
-                    print(f"      bundle: {r.bundle.artifact_dir}/", file=self.output)
-                continue
-
-            # Legacy path — runners not yet wired to the bundle.
-            cause = self._extract_root_cause(r.error or "validation failed")
-            print(f"      {cause}", file=self.output)
-            app_tail = self._extract_app_log_tail(r)
-            if app_tail:
-                print(
-                    self._colorize("      app stderr (tail):", "yellow"),
-                    file=self.output,
-                )
-                for line in app_tail.splitlines():
-                    print(f"        {line}", file=self.output)
-
-            log_file = self._log_file_for(r)
-            if log_file:
-                print(f"      full log: {log_file}", file=self.output)
+            print(file=self.output)
+            print(self._colorize(heading, "bold"), file=self.output)
+            for r in group:
+                self._print_failed_test(r, self._colorize(glyph, color))
 
         if self.logs_dir:
             print(file=self.output)
@@ -275,6 +317,35 @@ class ConsoleReporter:
                 self._colorize(f"Full per-test logs: {self.logs_dir}/", "yellow"),
                 file=self.output,
             )
+
+    def _print_failed_test(self, r: TestResult, mark: str) -> None:
+        """One entry: its name, its root cause, and where the full log is."""
+        print(f"  {mark} {r.test.name}", file=self.output)
+
+        # Headline-first (ADR 043 §7): the bundle's classifier verdict + the
+        # `why` pointer say what's wrong and where to look. The full sections
+        # stay on disk — terse on screen, rich in the artifact.
+        if r.bundle is not None:
+            for line in r.bundle.headline.splitlines():
+                print(f"      {line}", file=self.output)
+            if r.bundle.artifact_dir:
+                print(f"      bundle: {r.bundle.artifact_dir}/", file=self.output)
+            return
+
+        # Legacy path — runners not yet wired to the bundle.
+        cause = self._extract_root_cause(r.error or "validation failed")
+        print(f"      {cause}", file=self.output)
+        app_tail = self._extract_app_log_tail(r)
+        if app_tail:
+            print(
+                self._colorize("      app stderr (tail):", "yellow"), file=self.output
+            )
+            for line in app_tail.splitlines():
+                print(f"        {line}", file=self.output)
+
+        log_file = self._log_file_for(r)
+        if log_file:
+            print(f"      full log: {log_file}", file=self.output)
 
     def _extract_app_log_tail(self, result: TestResult, *, max_lines: int = 30) -> str:
         """
@@ -482,11 +553,8 @@ class ConsoleReporter:
         # within each group.
         ordered = sorted(results, key=lambda r: (r.passed, self._app_display_path(r)))
         for r in ordered:
-            status = (
-                self._colorize("OK", "green")
-                if r.passed
-                else self._colorize("FAIL", "red")
-            )
+            word, gloss = self._status(r)
+            status = f"{word} ({gloss})" if gloss else word
             name = r.test.name
             path = self._app_display_path(r)
             # If `name` is already the path (scanner rewrites it for

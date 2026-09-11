@@ -19,7 +19,7 @@ the consumer here is ``ConsoleReporter._extract_app_log_tail``.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from io import StringIO
 from textwrap import dedent
 from typing import Any, cast
@@ -191,11 +191,19 @@ class _FakeBundle:
 
 
 @dataclass
+class _FakeTest:
+    """The definition a result carries. `expects_failure` decides the wording."""
+
+    expects_failure: bool = False
+
+
+@dataclass
 class _FakeFailedResult:
     total_duration: float = 1.0
     error: str = "Deploy failed: boom"
     deploy_logs: str = ""
     bundle: Any = None
+    test: _FakeTest = field(default_factory=_FakeTest)
 
     @property
     def passed(self) -> bool:

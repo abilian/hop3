@@ -102,13 +102,12 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
         tutorial=tutorial,
         description=test_section.get("description"),
         metadata=metadata,
-        # A recipe the catalog files as `broken` is a negative test expected to
-        # fail BY DEFAULT. An explicit `expects-failure = false` opts back out
-        # (e.g. a business-drop filed there that still deploys fine), so the
-        # path-derived default must lose to an explicit config value (audit C6).
-        expects_failure=bool(
-            test_section.get("expects-failure", _is_broken_recipe(path))
-        ),
+        # Only an explicit declaration makes a test negative. Deriving it from
+        # the `broken/` directory meant a broken app reported as a pass, and a
+        # deploy that timed out reported as "deployed unexpectedly" — both the
+        # opposite of what happened. A recipe under `broken/` is simply expected
+        # to fail, and a failure is what the report should say.
+        expects_failure=bool(test_section.get("expects-failure", False)),
         source_path=path,
     )
 
@@ -117,11 +116,10 @@ def _is_broken_recipe(path: Path | None) -> bool:
     """
     True for a recipe under the catalog's ``broken`` status (ADR 059).
 
-    This used to read ``apps/bad/`` in this repository. That tree moved into the
-    catalog when the recipes were consolidated, and the check kept reading the
-    old path — so it matched nothing, every known-broken recipe was expected to
-    pass, and ``make test-apps-broken`` would have reported nine expected
-    failures as regressions.
+    This is a question about where a recipe lives, and the only caller left is
+    the scanner's business-drop skip. It deliberately no longer decides whether
+    a test is negative: deriving that from the directory made the report call a
+    broken app a pass, and a 30-minute deploy timeout an unexpected success.
     """
     return path is not None and "/apps/broken/" in f"/{path.as_posix()}"
 
@@ -658,13 +656,8 @@ def generate_test_definition_from_hop3_toml(
         ),
         description=description,
         metadata=TestMetadata(**metadata_kwargs),
-        # Broken recipes (the catalog's broken/**) are negative tests BY DEFAULT, even when
-        # configured via hop3.toml — match the standalone-test.toml path so
-        # they're xfail, not red. An explicit [test] `expects-failure = false`
-        # opts back out (a deferred business-drop that still deploys fine). The
-        # DEFERRED.md scanner skip is what actually drops focalboard & co.; this
-        # only honors an explicit opt-out (audit C6).
-        expects_failure=overrides.get("expects_failure", _is_broken_recipe(app_path)),
+        # Explicit only — see the note on the other construction site.
+        expects_failure=overrides.get("expects_failure", False),
         source_path=app_path / "hop3.toml",
     )
 
