@@ -12,7 +12,7 @@ import subprocess
 import uuid
 from abc import ABC, abstractmethod
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, ClassVar, assert_never
+from typing import TYPE_CHECKING, ClassVar, Literal, assert_never
 
 from hop3.core.artifacts import BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
@@ -331,6 +331,7 @@ class LanguageToolchain(ABC):
         env_vars: dict[str, str] | None = None,
         path_prepend: list[str] | None = None,
         workers: dict[str, str] | None = None,
+        backend_protocol: Literal["http", "fastcgi"] = "http",
     ) -> RuntimeConfig:
         """
         Create a RuntimeConfig with common defaults.
@@ -342,6 +343,8 @@ class LanguageToolchain(ABC):
                 workers; a toolchain that knows its own process model (e.g. the
                 static toolchain) passes it directly so a Procfile is never
                 required.
+            backend_protocol: what the app's own port speaks. Only PHP sets
+                this today; readiness probes it with a matching client.
 
         Returns:
             RuntimeConfig with the given (or Procfile-derived) workers and settings
@@ -351,6 +354,7 @@ class LanguageToolchain(ABC):
             path_prepend=path_prepend or [],
             working_dir=str(self.src_path),
             workers=self._get_workers() if workers is None else workers,
+            backend_protocol=backend_protocol,
         )
 
     def _make_build_artifact(

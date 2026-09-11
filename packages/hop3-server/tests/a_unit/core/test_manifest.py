@@ -6,7 +6,7 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 import pytest
 
@@ -264,3 +264,48 @@ type = "redis"
         assert runtime.static_paths == {"/assets": "dist/assets/"}
         assert runtime.healthcheck_path == "/api/health"
         assert runtime.healthcheck_timeout == 10
+
+
+class TestTheBackendProtocolDescribesWhatActuallyRuns:
+    """
+    The PHP toolchain proposes a php-fpm web worker and declares FastCGI. A
+    recipe that keeps its own `start = "php -S ..."` overrides that worker and
+    is back to serving HTTP; declaring FastCGI for it would fail its readiness
+    gate on every deploy. Ten catalog recipes are in that state until they
+    drop the line, which is the whole migration.
+    """
+
+    PHP_FPM: ClassVar = {"web": "exec php-fpm --fpm-config /app/php-fpm.conf"}
+
+    def test_the_toolchain_worker_keeps_its_protocol(self, app_dir) -> None:
+        builder = RuntimeManifestBuilder(AppConfig.from_dir(app_dir))
+        runtime = builder.build(workers=self.PHP_FPM, backend_protocol="fastcgi")
+        assert runtime.workers["web"] == self.PHP_FPM["web"]
+        assert runtime.backend_protocol == "fastcgi"
+
+    def test_a_recipe_start_command_puts_it_back_to_http(self, app_dir) -> None:
+        (app_dir / "src" / "hop3.toml").write_text(
+            '[run]\nstart = "php -S 0.0.0.0:$PORT"\n'
+        )
+        builder = RuntimeManifestBuilder(AppConfig.from_dir(app_dir))
+        runtime = builder.build(workers=self.PHP_FPM, backend_protocol="fastcgi")
+        assert runtime.workers["web"] == "php -S 0.0.0.0:$PORT"
+        assert runtime.backend_protocol == "http"
+
+    def test_a_procfile_web_line_also_puts_it_back(self, app_dir) -> None:
+        (app_dir / "src" / "Procfile").write_text("web: php -S 0.0.0.0:$PORT\n")
+        builder = RuntimeManifestBuilder(AppConfig.from_dir(app_dir))
+        runtime = builder.build(workers={}, backend_protocol="fastcgi")
+        assert runtime.backend_protocol == "http"
+
+    def test_an_unrelated_worker_does_not_disturb_it(self, app_dir) -> None:
+        """A `worker:` line in the Procfile leaves `web` to the toolchain."""
+        (app_dir / "src" / "Procfile").write_text("worker: php artisan queue:work\n")
+        builder = RuntimeManifestBuilder(AppConfig.from_dir(app_dir))
+        runtime = builder.build(workers=self.PHP_FPM, backend_protocol="fastcgi")
+        assert runtime.backend_protocol == "fastcgi"
+        assert runtime.workers["worker"] == "php artisan queue:work"
+
+    def test_everything_else_is_http(self, app_config_with_procfile) -> None:
+        builder = RuntimeManifestBuilder(app_config_with_procfile)
+        assert builder.build().backend_protocol == "http"

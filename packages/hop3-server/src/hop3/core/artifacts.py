@@ -43,7 +43,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import asdict, dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, Literal
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -91,6 +91,14 @@ class RuntimeConfig:
     # e.g., {"/static": "static", "/media": "media"}
     static_paths: dict[str, str] = field(default_factory=dict)
 
+    # Wire protocol spoken on the app's own port. Everything Hop3 ran until
+    # php-fpm spoke HTTP, and the readiness gate assumed it: it requires a
+    # status line from `app.port` before a deploy may report success. A
+    # FastCGI backend never produces one, so the protocol has to be declared
+    # and probed with a matching client.
+    # See notes/readiness-and-non-http-backends.md.
+    backend_protocol: Literal["http", "fastcgi"] = "http"
+
     # Health check configuration
     healthcheck_path: str = ""  # HTTP path, e.g., "/health"
     healthcheck_timeout: int = 30  # Seconds to wait for healthy response
@@ -98,6 +106,19 @@ class RuntimeConfig:
 
 #: Where the build phase persists the artifact, under the app's directory.
 ARTIFACT_FILENAME = "BUILD_ARTIFACT.json"
+
+
+def load_backend_protocol(app_path: Path) -> str:
+    """
+    What the app's own port speaks, as its build artifact declares.
+
+    Read by the readiness gate (which client to probe with) and by the proxy
+    (which backend directive to render); they must agree, so they read the
+    same field from the same file. An app with no artifact, or one built
+    before the field existed, speaks HTTP — which everything did until php-fpm.
+    """
+    artifact = BuildArtifact.load(app_path / ARTIFACT_FILENAME)
+    return artifact.runtime.backend_protocol if artifact else "http"
 
 
 @dataclass

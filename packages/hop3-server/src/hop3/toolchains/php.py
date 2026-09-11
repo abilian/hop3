@@ -14,10 +14,17 @@ from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
+from .php_fpm import (
+    POOL_TEMPLATE_NAME,
+    document_root,
+    php_fpm_binary,
+    pool_config,
+    web_command,
+)
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
-    from hop3.core.protocols import BuildArtifact
+    from hop3.core.protocols import BuildArtifact, RuntimeConfig
 
 
 class PHPToolchain(LanguageToolchain):
@@ -74,8 +81,32 @@ class PHPToolchain(LanguageToolchain):
             self.prepare_build_env(env)
             self.install_dependencies(env)
 
-        # PHP needs no special runtime config - just workers
-        return self._make_build_artifact(kind="php")
+        return self._make_build_artifact(kind="php", runtime=self._php_fpm_runtime(env))
+
+    def _php_fpm_runtime(self, env: Env) -> RuntimeConfig:
+        """
+        Serve the app with php-fpm, as a uWSGI ``attach-daemon``.
+
+        A recipe that still declares its own ``[run] start`` overrides the web
+        worker below, and the manifest builder puts the backend protocol back
+        to HTTP when it does — so the ten recipes hand-rolling ``php -S`` keep
+        working until each drops that line, which is the whole migration.
+        """
+        binary = php_fpm_binary()
+        root = document_root(self.src_path, env.get("PHP_DOCUMENT_ROOT", ""))
+        log_path = self.app_path / "log" / "php-fpm.log"
+        log_path.parent.mkdir(parents=True, exist_ok=True)
+
+        template = self.app_path / POOL_TEMPLATE_NAME
+        template.write_text(pool_config(self.app_name, log_path))
+        log(f"php-fpm pool written to {template}", level=2, fg="cyan")
+        log(f"php-fpm document root: {root}", level=2, fg="cyan")
+
+        return self._make_runtime_config(
+            env_vars={"PHP_DOCUMENT_ROOT": str(root)},
+            workers={"web": web_command(binary, self.app_path)},
+            backend_protocol="fastcgi",
+        )
 
     def prepare_build_env(self, env: Env) -> None:
         """
