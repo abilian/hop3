@@ -67,3 +67,14 @@ Whether restoring a plain-SQL dump over a live PostgreSQL database brings a dele
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md): making a failure legible once it happens.
 - [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md): deploy vs redeploy state transitions.
 - [`web-auth-and-csrf.md`](./web-auth-and-csrf.md): cookie/session pitfalls on Hop3's own dashboard.
+
+## A first boot is not a failure, and `/` is not a readiness check
+
+An app doing its first-run work — migrations against an empty database, an index build, a seed — commonly answers `202 Accepted` or a maintenance page for a minute or two, then serves normally. A validation that demands `200` on `/` fails the app for being new.
+
+Two consequences for a recipe:
+
+- Accept the range the app actually returns while it starts (`status-in = [200, 202]`), rather than widening the timeout until the failure becomes intermittent.
+- Assert against a path whose meaning does not change with boot state. `/` is the worst choice available: it is a redirect on one app, a maintenance page on another, and a login form on a third. A readiness or health path says one thing.
+
+The platform side of this is that a green deploy is not a working app — see [`verifying an app works`](#) above and the `[healthcheck].contains` rule; the recipe side is choosing a path that can carry the assertion.

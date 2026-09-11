@@ -12,6 +12,8 @@ Two consequences of building on a distribution base:
 
 - **Architecture.** Upstream images are often x86_64 only; the language base images (`python:X-slim`, `node:X-alpine`, `golang:X-alpine`) and a source build are multi-arch, which is what an ARM64 server needs.
 - **Language versions.** A base ships one Python, one PHP, one Node. When an app wants a newer one than the base has, pinning an older app release is usually cheaper than a newer runtime: Linkding 1.44 wanted Python 3.13 on a base with 3.11, and 1.23.1 did not.
+- **Adding an apt source does not pin a version — apt takes the highest.** Ghost 5.x needs Node 18; Trixie ships 20. Adding NodeSource's `node_18.x` repo as a second source changes nothing, because apt still installs 20. Either write `/etc/apt/preferences.d/` to pin the repo, or skip apt and install the official binary tarball. Applies to any Dockerfile for an app with a hard major-version requirement on Node, Python or Ruby.
+- **On Trixie, pin `pnpm@8` and do not use `corepack`.** Trixie's Node 20.x patch level does not expose builtins that pnpm 10 and current corepack need. Two symptoms, one cause: `corepack enable` then a pnpm call gives `ERR_VM_DYNAMIC_IMPORT_CALLBACK_MISSING`; `npm install -g pnpm` (unpinned, so pnpm 10+) gives `ERR_UNKNOWN_BUILTIN_MODULE`. Write `RUN npm install -g pnpm@8`. **The server's Node 22 does not help here** — these are `FROM debian:trixie-slim` builds that install their own Node, and the host's version never enters the image. Five catalog recipes still carry the workaround.
 
 ## Compose only recreates what it thinks changed
 
