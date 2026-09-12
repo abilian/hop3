@@ -125,6 +125,54 @@ class TestTheLifecycleTheAddonDependsOn:
         backend.delete_bucket(name)
         assert name not in backend.list_buckets()
 
+    def test_keys_needing_url_encoding_are_deleted(self, backend) -> None:
+        """
+        Regression. `_delete_object` used to percent-encode the key, and
+        `_s3` encoded the whole path again for the signature — so the request
+        said `a%2Bb.txt` while the signature covered `a%252Bb.txt` and Garage
+        answered "Invalid signature". An object whose key held a space or a
+        `+` could not be deleted, and the bucket holding it could not be
+        dropped, so destroying the app left its data behind.
+
+        The earlier tests all used keys like `hello.txt` and `dir/obj-0`,
+        which need no encoding, which is exactly why this survived them.
+        """
+        name = f"hop3-it-{uuid.uuid4().hex[:10]}"
+        backend.create_bucket(name)
+        creds = backend.create_access_key(name)
+        client = s3_client(creds)
+        awkward = [
+            "with space.txt",
+            "a+b.txt",
+            "100% done.txt",
+            "sub/dir/файл.txt",
+            "quote'd.txt",
+            "tilde~.txt",
+        ]
+        for key in awkward:
+            client.put_object(Bucket=name, Key=key, Body=b"x")
+        assert backend.bucket_info(name)["objects"] == str(len(awkward))
+
+        backend.delete_bucket(name)
+        assert name not in backend.list_buckets()
+
+    def test_a_bucket_of_many_objects_is_emptied_across_pages(
+        self, backend, monkeypatch
+    ) -> None:
+        """
+        Listing pages, and the page is consumed while its objects are being
+        deleted. Driven with a tiny page size rather than a thousand objects.
+        """
+        monkeypatch.setattr("hop3.plugins.s3.garage._LIST_PAGE", 2)
+        name = f"hop3-it-{uuid.uuid4().hex[:10]}"
+        backend.create_bucket(name)
+        creds = backend.create_access_key(name)
+        client = s3_client(creds)
+        for i in range(7):
+            client.put_object(Bucket=name, Key=f"obj-{i:02d}", Body=b"x")
+        backend.delete_bucket(name)
+        assert name not in backend.list_buckets()
+
     def test_deletes_are_idempotent(self, backend) -> None:
         name = f"hop3-it-{uuid.uuid4().hex[:10]}"
         backend.create_bucket(name)
