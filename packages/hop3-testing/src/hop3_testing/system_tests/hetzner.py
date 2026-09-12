@@ -15,6 +15,7 @@ from typing import TYPE_CHECKING
 
 from hcloud import Client
 
+from hop3_testing.exceptions import TestingError
 from hop3_testing.util.ssh import SSHKeyManager, wait_for_ssh
 
 if TYPE_CHECKING:
@@ -104,8 +105,14 @@ class ServerInfo:
 THROWAWAY_LABEL = "hop3-throwaway"
 
 
-class HetznerError(Exception):
-    """Base exception for Hetzner operations."""
+class HetznerError(TestingError):
+    """
+    Base exception for Hetzner operations.
+
+    Part of the package's own hierarchy so the CLI can tell an expected,
+    actionable refusal — "that server is not labelled throwaway" — from a bug,
+    and print the sentence rather than a stack trace.
+    """
 
 
 class ServerNotFoundError(HetznerError):
