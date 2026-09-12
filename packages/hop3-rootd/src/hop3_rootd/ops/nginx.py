@@ -16,6 +16,7 @@ See ADR 041 §2 ("Why nginx is in v1") and §12 ("Sudoers fragment retirement").
 
 from __future__ import annotations
 
+import math
 import os
 import time
 from pathlib import Path
@@ -110,12 +111,26 @@ def _ticks_since_boot() -> float | None:
     is distinguishable from the pre-existing ones by start time alone — no PID
     baseline to miss. Returns None if /proc/uptime is unreadable (non-Linux).
 
+    **Floored, and that is the whole point.** `/proc/uptime` is seconds with
+    two decimals and `starttime` is an integer tick count, so the reference
+    has to be compared at tick resolution. Multiplying the parsed float by 100
+    does not land on the integer: `81408.99 * 100` is `8140899.000000001`, a
+    hair *above* the tick a worker forking in that same centisecond reports.
+    The `>=` test then rejects a worker that is genuinely fresh, no other
+    worker qualifies, the budget lapses, and a reload that applied perfectly
+    is reported as "nginx kept the previous config" — a deploy refused for
+    nothing. It depends on the exact uptime value, so it strikes at random:
+    `74444.56 * 100` is exactly `7444456.0` and behaves.
+
+    Flooring can only make the reference one tick early, which is safe: for a
+    pre-existing worker to be mistaken for a fresh one it would have to have
+    forked inside the same centisecond as this sample.
     """
     try:
         uptime_s = float((_PROC_ROOT / "uptime").read_text().split()[0])
     except (OSError, ValueError, IndexError):
         return None
-    return uptime_s * _CLK_TCK
+    return math.floor(uptime_s * _CLK_TCK)
 
 
 def _nginx_worker_starttimes() -> list[float]:
