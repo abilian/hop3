@@ -177,6 +177,12 @@ A crash detector that searched app output for "error" marked apps as crashed bec
 
 The discriminator was already in reach: a rejected reload logs `[emerg]` to the error log at once, an accepted one logs nothing. The check now fails immediately on a logged rejection and waits up to fifteen seconds only when nginx logged nothing, since an accepted reload always forks. When a check has a timing budget, ask what evidence distinguishes "slow" from "refused" and use it before giving up.
 
+**The corollary, learned the hard way in September 2026.** Because that signal stays ambiguous — the fifteen-second path means "accepted, no error, no worker yet", which is *probably* slow and *possibly* broken — nothing that repairs state may hang off it.
+
+Rolling a rejected config out of the include directory is right: `nginx -t` refusing it is unambiguous, the config was certainly not applied, and leaving it breaks every later validation. Extending the same rollback to a failed *reload* looks symmetrical and is wrong. nginx forks its workers asynchronously, so a reload reported as failed may already have been applied; rolling the file back then leaves disk disagreeing with what nginx is serving, and the next reload — another app's deploy, a certificate renewal — silently reverts the app's routes. The repair turns a slow reload into a lost one.
+
+The rule: **a recovery action needs a signal that is certain, not merely probable.** Ask what the signal actually proves. "Rejected" proves the config is not live. "The reload did not take within a budget" proves nothing about whether it is live, so the only safe response is to fail the deploy loudly and change nothing — which costs nothing here, since a validated config on disk passes `nginx -t` and the next reload picks it up.
+
 ## Disk exhaustion presents as a PostgreSQL PANIC
 
 `PANIC: could not write to file "pg_wal/...": No space left on device` takes PostgreSQL down and every addon-backed app with it, and recovery is manual and ordered: free space, start PostgreSQL, start hop3-server, redeploy. A deploy should refuse to start when free space is below a floor, and the platform should say so before the database does; the guard is on the 0.8 list.
