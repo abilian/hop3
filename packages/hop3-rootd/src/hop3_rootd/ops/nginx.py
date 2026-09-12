@@ -60,10 +60,39 @@ _RELOAD_VERIFY_POLL_S = 0.1
 _VERIFY_BUDGET_S = (_RELOAD_VERIFY_ATTEMPTS + _RELOAD_VERIFY_SLOW_ATTEMPTS) * (
     _RELOAD_VERIFY_POLL_S
 )
-_NO_FRESH_WORKER = (
-    f"no fresh worker processes appeared within {_VERIFY_BUDGET_S:g}s, so nginx "
-    "kept the previous config (run `nginx -t` and check /var/log/nginx/error.log)"
-)
+
+
+def _no_fresh_worker(since_ticks: float | None, log_offset: int) -> str:
+    """
+    Why the verification gave up, with the evidence it actually collected.
+
+    "No fresh worker appeared" is a conclusion, not an observation, and on its
+    own it cannot be acted on: it looks identical whether nginx forked nothing,
+    forked a worker this check failed to see, or logs its errors somewhere this
+    check cannot read — which is the normal case for a container running nginx
+    with `daemon off`, where the error log is the process's stderr and
+    /var/log/nginx/error.log stays empty. Report what was measured so the next
+    occurrence is diagnosable from the message instead of needing a live box.
+    """
+    observed = _nginx_worker_starttimes()
+    reference = f"{since_ticks:.0f}" if since_ticks is not None else "unavailable"
+    seen = ", ".join(f"{st:.0f}" for st in sorted(observed)) if observed else "none"
+    log_state = (
+        "unreadable/absent"
+        if _error_log_size() == 0 and log_offset == 0
+        else (f"{_error_log_size() - log_offset} new bytes")
+    )
+    return (
+        f"no fresh worker processes appeared within {_VERIFY_BUDGET_S:g}s, so "
+        f"nginx kept the previous config "
+        f"(reload reference {reference} ticks; worker start times seen: {seen}; "
+        f"nginx error log: {log_state}) "
+        f"— run `nginx -t`, and if the error log shows nothing check where "
+        f"nginx is configured to log (a container with `daemon off` logs to "
+        f"stderr, which this check cannot read)"
+    )
+
+
 _NGINX_ERROR_LOG = Path("/var/log/nginx/error.log")
 _PROC_ROOT = Path("/proc")
 _CLK_TCK = os.sysconf("SC_CLK_TCK") if hasattr(os, "sysconf") else 100
@@ -80,6 +109,7 @@ def _ticks_since_boot() -> float | None:
     Captured just before a reload so a worker forked *after* it (a real reload)
     is distinguishable from the pre-existing ones by start time alone — no PID
     baseline to miss. Returns None if /proc/uptime is unreadable (non-Linux).
+
     """
     try:
         uptime_s = float((_PROC_ROOT / "uptime").read_text().split()[0])
@@ -137,7 +167,9 @@ def _verify_reload(since_ticks: float | None, log_offset: int) -> str | None:
     told apart.
     """
     if since_ticks is None:
-        return _last_reload_error(log_offset) or _NO_FRESH_WORKER
+        return _last_reload_error(log_offset) or _no_fresh_worker(
+            since_ticks, log_offset
+        )
     if _poll_fresh_worker(since_ticks, _RELOAD_VERIFY_ATTEMPTS):
         return None
     error = _last_reload_error(log_offset)
@@ -145,7 +177,7 @@ def _verify_reload(since_ticks: float | None, log_offset: int) -> str | None:
         return error
     if _poll_fresh_worker(since_ticks, _RELOAD_VERIFY_SLOW_ATTEMPTS):
         return None
-    return _NO_FRESH_WORKER
+    return _no_fresh_worker(since_ticks, log_offset)
 
 
 def _poll_fresh_worker(since_ticks: float, attempts: int) -> bool:
