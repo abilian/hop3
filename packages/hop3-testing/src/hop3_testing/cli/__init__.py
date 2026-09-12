@@ -15,9 +15,12 @@ Commands:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
 
 import click
+
+from hop3_testing.exceptions import TestingError
 
 from .commands import register_commands
 
@@ -47,8 +50,27 @@ register_commands(cli)
 
 
 def main() -> None:
-    """Entry point for the CLI."""
-    cli(obj={})
+    """
+    Entry point for the CLI.
+
+    The package's own errors are outcomes, not crashes: "that server is not
+    labelled throwaway", "the target ran out of disk", "the deploy failed".
+    Each already carries a sentence saying what to do, and burying it under
+    twenty frames of click internals makes the reader hunt for the one line
+    that matters. So those print as the message alone.
+
+    Anything else keeps its traceback, because an unexpected exception is a
+    bug and the frames are the report. `--verbose` brings the traceback back
+    for the expected ones too, for when the question is where it was raised
+    rather than what it said.
+    """
+    try:
+        cli(obj={})
+    except TestingError as e:
+        if "-v" in sys.argv or "--verbose" in sys.argv:
+            raise
+        click.secho(f"Error: {e}", fg="red", err=True)
+        sys.exit(1)
 
 
 if __name__ == "__main__":
