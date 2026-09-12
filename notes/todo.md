@@ -20,16 +20,6 @@ Pending engineering tasks captured during day-to-day work. Move items out to pla
 
 - **`hop3 login --token <token>` puts a secret on argv**, where `ps` can read it for the length of the call. ADR 036 gives `user add`, `user set-password` and `auth get-token` the `KEY=-` / `KEY=@file` / hidden-prompt treatment; the `--token` path never got it, and the deployer is a caller (`deployer/deploy.py:1616`, whose own comment notes there is no stdin form to use). Small, and the rewriting machinery already exists in `commands/arguments.py`.
 
-## Installer
-
-- **`--with s3` is broken for everyone: MinIO withdrew its public server binaries.** `server_installer/s3.py` pins `RELEASE.2024-11-07T00-52-20Z` and fetches it from `dl.min.io`, which now answers **HTTP 410 Gone** — and not just for that pin: the unversioned `linux-arm64/minio` path is 410 too, and MinIO's latest GitHub release (`RELEASE.2025-10-15T17-29-55Z`) publishes **no assets at all**. Only the `mc` client is still distributed. There is no Debian/Ubuntu package. So this is not a stale pin to bump; the distribution channel is gone, and every `hop3-install server --with s3` fails the same way. It also blocks the whole Docker e2e suite, whose target is provisioned with `--with nix,redis,s3`.
-
-  Checked 2026-09-12. The abort itself is correct behaviour (a `--with` feature that fails must abort the install); the sourcing is what needs a decision.
-
-  **Options.** (a) **Garage** (Deuxfleurs) — single static musl binary, S3-compatible, actively maintained, aimed squarely at self-hosted/sovereign storage; `v1.0.1` and `v1.1.0` binaries both serve 200 for `aarch64-unknown-linux-musl`. Licence AGPL-3.0, same family as MinIO's. (b) Build MinIO from source at install time (Go toolchain is already installed, but it is a heavy install step). (c) Drop the bundled object store and require an external S3 endpoint, keeping the addon as configuration only. (d) SeaweedFS (Apache-2.0) if the AGPL is a problem.
-
-  Whichever is chosen touches the S3 addon's provisioning (`hop3 addon create s3`), the credentials file, the `mc` alias setup, and an ADR. Not a mechanical swap.
-
 ## Testing
 
 - **The Docker e2e target lets two sessions silently share one container.** The target has a fixed container name (`hop3-server-test`) and fixed ports, so a second `pytest packages/hop3-server/tests/c_e2e/` started while one is running tears the container down and re-installs it under the first. Neither session is told. The result is not a clean failure but a corrupt one: each run sees the other's server restarts, addons and database rows.
