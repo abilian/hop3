@@ -369,15 +369,24 @@ class BaseProxy(ABC):
         self.setup_cache()
         self.setup_static()
         self.extra_setup()
-        # An app's config only stays on disk if it is accepted and applied:
-        # the proxy reads every file in the directory, so a rejected one left
-        # behind would break the next app's deploy and every certificate
-        # renewal. A failed reload rolls back too, which is what the running
-        # proxy still has loaded.
+        # A config the proxy *rejects* does not stay on disk: the proxy reads
+        # every file in the directory, so one left behind would break the next
+        # app's deploy and every certificate renewal, naming neither.
+        #
+        # A failed *reload* is deliberately outside this. "Rejected" is
+        # unambiguous; "the reload did not take" is not — nginx accepts a
+        # reload and forks its new workers asynchronously, so a reload
+        # reported as failed may have been merely slow on a loaded host and
+        # already applied. Rolling back there would leave the file disagreeing
+        # with what nginx is actually serving, and the next reload — another
+        # app's deploy, a certificate renewal — would silently revert this
+        # app's routes. A validated config left in place has no blast radius:
+        # it passes `nginx -t`, so it breaks nothing, and the next reload
+        # picks it up.
         with restore_on_failure(self.conf_path):
             self.generate_config()
             self.check_config()
-            self.reload_proxy()
+        self.reload_proxy()
 
     @abstractmethod
     def setup_backend(self) -> None:
