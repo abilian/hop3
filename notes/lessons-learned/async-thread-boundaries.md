@@ -104,3 +104,34 @@ As of this writing the only `asyncio.Queue` in the codebase is the (now-fixed) `
 - `hop3_installer` `Spinner`: daemon thread signalled by `threading.Event`; the package has no asyncio at all.
 
 Match the primitive to the boundary, and the one boundary that always needs an explicit bridge is **thread → coroutine**.
+
+## A second boundary in the same class: iterating what a thread is appending to
+
+The stream's log buffer is written by the producer thread and read by the SSE coroutine, which replays it to a client that connects mid-job. That read is a plain `for` loop, and it is suspended at every `yield` — so the producer appends *during* the iteration, every time.
+
+That was fine for as long as the buffer was a `list`. It stopped being fine the moment it became a `collections.deque`, which was done for an unrelated reason: `hop3 run` can stream for hours, so the replay buffer needed `maxlen` to stop one chatty job growing the server's memory without limit.
+
+```python
+# list: append during iteration is tolerated, silently
+# deque: RuntimeError: deque mutated during iteration
+for entry in self.logs:
+    yield entry.to_sse()
+```
+
+The generator died on its first catch-up, before emitting a single event, and the operator saw:
+
+```
+⚠ Stream ended unexpectedly. Check server logs.
+```
+
+on a deploy that was working. The fix is one word — `for entry in list(self.logs)` — but the lesson is not about `deque`:
+
+- **Swapping a container type changes its concurrency contract, not just its capacity.** `list`, `deque`, `dict` and `set` each have their own answer to "what happens if this is mutated while iterated", and only `list` says "nothing visible". A change that reads as a capacity tweak is a concurrency change whenever a second thread can touch the object.
+- **Snapshot anything a thread may append to before iterating it**, whether or not today's type complains. The snapshot is also the more correct read: a replay is a statement about the past, and the live subscription covers everything after it.
+- **Single-threaded tests cannot see this.** Every unit test wrote to the buffer and then read it, which is the one ordering that never fails. The test that catches it writes *from inside the consuming loop*, which is what an awaited generator actually experiences.
+
+### Why it reached the operator and not a test run
+
+The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs a real deploy through a real SSE connection, and it was not run before the change was called done. A streaming path has no meaningful in-process coverage of its own concurrency — the layer that exercises it is the one with a container in it.
+
+**Run the e2e layer for any change to the streaming path, the process model, or a shared mutable structure.** Its slowness is the reason it gets skipped and the reason it is the only thing that would have caught this.
