@@ -207,6 +207,33 @@ def test_complete_event_success_prints_deployed_successfully(capsys) -> None:
     assert "deployed successfully" in capsys.readouterr().out
 
 
+def test_a_job_that_is_not_a_deploy_says_what_it_did(capsys) -> None:
+    """
+    `hop3 run` streams through this same client. "App deployed successfully"
+    would be a claim about something that did not happen, so a job that knows
+    better puts its own phrase in the completion event.
+    """
+    lines = [
+        "event: complete",
+        (
+            'data: {"success": true, "duration": 412.0, '
+            '"success_message": "Command completed"}'
+        ),
+        "",
+    ]
+    resp = _FakeResponse(200, lines=lines)
+    with _patched_get(resp):
+        stream_deployment_logs(
+            base_url="http://server:8000",
+            stream_id="x",
+            printer=RichPrinter(quiet=False),
+            token="tok",
+        )
+    out = capsys.readouterr().out
+    assert "Command completed in 412.0s" in out
+    assert "deployed" not in out
+
+
 # ---- _handle_streaming_response resolves api_url from the context --------
 
 

@@ -33,6 +33,7 @@ __all__ = [
     "run_command",
     "sanitize_app_name",
     "shell",
+    "stream_command",
     "try_commands",
 ]
 
@@ -158,6 +159,63 @@ def run_command(
         raise CommandNotFoundError(cmd) from None
     except subprocess.TimeoutExpired:
         raise CommandTimeoutError(cmd, timeout) from None
+
+
+def stream_command(
+    cmd: list[str],
+    *,
+    on_line: Callable[[str], None],
+    cwd: Path | str | None = None,
+    env: dict[str, str] | None = None,
+    stdin_data: str | None = None,
+) -> int:
+    """
+    Run a command, handing each output line to ``on_line`` as it arrives.
+
+    Unlike :func:`run_command` this has **no timeout**: the caller is running
+    somebody's own job, and a maintenance task that takes an hour is doing what
+    it was asked to. Killing it at an arbitrary deadline loses the work and
+    says nothing useful about why.
+
+    stderr is merged into stdout so lines arrive in the order the program
+    printed them. Splitting the streams only makes sense when both are
+    captured whole and shown one after the other; while streaming, the
+    interleaving *is* the information.
+
+    ``PYTHONUNBUFFERED`` is forced on because the child's own buffering is
+    what usually defeats this: a Python program writing to a pipe rather than
+    a terminal switches to block buffering, and its output would then arrive
+    in 8KB bursts, or all at once when it exits.
+
+    Returns the exit code. Raises :class:`CommandNotFoundError` if the
+    executable does not exist.
+    """
+    child_env = dict(env) if env is not None else None
+    if child_env is not None:
+        child_env.setdefault("PYTHONUNBUFFERED", "1")
+
+    try:
+        process = subprocess.Popen(
+            cmd,
+            cwd=cwd,
+            env=child_env,
+            stdin=subprocess.PIPE if stdin_data else subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            bufsize=1,
+        )
+    except FileNotFoundError:
+        raise CommandNotFoundError(cmd) from None
+
+    with process:
+        if stdin_data and process.stdin:
+            process.stdin.write(stdin_data)
+            process.stdin.close()
+        if process.stdout:
+            for line in process.stdout:
+                on_line(line.rstrip("\n"))
+        return process.wait()
 
 
 def try_commands(
