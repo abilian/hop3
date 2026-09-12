@@ -11,6 +11,8 @@ nginx/systemctl runs. Tests pin resolved paths with ``set_path`` and route
 
 from __future__ import annotations
 
+import math
+
 import pytest
 from hop3_rootd import PROTOCOL_VERSION
 from hop3_rootd.exec import CommandResult, CommandTimeoutError, InvalidBinaryError
@@ -476,3 +478,54 @@ class TestTheGiveUpMessageCarriesItsEvidence:
         monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", list)
         monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 0)
         assert "reference unavailable" in nginx_ops._no_fresh_worker(None, 0)
+
+
+class TestTheReferenceTickIsComparableToStarttime:
+    """
+    `/proc/uptime` is seconds with two decimals; `starttime` is an integer
+    tick count. Multiplying the parsed float by CLK_TCK does not land on the
+    integer — `81408.99 * 100` is `8140899.000000001` — so a worker forking
+    in that same centisecond, reporting exactly `8140899`, failed the `>=`
+    test. Nothing else qualified, the 15s budget lapsed, and a reload that
+    had applied was reported as "nginx kept the previous config".
+
+    Seen in the e2e suite: `reload reference 8140899 ticks; worker start
+    times seen: 8140899, 8140899` — a failure whose own evidence showed the
+    workers were fresh.
+    """
+
+    @staticmethod
+    def reference(uptime: str, monkeypatch, tmp_path) -> float:
+        (tmp_path / "uptime").write_text(f"{uptime} 100000.00\n")
+        monkeypatch.setattr(nginx_ops, "_PROC_ROOT", tmp_path)
+        return nginx_ops._ticks_since_boot()
+
+    def test_an_uptime_that_multiplies_high_does_not_reject_a_fresh_worker(
+        self, monkeypatch, tmp_path
+    ) -> None:
+        assert float("81408.99") * 100 > 8140899, "premise: the float rounds up"
+        reference = self.reference("81408.99", monkeypatch, tmp_path)
+        assert reference <= 8140899, "a worker forked in this centisecond is fresh"
+
+    @pytest.mark.parametrize(
+        "uptime", ["81408.99", "74444.56", "12345.67", "0.01", "999999.99"]
+    )
+    def test_a_worker_forked_in_the_sampled_centisecond_always_counts(
+        self, uptime, monkeypatch, tmp_path
+    ) -> None:
+        reference = self.reference(uptime, monkeypatch, tmp_path)
+        same_tick = math.floor(float(uptime) * 100)
+        assert same_tick >= reference
+
+    def test_it_is_a_whole_number_of_ticks(self, monkeypatch, tmp_path) -> None:
+        reference = self.reference("81408.99", monkeypatch, tmp_path)
+        assert reference == int(reference)
+
+    def test_it_never_runs_ahead_of_the_sample(self, monkeypatch, tmp_path) -> None:
+        """Flooring may be one tick early; it must never be late."""
+        reference = self.reference("81408.99", monkeypatch, tmp_path)
+        assert reference <= float("81408.99") * 100
+
+    def test_an_unreadable_uptime_is_still_none(self, monkeypatch, tmp_path) -> None:
+        monkeypatch.setattr(nginx_ops, "_PROC_ROOT", tmp_path / "nope")
+        assert nginx_ops._ticks_since_boot() is None
