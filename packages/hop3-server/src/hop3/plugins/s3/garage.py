@@ -39,6 +39,8 @@ from typing import TYPE_CHECKING
 
 import httpx
 
+from hop3.lib.logging import server_log
+
 from .backend import BackendError, S3Credentials
 
 if TYPE_CHECKING:
@@ -297,7 +299,19 @@ class GarageBackend:
             for object_key in self._list_objects(bucket, access_key, secret_key):
                 self._delete_object(bucket, object_key, access_key, secret_key)
         finally:
-            self.delete_access_key(access_key)
+            # A cleanup that raises inside `finally` would replace the real
+            # failure with its own, so the caller would be told the key could
+            # not be removed and never learn why the purge stopped. Report it
+            # and let the original surface.
+            try:
+                self.delete_access_key(access_key)
+            except BackendError as cleanup_error:
+                server_log.warning(
+                    "Could not remove the temporary purge key",
+                    access_key=access_key,
+                    bucket=bucket,
+                    error=str(cleanup_error),
+                )
 
     def _list_objects(
         self, bucket: str, access_key: str, secret_key: str
@@ -329,8 +343,13 @@ class GarageBackend:
     def _delete_object(
         self, bucket: str, key: str, access_key: str, secret_key: str
     ) -> None:
-        path = f"/{bucket}/{urllib.parse.quote(key)}"
-        self._s3("DELETE", path, {}, access_key, secret_key)
+        # The raw key: `_s3` percent-encodes once, for both the URL it sends
+        # and the signature it computes over. Encoding here as well produced
+        # a request whose path said `a%2Bb.txt` and whose signature covered
+        # `a%252Bb.txt`, which Garage rejected as "Invalid signature" — so an
+        # object whose key held a space or a `+` could not be deleted, and
+        # the bucket holding it could not be dropped.
+        self._s3("DELETE", f"/{bucket}/{key}", {}, access_key, secret_key)
 
     def _s3(
         self,
@@ -348,7 +367,11 @@ class GarageBackend:
         is used because Garage is reached by IP on a loopback port, where a
         virtual-host style bucket name has nowhere to live.
         """
-        url = f"{self.endpoint.rstrip('/')}{path}"
+        # One encoding, used twice. SigV4 signs the encoded path, and the
+        # server recomputes the signature from the path it received: if the
+        # two spellings differ by so much as an escape, it is a 403.
+        encoded_path = urllib.parse.quote(path, safe="/~")
+        url = f"{self.endpoint.rstrip('/')}{encoded_path}"
         host = urllib.parse.urlsplit(self.endpoint).netloc
         now = dt.datetime.now(dt.UTC)
         amz_date = now.strftime("%Y%m%dT%H%M%SZ")
@@ -364,21 +387,16 @@ class GarageBackend:
             f"x-amz-date:{amz_date}\n"
         )
         signed_headers = "host;x-amz-content-sha256;x-amz-date"
-        canonical_request = "\n".join([
-            method,
-            urllib.parse.quote(path, safe="/~"),
-            canonical_query,
-            canonical_headers,
-            signed_headers,
-            _EMPTY_SHA256,
-        ])
+        # canonical_headers already ends in a newline; SigV4 wants a blank
+        # line between the header block and the signed-header list, so the
+        # explicit newline after it is load-bearing.
+        canonical_request = (
+            f"{method}\n{encoded_path}\n{canonical_query}\n"
+            f"{canonical_headers}\n{signed_headers}\n{_EMPTY_SHA256}"
+        )
         scope = f"{date_stamp}/{GARAGE_REGION}/s3/aws4_request"
-        to_sign = "\n".join([
-            "AWS4-HMAC-SHA256",
-            amz_date,
-            scope,
-            hashlib.sha256(canonical_request.encode()).hexdigest(),
-        ])
+        request_hash = hashlib.sha256(canonical_request.encode()).hexdigest()
+        to_sign = f"AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{request_hash}"
         signing_key = _signing_key(secret_key, date_stamp)
         signature = hmac.new(signing_key, to_sign.encode(), hashlib.sha256).hexdigest()
 

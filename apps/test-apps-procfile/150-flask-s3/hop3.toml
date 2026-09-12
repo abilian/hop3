@@ -22,4 +22,8 @@ contains = "S3 addon OK"
 [[test.validations]]
 path = "/config"
 status = 200
-contains = "has_access_key"
+# A value, not a field name: `has_access_key` was in the JSON whether the
+# credential arrived or not, so the old assertion could not fail. A bare
+# token rather than `"key": "value"`, which would depend on the serializer's
+# spacing.
+contains = "s3-credentials-present"
