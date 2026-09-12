@@ -25,6 +25,7 @@ import asyncio
 import json
 import threading
 import uuid
+from collections import deque
 from contextlib import contextmanager, suppress
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
@@ -36,6 +37,13 @@ if TYPE_CHECKING:
 # Stream registry
 _streams: dict[str, DeploymentStream] = {}
 STREAM_TTL_SECONDS = 3600  # 1 hour
+
+#: Log entries kept for replay to a client that connects late. A deploy is
+#: bounded by its own build; `hop3 run` is not — it runs whatever the operator
+#: asked for, for as long as that takes — so the buffer needs a ceiling or one
+#: chatty maintenance job grows the server's memory until it is killed. A live
+#: subscriber still sees every line; only the replay is trimmed.
+STREAM_LOG_BUFFER = 5000
 
 # Thread-local storage for current stream context
 # This ensures concurrent deployments don't interleave logs
@@ -80,11 +88,19 @@ class DeploymentStream:
     stream_id: str
     app_name: str
     created_at: datetime = field(default_factory=lambda: datetime.now(UTC))
-    logs: list[LogEntry] = field(default_factory=list)
+    logs: deque[LogEntry] = field(
+        default_factory=lambda: deque(maxlen=STREAM_LOG_BUFFER)
+    )
+    #: Total written, which `logs` stops counting once it is full.
+    log_count: int = 0
     subscribers: list[asyncio.Queue] = field(default_factory=list)
     complete: bool = False
     success: bool = False
     error_message: str = ""
+    #: What the client says when this finishes well. A deploy and a one-off
+    #: command both stream through here, and "App deployed successfully" is a
+    #: false claim about the second.
+    success_message: str = ""
     # Event loop running the SSE consumer, captured on first subscribe().
     # write()/finish() run in the deployment's background OS thread, but
     # asyncio.Queue is NOT thread-safe: a bare cross-thread put_nowait() does
@@ -104,19 +120,26 @@ class DeploymentStream:
         """
         entry = LogEntry(msg=msg, level=level, fg=fg)
         self.logs.append(entry)
+        self.log_count += 1
         self._notify(("log", entry))
 
-    def finish(self, success: bool, error_message: str = "") -> None:
+    def finish(
+        self, success: bool, error_message: str = "", success_message: str = ""
+    ) -> None:
         """
         Mark stream as complete.
 
         Args:
-            success: Whether deployment succeeded
+            success: Whether the job succeeded
             error_message: Error message if failed
+            success_message: What the client should say if it succeeded;
+                the client keeps its deploy wording when this is empty
         """
         self.complete = True
         self.success = success
         self.error_message = error_message
+        if success_message:
+            self.success_message = success_message
         self._notify(("complete", None))
 
     def _notify(self, item: tuple[str, Any]) -> None:
@@ -153,8 +176,12 @@ class DeploymentStream:
         self.subscribers.append(queue)
 
         try:
-            # First, send all existing logs (catch-up)
-            for entry in self.logs:
+            # First, send all existing logs (catch-up). Snapshot it: the
+            # producer is a live thread still appending, and a deque raises
+            # `RuntimeError: deque mutated during iteration` where a list
+            # quietly tolerated it — which killed the generator mid-catch-up
+            # and surfaced to the operator as "Stream ended unexpectedly".
+            for entry in list(self.logs):
                 yield entry.to_sse()
 
             # If already complete, send completion event and return
@@ -187,8 +214,9 @@ class DeploymentStream:
         data = {
             "success": self.success,
             "error": self.error_message,
+            "success_message": self.success_message,
             "duration": duration,
-            "log_count": len(self.logs),
+            "log_count": self.log_count,
         }
         return f"event: complete\ndata: {json.dumps(data)}\n\n"
 
@@ -200,7 +228,7 @@ class DeploymentStream:
             "complete": self.complete,
             "success": self.success,
             "error_message": self.error_message,
-            "log_count": len(self.logs),
+            "log_count": self.log_count,
             "subscriber_count": len(self.subscribers),
             "created_at": self.created_at.isoformat(),
             "duration": (datetime.now(UTC) - self.created_at).total_seconds(),
@@ -247,10 +275,15 @@ def get_stream(stream_id: str) -> DeploymentStream | None:
 def cleanup_old_streams() -> None:
     """Remove streams older than TTL."""
     now = datetime.now(UTC)
+    # A stream that has not finished is still being written to: its producer
+    # thread is alive and a client may be watching. `hop3 run` made that
+    # reachable — a maintenance job can outlive the TTL, and dropping its
+    # stream mid-run would 404 any reconnect and lose the outcome.
     expired = [
         sid
         for sid, stream in _streams.items()
-        if (now - stream.created_at).total_seconds() > STREAM_TTL_SECONDS
+        if stream.complete
+        and (now - stream.created_at).total_seconds() > STREAM_TTL_SECONDS
     ]
     for sid in expired:
         del _streams[sid]

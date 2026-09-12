@@ -247,14 +247,17 @@ def _process_sse_stream(response: requests.Response, printer: RichPrinter) -> No
                 duration = data.get("duration", 0)
 
                 if success:
-                    # "deployed successfully" mirrors the non-streaming deploy
-                    # response (commands/app.py) so scripts and docs can assert
-                    # one consistent success phrase regardless of streaming.
+                    # "App deployed successfully" mirrors the non-streaming
+                    # deploy response (commands/app.py) so scripts and docs can
+                    # assert one consistent success phrase regardless of
+                    # streaming. It stays the default, but it is only true of a
+                    # deploy: `hop3 run` streams through here too, and telling
+                    # an operator their maintenance job "deployed" is a claim
+                    # about something that did not happen. A job that knows
+                    # better says so in the completion event.
+                    done = data.get("success_message") or "App deployed successfully"
                     printer.print([
-                        {
-                            "t": "success",
-                            "text": f"App deployed successfully in {duration:.1f}s",
-                        }
+                        {"t": "success", "text": f"{done} in {duration:.1f}s"}
                     ])
                     return
                 printer.print([

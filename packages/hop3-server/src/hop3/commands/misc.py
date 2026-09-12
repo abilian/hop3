@@ -9,6 +9,7 @@ from __future__ import annotations
 import shlex
 import subprocess
 import tempfile
+import threading
 from dataclasses import dataclass
 from importlib.metadata import version as get_version
 from pathlib import Path
@@ -19,14 +20,18 @@ from hop3.deployers import do_deploy
 from hop3.lib.args import pop_app_flag, reject_extra_args
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup, register
-from hop3.lib.util import CommandError, CommandFailedError, run_command
+from hop3.lib.util import (
+    CommandError,
+    stream_command,
+)
 from hop3.project.procfile import parse_procfile
 from hop3.run.app_env import build_app_env, load_artifact
+from hop3.server.streaming import create_stream
 
 from ._base import Command, NamespaceCommand
 from ._errors import command_context
 from ._helpers import get_app
-from ._response import error, table, text
+from ._response import error, stream, table, text
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -257,51 +262,95 @@ class RunCmd(Command):
         cmd_to_run = args_list
         app = get_app(self.db_session, app_name)
 
+        # Everything the command needs is read here, in the request thread.
+        # The RPC session is committed and closed the moment this returns the
+        # stream item, and sessions are not thread-safe — so the worker below
+        # closes over plain values, never over `app` or the session.
+        cwd = app.src_path
         env = build_app_env(app, load_artifact(app))
+        return [run_command_streaming(app.name, cmd_to_run, cwd, env, stdin_data)]
+
+
+def run_command_streaming(
+    app_name: str,
+    cmd: list[str],
+    cwd: Path,
+    env: dict[str, str],
+    stdin_data: str | None,
+) -> dict:
+    """
+    Run a one-off command in a worker thread, streaming its output over SSE.
+
+    This used to run inline with a five-minute timeout and return the captured
+    output at the end, which failed the two things a one-off command is for.
+    A maintenance job that legitimately takes longer was killed mid-work and
+    reported as a read timeout, naming a localhost port rather than the job;
+    and until it finished there was nothing to look at, so a job that was
+    working and a job that was wedged looked identical.
+
+    It is not put on the build queue: that queue exists to bound concurrent
+    *builds*, and making an operator's command wait behind a deploy would be a
+    second way to look wedged.
+    """
+    log_stream = create_stream(app_name)
+    cmd_str = shlex.join(cmd)
+
+    def run() -> None:
+        printed = False
+
+        def on_line(line: str) -> None:
+            nonlocal printed
+            printed = True
+            log_stream.write(line)
 
         try:
-            result = run_command(
-                cmd_to_run,
-                cwd=app.src_path,
+            log_stream.write(f"$ {cmd_str}", fg="blue")
+            returncode = stream_command(
+                cmd,
+                on_line=on_line,
+                cwd=cwd,
                 env=env,
-                text=True,
-                timeout=300,  # 5 minute timeout for user commands
-                input=stdin_data,
+                stdin_data=stdin_data,
             )
-            output = result.stdout
-            if result.stderr:
-                output += f"\n--- stderr ---\n{result.stderr}"
-            return [text(output)]
-        except CommandFailedError as e:
-            # Surface BOTH streams: many commands write their error (and
-            # tracebacks) to stdout, so stderr alone often leaves only the bare
-            # exit code. Mirror the success path's stdout / stderr layout, echo
-            # the exact command, and say so explicitly when the
-            # process produced nothing, so the user never gets a silent bare
-            # exit code (and so a live deploy of this code is recognisable).
-            cmd_str = shlex.join(cmd_to_run)
-            server_log.warning(
-                "run command failed",
-                app_name=app.name,
-                cmd=cmd_str,
-                returncode=e.returncode,
-                stdout_len=len(e.stdout),
-                stderr_len=len(e.stderr),
-            )
-            output = f"Command failed with exit code {e.returncode}\n$ {cmd_str}"
-            if e.stdout:
-                output += f"\n{e.stdout}"
-            if e.stderr:
-                output += f"\n--- stderr ---\n{e.stderr}"
-            if not e.stdout and not e.stderr:
-                output += (
-                    "\n(the command produced no output on stdout or stderr — "
-                    "it likely failed before printing, or buffered output was "
-                    "lost on a hard exit)"
-                )
-            return [error(output)]
         except CommandError as e:
-            return [error(e.message)]
+            log_stream.finish(success=False, error_message=e.message)
+            return
+        except Exception as e:
+            # Top of a thread: an exception escaping here is swallowed by
+            # `threading`, and the client waits on a stream that will never
+            # complete. Anything unexpected (a broken pipe writing stdin, a
+            # permission error on cwd) has to end the stream saying so. Same
+            # shape as the deploy worker in commands/_deploy.py.
+            server_log.exception("run command raised", app_name=app_name)
+            log_stream.finish(success=False, error_message=str(e))
+            return
+
+        if returncode == 0:
+            log_stream.finish(success=True, success_message="Command completed")
+            return
+
+        if not printed:
+            # Never a silent bare exit code: say that nothing was printed, so
+            # the operator knows the silence is the command's and not ours.
+            log_stream.write(
+                "(the command produced no output — it likely failed before "
+                "printing anything)",
+                fg="yellow",
+            )
+
+        server_log.warning(
+            "run command failed",
+            app_name=app_name,
+            cmd=cmd_str,
+            returncode=returncode,
+        )
+        log_stream.finish(
+            success=False,
+            error_message=f"Command failed with exit code {returncode}",
+        )
+
+    threading.Thread(target=run, daemon=True, name=f"run-{app_name}").start()
+    return stream(log_stream.stream_id)
 
 
 @register
