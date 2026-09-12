@@ -11,11 +11,13 @@ the tests render it and assert on what came out.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
+
 import pytest
 from hop3_tui.app import ConnectionState, Hop3TUI, Nav, app
 from hop3_tui.config import TUIConfig
 from hop3_tui.screens import Screen
-from turbodesk import Size
+from turbodesk import UI, Size
 from turbodesk.events import Key, KeyPress
 from turbodesk.testing import render, to_text
 
@@ -26,6 +28,21 @@ SCREEN = Size(80, 24)
 def hop3() -> Hop3TUI:
     """Pointed at a port nothing listens on, so no test touches the network."""
     return Hop3TUI(TUIConfig(server_url="http://localhost:1"))
+
+
+@pytest.fixture(autouse=True)
+def _frozen_clock(monkeypatch):
+    """
+    Hold the chrome's clock still for the duration of a test.
+
+    The header renders `ui.now(tick=1.0)` as HH:MM:SS, so two renders taken
+    either side of a second boundary differ in a character that has nothing
+    to do with what the test did. `test_an_unbound_key_changes_nothing`
+    compares two whole screens and failed roughly once per minute of wall
+    clock on that alone.
+    """
+    fixed = datetime(2026, 1, 1, 12, 0, 0, tzinfo=UTC)
+    monkeypatch.setattr(UI, "now", lambda self, tick=None: fixed)
 
 
 @pytest.fixture
