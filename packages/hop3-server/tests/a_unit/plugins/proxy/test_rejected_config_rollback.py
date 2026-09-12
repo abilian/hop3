@@ -9,8 +9,11 @@ it can be judged — and it used to stay there when the answer was no. From then
 on every `nginx -t` failed: the next app's deploy, and every certificate
 renewal, both aborted on a file belonging to an app neither of them named.
 
-A failed *reload* rolls back for the same reason, and because the previous
-content is what the running proxy still has loaded.
+A failed *reload* deliberately does NOT roll back. "Rejected" is unambiguous;
+"the reload did not take" is not — nginx forks its workers asynchronously, so
+a reload reported as failed may have been slow on a loaded host and already
+applied. Rolling back there would leave the file disagreeing with what nginx
+is serving, and the next reload would silently revert this app's routes.
 """
 
 from __future__ import annotations
@@ -24,6 +27,7 @@ from hop3.core.protocols import BaseProxy
 from hop3.lib.path import REJECTED_SUFFIX
 
 GOOD = "server { listen 80; }\n"
+NEW_GOOD = "server { listen 80; server_name new; }\n"
 BAD = "server { listen 80;\n"
 
 
@@ -81,23 +85,49 @@ def rejected(conf) -> Path:
 
 
 class TestTheIncludeDirectoryOnlyHoldsAcceptedConfigs:
-    @pytest.mark.parametrize("fails_at", ["check", "reload"])
-    def test_a_first_deploy_leaves_nothing_behind(self, conf, fails_at) -> None:
+    def test_a_first_deploy_leaves_nothing_behind(self, conf) -> None:
         with pytest.raises(RefusedError):
-            make_proxy(conf, BAD, fails_at).setup()
+            make_proxy(conf, BAD, "check").setup()
         assert not conf.exists(), "the next `nginx -t` would read this file"
 
-    @pytest.mark.parametrize("fails_at", ["check", "reload"])
-    def test_a_redeploy_keeps_the_config_that_is_running(self, conf, fails_at) -> None:
+    def test_a_redeploy_keeps_the_config_that_is_running(self, conf) -> None:
         conf.write_text(GOOD)
         with pytest.raises(RefusedError):
-            make_proxy(conf, BAD, fails_at).setup()
+            make_proxy(conf, BAD, "check").setup()
         assert conf.read_text() == GOOD
 
     def test_an_accepted_config_is_installed(self, conf) -> None:
         conf.write_text("server { listen 80; server_name old; }\n")
         make_proxy(conf, GOOD).setup()
         assert conf.read_text() == GOOD
+
+
+class TestAFailedReloadKeepsTheValidatedConfig:
+    """
+    A reload reported as failed may have been slow rather than refused: the
+    e2e suite hit exactly that, nginx accepting a reload and logging no error
+    but forking no worker inside rootd's 15s budget on a loaded host. The
+    config was validated, so leaving it costs nothing — it passes `nginx -t`
+    — and the next reload applies it. Rolling it back would desync the file
+    from what nginx is serving.
+    """
+
+    def test_the_new_config_stays_on_disk(self, conf) -> None:
+        conf.write_text(GOOD)
+        with pytest.raises(RefusedError):
+            make_proxy(conf, NEW_GOOD, "reload").setup()
+        assert conf.read_text() == NEW_GOOD
+
+    def test_nothing_is_parked_as_rejected(self, conf, rejected) -> None:
+        """It was not rejected; calling it so would misname the failure."""
+        with pytest.raises(RefusedError):
+            make_proxy(conf, NEW_GOOD, "reload").setup()
+        assert not rejected.exists()
+
+    def test_the_deploy_still_fails(self, conf) -> None:
+        """Routes are not live, so the deploy must not report success."""
+        with pytest.raises(RefusedError):
+            make_proxy(conf, NEW_GOOD, "reload").setup()
 
 
 class TestTheRejectedConfigIsKeptForInspection:
