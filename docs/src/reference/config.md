@@ -608,6 +608,30 @@ processes = 256     # max processes/threads
 - A declared limit is a **safety guarantee**: if it can't be enforced, the deploy fails loudly rather than running an app that only *looks* capped.
 - Enforcement is implemented for the **Docker builder** (compose `mem_limit` / `cpus` / `pids_limit`). Native/Nix enforcement needs cgroups via `hop3-rootd` and isn't available yet, so declaring `[limits]` on a non-Docker app **aborts the deploy** with a clear message until then.
 
+### `[proxy]` - Transfer Limits
+
+What the reverse proxy will carry for this app:
+
+```toml
+[proxy]
+max-body-size = "2G"        # largest request body; default "50m", "0" = no limit
+request-buffering = false   # stream the body through instead of spooling it first
+```
+
+**Fields:**
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `max-body-size` | string | Largest request body the proxy accepts: a number with an optional `K`/`M`/`G` suffix (e.g. `2G`), or plain bytes. Default `50m`. `0` means no limit. |
+| `request-buffering` | boolean | Whether the proxy reads the whole request body before the app sees any of it. Default `true`. |
+
+**Notes:**
+
+- An app that accepts file uploads **must** raise `max-body-size`: past the limit the proxy refuses the request before the app sees it, so the app cannot report the error itself. The deploy stays green and the upload never works — declare the size you need.
+- `request-buffering = false` matters for large uploads in its own right: with buffering on, the proxy writes the whole body to its own disk first, so a 2 GB upload needs 2 GB of proxy scratch space and the app's first byte arrives only after the client's last one.
+- This is not a proxy passthrough. Each key renders to the active proxy's own directive — nginx `client_max_body_size` / `proxy_request_buffering`, Caddy `request_body max_size`, Traefik a `buffering` middleware — so the declaration survives a proxy swap.
+- Two proxy-specific caveats: **Caddy** streams request bodies by default and has no buffering switch, so `request-buffering` changes nothing there. **Traefik** can only enforce a body limit *through* its buffering middleware, so an app that asks for both a limit and streaming gets the limit, and the deploy says so.
+
 ### `[healthcheck]` - Health Check Configuration
 
 Configure health check endpoints for monitoring.

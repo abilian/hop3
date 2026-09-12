@@ -99,6 +99,11 @@ class RuntimeConfig:
     # See notes/readiness-and-non-http-backends.md.
     backend_protocol: Literal["http", "fastcgi"] = "http"
 
+    # Reverse-proxy transfer limits (from hop3.toml [proxy]). Read by every
+    # proxy plugin at setup. An empty size means "leave the platform default".
+    proxy_max_body_size: str = ""
+    proxy_request_buffering: bool = True
+
     # Health check configuration
     healthcheck_path: str = ""  # HTTP path, e.g., "/health"
     healthcheck_timeout: int = 30  # Seconds to wait for healthy response
@@ -106,6 +111,41 @@ class RuntimeConfig:
 
 #: Where the build phase persists the artifact, under the app's directory.
 ARTIFACT_FILENAME = "BUILD_ARTIFACT.json"
+
+
+#: Request body ceiling applied when an app declares no [proxy] max-body-size.
+#: Every proxy plugin renders this same value, so the limit an app meets does
+#: not depend on which proxy the box happens to run.
+DEFAULT_MAX_BODY_SIZE = "50m"
+
+
+@dataclass(frozen=True)
+class ProxyLimits:
+    """What the reverse proxy will carry for one app ([proxy] in hop3.toml)."""
+
+    max_body_size: str = DEFAULT_MAX_BODY_SIZE
+    request_buffering: bool = True
+
+
+def load_proxy_limits(app_path: Path) -> ProxyLimits:
+    """
+    The app's declared proxy limits, as its build artifact records them.
+
+    Read at proxy-setup time by every proxy plugin, from the same artifact the
+    run phase reads — so a restart that regenerates the vhost without a
+    rebuild still gets the limits the app declared. An app with no artifact
+    (or one built before [proxy] existed) gets the platform defaults.
+    """
+    artifact = BuildArtifact.load(app_path / ARTIFACT_FILENAME)
+    if artifact is None:
+        return ProxyLimits()
+    return ProxyLimits(
+        # The artifact records what the app declared; "" means it declared
+        # nothing, and the platform default applies. Resolved here so the
+        # proxy plugins have one value to render and no policy of their own.
+        max_body_size=artifact.runtime.proxy_max_body_size or DEFAULT_MAX_BODY_SIZE,
+        request_buffering=artifact.runtime.proxy_request_buffering,
+    )
 
 
 def load_backend_protocol(app_path: Path) -> str:

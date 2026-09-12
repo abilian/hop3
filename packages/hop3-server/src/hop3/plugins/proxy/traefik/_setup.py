@@ -31,6 +31,7 @@ from hop3.platform.certificates import (
 from hop3.plugins.proxy._policy import should_redirect_to_https
 
 from ._templates import (
+    HOP3_INTERNAL_TRAEFIK_BODY_LIMIT_MIDDLEWARE,
     HOP3_INTERNAL_TRAEFIK_CACHE_MIDDLEWARE,
     HOP3_INTERNAL_TRAEFIK_STATIC_ROUTER,
     HOP3_INTERNAL_TRAEFIK_STATIC_SERVICE,
@@ -44,6 +45,21 @@ from ._templates import (
 if TYPE_CHECKING:
     from hop3.core.env import Env
     from hop3.orm import App
+
+
+_SIZE_UNITS = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3}
+
+
+def parse_size_to_bytes(size: str) -> int:
+    """
+    Turn a `[proxy] max-body-size` value into bytes for Traefik.
+
+    The schema has already constrained the shape to digits plus an optional
+    K/M/G, so anything else here is a platform bug, not user input.
+    """
+    unit = size[-1].upper() if size and size[-1].isalpha() else ""
+    number = size[:-1] if unit else size
+    return int(number) * _SIZE_UNITS[unit]
 
 
 @dataclass(frozen=True)
@@ -149,11 +165,33 @@ class TraefikVirtualHost(BaseProxy):
         )
         middlewares.append(f"- {self.app_name}-headers")
 
+        # Largest request body this app accepts. Traefik has no plain size
+        # limit: `buffering` is what enforces one, and buffering is what it
+        # does — so an app asking for streaming uploads cannot also have a
+        # limit enforced here. Say so rather than silently picking one.
+        limits = self.transfer_limits
+        if not limits.request_buffering:
+            log(
+                f"traefik cannot stream request bodies and enforce a size limit at "
+                f"the same time; '{self.app_name}' gets the limit "
+                f"({limits.max_body_size}) and buffering.",
+                level=4,
+                fg="yellow",
+            )
+        body_limit_middleware = expand_vars(
+            HOP3_INTERNAL_TRAEFIK_BODY_LIMIT_MIDDLEWARE,
+            {
+                "APP": self.app_name,
+                "max_body_bytes": str(parse_size_to_bytes(limits.max_body_size)),
+            },
+        )
+        middlewares.append(f"- {self.app_name}-body-limit")
+
         # Set middlewares list
         self.env["HOP3_INTERNAL_TRAEFIK_MIDDLEWARES"] = "\n        ".join(middlewares)
 
         # Initialize custom middlewares
-        self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"] = ""
+        self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"] = body_limit_middleware
 
         self.env["TRAEFIK_ACL"] = ""
 

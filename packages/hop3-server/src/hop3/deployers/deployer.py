@@ -225,6 +225,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     # - before_run (from hop3.toml [run] before-run)
     # - static_paths (from hop3.toml [run] static)
     # - healthcheck_path/timeout (from hop3.toml [run] healthcheck)
+    # - proxy transfer limits (from hop3.toml [proxy])
     manifest_builder = RuntimeManifestBuilder(app_config)
     enhanced_runtime = manifest_builder.build(
         env_vars=build_artifact.runtime.env_vars,

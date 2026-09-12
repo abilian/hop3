@@ -136,6 +136,15 @@ class RuntimeManifestBuilder:
             healthcheck_path = self.app_config.hop3_config.healthcheck_path
             healthcheck_timeout = self.app_config.hop3_config.healthcheck_timeout
 
+        # Get reverse-proxy transfer limits ([proxy])
+        proxy_max_body_size = ""
+        proxy_request_buffering = True
+        if self.app_config.has_hop3_toml:
+            proxy_max_body_size = self.app_config.hop3_config.proxy_max_body_size
+            proxy_request_buffering = (
+                self.app_config.hop3_config.proxy_request_buffering
+            )
+
         return RuntimeConfig(
             env_vars=merged_env,
             path_prepend=merged_paths,
@@ -147,6 +156,8 @@ class RuntimeManifestBuilder:
             static_paths=static_paths,
             healthcheck_path=healthcheck_path,
             healthcheck_timeout=healthcheck_timeout,
+            proxy_max_body_size=proxy_max_body_size,
+            proxy_request_buffering=proxy_request_buffering,
         )
 
     def _get_workers(self) -> dict[str, str]:

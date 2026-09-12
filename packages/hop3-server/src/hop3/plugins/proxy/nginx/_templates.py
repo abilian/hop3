@@ -58,8 +58,10 @@ NGINX_COMMON_FRAGMENT = r"""
   # access_log        $LOG_ROOT/$APP/access.log;
   # error_log         $LOG_ROOT/$APP/error.log;
 
-  # Allow large request bodies (file uploads, form submissions)
-  client_max_body_size 50m;
+  # Largest request body this app accepts ([proxy] max-body-size). An app
+  # that receives uploads raises it; nothing else on the box can.
+  client_max_body_size $HOP3_INTERNAL_NGINX_MAX_BODY_SIZE;
+  $HOP3_INTERNAL_NGINX_REQUEST_BUFFERING
 
   # Enable gzip compression
   gzip on;

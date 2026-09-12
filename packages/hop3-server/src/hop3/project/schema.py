@@ -25,6 +25,7 @@ from pydantic import (
     BaseModel,
     ConfigDict,
     Field,
+    StrictBool,
     ValidationError,
     field_validator,
     model_validator,
@@ -810,6 +811,69 @@ class LimitsSection(BaseModel):
         return v
 
 
+# Request body size: a positive integer with an optional K/M/G suffix — the
+# shape every proxy accepts, and the same spelling as [limits] memory so a
+# packager learns it once. "0" means no limit.
+_BODY_SIZE_RE = re.compile(r"^\d+[KMGkmg]?$")
+
+
+class ProxySection(BaseModel):
+    """
+    [proxy] section — what the reverse proxy will carry for this app.
+
+    The proxy is platform-owned and stays that way: this is not a passthrough
+    for proxy config. It declares the two limits that are properties of the
+    *app* rather than of the platform — how large a request body it accepts,
+    and whether that body may stream through instead of being spooled to the
+    proxy's disk first. An app that receives file uploads has to be able to
+    say so; before this section existed, a 50 MB ceiling applied to every app
+    on the box and nothing could lift it.
+
+    Each key renders to the active proxy's own directive (nginx
+    ``client_max_body_size`` / ``proxy_request_buffering``, Caddy
+    ``request_body max_size``, Traefik a ``buffering`` middleware), so the
+    declaration outlives a proxy swap.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    max_body_size: str | None = Field(
+        default=None,
+        alias="max-body-size",
+        description=(
+            "Largest request body the proxy accepts, e.g. '2G' (default "
+            "'50m', '0' for no limit). A larger upload is refused by the "
+            "proxy before the app sees it, so the app cannot report the error "
+            "itself."
+        ),
+    )
+    # StrictBool: TOML has real booleans, and a lax bool would read the
+    # string "off" as False here while Hop3Config.proxy_request_buffering,
+    # which reads the raw TOML, reads the same string as True. One field, two
+    # readers, opposite answers — so only a real boolean is accepted.
+    request_buffering: StrictBool | None = Field(
+        default=None,
+        alias="request-buffering",
+        description=(
+            "Whether the proxy reads the whole request body before the app "
+            "sees any of it (default true). Set false for large uploads: the "
+            "body streams through, the proxy needs no scratch space for it, "
+            "and the app's first byte arrives with the client's first byte."
+        ),
+    )
+
+    @field_validator("max_body_size")
+    @classmethod
+    def _check_max_body_size(cls, v: str | None) -> str | None:
+        if v is not None and not _BODY_SIZE_RE.match(v):
+            msg = (
+                f"[proxy] max-body-size {v!r} must be a number with an "
+                "optional K/M/G suffix, e.g. '50m', '2G', or '0' for no limit."
+            )
+            raise ValueError(msg)
+        return v
+
+
 # WAF (ADR 050) — Layer-7 Web Application Firewall config. Engine-independent
 # declarative surface; the platform compiles it to the engine's native form
 # (SecLang for LeWAF) at deploy time.
@@ -1552,6 +1616,13 @@ class Hop3TomlSchema(BaseModel):
             "Declarative persistent volumes (ADR 046 §2). Each links a directory "
             "in the app tree to storage that survives the source-replacing "
             "redeploy."
+        ),
+    )
+    proxy: ProxySection | None = Field(
+        default=None,
+        description=(
+            "Per-app reverse-proxy transfer limits: max-body-size and "
+            "request-buffering. Rendered into whichever proxy is active."
         ),
     )
     limits: LimitsSection | None = Field(
