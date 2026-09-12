@@ -54,7 +54,7 @@ def _simulate_reload(monkeypatch, *, applied: bool, reason: str | None = None) -
         nginx_ops,
         "_verify_reload",
         lambda _since, _offset: (
-            None if applied else (reason or nginx_ops._NO_FRESH_WORKER)
+            None if applied else (reason or "no fresh worker processes appeared")
         ),
     )
 
@@ -425,3 +425,54 @@ def test_last_reload_error_none_when_no_new_emerg(tmp_path, monkeypatch):
 def test_last_reload_error_none_when_log_missing(tmp_path, monkeypatch):
     monkeypatch.setattr(nginx_ops, "_NGINX_ERROR_LOG", tmp_path / "absent.log")
     assert nginx_ops._last_reload_error(0) is None
+
+
+class TestTheGiveUpMessageCarriesItsEvidence:
+    """
+    "No fresh worker appeared" is a conclusion, not an observation. On its own
+    it cannot be acted on: nginx forking nothing, this check missing a worker
+    it did fork, and nginx logging its errors somewhere unreadable all produce
+    the same sentence. The third is the normal case in a container running
+    nginx with `daemon off`, where the error log is stderr and
+    /var/log/nginx/error.log stays empty — so the discriminator between
+    "rejected" and "slow" is silently unavailable and every failure looks slow.
+    """
+
+    def test_it_reports_the_reference_tick(self, monkeypatch) -> None:
+        monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", list)
+        monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 0)
+        assert "reload reference 4242 ticks" in nginx_ops._no_fresh_worker(4242.0, 0)
+
+    def test_it_reports_the_worker_start_times_it_saw(self, monkeypatch) -> None:
+        """The number next to the reference is what makes the verdict checkable."""
+        monkeypatch.setattr(
+            nginx_ops, "_nginx_worker_starttimes", lambda: [100.0, 90.0]
+        )
+        monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 0)
+        message = nginx_ops._no_fresh_worker(4242.0, 0)
+        assert "worker start times seen: 90, 100" in message
+
+    def test_it_says_when_it_saw_no_workers_at_all(self, monkeypatch) -> None:
+        monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", list)
+        monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 0)
+        assert "worker start times seen: none" in nginx_ops._no_fresh_worker(1.0, 0)
+
+    def test_an_unreadable_error_log_is_named_as_such(self, monkeypatch) -> None:
+        """Otherwise an empty log reads as 'nginx reported nothing wrong'."""
+        monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", list)
+        monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 0)
+        message = nginx_ops._no_fresh_worker(1.0, 0)
+        assert "unreadable/absent" in message
+        assert "daemon off" in message, "name the container case explicitly"
+
+    def test_a_readable_log_reports_how_much_it_grew(self, monkeypatch) -> None:
+        monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", list)
+        monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 500)
+        assert "200 new bytes" in nginx_ops._no_fresh_worker(1.0, 300)
+
+    def test_a_missing_uptime_says_the_reference_was_unavailable(
+        self, monkeypatch
+    ) -> None:
+        monkeypatch.setattr(nginx_ops, "_nginx_worker_starttimes", list)
+        monkeypatch.setattr(nginx_ops, "_error_log_size", lambda: 0)
+        assert "reference unavailable" in nginx_ops._no_fresh_worker(None, 0)
