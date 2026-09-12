@@ -286,6 +286,35 @@ class Hop3Config:
             return static
         return {}
 
+    # =========================================================================
+    # [proxy] section - Reverse-proxy transfer limits
+    # =========================================================================
+
+    @property
+    def proxy(self) -> dict[str, Any]:
+        """Get the [proxy] section."""
+        return self._data.get("proxy", {})
+
+    @property
+    def proxy_max_body_size(self) -> str:
+        """
+        Largest request body the proxy should accept, e.g. "2G".
+
+        Returns:
+            The declared size, or "" to leave the platform default in place.
+        """
+        return str(self.proxy.get("max-body-size", ""))
+
+    @property
+    def proxy_request_buffering(self) -> bool:
+        """
+        Whether the proxy may read the whole request body before the app sees it.
+
+        Returns:
+            The declared value; True (the proxy default) when undeclared.
+        """
+        return bool(self.proxy.get("request-buffering", True))
+
     @property
     def healthcheck_path(self) -> str:
         """

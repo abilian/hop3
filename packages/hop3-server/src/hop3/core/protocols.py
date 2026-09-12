@@ -8,7 +8,12 @@ from typing import TYPE_CHECKING, Any, Literal, Protocol
 
 # BuildArtifact is imported from artifacts.py - see ADR 035
 # It includes RuntimeConfig for build/run separation
-from hop3.core.artifacts import BuildArtifact, RuntimeConfig
+from hop3.core.artifacts import (
+    BuildArtifact,
+    ProxyLimits,
+    RuntimeConfig,
+    load_proxy_limits,
+)
 from hop3.lib.path import REJECTED_SUFFIX, restore_on_failure
 
 __all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatibility
@@ -334,6 +339,16 @@ class BaseProxy(ABC):
     def src_path(self) -> Path:
         """Get the application source directory path."""
         return self.app.src_path
+
+    @property
+    def transfer_limits(self) -> ProxyLimits:
+        """
+        What this app declared the proxy may carry ([proxy] in hop3.toml).
+
+        Identical across proxy implementations — only the directive each one
+        renders differs.
+        """
+        return load_proxy_limits(self.app_path)
 
     @abstractmethod
     def get_proxy_name(self) -> str:

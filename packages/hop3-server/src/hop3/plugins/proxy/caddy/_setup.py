@@ -34,6 +34,7 @@ from ._templates import (
     CADDY_COMPRESSION,
     CADDY_HTTPS_ONLY_TEMPLATE,
     CADDY_PORTMAP_FRAGMENT,
+    CADDY_REQUEST_BODY,
     CADDY_TEMPLATE,
     CADDY_TLS_AUTO,
     CADDY_TLS_MANUAL,
@@ -138,6 +139,16 @@ class CaddyVirtualHost(BaseProxy):
             "" if self.env.get("CADDY_ALLOW_GIT_FOLDERS") else CADDY_BLOCK_GIT
         )
         self.env["CADDY_ACL"] = ""
+
+        # Largest request body this app accepts. Caddy has no equivalent of
+        # nginx's request buffering switch — reverse_proxy streams request
+        # bodies unless `request_buffers` is configured — so [proxy]
+        # request-buffering needs nothing rendered here: `false` is already
+        # what Caddy does.
+        self.env["HOP3_INTERNAL_CADDY_REQUEST_BODY"] = expand_vars(
+            CADDY_REQUEST_BODY,
+            {"max_body_size": self.transfer_limits.max_body_size},
+        )
 
         # Enable compression by default
         if not self.env.get_bool("CADDY_DISABLE_COMPRESSION", default=False):

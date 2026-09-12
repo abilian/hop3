@@ -83,6 +83,16 @@ class NginxVirtualHost(BaseProxy):
             },
         )
 
+        limits = self.transfer_limits
+        self.env["HOP3_INTERNAL_NGINX_MAX_BODY_SIZE"] = limits.max_body_size
+        # `uwsgi_` here, not `proxy_`: get_proxy_conf() rewrites the uwsgi
+        # directives to their proxy equivalents for every non-wsgi app, so
+        # spelling it this way is what produces the right directive for both
+        # backend kinds. nginx buffers by default, so "on" renders nothing.
+        self.env["HOP3_INTERNAL_NGINX_REQUEST_BUFFERING"] = (
+            "" if limits.request_buffering else "uwsgi_request_buffering off;"
+        )
+
     def _is_static_only(self) -> bool:
         """
         Whether nginx should serve this app's files directly (no backend).

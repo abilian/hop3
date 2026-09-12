@@ -73,6 +73,15 @@ http:
     $HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES
 """
 
+# Largest request body this app accepts ([proxy] max-body-size). Traefik
+# enforces a body limit only through the buffering middleware, so the limit
+# and the buffering are one decision here, unlike nginx.
+HOP3_INTERNAL_TRAEFIK_BODY_LIMIT_MIDDLEWARE = """
+    $APP-body-limit:
+      buffering:
+        maxRequestBodyBytes: $max_body_bytes
+"""
+
 # Static file serving middleware (uses replacePath)
 HOP3_INTERNAL_TRAEFIK_STATIC_ROUTER = """
     $APP-static-$static_index:

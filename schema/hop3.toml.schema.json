@@ -929,6 +929,40 @@
       "title": "ProbeSection",
       "type": "object"
     },
+    "ProxySection": {
+      "additionalProperties": false,
+      "description": "[proxy] section \u2014 what the reverse proxy will carry for this app.\n\nThe proxy is platform-owned and stays that way: this is not a passthrough\nfor proxy config. It declares the two limits that are properties of the\n*app* rather than of the platform \u2014 how large a request body it accepts,\nand whether that body may stream through instead of being spooled to the\nproxy's disk first. An app that receives file uploads has to be able to\nsay so; before this section existed, a 50 MB ceiling applied to every app\non the box and nothing could lift it.\n\nEach key renders to the active proxy's own directive (nginx\n``client_max_body_size`` / ``proxy_request_buffering``, Caddy\n``request_body max_size``, Traefik a ``buffering`` middleware), so the\ndeclaration outlives a proxy swap.",
+      "properties": {
+        "max-body-size": {
+          "anyOf": [
+            {
+              "type": "string"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Largest request body the proxy accepts, e.g. '2G' (default '50m', '0' for no limit). A larger upload is refused by the proxy before the app sees it, so the app cannot report the error itself.",
+          "title": "Max-Body-Size"
+        },
+        "request-buffering": {
+          "anyOf": [
+            {
+              "type": "boolean"
+            },
+            {
+              "type": "null"
+            }
+          ],
+          "default": null,
+          "description": "Whether the proxy reads the whole request body before the app sees any of it (default true). Set false for large uploads: the body streams through, the proxy needs no scratch space for it, and the app's first byte arrives with the client's first byte.",
+          "title": "Request-Buffering"
+        }
+      },
+      "title": "ProxySection",
+      "type": "object"
+    },
     "RunSection": {
       "additionalProperties": false,
       "description": "[run] section - Runtime configuration.",
@@ -1750,6 +1784,18 @@
       "default": null,
       "description": "Deprecated: use [[addons]] instead",
       "title": "Provider"
+    },
+    "proxy": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/ProxySection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Per-app reverse-proxy transfer limits: max-body-size and request-buffering. Rendered into whichever proxy is active."
     },
     "run": {
       "anyOf": [

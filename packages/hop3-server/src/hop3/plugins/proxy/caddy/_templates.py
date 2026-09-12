@@ -8,6 +8,7 @@ from __future__ import annotations
 CADDY_TEMPLATE = """
 $HOST_NAME {
     $HOP3_INTERNAL_CADDY_TLS
+    $HOP3_INTERNAL_CADDY_REQUEST_BODY
     $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
     $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
     $HOP3_INTERNAL_CADDY_CACHE_MAPPINGS
@@ -24,6 +25,7 @@ http://$HOST_NAME {
 
 https://$HOST_NAME {
     $HOP3_INTERNAL_CADDY_TLS
+    $HOP3_INTERNAL_CADDY_REQUEST_BODY
     $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
     $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
     $HOP3_INTERNAL_CADDY_CACHE_MAPPINGS
@@ -49,6 +51,13 @@ HOP3_INTERNAL_CADDY_STATIC_MAPPING = """
         root * $static_path
         file_server
         try_files {path} {path}/index.html {path}.html
+    }
+"""
+
+# Largest request body this app accepts ([proxy] max-body-size).
+CADDY_REQUEST_BODY = """
+    request_body {
+        max_size $max_body_size
     }
 """
 
