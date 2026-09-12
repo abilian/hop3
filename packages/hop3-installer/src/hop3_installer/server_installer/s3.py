@@ -1,24 +1,37 @@
 # Copyright (c) 2026, Abilian SAS
+#
 # SPDX-License-Identifier: Apache-2.0
+
 """
-S3-compatible object storage (MinIO) configuration.
+Install and configure Garage, the object store behind the S3 addon.
 
-Downloads MinIO server + the ``mc`` admin CLI, creates a systemd
-service, and configures a ``hop3`` mc alias with generated admin
-credentials.
+Garage replaced MinIO in September 2026. The trigger was not licensing but
+availability: MinIO withdrew its public server binaries, `dl.min.io` answers
+410 for every path, and MinIO's GitHub releases carry no assets — so
+``--with s3`` could not be installed at all. Garage is a single static musl
+binary with no runtime dependencies, S3-compatible, AGPL, and built for the
+self-hosted case. See ADR 060.
 
-**Licensing note:** MinIO moved toward a source-available tier in
-2025. We'll replace this with Garage (https://garagehq.deuxfleurs.fr/,
-genuinely AGPL) in a future release. The server-side plugin in
-``hop3.plugins.s3`` already has a backend abstraction to make the
-swap a one-liner on the plugin side; this installer will need its
-own Garage variant.
+A single-node Garage needs three things beyond the binary: a config file
+carrying two secrets, a running service, and a **cluster layout**. The layout
+is the part that has no MinIO equivalent — until a node is given a role and
+that role is committed, Garage accepts connections but serves no data.
+
+Everything here is idempotent, and the secrets especially so: a redeploy must
+never rotate them, or every key the addon has already handed to an app stops
+working.
 """
 
 from __future__ import annotations
 
+import contextlib
 import os
+import re
 import secrets
+import shutil
+import subprocess
+import time
+from collections.abc import Iterator
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -30,133 +43,148 @@ from hop3_installer.common import (
     run_cmd,
 )
 
-# MinIO server binary (statically linked, ~70MB)
-# We pin to a specific version for reproducibility. Bump deliberately.
-MINIO_VERSION = "RELEASE.2024-11-07T00-52-20Z"
-MINIO_BASE_URL = "https://dl.min.io/server/minio/release"
+#: Pinned so an install is reproducible. Garage publishes static binaries per
+#: target triple; both v1.0.1 and v1.1.0 were verified reachable.
+GARAGE_VERSION = "v1.1.0"
+GARAGE_BASE_URL = "https://garagehq.deuxfleurs.fr/_releases"
 
-# mc admin CLI
-MC_BASE_URL = "https://dl.min.io/client/mc/release"
+GARAGE_BIN = Path("/usr/local/bin/garage")
+GARAGE_CONFIG_FILE = Path("/etc/garage.toml")
+GARAGE_META_DIR = Path("/var/lib/garage/meta")
+GARAGE_DATA_DIR = Path("/var/lib/garage/data")
+GARAGE_SERVICE_FILE = Path("/etc/systemd/system/garage.service")
+SUPERVISORD_CONF_FILE = Path("/etc/supervisor/conf.d/garage.conf")
 
-# Installation paths
-MINIO_BIN = Path("/usr/local/bin/minio")
-MC_BIN = Path("/usr/local/bin/mc")
-MINIO_DATA_DIR = Path("/var/lib/minio")
-MINIO_CONFIG_DIR = Path("/etc/minio")
-MINIO_CREDENTIALS_FILE = MINIO_CONFIG_DIR / "credentials.env"
-MINIO_SERVICE_FILE = Path("/etc/systemd/system/minio.service")
-SUPERVISORD_CONF_FILE = Path("/etc/supervisor/conf.d/minio.conf")
-
-# MC_HOST_<alias> env file — readable by the hop3 user so the
-# server plugin can drive the mc CLI without needing its own
-# alias configuration.
 HOP3_ENV_DIR = Path("/etc/hop3")
-HOP3_S3_ENV_FILE = HOP3_ENV_DIR / "s3-env"
+#: The bearer token the hop3-server S3 plugin authenticates to the admin API
+#: with. Kept in its own file (0640 root:hop3) rather than in garage.toml,
+#: which also holds the RPC secret and must not be group-readable.
+GARAGE_ADMIN_TOKEN_FILE = HOP3_ENV_DIR / "garage-admin-token"
 
-# Network
-MINIO_API_PORT = 9000
-MINIO_CONSOLE_PORT = 9001
-MINIO_ENDPOINT = f"http://127.0.0.1:{MINIO_API_PORT}"
+GARAGE_S3_PORT = 3900
+GARAGE_RPC_PORT = 3901
+GARAGE_ADMIN_PORT = 3903
+GARAGE_ENDPOINT = f"http://127.0.0.1:{GARAGE_S3_PORT}"
+GARAGE_ADMIN_ENDPOINT = f"http://127.0.0.1:{GARAGE_ADMIN_PORT}"
+
+#: Garage's S3 region name. It must match what the backend signs with.
+GARAGE_REGION = "garage"
+
+#: The zone a single node is placed in. Garage models replication across
+#: zones; with one node the name is arbitrary but must be set.
+GARAGE_ZONE = "hop3"
+
+#: How long to wait for the daemon to answer /health before giving up.
+_HEALTH_TIMEOUT_S = 30.0
+_HEALTH_POLL_S = 0.5
 
 
-def _detect_arch() -> str:
-    """
-    Return the MinIO-style arch suffix for the current machine.
-
-    MinIO provides linux-amd64, linux-arm64, linux-arm, linux-ppc64le,
-    linux-s390x. We only need amd64 and arm64 in practice.
-    """
+def _detect_target() -> str:
+    """Garage's target triple for this machine."""
     machine = os.uname().machine.lower()
     if machine in {"x86_64", "amd64"}:
-        return "linux-amd64"
+        return "x86_64-unknown-linux-musl"
     if machine in {"aarch64", "arm64"}:
-        return "linux-arm64"
-    # Unknown arch — default to amd64 and hope binfmt handles it
-    return "linux-amd64"
-
-
-def _download(url: str, dest: Path) -> None:
-    """
-    Download a file to dest. Uses curl (must be available — it's a
-    base dependency of the installer).
-    """
-    dest.parent.mkdir(parents=True, exist_ok=True)
-    run_cmd(
-        [
-            "curl",
-            "-fsSL",
-            "-o",
-            str(dest),
-            url,
-        ],
-        check=True,
+        return "aarch64-unknown-linux-musl"
+    msg = (
+        f"No Garage binary is published for {machine!r}. Supported: x86_64, "
+        f"aarch64. Install Garage manually and re-run, or run an external S3."
     )
-    dest.chmod(0o755)
+    raise RuntimeError(msg)
 
 
-def _install_minio_binary() -> None:
-    """Download MinIO server binary if not already present."""
-    if MINIO_BIN.exists():
-        print_detail(f"MinIO already installed at {MINIO_BIN}")
-        return
+def _install_binary() -> None:
+    """Download the Garage binary unless the pinned version is already there."""
+    if GARAGE_BIN.exists():
+        result = run_cmd([str(GARAGE_BIN), "--version"], check=False)
+        if GARAGE_VERSION.lstrip("v") in (result.stdout or ""):
+            print_detail(f"Garage {GARAGE_VERSION} already installed")
+            return
+        print_detail(f"Replacing Garage at {GARAGE_BIN} with {GARAGE_VERSION}")
 
-    arch = _detect_arch()
-    url = f"{MINIO_BASE_URL}/{arch}/archive/minio.{MINIO_VERSION}"
-    print_info(f"Downloading MinIO server ({arch}, {MINIO_VERSION})...")
-    _download(url, MINIO_BIN)
-    print_success(f"MinIO installed at {MINIO_BIN}")
-
-
-def _install_mc_binary() -> None:
-    """Download the mc admin CLI if not already present."""
-    if MC_BIN.exists():
-        print_detail(f"mc already installed at {MC_BIN}")
-        return
-
-    arch = _detect_arch()
-    url = f"{MC_BASE_URL}/{arch}/mc"
-    print_info(f"Downloading mc admin CLI ({arch})...")
-    _download(url, MC_BIN)
-    print_success(f"mc installed at {MC_BIN}")
+    target = _detect_target()
+    url = f"{GARAGE_BASE_URL}/{GARAGE_VERSION}/{target}/garage"
+    print_info(f"Downloading Garage {GARAGE_VERSION} ({target})...")
+    GARAGE_BIN.parent.mkdir(parents=True, exist_ok=True)
+    # Download beside the target and move into place, so an interrupted
+    # download never leaves a truncated binary that looks installed.
+    staged = GARAGE_BIN.with_suffix(".partial")
+    run_cmd(["curl", "-fsSL", "-o", str(staged), url], check=True)
+    staged.chmod(0o755)
+    staged.replace(GARAGE_BIN)
+    print_success(f"Garage installed at {GARAGE_BIN}")
 
 
-def _generate_admin_credentials() -> tuple[str, str]:
+def _existing_secret(key: str) -> str | None:
     """
-    Generate MinIO admin credentials, or reuse existing ones.
+    A secret already in garage.toml, so a redeploy reuses it.
 
-    Credentials are stored in MINIO_CREDENTIALS_FILE (0600) so the
-    systemd unit and the hop3 server can both read them.
+    Rotating these would be silent breakage: `rpc_secret` identifies the node
+    to itself across restarts, and `admin_token` is what every running
+    hop3-server authenticates with. A redeploy that changed them would leave
+    the addon unable to manage the buckets it created.
     """
-    if MINIO_CREDENTIALS_FILE.exists():
-        content = MINIO_CREDENTIALS_FILE.read_text()
-        root_user = ""
-        root_password = ""
-        for line in content.splitlines():
-            if line.startswith("MINIO_ROOT_USER="):
-                root_user = line.split("=", 1)[1].strip().strip('"')
-            elif line.startswith("MINIO_ROOT_PASSWORD="):
-                root_password = line.split("=", 1)[1].strip().strip('"')
-        if root_user and root_password:
-            print_detail("Reusing existing MinIO admin credentials")
-            return root_user, root_password
-
-    print_detail("Generating new MinIO admin credentials")
-    root_user = f"hop3admin{secrets.token_hex(4)}"
-    root_password = secrets.token_urlsafe(32)
-
-    MINIO_CONFIG_DIR.mkdir(parents=True, exist_ok=True)
-    MINIO_CREDENTIALS_FILE.write_text(
-        f'MINIO_ROOT_USER="{root_user}"\n'
-        f'MINIO_ROOT_PASSWORD="{root_password}"\n'
-        f'MINIO_VOLUMES="{MINIO_DATA_DIR}"\n'
-        f'MINIO_OPTS="--address :{MINIO_API_PORT} '
-        f'--console-address :{MINIO_CONSOLE_PORT}"\n'
-    )
-    MINIO_CREDENTIALS_FILE.chmod(0o600)
-    return root_user, root_password
+    if not GARAGE_CONFIG_FILE.exists():
+        return None
+    try:
+        content = GARAGE_CONFIG_FILE.read_text(encoding="utf-8")
+    except OSError:
+        return None
+    match = re.search(rf'^\s*{re.escape(key)}\s*=\s*"([^"]+)"', content, re.MULTILINE)
+    return match.group(1) if match else None
 
 
-_has_systemd = has_systemd
+def _write_config() -> str:
+    """Write /etc/garage.toml, preserving secrets. Returns the admin token."""
+    # 32 bytes hex: rpc_secret is specified as a 32-byte hex string.
+    rpc_secret = _existing_secret("rpc_secret") or secrets.token_hex(32)
+    admin_token = _existing_secret("admin_token") or secrets.token_urlsafe(32)
+    metrics_token = _existing_secret("metrics_token") or secrets.token_urlsafe(32)
+
+    GARAGE_META_DIR.mkdir(parents=True, exist_ok=True)
+    GARAGE_DATA_DIR.mkdir(parents=True, exist_ok=True)
+
+    config = f"""\
+# Managed by hop3-install. Secrets are preserved across redeploys.
+metadata_dir = "{GARAGE_META_DIR}"
+data_dir = "{GARAGE_DATA_DIR}"
+db_engine = "sqlite"
+
+replication_factor = 1
+
+rpc_bind_addr = "127.0.0.1:{GARAGE_RPC_PORT}"
+rpc_public_addr = "127.0.0.1:{GARAGE_RPC_PORT}"
+rpc_secret = "{rpc_secret}"
+
+[s3_api]
+s3_region = "{GARAGE_REGION}"
+api_bind_addr = "127.0.0.1:{GARAGE_S3_PORT}"
+
+[admin]
+api_bind_addr = "127.0.0.1:{GARAGE_ADMIN_PORT}"
+admin_token = "{admin_token}"
+metrics_token = "{metrics_token}"
+"""
+    GARAGE_CONFIG_FILE.write_text(config)
+    # 0600: this file holds the RPC secret. The admin token reaches the hop3
+    # user through its own file, not by widening this one.
+    GARAGE_CONFIG_FILE.chmod(0o600)
+    print_detail(f"Wrote {GARAGE_CONFIG_FILE}")
+    return admin_token
+
+
+def _write_admin_token_file(admin_token: str) -> None:
+    """
+    Publish the admin token to the hop3 user, 0640 root:hop3.
+
+    Group ownership may fail here on a fresh install (the hop3 group is
+    created in a later step); :func:`fix_s3_env_ownership` fixes it up.
+    """
+    HOP3_ENV_DIR.mkdir(parents=True, exist_ok=True)
+    GARAGE_ADMIN_TOKEN_FILE.write_text(f"{admin_token}\n")
+    GARAGE_ADMIN_TOKEN_FILE.chmod(0o640)
+    run_cmd(["chgrp", "hop3", str(GARAGE_ADMIN_TOKEN_FILE)], check=False)
+    print_detail(f"Wrote {GARAGE_ADMIN_TOKEN_FILE} (admin token for hop3 user)")
 
 
 def _has_supervisord() -> bool:
@@ -165,17 +193,15 @@ def _has_supervisord() -> bool:
 
 
 def _write_systemd_unit() -> None:
-    """Write /etc/systemd/system/minio.service."""
     unit = f"""[Unit]
-Description=MinIO object storage for Hop3
-Documentation=https://min.io/docs
+Description=Garage object storage for Hop3
+Documentation=https://garagehq.deuxfleurs.fr/
 Wants=network-online.target
 After=network-online.target
 
 [Service]
-Type=notify
-EnvironmentFile={MINIO_CREDENTIALS_FILE}
-ExecStart={MINIO_BIN} server $MINIO_OPTS $MINIO_VOLUMES
+Type=simple
+ExecStart={GARAGE_BIN} -c {GARAGE_CONFIG_FILE} server
 Restart=always
 RestartSec=5
 LimitNOFILE=65536
@@ -186,34 +212,24 @@ ProtectHome=true
 PrivateTmp=true
 PrivateDevices=true
 NoNewPrivileges=true
-ReadWritePaths={MINIO_DATA_DIR} {MINIO_CONFIG_DIR}
+ReadWritePaths={GARAGE_META_DIR.parent}
 
 [Install]
 WantedBy=multi-user.target
 """
-    MINIO_SERVICE_FILE.write_text(unit)
-    print_detail(f"Wrote {MINIO_SERVICE_FILE}")
+    GARAGE_SERVICE_FILE.write_text(unit)
+    print_detail(f"Wrote {GARAGE_SERVICE_FILE}")
 
 
-def _write_supervisord_unit(root_user: str, root_password: str) -> None:
-    """
-    Write /etc/supervisor/conf.d/minio.conf as a systemd fallback.
-
-    Containers use supervisord instead of systemd. This writes a
-    program block that runs MinIO with the same args and env as the
-    systemd unit. Supervisord doesn't understand the notify protocol,
-    so we use Type=simple equivalent.
-    """
-    # Supervisord doesn't have EnvironmentFile; pass env vars inline.
-    env_line = f'MINIO_ROOT_USER="{root_user}",MINIO_ROOT_PASSWORD="{root_password}"'
-    conf = f"""[program:minio]
-command={MINIO_BIN} server --address :{MINIO_API_PORT} --console-address :{MINIO_CONSOLE_PORT} {MINIO_DATA_DIR}
-environment={env_line}
+def _write_supervisord_unit() -> None:
+    """Containers run supervisord rather than systemd."""
+    conf = f"""[program:garage]
+command={GARAGE_BIN} -c {GARAGE_CONFIG_FILE} server
 autostart=true
 autorestart=true
 startretries=3
-stderr_logfile=/var/log/minio.err.log
-stdout_logfile=/var/log/minio.out.log
+stderr_logfile=/var/log/garage.err.log
+stdout_logfile=/var/log/garage.out.log
 user=root
 """
     SUPERVISORD_CONF_FILE.parent.mkdir(parents=True, exist_ok=True)
@@ -221,191 +237,223 @@ user=root
     print_detail(f"Wrote {SUPERVISORD_CONF_FILE} (supervisord fallback)")
 
 
-def _setup_data_dir() -> None:
-    """Create the MinIO data directory."""
-    MINIO_DATA_DIR.mkdir(parents=True, exist_ok=True)
-    # MinIO runs as root for now (simplifies the systemd unit). A
-    # dedicated minio user is a nice-to-have for later.
-    print_detail(f"Data directory: {MINIO_DATA_DIR}")
-
-
-def _start_minio_service_systemd() -> bool:
-    """Start MinIO via systemd. Return True on success."""
+def _start_service() -> None:
+    """Start Garage under whichever process manager this host has."""
+    # Init detection reads /proc/1/comm (has_systemd): the systemd *package*
+    # can install systemctl on a container where systemd is not PID 1, and
+    # `systemctl restart` there is fake success.
+    if not has_systemd() and _has_supervisord():
+        run_cmd(["supervisorctl", "reread"], check=False)
+        run_cmd(["supervisorctl", "update"], check=False)
+        result = run_cmd(["supervisorctl", "start", "garage"], check=False)
+        if result.returncode != 0 and "already started" not in (result.stdout or ""):
+            print_warning(f"supervisorctl start garage: {result.stderr[:200]}")
+        return
     run_cmd(["systemctl", "daemon-reload"], check=False)
-    run_cmd(["systemctl", "enable", "minio"], check=False)
-    result = run_cmd(["systemctl", "restart", "minio"], check=False)
+    run_cmd(["systemctl", "enable", "garage"], check=False)
+    result = run_cmd(["systemctl", "restart", "garage"], check=False)
     if result.returncode != 0:
-        print_warning(f"systemctl restart minio failed: {result.stderr[:200]}")
-        return False
-    return True
+        print_warning(f"systemctl restart garage: {result.stderr[:200]}")
 
 
-def _start_minio_service_supervisord() -> bool:
-    """Start MinIO via supervisord. Return True on success."""
-    run_cmd(["supervisorctl", "reread"], check=False)
-    run_cmd(["supervisorctl", "update"], check=False)
-    result = run_cmd(["supervisorctl", "start", "minio"], check=False)
-    # supervisorctl start returns 0 even when the program was already
-    # running (prints "minio: ERROR (already started)"). Accept both
-    # exit-0 and the already-started sentinel.
-    if result.returncode != 0 and "already started" not in result.stdout:
-        print_warning(f"supervisorctl start minio failed: {result.stderr[:200]}")
-        return False
-    return True
+def _garage(*args: str, check: bool = False) -> subprocess.CompletedProcess:
+    """Run the garage CLI against this node's config."""
+    return run_cmd([str(GARAGE_BIN), "-c", str(GARAGE_CONFIG_FILE), *args], check=check)
 
 
-def _start_minio_service() -> None:
+def _layout_is_assigned() -> bool | None:
     """
-    Start MinIO via systemd or supervisord, then verify it's alive.
+    True/False if the node could be asked, None if it could not.
 
-    Picks the init system automatically: systemd if it's PID 1
-    (bare-metal, VMs), supervisord otherwise (Docker test containers).
+    The tri-state matters. An earlier version returned a plain bool from a
+    substring test, so a `garage status` that failed for any reason — the node
+    not running, most obviously — contained no "NO ROLE ASSIGNED" and was read
+    as *already assigned*. The layout step then skipped itself, and the install
+    finished with a Garage that answers health checks and stores nothing.
     """
-    import time  # ruff:ignore[import-outside-top-level]
+    result = _garage("status")
+    if result.returncode != 0:
+        return None
+    output = (result.stdout or "") + (result.stderr or "")
+    return "NO ROLE ASSIGNED" not in output
 
-    started = False
-    if _has_systemd():
-        started = _start_minio_service_systemd()
-    elif _has_supervisord():
-        print_detail("systemd not available, using supervisord fallback")
-        started = _start_minio_service_supervisord()
-    else:
-        print_warning(
-            "Neither systemd nor supervisord found — MinIO will not be "
-            "started automatically. Start it manually with: "
-            f"{MINIO_BIN} server {MINIO_DATA_DIR}"
+
+def _capacity_gb() -> int:
+    """
+    Capacity to advertise, from the data filesystem's free space.
+
+    Garage requires a capacity for any node holding data; it is a scheduling
+    hint, not a quota. Nine tenths of what is free leaves the box room to
+    breathe, with a floor so a small disk still yields a usable number.
+    """
+    free_bytes = shutil.disk_usage(GARAGE_DATA_DIR).free
+    return max(1, int(free_bytes * 0.9) // (1000**3))
+
+
+def _initialise_layout() -> None:
+    """
+    Give the single node a role and commit it. Raises if it cannot.
+
+    Until this is done Garage runs, answers /health with 200, and fails every
+    S3 request with "Could not reach quorum" — a server that looks installed
+    and stores nothing. So this is not best-effort: a `--with` feature that
+    cannot be made to work aborts the install rather than handing over a
+    broken one.
+    """
+    assigned = _layout_is_assigned()
+    if assigned:
+        print_detail("Garage cluster layout already assigned")
+        return
+    if assigned is None:
+        msg = (
+            "Garage is not answering `garage status`, so its cluster layout "
+            "could not be initialised. Without a layout, every S3 request "
+            "fails with 'Could not reach quorum'."
         )
+        raise RuntimeError(msg)
+
+    result = _garage("node", "id", "-q")
+    node_id = (result.stdout or "").strip().split("@")[0]
+    if not node_id:
+        msg = (
+            f"Could not read the Garage node id (`garage node id -q` exited "
+            f"{result.returncode}), so the cluster layout was not initialised."
+        )
+        raise RuntimeError(msg)
+
+    capacity = _capacity_gb()
+    assign = _garage(
+        "layout", "assign", "-z", GARAGE_ZONE, "-c", f"{capacity}G", node_id
+    )
+    if assign.returncode != 0:
+        msg = f"`garage layout assign` failed: {(assign.stderr or '')[:300]}"
+        raise RuntimeError(msg)
+
+    # Version 1 is the first committed layout on a fresh node.
+    applied = _garage("layout", "apply", "--version", "1")
+    if applied.returncode != 0:
+        msg = f"`garage layout apply` failed: {(applied.stderr or '')[:300]}"
+        raise RuntimeError(msg)
+
+    # Verify rather than trust the exit code: a layout that was never
+    # committed is the exact failure this guards against.
+    if _layout_is_assigned() is not True:
+        msg = (
+            "`garage layout apply` reported success but the node still has "
+            "no role assigned."
+        )
+        raise RuntimeError(msg)
+    print_success(f"Garage cluster layout applied ({capacity} GB, zone {GARAGE_ZONE})")
+
+
+@contextlib.contextmanager
+def _garage_running() -> Iterator[bool]:
+    """
+    Ensure a Garage node is up for the duration of the block.
+
+    The layout is applied over RPC, so it needs a running node — and when the
+    installer configures features there may be no process manager to ask. In a
+    container the deployer starts supervisord only *after* the installer
+    returns, so `supervisorctl start garage` fails and nothing is listening;
+    the first version of this code warned and skipped the layout, which is how
+    a server shipped that answered health checks and stored nothing.
+
+    So the installer starts a node itself, does the one-off cluster setup, and
+    stops it again. The layout lives in the metadata directory, so the node
+    the process manager starts later inherits it.
+
+    Yields True if a node is available (already running, or started here).
+    """
+    if _layout_is_assigned() is not None:
+        yield True  # something already has one up
         return
 
-    if not started:
-        return
-
-    # Wait briefly for MinIO to listen on its port
-    for _ in range(15):
-        probe = run_cmd(
-            ["curl", "-sSf", "-o", "/dev/null", f"{MINIO_ENDPOINT}/minio/health/live"],
-            check=False,
-        )
-        if probe.returncode == 0:
-            print_success("MinIO is running and healthy")
-            return
-        time.sleep(1)
-
-    print_warning(
-        "MinIO started but did not respond to health check within 15s. "
-        f"Check logs and 'curl {MINIO_ENDPOINT}/minio/health/live'."
+    print_detail("Starting Garage briefly to initialise its cluster layout")
+    process = subprocess.Popen(
+        [str(GARAGE_BIN), "-c", str(GARAGE_CONFIG_FILE), "server"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
-
-
-def _configure_mc_alias(root_user: str, root_password: str) -> None:
-    """
-    Register the 'hop3' mc alias pointing at the local MinIO.
-
-    This is the alias the hop3-server plugin uses to manage buckets
-    and access keys.
-    """
-    result = run_cmd(
-        [
-            "mc",
-            "alias",
-            "set",
-            "hop3",
-            MINIO_ENDPOINT,
-            root_user,
-            root_password,
-        ],
-        check=False,
-    )
-    if result.returncode == 0:
-        print_success("mc alias 'hop3' configured")
-    else:
-        print_warning(f"Failed to set mc alias: {result.stderr[:200]}")
-
-
-def _write_hop3_env_file(root_user: str, root_password: str) -> None:
-    """
-    Write ``/etc/hop3/s3-env`` with ``MC_HOST_hop3=...``.
-
-    MinIO's ``mc`` CLI reads ``MC_HOST_<alias>`` env vars and uses
-    them as an ad-hoc alias, bypassing ``~/.mc/config.json``. This
-    lets the hop3 user drive ``mc`` without having an alias config
-    in its own home directory.
-
-    The file is 0640 initially owned by root:root. Group ownership
-    is fixed up later by :func:`fix_s3_env_ownership` after the
-    hop3 user has been created (in step 2 of the installer).
-    """
-    HOP3_ENV_DIR.mkdir(parents=True, exist_ok=True)
-    host = MINIO_ENDPOINT.replace("http://", "")
-    # MC_HOST URL format: http://ACCESS:SECRET@host:port
-    host_url = f"http://{root_user}:{root_password}@{host}"
-    HOP3_S3_ENV_FILE.write_text(f"MC_HOST_hop3={host_url}\n")
-    # 0640: root can read/write, hop3 group can read, others blocked.
-    HOP3_S3_ENV_FILE.chmod(0o640)
-    # Try to set group ownership now — this only works if the hop3
-    # group already exists (re-install case). On fresh installs the
-    # user/group is created in step 2; fix_s3_env_ownership() runs
-    # after that step to fix things up.
-    run_cmd(["chgrp", "hop3", str(HOP3_S3_ENV_FILE)], check=False)
-    print_detail(f"Wrote {HOP3_S3_ENV_FILE} (MC_HOST_hop3 for hop3 user)")
+    try:
+        deadline = time.time() + _HEALTH_TIMEOUT_S
+        while time.time() < deadline:
+            if process.poll() is not None:
+                yield False
+                return
+            if _layout_is_assigned() is not None:
+                yield True
+                return
+            time.sleep(_HEALTH_POLL_S)
+        yield False
+    finally:
+        process.terminate()
+        try:
+            process.wait(timeout=15)
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait(timeout=5)
 
 
 def fix_s3_env_ownership() -> None:
     """
-    Set ``/etc/hop3/s3-env`` group ownership to ``hop3``.
+    Set the admin-token file's group to ``hop3``.
 
-    Called by the main installer flow after step 2 (user/group
-    creation) to fix up the file that ``configure_s3`` wrote in
-    step 1 (when the hop3 group didn't yet exist).
-
-    No-op if the file doesn't exist (S3 wasn't enabled).
+    Called by the installer after the user/group creation step, because
+    :func:`configure_s3` runs before the hop3 group exists. No-op when S3 was
+    not enabled.
     """
-    if not HOP3_S3_ENV_FILE.exists():
+    if not GARAGE_ADMIN_TOKEN_FILE.exists():
         return
-    result = run_cmd(["chgrp", "hop3", str(HOP3_S3_ENV_FILE)], check=False)
+    result = run_cmd(["chgrp", "hop3", str(GARAGE_ADMIN_TOKEN_FILE)], check=False)
     if result.returncode == 0:
-        # Also re-assert the mode in case something interfered.
-        HOP3_S3_ENV_FILE.chmod(0o640)
-        print_detail(f"Set hop3 group ownership on {HOP3_S3_ENV_FILE}")
+        GARAGE_ADMIN_TOKEN_FILE.chmod(0o640)
+        print_detail(f"Set hop3 group ownership on {GARAGE_ADMIN_TOKEN_FILE}")
     else:
         print_warning(
-            f"Could not set hop3 group on {HOP3_S3_ENV_FILE}: {result.stderr[:200]}"
+            f"Could not set hop3 group on {GARAGE_ADMIN_TOKEN_FILE}: "
+            f"{result.stderr[:200]}"
         )
 
 
 def configure_s3() -> None:
     """
-    Install and configure MinIO for Hop3 use.
+    Install and configure Garage.
 
-    Called from the installer's optional-packages step when
-    ``--with s3`` is passed.
+    Called from the installer's optional-packages step for ``--with s3``.
     """
-    print_info("Configuring S3 (MinIO)...")
+    print_info(f"Configuring S3 (Garage {GARAGE_VERSION})...")
 
-    _install_minio_binary()
-    _install_mc_binary()
-    _setup_data_dir()
-    root_user, root_password = _generate_admin_credentials()
+    _install_binary()
+    admin_token = _write_config()
+    _write_admin_token_file(admin_token)
 
-    # Write both unit files — the right one will be used depending
-    # on what init system is actually present. This is harmless: an
-    # unused systemd unit file just sits there until the system is
-    # re-provisioned.
     _write_systemd_unit()
     if _has_supervisord():
-        _write_supervisord_unit(root_user, root_password)
+        _write_supervisord_unit()
 
-    # Write the env file BEFORE starting the service so the hop3 user
-    # can use mc against MinIO as soon as it's up.
-    _write_hop3_env_file(root_user, root_password)
+    # The cluster layout is one-off, persistent state and must exist before
+    # anything asks Garage to store an object. It is done against a node this
+    # function is responsible for having up, rather than one a process manager
+    # may or may not have started yet.
+    with _garage_running() as running:
+        if not running:
+            msg = (
+                f"Garage did not come up within {_HEALTH_TIMEOUT_S:g}s, so its "
+                f"cluster layout could not be initialised. Check "
+                f"`{GARAGE_BIN} -c {GARAGE_CONFIG_FILE} server` by hand."
+            )
+            raise RuntimeError(msg)
+        _initialise_layout()
 
-    _start_minio_service()
-    _configure_mc_alias(root_user, root_password)
+    # Hand over to the process manager for the long run. In a container this
+    # is a no-op until the deployer starts supervisord, which is fine: the
+    # layout is already committed to disk.
+    _start_service()
 
     print_detail(
-        "MinIO API:     http://127.0.0.1:9000 "
-        "(use 'hop3 addons create s3 <name>' to provision buckets)"
+        f"Garage S3:    {GARAGE_ENDPOINT} "
+        f"(use 'hop3 addon create s3 <name>' to provision buckets)"
     )
     print_detail(
-        f"MinIO Console: http://127.0.0.1:9001 (root user in {MINIO_CREDENTIALS_FILE})"
+        f"Garage admin: {GARAGE_ADMIN_ENDPOINT} (token in {GARAGE_ADMIN_TOKEN_FILE})"
     )
