@@ -29,7 +29,6 @@ from typing import Protocol
 
 __all__ = [
     "BackendError",
-    "GarageBackend",
     "MinIOBackend",
     "S3Backend",
     "S3Credentials",
@@ -325,69 +324,42 @@ class MinIOBackend:
 
 
 # ---------------------------------------------------------------------------
-# Garage implementation (stub — see licensing note in __init__.py)
-# ---------------------------------------------------------------------------
-
-
-@dataclass(frozen=True)
-class GarageBackend:
-    """
-    Garage backend — NOT IMPLEMENTED YET.
-
-    Garage is the planned replacement for MinIO: genuinely AGPL, single
-    Rust binary, designed for self-hosting at edge. See
-    https://garagehq.deuxfleurs.fr/.
-
-    Garage's admin API is JSON-RPC over HTTP (not a CLI). The
-    implementation will be similar in shape to ``MinIOBackend`` but
-    uses ``httpx.post(admin_endpoint, json=...)`` instead of shelling
-    out to ``mc``.
-    """
-
-    name: str = "garage"
-    endpoint: str = "http://127.0.0.1:3900"
-    admin_endpoint: str = "http://127.0.0.1:3903"
-    admin_token: str = ""
-
-    def create_bucket(self, bucket: str) -> None:
-        msg = "GarageBackend is not implemented yet — use MinIOBackend"
-        raise NotImplementedError(msg)
-
-    def delete_bucket(self, bucket: str) -> None:
-        raise NotImplementedError
-
-    def create_access_key(self, bucket: str) -> S3Credentials:
-        raise NotImplementedError
-
-    def delete_access_key(self, access_key: str) -> None:
-        raise NotImplementedError
-
-    def list_buckets(self) -> list[str]:
-        raise NotImplementedError
-
-    def bucket_info(self, bucket: str) -> dict[str, str]:
-        raise NotImplementedError
-
-
-# ---------------------------------------------------------------------------
 # Backend selection
 # ---------------------------------------------------------------------------
 
 
+#: What a server uses unless told otherwise. Garage, because MinIO withdrew
+#: its public server binaries in 2025 — `dl.min.io` answers 410 and its
+#: GitHub releases carry no assets — so the installer cannot provide MinIO at
+#: all. See ADR 060.
+DEFAULT_BACKEND = "garage"
+
+
 def get_default_backend() -> S3Backend:
     """
-    Return the default S3 backend for this server.
+    Return the S3 backend for this server.
 
     Selection is driven by the ``HOP3_S3_BACKEND`` env var:
-      - ``"minio"`` (default): shell out to ``mc``
-      - ``"garage"``: JSON-RPC to the Garage admin API (not implemented)
+      - ``"garage"`` (default): JSON over the Garage admin API
+      - ``"minio"``: shell out to ``mc``, for a MinIO the operator runs
+        themselves — the installer no longer provides one
 
     The choice is server-wide: a single Hop3 server uses one backend.
     """
-    choice = os.environ.get("HOP3_S3_BACKEND", "minio").lower()
+    choice = os.environ.get("HOP3_S3_BACKEND", DEFAULT_BACKEND).lower()
+    if choice == "garage":
+        # Imported here, not at module scope: backend.py is what garage.py
+        # imports for the protocol and the shared types, so a top-level
+        # import would be a cycle.
+        from .garage import (  # ruff:ignore[import-outside-top-level]
+            GarageBackend,
+        )
+
+        return GarageBackend()
     if choice == "minio":
         return MinIOBackend()
-    if choice == "garage":
-        return GarageBackend()
-    msg = f"Unknown HOP3_S3_BACKEND: {choice!r}"
+    msg = (
+        f"Unknown HOP3_S3_BACKEND: {choice!r}. "
+        f"Known backends: 'garage' (default), 'minio'."
+    )
     raise ValueError(msg)
