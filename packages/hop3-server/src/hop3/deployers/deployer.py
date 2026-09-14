@@ -61,6 +61,8 @@ from hop3.orm.app import AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY
 from hop3.project.config import AppConfig
 from hop3.run.fastcgi import fastcgi_ping
+from hop3.run.listening import listening_ports
+from hop3.run.reaper import app_pids
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -619,6 +621,16 @@ _REDIRECT_STATUSES = frozenset({301, 302, 303, 307, 308})
 #: deploy would fail its readiness gate while the app served perfectly.
 _MAX_REDIRECT_HOPS = 5
 
+#: The readiness probe identifies itself, like every other HTTP client Hop3
+#: has (``hop3-fetch``, ``hop3-ping/1.0``). ``http.client`` sends no
+#: User-Agent at all unless asked, and an anonymous request is not a neutral
+#: one: GoToSocial answers **418 I'm a teapot** to any request without a
+#: User-Agent, so its ``[healthcheck].contains`` could never match and every
+#: deploy failed its readiness gate after 60s while the app served the test
+#: harness's curl perfectly. Refusing UA-less requests is a common bot filter;
+#: the probe is a client and must say who it is.
+_PROBE_USER_AGENT = "hop3-healthcheck"
+
 
 def _app_serves_http(
     app: App,
@@ -685,7 +697,15 @@ def _probe_until_content(
     for _ in range(_MAX_REDIRECT_HOPS + 1):
         conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
         try:
-            conn.request("GET", path, headers={"Host": host, "Connection": "close"})
+            conn.request(
+                "GET",
+                path,
+                headers={
+                    "Host": host,
+                    "Connection": "close",
+                    "User-Agent": _PROBE_USER_AGENT,
+                },
+            )
             resp = conn.getresponse()  # raises on timeout/refusal
             if not contains:
                 return True  # a status line alone == serving
@@ -897,15 +917,50 @@ def _name_the_start_failure(app: App, actual_state: AppStateEnum) -> str:
     bound the socket, the worker failed to boot or is hung" shape. Saying so
     matters because otherwise "actual state: RUNNING" next to "failed to start"
     reads as a contradiction rather than as a diagnosis.
+
+    Reaching it with the port *not* listening usually means the app is running
+    fine on a port of its own choosing. That case is named from the app's own
+    sockets rather than guessed at; see :func:`_name_the_wrong_port`.
     """
-    if actual_state == AppStateEnum.RUNNING and getattr(app, "port", None):
+    port = app.port
+    if not port:
+        return ""
+    if actual_state == AppStateEnum.RUNNING:
         return (
-            f"the app's port ({app.port}) is listening but it did not answer an "
+            f"the app's port ({port}) is listening but it did not answer an "
             "HTTP request: the server bound its socket but no worker is serving "
             "(the worker failed to boot, or is hung). The app would be "
             "unreachable behind the proxy"
         )
-    return ""
+    return _name_the_wrong_port(app, port)
+
+
+def _name_the_wrong_port(app: App, port: int) -> str:
+    """
+    Name the ports the app IS listening on, when it is not on the one assigned.
+
+    The commonest deploy failure of all: the app binds a port of its own
+    (Grafana's 3000 without ``GF_SERVER_HTTP_PORT``) and so is invisible to the
+    probe and to the proxy, while its log cheerfully reports "HTTP Server
+    Listen". The generic timeout for that reads as "the app is slow" and
+    invites the one remedy that cannot work, a longer deadline. The evidence
+    sits in procfs, so we read it and say what we found.
+    """
+    others = sorted(listening_ports(app_pids(app.name)) - {port})
+    if not others:
+        return ""
+    listed = ", ".join(str(p) for p in others)
+    return (
+        f"nothing ever listened on the port Hop3 assigned this app ({port}), "
+        f"but the app's own processes are listening on {listed}. Hop3 "
+        "allocates the port at deploy time and points the proxy at it, so an "
+        "app that binds a port of its own is unreachable however well it runs. "
+        "[run].start runs through a shell with $PORT exported, so bind it "
+        "there — 0.0.0.0:$PORT, or the app's own setting, e.g. "
+        'start = "env GF_SERVER_HTTP_PORT=$PORT ./bin/grafana-server". A '
+        "${PORT} in [env] or [env.computed] does not work: the port is "
+        "allocated after those are resolved"
+    )
 
 
 def _summarise_start_failure(
