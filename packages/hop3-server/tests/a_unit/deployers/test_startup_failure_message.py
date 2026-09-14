@@ -119,3 +119,64 @@ def test_a_failure_we_cannot_name_stays_generic():
         _handle_startup_failure(app, StartOutcome(started=False, elapsed=180.0), 180.0)
 
     assert app.error_message == "App failed to start within 180.0s timeout"
+
+
+class TestTheAppBoundItsOwnPort:
+    """
+    The commonest deploy failure of all, and the one the platform used to have
+    nothing to say about. Grafana binds 3000 unless ``GF_SERVER_HTTP_PORT``
+    says otherwise: it starts, logs "HTTP Server Listen", and is invisible to
+    both the readiness probe and the proxy. The operator read "did not respond
+    to health checks within 60.0s" and was advised to raise the deadline — for
+    an app that was already up and would never answer on that port.
+    """
+
+    ASSIGNED = 39150
+
+    @staticmethod
+    def _fail(monkeypatch, ports: set[int]) -> tuple[SimpleNamespace, str]:
+        """Deploy-failure handling with the app holding ``ports``."""
+        monkeypatch.setattr("hop3.deployers.deployer.app_pids", lambda _name: [4242])
+        monkeypatch.setattr(
+            "hop3.deployers.deployer.listening_ports", lambda _pids: ports
+        )
+        app = _app(port=TestTheAppBoundItsOwnPort.ASSIGNED, state=AppStateEnum.STOPPED)
+        with pytest.raises(Abort) as exc:
+            _handle_startup_failure(
+                app, StartOutcome(started=False, elapsed=60.0), 60.0
+            )
+        return app, str(exc.value)
+
+    def test_the_port_the_app_actually_bound_is_named(self, monkeypatch):
+        _, message = self._fail(monkeypatch, {3000})
+        assert "3000" in message
+        assert "39150" in message
+
+    def test_the_remedy_is_the_one_that_works(self, monkeypatch):
+        """Not a longer deadline: bind the port Hop3 assigned."""
+        _, message = self._fail(monkeypatch, {3000})
+        assert "0.0.0.0:$PORT" in message
+
+    def test_the_assigned_port_is_not_reported_as_a_rival(self, monkeypatch):
+        """
+        A nonsense message ("nothing listened on 39150, but it is listening on
+        39150") is what a naive set difference would produce on a racy read.
+        """
+        _, message = self._fail(monkeypatch, {self.ASSIGNED})
+        assert "but the app's own processes are listening" not in message
+
+    def test_silence_when_the_app_holds_no_port_at_all(self, monkeypatch):
+        """A crashed app listens on nothing; there is no wrong port to name."""
+        _, message = self._fail(monkeypatch, set())
+        assert "but the app's own processes are listening" not in message
+        assert "did not respond to health checks within 60.0s" in message
+
+    def test_every_port_the_app_holds_is_listed(self, monkeypatch):
+        _, message = self._fail(monkeypatch, {3000, 1935})
+        assert "1935, 3000" in message
+
+    def test_the_diagnosis_fits_the_column_it_is_stored_in(self, monkeypatch):
+        """`error_message` is what the dashboard shows, and it is bounded."""
+        app, _ = self._fail(monkeypatch, {3000})
+        assert "3000" in app.error_message
+        assert len(app.error_message) <= 1024  # the column's width

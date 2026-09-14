@@ -1155,6 +1155,80 @@ def _reject_committed_env_secret(name: str, value: object, where: str) -> None:
         raise ValueError(msg)
 
 
+#: ``${VAR}``, with an optional ``:-default`` — the shell spelling a recipe
+#: reaches for, and the one a literal `[env]` value does not expand.
+#:
+#: Bare ``$VAR`` is just as inert in a literal section and is deliberately NOT
+#: matched: unlike ``${...}``, a lone ``$`` has legitimate literal uses in these
+#: values (an nginx or uWSGI log format carries ``$remote_addr``, a password
+#: may contain one), so rejecting it would fail valid recipes. No recipe in
+#: either tree writes one today. Widen this only with a rule that can tell the
+#: two apart.
+_INTERPOLATION = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:-[^}]*)?\}")
+
+#: Two facts about interpolation that both the validator (wrong section) and
+#: the deploy-time resolver (right section, missing variable) have to state.
+#: Kept here, next to the syntax they describe, so the two cannot drift.
+PORT_IS_NOT_AN_ENV_VALUE = (
+    "$PORT is allocated after every [env] section is resolved, so no env "
+    "section can carry it: bind it in [run].start, which runs through a shell "
+    'with $PORT exported — e.g. start = "env GF_SERVER_HTTP_PORT=$PORT '
+    './bin/grafana-server".'
+)
+
+NO_DEFAULT_FORM = (
+    "[env.computed] interpolates ${VAR}, but has no ${VAR:-default} form — "
+    "write the plain reference there, or expand it in [run].start, where a "
+    "shell does support defaults."
+)
+
+
+def _reject_uninterpolated_env_value(name: str, value: object, where: str) -> None:
+    """
+    Fail loud on a ``${VAR}`` written where nothing will expand it.
+
+    ``[env]`` values are literal: exported verbatim, single-quoted, into the
+    app's environment. ``[env.computed]`` is the one that interpolates.
+    Writing ``${PGHOST}`` in the wrong section is silent and total — Grafana
+    received ``GF_DATABASE_HOST=${PGHOST}:${PGPORT}`` and
+    ``GF_SERVER_HTTP_PORT=${PORT:-8080}`` as those exact strings, so it fell
+    back to SQLite and to its own port 3000, while Hop3 had provisioned a
+    PostgreSQL addon it never opened and pointed the proxy at a port it never
+    bound. The deploy read green until the readiness probe timed out.
+
+    The recipe said what it meant; only the section was wrong. Saying so at
+    validation catches it in ``hop3check``, before any of that.
+    """
+    if not isinstance(value, str):
+        return
+    match = _INTERPOLATION.search(value)
+    if not match:
+        return
+    remedy = _interpolation_remedy(match.group(1), has_default=bool(match.group(2)))
+    msg = (
+        f"{where}.{name} = {value!r} contains ${{...}}, which {where} does not "
+        f"expand — the value is exported literally. {remedy}"
+    )
+    raise ValueError(msg)
+
+
+def _interpolation_remedy(referenced: str, *, has_default: bool) -> str:
+    """
+    Where this particular reference does belong.
+
+    Each of the three answers is a different section, and naming the wrong one
+    sends the reader somewhere the value is just as inert.
+    """
+    if referenced == "PORT":
+        return PORT_IS_NOT_AN_ENV_VALUE
+    if has_default:
+        return NO_DEFAULT_FORM
+    return (
+        "Move it to [env.computed], which interpolates against the app's "
+        "environment after addons are provisioned."
+    )
+
+
 class CliSection(BaseModel):
     """
     The ``[cli]`` block — per-project CLI preferences (ADR 042 §Resolution).
@@ -1289,6 +1363,7 @@ class ContextSection(BaseModel):
         if v:
             for name, value in v.items():
                 _reject_committed_env_secret(name, value, "[contexts.*.env]")
+                _reject_uninterpolated_env_value(name, value, "[contexts.*.env]")
         return v
 
     @model_validator(mode="after")
@@ -1734,6 +1809,7 @@ class Hop3TomlSchema(BaseModel):
                 continue
             if not isinstance(value, dict):
                 _reject_committed_env_secret(name, value, "[env]")
+                _reject_uninterpolated_env_value(name, value, "[env]")
                 continue
             if "generate" in value:
                 model: type[BaseModel] = EnvGenerate

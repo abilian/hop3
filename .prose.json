@@ -3,11 +3,35 @@
   "_why": {
     "R33-taboo/loudly": "Hop3's named doctrine (CLAUDE.md: 'Errors Are Never Silent - Fail Loud'). 'fail loudly' / 'aborts loudly' are terms of art here, not manner adverbs claiming a virtue.",
     "R29-synonym/client+user": "In a client-server CLI these name two different things: the client is the program on the laptop, the user is the person typing. Both are needed in the same sentence.",
-    "R34-verbless/labels": "'**Case Study - <topic> (<date>)**:' and '**Fix:**' open a case or a remedy. Rule 34 exempts labels; the parser reads them as prose and mis-tags the imperative that follows."
+    "R34-verbless/labels": "'**Case Study - <topic> (<date>)**:' and '**Fix:**' open a case or a remedy. Rule 34 exempts labels; the parser reads them as prose and mis-tags the imperative that follows.",
+    "R9-hedge/work-to-Level": "'delegates that work to Level 2 LanguageToolchains': 'work' is a noun (the delegated work), not the hedge verb 'work to'. Parse artifact on en_core_web_sm.",
+    "R34-verbless/inline-code+verb": "'Only the `LocalBuilder` delegates to LanguageToolchains': the verb 'delegates' is present; the parser loses it at the inline-code span. Parse artifact on en_core_web_sm.",
+    "R34-verbless/list-question": "'What resources?' sits in a bullet list; rule 34 exempts list items. Same class: 'What package manager?', 'How to isolate?'."
   },
   "allowlist": {
-    "R33-taboo": ["loudly"],
-    "R29-synonym": ["client", "user"],
-    "R34-verbless": ["Case Study", "**Fix:**"]
+    "R33-taboo": [
+      "loudly"
+    ],
+    "R29-synonym": [
+      "client",
+      "user"
+    ],
+    "R9-hedge": [
+      "work to Level"
+    ],
+    "R34-verbless": [
+      "LocalBuilder` delegates",
+      "What resources?"
+    ],
+    "R37-bold": [
+      "whether a packet may reach a port",
+      "whether an HTTP request"
+    ],
+    "R31-runon": [
+      "(1) ban check",
+      "Positive**: meets the NGI WAF commitment",
+      "Negative**: a new long-lived platform service",
+      "selects the managed attack ruleset"
+    ]
   }
 }

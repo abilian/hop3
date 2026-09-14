@@ -202,6 +202,7 @@ LOG_LEVEL = "info"
 
 - Sensitive values should be injected through `hop3 env set`, not hardcoded in hop3.toml. For secrets the app needs to *exist* before its first boot, use a generated secret (below) instead of a manual `config set`.
 - The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
+- **`[env]` values are literal.** They are exported verbatim, so a `${PGHOST}` written here reaches the app as those nine characters rather than as the host — the app then falls back to its own default and nothing says so. Interpolation belongs in [`[env.computed]`](#envcomputed-values-assembled-from-other-variables); `$PORT` belongs in `[run].start`, which runs through a shell, because the port is allocated after every env section is resolved. A `${...}` in a literal section is a hop3.toml validation error, so `hop3check` catches it before a deploy.
 
 #### Generated secrets
 
@@ -259,6 +260,25 @@ APP_FQDN = { key = "domain" }
 - References are **derived** values resolved fresh on every deploy (like `[env.computed]`), so they overwrite. Resolution order is: addon auto-injection → static `[env]` → generated secrets → **references** → `[env.computed]`. A `{ key = "domain" }` ref therefore sees the hostname from `[domains]`, and a `[env.computed]` template can interpolate a resolved reference.
 - Resolution **fails the deploy loudly** if the addon isn't attached, the key doesn't exist (the error lists the available keys), or the app fact is unknown — never a wrong or empty value.
 - `{ from = ..., key = ... }` resolves against this app's own addons only; it can't read another app's credentials.
+
+#### `[env.computed]` - Values assembled from other variables
+
+The one section that interpolates. Use it to hand an app an addon's credentials under whatever name that app expects:
+
+```toml
+[env.computed]
+GF_DATABASE_HOST = "${PGHOST}:${PGPORT}"
+GF_DATABASE_NAME = "${PGDATABASE}"
+APP_URL          = "${HOP3_PUBLIC_URL}"
+```
+
+**Semantics:**
+
+- Templates are resolved **after** addon injection, static `[env]`, generated secrets and references, so every addon variable (`PGHOST`, `MYSQL_USER`, `REDIS_URL`, …) plus `HOST_NAME` and `HOP3_PUBLIC_URL` is in scope.
+- Computed values are **derived**: recomputed and overwritten on every deploy, never treated as defaults.
+- A template naming a variable the app doesn't have **fails the deploy**, listing what is available — the same treatment as an unresolvable reference. It is never stored as-is: an app handed `GTS_HOST=${HOST_NAME}` has nine characters of shell syntax where a hostname belongs.
+- The form is `${VAR}` and only that — there is no `${VAR:-default}`. Write the plain reference, or do the defaulting in `[run].start`, which a shell reads.
+- `$PORT` is **not** available here. Hop3 allocates it after this section is resolved, so an app that takes its port from a setting of its own must get it from the start command, where a shell expands it: `start = "env GF_SERVER_HTTP_PORT=$PORT ./bin/grafana-server"`.
 
 ### `[domains]` - Application Hostnames
 

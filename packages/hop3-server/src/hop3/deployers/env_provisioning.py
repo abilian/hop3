@@ -13,6 +13,7 @@ and never overwrite existing ones (set via config set or addon provisioning).
 from __future__ import annotations
 
 import base64
+import re
 import secrets
 import string
 import uuid
@@ -24,7 +25,11 @@ from hop3.core.credentials import get_credential_encryptor
 from hop3.lib import log
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredentialRepository, EnvVar
-from hop3.project.schema import GENERATE_KINDS
+from hop3.project.schema import (
+    GENERATE_KINDS,
+    NO_DEFAULT_FORM,
+    PORT_IS_NOT_AN_ENV_VALUE,
+)
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -178,10 +183,19 @@ def set_computed_env_vars(
     Computed vars use ${VAR} interpolation against the app's current env vars
     (including addon-injected ones). They always overwrite existing values.
 
+    A template that cannot be resolved fails the deploy, like an unresolvable
+    ``[env]`` reference beside it (:func:`_resolve_env_ref`). It used to warn
+    and store the template verbatim, which handed the app
+    ``GTS_HOST=${HOST_NAME}`` — nine characters of shell syntax where a
+    hostname belonged — and let the deploy report success.
+
     Args:
         app: The application model
         computed_config: Dict of var name -> template string (e.g., "${PGHOST}")
         db_session: Database session for persistence
+
+    Raises:
+        ValueError: a template references a variable this app does not have.
     """
     if not computed_config:
         return
@@ -193,16 +207,8 @@ def set_computed_env_vars(
 
     resolved: dict[str, str] = {}
     for key, template in computed_config.items():
-        value = expand_vars(str(template), current_env)
-        # Check for unresolved variables (still contain ${...})
-        if "${" in value:
-            log(
-                f"  WARNING: Unresolved variable in {key} = {template!r} "
-                f"(resolved to {value!r}). Check that referenced vars are set.",
-                level=0,
-                fg="yellow",
-            )
-        resolved[key] = value
+        _require_resolvable(key, str(template), current_env)
+        resolved[key] = expand_vars(str(template), current_env)
 
     # Set computed vars (always override — they're derived values)
     count, _ = set_env_vars(app, resolved, db_session, defaults_only=False)
@@ -337,6 +343,38 @@ def resolve_env_refs(
         level=1,
         fg="green",
     )
+
+
+#: Every ``${...}`` in a computed template, whatever it holds — the name is
+#: matched loosely on purpose, so ``${PGPORT:-5432}`` is reported as the
+#: unsupported form it is rather than silently surviving as literal text.
+_TEMPLATE_REF = re.compile(r"\$\{([^}]*)\}")
+
+
+def _require_resolvable(key: str, template: str, env: Mapping[str, str]) -> None:
+    """
+    Fail loud when a ``[env.computed]`` template names something that is unset.
+
+    ``expand_vars`` leaves an unknown reference in place, so without this the
+    app receives the template as its value. Naming what is missing *and* what
+    is available turns a mystery into a typo — the same shape as the env-ref
+    resolver's "Available keys" (:func:`_resolve_addon_ref`).
+    """
+    missing = [ref for ref in _TEMPLATE_REF.findall(template) if ref not in env]
+    if not missing:
+        return
+    named = ", ".join(f"${{{ref}}}" for ref in missing)
+    if "PORT" in missing:
+        remedy = PORT_IS_NOT_AN_ENV_VALUE
+    elif any(":-" in ref for ref in missing):
+        remedy = NO_DEFAULT_FORM
+    else:
+        remedy = (
+            "Check the spelling, and that the addon providing it is declared "
+            f"in [[addons]]. Available: {', '.join(sorted(env)) or '(none)'}."
+        )
+    msg = f"[env.computed].{key} = {template!r} references {named}, which is not set. {remedy}"
+    raise ValueError(msg)
 
 
 def _resolve_env_ref(
