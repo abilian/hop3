@@ -186,3 +186,21 @@ The rule: **a recovery action needs a signal that is certain, not merely probabl
 ## Disk exhaustion presents as a PostgreSQL PANIC
 
 `PANIC: could not write to file "pg_wal/...": No space left on device` takes PostgreSQL down and every addon-backed app with it, and recovery is manual and ordered: free space, start PostgreSQL, start hop3-server, redeploy. A deploy should refuse to start when free space is below a floor, and the platform should say so before the database does; the guard is on the 0.8 list.
+
+## A probe that does not identify itself is refused by some apps
+
+**September 2026.** Both GoToSocial variants failed a catalog run at the readiness gate: sixty seconds of polling, every request answered `418 I'm a teapot`, deploy refused. The app was fine — it served the test harness's `curl` on the same path a moment later. GoToSocial refuses any request that arrives without a `User-Agent`, a common enough bot filter, and `http.client` sends none unless asked. Every other HTTP client in the tree said who it was (`hop3-fetch`, `hop3-ping/1.0`); the one that gates every deploy did not.
+
+An anonymous request is not a neutral one. A probe is a client: give it a name, and prefer a stand-in server that reproduces the app's actual refusal over asserting on a header dict — the header has to survive the client library to matter.
+
+## Name the port the app actually bound
+
+The commonest deploy failure there is: the app ignores `$PORT` and binds one of its own (Grafana's 3000 without `GF_SERVER_HTTP_PORT`). It starts cleanly, logs `HTTP Server Listen`, and is invisible to both the probe and the proxy. The platform said only "did not respond to health checks within 60.0s" and offered a longer deadline — the one remedy that cannot work, for an app that was already up.
+
+The evidence was a procfs read away the whole time: `/proc/net/tcp{,6}` lists every listening socket with its inode and `/proc/<pid>/fd` says who holds it, so the app's own sockets can be named against the port it was assigned. When a check times out, ask what the system can still be *asked* before falling back to "it didn't answer" — an unanswered question is not the same as an absent one.
+
+## `${VAR}` in a literal section is a silent misconfiguration
+
+Grafana's recipe carried `GF_DATABASE_HOST = "${PGHOST}:${PGPORT}"` and `GF_SERVER_HTTP_PORT = "${PORT:-8080}"` under `[env]`, which is literal — the values were exported verbatim. The app fell back to SQLite and to its own port 3000, so the PostgreSQL addon Hop3 had provisioned sat empty and the proxy pointed at a port nothing bound. Everything up to the readiness gate reported success.
+
+Three sections, three different behaviours, and only the deploy log could tell them apart: `[env]` is literal, `[env.computed]` interpolates `${VAR}` (no `:-default` form) against the app's environment after addons, and `$PORT` exists in neither because it is allocated later — it belongs in `[run].start`, which runs through a shell. The check now lives in the schema, so `hop3check` catches it before a deploy, and the error names which of the three the value actually wants. When a config language has sections that look alike and behave differently, the validator is what keeps the difference honest.

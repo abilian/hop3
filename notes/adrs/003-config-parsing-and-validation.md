@@ -7,16 +7,16 @@
 
 ## Context
 
-We have decided, early on in the project, to use an existing syntax for the `hop3.toml` files, the heart of the Hop3 platform, rather than create a new DSL.
+We decided early in the project to reuse an existing syntax for the `hop3.toml` files, the heart of the Hop3 platform.
 
 We chose to favor [TOML](https://toml.io/en/) for several reasons, including:
 
-1. **Simplicity and Readability**: TOML was designed to be simple and easy to understand for humans, making it great for configuration files. It aims to be more readable and straightforward than YAML or JSON, which can become complex and verbose with large data structures.
+1. **Simplicity and Readability**: TOML was designed to be simple and easy to understand for humans, making it well suited to configuration files. It aims to be more readable and straightforward than YAML or JSON, which can become complex and verbose with large data structures.
 1. **Explicit and Obvious**: TOML is designed to map unambiguously to a hash table. It aims to be more explicit and less prone to errors or misinterpretation than YAML, which has more complex features like references and tags.
 1. **Consistent Style**: TOML has a more consistent style, whereas YAML can be written in different ways (flow style and block style) which might cause confusion.
-1. **Strong Typing**: TOML has a clear type system, including explicit types for dates and times, which JSON lacks. While YAML also supports data types, its type system can sometimes lead to surprising results due to its reliance on tags.
+1. **Strong Typing**: TOML has a clear type system, including explicit types for dates and times, which JSON lacks. While YAML also supports data types, its type system can lead to surprising results due to its reliance on tags.
 
-However, we also choose to support JSON and YAML as alternatives because the concrete syntax of the `hop3.toml` files is mostly irrelevant, as long as it produces a valid JSON object.
+However, we also chose to support JSON and YAML as alternatives because the concrete syntax of the `hop3.toml` files is mostly irrelevant, as long as it produces a valid JSON object.
 
 ### Decision
 
@@ -26,9 +26,9 @@ However, we also choose to support JSON and YAML as alternatives because the con
 
 ### Detailed Design
 
-Configuration access is property-based, built on Python dataclasses and `@property` methods: a `Hop3Config` class parses `hop3.toml` with `tomllib`, and an `AppConfig` class merges `Procfile` and `hop3.toml`, exposing fields through property accessors. [ADR 001](./001-config-files.md) and [ADR 002](./002-config-format.md) document which fields are active.
+Configuration access is property-based: a `Hop3Config` class parses `hop3.toml` with `tomllib`, and an `AppConfig` class merges `Procfile` and `hop3.toml`, exposing fields through property accessors. [ADR 001](./001-config-files.md) and [ADR 002](./002-config-format.md) document which fields are active.
 
-Validation at load time is limited to TOML parse errors; semantic errors (missing required field, wrong type) surface when the accessor runs. Formal schema validation is deferred in exchange for zero additional dependencies and fast iteration on the config surface.
+Validation at load time is limited to TOML parse errors. Semantic errors (missing required field, wrong type) surface when the accessor runs. We defer formal schema validation to keep the dependency list empty and to iterate quickly on the config surface.
 
 ### Validation Requirements
 
@@ -61,7 +61,7 @@ The validation system must provide:
 
 ### Implementation Options
 
-The validation requirements can be met by several approaches:
+Several approaches can meet the validation requirements:
 
 | Option | Pros | Cons |
 |--------|------|------|
@@ -71,16 +71,16 @@ The validation requirements can be met by several approaches:
 | **msgspec** | Fast, good validation | Less mature ecosystem |
 | **JSON Schema** | Language-agnostic, IDE support | Separate from Python code |
 
-The implementation choice is left open; any approach that meets the validation requirements is acceptable.
+The implementation choice is left open. Any approach that meets the validation requirements is acceptable.
 
 ### Alternatives
 
-- Ad-hoc class with `@property` accessors and no schema layer: simple and dependency-free, but offers only limited validation, deferring semantic checks to access time.
+- An ad-hoc class with `@property` accessors and no schema layer validates little: it defers semantic checks to access time, though it stays simple and dependency-free.
 
 ### Consequences
 
 #### Benefits
 
-- **Better Developer Experience (DX)**: Early feedback to developers or package-builders about invalid configuration syntax or basic semantics will lead to a better developer experience.
-- **Fewer Runtime Dependencies**: The build-time/runtime on TOML or YAML parsers is avoided.
-- **Easier Evolution**: The configuration format can evolve more easily as it is defined and validated through a consistent schema.
+- **Better Developer Experience (DX)**: Early feedback about invalid configuration syntax or basic semantics reaches developers and package-builders sooner.
+- **Fewer Runtime Dependencies**: The build-time/runtime reliance on TOML or YAML parsers is avoided.
+- **Easier Evolution**: The configuration format can evolve through a consistent schema.

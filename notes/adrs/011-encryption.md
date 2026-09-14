@@ -13,14 +13,14 @@ The control plane handles several classes of sensitive data (addon credentials, 
 
 ## Decision
 
-Hop3 encrypts sensitive data at rest and in transit. The protection posture is defined per data class, and the boundary between platform-provided encryption and operator-provided host protection is made explicit.
+Hop3 encrypts sensitive data at rest and in transit. The protection posture is defined per data class. The boundary between platform-provided encryption and operator-provided host protection is explicit.
 
 ## Detailed Design
 
 ### Encryption at Rest
 
 - **Credentials and secrets**: Addon credentials, app admin credentials, session secrets, and magic-link tokens are encrypted with **Fernet AEAD** (AES-128-CBC + HMAC-SHA256). The key is derived from the server's `HOP3_SECRET_KEY` environment variable via **PBKDF2-HMAC-SHA256**. The encryption routines live in `hop3/core/credentials.py`.
-- **Versioned key derivation**: the derivation parameters are a versioned scheme, so they can be strengthened without stranding existing installs. The current scheme (**v2**, stored with a `v2:` token prefix) uses 600,000 iterations (the OWASP 2026 baseline) with a per-install salt from `HOP3_CREDENTIAL_SALT`. The legacy scheme (**v1**, unprefixed) used 100 000 iterations and a static salt; it remains readable, and `hop3 admin reencrypt-credentials` migrates stored values forward. A weaker legacy scheme is migrated rather than silently tolerated.
+- **Versioned key derivation**: the derivation parameters are versioned, so the scheme can be strengthened without stranding existing installs. The current scheme (**v2**, stored with a `v2:` token prefix) uses 600,000 iterations (the OWASP 2026 baseline) with a per-install salt from `HOP3_CREDENTIAL_SALT`. The legacy scheme (**v1**, unprefixed) used 100,000 iterations and a static salt; it remains readable, and `hop3 admin reencrypt-credentials` migrates stored values forward.
 - **Passwords**: User passwords are hashed with **bcrypt** at cost factor 12 (see [ADR 014](./014-authentication-bootstrap.md)).
 - **Database file**: The control-plane SQLite/PostgreSQL file sits on the operator's host filesystem. Hop3 does not encrypt the file itself; it relies on host-level protections (filesystem ACLs, optional full-disk encryption). Values the operator should not be able to read in plaintext (addon credentials, session secrets) are encrypted inside the row. Row-level encryption protects secrets even from an operator with read access to the database; file-level confidentiality is the operator's responsibility.
 
@@ -40,7 +40,7 @@ Hop3 encrypts sensitive data at rest and in transit. The protection posture is d
 
 - **Data Protection**: Ensures the confidentiality and integrity of sensitive data, including against an operator with raw database read access.
 - **Compliance**: Meets regulatory requirements for data protection and encryption.
-- **User Trust**: Demonstrates a commitment to data security.
+- **User Trust**: Encrypting sensitive data reassures users.
 
 ### Drawbacks
 

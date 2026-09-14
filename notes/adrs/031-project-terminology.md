@@ -7,7 +7,7 @@
 
 ## Context
 
-A clear, consistent vocabulary is essential for any software project. Following Domain-Driven Design principles, we define an **ubiquitous language** - a shared vocabulary between domain experts (DevOps engineers, developers, SREs) and the codebase.
+A clear, consistent vocabulary is essential for any software project. Following Domain-Driven Design principles, we define a **ubiquitous language**: a shared vocabulary between domain experts (DevOps engineers, developers, SREs) and the codebase.
 
 This ADR serves as the definitive reference for terminology used throughout the Hop3 project. It consolidates decisions from multiple discussions and ADRs into a single authoritative source.
 

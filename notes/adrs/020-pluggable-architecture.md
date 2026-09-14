@@ -22,14 +22,14 @@ The original Hop3 architecture combined the logic for building, deploying, and p
 ### Goals
 
 1.  **Enable Extensibility:** Allow new build systems, deployment targets, and proxy servers to be added as plugins without modifying Hop3's core.
-2.  **Increase Developer Flexibility:** Empower developers to choose the optimal toolchain for their application through simple configuration.
+2.  **Increase Developer Flexibility:** Let developers choose their application's toolchain through simple configuration.
 3.  **Improve Maintainability:** Decouple responsibilities to make the core codebase simpler and easier to test and maintain.
-4.  **Future-Proof the Platform:** Create a foundation that can easily adapt to new and emerging technologies in the cloud-native ecosystem.
+4.  **Future-Proof the Platform:** Create a foundation that can adopt new cloud-native technologies as they emerge.
 
 ## Tenets
 
 *   **Separation of Concerns:** The process of turning code into a running application should be broken down into its logical, independent parts.
-*   **Convention over Configuration:** The system should intelligently auto-detect the correct strategy where possible, but allow for explicit configuration when needed.
+*   **Convention over Configuration:** The system should auto-detect the correct strategy where possible and allow explicit configuration when needed.
 *   **Open for Extension, Closed for Modification:** The core system should be stable, with new functionality added via well-defined extension points.
 
 ## Decision
@@ -47,15 +47,15 @@ The new architecture is composed of several key concepts:
     *   Passing data between stages (`BuildArtifact` and `DeploymentInfo` data classes).
 
 2.  **Strategies (Plugins):** These are classes that implement the logic for a specific stage. Each strategy must implement a specific Python `Protocol` (interface):
-    *   **`Builder`**: Defines a `build()` method that takes source code and returns a `BuildArtifact` (e.g., a path to a built directory or a Docker image tag). Core builders are `NativeBuildPlugin` (the default, wrapping the per-language builders for Python, Node, Ruby, Go, Static, …) and `DockerBuilder`, with auto-detection through `accept()`.
+    *   **`Builder`**: Defines a `build()` method that takes source code and returns a `BuildArtifact` (for example a path to a built directory or a Docker image tag). Core builders are `NativeBuildPlugin` and `DockerBuilder`, with auto-detection through `accept()`. `NativeBuildPlugin` is the default and wraps the per-language builders for Python, Node, Ruby, Go, Static, and more.
     *   **`Deployer`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application). Core deployers are `UWSGIDeployer` (the default for dynamic apps), `StaticDeployer` (for static sites), and `DockerDeployer`, with auto-detection through `accept()`.
     *   **`ProxyStrategy`**: Defines a `configure()` method that takes `DeploymentInfo` to set up the reverse proxy. Core proxies are `NginxProxyPlugin` (the default), `CaddyProxyPlugin`, and `TraefikProxyPlugin`.
 
-    The Build stage is itself decomposed along two axes (see [030-build-plugin-architecture.md](030-build-plugin-architecture.md)): the Builder (Level 1, *how* to build (local, Docker, or Nix) and the LanguageToolchain (Level 2, *what* to build) Python, Node, Go, …).
+    The Build stage is itself decomposed along two axes (see [030-two-level-build-architecture.md](030-two-level-build-architecture.md)): the Builder (Level 1) determines *how* to build (local, Docker, or Nix) and the LanguageToolchain (Level 2) determines *what* to build (Python, Node, Go, …).
 
 3.  **Plugin Management (`pluggy`):**
     *   A central `PluginManager` is initialized at application startup.
-    *   It discovers all installed strategy plugins (from both the core Hop3 package and any third-party packages) via `pkgutil.walk_packages` and standard setuptools entry points (e.g., `"hop3.build_strategies"`). Core plugins export a module-level `plugin` instance so that auto-discovery can find them without explicit registration.
+    *   It discovers all installed strategy plugins (from both the core Hop3 package and any third-party packages) via `pkgutil.walk_packages` and standard setuptools entry points (such as `"hop3.build_strategies"`). Core plugins export a module-level `plugin` instance so that auto-discovery can find them without explicit registration.
     *   The orchestrator uses the manager to get a list of available strategies for each stage.
     *   Strategies are defined as Python `Protocol` types (PEP 544, structural subtyping) rather than abstract base classes, for better IDE support and looser coupling between core and plugins.
 
@@ -63,7 +63,7 @@ The new architecture is composed of several key concepts:
     *   A TOML file placed in the root of an application's repository allows developers to explicitly select which strategy to use for each stage.
     *   Example: `[build] strategy = "docker"`.
     *   If a strategy is not specified, the orchestrator falls back to an **auto-detection** mechanism, where it calls an `accept()` method on each available strategy until one returns `True` (e.g., a `DockerBuilder` would check for the existence of a `Dockerfile`).
-    *   Build and deploy strategies are selected per-application. Proxy selection, by contrast, is server-wide (via the `HOP3_PROXY_TYPE` environment variable), reflecting that one server runs a single reverse proxy for all applications it hosts.
+    *   Build and deploy strategies are selected per-application, whereas proxy selection is server-wide (via the `HOP3_PROXY_TYPE` environment variable): one server runs a single reverse proxy for all applications it hosts.
 
 The same plugin mechanism governs two further extension points beyond the core Build → Deploy → Proxy pipeline:
 
@@ -124,31 +124,32 @@ graph TD
 
 ### Benefits
 
-1.  **Extensibility:** The platform is now open to new technologies. Adding support for a new runtime like WebAssembly is as simple as creating and installing a new `Deployer` plugin.
+1.  **Extensibility:** The platform now accepts new technologies. Adding support for a new runtime like WebAssembly is as simple as creating and installing a new `Deployer` plugin.
 2.  **Flexibility:** Developers have full control over their application's lifecycle, from build to deployment.
-3.  **Maintainability:** The core codebase is simplified. The complex logic is isolated within individual plugins, making them easier to develop, test, and debug.
+3.  **Maintainability:** The core codebase is simplified. Complex logic lives inside individual plugins, making them easier to develop, test, and debug.
 4.  **Clear Integration Path:** Provides a clear, non-intrusive path for integrating with external systems like the NEPHELE SMO.
 
 ### Drawbacks
 
 1.  **Increased Complexity for Plugin Developers:** Developers wishing to extend Hop3 must now understand the plugin architecture, the `pluggy` system, and the specific strategy interfaces.
-2.  **Potential for Configuration Errors:** The flexibility of `hop3.toml` introduces a new potential source of user error if strategies are misconfigured or incompatible strategies are selected.
+2.  **Potential for Configuration Errors:** The flexibility of `hop3.toml` gives users a new way to err, by misconfiguring strategies or selecting incompatible ones.
 
 ## Lessons Learned
 
-The initial monolithic design, while simple to start with, quickly became a bottleneck for innovation and integration. It confirmed that for a platform intended to be part of a larger ecosystem, designing for extensibility from the outset is important. However, the effort required to refactor the core was not significant, meaning that there is nothing wrong in prototyping with a monolith and eventually using a decoupled, plugin-based architecture later in a project's lifecycle.
+The initial monolithic design was quick to start with and quickly became a bottleneck for innovation and integration. It confirmed that for a platform intended to be part of a larger ecosystem, designing for extensibility from the outset matters. The effort required to refactor the core was small, which shows that prototyping with a monolith and adopting a decoupled, plugin-based architecture later in a project's lifecycle is a workable path.
 
 ## Alternatives
 
-1.  **Hardcoded Conditional Logic:** We could have added `if/else` blocks to the existing `Deployer` to handle different cases (e.g., `if dockerfile_exists: do_docker_build()`). This was rejected as it would lead to an unmaintainable, monolithic function and would not be extensible by third parties.
-2.  **Simple Class-Based Inheritance:** We considered a simpler system where new deployers would inherit from a base `Deployer` class. This was rejected because it lacked a formal discovery mechanism and would still require modifications to the core to register new deployer types. The `pluggy` and `entry_points` system provides a much more capable and standard solution for a true plugin ecosystem.
+1.  **Hardcoded Conditional Logic:** We could have added `if/else` blocks to the existing `Deployer` to handle different cases (e.g., `if dockerfile_exists: do_docker_build()`). We rejected this because it would produce an unmaintainable, monolithic function that third parties could not extend.
+2.  **Simple Class-Based Inheritance:** We considered a simpler system where new deployers would inherit from a base `Deployer` class. We rejected it because it lacked a formal discovery mechanism and would still require core modifications to register new deployer types. `pluggy` and `entry_points` provide a more capable and standard solution for a true plugin ecosystem.
 
 ## Prior Art
 
-This architectural pattern is well-established and draws inspiration from numerous successful projects:
-*   **`pytest`:** The testing framework `pytest` is a prime example of a core extended by a rich ecosystem of plugins using `pluggy`.
-*   **Heroku Buildpacks:** The concept of auto-detecting an application's needs and applying a specific build process is directly inspired by Heroku's buildpack system.
-*   **HashiCorp Plugins:** Many HashiCorp tools (like Terraform) use a plugin-based architecture to support different providers (cloud, services, etc.), demonstrating the pattern's effectiveness at scale.
+This architectural pattern is established in many projects:
+
+*   **`pytest`:** A core extended by a rich ecosystem of plugins using `pluggy`.
+*   **Heroku Buildpacks:** The buildpack system inspired the auto-detection of an application's needs and the selection of a build process to match.
+*   **HashiCorp Plugins:** Many HashiCorp tools (like Terraform) use a plugin-based architecture to support different providers (cloud, services, etc.).
 
 ## Unresolved Questions
 
@@ -164,3 +165,6 @@ This architectural pattern is well-established and draws inspiration from numero
 *   [pluggy Documentation](https://pluggy.readthedocs.io/)
 *   [Python Entry Points Specification](https://packaging.python.org/en/latest/specifications/entry-points/)
 *   [Architectural Decision Records by Michael Nygard](http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions)
+ns)
+)
+-decisions)

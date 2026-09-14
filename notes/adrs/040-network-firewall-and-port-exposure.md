@@ -4,15 +4,15 @@
 - **Superseded-By**: [ADR 045](./045-fixed-port-registry.md)
 - **Type**: Feature
 - **Created**: 2026-04-25
-- **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [016](./016-backups.md) (backups), [033](./033-docker-integration.md) (docker integration), [038](./038-multi-service-apps.md) (multi-service apps), [041](./041-privileged-operations-agent.md) (privileged operations agent (supersedes the sudo/wrapper privilege-handling sketched here), [045](./045-fixed-port-registry.md) (fixed-port registry) the per-app declaration mechanism that actually shipped)
+- **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [016](./016-backups.md) (backups), [033](./033-docker-integration.md) (docker integration), [038](./038-multi-service-apps.md) (multi-service apps), [041](./041-privileged-operations-agent.md) (privileged operations agent (supersedes the sudo/wrapper privilege-handling sketched here), [045](./045-fixed-port-registry.md) (fixed-port registry, the per-app declaration mechanism that actually shipped))
 
 The per-app port-exposure design shipped as `[[ports]]` ([ADR 045](./045-fixed-port-registry.md)); the L7 WAF half is [ADR 050](./050-waf-l7-lewaf.md); the installer platform-firewall baseline and the Docker port-publishing rework remain open follow-ups (tracked in the release plan).
 
 ## Context
 
-The 2026-05 internal security audit flagged that Hop3 ships **zero** firewall configuration: addon ports (3306, 5432, 6379) and high uWSGI app ports are internet-facing on a default cloud VM. The MySQL installer's own comment delegates security to "firewall/iptables": but the installer doesn't deploy any. The audit's "Wave 5" remediation proposal was a platform-level baseline of "ufw allow OpenSSH/80/443, deny rest".
+The 2026-05 internal security audit flagged that Hop3 ships **zero** firewall configuration: addon ports (3306, 5432, 6379) and high uWSGI app ports are internet-facing on a default cloud VM. The MySQL installer's own comment delegates security to "firewall/iptables", but the installer doesn't deploy any. The audit's "Wave 5" remediation proposal was a platform-level baseline of "ufw allow OpenSSH/80/443, deny rest".
 
-That model is too simplistic for what Hop3 actually packages. **Several apps already in the catalog need ports beyond 22/80/443:**
+That model is too simplistic for what Hop3 packages. Several apps already in the catalog need ports beyond 22/80/443:
 
 - **Gitea / Forgejo**: TCP 22 (or alt) for SSH-based `git push/pull`.
 - **Matrix-synapse**: TCP 8448 for server-to-server federation.
@@ -30,7 +30,7 @@ And the future catalog widens further. Self-hosted alternatives that fit Hop3's 
 - **Prosody / XMPP**: TCP 5222 (client), 5269 (federation), 5280 (BOSH).
 - **Plex / Jellyfin**: TCP 32400 / 8096 + DLNA.
 
-A "deny by default, allow only 22/80/443" platform firewall would silently break *currently-shipped* applications. The firewall design therefore cannot be installer-only; it has to participate in the **app deploy / destroy lifecycle**.
+A "deny by default, allow only 22/80/443" platform firewall would silently break *currently-shipped* applications. The firewall design therefore cannot be installer-only: it has to participate in the **app deploy / destroy lifecycle**.
 
 ### Two failures the audit didn't separate
 
@@ -39,8 +39,6 @@ The Wave 5 plan bundled "network-level firewall" as one item. In practice it's t
 1. **Platform baseline.** Drop everything on the wire that doesn't belong to a Hop3-managed service (SSH for operators, nginx for HTTP/S, addons bound only where addon topology says). One-shot, installer-time. Static.
 2. **Per-app port exposure.** Some apps need additional inbound ports. Each app declares what it needs; Hop3 reconciles the firewall against those declarations. Lifecycle-aware: open on deploy, close on destroy, diff-and-apply on config change.
 
-The audit collapsed these into one item.
-
 ### What the NGI deliverable promised
 
 > "Security will be fortified with **network-level firewalls** and a **Web Application Firewall (WAF)** using tools like OWASP Core Ruleset and Coraza."
@@ -48,13 +46,13 @@ The audit collapsed these into one item.
 The two halves are at different OSI layers:
 
 - L3/L4 firewall (this ADR): drops packets by IP/port/protocol before any service sees them. ufw on Debian/Ubuntu, firewalld on RHEL/Fedora.
-- L7 WAF (separate ADR, deferred): inspects HTTP requests for SQLi/XSS/RCE patterns. Coraza or libmodsecurity in front of nginx, with the OWASP Core Rule Set. Substantial work in its own right (rule tuning, false-positive management, per-app exemptions, log pipeline). Deserves its own ADR; tracked as a follow-up.
+- L7 WAF (separate ADR, deferred): inspects HTTP requests for SQLi/XSS/RCE patterns. Coraza or libmodsecurity in front of nginx, with the OWASP Core Rule Set. Substantial work in its own right (rule tuning, false-positive management, per-app exemptions, log pipeline); tracked as a separate ADR.
 
 This ADR addresses only the L3/L4 piece. The WAF piece is referenced as a future commitment but its design is out of scope here.
 
 ### Docker interaction
 
-Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules ufw inserts. A docker-compose `ports:` declaration like `"1935:1935"` makes the port reachable from the public Internet *regardless of the host firewall*. This means:
+Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules ufw inserts. A docker-compose `ports:` declaration like `"1935:1935"` makes the port reachable from the public Internet *regardless of the host firewall*, which means:
 
 - A "deny by default" host firewall is undermined by any container that publishes a port: the port is reachable from the Internet but ufw does not show it, so operators cannot audit it through `ufw status`.
 - For app-declared exposures to be the single source of truth, Hop3 must not let docker-compose publish ports unilaterally. Either rewrite generated compose files to bind container ports to `127.0.0.1` and let ufw forward inbound traffic, or require operators to use Hop3's `[[expose]]` mechanism instead of compose-level `ports:`.
@@ -98,7 +96,7 @@ Schema:
 - `port-range`: optional alternative to `port`, format `"start-end"`. For e.g. Coturn relay (`49152-65535/udp`). Range size capped at 16384 to prevent denial-of-firewall via a million-rule explosion.
 - `source`: optional, default `"any"`. CIDR or `"any"`. Allows e.g. `"10.0.0.0/8"` for VPN-only services.
 
-Example for Matrix-synapse with Coturn sidecar:
+Example for Matrix-synapse with a Coturn sidecar:
 
 ```toml
 [[expose]]
@@ -137,7 +135,7 @@ The deployer reconciles ufw rules against the app's `[[expose]]` declarations:
 
 ### 5. Docker interaction
 
-Generated compose files will bind container ports to `127.0.0.1` rather than `0.0.0.0`, e.g.:
+Generated compose files will bind container ports to `127.0.0.1` instead of `0.0.0.0`, e.g.:
 
 ```yaml
 ports:
@@ -146,7 +144,7 @@ ports:
 
 Inbound traffic from outside the host arrives at ufw, which forwards to the container's loopback-bound port. This makes ufw the single source of truth.
 
-For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer parses the file at deploy time, warns about any `0.0.0.0:N:M` publish without a matching `[[expose]]` declaration, and either (a) refuses the deploy unless the operator confirms with `--allow-unmanaged-ports`, or (b) auto-rewrites the bind to `127.0.0.1` (operator pref TBD: see Open Questions).
+For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer parses the file at deploy time and warns about any `0.0.0.0:N:M` publish without a matching `[[expose]]` declaration. It then either (a) refuses the deploy unless the operator confirms with `--allow-unmanaged-ports`, or (b) auto-rewrites the bind to `127.0.0.1` (operator pref TBD: see Open Questions).
 
 ### 6. Out of scope (this ADR)
 
@@ -182,9 +180,9 @@ For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer 
 
 ### A. Platform-level firewall only; no per-app declarations
 
-The simplest model: ufw allow 22/80/443, deny rest, done. Same as the original Wave 5 proposal.
+The simplest model: ufw allow 22/80/443, deny rest, done. This is the original Wave 5 proposal, word for word.
 
-Rejected because it silently breaks Owncast, Gitea SSH, Matrix federation, Jenkins, and most of the future catalog Hop3 plausibly wants to support.
+Rejected because it silently breaks Owncast, Gitea SSH, Matrix federation, Jenkins, and most of the future catalog Hop3 wants to support.
 
 ### B. No firewall; rely on operators
 
@@ -196,7 +194,7 @@ Status quo. Rejected because:
 
 ### C. Cloud-provider firewall integration
 
-Defer all firewall management to AWS Security Groups, Hetzner Cloud Firewalls, etc. Hop3 stays out of iptables.
+Defer all firewall management to AWS Security Groups, Hetzner Cloud Firewalls, and so on; Hop3 stays out of iptables.
 
 Rejected as a primary mechanism because it's cloud-specific and doesn't help operators on bare metal, OVH dedicated, Hetzner servers (separate from Cloud), or local VMs. Could be a *complementary* deliverable later (Hop3 emits a JSON description of its desired firewall state, and an integration script applies it to AWS Security Groups), but not the baseline.
 
@@ -210,7 +208,7 @@ Plausible but adds a third backend (ufw, firewalld, nftables) and operator famil
 
 "Open everything by default; explicitly close known-dangerous ports." Reverses the default.
 
-Rejected: modern security practice is firmly allow-list. The deliverable framing ("network-level firewalls") implies allow-list as well.
+Rejected: modern security practice is firmly allow-list, and the deliverable framing ("network-level firewalls") points the same way.
 
 ## Open questions
 
@@ -220,7 +218,7 @@ Rejected: modern security practice is firmly allow-list. The deliverable framing
 
 3. **Coturn-style large port ranges.** The 16384-port-range cap proposed above is arbitrary. Is that the right ceiling? Some operators might need wider relay ranges for high-volume video conferencing.
 
-4. **What happens on firewall failure mid-deploy?** If ufw is broken or sudo times out during the reconciliation step, the app may already be running but its declared ports aren't open. Should the deploy fail loudly (and roll back the app), succeed with a warning, or retry?
+4. **What happens on firewall failure mid-deploy?** If ufw is broken or sudo times out during the reconciliation step, the app may already be running while its declared ports are closed. Should the deploy fail loudly (and roll back the app), succeed with a warning, or retry?
 
 5. **Existing-install upgrade path.** Marker file is the proposal, but we need to decide whether re-running the installer with the marker present should be silent (current proposal) or print the current rule set so operators can confirm.
 
@@ -228,7 +226,7 @@ Rejected: modern security practice is firmly allow-list. The deliverable framing
 
 7. **Interaction with the addon-binding topology** from the Wave 5 review note. The topology marker (`native` / `docker` / `mixed`) decides where addons listen. Does the firewall reconciliation need to know the topology, or is the addon installer's bind-address choice already sufficient?
 
-8. **Self-hosted-mail port 25 problem.** Many ISPs and cloud providers block outbound port 25 to fight botnets. A mail-server app would deploy successfully and `[[expose]] port = 25` would open the firewall, but outbound delivery still fails. Hop3 should detect this at deploy time and warn the operator. Out of scope for the firewall mechanism itself but worth a note.
+8. **Self-hosted-mail port 25 problem.** Many ISPs and cloud providers block outbound port 25 to fight botnets. A mail-server app would deploy successfully and `[[expose]] port = 25` would open the firewall, but outbound delivery still fails. Hop3 should detect this at deploy time and warn the operator. Out of scope for the firewall mechanism itself, but noted here.
 
 ## Implementation sketch
 
@@ -245,3 +243,5 @@ Splitting the platform baseline from the per-app declarations lets the "network-
 - [ADR 041](./041-privileged-operations-agent.md): Privileged operations agent (`hop3-rootd`): the kernel-boundary executor that v0.3 of this design routes nft mutations through.
 - NGI 0.5 project plan: `notes/ngi-2024/project-plan.md`
 - [ADR 010](./010-security-and-resilience.md) (security and resilience), [ADR 033](./033-docker-integration.md) (docker integration), [ADR 038](./038-multi-service-apps.md) (multi-service apps)
+ice apps)
+)

@@ -20,12 +20,12 @@ This creates friction and requires SSH access to the host, which may not be desi
 
 ### Use Cases
 
-1. **Application Debugging:** Execute commands in the app's environment to troubleshoot issues
-2. **Database Operations:** Run SQL queries directly in app's database
-3. **Log Analysis:** Use grep, tail, and other tools to analyze logs in real-time
-4. **File Management:** View, edit, and manage application files
-5. **Process Inspection:** Check running processes, resource usage, etc.
-6. **Emergency Operations:** Quick access during incidents without SSH setup
+1. **Application Debugging.** Execute commands in the app's environment to troubleshoot issues
+2. **Database Operations.** Run SQL queries directly in app's database
+3. **Log Analysis.** Use grep, tail, and other tools to analyze logs in real-time
+4. **File Management.** View, edit, and manage application files
+5. **Process Inspection.** Check running processes, resource usage, and so on
+6. **Emergency Operations.** Quick access during incidents without SSH setup
 
 ### Requirements
 
@@ -61,18 +61,18 @@ We will implement a web-based terminal feature using the following architecture:
 ### Technology Stack
 
 **Frontend:**
-- **xterm.js** - Industry-standard terminal emulator
+- **xterm.js**: Terminal emulator
   - Full VT100/xterm terminal emulation
   - Extensive addon ecosystem
-  - Excellent performance and compatibility
-- **WebSocket** - Real-time bidirectional communication
-- **Alpine.js** - Lightweight reactive UI (already in use)
+  - Fast and broadly compatible
+- **WebSocket**: Real-time bidirectional communication
+- **Alpine.js**: Lightweight reactive UI (already in use)
 
 **Backend:**
-- **Python PTY module** - Proper terminal emulation with shell
-- **Asyncio** - Non-blocking I/O for multiple concurrent sessions
-- **Litestar WebSocket routes** - Native framework support
-- **Session Manager** - Track and manage active terminal sessions
+- **Python PTY module**: Proper terminal emulation with shell
+- **Asyncio**: Non-blocking I/O for multiple concurrent sessions
+- **Litestar WebSocket routes**: Native framework support
+- **Session Manager**: Track and manage active terminal sessions
 
 ### Architecture
 
@@ -158,9 +158,9 @@ class TerminalLimits:
 #### Audit Logging
 
 All terminal sessions will be:
-- **Logged:** Start time, end time, user, app, commands executed
-- **Recorded:** Full session recording in asciicast v2 format
-- **Monitored:** Real-time alerts for suspicious activity
+- **Logged.** Start time, end time, user, app, commands executed
+- **Recorded.** Full session recording in asciicast v2 format
+- **Monitored.** Real-time alerts for suspicious activity
 
 ### Implementation Details
 
@@ -424,8 +424,8 @@ max_memory = 536870912  # 512MB
 - ⚠️ Browser compatibility issues with xterm.js
 
 **Mitigation:**
-- Use battle-tested libraries (xterm.js, Python pty module)
-- Comprehensive testing (unit, integration, E2E)
+- Use libraries the field trusts (xterm.js, Python pty module)
+- Test at every layer (unit, integration, E2E)
 - Progressive enhancement (graceful degradation)
 - Clear documentation and troubleshooting guides
 
@@ -491,24 +491,24 @@ max_memory = 536870912  # 512MB
 
 ### Similar Implementations
 
-1. **Heroku Exec** - Terminal access via SSH tunnel
-2. **Railway.app** - Web terminal per service
-3. **Render.com** - Shell access in dashboard
-4. **AWS Cloud9** - Full IDE with integrated terminal
-5. **Google Cloud Shell** - Web-based terminal for GCP
+1. **Heroku Exec**: Terminal access via SSH tunnel
+2. **Railway.app**: Web terminal per service
+3. **Render.com**: Shell access in dashboard
+4. **AWS Cloud9**: Full IDE with integrated terminal
+5. **Google Cloud Shell**: Web-based terminal for GCP
 
 ### Libraries & Tools
 
 **Frontend:**
-- [xterm.js](https://xtermjs.org/) - Terminal emulator
-- [local-echo](https://github.com/wavesoft/local-echo) - Input handling
+- [xterm.js](https://xtermjs.org/): Terminal emulator
+- [local-echo](https://github.com/wavesoft/local-echo): Input handling
 
 **Backend:**
-- [pty (Python)](https://docs.python.org/3/library/pty.html) - Pseudo-terminal utilities
-- [pyte](https://github.com/selectel/pyte) - Terminal emulator (if needed)
+- [pty (Python)](https://docs.python.org/3/library/pty.html): Pseudo-terminal utilities
+- [pyte](https://github.com/selectel/pyte): Terminal emulator (if needed)
 
 **Recording:**
-- [asciinema](https://asciinema.org/) - Terminal session recording format
+- [asciinema](https://asciinema.org/): Terminal session recording format
 
 ### Security Standards
 

@@ -9,13 +9,13 @@
 
 Running Nix-built applications under Hop3's own runtime (uWSGI emperor + nginx) is not part of this ADR's scope: it is covered by [ADR 035](./035-build-artifacts.md)'s `RuntimeConfig` contract. A Nix derivation produces `$out/hop3/runtime.json`; the deployer reads it and launches the workers with no further inference, across both hand-crafted and template-generated derivations.
 
-The further step of letting Nix manage the runtime *itself* (the host OS and backing services) rather than only the applications it builds:
+The further step of letting Nix manage the runtime *itself* (the host OS and backing services):
 
-- **Full NixOS module generation is the subject of this ADR.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
+- **NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
 - **Nix-managed backing services.** Provision PostgreSQL / MySQL / Redis / MinIO via nixpkgs services rather than via the OS-package-plus-config approach. This opens a path to per-app NixOS containers.
 - **NixOS-native systemd integration.** Use NixOS's systemd module system to express worker lifetimes rather than writing uWSGI vassal `.ini` files.
 
-This is deferred. It delivers additional reproducibility guarantees (the OS itself becomes Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off is not worth making before a quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the in-scope `RuntimeConfig` integration.
+This is deferred. It delivers additional reproducibility guarantees (the OS itself becomes Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off should wait until a quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the in-scope `RuntimeConfig` integration.
 
 Two design questions remain open and are to be resolved against the results of that evaluation: the provisioning semantics for Nix-managed backing services, and the isolation boundary for NixOS containers.
 
@@ -29,22 +29,22 @@ The `BuildArtifact.runtime` field provides this abstraction: the run phase reads
 
 ## Context and Goals
 
-Hop3 needs runtime isolation for the applications it hosts. While traditional containerization tools like Docker offer runtime isolation, they can introduce complexity and security vulnerabilities. Nix, with its purely functional package management system, is traditionally known for its build-time guarantees (reproducibility, determinism). However, Nix also has potential as a runtime tool, particularly in providing isolation between applications and managing services.
+Hop3 needs runtime isolation for the applications it hosts. While traditional containerization tools like Docker offer runtime isolation, they can introduce complexity and security vulnerabilities. Nix, with its purely functional package management system, is known primarily for its build-time guarantees (reproducibility, determinism). However, Nix also has potential as a runtime tool, particularly for isolating applications from one another and managing services.
 
-This ADR evaluates Nix's capabilities for isolating running applications and managing them alongside their backing services (databases, email servers, certificates). This aligns with Hop3's objective of offering a secure, reliable, and user-friendly platform.
+This ADR evaluates Nix's capabilities for isolating running applications and managing them alongside their backing services (databases, email servers, certificates).
 
 ### Architectural Context
 
 **Connection to BuildArtifact/RuntimeConfig ([ADR 035](./035-build-artifacts.md))**:
 
-Hop3's build/run separation model ([ADR 035](./035-build-artifacts.md)) aligns perfectly with Nix's philosophy:
+Hop3's build/run separation model ([ADR 035](./035-build-artifacts.md)) matches how Nix works:
 
 1. **Build phase** produces a `BuildArtifact` with `RuntimeConfig` containing:
    - `env_vars`: Environment variables (PATH, PYTHONPATH, etc.)
    - `path_prepend`: Paths to add to PATH
    - `workers`: Process commands to run
 
-2. **Run phase** reads the artifact and applies the configuration - no detection or inference needed.
+2. **Run phase** reads the artifact and applies the configuration without detection or inference.
 
 Nix naturally produces this model:
 - All paths are absolute (`/nix/store/...`)
@@ -75,7 +75,7 @@ Nix's immutable store paths enable clean versioning and rollback:
 
 ## Decision
 
-Hop3 will use Nix not only for build-time management but also for runtime behavior, using its declarative nature to provide isolation between running applications and managing services as resources. This will include managing dependencies, service configuration, and backing services (e.g., databases, email systems, storage) through Nix's package and environment management tools.
+Hop3 will use Nix for runtime behavior as well as build-time management, using its declarative nature to isolate running applications and to manage services as resources. This covers dependencies, service configuration, and backing services (e.g., databases, email systems, storage) through Nix's package and environment tools.
 
 ## Key Components
 
@@ -83,13 +83,13 @@ Hop3 will use Nix not only for build-time management but also for runtime behavi
 
 1. **Isolation Between Running Applications**:
 
-   - **Controlled Environments**: Nix can create isolated environments for each application by ensuring each application has its own, unique set of dependencies and configurations. This can prevent conflicts between applications and ensure they run securely.
-   - **Minimal Cross-Application Interference**: Each application will be run in its own isolated environment, making it immune to changes in other applications' environments. This prevents issues such as dependency conflicts or one application affecting the performance of another.
+   - **Controlled Environments**: Nix can create isolated environments for each application by ensuring each application has its own, unique set of dependencies and configurations. This can prevent conflicts between applications.
+   - **Minimal Cross-Application Interference**: Each application will be run in its own isolated environment, making it immune to changes in other applications' environments. This prevents issues such as one application affecting the performance of another.
 
 1. **Managing Applications as Services**:
 
    - **Service Management**: Nix can be used to manage applications as long-running services, using tools like `systemd` to handle service orchestration. Each application deployed in Hop3 can be managed declaratively using Nix, which will handle the starting and stopping of services.
-   - **Backing Services Management**: Nix can also be extended to manage backing services such as databases, email services, and other resources like SSL certificates. By declaring these services in the Nix configuration, Hop3 can ensure that applications have access to the necessary resources and services, all while being managed in the same reproducible, isolated manner as the applications themselves.
+   - **Backing Services Management**: Nix can also be extended to manage backing services such as databases, email services, and other resources like SSL certificates. By declaring these services in the Nix configuration, Hop3 can ensure that applications have access to the necessary resources, all managed in the same reproducible, isolated manner as the applications themselves.
 
 ### Implementation Strategy
 
@@ -128,13 +128,11 @@ Nix can manage the lifecycle of backing services in several ways by using its de
   };
   ```
 
-  PostgreSQL is started with the correct configuration and remains consistent across reboots and migrations.
-
 #### \*Automatic Service Management (with `systemd`)
 
-- **Systemd Integration**: Nix (on NixOS) integrates directly with `systemd`, the default service manager for Linux, to handle the automatic starting and stopping of services. Each service is tied to a systemd unit file that is generated automatically by Nix. This ensures that services like PostgreSQL or an email server are automatically started when needed and are properly managed (restarted in case of failure, stopped on shutdown, etc.).
+- **Systemd Integration**: Nix (on NixOS) integrates directly with `systemd`, the default service manager for Linux, to handle the automatic starting and stopping of services. Each service is tied to a systemd unit file that is generated automatically by Nix, so services like PostgreSQL or an email server start when needed and are properly managed (restarted in case of failure, stopped on shutdown, etc.).
 
-- **Service Dependencies**: Nix can declaratively manage service dependencies. For example, if an application depends on a PostgreSQL database or an email server, Nix can ensure that those services are started before the application starts. This lifecycle management ensures that services are always available when needed.
+- **Service Dependencies**: Nix can declaratively manage service dependencies. For example, if an application depends on a PostgreSQL database or an email server, Nix can ensure that those services are started before the application starts.
 
   Example:
 
@@ -148,18 +146,16 @@ Nix can manage the lifecycle of backing services in several ways by using its de
   };
   ```
 
-  The application starts only after PostgreSQL and Postfix are running.
-
 #### Managing Data Migrations and Backups
 
-- **Database Migrations**: Nix can manage migrations by defining version-specific configurations for services like PostgreSQL. Since Nix tracks dependencies and versions precisely, it can ensure that database migrations are applied at the correct time during the upgrade or deployment process. This ensures smooth upgrades of both applications and the databases they depend on.
-- **Backups and Restores**: With Nix, the configuration for backup services can be defined declaratively, ensuring consistent and automated backup schedules for databases or other services. Nix can integrate with existing backup tools to provide version-controlled and reliable backup solutions for databases, ensuring that they can be restored in case of data loss.
+- **Database Migrations**: Nix can manage migrations by defining version-specific configurations for services like PostgreSQL. Since Nix tracks dependencies and versions exactly, it can apply database migrations at the correct time during the upgrade or deployment process, for both applications and the databases they depend on.
+- **Backups and Restores**: With Nix, the configuration for backup services can be defined declaratively, ensuring consistent and automated backup schedules for databases or other services. Nix can integrate with existing backup tools to provide backups for databases that carry a version history and can be restored after data loss.
 
 #### Reproducible Runtime Environments
 
-- **Immutable Infrastructure**: Because Nix configurations are immutable, every deployment of a service like PostgreSQL or an email server will be identical across environments. This ensures that developers can run the same version of PostgreSQL with the same configurations in both development and production, preventing "works on my machine" problems.
+- **Immutable Infrastructure**: Because Nix configurations are immutable, every deployment of a service like PostgreSQL or an email server will be identical across environments. Developers can run the same version of PostgreSQL with the same configurations in both development and production, preventing "works on my machine" problems.
 
-- **Version Pinning and Rollbacks**: Nix allows pinning to specific versions of services and easily rolling back to previous versions. This ensures that upgrades to essential services (e.g., from PostgreSQL 13 to 14) can be done safely, with the ability to roll back if something goes wrong.
+- **Version Pinning and Rollbacks**: Nix allows pinning to specific versions of services and easily rolling back to previous versions. Upgrades to essential services (e.g., from PostgreSQL 13 to 14) can then be done safely, with the ability to roll back if something goes wrong.
 
   Example:
 
@@ -169,11 +165,9 @@ Nix can manage the lifecycle of backing services in several ways by using its de
   ];
   ```
 
-  This guarantees that the specific version of PostgreSQL will always be used unless explicitly changed.
-
 #### SSL Certificates and Other Resources
 
-- **Certificate Management**: Nix can manage SSL certificates for services such as web servers or email servers. Using declarative tools like Let's Encrypt in combination with Nix, you can automatically issue, renew, and install SSL certificates for your services. This ensures that all certificates are managed centrally, making certificate rotation and renewal part of the system’s lifecycle management.
+- **Certificate Management**: Nix can manage SSL certificates for services such as web servers or email servers. Using declarative tools like Let's Encrypt in combination with Nix, you can automatically issue, renew, and install SSL certificates for your services, making certificate rotation and renewal part of the system’s lifecycle management.
 
   Example:
 
@@ -187,8 +181,6 @@ Nix can manage the lifecycle of backing services in several ways by using its de
   };
   ```
 
-  SSL certificates are managed and applied without manual intervention.
-
 #### Orchestration of Backing Services
 
 - **Orchestrating Multiple Services**: Nix can orchestrate multiple backing services (databases, caches, email servers, etc.) needed by an application. By specifying the relationship between these services in the Nix configuration, the platform can ensure that all services are deployed and managed correctly as part of the application stack. For example, if an application requires PostgreSQL, Redis, and an email service, Nix can ensure that all these services are deployed together, started in the correct order, and managed declaratively.
@@ -198,8 +190,8 @@ Nix can manage the lifecycle of backing services in several ways by using its de
 ### Benefits
 
 - **Runtime Isolation**: Nix provides fine-grained isolation for running applications, ensuring that each application runs in its own environment, independent of other applications. This reduces the risk of dependency conflicts and enhances runtime reliability.
-- **Service and Resource Management**: Nix’s declarative configuration model allows not only the applications but also their backing services (e.g., databases, email, certificates) to be managed as part of the same system. This creates a unified approach to managing all aspects of the application environment.
-- **Security**: By managing runtime dependencies and services in a controlled environment, Nix minimizes the attack surface and ensures that only the necessary components are included in the runtime.
+- **Service and Resource Management**: Nix’s declarative configuration model lets the platform manage the applications and their backing services (e.g., databases, email, certificates) as part of the same system, a unified approach to the whole application environment.
+- **Security**: By managing runtime dependencies and services in a controlled environment, Nix minimizes the attack surface, so only the necessary components end up in the runtime.
 
 ### Drawbacks
 

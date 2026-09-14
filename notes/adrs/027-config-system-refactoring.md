@@ -17,7 +17,7 @@ Hop3 replaces module-level constant configuration (`hop3/config.py`) with a conf
 
 ### Context
 
-The module-level-constant approach this ADR replaces (`packages/hop3-server/src/hop3/config.py`):
+The module-level-constant approach this ADR replaces lives in `packages/hop3-server/src/hop3/config.py`:
 
 ```python
 # Module-level constants computed at import time
@@ -711,7 +711,7 @@ app.config['DEBUG'] = True
 app.config.update(TEST_CONFIG)
 ```
 
-Simpler but less type-safe than our approach.
+This approach is simpler than ours, but it sacrifices type safety.
 
 ### Pytest Fixtures
 

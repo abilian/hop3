@@ -7,7 +7,7 @@
 
 ## Context
 
-The original Hop3 architecture combined build and deployment logic into a monolithic class with hardcoded conditionals for different application types. Supporting new build systems (Docker, Nix) or deployment targets (Kubernetes, external orchestrators) required invasive core changes. With the pluggable architecture (ADR-020), build and deployment became the first two stages of the pipeline, with a key principle: **the application's codebase determines which strategies are used**.
+The original Hop3 architecture combined build and deployment logic into a monolithic class with hardcoded conditionals for different application types. Supporting new build systems (Docker, Nix) or deployment targets (Kubernetes, external orchestrators) required invasive core changes. With the pluggable architecture (ADR-020), build and deployment became the first two stages of the pipeline, with a key principle: the application's codebase determines which strategies are used.
 
 ## Decision
 

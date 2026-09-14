@@ -7,7 +7,7 @@
 
 ## Purpose
 
-This ADR is the landing page for Hop3's security and resilience design. The table below maps each sub-concern to its child ADR. Each concern commits to a specific mechanism in its own ADR; a broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing would short-circuit that: a security decision is only meaningful once it commits to a mechanism.
+This ADR is the landing page for Hop3's security and resilience design. Each concern commits to a specific mechanism in its own ADR. A broad-scope "implement encryption, RBAC, MFA, backups, monitoring" framing would short-circuit that: a security decision is only meaningful once it commits to a mechanism.
 
 ## Sub-concerns and child ADRs
 
@@ -49,4 +49,4 @@ The engineering companion to this ADR is `notes/security/security-model.md`: the
 - **Health checks**: Per-app HTTP probing at the declared health-check path; a reconciliation loop is specified in [ADR 029](./029-reconciliation-health-checks.md).
 - **Backups**: Full backup and restore of app state and addon data ([ADR 024](./024-backup-restore-system.md)).
 
-Security review is continuous rather than periodic: findings are fixed in the ordinary course of work, and rounds are formalised into a written report when they turn up something worth recording. An independent third-party review is worth having — the reviewer who wrote an allow-list is the worst-placed person to find what is missing from it — and is sought where one can be arranged, but a release does not block on a third party's availability.
+Security review is continuous rather than periodic: findings are fixed in the ordinary course of work, and rounds are formalised into a written report when they find something to record. An independent third-party review is sought where one can be arranged: the reviewer who wrote an allow-list is the worst-placed person to find what is missing from it. A release does not block on a third party's availability.

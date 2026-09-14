@@ -142,10 +142,10 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 
 #### D9: Alias mechanism: disjoint union, no shadowing
 
-**The alias table is a disjoint union** of three layers (core, plugin, user). **Collisions are forbidden.**
+**The alias table is a disjoint union** of three layers (core, plugin, user); collisions are forbidden.
 
 - Core and plugin collisions → plugin load fails (strict by default; lax via `HOP3_PLUGIN_COLLISION_MODE=lax`).
-- User-config collisions with core or plugin → the user alias is skipped with a warning on next bare `hop3` invocation (loud but non-fatal; one bad line doesn't break the whole CLI).
+- User-config collisions with core or plugin → the user alias is skipped with a warning on next bare `hop3` invocation (non-fatal; one bad line breaks only its own alias).
 
 **Resolution rule**: an alias fires *unless* the next token would be a known subcommand of the target namespace side of the expansion. Flags do not count as subcommands. For the conflict case, `hop3` emits a did-you-mean error without silently dispatching.
 
@@ -156,9 +156,7 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 - **Plugin aliases**: registered via the plugin manifest (see [ADR 039](./039-python-deploy-strategies.md)).
 - **User aliases**: in `~/.config/hop3-cli/config.toml` under `[aliases]`. Static text expansions only (no `$VAR`, no backticks). Circular or unresolvable → rejected.
 
-**`--no-alias`** bypasses resolution entirely.
-
-`hop3 aliases` lists all effective aliases with source and expansion; flags skipped-user aliases for remediation.
+**`--no-alias`** bypasses resolution entirely. `hop3 aliases` lists all effective aliases with source and expansion; flags skipped-user aliases for remediation.
 
 ### Error handling and discoverability
 
@@ -179,9 +177,7 @@ Full format specification in `command-catalog.md`.
 
 #### D12: Shell completion
 
-Static + dynamic completion for bash, zsh, fish. Static completion is bundled; dynamic refresh via `hop3 completion --refresh` fetches the current server's command tree from the `help:commands` RPC and caches at `~/.cache/hop3/commands.txt`. App-name completion queries the cached app list.
-
-Under D1 (space-separated), the `COMP_WORDBREAKS` bash hack is no longer necessary.
+Static completion for bash, zsh, and fish ships with the CLI. Dynamic refresh via `hop3 completion --refresh` fetches the current server's command tree from the `help:commands` RPC and caches at `~/.cache/hop3/commands.txt`. App-name completion queries the cached app list. Under D1 (space-separated), the `COMP_WORDBREAKS` bash hack is no longer necessary.
 
 #### D13: `--json` output envelope
 
@@ -205,13 +201,13 @@ Errors:
 }
 ```
 
-Exit code 0 on success (including empty results). Non-zero only for actual errors. `exit_code` in the envelope matches `$?`.
+Exit code 0 on success (including empty results); the CLI reports non-zero only for actual errors. `exit_code` in the envelope matches `$?`.
 
 ### Safety
 
 #### D14: Confirmation prompts on destructive operations
 
-Destructive operations (`destroy`, `restore`, `user remove`, `context remove`) prompt by default.
+Destructive operations (`destroy`, `restore`, `user remove`, `context remove`) prompt for confirmation before they run.
 
 - The most severe ops (`app destroy`, `addon destroy`, `backup destroy`) require typing the resource name as confirmation.
 - Others (`backup restore`, `user remove`) use `[y/N]`.
@@ -219,7 +215,7 @@ Destructive operations (`destroy`, `restore`, `user remove`, `context remove`) p
 - `--confirm=<name>` is the scriptable alternative for typed-name ops: `hop3 app destroy myapp --confirm=myapp` works without a tty and preserves all other safety checks (context warnings, attached-addon detection). Use this in scripts in preference to `--force`.
 - `--force` overrides all safety checks. Required for `app destroy` and `context remove` when apps exist in that context; also bypasses preview and attached-resource warnings.
 - **No `--password` flag for secret input.** Secrets come from (a) an interactive prompt with no echo, (b) `--stdin` reading from stdin, or (c) `--password-file <path>` reading from a file. Flag values leak into `ps`, shell history, systemd/Docker inspection.
-- Non-tty invocation without `--yes`, `--confirm=<name>`, or `--force` refuses to proceed. The CLI never silently assumes yes in scripts.
+- Non-tty invocation without `--yes`, `--confirm=<name>`, or `--force` refuses to proceed: the CLI never assumes yes in scripts.
 - Context-mismatch warning: if a destructive op is run in a non-sticky context, a visible warning precedes the prompt.
 - No `--dry-run` for destructive ops (deferred as unnecessary; the preview shown with `--yes` and the typed-name prompt serve the audit purpose).
 
@@ -314,9 +310,7 @@ $ hop3 addon attach mydb --app myapp
 [prod / myapp] attached addon 'mydb' (postgres); added DATABASE_URL.
 ```
 
-Format: bracketed `[context / app]` prefix when both resolve, then the state change and any cascading effect. Machine-readable equivalents appear in the `--json` envelope's `data.summary` field.
-
-Silent success is permitted only for pure reads (`logs`, `status`, `apps`) and for explicit-quiet mode (`--quiet`).
+Format: bracketed `[context / app]` prefix when both resolve, then the state change and any cascading effect. Machine-readable equivalents appear in the `--json` envelope's `data.summary` field. Silent success is permitted only for pure reads (`logs`, `status`, `apps`) and for explicit-quiet mode (`--quiet`).
 
 ## Consequences
 

@@ -140,7 +140,7 @@ A `WafEngine` protocol + `get_waf_engines()` Pluggy hook, mirroring `get_proxies
 
 ### 7. Nginx integration and lifecycle
 
-When `[waf].enabled`, the app's generated nginx upstream points at the LeWAF socket instead of the app's web socket; LeWAF forwards clean traffic on to the app socket. When disabled, nginx points straight at the app (today's behaviour): the single integration point in `plugins/proxy/nginx/`. `configure_app` on deploy, `remove_app` on destroy, file-touch reload (the uWSGI-emperor pattern Hop3 already uses). Per-app generated config lives under `WAF_ROOT`. A redeploy that flips `enabled` re-points the upstream.
+When `[waf].enabled`, the app's generated nginx upstream points at the LeWAF socket rather than the app's web socket; LeWAF forwards clean traffic on to the app socket. When disabled, nginx points straight at the app (today's behaviour): the single integration point in `plugins/proxy/nginx/`. `configure_app` on deploy, `remove_app` on destroy, file-touch reload (the uWSGI-emperor pattern Hop3 already uses). Per-app generated config lives under `WAF_ROOT`. A redeploy that flips `enabled` re-points the upstream.
 
 ### 8. Config vs runtime state (the Web-UI boundary)
 
@@ -188,7 +188,7 @@ In v1 the WAF needs **no privileged operations**: it is a userspace proxy runnin
 
 The one place the two layers will meet is the **deferred L3/L4 ban** (§4): dropping a banned source at the kernel for all ports is a rootd `nft` operation, and it is the first real case for adding a *deny* capability to rootd. That is a future ADR/revision, gated on bans proving their value.
 
-## v1 scope: deliberately minimal
+## v1 scope: minimal on purpose
 
 Shipped in v1: proxy shape, `enabled`/`mode`/`ruleset`, the two-construct access model (`allow` + `[[waf.gate]]` with **network** conditions), scoped `[[waf.tuning]]`, L7 bans, named networks + bans in the DB, the CLI above, compile-before-commit validation.
 

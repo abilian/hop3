@@ -15,7 +15,7 @@ Hop3 uses JWT-based bearer token authentication for API access. The current auth
 3. The token is stored in `~/.config/hop3-cli/config.toml`
 4. Include the token in subsequent requests via `Authorization: Bearer <token>` header
 
-However, there is a bootstrap problem: **How do we create the first admin user and obtain the initial authentication token?**
+However, there is a bootstrap problem: how do we create the first admin user and obtain the initial authentication token?
 
 ### The Security Principle
 
@@ -292,7 +292,7 @@ The same user created by `hop3-server admin:create` can:
 1. Use CLI with the API token
 2. Login to web portal with username/password
 
-No separate bootstrap needed for web portal.
+The web portal needs no separate bootstrap.
 
 ---
 
@@ -377,7 +377,7 @@ The public server RPC that verifies a username + password and returns a token (o
 
 #### Security Risks
 
-- **Privilege Escalation**: Bootstrap mechanism provides elevated privileges that could be abused if not properly secured
+- **Privilege Escalation**: The bootstrap mechanism grants privileges that could be abused if not properly secured
 - **Credential Exposure**: Default credentials or bootstrap tokens could be leaked or discovered
 - **Race Conditions**: Multiple simultaneous bootstrap attempts could create security vulnerabilities
 
@@ -407,7 +407,7 @@ Generate a special bootstrap token during server installation:
 **How it works:**
 - Installation script generates a random bootstrap token
 - Token stored in `/etc/hop3/bootstrap.token` or `HOP3_BOOTSTRAP_TOKEN` env var
-- Bootstrap token has elevated privileges to create first admin
+- Bootstrap token carries the privilege to create the first admin
 - Must be used to register initial admin, then should be rotated/deleted
 
 **Characteristics:**

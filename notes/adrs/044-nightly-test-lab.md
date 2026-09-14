@@ -8,7 +8,7 @@
 
 [ADR 043](./043-unified-testing-architecture.md) establishes a **nightly tier**: the full suite (real apps, demos, tutorials, platform e2e) run against real servers, producing an HTML report and finishing overnight. The machinery for *running* that suite already exists in `hop3-testing`: the per-run runner (`hop3-test run`: provision, deploy, test, persist), `HetznerManager` for provisioning, the `DeploymentTarget` ABC, the catalog scanner, the SQLAlchemy result models, `generate_html_report`, and the `hop3-test run --images` sweep that drives them across OS images.
 
-The piece still missing is the consumer that makes a nightly run actionable every morning. Today, the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and four capabilities are missing: a scheduler, a way to browse a failed test's full logs, a trend and flakiness view, and a way to trigger or re-run from a UI. [ADR 043](./043-unified-testing-architecture.md) also found that the most common deployment failure (a healthy app behind a 502, the "silent-502" class) is captured by no surface.
+The piece still missing is the consumer that makes a nightly run actionable every morning. Today, the result store is effectively write-only (no query API, single-file SQLite), the report is static and trend-blind, and four capabilities are missing: a scheduler, a way to browse a failed test's full logs, a trend and flakiness view, and a way to trigger or re-run from a UI. The report also cannot answer the hardest question. [ADR 043](./043-unified-testing-architecture.md) found that the most common deployment failure, a healthy app behind a 502 (the "silent-502" class), is captured by no surface.
 
 This is squarely on the project ethos: *packaging apps is system-validation work; each app is a deliberate probe of the platform's edges.* The nightly suite is the instrument; this app makes its output legible and turns each failure into a visible platform backlog item.
 
@@ -69,7 +69,7 @@ The reuse boundary is the functional core of `hop3-testing`, promoted to a stabl
 
 The CLI becomes a headless driver of the same `Orchestrator` writing to the same store (recording `target_type` and a `mode` of `cli` vs `nightly`). Library-over-CLI because the dashboard needs *structured* results and *bundle references* rather than re-parsed console text; sharing the engine guarantees the manual and scheduled paths can never diverge.
 
-### C. Collecting all useful data: and surfacing it legibly
+### C. Collecting all useful data, and surfacing it legibly
 
 This is the heart of the product: [ADR 043](./043-unified-testing-architecture.md)'s bundle made first-class and browsable. For **every** test, pass or fail, the runner captures the bundle (build / app / nginx / journal / proxy-probe / deploy / http / dns / manifest) *before teardown*, since the logs vanish with the server. The lab-specific design rules make the data *useful*:
 

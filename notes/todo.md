@@ -30,6 +30,16 @@ Pending engineering tasks captured during day-to-day work. Move items out to pla
 
 - **The e2e image build fails intermittently on apt.** `E: Sub-process /usr/bin/dpkg returned an error code (1)` while installing the 25-package catalogue baseline, and `.NET SDK 9 installation failed` alongside it; the run dies in fixture setup before any test. Not disk (host and Docker VM both had >17 GiB free). Seen 2026-09-11 — though under the same two-session conditions as above, so re-confirm on a quiet machine before chasing it.
 
+## Packaging
+
+- **A GitHub-generated tarball is not a stable hash, and the Nix generator pins one anyway.** `Source.as_nix` always emits `pkgs.fetchurl`, so a recipe fetching `https://github.com/<owner>/<repo>/archive/refs/tags/<tag>.tar.gz` pins the bytes of an archive GitHub *generates on request* — and Nix itself says so during the build: `warning: archives from GitHub revisions should use fetchFromGitHub`. owncast-nixgen failed the 2026-09-12 catalog run exactly this way (`specified: sha256-ID9A…` / `got: sha256-nIsP…`) for a five-year-old tag nobody had touched.
+
+  `--fix-hashes` repairs an instance; the class stays open. `fetchFromGitHub` fetches via git and normalises, so its hash is stable — but it hashes the *unpacked tree*, not the tarball, so switching the emitter invalidates every recorded hash for a GitHub source and needs a re-hash pass over the affected recipes. **Decision needed**: re-hash the one and carry on, or take the migration. Worth pairing with the nixpkgs pin bump, which wants a one-pass re-record of its own.
+
+- **A recipe can pin its Node version but not its package manager.** `[build].node-version` installs an exact Node into the app's venv; pnpm is whatever the host has. Etherpad's `download.sh` now carries three separate workarounds for pnpm 10 behaviour changes (`auto-install-peers` moving out of `.npmrc`, dependency build scripts needing `dangerouslyAllowAllBuilds`, and `pnpm ls --no-production` being removed — the last one fatal at *startup*, not build, because upstream's plugin migration calls it). Each was written blind against whatever pnpm was current that week.
+
+  Related but distinct from the package-manager *selection* question (dispatch from the lockfile). Scheduled as a sub-item under [`plans/plan-0.8.md`](plans/plan-0.8.md) headline 4.
+
 ## Backlog now scheduled in the plans
 
 The "After 0.7" wish-list that used to sit here is scheduled, and the plans carry the reasoning. Kept as a one-line index because both plans cite this file as the source.

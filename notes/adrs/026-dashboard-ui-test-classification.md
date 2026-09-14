@@ -16,7 +16,7 @@ This ADR addresses how to classify and implement tests for the Hop3 dashboard we
 
 ## Summary
 
-Dashboard UI tests that involve file system operations belong in system tests (`c_system/`) with a real `App.create()` implementation, rather than as integration tests with mocked file operations.
+Dashboard UI tests that involve file system operations belong in system tests (`c_system/`) with a real `App.create()` implementation; the mocked arrangement is Option 1 below.
 
 ## Context and Goals
 
@@ -62,23 +62,23 @@ def test_client(tmp_path: Path, monkeypatch):
 
 ## Tenets
 
-From Hop3's testing strategy (`docs/src/dev/testing-strategy.md`):
+These tenets come from Hop3's testing strategy (`docs/src/dev/testing-strategy.md`):
 
 1. **Unit Tests** (a_unit/) - Individual functions/classes in isolation, mock all dependencies
 2. **Integration Tests** (b_integration/) - Multiple components within subsystems, **without external dependencies**
 3. **System Tests** (c_system/) - Full application **with real dependencies** (databases, file systems)
 4. **E2E Tests** (d_e2e/) - Complete workflows in Docker containers
 
-Key principle from the documentation:
+The documentation states one key principle:
 > **Integration Tests**: "Test multiple components working together within subsystems. Uses real database (in-memory SQLite). No external network dependencies."
 
-The question: **Is the file system an "external dependency" or part of the subsystem under test?**
+The question: is the file system an "external dependency", or part of the subsystem under test?
 
 ## Decision
 
 **DECISION: Option 2 - System Tests**
 
-Dashboard UI tests for the app creation feature live in `c_system/` and use the real `App.create()` implementation without mocks, rather than in `b_integration/` with `App.create()` mocked.
+Dashboard UI tests for the app creation feature live in `c_system/` and use the real `App.create()` implementation without mocks. Under Option 1 the same tests sit in `b_integration/` with `App.create()` mocked.
 
 **Rationale:**
 1. `App.create()` is core business logic that creates the application's directory structure
@@ -389,7 +389,7 @@ Then both options become easier:
 **Cons:**
 - Significant refactoring required before implementing tests
 - Not addressing the immediate question
-- May not be worth the effort for this use case
+- The payoff for this use case is unclear
 
 ### Alternative 3: Use E2E Tests Only
 
@@ -413,7 +413,7 @@ Then both options become easier:
 Django's test framework uses:
 - **Unit tests**: Pure Python logic
 - **TestCase with database**: Similar to our integration tests
-- **LiveServerTestCase**: Spins up real server (like our system tests)
+- **LiveServerTestCase**: Starts a real server (like our system tests)
 - **Selenium tests**: Full browser automation (like our E2E)
 
 Django's `TestCase` uses real database but is still considered "integration" level, not "system" level.
@@ -435,7 +435,7 @@ FastAPI documentation recommends:
 - **Integration tests**: TestClient with real database
 - **No official "system" layer**: Relies on E2E for full stack
 
-FastAPI's approach aligns with **Option 1** (integration tests with some mocking).
+FastAPI stops at integration level, which aligns with **Option 1** (integration tests with some mocking).
 
 ## Unresolved Questions
 
@@ -486,7 +486,7 @@ config = Config()
 ### Documentation Updates
 
 1. Add flowchart showing when to use each test layer
-2. Provide decision tree for test placement
+2. Draw a decision tree for test placement
 3. Document common patterns for UI testing
 4. Add examples of all four test layers for similar features
 
@@ -508,7 +508,7 @@ config = Config()
 
 ### Recommendation from ADR Author
 
-I lean toward **Option 2 (System Tests)**: `App.create()` is core business logic rather than mere I/O, the slowdown is minimal, there is no mock to maintain, real implementations catch real bugs, and the mental model ("system tests = full stack") is simpler. **Option 1 is acceptable** only if the team prioritizes the fastest possible feedback, commits to maintaining the mock carefully, and adds system-level smoke tests separately.
+I lean toward **Option 2 (System Tests)**: `App.create()` is core business logic, the slowdown is minimal, there is no mock to maintain, real implementations catch real bugs, and the mental model ("system tests = full stack") is simpler. **Option 1 is acceptable** only if the team prioritizes the fastest possible feedback, commits to maintaining the mock carefully, and adds system-level smoke tests separately.
 
 ### Resulting Layout (Option 2)
 
@@ -525,3 +525,7 @@ packages/hop3-server/tests/
 ```
 
 Removing the `App.create()` mock simplifies the fixture rather than complicating it.
+ complicating it.
+g it.
+han complicating it.
+ complicating it.

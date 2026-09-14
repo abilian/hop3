@@ -111,17 +111,16 @@ services:
     restart: unless-stopped
 ```
 
-For **advanced use cases** (multi-container, volumes, custom networks), users can provide their own `docker-compose.yml`, `compose.yml`, or `docker-compose.yaml`. If a user-supplied compose file exists, Hop3 uses it instead of generating one.
+For **advanced use cases** (multi-container, volumes, custom networks), users can provide their own `docker-compose.yml`, `compose.yml`, or `docker-compose.yaml`. If a user-supplied compose file exists, Hop3 uses that file and skips generation.
 
 Hop3 provides these environment variables to the compose file:
 - `HOP3_IMAGE_TAG`: The Docker image tag (e.g., `hop3/myapp:latest`)
 - `HOP3_APP_NAME`: The application name
-- `HOP3_APP_PORT`: The exposed port from Dockerfile (if detected)
-- `PORT`: The allocated host port for the container
+- `HOP3_APP_PORT`: The exposed port from Dockerfile (if detected)- `PORT`: The allocated host port for the container
 
 #### Host Reference Substitution
 
-A container cannot reach a service bound to `127.0.0.1`/`localhost` on the host through that name, since `localhost` inside the container resolves to the container itself. When passing environment values into the container, Hop3 rewrites host references of `localhost` and `127.0.0.1` to `host.docker.internal`, the Docker-provided alias for the host.
+A container cannot reach a service bound to `127.0.0.1`/`localhost` on the host through that name; `localhost` inside the container resolves to the container itself. When passing environment values into the container, Hop3 rewrites host references of `localhost` and `127.0.0.1` to `host.docker.internal`, the Docker-provided alias for the host.
 
 The substitution is value-based: it matches host references at host boundaries within the value (via regex). A name-based whitelist would silently miss custom variables such as `GF_DATABASE_HOST`; a value-based rewrite catches any variable that carries a host reference, regardless of its name.
 

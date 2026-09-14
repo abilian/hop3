@@ -18,7 +18,7 @@ The CLI must decide *before* the RPC round-trip whether a command operates on a 
 
 The drift it causes is a recurring class of bug: the hardcoded set falls out of sync with the server's command registry, so a renamed or added command silently stops resolving its implicit app. A representative case is `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolve one, because the set still lists the renamed `app show` and is missing `app status`.
 
-The set is a hand-maintained copy of a property that actually lives server-side (each `Command` either needs an app or doesn't). So it drifts silently whenever a command is renamed or added, and the failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets (`commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES`) and the whole approach structurally cannot cover plugin commands (a future command-manifest ADR), which the CLI has never heard of.
+The set is a hand-maintained copy of a property that lives server-side (each `Command` either needs an app or doesn't), so it drifts whenever a command is renamed or added. The failure is quiet: the command still runs, it just stops resolving the implicit app and falls back to "Usage: … `<app_name>`". The same disease appears in two sibling hardcoded sets (`commands/destructive.py::DESTRUCTIVE_COMMANDS` and `main.py::_MISMATCH_GUARDED_PREFIXES`) and the whole approach structurally cannot cover plugin commands (a future command-manifest ADR), which the CLI has never heard of.
 
 The constraint that makes "just ask the server per command" a non-starter is real: app resolution happens before any round-trip, must work offline (`--why`, error messages), must not add latency to every call, and must work before authentication (`auth login` cannot query a gated endpoint to learn it is not app-scoped).
 
@@ -28,7 +28,7 @@ The drift comes from the CLI needing to know, *per command*, whether to inject t
 
 ### The wire channel already exists
 
-The `cli` RPC already carries a side dict (`extra_args`) alongside the positional args: `get_extra_args` (CLI) populates `repository`, `env_vars`, `streaming`, `verbosity`; the server's `call(command_name, args, extra_args)` already treats some keys as **context (rather than command kwargs)**: it pops `verbosity` ("extracted as context") and injects `_token`. The invocation context is the same pattern, generalized into one reserved sub-structure.
+The `cli` RPC already carries a side dict (`extra_args`) alongside the positional args: `get_extra_args` (CLI) populates `repository`, `env_vars`, `streaming`, `verbosity`; the server's `call(command_name, args, extra_args)` already treats some keys as **context, distinct from command kwargs**: it pops `verbosity` ("extracted as context") and injects `_token`. The invocation context is the same pattern, generalized into one reserved sub-structure.
 
 ## Decision
 
@@ -70,17 +70,17 @@ The server already introspects command signatures for an `app` parameter (`serve
 
 `core/app_scope.py`'s injection role disappears: the CLI stops maintaining a set to decide *whether* to inject, because it always resolves and transmits. A command that needs an app and didn't get one (no positional, empty `_context.app`) errors server-side with the same structured "no app resolved: here's how to fix" message ([ADR 036](./036-cli-ergonomics.md) §D10), which can be sourced from `_context.app_source`'s trace.
 
-Whether the **destructive-confirmation** set (`DESTRUCTIVE_COMMANDS`) and the **project-mismatch guard** (`_MISMATCH_GUARDED_PREFIXES`) also fold into this model is an open question (below): they are related (both are per-command metadata the CLI hardcodes) but distinct concerns (they gate *client-side prompting*, which still needs to happen before the round-trip).
+Whether the **destructive-confirmation** set (`DESTRUCTIVE_COMMANDS`) and the **project-mismatch guard** (`_MISMATCH_GUARDED_PREFIXES`) also fold into this model is an open question (below). They are related (both are per-command metadata the CLI hardcodes) but distinct concerns: they gate *client-side prompting*, which still needs to happen before the round-trip.
 
 ### Bonus: the project-mismatch guard gets cleaner
 
-The [ADR 042](./042-cli-context-model.md) project-mismatch guard compares the resolved app against the CWD project's `[metadata].id`. With `_context` carrying `app`, `app_source`, `cwd`, and `cwd_app_id` together, the check has everything it needs in one structure: and could move server-side (refuse the destructive RPC) so the guarantee holds regardless of which client issued it.
+The [ADR 042](./042-cli-context-model.md) project-mismatch guard compares the resolved app against the CWD project's `[metadata].id`. With `_context` carrying `app`, `app_source`, `cwd`, and `cwd_app_id` together, the check has everything it needs in one structure, and it could move server-side (refuse the destructive RPC) so the guarantee holds regardless of which client issued the call.
 
 ## Rejected alternatives
 
 ### Keep positional injection, source app-scoped-ness from a cached server manifest
 
-The server exposes a machine-readable command manifest (name, `app_scoped`, `destructive`, …); the CLI caches it (the `completion --refresh` cache + `cached_subcommand_index()` already do exactly this for aliases) and derives the injection decision from the cache instead of a hardcoded set. This fixes drift and covers plugins, and keeps positional injection unchanged.
+The server exposes a machine-readable command manifest (name, `app_scoped`, `destructive`, …); the CLI caches it (the `completion --refresh` cache + `cached_subcommand_index()` already do exactly this for aliases) and derives the injection decision from the cache, not from a hardcoded set. This fixes drift and covers plugins, and keeps positional injection unchanged.
 
 Rejected as the primary mechanism because it still requires the CLI to *make a per-command decision* (and keep a cache fresh) to do something the server could just do from the context. The invocation context is simpler: the CLI ships ambient state unconditionally and the consumer decides. The manifest remains a good complement for the *client-side* concerns the context can't cover (destructive prompting, did-you-mean), and is the natural surface for a future command-manifest ADR.
 

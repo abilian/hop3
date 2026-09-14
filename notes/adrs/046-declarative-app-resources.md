@@ -12,7 +12,7 @@ This ADR establishes a declarative model for application resources in `hop3.toml
 
 ## Context
 
-Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). [ADR 002](./002-config-format.md) reserved a number of Nua-derived fields against future implementation, but several were never realized, and a side-by-side comparison of the two formats surfaced four capabilities that Nua expressed declaratively and Hop3 cannot. Each one forces a *per-app workaround*: which, by the project ethos, is a signal that the platform is missing something.
+Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). [ADR 002](./002-config-format.md) reserved a number of Nua-derived fields against future implementation, but several were never realized, and a side-by-side comparison of the two formats surfaced four capabilities that Nua expressed declaratively and Hop3 cannot. Each one forces a *per-app workaround*: by the project ethos, a signal that the platform is missing something.
 
 The four gaps, each a real blocker hit while greening the advertised app/tutorial set:
 
@@ -27,7 +27,7 @@ This ADR is a single **umbrella** decision: it sets the direction and design pri
 
 ## Motivation
 
-The platform is about to advertise a curated set of apps as "working", where robustness is a core feature. Each of the four gaps otherwise ships as a bespoke workaround embedded in an app's deploy command or `hop3.toml`: the warning sign the ethos calls out:
+The platform is about to advertise a curated set of apps as "working", where robustness is a core feature. Each of the four gaps otherwise ships as a bespoke workaround embedded in an app's deploy command or `hop3.toml`:
 
 - Generated secrets: framework tutorials carry a `hop3 deploy … --env KEY="$(…)"` workaround a fresh user must reproduce by hand, and that is not reproducible across redeploys.
 - Persistence: stateful apps work "by accident" only as long as their data happens to land in `data/`; anything else is wiped by the redeploy's `git clean`.
@@ -164,7 +164,7 @@ Enforcement is via the OS cgroup/process boundary.
 
 **Docker apps** map to `--memory`, `--cpus`, `--pids-limit`, with swap-off set for parity so OOM timing matches the native path.
 
-**Keeping respawns capped.** Caps are applied post-start, because an app's PIDs exist only once it is RUNNING: rootd ensures the leaf, writes the caps, then attaches the live PIDs. With the leaf as the entry gate, worker respawns the Emperor forks from an already-attached master inherit the cap by cgroup v2 inheritance. The rarer whole-vassal respawn (a fresh master) and a rootd restart (whose reconcile re-creates the leaf + caps but not PID membership) are covered by a periodic re-attach over **all RUNNING** native-capped apps (not just transitional ones) so there is no silent uncapped window; the re-attach surfaces any failure and never swallows it. The leaf persists across a redeploy's stop → rebuild → start.
+**Keeping respawns capped.** Caps are applied post-start, because an app's PIDs exist only once it is RUNNING: rootd ensures the leaf, writes the caps, then attaches the live PIDs. With the leaf as the entry gate, worker respawns the Emperor forks from an already-attached master inherit the cap by cgroup v2 inheritance. The rarer whole-vassal respawn (a fresh master) and a rootd restart (whose reconcile re-creates the leaf + caps but not PID membership) are covered by a periodic re-attach over **all RUNNING** native-capped apps (not just transitional ones), so there is no silent uncapped window; the re-attach surfaces any failure and never swallows it. The leaf persists across a redeploy's stop → rebuild → start.
 
 **Server-wide default + ceiling.** Two operator settings on `HopConfig`, both off by default (single-tenant boxes and the test suite are unaffected): a per-dimension **default** applied where an app declares nothing, and a per-dimension **ceiling** (the multi-tenant safety net). Resolution is a pure `resolve_limits(declared, defaults, ceilings)` transform feeding both the cgroup ops and the Docker mapping, so defaults/ceilings apply uniformly across builders. A declared value above the ceiling **aborts**: never silently clamps down, because silently giving an app less than it asked for is the same class of lie as not enforcing.
 
@@ -222,9 +222,9 @@ subdomain = "admin"         # served at admin.<host>; inherits TLS
 
 **TLS.** A `subdomain` adds a hostname the served cert must cover, so issuance is **multi-SAN** (the self-signed engine accepts a name list; certbot adds `-d` per name), and cert verification runs over **every** secondary FQDN so a missing SAN fails loud and never serves a mismatch. Teardown is complete by construction (same conf file, same cert pair); Docker verifies the published loopback port is released so it can't block the next deploy's port allocation. A `subdomain` endpoint depends on multi-SAN issuance; a `path` endpoint shares the primary cert and has no such dependency.
 
-### 5. Deploy ignore patterns: `[build].ignore`, not `.hop3ignore`
+### 5. Deploy ignore patterns: `[build].ignore` replaces `.hop3ignore`
 
-Deploy-time ignore patterns (what *not* to bundle and upload) are configuration about the app, so by the same tenet (*declare intent in `hop3.toml`, keeping it out of a sidecar*) they belong in `hop3.toml` itself, and Hop3 invents no dotfile for them. (Before this decision the surface was split: the CLI bundler read a `.hop3ignore` sidecar, while the schema declared an unwired `[build].ignore` / `[build].ignore-file`, the latter a field whose value is "go read this other file".)
+Deploy-time ignore patterns (what *not* to bundle and upload) are configuration about the app, so by the same tenet ("declare intent in `hop3.toml`, keeping it out of a sidecar") they belong in `hop3.toml` itself, and Hop3 invents no dotfile for them. (Before this decision the surface was split: the CLI bundler read a `.hop3ignore` sidecar, while the schema declared an unwired `[build].ignore` / `[build].ignore-file`, the latter a field whose value is "go read this other file".)
 
 - **`[build].ignore`** (an inline glob list) is the single canonical, method-agnostic way to declare what is *not* part of the app, and is the mechanism for the `hop3 deploy` upload path (where the CLI tars the working tree):
 
@@ -276,7 +276,7 @@ SECRET_KEY_BASE = { generate = "hex", length = 64 }
 type = "postgres"
 ```
 
-`hop3 deploy`: no `--env`, no secret in the repo, reproducible.
+`hop3 deploy` needs no `--env` flag and the repo holds no secret; the first boot is reproducible.
 
 **Stateful app: persistence + per-resource backup + limits:**
 
@@ -374,3 +374,4 @@ type = "postgres"
 - [ADR 002](./002-config-format.md), [ADR 003](./003-config-parsing-and-validation.md), [ADR 011](./011-encryption.md), [ADR 016](./016-backups.md), [ADR 024](./024-backup-restore-system.md), [ADR 035](./035-build-artifacts.md), [ADR 040](./040-network-firewall-and-port-exposure.md), [ADR 041](./041-privileged-operations-agent.md), [ADR 042](./042-cli-context-model.md), [ADR 045](./045-fixed-port-registry.md).
 - Nua specs: `sandbox/nua/doc/src/dev/specifications/{nua-config,configuration}.md`.
 - Python `secrets`; systemd resource control; Docker resource constraints.
+ Docker resource constraints.

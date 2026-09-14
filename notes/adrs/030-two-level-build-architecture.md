@@ -211,7 +211,7 @@ class LanguageToolchain(Protocol):
 
 **Orthogonal Variation**:
 - `LocalBuilder` uses LanguageToolchains to build on the host
-- `DockerBuilder` encapsulates build logic in Dockerfile (no toolchains)
+- `DockerBuilder` encapsulates build logic in the Dockerfile (no toolchains)
 - `NixBuilder` uses Nix expressions (no toolchains)
 
 LanguageToolchains are specific to LocalBuilder and enable:

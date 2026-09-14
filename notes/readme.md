@@ -5,7 +5,9 @@ Developer-facing notes for Hop3. The entries below cover what lives where.
 ## Top-level
 
 - [`app-porting-tips.md`](./app-porting-tips.md): cookbook for packaging a self-hosted application as a Hop3 app, distilled from ~30 real apps packaged between late 2025 and April 2026.
+- [`nix-runtime-dispositions.md`](./nix-runtime-dispositions.md): how each Nix template disposes of its runtime.
 - [`questions.md`](./questions.md): open architectural questions (pointer to relevant ADRs).
+- [`readiness-and-non-http-backends.md`](./readiness-and-non-http-backends.md): why the readiness gate speaks FastCGI at php-fpm, and what replaces that.
 - [`todo.md`](./todo.md): engineering tasks captured day to day, before they graduate to a plan.
 
 ## `security/`: Trust model, audits, backlog

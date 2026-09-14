@@ -38,7 +38,7 @@ BUILD PHASE                          RUN PHASE
                                     └─────────────────────────┘
 ```
 
-The `BuildArtifact` returned by toolchains is minimal (just `kind`, `location`, `metadata`) and not persisted. The run phase must re-discover what was built.
+The `BuildArtifact` returned by toolchains is minimal (just `kind`, `location`, `metadata`) and is not persisted, so the run phase must re-discover what was built.
 
 ### Design Goals
 
@@ -51,7 +51,7 @@ The `BuildArtifact` returned by toolchains is minimal (just `kind`, `location`, 
 
 ## Decision
 
-**Extend `BuildArtifact` to include complete runtime configuration, persist it after build, and have the run phase consume it without language-specific detection.**
+Extend `BuildArtifact` to include complete runtime configuration, persist it after build, and have the run phase consume it without language-specific detection.
 
 ### New Architecture
 
@@ -81,7 +81,7 @@ BUILD PHASE                              RUN PHASE
 ```python
 @dataclass
 class RuntimeConfig:
-    """Everything the run phase needs - computed at build time."""
+    """Everything the run phase needs, computed at build time."""
     env_vars: dict[str, str]      # PYTHONPATH, NODE_PATH, etc. (toolchain-owned)
     path_prepend: list[str]       # Paths to add to PATH
     working_dir: str              # Working directory for processes
@@ -93,7 +93,7 @@ class RuntimeConfig:
 
 @dataclass
 class BuildArtifact:
-    """Self-describing build output - contract between build and run."""
+    """Self-describing build output, the contract between build and run."""
     kind: str                     # "python", "node", "nix", etc.
     builder: str                  # "local", "nix", "docker"
     app_name: str
@@ -110,7 +110,7 @@ The authoritative dataclass lives in `core/artifacts.py`.
 
 `spawn.py` (`AppLauncher`) reads `BUILD_ARTIFACT.json` and applies the contract generically:
 
-- **Environment.** `env_vars` are applied, but never over a key the user set explicitly. Because they are per-app, per-deploy absolute paths the toolchain baked in (e.g. `MIX_HOME`), a persisted `[env]` block may **not** clobber them: a stale hand-copied value pointing at another app's directory would break the runtime. Precedence: **toolchain wins**. `path_prepend` is then prepended to `PATH`.
+- **Environment.** `env_vars` are applied, but never over a key the user set explicitly. Because they are per-app, per-deploy absolute paths the toolchain baked in (e.g. `MIX_HOME`), a persisted `[env]` block may not clobber them: a stale hand-copied value pointing at another app's directory would break the runtime. Toolchain values win over `[env]` values. `path_prepend` is then prepended to `PATH`.
 - **Workers.** Started as uWSGI vassals, with lifecycle hooks (`prebuild` / `postbuild` / `prerun`) filtered out: those are build steps, never daemons.
 - **Absent artifact.** The run phase falls back to legacy per-language detection (the pre-contract behaviour), so the migration is incremental.
 
@@ -138,16 +138,16 @@ We considered two approaches:
 
 **We chose Artifact because:**
 
-1. **Build/run independence**: Core architectural goal - run should not know build details
+1. **Build/run independence**: Core architectural goal; run should not know build details
 2. **Portability**: Artifact can be built on one machine, run on another (future: build servers)
 3. **Nix compatibility**: Nix computes everything at build time; detection doesn't fit
-4. **Explicit over implicit**: Artifact is inspectable, debuggable (`cat BUILD_ARTIFACT.json`)
+4. **Explicit over implicit**: Artifact is inspectable and debuggable (`cat BUILD_ARTIFACT.json`)
 
 ### Why Not Stale Data Concerns?
 
 Detection advocates argue "what if user manually installs dependencies after build?"
 
-This is actually **undesirable behavior** we want to prevent:
+This is behaviour we want to prevent:
 - Build should be the single source of truth
 - Manual modifications should require rebuild
 - This matches Docker/Nix philosophy
@@ -172,7 +172,7 @@ BuildArtifact(
 )
 ```
 
-The `spawn.py` code does not know about specific languages - it reads the artifact.
+The `spawn.py` code does not know about specific languages; it reads the artifact.
 
 ---
 
@@ -221,7 +221,7 @@ def setup_runtime_env(cls, app: App, env: Env) -> bool:
 
 ### Alternative 2: Store Config in Database
 
-Store runtime config in the App ORM model instead of JSON file.
+The runtime config would live in the App ORM model instead of in the JSON file.
 
 **Rejected because:**
 - Couples artifact to database schema

@@ -279,8 +279,8 @@ This is the shape the plugin should emit and the shape the user (eventually) wri
 ## Open questions
 
 1. **Port addressing syntax.** Should `port = "web"` refer to a named `[port.*]` entry, or should components declare their own port tables? Decision: named references into the top-level `[port.*]` dict, for consistency with the existing schema.
-2. **What's the default `name` if `[[component]]` omits it?** A positional default (the component table index, e.g. `c0`) is error-prone, so `name` is required explicitly.
-3. **Can a component declare its own builder/toolchain?** The `runtime = "node"` field above suggests yes. Decision: deferred: initially, all components share the app's build artifact.
+2. **Default `name` when `[[component]]` omits it.** A positional default (the component table index, e.g. `c0`) is error-prone, so `name` is required explicitly.
+3. **Can a component declare its own builder/toolchain?** The `runtime = "node"` field above suggests yes. Decision: deferred; initially, all components share the app's build artifact.
 4. **Cron-style scheduling.** Should `[component.schedule]` exist for cron-like components? Decision: keep the existing `cron` worker type for now.
 
 ## References

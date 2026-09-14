@@ -32,7 +32,7 @@ Hop3 currently relies on three major components for its runtime:
    - Supports multiple protocols (WSGI, RWSGI, JWSGI)
 
 2. **nginx** - Reverse proxy
-   - Battle-tested and reliable
+   - Widely deployed and reliable
    - Requires reload for configuration changes
    - Static configuration files
    - Hop3 generates configs via Python templates
@@ -122,7 +122,7 @@ Components:
 - ✅ ASGI/WSGI support - Handles Python apps
 - ✅ Hot reload - Process-level reload support
 - ✅ Unix sockets - Native support for nginx-style deployment
-- ✅ A small fraction of uWSGI's complexity - Does what we need, nothing more
+- ✅ A small fraction of uWSGI's complexity - Does what we need
 
 **Granian features we'll use:**
 - WSGI/ASGI interface
@@ -145,7 +145,7 @@ Components:
 - ✅ Hot reload via API - JSON API for config changes without restart
 - ✅ Single binary - Easy to install and update
 - ✅ Modern protocols - HTTP/2, HTTP/3, WebSocket support
-- ✅ Battle-tested - Production-grade, widely deployed
+- ✅ Widely deployed - Production use at scale
 - ✅ Simple configuration - JSON or Caddyfile
 
 **Caddy API example:**
@@ -277,7 +277,7 @@ packages/hop3-server/src/hop3/
 **Phase 3: Migration**
 - Update installer to include Caddy
 - Default to new stack for new installs
-- Provide migration script for existing deployments
+- Write a migration script for existing deployments
 - Update all documentation
 
 **Phase 4: Deprecation**
@@ -366,7 +366,7 @@ await pm.start_app(
 3. **Automatic HTTPS**
    - Caddy handles ACME challenges
    - Auto-renewal
-   - No certbot, no custom scripts
+   - No external certificate tooling
    - Works out of the box
 
 4. **Modern, Maintained**
@@ -399,7 +399,7 @@ await pm.start_app(
    - Training/onboarding
 
 3. **Less Proven (for Hop3)**
-   - uWSGI + nginx is battle-tested in Hop3
+   - uWSGI + nginx has years of production use in Hop3
    - New stack needs validation
    - Potential unknown issues
 
@@ -464,7 +464,7 @@ From nginx experience:
 - Heavier resource usage
 - More verbose configuration
 
-**Verdict:** Viable alternative, but Caddy's simplicity aligns better with Hop3's philosophy.
+**Verdict:** Viable alternative; Caddy's simplicity aligns better with Hop3's philosophy.
 
 ### Alternative 3: All-Python Stack (Hypercorn + Custom Proxy)
 
@@ -489,7 +489,7 @@ From nginx experience:
 
 **Pros:**
 - Standard Linux approach
-- Battle-tested
+- Proven at scale
 - No custom code
 
 **Cons:**
@@ -832,3 +832,7 @@ otherapp.example.com {
 4. WebSocket connections
 5. Large request bodies
 6. Static file serving (if applicable)
+. Static file serving (if applicable)
+
+plicable)
+

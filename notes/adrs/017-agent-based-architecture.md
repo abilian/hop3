@@ -8,7 +8,7 @@
 
 ## Introduction
 
-This ADR describes the long-term vision for Hop3's evolution from a single-server PaaS to a distributed, agent-based platform. It establishes the architectural principles and evolution path while recognizing that foundational work ([ADR 029](./029-reconciliation-health-checks.md)) must be completed first.
+This ADR describes the long-term vision for Hop3's evolution from a single-server PaaS to a distributed, agent-based platform. It establishes the architectural principles and the evolution path. The foundational work ([ADR 029](./029-reconciliation-health-checks.md)) must be completed first.
 
 ## Summary
 
@@ -19,7 +19,7 @@ Hop3 will evolve through four phases:
 3. **Phase 3**: Multi-server support with central coordinator
 4. **Phase 4**: Full distributed scheduling and orchestration
 
-This phased approach allows Hop3 to gain production reliability immediately (Phase 1) while building toward a scalable distributed architecture over time.
+This phased approach lets Hop3 gain production reliability immediately (Phase 1) and build toward a scalable distributed architecture over time.
 
 ## Context and Goals
 
@@ -36,14 +36,14 @@ Hop3 is currently a single-server PaaS optimized for simplicity. Comparing Hop3'
 | Metrics | Worker collects CPU/Memory | Not implemented |
 | Event Log | Immutable state changes | Not implemented |
 
-While multi-server distribution isn't needed for Hop3's primary use case (single-server simplicity), the **patterns** from distributed systems (reconciliation loops, health monitoring, self-healing) provide significant reliability benefits even on a single server.
+Multi-server distribution is not needed for Hop3's primary use case (single-server simplicity). Even on a single server, though, the **patterns** from distributed systems (reconciliation loops, health monitoring, self-healing) improve reliability.
 
 ### Goals
 
 1. **Incremental Evolution**: Build distributed capabilities incrementally.
 2. **Single-Server First**: Ensure single-server deployments gain full reliability benefits
-3. **Production Patterns**: Adopt proven patterns from production orchestrators
-4. **Minimal Complexity**: Add multi-server support only when justified by concrete requirements
+3. **Production Patterns**: Adopt patterns from production orchestrators
+4. **Minimal Complexity**: Add multi-server support only when concrete requirements justify it
 5. **Promise-Based Design**: Use the theory of promises for coordination semantics
 
 ### Non-Goals
@@ -98,7 +98,7 @@ Key deliverables:
 
 ### Phase 2: Agent Module Extraction
 
-Phase 2 extracts agent responsibilities into a distinct module, preparing for distribution:
+Phase 2 extracts agent responsibilities into a separate module, preparing for distribution:
 
 ```python
 class LocalAgent:
@@ -279,14 +279,14 @@ Phase 4 adds advanced features and explores two complementary coordination model
 
 **Research track (fully decentralized):**
 
-For edge and fog computing scenarios where a central coordinator is unavailable or undesirable (network partitions, multi-operator federation), an alternative coordination model based on CRDTs and gossip-based dissemination can replace the central coordinator:
+For edge and fog computing scenarios where a central coordinator is unavailable or undesirable (network partitions, multi-operator federation), CRDTs and gossip-based dissemination offer an alternative coordination model:
 
 - Each node maintains a local CRDT replica of the deployment state
 - Nodes synchronise via gossip protocols rather than reporting to a coordinator
 - Scheduling emerges from local evaluation of capability promises against workload requirements
 - Conflict resolution uses CRDT merge semantics (see the Hop3 paper, Section 7.4)
 
-This decentralized model is the natural end-state for edge deployments where nodes must operate autonomously under partition. The coordinator-based Phase 3 serves as a pragmatic intermediate step that validates the agent/promise model before removing the central authority.
+This decentralized model suits edge deployments where nodes must operate autonomously under partition. The coordinator-based Phase 3 is a pragmatic intermediate step that validates the agent/promise model before removing the central authority.
 
 The Hop3 paper develops the formal argument for this trajectory, grounding it in Promise Theory \[PT1\] and showing how Nix content-addressed closures enable bandwidth-efficient store-carry-forward updates between disconnected nodes.
 
@@ -336,7 +336,7 @@ async def verify_promises(self) -> list[BrokenPromise]:
 
 **Promise-Based Coordination:**
 
-Instead of imperative commands ("deploy this app now"), the coordinator expresses desired state and agents make promises:
+Rather than issuing imperative commands ("deploy this app now"), the coordinator expresses desired state and agents make promises:
 
 1. Coordinator: "I need app X running on some node"
 2. Agent A: "I promise to run app X" (promise pending)
@@ -347,7 +347,7 @@ Instead of imperative commands ("deploy this app now"), the coordinator expresse
 This provides:
 - **Decentralization**: Agents decide how to fulfill promises
 - **Fault Tolerance**: Broken promises trigger re-scheduling
-- **Auditability**: Promise history provides clear audit trail
+- **Auditability**: Promise history gives a clear audit trail
 
 ## Consequences
 
@@ -356,12 +356,12 @@ This provides:
 1. **Incremental Value**: Each phase delivers standalone improvements
 2. **Production Reliability**: Single-server deployments become self-healing
 3. **Scalability Path**: Clear evolution to multi-server when needed
-4. **Semantic Clarity**: Promise theory provides rigorous coordination semantics
+4. **Semantic Clarity**: Promise theory provides precise coordination semantics
 5. **Debugging**: Promise history and event logs enable root cause analysis
 
 ### Drawbacks
 
-1. **Complexity**: Multi-server coordination adds significant complexity
+1. **Complexity**: Multi-server coordination adds complexity that must be documented and tested
 2. **Overhead**: Promise verification and reconciliation consume resources
 3. **Learning Curve**: Promise theory concepts require documentation and training
 

@@ -44,7 +44,7 @@ LocalBuilder                    NixBuilder
 └─────────────────┘          └─────────────────┘
 ```
 
-Additionally, Hop3 uses **BuildArtifact with RuntimeConfig** ([ADR 035](./035-build-artifacts.md)) as the contract between build and run phases. This model aligns perfectly with Nix:
+Additionally, Hop3 uses **BuildArtifact with RuntimeConfig** ([ADR 035](./035-build-artifacts.md)) as the contract between build and run phases. This model aligns with Nix:
 
 - Nix computes all runtime paths (PATH, PYTHONPATH, etc.) at build time
 - These are stored in the BuildArtifact's `RuntimeConfig`
@@ -67,7 +67,7 @@ BuildArtifact(
 
 ## Decision
 
-Hop3 will integrate Nix to take advantage of its strengths in reproducible builds and package management. This will include developing Nix packages for Hop3, creating Nix builders for existing packages, and ensuring performance and resource efficiency optimizations for build processes.
+Hop3 will integrate Nix to take advantage of its strengths in reproducible builds and package management. This will include developing Nix packages for Hop3, creating Nix builders for existing packages, and optimizing build performance and resource use.
 
 ## Key Components
 
@@ -180,11 +180,11 @@ Design questions deeper in the stack (Nix-store GC, multi-app isolation, sandbox
 - **Deterministic Deployments**: Reproducible and reliable application deployments.
 - **Reproducibility**: Guarantees consistent outputs from the same source inputs, important for debugging, security, and collaboration.
 - **Resource Efficiency**: Optimized builds and resource usage across the platform.
-- **Enhanced Security**: Simplified and secure dependency management, reducing the attack surface.
+- **Enhanced Security**: Simplified dependency management, reducing the attack surface.
 
 ### Drawbacks
 
-- **Integration Complexity**: Significant effort is required to integrate Nix across various applications and environments.
+- **Integration Complexity**: Considerable effort is required to integrate Nix across various applications and environments.
 - **Learning Curve**: Developers and users will need to familiarize themselves with Nix.
 
 ## Risks

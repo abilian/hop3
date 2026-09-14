@@ -7,7 +7,7 @@
 
 ## Context
 
-Hop3 supports Heroku-style `git push` deployments, where developers push code to a git remote on the Hop3 server, triggering automatic deployment. This is a classic PaaS pattern, and it stands alongside the explicit `hop3 deploy` path: the two are alternatives.
+Hop3 supports Heroku-style `git push` deployments, where developers push code to a git remote on the Hop3 server, triggering automatic deployment. This is a classic PaaS pattern. It stands alongside the explicit `hop3 deploy` path: the two are alternatives.
 
 Git-based deployment is valuable for:
 
@@ -50,7 +50,7 @@ Both `git-receive-pack` and `git-upload-pack` (for clones/fetches) are wired.
 
 ### Option A: Server CLI command
 
-Git hook handling is a proper server CLI command:
+Git hook handling is a server CLI command:
 
 ```
 hop3-server/
@@ -82,7 +82,7 @@ The command is marked hidden (not user-facing). The previous RPC-command impleme
 - The command is discoverable via `hop3-server --help` (unless hidden), consistent with other server operations.
 - It follows the established pattern for server-side operations and is explicit about what `hop3-server` can do.
 
-The trade-off is some code duplication with a hook-script approach, and the command must handle its own DB session creation.
+The trade-off is some code duplication with a hook-script approach. The command must create and manage its own DB session.
 
 ## Alternatives Considered
 
@@ -103,7 +103,7 @@ deploy_from_push(app_name, push_data)
 
 **Pros:** simplest approach, no command abstraction; direct import with no CLI parsing overhead; clearly internal and not user-facing.
 
-**Cons:** the hook must manage the Python environment and path itself, and there is less visibility into what is happening.
+**Cons:** the hook must manage the Python environment and path itself, with less visibility into what is happening.
 
 ### Option C: Use the `local` subcommand
 
@@ -138,7 +138,7 @@ Pushes arrive over SSH and are constrained by a forced command in `authorized_ke
 
 1. **Multi-branch deployment.** Only the first ref is processed. A future design could configure which branches trigger deployment.
 
-2. **Webhook-based triggers.** GitHub/GitLab webhooks are an alternative to SSH-based `git push`, more familiar for cloud-native workflows, and would require a webhook endpoint in the API.
+2. **Webhook-based triggers.** GitHub/GitLab webhooks are an alternative to SSH-based `git push`, more familiar in cloud-native workflows. They would require a webhook endpoint in the API.
 
 3. **Deployment failure handling.** A `git push` can succeed while the subsequent deployment fails: the code is already pushed, and the user sees the error in the terminal. This needs clear error messages and a recovery path.
 

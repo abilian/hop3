@@ -8,7 +8,7 @@ Quick reference for developers running tests.
 |------|---------|
 | **All pytest tests** | `make test` |
 | **Full CI suite** | `make test-ci` |
-| **System tests (Docker)** | `hop3-test system --docker` |
+| **System tests (Docker)** | `hop3-test run --docker` |
 | **App tests (fast)** | `hop3-test apps` |
 | **Lint & type check** | `make lint` |
 
@@ -22,48 +22,48 @@ Deploys Hop3 using `hop3-deploy`, then runs tests against it.
 
 ```bash
 # Deploy local code to Docker and test
-hop3-test system --docker
+hop3-test run --docker
 
 # Deploy from git branch
-hop3-test system --docker --deploy-from git --branch main
+hop3-test run --docker --from git --branch main
 
 # Deploy from PyPI
-hop3-test system --docker --deploy-from pypi
+hop3-test run --docker --from pypi
 
 # Clean install (remove existing)
-hop3-test system --docker --clean
+hop3-test run --docker --clean
 
 # Reuse existing deployment (skip deploy)
-hop3-test system --docker --reuse
+hop3-test run --docker --reuse
 # Or equivalently:
-hop3-test system --docker --deploy-from none
+hop3-test run --docker --from none
 
 # Remote server via SSH (explicit --host, or $HOP3_HOST)
-hop3-test system --host server.example.com
+hop3-test run --host server.example.com
 
 # Remote server via $HOP3_HOST env var (ADR 052)
 export HOP3_HOST=server.example.com
-hop3-test system
+hop3-test run
 
 # Test mode: dev (fast) or ci (more thorough)
-hop3-test system --docker --mode ci
+hop3-test run --docker --mode ci
 
 # Keep target running after tests
-hop3-test system --docker --keep
+hop3-test run --docker --keep
 
 # Generate HTML report
-hop3-test system --docker --report html
+hop3-test run --docker --report html
 ```
 
-#### Deploy-from Options
+#### Install-source Options (`--from`)
 
 | Option | Description |
 |--------|-------------|
-| `--deploy-from local` | Upload and install local code (default) |
-| `--deploy-from git` | Clone and install from git branch |
-| `--deploy-from pypi` | Install from PyPI |
-| `--deploy-from none` | Skip deployment, use existing |
-| `--reuse` | Alias for `--deploy-from none` |
+| `--from local` | Upload and install local code (default) |
+| `--from git` | Clone and install from git branch |
+| `--from pypi` | Install from PyPI |
+| `--from none` | Skip deployment, use existing |
+| `--reuse` | Alias for `--from none`. Deploys the **app** only — a server-side change (builders, deployers, toolchains, installer) needs `--from local`. |
 
 ### App Testing (Testing Apps, Not Hop3)
 
@@ -148,14 +148,11 @@ hop3-test nightly
 # Unit tests (~361 tests, fast)
 uv run pytest packages/hop3-server/tests/a_unit
 
-# Integration tests (~247 tests, medium)
+# Integration tests (in-process, in-memory DB, no Docker)
 uv run pytest packages/hop3-server/tests/b_integration
 
-# System tests (~13 tests, needs Docker)
-uv run pytest packages/hop3-server/tests/c_system
-
-# E2E tests (~17 tests, slow, needs Docker)
-uv run pytest packages/hop3-server/tests/d_e2e
+# E2E tests (slow, real deploy, needs Docker)
+uv run pytest packages/hop3-server/tests/c_e2e
 
 # CLI tests
 uv run pytest packages/hop3-cli/tests
@@ -212,7 +209,7 @@ make test      # Run all pytest tests
 
 ```bash
 # Fast tests against Docker
-hop3-test system --docker --mode dev
+hop3-test run --docker --mode dev
 ```
 
 ### Full Validation (CI)
@@ -222,7 +219,7 @@ hop3-test system --docker --mode dev
 make test-ci
 
 # Or manually
-hop3-test system --docker --mode ci --report html
+hop3-test run --docker --mode ci --report html
 ```
 
 ### Debug a Failing Test
@@ -235,13 +232,13 @@ uv run pytest -v -s path/to/test.py::test_name
 hop3-test apps --keep 010-flask-pip-wsgi
 
 # Run system tests and keep target
-hop3-test system --docker --keep
+hop3-test run --docker --keep
 
 # Reuse container for fast iteration
-hop3-test system --docker --reuse --keep
+hop3-test run --docker --reuse --keep
 
 # Generate HTML report for analysis
-hop3-test system --docker --report html
+hop3-test run --docker --report html
 ```
 
 ### Test Coverage
@@ -259,9 +256,8 @@ open htmlcov/index.html
 ```
 packages/hop3-server/tests/
 ├── a_unit/          # Fast, isolated tests
-├── b_integration/   # Component interaction tests
-├── c_system/        # Docker-based system tests
-└── d_e2e/           # Full deployment tests
+├── b_integration/   # Component interaction, in-process, in-memory DB
+└── c_e2e/           # Full deployment against Docker
 
 packages/hop3-testing/    # Test framework
 ├── src/hop3_testing/
@@ -348,7 +344,7 @@ hop3-test apps --report html
 
 ```bash
 # Reuse existing container to debug
-hop3-test system --docker --reuse --keep
+hop3-test run --docker --reuse --keep
 
 # View diagnostic logs
 ls test-logs/
@@ -374,7 +370,7 @@ ssh root@$HOP3_HOST "systemctl status hop3-server"
 
 ### When to Use Each
 
-- **`hop3-test system --docker`**: Testing Hop3 changes (deploys Hop3 first)
-- **`hop3-test system --docker --reuse`**: Fast iteration on existing container
-- **`hop3-test system --host X`**: Testing against remote servers
+- **`hop3-test run --docker`**: Testing Hop3 changes (deploys Hop3 first)
+- **`hop3-test run --docker --reuse`**: Fast iteration on existing container
+- **`hop3-test run --host X`**: Testing against remote servers
 - **`hop3-test apps`**: Testing app configurations (uses pre-built image)

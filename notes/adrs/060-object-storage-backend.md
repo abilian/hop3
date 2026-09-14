@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Architecture
 - **Created**: 2026-09-12
-- **Related-ADRs**: [021](./021-proxy-plugin-system.md) (plugin protocols), [039](./039-dependency-sources.md) (where dependencies come from)
+- **Related-ADRs**: [021](./021-proxy-plugin-system.md) (plugin protocols), [039](./039-python-deploy-strategies.md) (how a runtime's dependencies are sourced and pinned)
 
 ## Context
 
