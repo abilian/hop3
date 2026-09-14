@@ -7,7 +7,7 @@
 
 ## Context
 
-The original Hop3 architecture hardcoded Nginx as the reverse proxy, making it impossible to use alternatives like Caddy or Traefik without modifying core code. With the pluggable architecture (ADR-020), proxy configuration became the third stage in the deployment pipeline, but with a critical architectural constraint: **there is only one reverse proxy for an entire server**.
+The original Hop3 architecture hardcoded Nginx as the reverse proxy, making it impossible to use alternatives like Caddy or Traefik without modifying core code. With the pluggable architecture (ADR-020), proxy configuration became the third stage in the deployment pipeline, but with a critical architectural constraint: there is only one reverse proxy for an entire server.
 
 ## Decision
 

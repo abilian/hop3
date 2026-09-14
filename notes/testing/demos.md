@@ -7,7 +7,7 @@
 hop3-test list --category demo
 
 # Run all demos against Docker
-hop3-test system --docker
+hop3-test run --docker
 
 # Run specific demo
 hop3-test run demo01 --docker

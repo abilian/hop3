@@ -6,30 +6,32 @@ This document outlines Hop3's comprehensive testing strategy, covering unit test
 
 ## Overview
 
-Hop3 uses a four-layer testing pyramid plus a unified test runner (`hop3-test`) to ensure code quality, catch regressions early, and validate complete system behavior.
+Hop3 uses a three-layer testing pyramid plus a unified test runner (`hop3-test`). A test's layer is decided by what it *needs* — Docker, root, a mutated host — not by how complex it is ([ADR 043](../adrs/043-unified-testing-architecture.md)).
 
 ```
                     ▲
                    ╱│╲
                   ╱ │ ╲
                  ╱  │  ╲
-                ╱   │   ╲    Layer 4: Full E2E Tests (d_e2e/)
-               ╱────┼────╲   Real deployments, nginx, uWSGI
-              ╱     │     ╲  ~17 tests, 10-20 min
-             ╱──────┼──────╲
+                ╱   │   ╲
+               ╱────┼────╲   Layer 3: E2E (c_e2e/)
+              ╱     │     ╲  Real deployments, nginx, uWSGI, Docker
+             ╱──────┼──────╲ slow
             ╱       │       ╲
-           ╱────────┼────────╲  Layer 3: System Integration (c_system/)
-          ╱         │         ╲ Dashboard + Docker
-         ╱──────────┼──────────╲ ~13 tests, 30s-2 min
-        ╱           │           ╲
-       ╱────────────┼────────────╲  Layer 2: Integration Tests (b_integration/)
-      ╱             │             ╲ Multiple components, no external deps
-     ╱──────────────┼──────────────╲ ~247 tests, 10-30 sec
-    ╱               │               ╲
-   ╱────────────────┼────────────────╲  Layer 1: Unit Tests (a_unit/)
-  ╱_________________│_________________╲ Individual components
- ╱_____________________________________╲ ~361 tests, 5-10 sec
+           ╱────────┼────────╲
+          ╱         │         ╲  Layer 2: Integration (b_integration/)
+         ╱──────────┼──────────╲ Several components, in-process, in-memory DB
+        ╱           │           ╲ no Docker
+       ╱────────────┼────────────╲
+      ╱             │             ╲
+     ╱──────────────┼──────────────╲  Layer 1: Unit (a_unit/)
+    ╱               │               ╲ Individual components
+   ╱────────────────┼────────────────╲ seconds
+  ╱_________________│_________________╲
+ ╱_____________________________________╲
 ```
+
+Current counts and results live in [`status.md`](status.md), deliberately not here: a structure document that also carries numbers goes stale as soon as someone adds a test. `c_system/` and `d_e2e/` were the old layers 3 and 4 — the first dissolved into the other two, the second was renamed `c_e2e/`.
 
 ## Layer 1: Unit Tests (`tests/a_unit/`)
 
@@ -74,7 +76,7 @@ def test_is_safe_filename_accepts_normal_paths():
 ```
 
 ### Current Status
-**361 tests passing**
+See [`status.md`](status.md).
 
 ### Guidelines
 - Each test should complete in < 10ms
@@ -131,7 +133,7 @@ def test_authenticated_command_requires_token(client: TestClient):
 ```
 
 ### Current Status
-**247 tests passing**
+See [`status.md`](status.md).
 
 ### Guidelines
 - Each test should complete in < 1 second
@@ -142,39 +144,7 @@ def test_authenticated_command_requires_token(client: TestClient):
 
 ---
 
-## Layer 3: System Integration Tests (`tests/c_system/`)
-
-### Purpose
-Test the full application with real dependencies in Docker, focusing on dashboard and CLI interactions.
-
-### Characteristics
-- Real hop3-server process (in Docker)
-- Real HTTP communication
-- Real database operations
-- `HOP3_UNSAFE=true` for test authentication bypass
-- No actual app deployments (that's Layer 4)
-- No nginx/uWSGI configuration
-
-### Structure
-```
-tests/c_system/
-├── conftest.py                  # Docker fixtures
-├── test_dashboard_app_*.py      # Dashboard app management
-└── test_connection.py           # Basic connectivity
-```
-
-### Current Status
-**13 tests passing**
-
-### Guidelines
-- Tests should use real HTTP requests
-- Clean up created resources in fixtures
-- Use unique names (timestamps) to avoid conflicts
-- Each test should complete in < 5 seconds
-
----
-
-## Layer 4: Full End-to-End Tests (`tests/d_e2e/`)
+## Layer 3: Full End-to-End Tests (`tests/c_e2e/`)
 
 ### Purpose
 Test the complete system including actual application deployments, web server configuration, and HTTP responses.
@@ -188,7 +158,7 @@ Test the complete system including actual application deployments, web server co
 
 ### Structure
 ```
-tests/d_e2e/
+tests/c_e2e/
 ├── docker/
 │   ├── Dockerfile.base          # Base image for caching
 │   └── Dockerfile               # Test image
@@ -223,7 +193,7 @@ Each test app includes:
 - Optional `check.py` validation script
 
 ### Current Status
-**17 tests collected, 7 passing, 1 skipped**
+See [`status.md`](status.md).
 
 ### Guidelines
 - Each test should be independent and idempotent
@@ -242,9 +212,9 @@ In addition to pytest, Hop3 provides `hop3-test` for deployment testing.
 
 **System Testing** (Testing Hop3):
 ```bash
-hop3-test system --docker          # Deploy and test
-hop3-test system --docker --reuse  # Reuse existing
-hop3-test system --ssh --host X    # Remote server
+hop3-test run --docker             # Deploy and test
+hop3-test run --docker --reuse     # Reuse the deployed server, test the app only
+hop3-test run --host X             # Remote server over SSH
 ```
 
 **App Testing** (Testing Applications):
@@ -284,10 +254,9 @@ uv run pytest packages/hop3-server/tests/a_unit/
 uv run pytest packages/hop3-server/tests/b_integration/
 
 # System integration tests (requires Docker)
-uv run pytest packages/hop3-server/tests/c_system/
 
 # Full E2E tests (requires Docker)
-uv run pytest packages/hop3-server/tests/d_e2e/
+uv run pytest packages/hop3-server/tests/c_e2e/
 ```
 
 ### Run Specific Test Files
@@ -436,7 +405,7 @@ hop3-test build-test-image --no-cache
 docker logs hop3-test
 
 # Keep container for debugging
-hop3-test system --docker --keep
+hop3-test run --docker --keep
 ```
 
 ### Tests Pass Locally but Fail in CI

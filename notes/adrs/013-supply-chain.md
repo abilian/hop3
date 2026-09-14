@@ -11,7 +11,7 @@ Supply chain transparency, traceability, and component-level security are prereq
 
 ## Decision
 
-Hop3 adopts a proactive stance towards software supply chain security by integrating comprehensive SBOMs and rigorous security practices throughout the development and delivery pipeline. Dependencies are made transparent, verifiable, and secure, and each release carries a compliance-ready CycloneDX SBOM. Any SBOM generator that produces valid CycloneDX output meets the requirement; Genealogos is a candidate tool but not a committed dependency.
+Hop3 integrates SBOMs and supply-chain security practices throughout the development and delivery pipeline. Dependencies are made transparent, verifiable, and secure, and each release carries a compliance-ready CycloneDX SBOM. Any SBOM generator that produces valid CycloneDX output meets the requirement; Genealogos is a candidate tool but not a committed dependency.
 
 ## Key Components
 
@@ -19,7 +19,7 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 1. **Dependency Management**:
 
-   - **Nix Package Management**: Nix provides deterministic builds and dependency management, ensuring that all software dependencies are explicitly defined, reproducible, and isolated.
+   - **Nix Package Management**: Nix builds deterministically and manages dependencies explicitly: all software dependencies are defined, reproducible, and isolated.
    - **Dependency Auditing**: Dependencies are audited for known vulnerabilities using automated tools (`pip-audit` via Nox), and security patches are kept up to date.
 
 1. **Secure Development Practices**:
@@ -31,7 +31,7 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 1. **Software Bill of Materials (SBOMs)**:
 
    - **Generation**: CycloneDX SBOMs are generated for software releases using supply-chain tooling declared in the project ([ADR 004](./004-development-tooling.md)): `cyclonedx-bom`, `spdx-tools`, `pip-audit`, `deptry`, `import-linter`.
-   - **Transparency and Compliance**: SBOMs provide a detailed inventory of software components, including their versions, licenses, and known vulnerabilities, to enhance transparency and compliance with regulations like the Cyber Resilience Act (CRA).
+   - **Transparency and Compliance**: SBOMs provide a detailed inventory of software components, including their versions, licenses, and known vulnerabilities, to support compliance with regulations such as the Cyber Resilience Act (CRA).
 
 ### Implementation Strategy
 
@@ -42,14 +42,14 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 1. **CI/CD Pipeline Enhancements**:
 
-   - **Security Scans**: Automated security scans are integrated into the CI pipeline to monitor for vulnerabilities and compliance issues.
+   - **Security Scans**: Automated security scans run in the CI pipeline to monitor for vulnerabilities and compliance issues.
    - **SBOM Inclusion**: SBOMs are generated and included in the release pipeline so that each release carries a detailed inventory of all components.
 
 ### Continuous Improvement
 
 1. **Monitoring and Auditing**:
 
-   - **Regular Audits**: Regular security audits and reviews of the software supply chain identify and mitigate potential risks.
+   - **Regular Audits**: Regular security audits and reviews of the software supply chain identify and mitigate risks.
    - **Performance Monitoring**: The performance and security of the CI/CD pipeline are continuously monitored to ensure they meet the highest standards of software supply chain security.
 
 1. **Community Engagement**:
@@ -61,14 +61,14 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 
 ### Benefits
 
-- **Enhanced Security**: Improves the security and integrity of the software supply chain by ensuring all dependencies are transparent and verifiable.
-- **Compliance**: Ensures compliance with industry standards and regulations such as the Cyber Resilience Act (CRA) through detailed SBOMs.
+- **Enhanced Security**: Improves the security and integrity of the software supply chain by making all dependencies transparent and verifiable.
+- **Compliance**: Detailed SBOMs support compliance with industry standards and regulations such as the Cyber Resilience Act (CRA).
 - **Transparency**: Increases transparency and trust by providing a comprehensive inventory of software components and their security status.
 
 ### Drawbacks
 
 - **Implementation Effort**: Requires dedicated effort to integrate and maintain SBOM generation and supply chain security practices.
-- **Complexity**: Adds complexity to the development and delivery pipeline, necessitating tools and processes to manage it.
+- **Complexity**: Adds complexity to the development and delivery pipeline; it needs tools and processes to manage that pipeline.
 
 ## Risks
 
@@ -78,5 +78,5 @@ Hop3 adopts a proactive stance towards software supply chain security by integra
 ## Future Work
 
 - **Signature attestation** (Sigstore / in-toto / cosign) for release artefacts and for the SBOM itself, likely required for Cyber Resilience Act compliance.
-- **Reproducible-builds verification on a schedule.** The rebuild check exists and covers all three tiers ([ADR 058](./058-build-reproducibility-model.md)). The remaining piece is a scheduler that runs it without being asked ([ADR 044](./044-nightly-test-lab.md)).
+- **Reproducible-builds verification on a schedule.** The rebuild check exists and covers all three tiers ([ADR 058](./058-build-reproducibility-model.md)); a scheduler must run it without being asked ([ADR 044](./044-nightly-test-lab.md)).
 - **Upstream source mirroring** to insulate against PyPI / registry deletions.

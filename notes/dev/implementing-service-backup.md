@@ -585,9 +585,9 @@ When implementing backup/restore for a new service:
 
 ## Further Reading
 
-- [ADR 081: Backup and Restore System](../adrs/081-backup-restore-system.md)
+- [ADR 024: Backup and Restore System](../adrs/024-backup-restore-system.md)
 - Addon Protocol (in `protocols.py`)
-- [Backup and Restore User Guide](../../../backup-restore.md)
+- [Backup and Restore User Guide](../../docs/src/guides/backup-restore.md)
 - [PostgreSQL backup documentation](https://www.postgresql.org/docs/current/backup.html)
 - [Redis persistence](https://redis.io/topics/persistence)
 - [MySQL backup methods](https://dev.mysql.com/doc/refman/8.0/en/backup-methods.html)

@@ -96,7 +96,7 @@ Envisions running Nix-built applications under Hop3's own runtime (uWSGI emperor
 Landing page for Hop3's security design. Enumerates sub-concerns (encryption, MFA, supply chain, auth bootstrap, privilege separation, WAF, rate limiting) and delegates concrete design to child ADRs. Rejects the "broad-scope checklist" anti-pattern; each mechanism is decided in its own ADR.
 
 ### 011: Data Encryption and Protection (`Accepted`)
-Establishes that Hop3 must protect data at rest and in transit through robust encryption. Covers encrypted credential storage in the database (per-value AES-256-GCM with a server key), TLS termination for all HTTP traffic, and secure key storage under `/etc/hop3/`.
+Establishes that Hop3 must protect data at rest and in transit through encryption. Covers encrypted credential storage in the database (per-value AES-256-GCM with a server key), TLS termination for all HTTP traffic, and secure key storage under `/etc/hop3/`.
 
 ### 012: Multi-Factor Authentication (MFA) (`Deferred`)
 Proposes adding TOTP-based MFA to the authentication flow. Deferred because the current threat model's primary path (CLI → SSH tunnel → RPC) already provides an SSH-backed second factor for operators, and the web dashboard is not yet the primary administration surface.
@@ -225,7 +225,7 @@ Establishes a single flag lexicon across all Hop3 command-line tools (`hop3`, `h
 Nix-packaged apps exec hardcoded store paths (`${pkg}/bin/<name>`). A garbage collection that deletes the running app's closure kills the process mid-request. This ADR defines the GC-root strategy: the deployer registers an indirect GC root (`.nix-result`) in the app directory before launching the app, re-roots the previous closure during rebuild to keep it alive throughout, and the root is deleted on app destroy.
 
 ### 054: Email Transport and Notifications (`Accepted`)
-Treats email as a backing service, symmetrical to databases and caches: provisioned as an addon, attached to apps, consumed through injected connection variables (`SMTP_HOST`, `SMTP_PORT`, etc.). Supports a swappable backend (SMTP relay, local postfix via rootd) and provides a notification framework for password resets, invitations, and system alerts.
+Treats email as a backing service, symmetrical to databases and caches: provisioned as an addon, attached to apps, consumed through injected connection variables (`SMTP_HOST`, `SMTP_PORT`, etc.). Supports a swappable backend (SMTP relay, local postfix via rootd) and adds a notification framework for password resets, invitations, and system alerts.
 
 ### 055. App-Runtime UID Separation (`Proposed`)
 Proposes running each deployed application under its own system UID rather than all apps sharing the `hop3` user. This would prevent a compromised app from reading another app's source, environment, or addon credentials. Currently at the proposal stage; the implementation requires rootd-mediated UID allocation and per-app filesystem ownership.
@@ -237,4 +237,4 @@ Installing an app is more than starting its process; most real apps gate everyth
 Creates a `hop3-tooling` package for automation scripts that don't belong to the platform, client, installer, or test framework: catalog copy verification, tested-recipe promotion, bulk app installation, version bumping, infrastructure probing, and credential reading over SSH. Consolidates recurring maintainer work into a shipped, tested, and documented package.
 
 ### 058. Build Reproducibility Model (`Accepted`)
-Defines the precise claim of reproducibility for Hop3 builds: a third party with the same inputs (source, `hop3.toml`, and build environment) can rebuild a deployment and verify it produces bit-identical artifacts. Constrains every build path (three Nix tiers, native toolchain, Docker) and defines what "same inputs" means for each. The property is stated precisely enough to be falsified; which is the point.
+Defines the precise claim of reproducibility for Hop3 builds: a third party with the same inputs (source, `hop3.toml`, and build environment) can rebuild a deployment and verify it produces bit-identical artifacts. Constrains every build path (three Nix tiers, native toolchain, Docker) and defines what "same inputs" means for each. The property is stated precisely enough to be falsified.

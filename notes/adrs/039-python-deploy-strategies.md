@@ -14,7 +14,7 @@ Hop3's Python language toolchain (`packages/hop3-server/src/hop3/toolchains/pyth
 3. Else if `pyproject.toml` exists → `pip install --upgrade .`
 4. Else → `FileNotFoundError`
 
-This works for a narrow slice of Python apps. It breaks down (sometimes loudly, often silently) in several real cases encountered during the 0.5 application-packaging effort:
+This works for a narrow slice of Python apps. It breaks down (sometimes visibly, often silently) in several real cases encountered during the 0.5 application-packaging effort:
 
 ### Case 1: Poetry-managed projects
 
@@ -28,7 +28,7 @@ A `requirements.txt` in the wild may be:
 - **Fully frozen**: `Django==4.2.7`: intent is to pin, but `pip install --upgrade -r requirements.txt` ignores the pin and upgrades anyway.
 - **`pip-compile` output with hashes**: integrity-checked; `--upgrade` silently strips the integrity guarantee.
 
-The toolchain treats all three identically. The abstract case gives moving targets across deploys; the frozen case loses pins; the hashed case loses integrity. Silent behavioural divergence.
+The toolchain treats all three identically. The abstract case gives moving targets across deploys; the frozen case loses pins; the hashed case loses integrity. The toolchain never says which contract it applied.
 
 ### Case 3: `requirements.txt` vs `pyproject.toml` precedence
 
@@ -36,7 +36,7 @@ When both files exist, `requirements.txt` wins silently. The comment in the code
 
 ### Case 4: `uv sync` without `--no-dev`
 
-`uv sync --frozen --reinstall` installs dev dependencies alongside runtime ones. Deployed venvs carry pytest, ruff, type-checkers, etc. This wastes disk and inflates the closure for the Nix variants; it also broadens the attack surface.
+`uv sync --frozen --reinstall` installs dev dependencies alongside runtime dependencies. Deployed venvs carry pytest, ruff, type-checkers, etc. This wastes disk and inflates the closure for the Nix variants; it also broadens the attack surface.
 
 ### Documentation gap
 
@@ -44,15 +44,15 @@ All 13 Python tutorials under `docs/src/tutorials/python/` teach the same patter
 
 ### Per-app workarounds are uncoordinated
 
-Individual apps (Bugsink, GlitchTip) work around these cases in app-level scripts (e.g. emitting `requirements.txt` from Poetry's lockfile). These workarounds are repeatable but uncoordinated: each packager solves the problem in their own way, and the toolchain is none the wiser.
+Individual apps (Bugsink, GlitchTip) work around these cases in app-level scripts (e.g. emitting `requirements.txt` from Poetry's lockfile). These workarounds are repeatable but uncoordinated: each packager solves the problem in their own way while the toolchain remains none the wiser.
 
 ## Decision
 
 We clarify the Python deployment surface along four axes:
 
-1. **Freeze at packaging time.** The packager's intent (which versions to deploy) is captured in the app's source tree in a form that the deployer can read without further resolution. The deployer installs what's declared; it does not compute what should be installed.
+1. **Freeze at packaging time.** The packager's intent (which versions to deploy) is captured in the app's source tree in a form that the deployer can read without further resolution. The deployer installs what's declared.
 2. **Make the install strategy explicit when ambiguous.** Ambiguity (chiefly both `requirements.txt` and `pyproject.toml` present) surfaces as a `Diagnosis`.
-3. **uv first, Poetry without special-casing, pip-freeze workflow documented and discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` is neither rejected nor singled out: it falls through to `pip install .` via PEP-517, and packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
+3. **uv first, Poetry without special-casing, pip-freeze workflow documented and discouraged.** The default new-app recipe is uv. A Poetry-only `pyproject.toml` falls through to `pip install .` via PEP-517. Packagers who want reproducibility export a frozen `requirements.txt` from Poetry's lockfile at packaging time. Abstract `requirements.txt` is accepted but warned on.
 4. **Users can override detection.** `[build.python].strategy` in `hop3.toml` lets packagers state the intended install path when the auto-detection would be ambiguous or wrong.
 
 ### Config surface
@@ -76,14 +76,14 @@ Omitting `[build.python].strategy` invokes auto-detection. Auto-detection rules:
 
 1. `uv.lock` present → `uv-sync`.
 2. `requirements.txt` present AND `pyproject.toml` absent → `requirements`.
-3. `pyproject.toml` present AND `requirements.txt` absent → `pyproject`. A Poetry-only `pyproject.toml` (dependencies under `[tool.poetry]`, no PEP-621 `[project]`) falls through here to `pip install .` and is not rejected; packagers who want pinned, reproducible installs export a frozen `requirements.txt` from Poetry's lockfile and select `strategy = "requirements"`.
+3. `pyproject.toml` present AND `requirements.txt` absent → `pyproject`. A Poetry-only `pyproject.toml` (dependencies under `[tool.poetry]`, no PEP-621 `[project]`) falls through here to `pip install .`. Packagers who want pinned, reproducible installs export a frozen `requirements.txt` from Poetry's lockfile and select `strategy = "requirements"`.
 4. Both `requirements.txt` and `pyproject.toml` present → **error** with a `Diagnosis` asking the operator to pick a strategy explicitly.
 5. Neither → **error** (unchanged).
 
 ### Install changes
 
 - `uv sync` gains `--no-dev` (or `--no-group dev` on uv 0.5+).
-- `pip install ... -r requirements.txt` drops `--upgrade`. If the packager wants un-pinned behaviour, they get it; if they want pinned behaviour, we honour it. No silent override.
+- `pip install ... -r requirements.txt` drops `--upgrade`. If the packager wants un-pinned behaviour, they get it; if they want pinned behaviour, we honour it.
 - `pip install ... .` drops `--upgrade` for the same reason.
 - `--no-deps` is used when a lockfile or fully-pinned requirements file is in play (the lockfile is authoritative; pip's resolver should not second-guess).
 
@@ -112,8 +112,8 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 ## Non-goals
 
 - **Replacing the Python toolchain runtime.** uWSGI-vs-Granian lives in [ADR 023](./023-runtime-stack-replacement.md); this ADR is only about how dependencies get into the venv.
-- **Hermetic Python builds via Nix.** How the `python-venv` template vendors its wheel set into a fixed-output derivation and installs offline belongs to [ADR 008](./008-nix-builders-2.md) and the model it must satisfy to [ADR 058](./058-build-reproducibility-model.md); this ADR governs the native path. The two share the requirement that dependencies be pinned, and enforce it independently.
-- **Per-app Python version selection beyond `_find_best_python()`.** An app that needs Python 3.11 specifically (not "whatever's newest on the host") needs a different mechanism; out of scope.
+- **Hermetic Python builds via Nix.** How the `python-venv` template vendors its wheel set into a fixed-output derivation and installs offline belongs to [ADR 008](./008-nix-builders-2.md) and the model it must satisfy to [ADR 058](./058-build-reproducibility-model.md). This ADR governs the native path. The two share the requirement that dependencies be pinned, and enforce it independently.
+- **Per-app Python version selection beyond `_find_best_python()`.** An app that needs Python 3.11 specifically (not "whatever's newest on the host") needs a different mechanism, which is out of scope.
 
 ## Consequences
 
@@ -133,7 +133,7 @@ Tutorials that currently teach `pip freeze > requirements.txt` as the production
 
 - **Poetry path complexity.** `poetry export` has subtle flags (`--only`, `--without`, `--with`, `--without-hashes`) and has had broken behaviour historically. The recommended workflow standardises on one invocation; Hop3 does *not* run poetry itself.
 - **uv stability.** uv is young; its CLI has changed between minor versions (the `--no-dev` vs `--no-group dev` transition is an example). The Hop3 installer pins to a compatible range; it does not track head.
-- **Tutorial rewrite scope.** The Python tutorial set is a real chunk of doc work, and is scheduled separately from the toolchain changes.
+- **Tutorial rewrite scope.** The Python tutorial set is a real chunk of doc work, scheduled separately from the toolchain changes.
 
 ## References
 

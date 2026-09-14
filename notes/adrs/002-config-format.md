@@ -7,10 +7,10 @@
 
 ## Specification subset and reserved fields
 
-The format defines a stable core that the runtime consumes, plus forward-looking fields retained in the design but not yet acted upon. An application that sets a reserved field is unaffected, except that nothing acts on it.
+The format defines a stable core that the runtime consumes, plus forward-looking fields retained in the design but not yet acted upon. Setting a reserved field changes nothing: the runtime ignores it.
 
 ### Core sections and fields
-- **`[metadata]`**: `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are informational metadata surfaced in listings, and do not change runtime behaviour.
+- **`[metadata]`**: `id` (required); additional descriptive fields (`version`, `title`, `description`, `homepage`, `license`, `categories`) are informational metadata surfaced in listings; they do not change runtime behaviour.
 - **`[build]`**: `builder` (explicit override), `toolchain` (explicit override), `packages` (apt-install list), `before-build`, `build`.
 - **`[run]`**: `start`, `before-run`, `start-timeout`, `packages`.
 - **`[run.workers]`**: per-role worker commands (same-process-tree).
@@ -30,15 +30,15 @@ Schema validation beyond TOML parse errors, YAML/JSON alternative formats, and C
 
 ## Summary
 
-This ADR details the format and structure of the `hop3.toml` file, the primary configuration file for the Hop3 platform. Designed for simplicity and explicitness, the `hop3.toml` format also supports YAML and JSON configurations. This document specifies the sections and fields within `hop3.toml` and their intended use.
+This ADR details the format and structure of `hop3.toml`, the primary configuration file for the Hop3 platform. The format favours simplicity and explicitness, and also supports YAML and JSON configurations. It specifies the sections and fields within `hop3.toml` and their intended use.
 
 ## Context and Goals
 
-The `hop3.toml` file is central to the Hop3 platform, serving as the primary configuration file for deploying and managing web applications. Its design aims to be simple and explicit. The configuration can also be written in YAML and JSON formats. This document describes the detailed format and structure of the `hop3.toml` file, which contains a limited set of metadata and configuration details necessary for the operation of the Hop3 platform.
+The `hop3.toml` file is central to the Hop3 platform: applications deploy and run by its terms. Its design aims to be simple and explicit, and the configuration can also be written in YAML and JSON. The file holds a limited set of metadata and configuration details necessary for the operation of the Hop3 platform; this document describes them in detail.
 
 ## Decision
 
-The `hop3.toml` file will be used as the primary configuration format for the Hop3 platform. The file structure includes several sections, some mandatory and others optional, to cover various aspects of application deployment and management. Each section has specific fields that provide the necessary metadata and configuration details.
+The `hop3.toml` file will be the primary configuration format for the Hop3 platform. The file structure includes several sections, some mandatory and others optional, to cover various aspects of application deployment and management. Each section has specific fields that provide the necessary metadata and configuration details.
 
 ## Consequences
 
@@ -80,17 +80,17 @@ The `hop3.toml` file contains several sections, mandatory or optional. Their ord
 ### `[build]`
 
 - **Optional**
-- Specifies the environment and specific actions to be performed to build the executable artifact(s) of the application.
+- Specifies the environment and the actions to perform to build the application's executable artifact(s).
 
 ### `[run]`
 
 - **Optional**
-- Contains actions to perform to start the application.
+- Holds the actions to perform to start the application.
 
 ### `[env]`
 
 - **Optional**
-- Environment variables, static or dynamic. The variables can be replaced by new values at runtime.
+- Environment variables, static or dynamic. The deployer can replace them with new values at runtime.
 
 ### `[port]`
 
@@ -162,7 +162,7 @@ Notes:
 
 - **Optional**
 - String containing a valid URL.
-- Reference website of the application.
+- The application's reference website.
 - Example: `website = "https://hedgedoc.org/"`
 
 #### `tags`
@@ -207,7 +207,7 @@ Notes:
 #### `src-checksum`
 
 - **Optional**
-- SHA256 checksum to enforce upon the downloaded source code.
+- SHA256 checksum verified against the downloaded source code.
 - Example: `src-checksum = 'c9bd99c65cf45fa1d7808855b46abbfa13b24400254d8da5e81dae2965494bb3'`
 
 #### `git-url`
@@ -225,13 +225,13 @@ Notes:
 #### `base-image`
 
 - **Optional**
-- String containing a valid reference to a base image if applicable.
+- String containing a valid reference to a base image, if applicable.
 - Example: `base-image = "ubuntu:20.04"`
 
 #### `method`
 
 - **Optional**
-- Force selection of the build method, possible values are `build` or `wrap`.
+- Forces selection of the build method. Possible values: `build` or `wrap`.
 - Example: `method = "wrap"`
 
 #### `builder`
@@ -255,7 +255,7 @@ Notes:
 #### `meta-packages`
 
 - **Optional**
-- Group of packages defined by Hop3 to facilitate some installation.
+- Group of packages defined by Hop3 to ease some installations.
 - Example: `meta-packages = ["postgres-client"]`
 
 #### `build`
@@ -278,7 +278,7 @@ build = [
 #### `test`
 
 - **Optional**
-- List of shell commands for "smoke test" to check that the installation was successful.
+- List of shell commands for a "smoke test" of the installation.
 - Example: `test = "python -c 'import flask_show'"`
 
 #### `before-build`
@@ -430,9 +430,9 @@ ______________________________________________________________________
 
 ### Section `[[provider]]`
 
-A provider is another service required by the main application. Several providers can be declared.
+A provider is another service required by the main application. The application can declare several providers.
 
-Providers are identified by a `name` that permits reference to the provider in the `[env]` section.
+The application references a provider by its `name` in the `[env]` section.
 
 #### Examples:
 

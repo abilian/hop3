@@ -62,7 +62,7 @@ We needed a solution that:
 
 ## Decision
 
-We integrate Pluggy with Dishka using a **hook-based provider registration pattern**, where:
+We integrate Pluggy with Dishka using a hook-based provider registration pattern, where:
 
 1. **Plugins contribute Dishka providers via a Pluggy hook**
 2. **Container creation collects providers from all plugins**

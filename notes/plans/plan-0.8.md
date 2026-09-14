@@ -47,7 +47,7 @@ Ten of the twenty catalog applications (BookStack, Dolibarr, Easy!Appointments, 
 
 **Serve PHP through php-fpm behind the reverse proxy.** One platform fix, ten applications, and it converts the largest ecosystem in the catalog from "works in a demo" to "works under load". This is the highest value-per-unit-work item in the release.
 
-- [ ] php-fpm pool per app, wired to the existing proxy plugins.
+- [x] php-fpm pool per app, wired to the existing proxy plugins. Shipped 2026-09-11: the pool runs as a uWSGI `attach-daemon`, nginx speaks FastCGI to it, and the readiness gate learned to probe a backend in its own protocol.
 - [ ] Migration for the ten deployed recipes; the recipes should get simpler.
 
 ### 3. Local-source builds: give the generator the git-push case
@@ -64,7 +64,8 @@ The change is mechanical: `src = ./.` builds from the recipe directory. It does 
 The server ships one Node version (18.19.1) and no pnpm, so umami (needs ≥20) and ghost (needs pinned ≥18.12) cannot be packaged natively, and native Outline and Strapi are blocked behind the same wall. This was ranked third in DEFERRED-APPS' own "most useful next steps".
 
 - [ ] `hop3-install server --with=rust|nodejs-18|nodejs-22|pnpm|headless-browsers|latex`, composing with the existing `--with` features.
-- [ ] Per-app `[build].node-version` so a recipe declares what it needs.
+- [x] Per-app `[build].node-version` so a recipe declares what it needs. The Node toolchain installs the pinned version into the app's venv via `nodeenv --prebuilt`, and aborts naming the recipe's own value when `nodeenv` is missing.
+- [ ] **The package manager has no equivalent, and that is now the live half.** A recipe pins its Node and then gets whichever pnpm is current. Etherpad has absorbed three breaking pnpm-10 changes in its download script to compensate, and the third one — upstream's plugin migration calling `pnpm ls --no-production`, a flag pnpm 10 removed — is a fatal startup error, not a build one, so it presents as an app that will not boot. Blocker #33 asks *which* package manager (dispatch from the lockfile); this asks *which version*, and the two want deciding together.
 - [ ] Set kernel sysctls the platform requires (`vm.max_map_count` for bundled Elasticsearch): PaaS-level configuration that unblocks SonarQube and anything Elasticsearch-shaped.
 
 ## Second tier: worth doing, smaller in consequence

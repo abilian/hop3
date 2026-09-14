@@ -30,7 +30,7 @@ The `hop3` CLI aliases `hop` for brevity. The full command listing is available 
 
 ### Commands deliberately excluded or sequenced behind other work
 
-Some commands named in the original kernel are intentionally not part of the core surface, or depend on machinery that other ADRs own:
+Some commands named in the original kernel are not part of the core surface, or depend on machinery that other ADRs own:
 
 - **`build` (separate from deploy)**: builds are tied to deploy. Operators don't need a stand-alone `build` command; it is straightforward to add if that changes, so it stays off the surface.
 - **`revert`, `upgrade` / `downgrade`**: these depend on versioned artefacts and the deployment-strategies / artefact-lifecycle machinery owned by [ADR 032](./032-deployment-strategies-artifact-lifecycle.md); they are sequenced behind that work.
@@ -72,7 +72,9 @@ The CLI command set is organized into Authentication, Catalog, Development, Syst
 - `hop3 login`: Log in to the Hop3 server.
 - `hop3 logout`: Log out from the Hop3 server.
 
-Credentials are stored in `~/.config/hop3-cli/config.toml`, and may also be provided by environment variables (`HOP3_API_TOKEN`, `HOP3_API_URL`). *(Updated 2026-06-23: the original sketch named `~/.hop3/credentials.toml` and illustrative `HOP3_TOKEN`/`HOP3_SERVER_URI` vars; corrected to the implemented location and variables: see [ADR 042](042-cli-context-model.md).)*
+Credentials are stored in `~/.config/hop3-cli/config.toml`, and may also be provided by environment variables (`HOP3_API_TOKEN`, `HOP3_API_URL`).
+
+> **Updated 2026-06-23:** the original sketch named `~/.hop3/credentials.toml` and illustrative `HOP3_TOKEN`/`HOP3_SERVER_URI` vars; corrected to the implemented location and variables: see [ADR 042](042-cli-context-model.md).
 
 ### Development
 

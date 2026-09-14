@@ -10,7 +10,7 @@
 
 Wrapping an existing nixpkgs package belongs in the template-based generation system as one template among others, alongside the hand-crafted-`hop3.nix` path. The operator selects the `nixpkgs-wrapper` template in `[nix].template`; the generator produces a thin `hop3.nix` that wraps `pkgs.<app>` with the Hop3 runtime wrapper and the [ADR 035](./035-build-artifacts.md) `runtime.json` contract.
 
-The original goals below (reuse nixpkgs packages, automate updates, provide an app-store-like UX) remain valid, and are achieved through [ADR 008](./008-nix-builders-2.md) plus the [ADR 035](./035-build-artifacts.md) `RuntimeConfig` contract. The body of this ADR is retained for historical reference.
+The original goals below (reuse nixpkgs packages, automate updates, provide an app-store UX) remain valid, and are achieved through [ADR 008](./008-nix-builders-2.md) plus the [ADR 035](./035-build-artifacts.md) `RuntimeConfig` contract. The body of this ADR is retained for historical reference.
 
 ## Context & Goals
 
@@ -24,12 +24,12 @@ The goal is to integrate applications into the Hop3 platform, speed up updates, 
 
 In Hop3's two-level build architecture ([ADR 030](./030-two-level-build-architecture.md)):
 
-- **NixBuilder** is a **Level 1 Builder** - it orchestrates the build process
+- **NixBuilder** is a **Level 1 Builder**: it orchestrates the build process
 - NixBuilder uses Nix expressions (from nixpkgs or generated) to handle all languages uniformly; LocalBuilder delegates that work to Level 2 LanguageToolchains
 
-This ADR focuses on **reusing existing nixpkgs packages** - applications already packaged in the Nix ecosystem (Nextcloud, Jitsi, etc.). [ADR 008](./008-nix-builders-2.md) covers generating Nix expressions for applications without existing Nix support.
+This ADR focuses on **reusing existing nixpkgs packages**: applications already packaged in the Nix ecosystem (Nextcloud, Jitsi, etc.). [ADR 008](./008-nix-builders-2.md) covers generating Nix expressions for applications without existing Nix support.
 
-**BuildArtifact Integration ([ADR 035](./035-build-artifacts.md))**: NixBuilder produces a `BuildArtifact` with fully-resolved Nix store paths in the `RuntimeConfig`. This is a natural fit since Nix computes all paths at build time.
+**BuildArtifact Integration ([ADR 035](./035-build-artifacts.md))**: NixBuilder produces a `BuildArtifact` with fully resolved Nix store paths in the `RuntimeConfig`. This is a natural fit since Nix computes all paths at build time.
 
 ## Decision
 
@@ -69,4 +69,4 @@ Hop3 will develop NixBuilder (a Level 1 Builder per [ADR 030](./030-two-level-bu
 
 - **Integration Complexity**: Ensuring that a wide variety of applications, particularly legacy or non-12-factor apps, are compatible with Nix and Hop3. This can be mitigated through community feedback and thorough testing with real-world applications.
 - **Ongoing Maintenance**: Keeping the builder plugin in sync with changes in the nixpkgs repository and updates to the supported applications. This will require a well-defined maintenance schedule and active community contributions.
-- **Performance Overhead**: Nix-based builds, while reproducible, sometimes introduces performance overhead compared to native build systems. Mitigation involves continuous optimization of build processes and using Nix’s caching mechanisms.
+- **Performance Overhead**: Nix-based builds, while reproducible, sometimes introduce performance overhead compared to native build systems. Mitigation involves continuous optimization of build processes and using Nix’s caching mechanisms.

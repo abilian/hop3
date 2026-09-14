@@ -18,11 +18,11 @@ Today secrets live in four locations:
 
 Three problems follow:
 
-1. **The four backing-service admin secrets are stored two different ways.** PostgreSQL and MySQL superuser passwords sit inline in `hop3-server.toml`; the Redis and S3 secrets sit in dedicated `/etc/hop3` files. There is no reason for the split: the `/etc/hop3` pattern (root-owned, group-readable, never on a process argv) is the more defensible one, and the SQL passwords do not follow it.
+1. **The four backing-service admin secrets are stored two different ways.** PostgreSQL and MySQL superuser passwords sit inline in `hop3-server.toml`; the Redis and S3 secrets sit in dedicated `/etc/hop3` files. The split has no reason: the `/etc/hop3` pattern (root-owned, group-readable, never on a process argv) is the more defensible one, and the SQL passwords do not follow it.
 
 2. **`HOP3_SECRET_KEY` has two sources.** The running service reads it from `/etc/default/hop3` (systemd injects it; env wins in the loader); an SSH-invoked CLI runs as `su - hop3` and cannot read that `root:root 0600` file, so it reads the copy in `hop3-server.toml`. The installer writes the same value to both and "reconciles" them. A partial or interrupted install desyncs the two: token minting still reports success, but every subsequent RPC fails authentication.
 
-3. **The precedence and placement rules are unwritten.** [ADR 027](./027-config-system-refactoring.md) resolved the general env-over-file precedence (the environment always wins) but left secrets unaddressed, which is the concern this ADR takes up; [ADR 041](./041-privileged-operations-agent.md) explicitly defers the `hop3-server.toml` schema to a future ADR. There is no taxonomy that says what belongs where.
+3. **The precedence and placement rules are unwritten.** [ADR 027](./027-config-system-refactoring.md) resolved the general env-over-file precedence (the environment always wins) but left secrets unaddressed; [ADR 041](./041-privileged-operations-agent.md) explicitly defers the `hop3-server.toml` schema to a future ADR. There is no taxonomy that says what belongs where.
 
 Two facts constrain any design. First, two distinct principals read server secrets: the **service** (systemd starts it as root, then drops to `User=hop3`) and the **SSH-invoked CLI** (`su - hop3`, never root). Second, the platform is single-server and self-hosted; an external secrets manager or at-rest encryption of the control plane is disproportionate ([ADR 011](./011-encryption.md) already governs application-data encryption, a separate concern).
 
@@ -70,7 +70,7 @@ This adopts the precedence [ADR 027](./027-config-system-refactoring.md) resolve
 2. the value in `hop3-server.toml`,
 3. the built-in default.
 
-Secrets do not participate in this chain: each secret has exactly one file (principle 2), read directly by its consumer. Because no secret is injected into the environment by the platform, a stray environment variable cannot silently shadow a secret on disk: the shadowing that let an operator's on-disk `ACME_ENGINE` be overridden by the unit environment cannot occur, because non-secret settings such as `ACME_ENGINE` live only in `hop3-server.toml` and the platform writes no competing environment copy.
+Secrets do not participate in this chain: each secret has exactly one file (principle 2), read directly by its consumer. Because no secret is injected into the environment by the platform, a stray environment variable cannot silently shadow a secret on disk, because non-secret settings such as `ACME_ENGINE` live only in `hop3-server.toml` and the platform writes no competing environment copy.
 
 ### One source for the signing key
 
@@ -78,7 +78,7 @@ The JWT signing key has a single file under the secrets tier, `root:hop3 0640`, 
 
 ### Migration
 
-Existing installs are converted by moving each misplaced secret to its tier and removing the duplicates, preserving the secret's current value (never minting a new one: rotation is an explicit, separate operation). The installer is the single writer of every secret file and of `hop3-server.toml`; it reuses an existing value when present and rewrites a file only to add what is missing, so the conversion is idempotent and a redeploy neither rotates a credential nor discards an operator's setting.
+Existing installs are converted by moving each misplaced secret to its tier and removing the duplicates, preserving the secret's current value (never minting a new one: rotation is an explicit, separate operation). The installer is the single writer of every secret file and of `hop3-server.toml`. It reuses an existing value when present and rewrites a file only to add what is missing, so the conversion is idempotent and a redeploy neither rotates a credential nor discards an operator's setting.
 
 When a secret exists in two legacy locations with **different** values (the desync a partial install can leave for the signing key) the value the running service currently uses wins, because that is the one already in effect (minting tokens, encrypting credentials). For the signing key that is the `/etc/default/hop3` copy (the service reads the environment first; the `hop3-server.toml` copy is the CLI's fallback). The conversion logs the discrepancy, so the operator sees that a divergence existed.
 

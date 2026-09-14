@@ -9,7 +9,7 @@
 
 Currently, Hop3 uses a simple "stop-then-deploy" approach for redeployments: when deploying a new version of a running application, it stops the old version, builds and deploys the new version, then starts it. This approach has limitations:
 
-1. **Downtime**: The application is unavailable during the entire build and deploy process
+1. **Downtime**: The application is unavailable during the build and deploy process
 2. **No rollback**: If the new version fails to start, the old version is already gone
 3. **In-place modification**: Build artifacts are created in the same location, destroying the previous version
 
@@ -122,8 +122,6 @@ Builders differ in how much of this lifecycle they get for free. Nix-built apps 
 The CLI surface for this lifecycle is the `revert` command and the `upgrade`/`downgrade` commands (deferred from [ADR 019](./019-cli-commands.md)): they list, select, and switch the active artifact version using the same `current`/`previous` mechanism.
 
 ### 2. Deployment Strategies
-
-Different strategies for different needs:
 
 #### Strategy A: Stop-Then-Deploy (Current)
 
@@ -371,7 +369,7 @@ Keep the simple stop-then-deploy approach for all cases.
 
 ### 2. Container-Only
 
-Require all applications to be containerized, leveraging container orchestration for deployment strategies.
+Require all applications to be containerized, using container orchestration for deployment strategies.
 
 **Rejected because**: Hop3's value proposition includes supporting non-containerized applications. However, containerized apps naturally get blue-green via container orchestration.
 

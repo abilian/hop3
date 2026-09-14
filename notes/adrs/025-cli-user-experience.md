@@ -110,7 +110,7 @@ Type the app name to confirm: _
 **Alternatives Considered:**
 - **Termcolor**: Rejected - less feature-rich than Rich
 - **Colorama**: Rejected - only colors, no tables/panels
-- **Custom implementation**: Rejected - Rich is battle-tested
+- **Custom implementation**: Rejected - Rich is stable and widely used
 
 ### 3. Machine-Readable Output
 
@@ -391,7 +391,7 @@ Did you mean: 'my-app'?
 
 ### Verbosity Levels
 
-**Not in initial scope, but planned:**
+**Deferred from initial scope; planned:**
 - `-v` / `--verbose`: Show debug information
 - `-vv`: Show even more debug information
 - Default: Current level

@@ -10,12 +10,12 @@ This ADR documents the selection and rationale for the core development tools us
 
 ## Context and Goals
 
-A modern Python project requires a comprehensive toolchain to ensure developer productivity, code quality, and maintainability. The goals for our tooling decisions are:
+A modern Python project needs a toolchain that supports developer productivity, code quality, and maintainability. The goals for our tooling decisions are:
 
-1. **Developer Experience**: Tools should be fast, intuitive, and minimize friction
-2. **Modern Best Practices**: Adopt contemporary tools that align with Python ecosystem trends
+1. **Developer Experience**: Tools should be fast, intuitive, and low-friction
+2. **Modern Best Practices**: Adopt tools that align with Python ecosystem trends
 3. **Consistency**: Use tools that enforce consistent coding standards across the team
-4. **Performance**: Prefer faster tools over legacy alternatives where quality is equivalent
+4. **Performance**: Prefer faster tools where quality is equivalent
 5. **Simplicity**: Minimize the number of tools and configuration complexity
 6. **Compliance**: Ensure tools support licensing and security compliance requirements
 
@@ -26,10 +26,10 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 **Tool**: [uv](https://github.com/astral-sh/uv) (by Astral)
 
 **Rationale**:
-- **Speed**: Significantly faster than pip/poetry (10-100x faster)
+- **Speed**: Faster than pip/poetry (10-100x)
 - **Workspace Support**: Native monorepo/workspace support for our multi-package architecture
 - **Lock Files**: Deterministic dependency resolution with `uv.lock`
-- **Modern**: Active development, designed for contemporary Python workflows
+- **Modern**: Active development
 - **pip-compatible**: Drop-in replacement for pip with familiar interface
 
 **Replaced**: pip, pip-tools, poetry, pipenv
@@ -51,7 +51,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 **Rationale**:
 - **Speed**: 10-100x faster than pylint/flake8
-- **Comprehensive**: Combines multiple tools (flake8, isort, pyupgrade, etc.) into one
+- **Comprehensive**: Combines flake8, isort, pyupgrade, and more into one
 - **Compatible**: Implements most rules from popular linters
 - **Formatter**: Includes Black-compatible code formatter
 - **Easy**: Single tool configuration, minimal setup
@@ -99,12 +99,12 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 - **Modern Approach**: New generation type checker addressing limitations of traditional tools
 - **Fast**: Performance-focused implementation
 - **Accurate**: Improved type inference and error detection
-- **Future**: Represents the evolution of Python type checking
+- **Direction**: Where Python type checking is heading
 
 **Experimental Tool - ty**:
 - **Advanced Types**: Experimental type system extensions
-- **Research**: Exploring next-generation type checking capabilities
-- **Evaluation**: Testing for potential adoption in the future
+- **Research**: Exploring new type checking capabilities
+- **Evaluation**: Candidate for future adoption
 
 **Legacy Support**: Mypy/Pyright configurations maintained for compatibility but Pyrefly is the primary tool
 
@@ -119,6 +119,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 - **Agentless**: SSH-based, no agents to install
 - **Fast**: Parallel execution across hosts
 - **Simple**: Easier than Ansible for Python developers
+- **Declarative**: Infrastructure described in Python code
 
 **Configuration**: `installer/install-hop.py`
 
@@ -139,7 +140,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 **Rationale**:
 - **Markdown-based**: Easy to write and maintain
-- **Beautiful**: Material theme provides modern, professional look
+- **Beautiful**: Material theme provides a polished look
 - **Features**: Search, navigation, code highlighting
 - **Plugins**: Rich plugin ecosystem (mkdocstrings, git-revision-date, etc.)
 
@@ -184,11 +185,11 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ### Benefits
 
-1. **Performance**: Modern, fast tools (uv, Ruff) significantly improve developer experience
+1. **Performance**: Fast tools (uv, Ruff) improve developer experience
 2. **Consistency**: Single source of truth for code formatting and linting
 3. **Simplicity**: Fewer tools to learn and configure (Ruff replaces 5+ tools)
-4. **Modern Stack**: Aligned with current Python ecosystem best practices
-5. **Quality**: Comprehensive tooling ensures high code quality
+4. **Modern Stack**: Aligned with current Python ecosystem practices
+5. **Quality**: Tooling that catches defects early
 6. **Compliance**: Built-in support for licensing and security requirements
 
 ### Drawbacks
@@ -198,7 +199,7 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 ### Trade-offs
 
 1. **Speed vs Maturity**: Chose faster, newer tools (uv, Ruff) over more mature alternatives (poetry, pylint)
-2. **Single Tool vs Best of Breed**: Consolidated where possible (Ruff) but kept separate tools where specialized (pytest, pirefly, mypy)
+2. **Consolidation vs Specialization**: Consolidated where possible (Ruff) but kept separate tools where specialized (pytest, pyrefly, mypy)
 
 ## References
 
@@ -212,14 +213,14 @@ A modern Python project requires a comprehensive toolchain to ensure developer p
 
 ## Notes
 
-This tooling stack represents a modern, performance-focused approach to Python development. The emphasis on speed (uv, Ruff) and developer experience aligns with our goal of maintaining high development velocity while ensuring code quality.
+This tooling stack takes a performance-focused approach to Python development. The emphasis on speed (uv, Ruff) and developer experience supports our goal of high development velocity with code quality.
 
-The choice of Rust-based tools (uv, Ruff) reflects a broader industry trend toward using systems programming languages for developer tools where performance matters.
+The choice of Rust-based tools (uv, Ruff) reflects an industry trend toward using systems programming languages for developer tools where performance matters.
 
-We intentionally avoided tool proliferation by:
-- Using Ruff instead of 5+ separate linting tools
-- Using uv instead of multiple package management tools
+We limited tool proliferation by:
+- Giving Ruff the work of 5+ separate linting tools
+- Giving uv the work of multiple package management tools
 
-However, we kept specialized tools (pytest, Pyrefly, mkdocs) where they excel in their domain.
+However, we kept specialized tools (pytest, Pyrefly, mkdocs) where they are strongest in their domain.
 
-For type checking specifically, we've chosen to adopt Pyrefly as a next-generation type checker, moving away from the traditional Mypy/Pyright approach. This decision reflects our commitment to exploring and adopting emerging tools that may offer better performance and accuracy. We're also experimenting with ty, which pushes the boundaries of Python's type system even further.
+For type checking, we adopted Pyrefly, moving away from the traditional Mypy/Pyright approach. We are experimenting with ty, which extends Python's type system further.

@@ -7,7 +7,7 @@
 
 ## Context and Goals
 
-Ensuring the availability and integrity of data is critical for the Hop3 platform. A backup strategy is essential to protect against data loss, corruption, and ensure quick recovery in case of failures. The goal is to define a backup strategy that covers different types of data (e.g., configuration files, application data, and databases) and ensures that backups are performed regularly, stored securely, and can be restored efficiently.
+Ensuring the availability and integrity of data is critical for the Hop3 platform. A backup strategy is essential to protect against data loss and corruption and to enable quick recovery after failures. The goal is to define a backup strategy that covers different types of data (e.g., configuration files, application data, and databases) and ensures that backups are taken regularly, stored securely, and can be restored efficiently.
 
 This ADR defines the long-term vision for Hop3's backup capabilities. [ADR 024](024-backup-restore-system.md) specifies the foundational backup and restore system on which the later phases build.
 
@@ -41,7 +41,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 **Phase 2+**:
 
 1. **Configuration Files**:
-   - **Frequency**: Daily backups of configuration files such as `hop3.toml` and other relevant configurations.
+   - **Frequency**: Daily backups of configuration files such as `hop3.toml`.
    - **Retention**: Retain daily backups for 30 days and monthly backups for 12 months.
 
 2. **Application Data**:
@@ -66,8 +66,8 @@ The strategy is delivered in phases, so that a usable foundation exists before t
    - **Remote Storage**: Use remote storage solutions such as cloud storage providers (e.g., AWS S3, Google Cloud Storage, Backblaze B2) for redundancy and disaster recovery.
 
 2. **Security Measures**:
-   - **Encryption**: Encrypt all backup files at rest and in transit to ensure data confidentiality (using Age or GPG).
-   - **Access Control**: Implement strict access control measures to restrict access to backup files to authorized personnel only.
+   - **Encryption**: Encrypt all backup files at rest and in transit to protect data confidentiality (using Age or GPG).
+   - **Access Control**: Restrict access to backup files to authorized personnel.
 
 ### Restoration Procedures
 
@@ -79,18 +79,18 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 **Phase 2+**:
 
 1. **Regular Testing**:
-   - **Test Restorations**: Perform regular test restorations to ensure that backup files are not corrupted and can be restored successfully.
+   - **Test Restorations**: Regularly restore backups to verify that the files are intact and the procedure works.
    - **Documentation**: Maintain detailed documentation of the restoration procedures and update it regularly.
 
 2. **Automated Restoration**:
-   - **Automation Tools**: Use automated tools and scripts to facilitate quick and efficient restoration of backups.
-   - **Monitoring**: Implement monitoring systems to detect and alert on backup failures or issues.
+   - **Automation Tools**: Use automated tools and scripts to speed up restoration.
+   - **Monitoring**: Implement monitoring systems to detect and alert on backup failures.
 
 ### Continuous Improvement
 
 1. **Feedback Loop**:
-   - **User Feedback**: Establish a feedback loop with users and administrators to continuously improve the backup strategy based on real-world usage and feedback.
-   - **Performance Monitoring**: Monitor the performance and reliability of the backup processes to identify and address any issues promptly.
+   - **User Feedback**: Ask users and administrators about the backup strategy and adjust it based on what we learn.
+   - **Performance Monitoring**: Monitor the performance and reliability of the backup processes and fix issues as they appear.
 
 2. **Community Engagement**:
    - **Hop3 Community**: Encourage contributions from the Hop3 community to improve the backup strategy.
@@ -99,19 +99,19 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 
 ### Benefits
 
-- **Data Protection**: Ensures the availability and integrity of critical data.
-- **Quick Recovery**: Facilitates quick recovery in case of data loss or corruption.
+- **Data Protection**: Protects the availability and integrity of critical data.
+- **Quick Recovery**: Enables quick recovery after data loss or corruption.
 - **Security**: Enhances security through encryption and strict access control measures (Phase 3).
 
 ### Drawbacks
 
 - **Resource Intensive**: Requires storage resources and network bandwidth for regular backups.
-- **Management Complexity**: Adds complexity to system management, requiring careful planning and monitoring.
+- **Management Complexity**: Adds complexity to system management and needs careful planning and monitoring.
 - **Phased Delivery**: The advanced capabilities (scheduling, remote storage, encryption, incremental backups) depend on operational machinery that the foundational phase does not provide, so they become available only as later phases are built.
 
 ## Risks
 
-- **Backup Failures**: Potential risk of backup failures or corruption. Mitigation involves regular testing and monitoring.
+- **Backup Failures**: Backups can fail or produce corrupt archives. Mitigation involves regular testing and monitoring.
 - **Security Breaches**: Risk of unauthorized access to backup files. Mitigation includes strong encryption (Phase 3) and access control measures.
 
 ## References

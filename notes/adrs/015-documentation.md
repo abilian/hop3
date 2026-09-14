@@ -10,7 +10,7 @@ Hop3 needs reference material that lets users deploy and operate applications, a
 
 ## Decision
 
-Hop3 ships a comprehensive documentation site as a first-class artefact. Community engagement happens primarily through GitHub (issues, pull requests, releases), conference presentations, and the NGI project channels. Dedicated forums and webinar programmes are candidates rather than commitments.
+Hop3 ships a documentation site as a first-class artefact. Community engagement happens primarily through GitHub (issues, pull requests, releases), conference presentations, and the NGI project channels. Dedicated forums and webinar programmes are not commitments.
 
 ## Detailed Design
 
@@ -26,7 +26,7 @@ The documentation is built with MkDocs (Material theme) and published at [hop3.c
 
 ### Outbound engagement
 
-Active outbound engagement happens through conference presentations (OW2Con, OSXP), the NGI0 Commons Fund project page, and technical reports and the companion paper for systems venues.
+Active outbound engagement happens through conference presentations (OW2Con, OSXP) and the NGI0 Commons Fund project page. Technical reports and a companion paper address systems venues.
 
 ### Candidate future mechanisms
 
