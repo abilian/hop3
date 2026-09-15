@@ -443,7 +443,9 @@ def _update_app_model(
                 fg="yellow",
             )
     else:
-        _handle_startup_failure(app, outcome, timeout)
+        _handle_startup_failure(
+            app, outcome, timeout, healthcheck_path, healthcheck_contains
+        )
 
 
 def _bounded_log_excerpt(lines: list[str], head: int = 25, tail: int = 20) -> list[str]:
@@ -631,6 +633,17 @@ _MAX_REDIRECT_HOPS = 5
 #: the probe is a client and must say who it is.
 _PROBE_USER_AGENT = "hop3-healthcheck"
 
+#: The one extra request the failure path makes, to tell "the app is silent"
+#: from "the marker is wrong". Short: the deadline has already elapsed and an
+#: operator is waiting on the verdict.
+_DIAGNOSIS_TIMEOUT = 3.0
+
+#: How much of what the app *did* serve goes into the diagnosis. Enough to
+#: recognise the page (a title, a redirect target, an error) and small enough
+#: to fit beside the rest of the message in `error_message`, which the
+#: dashboard shows and the column bounds at 1024.
+_DIAGNOSIS_BODY_CHARS = 200
+
 
 def _app_serves_http(
     app: App,
@@ -684,6 +697,37 @@ def _app_serves_http(
         return False
 
 
+def _fetch(
+    port: int, host: str, path: str, timeout: float, *, want_body: bool
+) -> tuple[int, str, str | None]:
+    """
+    One GET at the app's port: its status, its body head, its ``Location``.
+
+    ``want_body`` is not an optimisation. Without ``[healthcheck].contains`` the
+    readiness gate is answered by the status line alone, and reading a body
+    there would fail an app that answers its headers and then stalls — an app
+    that passes the gate today.
+    """
+    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    try:
+        conn.request(
+            "GET",
+            path,
+            headers={
+                "Host": host,
+                "Connection": "close",
+                "User-Agent": _PROBE_USER_AGENT,
+            },
+        )
+        resp = conn.getresponse()  # raises on timeout/refusal
+        body = (
+            resp.read(_BODY_READ_LIMIT).decode("utf-8", "replace") if want_body else ""
+        )
+        return resp.status, body, resp.getheader("Location")
+    finally:
+        conn.close()
+
+
 def _probe_until_content(
     port: int, host: str, path: str, timeout: float, contains: str
 ) -> bool:
@@ -695,31 +739,19 @@ def _probe_until_content(
     take a second one.
     """
     for _ in range(_MAX_REDIRECT_HOPS + 1):
-        conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
-        try:
-            conn.request(
-                "GET",
-                path,
-                headers={
-                    "Host": host,
-                    "Connection": "close",
-                    "User-Agent": _PROBE_USER_AGENT,
-                },
-            )
-            resp = conn.getresponse()  # raises on timeout/refusal
-            if not contains:
-                return True  # a status line alone == serving
-            body = resp.read(_BODY_READ_LIMIT).decode("utf-8", "replace")
-            if contains in body:
-                return True
-            if resp.status not in _REDIRECT_STATUSES:
-                return False
-            target = _same_app_redirect(resp.getheader("Location"), host)
-            if target is None:
-                return False
-            path = target
-        finally:
-            conn.close()
+        status, body, location = _fetch(
+            port, host, path, timeout, want_body=bool(contains)
+        )
+        if not contains:
+            return True  # a status line alone == serving
+        if contains in body:
+            return True
+        if status not in _REDIRECT_STATUSES:
+            return False
+        target = _same_app_redirect(location, host)
+        if target is None:
+            return False
+        path = target
     return False
 
 
@@ -908,15 +940,21 @@ def _print_recent_output(app: App) -> list[str]:
     return recent_logs
 
 
-def _name_the_start_failure(app: App, actual_state: AppStateEnum) -> str:
+def _name_the_start_failure(
+    app: App,
+    actual_state: AppStateEnum,
+    healthcheck_path: str,
+    healthcheck_contains: str,
+) -> str:
     """
     Name why the start failed, or return "" when we cannot name it.
 
-    Reaching the failure path with the port already listening means the socket
-    is bound but the app never answered an HTTP request — the classic "master
-    bound the socket, the worker failed to boot or is hung" shape. Saying so
-    matters because otherwise "actual state: RUNNING" next to "failed to start"
-    reads as a contradiction rather than as a diagnosis.
+    Reaching the failure path with the port already listening has two unrelated
+    causes, and the port alone cannot tell them apart: the socket is bound and
+    nothing answers, or the app answers every request and the readiness gate
+    wanted a body it never saw. So the marker is checked first, by asking the
+    app (:func:`_name_the_content_mismatch`), and the bound-but-silent wording
+    is used only when no answer comes back.
 
     Reaching it with the port *not* listening usually means the app is running
     fine on a port of its own choosing. That case is named from the app's own
@@ -926,13 +964,53 @@ def _name_the_start_failure(app: App, actual_state: AppStateEnum) -> str:
     if not port:
         return ""
     if actual_state == AppStateEnum.RUNNING:
-        return (
+        return _name_the_content_mismatch(
+            app, healthcheck_path, healthcheck_contains
+        ) or (
             f"the app's port ({port}) is listening but it did not answer an "
             "HTTP request: the server bound its socket but no worker is serving "
             "(the worker failed to boot, or is hung). The app would be "
             "unreachable behind the proxy"
         )
     return _name_the_wrong_port(app, port)
+
+
+def _name_the_content_mismatch(app: App, path: str, contains: str) -> str:
+    """
+    Name a readiness failure that is the *marker's* fault, not the app's.
+
+    With ``[healthcheck].contains`` the gate wants a body, so an app can answer
+    every request perfectly and still never be declared ready. Reporting that
+    as "no worker is serving" is false, and it sends the reader to look at
+    workers, boot order and timeouts, none of which are involved:
+    invoice-ninja-nix answered 173 probe requests in 100 seconds and was
+    described as a socket with nobody behind it.
+
+    So ask the app once more and say what came back. Returns "" when there is
+    no marker to blame, or when the app really is silent — then the
+    bound-but-silent wording in :func:`_name_the_start_failure` is the true one.
+    """
+    if not contains or not app.port:
+        return ""
+    probe_path = path or "/"
+    if not probe_path.startswith("/"):
+        probe_path = "/" + probe_path
+    host = app.hostname or "localhost"
+    try:
+        status, body, _ = _fetch(
+            app.port, host, probe_path, _DIAGNOSIS_TIMEOUT, want_body=True
+        )
+    except (OSError, http.client.HTTPException):
+        return ""
+    served = " ".join(body.split())[:_DIAGNOSIS_BODY_CHARS]
+    return (
+        f"the app answers on its port ({app.port}) — {probe_path} returned "
+        f"{status} — but no page it served contained [healthcheck].contains = "
+        f"{contains!r} before the deadline. The app is serving; the marker is "
+        f"what does not match, so a longer deadline cannot help. It came back "
+        f"with: {served!r}. Assert a string this page really carries, or point "
+        f"[healthcheck].path at the page that carries it"
+    )
 
 
 def _name_the_wrong_port(app: App, port: int) -> str:
@@ -995,7 +1073,13 @@ def _summarise_start_failure(
     )
 
 
-def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> None:
+def _handle_startup_failure(
+    app: App,
+    outcome: StartOutcome,
+    timeout: float,
+    healthcheck_path: str,
+    healthcheck_contains: str,
+) -> None:
     """
     Report a failed startup, naming what actually happened.
 
@@ -1006,6 +1090,10 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
         app: The App model instance
         outcome: Why the wait ended (crash loop vs. elapsed deadline)
         timeout: The configured start timeout
+        healthcheck_path: the path the readiness gate probed ([healthcheck].path)
+        healthcheck_contains: the body the gate required ([healthcheck].contains);
+            an app that answers without it is diagnosed as a wrong marker, not
+            as a dead worker
     """
     app.run_state = AppStateEnum.FAILED
 
@@ -1015,7 +1103,9 @@ def _handle_startup_failure(app: App, outcome: StartOutcome, timeout: float) -> 
     # (120 -> 180 -> 240) were spent on the headline while the answer sat
     # underneath it. A diagnosis nobody reads is a diagnosis nobody made.
     actual_state = app.check_actual_status()
-    diagnosis = _name_the_start_failure(app, actual_state)
+    diagnosis = _name_the_start_failure(
+        app, actual_state, healthcheck_path, healthcheck_contains
+    )
 
     summary, headline = _summarise_start_failure(app, outcome, timeout)
     # The dashboard and `hop3 app status` show `error_message` and nothing
