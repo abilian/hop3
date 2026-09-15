@@ -19,7 +19,16 @@ from hop3.core.env import Env
 from hop3.server.checks.runner import CHECK_TIMEOUT, run_app_check
 
 
-def _app(tmp_path, script: str | None):
+def _app(tmp_path, script: str | None, **runtime_env: str):
+    """
+    An app whose ``check.py`` is ``script``, with ``runtime_env`` on top.
+
+    The probe credential is the APP's (an ADR-046 generated secret on its env
+    vars), never the server process's, so tests put it here. Setting it with
+    `monkeypatch.setenv` used to work by accident, when the runner started
+    from `os.environ`: an ambient HOP3_PROBE_PASSWORD on the box would then
+    have posed as every app's probe.
+    """
     src = tmp_path / "src"
     src.mkdir()
     if script is not None:
@@ -27,7 +36,10 @@ def _app(tmp_path, script: str | None):
     return SimpleNamespace(
         name="myapp",
         src_path=src,
-        get_runtime_env=lambda: Env({"HOST_NAME": "myapp.example.com"}),
+        get_runtime_env=lambda: Env({
+            "HOST_NAME": "myapp.example.com",
+            **runtime_env,
+        }),
     )
 
 
@@ -114,7 +126,7 @@ def test_the_timeout_is_bounded() -> None:
 
 
 def test_a_pass_without_a_probe_is_reported_as_the_weaker_claim(
-    tmp_path, no_credential, monkeypatch
+    tmp_path, no_credential
 ) -> None:
     """
     Signing in as the OPERATOR's credential verifies the handover, not more.
@@ -123,8 +135,6 @@ def test_a_pass_without_a_probe_is_reported_as_the_weaker_claim(
     so a green result there must not read the same as one from an account Hop3
     still owns.
     """
-    monkeypatch.delenv("HOP3_PROBE_PASSWORD", raising=False)
-
     outcome = run_app_check(_app(tmp_path, "print('ok')"), object())
 
     assert outcome.passed is True
@@ -132,14 +142,17 @@ def test_a_pass_without_a_probe_is_reported_as_the_weaker_claim(
     assert "handover only" in outcome.summary
 
 
-def test_a_pass_with_a_probe_is_the_full_claim(
-    tmp_path, no_credential, monkeypatch
-) -> None:
+def test_a_pass_with_a_probe_is_the_full_claim(tmp_path, no_credential) -> None:
     """An app with a CREATED [probe] is verified with an account only Hop3 uses."""
-    monkeypatch.setenv("HOP3_PROBE_PASSWORD", "hop3-owned")
-    monkeypatch.setenv("HOP3_PROBE_CREATED", "1")
-
-    outcome = run_app_check(_app(tmp_path, "print('ok')"), object())
+    outcome = run_app_check(
+        _app(
+            tmp_path,
+            "print('ok')",
+            HOP3_PROBE_PASSWORD="hop3-owned",
+            HOP3_PROBE_CREATED="1",
+        ),
+        object(),
+    )
 
     assert outcome.passed is True
     assert outcome.used_hop3_account is True
@@ -147,7 +160,7 @@ def test_a_pass_with_a_probe_is_the_full_claim(
 
 
 def test_a_probe_that_was_never_created_is_not_offered_to_the_check(
-    tmp_path, no_credential, monkeypatch
+    tmp_path, no_credential
 ) -> None:
     """
     Regression: a failed probe bootstrap left the credential in the env.
@@ -161,16 +174,20 @@ def test_a_probe_that_was_never_created_is_not_offered_to_the_check(
 
     Without `HOP3_PROBE_CREATED`, the check must not see a probe at all.
     """
-    monkeypatch.setenv("HOP3_PROBE_PASSWORD", "never-created")
-    monkeypatch.setenv("HOP3_PROBE_USER", "hop3probe")
-    monkeypatch.delenv("HOP3_PROBE_CREATED", raising=False)
-
     # The script fails if it can see a probe credential, so a pass proves the
     # variables were withheld.
     script = (
         "import os, sys\nsys.exit(1 if os.environ.get('HOP3_PROBE_PASSWORD') else 0)\n"
     )
-    outcome = run_app_check(_app(tmp_path, script), object())
+    outcome = run_app_check(
+        _app(
+            tmp_path,
+            script,
+            HOP3_PROBE_PASSWORD="never-created",
+            HOP3_PROBE_USER="hop3probe",
+        ),
+        object(),
+    )
 
     assert outcome.passed is True, "the check could still see the probe credential"
     assert outcome.used_hop3_account is False, (
