@@ -304,39 +304,41 @@ class DeploymentTestRunner:
         self, session: DeploymentSession, env_path: str
     ) -> None:
         """
-        Write the app's generated admin credential to a 0600 file on the server.
+        Write the credentials a check may sign in with to a 0600 file on the server.
 
-        Read through the server's own ORM, so the test uses exactly the
-        credential `hop3 app credentials` would show an operator — if the two
-        could differ, the test would not be testing what the operator is told.
+        Which credentials those are is the server's decision, not ours:
+        `hop3.server.checks.runner.check_credentials` is the single definition,
+        and the deploy's own smoke test reads the same one. This used to read
+        the encrypted store directly and export ``HOP3_ADMIN_*`` alone, so
+        ``Check.has_probe`` was false for every app the harness tested and
+        every check fell back to the operator's credential while the deploy
+        signed in as the probe. Piwigo failed on exactly that difference — its
+        administrator gets an empty-gallery interstitial on every page and its
+        probe, an ordinary user, does not — so the same check passed at the end
+        of the deploy and failed here, in the same minute. The port had already
+        taught this lesson once; see :meth:`_run_check_script_remote`.
 
         Best-effort by design: an app that declares no ``[admin]`` simply has no
         credential, and its check.py fails loudly on its own when it asks for
         one. Failing here instead would block apps whose checks need no sign-in.
         """
         reader = (
-            "from hop3.orm import get_session_factory, App, "
-            "AppAdminCredentialRepository;"
-            "from hop3.core.credentials import get_credential_encryptor;"
             "from sqlalchemy import select;"
+            "from hop3.orm import get_session_factory, App;"
+            "from hop3.server.checks.runner import check_credentials;"
             "s=get_session_factory()();"
             f"a=s.scalars(select(App).where(App.name=='{session.app_name}')).one_or_none();"
-            "c=AppAdminCredentialRepository(session=s).get_by_app_id(a.id) if a else None;"
-            "d=get_credential_encryptor().decrypt(c.encrypted_data) if c else {};"
-            "print('HOP3_ADMIN_USER=' + d.get('username',''));"
-            "print('HOP3_ADMIN_EMAIL=' + d.get('email',''));"
-            "print('HOP3_ADMIN_PASSWORD=' + d.get('password',''))"
+            "print(''.join(k+'='+v+chr(10) for k,v in "
+            "(check_credentials(a,s) if a else {}).items()), end='')"
         )
         try:
             exit_code, stdout, _ = self.target.exec_run(
                 f'su - hop3 -c "set -a; . /etc/default/hop3 2>/dev/null; '
                 f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\""'
             )
-            if exit_code != 0 or "HOP3_ADMIN_PASSWORD=" not in stdout:
+            lines = [line for line in stdout.splitlines() if line.startswith("HOP3_")]
+            if exit_code != 0 or not lines:
                 return
-            lines = [
-                line for line in stdout.splitlines() if line.startswith("HOP3_ADMIN_")
-            ]
             body = "\n".join(lines)
             self.target.exec_run(
                 f"sh -c 'umask 077; cat > {env_path} <<\"HOP3EOF\"\n{body}\nHOP3EOF'"

@@ -107,6 +107,37 @@ def _drop_uncreated_probe(env: dict[str, str], app_name: str) -> None:
         env.pop(name, None)
 
 
+def check_credentials(app: App, db_session: Session) -> dict[str, str]:
+    """
+    The credential variables a ``check.py`` is entitled to, for either runner.
+
+    Two things run a check, and they must hand it the same credentials or the
+    same check can pass in one and fail in the other. They did: `run_app_check`
+    below passes the app's whole runtime env, which carries ``HOP3_PROBE_*``,
+    while hop3-testing's remote runner read the encrypted credential store and
+    exported ``HOP3_ADMIN_*`` and nothing else. Every check the harness ran
+    therefore fell back to the operator's credential — the weaker claim, taken
+    silently — while the deploy's own smoke test signed in as the probe.
+
+    Piwigo made the difference visible rather than merely weaker: on an empty
+    gallery Piwigo answers an onboarding interstitial to a guest OR an
+    administrator on every page, and to an ordinary user — which the probe is —
+    it does not. The deploy's smoke test passed; the harness's run of the same
+    check, in the same minute, reported the app broken.
+
+    So the rule lives here, once, and both callers read it.
+    """
+    env = dict(app.get_runtime_env())
+    _drop_uncreated_probe(env, app.name)
+    credentials = {name: env[name] for name in _PROBE_VARS if env.get(name)}
+    cred = read_admin_credential(app, db_session)
+    if cred:
+        credentials["HOP3_ADMIN_USER"] = cred.get("username", "")
+        credentials["HOP3_ADMIN_EMAIL"] = cred.get("email", "")
+        credentials["HOP3_ADMIN_PASSWORD"] = cred.get("password", "")
+    return credentials
+
+
 def run_app_check(app: App, db_session: Session) -> CheckOutcome:
     """
     Execute the app's ``check.py``, if it ships one.
@@ -125,15 +156,14 @@ def run_app_check(app: App, db_session: Session) -> CheckOutcome:
     hostname = host[0] if host else "localhost"
 
     # The app's runtime env already carries HOP3_PROBE_* (an ADR-046 generated
-    # secret), so the check can sign in as the account Hop3 still owns.
+    # secret), so the check can sign in as the account Hop3 still owns — but
+    # `check_credentials` decides which of them it may see, so the probe vars
+    # are dropped here and put back only by it.
     env = dict(os.environ)
     env.update(app.get_runtime_env())
-    _drop_uncreated_probe(env, app.name)
-    cred = read_admin_credential(app, db_session)
-    if cred:
-        env["HOP3_ADMIN_USER"] = cred.get("username", "")
-        env["HOP3_ADMIN_EMAIL"] = cred.get("email", "")
-        env["HOP3_ADMIN_PASSWORD"] = cred.get("password", "")
+    for name in _PROBE_VARS:
+        env.pop(name, None)
+    env.update(check_credentials(app, db_session))
 
     try:
         result = subprocess.run(
