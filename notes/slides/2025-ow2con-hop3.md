@@ -62,12 +62,12 @@ style: |
 
 ![bg right:30% opacity:80%](./images/messy-server-room.jpg)
 
-- **The Sovereignty Imperative:** Growing need to break free from vendor lock-in and regain true data control.
+- **The Sovereignty Imperative:** Growing need to escape vendor lock-in and regain data control.
 
 But:
 
 - **Complexity Overload:** Infrastructure, configuration, ongoing maintenance.
-- **Significant Time Sink:** Diverts focus from core missions & innovation.
+- **Time Sink:** Diverts focus from core missions & innovation.
 - **Security Burdens:** Self-managed systems are constant targets.
 
 The “Linux Distribution” model invented in the 90s works well for infrastructure services and desktop applications, but has not been extended successfully to Web applications
@@ -79,13 +79,13 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 
 ![bg right:30% opacity:70%](./images/it-boss.jpg)
 
-- **The Hop3 Solution:** An Open-Source PaaS engineered to conquer self-hosting hurdles.
-- **Holistic Lifecycle Management:** From build & deploy to maintain, secure, & backup.
-- **Empowering You:** Uncompromising control over your infrastructure & data.
+- **The Hop3 Solution:** An Open-Source PaaS that addresses self-hosting hurdles.
+- **Lifecycle Management:** From build & deploy to maintain, secure, & backup.
+- **Sovereignty:** Full control over your infrastructure & data.
 - **Strategic Objectives:**
     - Boost internal operational efficiency & resilience.
-    - Enable robust, sovereign client-facing SaaS offerings.
-- **Our Mission:** To make F/OSS deployment **effortless, secure, and universally accessible**.
+    - Enable sovereign client-facing SaaS offerings.
+- **Our Mission:** To make F/OSS deployment **effortless and secure**.
 
 ---
 
@@ -100,12 +100,12 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 - **Today (Q2 2025):**
     - Single-server PaaS for F/OSS web apps.
     - `git push` deployment, `hop3.toml` declarative configuration.
-    - OCI image builds (Docker concepts, flexible runtime) and "virtual environment" builds (more lightweight)
+    - OCI image builds (Docker concepts, flexible runtime) and "virtual environment" builds (lighter)
     - Growing catalog of easily deployable F/OSS applications.
 - **Short-Term Roadmap (Q3-Q4 2025):**
     - Comprehensive multi-server, distributed application orchestration.
     - Advanced security, user management (SSO/RBAC), rich Web UI.
-    - A vibrant application marketplace & active global community.
+    - Application marketplace & global community.
     - (Optional) Nix Integration: For Hop3 itself, app builders, reproducible environments, isolation.
 
 ---
@@ -129,7 +129,7 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 - **Key Values Driving Development:**
     - Sovereignty, Security, Sustainability
     - Simplicity, Efficiency, Inclusivity
-- **Lean & Agile:** Minimal dependencies for a robust, efficient platform.
+- **Lean & Agile:** Minimal dependencies for an efficient platform.
 - **Designed for Efficiency:** Runs on low-cost hardware, entry-level VPS; lightweight & energy-conscious.
 
 ---
@@ -138,9 +138,9 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 
 ![bg left:40% opacity:70%](./images/stack.jpg)
 
-- **Primary Language:** Python 3.10+ (Robust, extensive ecosystem)
+- **Primary Language:** Python 3.10+ (extensive ecosystem)
 - **Runtime Agent:** Python also
-- **Standard Tooling:** Leveraging OCI/Docker *concepts* for image building, Git, SSH. (Runtime is flexible, moving towards Nix)
+- **Standard Tooling:** OCI/Docker *concepts* for image building, Git, SSH. (Runtime is flexible, moving towards Nix)
 - **Declarative Configuration:** `hop3.toml` (primary), Procfile compatibility.
 - **Web UI (Hypermedia-Driven Approach):**
     - Backend: Flask, SQLAlchemy
@@ -156,7 +156,7 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 - **Building on Experience:** Reuses code and learnings from Piku & Nua (Abilian's 2021 PaaS).
 - **Nua:** Was container-based, provided full lifecycle management.
 - **Hop3's Distinct Approach:** Initially non-containerized for leanness, will integrate concepts and code from Nua to support containers; also, Nix tooling, as an alternative.
-- **Synergistic Future:** Exploring future integrations, potentially merging strengths for a unified platform.
+- **Future:** Exploring future integrations, potentially merging strengths for a unified platform.
 
 ---
 
@@ -164,10 +164,10 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 
 ![bg left:40% opacity:70%](images/blocks.jpg)
 
-- **Core Design Philosophy:** Modular and plugin-based for ultimate flexibility.
-- **Seamless Integration:** Easily adapt to new technologies, languages, and backing services.
-- **Future-Proofing Hop3:** Ensures long-term adaptability and relevance, as well as community contributions.
-- **Crucial for Ecosystems:** Key for supporting various build tools, runtimes, distributed external systems.
+- **Core Design Philosophy:** Modular and plugin-based for flexibility.
+- **Adaptability:** Easily adapt to new technologies, languages, and backing services.
+- **Longevity:** Ensures long-term adaptability, as well as community contributions.
+- **Ecosystem Reach:** Key for supporting various build tools, runtimes, distributed external systems.
 
 ---
 
@@ -183,7 +183,7 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 - **Internal Use (Dogfooding):**
     - ~12 websites, SaaS, customer apps at Abilian.
 - **Future Vision:** Effortless deployment for complex apps:
-  - **SDOs** (Software Developing Organisations): Streamline deployment workflows with GitOps and CI/CD, enabling efficient application lifecycle management and simplified infrastructure control.
+  - **SDOs** (Software Developing Organisations): Simplify deployment workflows with GitOps and CI/CD, for efficient application lifecycle management and simplified infrastructure control.
   - **SMEs**: Reduce IT costs and maintain sovereignty by hosting essential applications (Digital Workspaces, CRMs, ERPs or e-commerce…), on a user-friendly, self-managed cloud platform.
   - **R&D Collaboration**: Hop3 provides an open, extensible platform with a modular architecture and plug-in system, making it ideal for collaborative experimentation with and advancing new approaches in cloud computing (orchestration, resource optimization, edge integration….).
 
@@ -302,7 +302,7 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 ![bg right:40% opacity:70%](images/nephele.jpg)
 
 - **H3NI Project Focus:**
-    - Leverage SMO for elasticity, workload consolidation.
+    - Use SMO for elasticity, workload consolidation.
     - Placement & Scaling provided by NEPHELE SMO.
 - **SMO:** Synergetic Meta-Orchestrator (placement, scaling, monitoring, "glue" layer).
 - **Integration:** SMO as a driver for Kubernertest deployments.
@@ -396,7 +396,7 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 
 **App Developers:**
 - 🔧 Port apps to Hop3
-- ⚙️ Leverage reproducible builds, simple config
+- ⚙️ Use reproducible builds, simple config
 - 📦 Packaging effort (Nix) valuable
 
 **F/OSS Contributors:**
@@ -412,7 +412,7 @@ The “Linux Distribution” model invented in the 90s works well for infrastruc
 Speaker notes:
 For Developers/DevOps: Hop3 helps quickly deploy dev versions and manage production constraints like backup and upgrades, with easy git push or CLI workflows.
 For IT Managers: Hop3 helps easily deploy and manage a portfolio of open source Web applications, providing full control over infrastructure and data.
-For Application Developers: Learn how to port applications to Hop3 and leverage features like reproducible builds and simplified configuration. Note that packaging applications, potentially in Nix, is a key effort.
+For Application Developers: Learn how to port applications to Hop3 and use features like reproducible builds and simplified configuration. Note that packaging applications, potentially in Nix, is a key effort.
 For Open Source Contributors: Discover Hop3's roadmap and how to contribute to an exciting project funded by NGI0 Commons and NEPHELE.
 -->
 
@@ -470,3 +470,7 @@ Financed, in part, by:
 - Image of EU OS hackathon used for illustration purpose only.
 
 </div>
+ only.
+
+</div>
+>

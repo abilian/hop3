@@ -14,7 +14,7 @@ Quick reference for developers running tests.
 
 ## hop3-test CLI
 
-The unified test runner for Hop3 deployment testing.
+`hop3-test` unifies system and app deployment testing.
 
 ### System Testing (Testing Hop3 Itself)
 
@@ -63,7 +63,7 @@ hop3-test run --docker --report html
 | `--from git` | Clone and install from git branch |
 | `--from pypi` | Install from PyPI |
 | `--from none` | Skip deployment, use existing |
-| `--reuse` | Alias for `--from none`. Deploys the **app** only — a server-side change (builders, deployers, toolchains, installer) needs `--from local`. |
+| `--reuse` | Alias for `--from none`. Deploys the **app** only; a server-side change (builders, deployers, toolchains, installer) needs `--from local`. |
 
 ### App Testing (Testing Apps, Not Hop3)
 
@@ -186,7 +186,7 @@ uv run pytest -x
 # Show print statements
 uv run pytest -s
 
-# Parallel execution (faster)
+# Parallel execution across 4 workers
 uv run pytest -n 4
 
 # Show slowest tests
@@ -291,7 +291,7 @@ Tests are configured via a `[test]` section in the app's `hop3.toml`. Most field
 ```toml
 [test]
 priority = "P0"                    # P0 | P1 | P2
-tier = "fast"                      # report label only — no longer drives timeouts
+tier = "fast"                      # report label only; no longer drives timeouts
 targets = ["docker", "remote"]
 covers = ["python", "flask", "pip", "uwsgi"]
 

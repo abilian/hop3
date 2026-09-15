@@ -4,12 +4,12 @@ This document outlines the features for the hop3-tui package.
 
 ## Core Design Principles
 
-1. **Screen-based navigation** - Different screens for different contexts
-2. **Drill-down capability** - From overview to detail to sub-detail
-3. **Keyboard-first** - Full keyboard navigation with mouse as optional
-4. **Real-time updates** - Live status for running applications
-5. **Chat interface** - Command input with conversational feel
-6. **Consistent with Web UI** - Same features, terminal-optimized UX
+1. **Screen-based navigation**: Different screens for different contexts
+2. **Drill-down capability**: From overview to detail to sub-detail
+3. **Keyboard-first**: Full keyboard navigation with mouse as optional
+4. **Real-time updates**: Live status for running applications
+5. **Chat interface**: Command input with conversational feel
+6. **Consistent with Web UI**: Same features, terminal-optimized UX
 
 
 ## Navigation Structure

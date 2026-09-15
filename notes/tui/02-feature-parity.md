@@ -95,16 +95,16 @@ This document compares the features available in hop3-cli and hop3-tui to identi
 ## Implementation Plan
 
 ### Phase 1: Essential Operations
-1. **Local directory deploy** - Match CLI's main deployment workflow
-2. **Run command** - Enable migrations, shell access, one-off tasks
+1. **Local directory deploy**: Match CLI's main deployment workflow
+2. **Run command**: Enable migrations, shell access, one-off tasks
 
 ### Phase 2: Monitoring & Debugging
-1. **App health check (ping)** - Quick health verification
-2. **Build logs** - Debug deployment issues
-3. **Process scaling** - Adjust worker counts
+1. **App health check (ping)**: Quick health verification
+2. **Build logs**: Debug deployment issues
+3. **Process scaling**: Adjust worker counts
 
 ### Phase 3: Administration
-1. **Admin screen** - Full user management interface
+1. **Admin screen**: Full user management interface
    - User list with status
    - Create/delete users
    - Enable/disable accounts
@@ -113,9 +113,9 @@ This document compares the features available in hop3-cli and hop3-tui to identi
    - Token generation
 
 ### Phase 4: Authentication
-1. **Login screen** - Interactive authentication
-2. **Session management** - Logout, token display
-3. **User profile** - Show current user info (whoami)
+1. **Login screen**: Interactive authentication
+2. **Session management**: Logout, token display
+3. **User profile**: Show current user info (whoami)
 
 ---
 
