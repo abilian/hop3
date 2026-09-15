@@ -18,10 +18,10 @@ variants:
 ---
 # Experience Report: Focalboard
 
-> **Withdrawn.** Focalboard is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar — not by signing in — which is the bar the current reports reject.
+> **Withdrawn.** Focalboard is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar (not by signing in), which is the bar the current reports reject.
 
 **Status:** Draft (0.5)
-**App:** Focalboard — Project management (Kanban)
+**App:** Focalboard (project management, Kanban)
 **Language:** Go/Node hybrid
 **Database:** PostgreSQL
 **Website:** https://www.focalboard.com/
@@ -30,9 +30,9 @@ variants:
 
 ### Native (local builder)
 
-- **Builder/Toolchain:** local/go with complex build (make + npm)
+- **Builder/Toolchain:** local/go
 - **Addons:** PostgreSQL
-- **Build steps:** make (which runs Go compilation and npm build for frontend assets)
+- **Build steps:** make, which runs the Go compilation and the npm build for frontend assets
 - **Status:** Passing
 - **Issues:** None
 
@@ -64,24 +64,20 @@ variants:
 and template-generated) use pre-built binaries downloaded from upstream
 releases. This is a pragmatic shortcut but has serious drawbacks:
 
-- **Not reproducible:** The binary cannot be rebuilt from source by Nix.
-  We trust the upstream CI pipeline.
-- **Not portable:** Only x86_64-linux binaries are available. ARM
-  (aarch64), RISC-V, and other architectures are not supported.
-- **Supply chain risk:** A compromised upstream release could distribute
-  malicious binaries.
+- **Not reproducible:** the binary cannot be rebuilt from source by Nix; we trust the upstream CI pipeline.
+- **Not portable:** only x86_64-linux binaries are available. ARM (aarch64), RISC-V, and other architectures are not supported.
+- **Supply chain risk:** a compromised upstream release could distribute malicious binaries.
 
-**Path forward:** Build from source using `buildGoModule` (for Go apps)
-or `buildNpmPackage` (for Node.js apps). This requires writing a proper
-Nix derivation, estimated at significant (Go + Node hybrid build) effort.
+**Path forward:** build from source using `buildGoModule` (for Go apps) or `buildNpmPackage` (for Node.js apps). This requires a proper Nix derivation, estimated at substantial effort (Go and Node hybrid build).
 
 ## Lessons Learned
 
 - Hybrid Go+Node apps are the hardest category to build natively because they require two full toolchains and a coordinated build process.
-- Using a pre-built archive simplifies deployment enormously and sidesteps the dual-toolchain problem entirely.
+- Using a pre-built archive simplifies deployment and sidesteps the dual-toolchain problem.
 - The config.json must be generated from environment variables at startup time, not at build time, to support per-environment configuration.
 - This app demonstrates why the prebuilt-archive template exists: some apps are too complex to build reliably in every environment.
 
 ## Cross-Method Comparison
 
-The pre-built archive approach (used by both Nix methods and Docker) is far simpler than the native build, which requires both Go and Node toolchains. For hybrid apps like Focalboard, pre-built artifacts are expedient but come with portability and reproducibility trade-offs (see Known Limitations). Only x86_64-linux is supported with this approach.
+The pre-built archive approach (used by both Nix methods and Docker) is much simpler than the native build, which requires both Go and Node toolchains. For hybrid apps like Focalboard, pre-built artifacts are expedient but come with portability and reproducibility trade-offs (see Known Limitations). Only x86_64-linux is supported with this approach.
+

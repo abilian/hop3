@@ -18,10 +18,10 @@ variants:
 ---
 # Experience Report: Grafana
 
-> **Withdrawn.** Grafana is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar — not by signing in — which is the bar the current reports reject.
+> **Withdrawn.** Grafana is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything here was measured at the *deployed and serving* bar, which is the bar the current reports reject.
 
 **Status:** Draft (0.5)
-**App:** Grafana — Monitoring dashboard
+**App:** Grafana: Monitoring dashboard
 **Language:** Go
 **Database:** None (SQLite)
 **Website:** https://grafana.com/
@@ -73,7 +73,8 @@ releases. This is a pragmatic shortcut but has serious drawbacks:
 
 **Path forward:** Build from source using `buildGoModule` (for Go apps)
 or `buildNpmPackage` (for Node.js apps). This requires writing a proper
-Nix derivation, estimated at significant (Go backend + Node/Webpack frontend) effort.
+Nix derivation, estimated at significant effort (a Go backend plus a
+Node/Webpack frontend).
 
 ## Lessons Learned
 
@@ -84,4 +85,4 @@ Nix derivation, estimated at significant (Go backend + Node/Webpack frontend) ef
 
 ## Cross-Method Comparison
 
-Grafana is uniformly simple across all deployment methods due to its use of SQLite and pre-built distribution. The only configuration needed is a custom.ini file and appropriate start-timeout, both of which are trivial in every method. However, the pre-built archive limits deployment to x86_64-linux; ARM and other architectures are not currently supported.
+Grafana is uniformly simple across all deployment methods, thanks to SQLite and pre-built distribution. The only configuration needed is a custom.ini file and an appropriate start-timeout, both trivial in every method. However, the pre-built archive limits deployment to x86_64-linux; ARM and other architectures are not currently supported.

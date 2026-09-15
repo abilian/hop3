@@ -34,7 +34,7 @@ A nixpkgs derivation does not carry the tools its application's documentation as
 
 ## What the platform gained
 
-`[nix.let-extra]`, which lets a recipe pull a second nixpkgs package into its derivation. Vikunja and Keycloak both use it now.
+`[nix.let-extra]`, which lets a recipe pull a second nixpkgs package into its derivation; Vikunja and Keycloak both use it.
 
 ## Deployment variants
 

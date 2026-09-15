@@ -22,7 +22,7 @@ Professional online survey and data collection tool.
 
 ## What this app exercised
 
-A JavaScript-rendered admin UI that cannot be signed into over HTTP, so verification has to be deferred to a browser. It is the reason a run without `--screenshots` reports some apps as unverifiable, outside the pass/fail count.
+The admin UI is rendered by JavaScript and cannot be signed into over HTTP; verification has to be deferred to a browser. A run without `--screenshots` therefore reports some apps as unverifiable, outside the pass/fail count.
 
 ## What broke
 
@@ -34,7 +34,7 @@ A JavaScript-rendered admin UI that cannot be signed into over HTTP, so verifica
 
 ## What the platform gained
 
-The runner's vocabulary for *unverifiable*: an application whose sign-in only a browser can drive is reported as such. A login page being served is not enough to count it as a pass.
+The runner's vocabulary gained *unverifiable*: an application whose sign-in only a browser can drive is reported as such. A login page being served is not enough to count it as a pass.
 
 ## Deployment variants
 

@@ -18,7 +18,7 @@ variants:
 
 # Experience Report: WordPress
 
-Popular open source content management system.
+WordPress is a popular open source content management system.
 
 ## What this app exercised
 
@@ -26,9 +26,7 @@ Nothing new. It is the control that says the common path is boring: `getenv()` c
 
 ## What broke
 
-Nothing broke that was WordPress's doing. It reads its configuration through `getenv()` in `wp-config.php`, which makes it unusually clean to express in every build path, and the template variant needed nothing the others did not.
-
-The one failure was ordering, and it was ours: the Docker variant started Apache before MySQL was accepting connections and returned a 500. A wait loop fixed it.
+Nothing that was WordPress's doing. It reads its configuration through `getenv()` in `wp-config.php`, which makes it unusually clean to express in every build path, and the template variant needed nothing the others did not. The one failure was ordering, and it was ours: the Docker variant started Apache before MySQL was accepting connections and returned a 500. A wait loop fixed it.
 
 ## What the platform gained
 
@@ -36,7 +34,7 @@ The start-before-database race, first seen here, has since recurred across enoug
 
 ## Deployment variants
 
-No composer and no build step in any variant. `wp-config.php` reads through `getenv()`, so configuration is an environment bridge, and `wp core install` creates the administrator.
+The recipe uses no composer and no build step in any variant. `wp-config.php` reads through `getenv()`, so configuration is an environment bridge, and `wp core install` creates the administrator.
 
 ## Verification
 

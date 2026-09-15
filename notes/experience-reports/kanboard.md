@@ -18,29 +18,29 @@ variants:
 
 # Experience Report: Kanboard
 
-Kanban project management software.
+Kanboard is Kanban project management software.
 
 ## What this app exercised
 
-The plainest PHP application in the set, with no composer and no build step, which makes it a control: anything that breaks here points to the platform. It earned that role by breaking twice, both times in the transport.
+It is the plainest PHP application in the set, with no composer and no build step: a control, since anything that breaks here points to the platform. It earned that role by breaking twice, both times in the transport.
 
 ## What broke
 
 **It was served out of the read-only store**, so it could not write its database, its config or its uploads, and had no account anyone could sign in as.
 
-**A PHP warning killed the session.** Kanboard's default log driver writes to a file and warns *to the response* when it cannot: output ahead of the headers, which suppresses `Set-Cookie`. The login POST then has no session to carry, and Kanboard reports that as **"The username is required"**: an application-level message describing a transport-level failure. Pinning `LOG_DRIVER = stderr` is the fix, and the working variants had it all along.
+**A PHP warning killed the session.** Kanboard's default log driver writes to a file and warns *to the response* when it cannot: output ahead of the headers, which suppresses `Set-Cookie`. The login POST then has no session to carry, so Kanboard reports that as **"The username is required"**: an application-level message describing a transport-level failure. Pinning `LOG_DRIVER = stderr` is the fix. The working variants had it all along.
 
-**There is no `cli user:reset-password` subcommand.** The call to one sat inside a `|| true` and did nothing at all, leaving the shipped `admin`/`admin` in place. The password has to be written through Kanboard's own container.
+**There is no `cli user:reset-password` subcommand.** The call to one sat inside a `|| true` and did nothing, leaving the shipped `admin`/`admin` in place. The password has to be written through Kanboard's own container.
 
 **`PLUGIN_INSTALLER` defaults on**, which lets a signed-in administrator install arbitrary remote code.
 
 ## What the platform gained
 
-No platform change; the control role above is the contribution. Its lasting artefact is the example that keeps being useful: "The username is required" describing a suppressed `Set-Cookie`.
+Nothing in the platform changed: the control role above is the contribution. The exercise's lasting artefact is the example: "The username is required" describing a suppressed `Set-Cookie`.
 
 ## Deployment variants
 
-No composer, no build step: the simplest PHP app here. Every variant writes `config.php` from the addon's variables and serves with PHP's built-in server. The **Nix** ones copy the tree writable first, since Kanboard writes its database, uploads and sessions inside it.
+Every variant writes `config.php` from the addon's variables and serves with PHP's built-in server. The **Nix** ones copy the tree writable first, since Kanboard writes its database, uploads and sessions inside it.
 
 ## Verification
 
@@ -55,7 +55,7 @@ hop3 app check --app kanboard
 
 ## Open
 
-Nothing open.
+Nothing remains open.
 
 ## Screenshots
 

@@ -153,7 +153,7 @@
 
 ### Known Issues
 
-1. **Integration Tests**: 2/130 tests skipped (Starlette test client limitations - well-documented, auth system fully verified by other tests)
+1. **Integration Tests**: 2/130 tests skipped (Starlette test client limitations: well-documented, auth system fully verified by other tests)
 2. **Environment Variable**: HOP3_DEV_HOST interferes with c_system tests if set (documented workaround: unset before running)
 
 ### Architecture Strengths
@@ -199,7 +199,7 @@
 1. **Complete Basic PaaS Features**
    - Ensure all deployment paths work
    - Fix any process management issues
-   - Implement proper health checks
+   - Implement working health checks
 
 2. **Service Integration**
    - Implement PostgreSQL provisioning
@@ -274,7 +274,7 @@ All Phase 2 objectives achieved:
 **Step 2.3: Backup and Restore System** ✅
 - Full backup/restore commands
 - Service-specific backup hooks (PostgreSQL, Redis)
-- Comprehensive test coverage
+- Test coverage across the backup paths
 
 **Step 2.4: CLI User Experience** ✅
 - Fixed config command parsing (`--app` flag)
@@ -359,7 +359,7 @@ All Phase 2 objectives achieved:
 ### For Project Success
 
 1. **Focus on Core Features First**
-   - Get basic deployment working 100%
+   - Get basic deployment working fully
    - Ensure process management is solid
    - Make logging reliable
 

@@ -130,3 +130,13 @@ Redis was installed and the demos failed, because `apt install` had not started 
 ## `--with <feature>` Is a Promise
 
 Core dependencies are mandatory. Optional services and toolchains are asked for by name (`--with mysql,redis,nix`), and each demo or app documents which it needs. A feature the operator asked for by name and did not get is a failed install. `--with nix` used to print a warning when Nix failed to install and report success, so every Nix app on that box failed to build later and the e2e suite skipped its Nix fixtures for months (see [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md)). It now aborts. Two related facts: a bare Ubuntu 24.04 ships neither `xz` nor `curl`, and the Nix installer needs `xz`, so the feature installs its prerequisite first. The single-user install for non-systemd hosts is the same code path a container gets, so it is tested.
+
+## Pin the toolchain, then pin its package manager
+
+`[build].node-version` installs an exact Node into the app's venv, which was treated as pinning the Node build. It does not: the package manager is a separate program, and the installer got it with `npm install -g pnpm` — unpinned, and skipped whenever any pnpm was already present. So the version an app built with was whatever npm's `latest` tag pointed at the day that box was installed, it never moved afterwards on that box, and it differed from the next box. Two servers of the same Hop3 version built the same application differently, which is exactly what the blank-slate rebuild exists to prevent one layer up.
+
+Etherpad absorbed three breaking pnpm changes this way, two of them patched into its own download script against symptoms. The third could not be patched from the recipe: pnpm 12 removed `pnpm list --no-production`, which Etherpad's *plugin migration* runs at every boot — so the build passed and the app died four seconds into startup, and the recipe looked broken.
+
+Three parts to the fix, and the second is the one usually forgotten. Pin an exact version in a named constant, with a comment saying what to re-run when it is bumped. **Reconcile it on every install instead of skipping when the program exists** — "already installed" is not "installed correctly", and a skip freezes whatever a box happens to carry. And verify afterwards that the version on `PATH` is the one installed, because a package manager put there by another route (corepack, a standalone script) shadows npm's global bin, and reporting the version you meant to install is the same silent drift with your name on it.
+
+The version was established by running the command under each major rather than reasoning from changelogs: 9, 10 and 11 accept the flag, 12 does not. A version claim in a comment is worth what it cost to make.

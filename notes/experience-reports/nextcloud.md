@@ -22,15 +22,15 @@ Self-hosted productivity platform.
 
 ## What this app exercised
 
-The heaviest PHP dependency surface in the corpus (extensions, a cron worker, background jobs) and the app whose failing bootstrap first showed that `admin.create` reporting an exit status is not enough to diagnose anything.
+The heaviest PHP dependency surface in the corpus (extensions, a cron worker, background jobs) and the app whose failing bootstrap showed that an exit status from `admin.create` cannot diagnose anything.
 
 ## What broke
 
 **It answered `GET /login` with 400 because it was never installed**: the writable tree was materialised when the app started, which is after `before-run`, so a correctly ported bootstrap ran in a directory that did not yet hold the application.
 
-**`occ user:add` takes no `--email`.** The recipe passed one, the command failed, and the failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. After this, `admin.create` began reporting its full command output.
+**`occ user:add` takes no `--email`.** The recipe passed one, the command failed, and the failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. `admin.create` has since begun reporting its full command output.
 
-**It keeps a hidden password input in its signed-in markup**, which had the screenshot harness call a successful sign-in a refusal. Counting only *visible* fields is what a person looking at the image would do.
+**It keeps a hidden password input in its signed-in markup**, which had the screenshot harness call a successful sign-in a refusal. A person looking at the image counts only *visible* fields.
 
 ## What the platform gained
 
@@ -38,7 +38,7 @@ The heaviest PHP dependency surface in the corpus (extensions, a cron worker, ba
 
 ## Deployment variants
 
-The most extension-hungry app in the set, and under Nix each one is declared explicitly. `occ maintenance:install` drives first-run setup in every variant. **Docker** diverges deliberately: Postgres plus Redis where the others use MySQL, as a test of addon divergence across variants.
+The most extension-hungry app in the set, and under Nix each one is declared explicitly. `occ maintenance:install` drives first-run setup in every variant. **Docker** diverges on purpose: Postgres plus Redis where the others use MySQL, as a test of addon divergence across variants.
 
 ## Verification
 

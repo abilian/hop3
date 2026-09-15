@@ -18,10 +18,10 @@ variants:
 ---
 # Experience Report: Adminer
 
-> **Withdrawn.** Adminer is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar — not by signing in — which is the bar the current reports reject.
+> **Withdrawn.** Adminer is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work succeeded and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar (not by signing in), which is the bar the current reports reject.
 
 **Status:** Draft (0.5)
-**App:** Adminer — Lightweight database admin tool
+**App:** Adminer, a lightweight database admin tool
 **Language:** PHP
 **Database:** None
 **Website:** https://www.adminer.org/

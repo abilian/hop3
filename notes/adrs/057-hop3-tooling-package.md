@@ -7,18 +7,18 @@
 
 ## Context
 
-Hop3 accumulates tooling that no shipped package owns: automation a *maintainer* runs to develop, release, and operate the platform and its catalog. Consider the recurring jobs: checking a catalog copy against its tested source, promoting a tested recipe into the catalog, installing every catalog app on a clean box and verifying it works, bumping versions, probing a box's infrastructure, reading an app's generated credentials over SSH. None of these belongs to the platform, the client, the installer, or the test framework, yet all are recurring, reused work.
+Hop3 accumulates tooling that no shipped package owns: automation a *maintainer* runs to develop, release, and operate the platform and its catalog. Consider the recurring jobs: checking a catalog copy against its tested source, promoting a tested recipe into the catalog, installing every catalog app on a clean box and verifying it works. The same maintainer also bumps versions, probes a box's infrastructure, and reads an app's generated credentials over SSH. None of these belongs to the platform, the client, the installer, or the test framework, yet all are recurring, reused work.
 
 Today this tooling lives as ad-hoc files under the repo-root `scripts/` directory. That directory has grown into a broad mix (Python and shell, checks and generators and deploy helpers) with structural problems that compound as it grows:
 
-- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. Nothing answers `--help`, and nothing indexes what a maintainer can run here.
+- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. The filename is the only interface: nothing answers `--help`, and nothing indexes what a maintainer can run here.
 - **No contract.** Scripts vary in argument style, exit-code discipline, and output. Some are `set -e` shell, some argparse Python, some neither.
 - **No tests.** A 500-line script like `verify-security-batch.py`, which SSHes to a box, drives `hop3 catalog install`, and asserts security properties, has no test and no way to acquire one in place.
 - **No shared library.** Every script re-implements the same primitives: shell out to the `hop3` CLI, parse `hop3 app credentials`, SSH to a box, talk to a staged catalog. The logic drifts between copies.
 
-The other workspace packages each have a narrow, defensible purpose that this tooling does not fit. `hop3-cli` is the end-user client; putting maintainer tooling there blurs "what a user runs." `hop3-server` is the platform. `hop3-installer` installs and deploys the platform. `hop3-testing` is the E2E **test framework**: a library plus the `hop3-test` runner. A version-bumper or a catalog promoter does other work entirely, and folding it in overloads that package's boundary. `hop3-tui` is the terminal UI; `hop3-rootd` is the privileged helper. Maintainer, release, and operator tooling has no home.
+The other workspace packages each have a narrow, defensible purpose that this tooling does not fit. `hop3-cli` is the end-user client; putting maintainer tooling there blurs "what a user runs." `hop3-server` is the platform. `hop3-installer` installs and deploys the platform. `hop3-testing` is the E2E **test framework**: a library plus the `hop3-test` runner. A version-bumper or a catalog promoter does other work entirely; folding it in overloads that package's boundary. `hop3-tui` is the terminal UI; `hop3-rootd` is the privileged helper. Maintainer, release, and operator tooling has no home.
 
-The catalog work ([ADR 049](./049-catalog-distribution.md), and the catalog-acceptance plan) is the concrete trigger: it needs at least three durable tools (a drift check, a promote step, and a whole-catalog acceptance harness) that must be discoverable, documented, tested, and share a common library. Adding them as three more files under `scripts/` deepens the smell.
+The catalog work ([ADR 049](./049-catalog-distribution.md) plus the catalog-acceptance plan) is the concrete trigger. It needs at least three durable tools (a drift check, a promote step, and a whole-catalog acceptance harness) that must be discoverable, documented, tested, and share a common library. Adding them as three more files under `scripts/` deepens the smell.
 
 ## Decision
 
@@ -27,9 +27,9 @@ Add a workspace package **`hop3-tooling`** (`packages/hop3-tooling`, `src/hop3_t
 The package has two parts:
 
 - **Commands.** The durable tools a maintainer runs. The catalog trio (`drift`, `promote`, `verify`) seeds it; existing durable one-offs graduate from `scripts/` as they earn it (version bump, config/infra checks, box diagnostics).
-- **A shared internal library** for the primitives the commands reuse (invoking the `hop3` CLI, parsing `hop3 app credentials`, SSHing to a box, reading a staged catalog), so tools stop re-implementing them.
+- **A shared internal library** for the primitives the commands reuse (invoking the `hop3` CLI, parsing `hop3 app credentials`, SSHing to a box, reading a staged catalog). Tools stop re-implementing them.
 
-The boundary follows the **audience** rather than the mechanism:
+The boundary follows the **audience**, with the mechanism as the secondary test:
 
 - **Belongs in `hop3-tooling`:** work the people who maintain Hop3 and its catalog run, meaning repo, release, and ops automation.
 - **Does not belong:** anything a normal user runs (→ `hop3-cli`); the E2E test framework itself (→ `hop3-testing`, which `hop3-tools` may *call*); installing or deploying the platform (→ `hop3-installer`).
@@ -46,7 +46,7 @@ The boundary follows the **audience** rather than the mechanism:
 ## Alternatives Considered
 
 - **Keep everything in `scripts/`.** The status quo. Fails on discovery, help, tests, and shared code, and is already painful at the current spread of scripts. Rejected: the problems grow with the directory.
-- **Fold the tooling into `hop3-testing`.** Overloads a package whose job is the test framework. A catalog promoter or a version-bumper does different work, and mixing them muddies the one boundary that package needs to keep sharp. Rejected. (`hop3-tools` calling `hop3-testing` is fine: a dependency, with no merge implied.)
+- **Fold the tooling into `hop3-testing`.** Overloads a package whose job is the test framework. A catalog promoter or a version-bumper does different work; mixing them muddies the one boundary that package needs to keep sharp. Rejected. (`hop3-tools` calling `hop3-testing` is fine: a dependency, with no merge implied.)
 - **Makefile targets.** A `Makefile` is a fine thin entry point *into* tools. Non-trivial logic, `--help`, and tests belong elsewhere. Kept as a complement.
 - **A `hop3 dev …` subcommand tree in `hop3-cli`.** Puts maintainer tooling inside the user-facing client, bloating it and blurring "what users run." Rejected on the same audience boundary that motivates the package.
 

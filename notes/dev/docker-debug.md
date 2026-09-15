@@ -37,7 +37,7 @@ hop3-server local app:status <app-name>
 /home/hop3/venv/bin/hop3-server local apps
 ```
 
-Quick reference for inside the container:
+Use these commands inside the container:
 
 ```bash
 # List apps

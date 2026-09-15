@@ -17,7 +17,7 @@ It is therefore specified here, at one remove from any single builder. [ADR 008]
 
 ### Sealed builds across every ecosystem
 
-Every template builds inside the Nix sandbox against hash-pinned inputs: nixpkgs is pinned to a commit, the source archive is pinned by sha256, and the dependency set is pinned by a lockfile whose resolved contents are themselves fixed by a hash. Each ecosystem's package manager therefore runs **offline**, in a two-phase pattern generalised from `buildGoModule`'s `vendorHash`. A fixed-output derivation vendors the dependency set (the only step permitted to touch the network, and content-addressed so its result is fixed), and the application then builds in the sealed sandbox against that directory.
+Every template builds inside the Nix sandbox against hash-pinned inputs: nixpkgs is pinned to a commit, the source archive is pinned by sha256, and the dependency set is pinned by a lockfile whose resolved contents are themselves fixed by a hash. Each ecosystem's package manager therefore runs **offline**, in a two-phase pattern generalised from `buildGoModule`'s `vendorHash`. A fixed-output derivation vendors the dependency set (the only step permitted to touch the network, and content-addressed so its result is fixed). The application then builds in the sealed sandbox against that directory.
 
 | Ecosystem | Lockfile | Vendoring derivation |
 |---|---|---|
@@ -30,7 +30,7 @@ Every template builds inside the Nix sandbox against hash-pinned inputs: nixpkgs
 
 ### The three tiers
 
-Sandbox purity is therefore uniform. The tiers rank the axis that still varies, **the provenance of the running bytes**: whether they can be traced back to reviewable source, and who did the tracing.
+Sandbox purity is therefore uniform. The tiers rank the axis that still varies, **the provenance of the running bytes**: whether the bytes can be traced back to reviewable source, and who did the tracing.
 
 | Tier | What it is | Sealed build | Bit-identical rebuild | Auditable to source | Packaged by | Multi-arch |
 |---|---|---|---|---|---|---|
@@ -38,13 +38,13 @@ Sandbox purity is therefore uniform. The tiers rank the axis that still varies, 
 | **2. source** | Hop3 builds the app from source against a hash-pinned dependency set | Yes | Yes | Yes | Hop3 | One arch per lockfile |
 | **3. prebuilt** | Fetches an upstream release binary or archive by sha256 | Yes (fixed-output) | Yes | **No** | upstream | Usually x86_64 only |
 
-Tier 1 outranks Tier 2 despite both being auditable, because the difference is who carries the maintenance. A `nixpkgs-wrapper` app inherits nixpkgs' build, its multi-arch coverage and its security updates at no cost to us, while a Tier-2 app is packaging Hop3 owns, with lockfiles we must refresh. Tier 1 is unavailable whenever nixpkgs lacks the app, or carries it only at a version we cannot deploy. That is the common case for this corpus, which is why Tier 2 holds most of it.
+Tier 1 outranks Tier 2 because the difference is who carries the maintenance. A `nixpkgs-wrapper` app inherits nixpkgs' build, its multi-arch coverage and its security updates at no cost to us, while a Tier-2 app is packaging Hop3 owns, with lockfiles we must refresh. Tier 1 is unavailable whenever nixpkgs lacks the app, or carries it only at a version we cannot deploy. That is the common case for this corpus, which is why Tier 2 holds most of it.
 
 ### Where the native and Docker builders sit
 
 Both sit below the tiers.
 
-- **Native builder.** Dependency versions are pinned; a Python app is refused outright if its requirements float, per [ADR 039](./039-python-deploy-strategies.md). The build itself runs on the host, with network access and against whatever system libraries happen to be installed, so it has no seal. Repeatable in practice, guaranteed by nothing.
+- **Native builder.** Dependency versions are pinned; a Python app is refused outright if its requirements float, per [ADR 039](./039-python-deploy-strategies.md). The build itself runs on the host, with network access and against whatever system libraries happen to be installed, so it has no seal. It is repeatable in practice and guaranteed by nothing.
 - **Docker builder.** Base images are digest-pinned and app versions are explicit, while `RUN` steps have unrestricted network access and image builds embed timestamps. Bit-identical rebuilds are not claimed, and Hop3 makes no attempt to seal Docker ([ADR 033](./033-docker-integration.md)).
 
 ### What a tier does not tell you
@@ -58,13 +58,13 @@ Nix guarantees the following at every tier:
 - **Minimal update deltas.** An update transfers only the changed store paths. Docker replaces whole layers.
 - **Explicit dependency graph.** The full closure is inspectable with `nix-store -qR`: no hidden dependencies, unlike Docker's opaque layers or pip's global `site-packages`.
 
-No tier guarantees upstream source availability. If PyPI yanks a package or a GitHub release disappears, the build fails at every tier; a hash pins *which* bytes are required. Whether anyone still serves them is a separate question. The binary cache and Hydra provide partial resilience. Mirroring the vendored FODs is the real answer.
+No tier guarantees upstream source availability. If PyPI yanks a package or a GitHub release disappears, the build fails at every tier; a hash pins *which* bytes are required. Whether anyone still serves them is a separate question. The binary cache and Hydra provide partial resilience; mirroring the vendored FODs would provide it fully.
 
 **Architectural scope.** x86_64 is the platform for which reproducibility is claimed. Vendored dependency sets are resolved per platform (a Linux wheel set differs from a macOS one, and an aarch64 wheel set from an x86_64 one), so the committed lockfiles fix one architecture. Supporting a second means vendoring a second set; no hash is relaxed.
 
 ### Per-app labels
 
-The tier is declared on the *template*, since the template determines how the artefact is obtained, and an app inherits it by choosing a template. Nothing maintains a per-app list by hand, because a hand-maintained table drifts out of truth while continuing to look authoritative.
+The tier is declared on the *template*, since the template determines how the artefact is obtained, and an app inherits it by choosing a template. Nothing maintains a per-app list by hand: a hand-maintained table drifts out of truth while continuing to look authoritative.
 
 ```
 hop3-tools nix tiers apps/real-apps-nix-gen
@@ -74,16 +74,16 @@ reads each recipe's `[nix].template` and prints its tier. It needs neither Nix n
 
 ### Checking the claim
 
-A reproducibility claim that nothing exercises decays into a marketing sentence. Two checks exercise it. The advertised gate is their conjunction:
+A reproducibility claim that nothing exercises decays into a marketing sentence. Two checks exercise it, and the advertised gate is their conjunction:
 
 - `hop3-tools nix check-reproducible` builds each recipe, then rebuilds it with `nix build --rebuild`, which compares the second output against the first. Output drift is reported as a *result* (the app is not reproducible) and distinguished from a build that failed for some other reason, which must never be read as a pass. An empty selection fails the gate.
 - The deploy check (`make test-nix`) deploys the same corpus and exercises it over HTTP.
 
-`make gate-nix` runs both, in that order. An app is advertise-ready only when it rebuilds identically **and** runs.
+`make gate-nix` runs both, in that order. An app is advertise-ready only when it rebuilds identically and runs.
 
 ### Classifying a failure
 
-A gate that answers only pass/fail throws away the information that decides who acts. The same red result can mean three unrelated things. Conflating them costs real time: a fixed-output hash mismatch reported as *"output is not deterministic"* sends someone hunting a reproducibility bug that does not exist, when the true remedy is one command.
+A gate that answers only pass/fail throws away the information that decides who acts. The same red result can mean three unrelated things, and conflating them costs real time: a fixed-output hash mismatch reported as *"output is not deterministic"* sends someone hunting a reproducibility bug that does not exist, when the true remedy is one command.
 
 Outcomes are therefore classified. The classification is part of the contract:
 
@@ -95,42 +95,42 @@ Outcomes are therefore classified. The classification is part of the contract:
 | **not deterministic** | Two builds of one derivation disagree | the defect the gate exists to catch |
 | **build failed** | Anything else | read the log |
 
-The ordering matters. A fixed-output mismatch is checked before the determinism patterns, because it names a pin that has gone stale, while the determinism patterns describe a build that varies under fixed inputs. Moving the nixpkgs pin makes *stale hash* the ordinary, expected outcome across much of the corpus; a model that could not say so would report a routine maintenance operation as a fleet-wide reproducibility failure.
+The ordering matters. A fixed-output mismatch is checked before the determinism patterns, because it names a pin that has gone stale, while the determinism patterns describe a build that varies under fixed inputs. Moving the nixpkgs pin makes *stale hash* the expected outcome across much of the corpus; a model that could not say so would report a routine maintenance operation as a fleet-wide reproducibility failure.
 
 ### Moving the pin
 
-Every generated expression pins nixpkgs to a commit, and an application may override that pin for itself when it needs a package the default predates. The override is per-application, validated where it is parsed (a malformed revision is refused at parse time, before it can reach an expression that fails opaquely at deploy), and honoured by every template, so the corpus can be evaluated wholesale against a candidate pin without editing each recipe.
+Every generated expression pins nixpkgs to a commit, and an application may override that pin for itself when it needs a package the default predates. The override is per-application, and every template honours it, so the corpus can be evaluated wholesale against a candidate pin without editing each recipe. It is validated where it is parsed: a malformed revision is refused at parse time, before it can reach an expression that fails opaquely at deploy.
 
 That last property turns a pin bump into a *measurement*. A bump can invalidate an unbounded number of vendored dependency hashes at once, and it can remove attributes an application depends on. Both outcomes are expected, both are distinguishable by the classification above, and the resulting per-application disposition is the artefact: it says what the pin costs before anyone commits to paying it.
 
-Measuring it first matters because the pin is a shared resource and a bump is close to all-or-nothing. The corpus builds against one revision, so the revision cannot move until every recipe builds against the candidate, and a single blocked application withholds the security updates of all the others. The per-application override is the pressure valve. It relieves pressure by fragmenting: an application parked on its own revision is an application whose nixpkgs must be maintained separately from the rest. Used on purpose for a package the default predates, that is a reasonable exception. Used to route around a bump, it converts one revision to maintain into several.
+Measuring it first matters because the pin is a shared resource and a bump is close to all-or-nothing. The corpus builds against one revision, so the revision cannot move until every recipe builds against the candidate, and a single blocked application withholds the security updates of all the others. The per-application override is the pressure valve. It relieves pressure by fragmenting: an application parked on its own revision must be maintained separately from the rest. Used on purpose for a package the default predates, that is a reasonable exception. Used to route around a bump, it converts one revision to maintain into several.
 
-This is the trade the Nix path makes. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, which is the substantive reason it outranks Tier 2 despite both being auditable.
+This is the trade the Nix path makes. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, and this is why it outranks Tier 2.
 
 ### What the seal covers
 
-The sandbox fixes a build's *inputs*: the source archive, the dependency set, the toolchain, each by hash. It does not fix how the tools consuming those inputs behave. One recipe in the corpus shows the difference. Its vendored dependency set hashed identically under two nixpkgs revisions, and its package manager was the same version in both, yet the installed tree differed, because the surrounding standard environment had changed. The newer environment also carried a check that declined to ship the result, so the difference surfaced at build time instead of at runtime.
+The sandbox fixes a build's *inputs*: the source archive, the dependency set, the toolchain, each by hash. It does not fix how the tools consuming those inputs behave. One recipe in the corpus shows the difference. Its vendored dependency set hashed identically under two nixpkgs revisions, and its package manager was the same version in both, yet the installed tree differed, because the surrounding standard environment had changed. The newer environment also carried a check that declined to ship the result, so the difference surfaced at build time.
 
-Identical inputs are necessary for a reproducible build without being sufficient. Determinism is therefore established by rebuilding and comparing rather than by reasoning over input hashes. A pin bump can change a build's output while changing none of its pinned inputs, so its cost is measured per application rather than inferred.
+Identical inputs are necessary for a reproducible build without being sufficient. Determinism is therefore established by rebuilding and comparing rather than by reasoning over input hashes. A pin bump can change a build's output while changing none of its pinned inputs, so its cost is measured per application.
 
-A newer standard environment can introduce a check no recipe previously had to satisfy. Such a failure resembles neither a stale hash nor a missing attribute, and routing it to "read the log" is the correct disposition: the remedy is specific to whatever the new check found.
+A newer standard environment can introduce a check no recipe previously had to satisfy. Such a failure resembles neither a stale hash nor a missing attribute, and routing it to "read the log" is the right disposition: the remedy is specific to whatever the new check found.
 
 ## Alternatives considered
 
-**A single flat claim ("Hop3 builds are reproducible").** Shorter, and unfalsifiable. It would also have to be withdrawn the first time someone examined a Tier-3 wrapper and found an upstream binary that cannot be audited. A claim that cannot survive its own audit is worth less than a narrower one that can.
+**A single flat claim ("Hop3 builds are reproducible").** Shorter, and unfalsifiable. It would also have to be withdrawn the first time someone examined a Tier-3 wrapper and found an upstream binary that cannot be audited. A claim that cannot survive its own audit is no use.
 
 **Ranking the tiers by sandbox purity.** The original taxonomy did this, when `__noChroot` builds still existed and the axis carried real information. Once every template vendors its dependencies and builds offline, purity is uniform and a ranking along it distinguishes nothing. Keeping the old axis would have implied that Tier-2 and Tier-3 builds are less deterministic than Tier-1, which measurement contradicts.
 
-**One pass/fail outcome per app.** Simpler to report and to store. It also conceals who has to act: a stale hash is a mechanical recomputation; genuine non-determinism is a defect hunt. A single red square cannot tell an operator which one arrived.
+**One pass/fail outcome per app.** Simpler to report and to store. It also conceals who has to act: a stale hash is a mechanical recomputation; non-determinism is a defect hunt. A single red square cannot tell an operator which one arrived.
 
-**Committed golden hashes of each generated expression.** This would catch a generator change that silently alters output. The vendored dependency hashes already serve that purpose where it matters: a template change that alters what enters a fixed-output derivation makes the committed hash wrong. The build fails loudly at deploy. A second set of golden values would add maintenance and catch only cosmetic drift.
+**Committed golden hashes of each generated expression.** This would catch a generator change that silently alters output. The vendored dependency hashes already serve that purpose where it matters: a template change that alters what enters a fixed-output derivation makes the committed hash wrong. The build fails at deploy, with the failure visible. A second set of golden values would add maintenance for little: it would catch only cosmetic drift.
 
-**Per-app tier labels maintained by hand.** Tried, in the form of a table in [ADR 008](./008-nix-builders-2.md). It drifted: apps moved between templates while the table kept its original wording and continued to read as authoritative. Deriving the label from the template removes the opportunity.
+**Per-app tier labels maintained by hand.** Tried, in the form of a table in [ADR 008](./008-nix-builders-2.md). It drifted: apps moved between templates while the table kept its original wording and continued to read as authoritative. Deriving the label from the template leaves no table to drift.
 
 ## Consequences
 
-- **The claim is checkable by a third party**, from a checkout and a Nix installation, without access to our infrastructure. Precision is the point of stating it at all.
+- **The claim is checkable by a third party**, from a checkout and a Nix installation, without access to our infrastructure.
 - **The tiers rank provenance, and only provenance.** All three rebuild identically, so determinism separates none of them; reporting it as though it did would overstate what the top tier buys.
 - **A tier is not a promise the application runs.** The gate's second half exists because bit-identical rebuilds have repeatedly coexisted with broken boots.
-- **Reproducibility is relative to a pin, an architecture, and upstream still serving the bytes.** Each is stated explicitly, because each has failed in practice. The pin carries a recurring cost as well as a caveat: moving it is a fleet-wide operation gated on the slowest recipe, and it recurs on the upstream release cadence.
-- **The model constrains the templates.** A new template must vendor its ecosystem's dependency set into a fixed-output derivation and build offline; otherwise it does not qualify for Tier 2 and must say so.
+- **Reproducibility is relative to a pin, an architecture, and upstream still serving the bytes.** Each is stated explicitly, because each has failed in practice. The pin carries a recurring cost as well as a caveat: moving it is a fleet-wide operation gated on the slowest recipe, and the operation recurs on the upstream release cadence.
+- **The model constrains the templates.** A new template must vendor its ecosystem's dependency set into a fixed-output derivation and build offline; a template that does not does not qualify for Tier 2 and must say so.

@@ -26,13 +26,13 @@ A PHP application that resolves its own public URL from `$_SERVER`, which is wro
 
 ## What broke
 
-**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and a deliberately *omitted* CSRF token all produced identical responses: a form that inspects its input returns different errors for different failures; this one returned none. The cause: Paheko routes on the submit control's name (`$form->runIf('login', …)`), and the check posted only the form's hidden fields. A browser sends the button it clicked. The check omitted it, so `runIf` never matched.
+**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and an *omitted* CSRF token all produced identical responses: a form that inspects its input returns different errors for different failures; this one returned none. The cause: Paheko routes on the submit control's name (`$form->runIf('login', …)`) and the check posted only the form's hidden fields. A browser sends the button it clicked. The check omitted it, so `runIf` never matched.
 
-**It advertised itself over plain HTTP.** Paheko resolves its own public URL from `$_SERVER`, and behind Hop3 it is reached over HTTP by the proxy that terminates TLS; it rendered `data-url="http://…"` on an HTTPS deployment. `HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it. Fixing it did not fix the sign-in. It was a real defect and a wrong hypothesis at the same time.
+**It advertised itself over plain HTTP.** Paheko resolves its own public URL from `$_SERVER`, and behind Hop3 the proxy that terminates TLS reaches it over HTTP; it rendered `data-url="http://…"` on an HTTPS deployment. `HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it. Fixing it did not fix the sign-in. It was a real defect and a wrong hypothesis at the same time.
 
-**The Nix package was missing part of the application.** Both Nix variants died at every start on `require_once .../KD2/ErrorManager.php: No such file or directory`. Paheko vendors the KD2 framework into its release tarball and does not commit it, so a package built from the git tag is missing those files. Only the release archive supplies them. The release archive also has a flat layout where the tag put everything under `src/`.
+**The Nix package was missing part of the application.** Both Nix variants died at every start on `require_once .../KD2/ErrorManager.php: No such file or directory`. Paheko vendors the KD2 framework into its release archive and does not commit it, so a package built from the git tag is missing those files. Only the release archive supplies them. The release archive also has a flat layout where the tag put everything under `src/`.
 
-**Its config declared global constants.** With the application finally present, `config.local.php` was writing bare `const DATA_ROOT` and friends, but Paheko reads `Paheko\DB_FILE`, so every setting was silently ignored and its defaults won. The file needs `namespace Paheko;` and guarded `defined() || define()`, because it is loaded with a plain `require` and a second bootstrap in one process turns the redefinition warning into a fatal.
+**Its config declared global constants.** With the application finally present, `config.local.php` was writing bare `const DATA_ROOT` and friends, but Paheko reads `Paheko\DB_FILE`, so every setting was silently ignored and its defaults won. The file needs `namespace Paheko;` and guarded `defined() || define()`, because Paheko loads it with a plain `require` and a second bootstrap in one process turns the redefinition warning into a fatal.
 
 ## What the platform gained
 
@@ -40,7 +40,7 @@ The checking library's form handling: `form_fields` now sends the submit control
 
 ## Deployment variants
 
-Every variant takes the upstream *release* archive, for the reason above: only it carries the vendored KD2 framework. SQLite, no addon.
+Every variant takes the upstream *release* archive: only it carries the vendored KD2 framework. SQLite, no addon.
 
 ## Verification
 
@@ -56,7 +56,7 @@ hop3 app check --app paheko
 ## Open
 
 - **nix:** no screenshot: the capture hangs on a ServiceWorker registration, as it does for the template-generated variant. The sign-in is verified over HTTP.
-- **nix-gen:** no screenshot. The capture times out after 60 s with no requests outstanding and a failed ServiceWorker registration in the page errors: the renderer is stuck, and resource starvation was ruled out. The sign-in itself is verified over HTTP.
+- **nix-gen:** no screenshot. The capture times out after 60 s with no requests outstanding and a failed ServiceWorker registration in the page errors; the renderer is stuck, and resource starvation was ruled out. The sign-in itself is verified over HTTP.
 
 ## Screenshots
 

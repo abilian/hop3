@@ -1,6 +1,6 @@
 # Lessons Learned: uWSGI Daemon Management
 
-How Hop3 uses uWSGI to manage application processes, and the non-obvious behaviors that cause deployment failures.
+Hop3 manages application processes with uWSGI. This file records the non-obvious behaviors that cause deployment failures.
 
 ## Architecture
 
@@ -18,7 +18,7 @@ Hop3 runs a uWSGI Emperor that watches `/home/hop3/uwsgi-enabled/` for `.ini` fi
 
 ## The `attach-daemon` Working Directory Trap
 
-uWSGI's `chdir` directive sets the working directory for WSGI workers, but `attach-daemon` processes may not inherit it, because they fork from the Emperor.
+uWSGI's `chdir` directive sets the working directory for WSGI workers, but `attach-daemon` processes may not inherit it; they fork from the Emperor.
 
 **Symptom:** Daemon starts, immediately fails with "No such file or directory" for a relative path.
 
@@ -48,9 +48,9 @@ def stop(self):
 
 ## The "no-workers" Silent Failure
 
-If a Python app has no `wsgi` worker configured (e.g., missing Procfile entry or hop3.toml `[run.workers]`), uWSGI starts in "Operational MODE: no-workers". The master process runs, logs look normal, but no HTTP workers exist. Health checks time out after 60s with no useful error.
+If a Python app has no `wsgi` worker configured (e.g., missing Procfile entry or hop3.toml `[run.workers]`), uWSGI starts in "Operational MODE: no-workers". The master process runs, logs look normal, but no WSGI workers exist. Health checks time out after 60s with no useful error.
 
-**Fix 1:** Detect early: check for web-facing workers before spawning:
+**Fix 1:** Detect early: the deployer checks for WSGI workers before spawning:
 
 ```python
 if not self.web_workers and self.artifact.kind in {"python", "buildpack", "virtualenv"}:
@@ -63,6 +63,8 @@ if not self.web_workers and self.artifact.kind in {"python", "buildpack", "virtu
 if (src_path / "wsgi.py").exists():
     artifact.runtime.workers["wsgi"] = "wsgi:application"
 ```
+
+Both fixes treat the missing WSGI worker as the condition to repair, since without it no request is ever answered.
 
 ## Environment Variable Propagation
 
@@ -77,12 +79,12 @@ shell_cmd = f'sh -c "{"; ".join(exports)}; {command}"'
 
 ## Health Check Timing
 
-The default health check timeout (60s) is often too short for:
-- Apps that run database migrations on first start (Gitea, HedgeDoc)
-- Apps that compile assets on first run (Next.js, SonarQube)
-- Apps that download additional resources on start
+The default health check timeout (60s) is too short for apps that:
+- Run database migrations on first start (Gitea, HedgeDoc)
+- Compile assets on first run (Next.js, SonarQube)
+- Download additional resources on start
 
-Set `start-timeout` in hop3.toml for these apps:
+Set `start-timeout` in hop3.toml for these apps, so the health check waits for a slow first start:
 
 ```toml
 [run]
@@ -91,7 +93,7 @@ start-timeout = 180
 
 ## Debugging Daemon Failures
 
-Daemon stdout and stderr are both captured in `/home/hop3/apps/<app>/log/web.1.log` (the shell command redirects with `>>file 2>&1`, since Node and PHP apps often write startup errors to stdout). When the health check times out, the last 20 lines of this log are shown in the deploy output.
+Daemon stdout and stderr are both captured in `/home/hop3/apps/<app>/log/web.1.log` (the shell command redirects with `>>file 2>&1`, since Node and PHP apps often write startup errors to stdout). When the health check times out, the deploy output shows the last 20 lines of this log.
 
 To get more context:
 
@@ -118,15 +120,15 @@ Apps whose build or runtime needs a binary outside the language ecosystem declar
 packages = ["ffmpeg"]
 ```
 
-These are declarations. Nothing is installed at deploy time. Instead, the installer unions `[build].packages` + `[run].packages` across the *whole* app catalogue at server-provisioning time and installs the result once (`hop3_installer.server_installer.baseline` computes the union; `installer.py` runs the apt/dnf call). So adding a package to an app's `hop3.toml` requires regenerating the committed baseline (`python -m hop3_installer.server_installer.baseline`); a CI check fails if `baselines.py` has drifted from the catalogue.
+These are declarations. Nothing is installed at deploy time. Instead, the installer unions `[build].packages` + `[run].packages` across the *whole* app catalogue at server-provisioning time and installs the result once: `hop3_installer.server_installer.baseline` computes the union, and `installer.py` runs the apt/dnf call. Adding a package to an app's `hop3.toml` therefore requires regenerating the committed baseline (`python -m hop3_installer.server_installer.baseline`); a CI check fails if `baselines.py` has drifted from the catalogue.
 
-At build time the native builder only **probes** the declared packages against the local package DB (`dpkg` on Debian-family, `rpm` on Fedora-family). A missing package logs a Diagnosis naming it and the remedy, but the build continues (a soft gate: the probe must never create a false negative). Without the package the native deploy starts the binary, which crashes at startup with a message like "Unable to locate ffmpeg", surfacing only after the 60-second health-check timeout. The probe turns that opaque timeout into a named cause.
+At build time the native builder only **probes** the declared packages against the local package DB (`dpkg` on Debian-family, `rpm` on Fedora-family). A missing package makes the builder log a Diagnosis naming it and the remedy, but the build continues (a soft gate: the probe must never create a false negative). Without the package the native deploy starts the binary, which crashes at startup with a message like "Unable to locate ffmpeg" and is surfaced only after the 60-second health-check timeout. The probe replaces that opaque timeout with a named cause.
 
-Package names are canonical (Debian) and translated to the local OS family right before install (`package_aliases.py`), so the mechanism is not Debian-only; both Debian and Fedora families are supported. A package with no known alias on the target family is the operator's to install manually.
+Package names are canonical (Debian) and translated to the local OS family right before install (`package_aliases.py`), so both Debian and Fedora families are supported. A package with no known alias on the target family is the operator's to install manually.
 
 ## SSH Key Collisions with Apps That Manage `authorized_keys`
 
-Some self-hosted apps want full ownership of the hop3 user's `~/.ssh/authorized_keys`. Forgejo 14.x is the notable case: it refuses to start if the file contains any SSH public key it did not itself create, and exits with `An unexpected ssh public key was discovered. Forgejo will shutdown to require this to be fixed.` The keys Hop3 itself writes for CLI access get flagged as "unexpected".
+Some self-hosted apps want full ownership of the hop3 user's `~/.ssh/authorized_keys`. Forgejo 14.x refuses to start if the file contains any SSH public key it did not itself create, and exits with `An unexpected ssh public key was discovered. Forgejo will shutdown to require this to be fixed.` The keys Hop3 itself writes for CLI access get flagged as "unexpected".
 
 **Fix:** in the app's config, disable the app's own SSH server:
 
@@ -135,14 +137,14 @@ Some self-hosted apps want full ownership of the hop3 user's `~/.ssh/authorized_
 DISABLE_SSH = true
 ```
 
-For Forgejo / Gitea this lands in `custom/conf/app.ini`. The setting turns off the app's git-over-SSH server; Hop3's CLI-over-SSH tunnel is unaffected. The app still accepts git pushes over HTTPS, which is what most operators use anyway.
+For Forgejo / Gitea the setting lands in `custom/conf/app.ini`. It turns off the app's git-over-SSH server; Hop3's CLI-over-SSH tunnel is unaffected. The app still accepts git pushes over HTTPS, which is what most operators use anyway.
 
-Worse are apps that silently *scan* `~/.ssh/authorized_keys`: the behaviour shows up as a logic bug later. If an app is strict about authorized_keys, the operator should know up front, so this deserves a note in the app's scaffolded `hop3.toml` or per-app README.
+Some apps go further and silently *scan* `~/.ssh/authorized_keys`: the behaviour shows up as a logic bug later. An operator provisioning an app that is strict about `authorized_keys` should know up front, so the scaffolded `hop3.toml` or per-app README should say so.
 
 ## Strict Mode, and the Directive That Never Existed
 
-The uWSGI configuration inherited from piku carried a `project` directive that uWSGI does not have. uWSGI ignores unknown directives by default, so it did nothing for months; `strict = true` turned it into an error on the next start. Run uWSGI strict, and treat any configuration a tool accepts silently as unverified.
+The uWSGI configuration inherited from piku carried a `project` directive that uWSGI does not have. uWSGI ignores unknown directives by default, so it did nothing for months; `strict = true` turned it into an error on the next start. Run uWSGI strict. Treat any configuration a tool accepts silently as unverified.
 
 ## Two Quoting Layers on the attach-daemon Line
 
-Every exported value on the daemon line sits inside `'…'`, which sits inside the double-quoted argument of `sh -c "…"`. Escaping the apostrophe (`'\''`) handles the inner layer only; inside double quotes the shell still interprets `$`, a backtick, a backslash and a double quote. A JSON-valued setting lost its quotes outright, paperless-ngx received `[HTTP_X_FORWARDED_PROTO,https]` for `["HTTP_X_FORWARDED_PROTO","https"]` and crashed every worker on `json.loads`, and a generated password containing `$` would have been mangled into an unreproducible credential. Escape all four for the outer layer, then the apostrophe for the inner one, and leave the command itself alone: a start command is written to use `$PORT` and must keep expanding it.
+Every exported value on the daemon line sits inside `'…'`, which sits inside the double-quoted argument of `sh -c "…"`. Escaping the apostrophe (`'\''`) handles the inner layer only; inside double quotes the shell still interprets `$`, a backtick, a backslash and a double quote. A JSON-valued setting lost its quotes outright, paperless-ngx received `[HTTP_X_FORWARDED_PROTO,https]` for `["HTTP_X_FORWARDED_PROTO","https"]` and crashed every worker on `json.loads`. A generated password containing `$` would have been mangled into an unreproducible credential. Escape all four for the outer layer, then the apostrophe for the inner one. Leave the command itself alone: a start command is written to use `$PORT` and must keep expanding it.

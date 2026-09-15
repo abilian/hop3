@@ -3,7 +3,7 @@
 Status: final
 Date: 24 June 2026
 
-Evidence for the NLNet/NGI "verify these results" field, one entry per milestone. Documentation links resolve on <https://hop3.cloud/> (live at submission); code is on SourceHut (`sfermigier/hop3`), with a mirror on GitHUb (`abilian/hop3`); ADRs carry the design rationale.
+Evidence for the NLNet/NGI "verify these results" field, one entry per milestone. Documentation links resolve on <https://hop3.cloud/> (live at submission); code is on SourceHut (`sfermigier/hop3`), with a mirror on GitHub (`abilian/hop3`); ADRs carry the design rationale.
 
 ## T1: Nix Build Plugins
 
@@ -66,7 +66,7 @@ Evidence for the NLNet/NGI "verify these results" field, one entry per milestone
 
 **M5.2: Documentation (devs/admins/end-users)** ✅
 
-- <https://hop3.cloud/guides/> · <https://hop3.cloud/reference/> · <https://hop3.cloud/developers/> · <https://hop3.cloud/tutorials/>: and 51 published ADRs at <https://hop3.cloud/developers/adrs/>
+- <https://hop3.cloud/guides/> · <https://hop3.cloud/reference/> · <https://hop3.cloud/developers/> · <https://hop3.cloud/tutorials/>, plus 51 published ADRs at <https://hop3.cloud/developers/adrs/>
 
 **M5.4: Conference presentation / workshop** ✅
 

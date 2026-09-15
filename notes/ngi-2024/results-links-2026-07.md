@@ -5,7 +5,7 @@ Date: 31 July 2026
 
 **The release these results describe is [Hop3 0.7.0](https://git.sr.ht/~sfermigier/hop3/refs/0.7.0), tagged 2026-07-31**: the final release of the funded project. [`CHANGES.md`](https://git.sr.ht/~sfermigier/hop3/tree/0.7.0/item/CHANGES.md) lists what it contains, including a Security section on six defects in Hop3's own bundled application recipes that the new sign-in verification found (M4 below). Announcement: <https://hop3.cloud/blog/>.
 
-Evidence for the NLnet/NGI "verify these results" field, one entry per milestone. Documentation links resolve on <https://hop3.cloud/> (live at submission); code is on SourceHut (`sfermigier/hop3`), mirrored on GitHub (`abilian/hop3`); ADRs carry the design rationale.
+This file is the evidence for the NLnet/NGI "verify these results" field, one entry per milestone. Documentation links resolve on <https://hop3.cloud/> (live at submission). Code is on SourceHut (`sfermigier/hop3`) and mirrored on GitHub (`abilian/hop3`); ADRs carry the design rationale.
 
 Every milestone below is delivered. Two carry a note on how, and neither is a gap:
 
