@@ -22,29 +22,29 @@ Self-hosted uptime monitoring with a web UI and status pages.
 
 ## What this app exercised
 
-An app that authenticates over socket.io, so its check drives the application's own bundled client through node.
+An app that authenticates over socket.io, so its check drives the app's own bundled client through node.
 
 ## What broke
 
-**The smoke test accused a working application for a week.** It reported "the credential Hop3 generated was refused"; the credential signs in through a browser without trouble. The probe drives the app's own bundled socket.io client through node, and every wait in it resolved on its own timeout:
+**The smoke test accused a working application for a week.** It reported "the credential Hop3 generated was refused" while the credential signed in through a browser without trouble. The probe drives the app's own bundled socket.io client through node. Every wait in it resolved on its own timeout:
 
 - the connect wait resolved whether or not a socket opened;
 - the next wait left `offered` as `null`, and the check asked only whether it was `'setup'`: `null` is not `'setup'`, so *"the server offers a login, not its setup wizard"* passed **without a socket ever being opened**;
-- the login then timed out, and a timeout was returned as `false`, which the check rendered as a refusal.
+- the login then timed out; the check rendered the timeout's `false` as a refusal.
 
-Three silent fallbacks stacked into an accusation. Making them fail loudly also fixed the app: the probe had been emitting `login` before the server announced `loginRequired`, and a wait that must succeed cannot race ahead of it.
+Three silent fallbacks stacked into an accusation. Making them fail loudly also fixed the probe: it had been emitting `login` before the server announced `loginRequired`, and a wait that must succeed cannot race ahead of that announcement.
 
 **The probe account was created only when the admin was.** `createProbeUser()` sat after an early `return` in the branch that creates the administrator, so any instance with an existing user row got no probe, undetectably, because nothing verified it.
 
-**The JavaScript lived inside a Python string.** The probe was an embedded literal in `check.py`; a `\'` in the Python source arrived at node as a bare quote and killed the whole probe with a `SyntaxError`, after a full deploy. It is a `scripts/probe.js` file now, which is what `node --check` can read.
+**The JavaScript lived inside a Python string.** The probe was an embedded literal in `check.py`; a `\'` in the Python source arrived at node as a bare quote and killed the whole probe with a `SyntaxError`, after a full deploy. The probe is a `scripts/probe.js` file now, which `node --check` reads.
 
 ## What the platform gained
 
-The catalog driver's separation of "the run could not verify this" from "this application failed" (the vocabulary LimeSurvey's browser-only sign-in introduced) hardened from the opposite direction: a probe whose silent fallbacks were converting "unverified" into a false "failed".
+The catalog driver's separation of "the run could not verify this" from "this application failed" (the vocabulary LimeSurvey's browser-only sign-in introduced) hardened against a probe whose silent fallbacks were converting "unverified" into a false "failed".
 
 ## Deployment variants
 
-Node, no addon, and no template-generated variant. It authenticates over socket.io, so its check drives the app's own bundled client through node; the only application in the corpus verified that way.
+Node, no addon, and no template-generated variant. It authenticates over socket.io, so its check drives the app's own bundled client through node. No other application in the corpus is verified that way.
 
 ## Verification
 
@@ -59,8 +59,8 @@ hop3 app check --app uptime-kuma
 
 ## Open
 
-- **No signed-in screenshot.** Uptime Kuma authenticates over socket.io, so the browser harness cannot drive it. Its sign-in is verified by the node probe.
-- **Only one variant exists.** Native is the whole of this app's coverage: there is no hand-written Nix recipe and no template one.
+- **No signed-in screenshot.** Uptime Kuma authenticates over socket.io, so the browser harness cannot drive it; the node probe verifies the sign-in.
+- **One variant.** Native is this app's whole coverage: no hand-written Nix recipe and no template one.
 
 ## Screenshots
 

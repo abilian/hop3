@@ -137,7 +137,7 @@ def backup(self) -> Path:
 
 1. **Backup Directory**: Store in `/var/hop3/backups/<service-type>/`
 2. **Unique Filenames**: Use timestamp + service name to avoid collisions
-3. **Absolute Paths**: Always return absolute paths, not relative
+3. **Absolute Paths**: Always return absolute paths
 4. **Error Handling**: Let exceptions propagate (BackupManager will handle them)
 5. **Atomic Operations**: Ensure backup is complete before returning
 

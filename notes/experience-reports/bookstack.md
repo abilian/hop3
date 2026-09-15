@@ -22,7 +22,7 @@ Simple, self-hosted documentation platform.
 
 ## What this app exercised
 
-Laravel under Nix, where PHP's `__DIR__` resolves symlinks and lands back in the read-only store; the first app to need the tree copied rather than linked, which is now `needs-writable-dir`. Also the corpus's clearest case of an application that authenticates on the email while offering a username.
+BookStack runs Laravel under Nix, where PHP's `__DIR__` resolves symlinks and lands back in the read-only store. It was the first app to need the tree copied. That need is now the `needs-writable-dir` flag. The app is also the corpus's clearest case of an application that authenticates on the email while offering a username.
 
 ## What broke
 
@@ -30,11 +30,11 @@ Laravel under Nix, where PHP's `__DIR__` resolves symlinks and lands back in the
 
 **A hidden migration failure.** The hand-written Nix wrapper ran `artisan migrate --force 2>/dev/null || true`, so an app with no schema reported a successful start.
 
-**BookStack authenticates on the EMAIL**, and `username` is only a display name. A credential reader handed both picks the username and is rejected as if the password were wrong; which is why the recipe declares `login = "email"`. The generated variant dropped that line and failed in exactly that way while its own `check.py`, which names the email field directly, kept passing.
+**BookStack authenticates on the EMAIL**, and `username` is only a display name. A credential reader handed both picks the username and is rejected as if the password were wrong. That is why the recipe declares `login = "email"`. The generated variant dropped that line and failed in exactly that way, while its own `check.py`, which names the email field directly, kept passing.
 
 ## What the platform gained
 
-`needs-writable-dir`, and the `login` key in `[admin]`; which tells anything reading a credential which field the app actually authenticates on. `make-nix-variants.py` now refuses to generate a variant whose sign-in field differs from its native counterpart, because this app is where that drift was found.
+`needs-writable-dir`, and the `login` key in `[admin]`. The `login` key tells anything reading a credential which field the app actually authenticates on. `make-nix-variants.py` now refuses to generate a variant whose sign-in field differs from its native counterpart. This app is where that drift was found.
 
 ## Deployment variants
 
@@ -42,7 +42,7 @@ Laravel under Nix, where PHP's `__DIR__` resolves symlinks and lands back in the
 
 ## Verification
 
-`apps/bookstack/check.py` signs in with the `[admin]` credential, reaches a page only a session can, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator; the weaker claim, since that password can be changed out from under it.
+`apps/bookstack/check.py` signs in with the `[admin]` credential, reaches a page only a session can, and confirms a wrong password is refused. It has no `[probe]` account, so it signs in as the operator's administrator. That is the weaker claim, since that password can be changed out from under it.
 
 ## Reproduce
 

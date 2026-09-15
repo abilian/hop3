@@ -2,7 +2,7 @@
 
 **This file is retired. Nothing here is authoritative.**
 
-It was the 0.6-era milestone tracker: the annex task text with a status block under each milestone. Both halves now live somewhere better, and keeping a third copy meant it drifted: its last review was 2026-06-21, and by 2026-07-30 it still described the WAF as "in progress", email as "deferred to 0.7", the screencasts as "not started" and the benchmarks as "missing", all of which had since landed.
+It was the 0.6-era milestone tracker: the annex task text with a status block under each milestone. Both halves now live somewhere better. Keeping a third copy meant it drifted: its last review was 2026-06-21, and by 2026-07-30 it still described the WAF as "in progress", email as "deferred to 0.7", the screencasts as "not started" and the benchmarks as "missing", all of which had since landed.
 
 | What you want | Where it lives |
 |---|---|

@@ -20,7 +20,7 @@ After that, a password change never touches the CSRF/session secret. A derived-f
 
 ## A cookie-reuse CSRF middleware turns a stale token into a *permanent* 403
 
-Litestar's token is `random + HMAC(token, secret)`, and verification re-checks the HMAC **under the current secret** (`litestar/middleware/csrf.py`). The trap is on safe requests:
+Litestar's token is `random + HMAC(token, secret)`. Verification re-checks the HMAC **under the current secret** (`litestar/middleware/csrf.py`). The trap is on safe requests:
 
 ```python
 # safe (GET) branch - reuses an existing cookie, only mints one when ABSENT
@@ -28,13 +28,13 @@ token = connection_state.csrf_token = csrf_cookie or generate_csrf_token(secret=
 # and the Set-Cookie is only emitted when csrf_cookie is None
 ```
 
-So a browser holding a `csrftoken` cookie minted under the **old** secret never recovers by reloading the login page. The middleware **reuses** the stale cookie, the page renders a token equal to that stale cookie, and the POST fails the HMAC under the **new** secret, every single time. The only client-side cure is *deleting* the cookie (a brand-new incognito window, or DevTools → Cookies → delete `csrftoken`). "Clear your cache / hard refresh" does **not** work, because the cookie is what's wedged, and a GET won't replace it.
+So a browser holding a `csrftoken` cookie minted under the **old** secret never recovers by reloading the login page. The middleware **reuses** the stale cookie, the page renders a token equal to that stale cookie, and the POST fails the HMAC under the **new** secret, every single time. The only client-side cure is *deleting* the cookie (a brand-new incognito window, or DevTools → Cookies → delete `csrftoken`). "Clear your cache / hard refresh" does **not** work, because the cookie is what's wedged and a GET won't replace it.
 
 This is why a fresh `curl` (empty cookie jar → mints a valid token under the current secret) succeeds while the user's browser stays stuck, a discrepancy that is baffling until you read the middleware.
 
 ## The fix: self-heal on failure, and never show raw JSON
 
-A CSRF failure should not dead-end. Handle the exception so it (a) **expires the wedged cookie** and (b) **redirects to a fresh login**; the next GET then mints a valid token and the retry works:
+A CSRF failure should not dead-end. Handle the exception so it (a) **expires the wedged cookie** and (b) **redirects to a fresh login**. The next GET then mints a valid token and the retry works:
 
 ```python
 def _handle_csrf(_request, _exc) -> Redirect:
@@ -46,14 +46,14 @@ def _handle_csrf(_request, _exc) -> Redirect:
 # registered as exception_handlers={PermissionDeniedException: _handle_csrf}
 ```
 
-Clearing the cookie is the essential step; without it the redirect loops. Two general rules fall out:
+Clearing the cookie is the essential step; without it the redirect loops. Two general rules follow:
 
 - **A framework default 403/JSON in front of a human is a UX bug.** A browser hitting CSRF/auth failure must get HTML (a redirect to login with a notice). Register exception handlers for the auth/permission exceptions.
-- **Verify the handler actually catches the *middleware-raised* exception.** CSRF is raised in middleware, outside the route handler; whether app-level `exception_handlers` catch it depends on middleware order. Assert it in a test (POST with a bad token, expect the redirect).
+- **Verify the handler actually catches the *middleware-raised* exception.** CSRF is raised in middleware, outside the route handler. Whether app-level `exception_handlers` catch it depends on middleware order. Assert it in a test (POST with a bad token, expect the redirect).
 
 ## Read the framework source directly
 
-The first explanation offered ("stale browser state, clear cookies") was only half-right and couldn't explain *why a hard refresh still failed* while a fresh incognito window worked. Reading the ~40 lines of dispatch in `litestar/middleware/csrf.py` settled it in one pass: the cookie-reuse on GET + HMAC-under-current-secret is the whole story. For a "this should work but doesn't" auth bug, read the middleware; it is short and authoritative.
+The first explanation offered ("stale browser state, clear cookies") was only half-right and couldn't explain *why a hard refresh still failed* while a fresh incognito window worked. Reading the ~40 lines of dispatch in `litestar/middleware/csrf.py` settled it in one pass: cookie-reuse on GET plus HMAC verification under the current secret explains every symptom. For a "this should work but doesn't" auth bug, read the middleware; it is short and authoritative.
 
 ---
 
@@ -61,7 +61,7 @@ The first explanation offered ("stale browser state, clear cookies") was only ha
 
 ## A rate limit belongs to the operation
 
-The web login form had been capped at 5 attempts per IP per minute since 0.5. The same password check was also reachable through `hop3 auth get-token` over JSON-RPC, which applied no limit at all, so an attacker who chose the second door could guess roughly a hundred times faster, and the mitigation on the first door bought nothing.
+The web login form had been capped at 5 attempts per IP per minute since 0.5. The same password check was also reachable through `hop3 auth get-token` over JSON-RPC, which applied no limit at all. An attacker who chose the second door could guess roughly a hundred times faster. The mitigation on the first door bought nothing.
 
 Two things follow:
 
@@ -70,9 +70,9 @@ Two things follow:
 
 ## Make the three login failures indistinguishable, including in time
 
-A login can fail because the username does not exist, because the account is disabled, or because the password is wrong. Ours answered differently in all three cases: disabled accounts got their own message, and unknown usernames answered *faster*, because a real user's stored hash was verified with bcrypt while an unknown one returned before any hashing happened. The timing difference alone is a usable account oracle (CWE-204), and bcrypt's cost is exactly what makes it measurable.
+A login can fail because the username does not exist, because the account is disabled, or because the password is wrong. Ours answered differently in all three cases: disabled accounts got their own message, and unknown usernames answered *faster*, because a real user's stored hash was verified with bcrypt while an unknown one returned before any hashing happened. The timing difference alone is a usable account oracle (CWE-204); bcrypt's cost is what makes it measurable.
 
-The fix has two parts and both are needed: one identical error string for all three, and a **dummy bcrypt verification** on the paths that would otherwise return early, so the response time does not encode the answer.
+The fix needs both parts: one identical error string for all three, plus a **dummy bcrypt verification** on the paths that would otherwise return early, so the response time does not encode the answer.
 
 ```python
 _DUMMY_PASSWORD_HASH = bcrypt_lib.hashpw(b"...placeholder", bcrypt_lib.gensalt())
@@ -82,11 +82,11 @@ def burn_password_check(password: str) -> None:
     bcrypt_lib.checkpw(password.encode("utf-8"), _DUMMY_PASSWORD_HASH)
 ```
 
-The regression test asserts the *responses are equal*. The formulation fails when someone later adds a helpful "this account is disabled" message.
+The regression test checks that the *responses are equal*. The wording fails when someone later adds a helpful "this account is disabled" message.
 
 ## A `Secure` cookie over plain HTTP is a silent infinite loop
 
-Sign-in over plain HTTP looped back to the login form forever, with no error anywhere. The session cookie is `Secure`, so the browser accepted the redirect and discarded the cookie, and the next request arrived unauthenticated. Every component behaved correctly and the sum was unusable.
+Sign-in over plain HTTP looped back to the login form forever, with no error anywhere. The session cookie is `Secure`, so the browser accepted the redirect and discarded the cookie, and the next request arrived unauthenticated. Every component behaved correctly; the sum was unusable.
 
 The user-visible symptom is indistinguishable from a wrong password, so it sends you to look at credentials. Detect the condition up front and refuse with an explanation. Development over HTTP stays possible behind an explicit debug flag.
 
@@ -94,11 +94,11 @@ This is the same shape as the app-level failures in [`verifying-an-app-works.md`
 
 ## If you have no CSRF tokens, "every mutation is a POST" carries the whole defence
 
-Hop3 ships no CSRF middleware on the dashboard. In its place stand `samesite=lax` plus the invariant that every state-changing route is a POST: `lax` withholds the cookie on a cross-site POST but *sends* it on a cross-site GET, so a single state-changing GET falsifies the whole argument.
+Hop3 ships no CSRF middleware for the dashboard. In its place stand `samesite=lax` plus the invariant that every state-changing route is a POST. `lax` withholds the cookie on a cross-site POST but *sends* it on a cross-site GET, so a single state-changing GET falsifies the whole argument.
 
-`GET /auth/logout` was exactly that exception, and it stood from May to August 2026 because the invariant was documented and nothing enforced it.
+`GET /auth/logout` was exactly that exception. It stood from May to August 2026: the invariant was documented and nothing enforced it.
 
-**A documented invariant carries no force.** The repair is converting the route and writing the check that fails when the next one appears. Three came out of this round, and the shape generalises:
+**A documented invariant carries no force.** The repair is converting the route and writing the check that fails when the next one appears. Three came out of this round; the shape generalises:
 
 | Invariant | Enforcement |
 |---|---|
@@ -113,6 +113,7 @@ These three tests share two properties. Each **fails closed on new code**: the r
 These come from the Starlette-to-Litestar migration notes (2025).
 
 - **Read forms from the request.** An HTML form posts `application/x-www-form-urlencoded`; a handler typed for JSON fails with `JSON is malformed: invalid character (byte 0)`. `await request.form()` reads url-encoded and multipart alike, with no `Body(media_type=…)` declaration to get wrong.
-- **Sessions are method calls**: `request.set_session({...})` and `request.clear_session()`, with templates reading `request.session.get("username")`. Writing into `scope["session"]` by hand, or attaching a `request.user` in middleware, is the previous framework's habit.
-- **Authentication is a guard at the controller.** Mixing the previous framework's middleware pattern with Litestar's guards is how the migration went wrong the first time.
-- **Tests bypass guards with the platform's own test mode** (`HOP3_UNSAFE`). The Docker e2e configuration named the variable differently from the code (`HOP3_ENABLE_AUTH`), and every e2e failed with "Authentication required" after the migration while the unit and integration layers passed. Test infrastructure is coupled to the code it tests: change both in the same commit, and run every layer.
+- **Sessions are method calls**: `request.set_session({...})` and `request.clear_session()`, with templates reading `request.session.get("username")`. Writing into `scope["session"]` by hand, or attaching a `request.user` in middleware, carries over the previous framework's habit.
+- **Authentication is a guard at the controller.** Mixing the previous framework's middleware pattern with Litestar's guards is where the migration first went wrong.
+- **Tests bypass guards with the platform's own test mode** (`HOP3_UNSAFE`). The Docker e2e configuration named the variable differently from the code (`HOP3_ENABLE_AUTH`); every e2e failed with "Authentication required" after the migration while the unit and integration layers passed. Test infrastructure is coupled to the code it tests: change both in the same commit, and run every layer.
+r.

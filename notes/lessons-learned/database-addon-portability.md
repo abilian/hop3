@@ -25,13 +25,13 @@ GRANT ALL ON mydb.* TO 'myuser'@'localhost';
 
 ## MySQL Per-Host Grants for Docker-Bridge Apps
 
-A single `@'localhost'` grant is not enough when Docker-based apps on the same host talk to MySQL. Containers connect from a private network address, not `localhost`, and that address depends on which pool Docker drew the network from: its default-address-pools span *both* `172.16.0.0/12` and `192.168.0.0/16`, and custom networks may use `10.x`. The connection surfaces as:
+A single `@'localhost'` grant is not enough when Docker-based apps on the same host talk to MySQL. Containers connect from a private network address, not `localhost`. That address depends on which pool Docker drew the network from: its default-address-pools span *both* `172.16.0.0/12` and `192.168.0.0/16`. Custom networks may use `10.x`. The connection surfaces as:
 
 ```
 [1130] Host '192.168.0.2' is not allowed to connect to this MariaDB server
 ```
 
-The MySQL protocol doesn't fall back between grant hosts: the server picks the most-specific matching user row at authentication and rejects if the password doesn't match *that* row. So one user row is needed per source range, and since host patterns can't express CIDR, you enumerate the RFC1918 wildcards.
+The MySQL protocol doesn't fall back between grant hosts: the server picks the most-specific matching user row at authentication and rejects if the password doesn't match *that* row. One user row is needed per source range. Since host patterns can't express CIDR, you enumerate the RFC1918 wildcards.
 
 **Fix:** Create one user row per host in `ADDON_USER_HOSTS`, currently `("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")`, all with identical privileges:
 
@@ -44,7 +44,7 @@ CREATE USER 'myuser'@'192.168.%'   IDENTIFIED BY 'pass';
 -- ... and one GRANT ALL ON mydb.* per host
 ```
 
-Granting only `172.%` (the earlier value) failed every compose app whose network came from the `192.168.x` pool. Drop every row on teardown, and centralise the create-or-alter logic in one helper so the rows don't drift. This parallels the PostgreSQL `pg_hba.conf` entries that permit all of RFC1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) alongside `localhost` and `127.0.0.1/32`.
+Granting only `172.%` (the earlier value) failed every compose app whose network came from the `192.168.x` pool. Drop every row on teardown. Centralise the create-or-alter logic in one helper so the rows don't drift. This parallels the PostgreSQL `pg_hba.conf` entries that permit all of RFC1918 (`10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`) alongside `localhost` and `127.0.0.1/32`.
 
 ## `localhost` Rewrite: Match by Value, Not by Variable Name
 
@@ -131,7 +131,7 @@ Rails and Django use `DATABASE_URL`. Psycopg2 uses `PG*` variables. Some Go libr
 
 ## A Name Derived From User Input Can Hit a Reserved Prefix
 
-The PostgreSQL addon derives its database and role from the addon name, so an addon named `pg-restore` produced the role `pg_restore_…_user`, and PostgreSQL reserves role names starting with `pg_`. The server rejected it after the database had been created, naming a role the operator never typed. Validate derived identifiers up front, against the target system's reserved forms, and name the user's own input in the refusal.
+The PostgreSQL addon derives its database and role from the addon name, so an addon named `pg-restore` produced the role `pg_restore_…_user`. PostgreSQL reserves role names starting with `pg_`, and the server rejected it after the database had been created, naming a role the operator never typed. Validate derived identifiers up front, against the target system's reserved forms. Name the user's own input in the refusal.
 
 ## `mysqladmin ping` Needs More Privilege Than an App User Has
 

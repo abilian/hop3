@@ -2,11 +2,11 @@
 
 **Updated**: 2026-09-08, adding the `app shell` sections. First cut 2026-06-17, from the ADR 046 resource-limits work.
 
-Where privileged effects and security boundaries live, and the patterns that keep them small and auditable. The context is [ADR 046](../adrs/046-declarative-app-resources.md) and the `hop3-rootd` daemon.
+This note records where privileged effects and security boundaries live, and the patterns that keep them small and auditable. The context is [ADR 046](../adrs/046-declarative-app-resources.md) and the `hop3-rootd` daemon.
 
 ## Privileged Operations Live Behind the Daemon, With a Default-Deny Allow-List
 
-When the platform needs a privileged action (cgroup writes, mounts, opening ports), the capability goes in the privileged daemon (rootd), exposed as a narrow op and gated with a *default-deny* allow-list plus a startup reconcile. Running it inline from the unprivileged deploy path "just this once" is how the escalation surface grows. The unprivileged side only asks; the daemon decides and is the single thing that touches the resource.
+When the platform needs a privileged action (cgroup writes, mounts, opening ports), the capability goes in the privileged daemon (rootd), exposed as a narrow op and gated with a *default-deny* allow-list plus a startup reconcile. Running it inline from the unprivileged deploy path "just this once" grows the escalation surface. The unprivileged side only asks; the daemon decides and is the single thing that touches the resource.
 
 **Case (June 2026, ADR 046):** enforcing native `[limits]` needs cgroup v2 writes; volumes need bind/tmpfs mounts, both privileged. The work added rootd `cgroup.*` and `mount.*` op families. `mount.bind` is constrained by a default-deny allow-list, both reconcile their state at startup, and the deployer only issues requests.
 
@@ -43,4 +43,4 @@ Never trust lexical path arithmetic for a security boundary: symlinks, `..`, and
 
 ## Two Keys, Two Transports
 
-The `hop3` account's authorized key carries a forced command and `no-port-forwarding`: it is the `git push` key, and the same forced command is what dispatches `app-shell`. It cannot carry the `ssh -L` tunnel the CLI speaks JSON-RPC through. The tunnel and `hop3 login --ssh` connect with the operator's plain key in root's `authorized_keys`, and root reaches the server-side commands through `su - hop3 -c`. Both paths end in the same process as the same user; sshd decides what each is allowed on the way in. The e2e image now carries both keys for that reason.
+The `hop3` account's authorized key carries a forced command and `no-port-forwarding`: it is the `git push` key, and the same forced command dispatches `app-shell`. It cannot carry the `ssh -L` tunnel the CLI speaks JSON-RPC through. The tunnel and `hop3 login --ssh` connect with the operator's plain key in root's `authorized_keys`; root reaches the server-side commands through `su - hop3 -c`. Both paths end in the same process as the same user; sshd decides what each is allowed on the way in. The e2e image now carries both keys for that reason.

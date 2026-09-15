@@ -26,7 +26,7 @@ queue.put_nowait(("log", entry))   # ❌ cross-thread
 
 ## The fix
 
-Capture the consumer's loop when it subscribes, and route every cross-thread put back onto that loop:
+Capture the consumer's loop when it subscribes and route every cross-thread put back onto that loop:
 
 ```python
 # in subscribe() - runs on the event loop
@@ -42,7 +42,7 @@ def _notify(self, item):
             self._safe_put(queue, item)  # sync/test path, no awaiting consumer
 ```
 
-`call_soon_threadsafe` is the thread-safe bridge: it schedules the `put` on the loop thread *and* wakes the loop. Deploy time dropped from ~30s to ~2s (static) / ~9s (real pip build), and durations became meaningful again.
+`call_soon_threadsafe` is the thread-safe bridge: it schedules the `put` on the loop thread *and* wakes the loop. Deploy time dropped from ~30s to ~2s (static) / ~9s (real pip build). Durations became meaningful again.
 
 See `packages/hop3-server/src/hop3/server/streaming.py` and the regression test `test_cross_thread_notify_is_scheduled_on_the_loop` in `packages/hop3-server/tests/a_unit/server/test_streaming.py`.
 
@@ -63,11 +63,11 @@ Litestar/Granian handlers run on the event loop; any `threading.Thread` you spaw
 
 ## Diagnosis lesson: instrument first
 
-The first hypothesis was **wrong**: SQLite uses `busy_timeout=30000`, and a blocked writer waits *exactly* 30s, a seductive match for the observed 30.0s. A reproduction even confirmed the mechanism *exists*. But it wasn't the cause.
+The first hypothesis was **wrong**: SQLite uses `busy_timeout=30000`. A blocked writer waits *exactly* 30s, a seductive match for the observed 30.0s. A reproduction even confirmed the mechanism *exists*. But it wasn't the cause.
 
 Instrumentation found it, in order:
 1. Per-phase timing inside `do_deploy` → the deploy work was ~2s. (Killed the "slow build/cert/nginx" theories.)
-2. A slow-SQL listener (`before/after_cursor_execute`) logged **nothing** ≥2s → no statement, and  `commit()` is *not* a cursor execute, so a slow commit would have been invisible. Timing the commit showed 0.0s. (Killed the DB-lock theory.)
+2. A slow-SQL listener (`before/after_cursor_execute`) logged **nothing** ≥2s → no statement; `commit()` is *not* a cursor execute, so a slow commit would have been invisible. Timing the commit showed 0.0s. (Killed the DB-lock theory.)
 3. The HTTP access log: `GET /api/stream 200 30033ms` → the 30s lived in the SSE stream.
 
 Takeaways:
@@ -103,11 +103,11 @@ As of this writing the only `asyncio.Queue` in the codebase is the (now-fixed) `
 - `hop3_testlab` scheduler/worker: APScheduler fires jobs on a worker thread that only touch a **sync** sessionmaker (`check_same_thread=False`) and `subprocess`; no asyncio primitive is shared with the async web handlers.
 - `hop3_installer` `Spinner`: daemon thread signalled by `threading.Event`; the package has no asyncio at all.
 
-Match the primitive to the boundary, and the one boundary that always needs an explicit bridge is **thread → coroutine**.
+Match the primitive to the boundary. The one boundary that always needs an explicit bridge is **thread → coroutine**.
 
 ## A second boundary in the same class: iterating what a thread is appending to
 
-The stream's log buffer is written by the producer thread and read by the SSE coroutine, which replays it to a client that connects mid-job. That read is a plain `for` loop, and it is suspended at every `yield` — so the producer appends *during* the iteration, every time.
+The stream's log buffer is written by the producer thread and read by the SSE coroutine, which replays it to a client that connects mid-job. That read is a plain `for` loop suspended at every `yield`. The producer appends *during* the iteration, every time.
 
 That was fine for as long as the buffer was a `list`. It stopped being fine the moment it became a `collections.deque`, which was done for an unrelated reason: `hop3 run` can stream for hours, so the replay buffer needed `maxlen` to stop one chatty job growing the server's memory without limit.
 
@@ -118,20 +118,20 @@ for entry in self.logs:
     yield entry.to_sse()
 ```
 
-The generator died on its first catch-up, before emitting a single event, and the operator saw:
+The generator died on its first catch-up, before emitting a single event. The operator saw:
 
 ```
 ⚠ Stream ended unexpectedly. Check server logs.
 ```
 
-on a deploy that was working. The fix is one word — `for entry in list(self.logs)` — but the lesson is not about `deque`:
+on a deploy that was working. The fix is one word: `for entry in list(self.logs)`. But the lesson is not about `deque`:
 
-- **Swapping a container type changes its concurrency contract, not just its capacity.** `list`, `deque`, `dict` and `set` each have their own answer to "what happens if this is mutated while iterated", and only `list` says "nothing visible". A change that reads as a capacity tweak is a concurrency change whenever a second thread can touch the object.
+- **Swapping a container type changes its concurrency contract, not just its capacity.** `list`, `deque`, `dict` and `set` each have their own answer to "what happens if this is mutated while iterated"; only `list` says "nothing visible". A change that reads as a capacity tweak is a concurrency change whenever a second thread can touch the object.
 - **Snapshot anything a thread may append to before iterating it**, whether or not today's type complains. The snapshot is also the more correct read: a replay is a statement about the past, and the live subscription covers everything after it.
-- **Single-threaded tests cannot see this.** Every unit test wrote to the buffer and then read it, which is the one ordering that never fails. The test that catches it writes *from inside the consuming loop*, which is what an awaited generator actually experiences.
+- **Single-threaded tests cannot see this.** Every unit test wrote to the buffer and then read it, which is the one ordering that never fails. The test that catches it writes *from inside the consuming loop*; that is what an awaited generator actually experiences.
 
 ### Why it reached the operator and not a test run
 
-The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs a real deploy through a real SSE connection, and it was not run before the change was called done. A streaming path has no meaningful in-process coverage of its own concurrency — the layer that exercises it is the one with a container in it.
+The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs a real deploy through a real SSE connection, and it was not run before the change was called done. A streaming path has no meaningful in-process coverage of its own concurrency: the layer that exercises it is the one with a container in it.
 
 **Run the e2e layer for any change to the streaming path, the process model, or a shared mutable structure.** Its slowness is the reason it gets skipped and the reason it is the only thing that would have caught this.

@@ -7,7 +7,7 @@
 - mkdocs or mkdocs-material (current setup)
 - pdoc3
 
-Note: Portray and Pdocs are dead (and unusable) now. Cf. these:
+Portray and Pdocs are dead (and unusable) now. Cf. these:
 
 - <https://lab.abilian.com/Tech/Tools/Documentation/>
 - <https://lab.abilian.com/Tech/Python/Tooling/Documentation/>

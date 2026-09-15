@@ -23,7 +23,7 @@ catalog.scan(paths=config.suites)
 
 ## Auto-Detect Infrastructure Needs
 
-The test runner installs the addons the selected apps *declare*: the operator must not hand-pass `--with mysql`. Each app's `[[addons]].type` surfaces as `TestDefinition.requirements.services`; the runner unions those into the installer's `--with` features and passes them to the deploy. An addon that maps to no installer feature aborts loudly, so the operator never hits the opaque "Was the server installed with '--with s3'?" at deploy time.
+The test runner installs the addons the selected apps *declare*: the operator must not hand-pass `--with mysql`. Each app's `[[addons]].type` surfaces as `TestDefinition.requirements.services`; the runner unions those into the installer's `--with` features and passes them to the deploy. An addon that maps to no installer feature aborts the run with an error, so the operator never hits the opaque "Was the server installed with '--with s3'?" at deploy time.
 
 ```python
 # catalog/features.py: single source of truth for addon → --with feature
@@ -95,7 +95,7 @@ find /home/hop3/apps -maxdepth 1 -name 'cryptpad*' -type d
 
 ### Collect Before Cleanup
 
-Diagnostics must be collected BEFORE the app is destroyed. The test runner cleans up apps after each test, and any diagnostics collection that runs after cleanup will find empty log directories.
+Diagnostics must be collected BEFORE the app is destroyed. The test runner cleans up apps after each test, so any diagnostics collection that runs after cleanup finds empty log directories.
 
 ## Timeout Hierarchy
 
@@ -143,11 +143,11 @@ Stirling-PDF 2.x ships with the `security` Spring profile baked into the JAR at 
 
 ## Service Management Consistency
 
-Docker service management must be consistent across entry points. When `hop3-deploy --docker` uses manual service starts but tests use supervisor, the result is double-starts, in-memory state loss, and "stream not found" errors.
+Docker service management must be consistent across entry points. When `hop3-deploy --docker` uses manual service starts but tests use supervisor, the result is double-starts, in-memory state loss, and "stream not found" errors caused by the divergence.
 
 ## Non-UTF-8 Build Output
 
-pip, npm, and other tools may emit non-UTF-8 bytes in their output (progress bars, ANSI codes). Always decode with `errors="replace"`:
+pip, npm, and other tools may emit non-UTF-8 bytes in their output (progress bars, ANSI codes). Decode with `errors="replace"`:
 
 ```python
 # BAD - crashes on pip output
@@ -191,7 +191,7 @@ The shared pytest plugin hands every subprocess a `DOCKER_CONFIG` copied from th
 
 ## Two e2e sessions on one machine wreck each other
 
-The Docker target uses one fixed container name and fixed host ports. It reuses a running container "because `--clean` was not asked for" without checking who started it, and its teardown stops that container. Two concurrent sessions in one afternoon produced a restore test that got connection refused while the other session restarted the server under it, then an install killed with exit 137 by the first session's teardown. Each failure read as an unrelated test bug. Until the target gets per-session names and ports, or a lock, one machine runs one e2e session at a time. A failure that appeared while another session was active is not evidence of anything.
+The Docker target uses one fixed container name and fixed host ports. It reuses a running container "because `--clean` was not asked for" without checking who started it, then its teardown stops that container. Two concurrent sessions in one afternoon produced a restore test that got connection refused while the other session restarted the server under it, then an install killed with exit 137 by the first session's teardown. Each failure read as an unrelated test bug. Until the target gets per-session names and ports, or a lock, one machine runs one e2e session at a time. A failure that appeared while another session was active is not evidence of anything.
 
 ## The image must carry what a real install carries
 
@@ -217,15 +217,24 @@ System tests failed because the server defaulted to `certbot`, which a test doma
 
 ## A harness that runs a tool by name runs whatever PATH has
 
-The upgrade-chain test installs an old release by running that release's own deployer with `uv run` inside a git worktree of its tag. The deployer was renamed at 0.7.0, from `hop3-deploy` to `hop3-deploy-server`, and the harness asked every worktree for the new name. `uv run` does not treat a script the environment lacks as an error: it falls through to `PATH`, where the developer's active virtualenv had the current deployer. The "fresh 0.6.2 install" therefore installed 0.7.3, the "upgrade" reinstalled 0.7.3 over itself, and the chain passed, because it asserted the schema and that a version was readable, and never that the version was the one the hop claimed.
+The upgrade-chain test installs an old release by running that release's own deployer with `uv run` inside a git worktree of its tag. The deployer was renamed at 0.7.0, from `hop3-deploy` to `hop3-deploy-server`, and the harness asked every worktree for the new name. `uv run` does not treat a script the environment lacks as an error: it falls through to `PATH`, where the developer's active virtualenv had the current deployer. The "fresh 0.6.2 install" therefore installed 0.7.3, and the "upgrade" reinstalled 0.7.3 over itself. The chain passed because it checked the schema and that a version was readable; it never checked that the version was the one the hop claimed.
 
-Two repairs. The harness reads the script name from the checkout's own `pyproject.toml`, syncs the checkout's environment first and refuses to run when the script is not in it. And every hop asserts that the installed version equals the version the checkout carries, which is the assertion that would have failed on the first run. The general rule: when a test drives a tool from another version by name, resolve the name from that version's metadata and assert the version that ran, since a name lookup that can silently pick a neighbour is a no-op wearing a pass.
+Two repairs. The harness reads the script name from the checkout's own `pyproject.toml`, syncs the checkout's environment first and refuses to run when the script is not in it. Every hop also asserts that the installed version equals the version the checkout carries; that assertion would have failed on the first run. The general rule: when a test drives a tool from another version by name, resolve the name from that version's metadata and assert the version that ran, since a name lookup that can silently pick a neighbour is a no-op wearing a pass.
 
 ## A unit test with ambient credentials is a live command
 
-The dev server was found wiped, twice in one morning, and the first suspect was the assistant session that had been running Docker e2e tests all day. Hetzner's action log settled it: nine `rebuild_server` actions that day, each three to nine seconds after a launch of the **unit** suite of hop3-installer, and the same pattern on every `make test-fast` back to mid-August. The test was `test_docker_and_a_provider_are_refused`: it passed `--docker --provider hetzner` to the deployer's target logic to prove the combination is refused. It is refused, but the code provisioned first and validated second, and with no `--server-id` the provisioning took the id from `HETZNER_SERVER_ID` and the token from the shell. The test then passed on the refusal, every time, over a rebuilt server.
+The dev server was found wiped, twice in one morning, and the first suspect was the assistant session that had been running Docker e2e tests all day. Hetzner's action log settled it: nine `rebuild_server` actions that day, each three to nine seconds after a launch of the **unit** suite of hop3-installer, and the same pattern on every `make test-fast` back to mid-August. The test was `test_docker_and_a_provider_are_refused`: it passed `--docker --provider hetzner` to the deployer's target logic to prove the combination is refused. It is refused, but the code provisioned first and validated second: with no `--server-id`, the provisioning took the id from `HETZNER_SERVER_ID` and the token from the shell. The test then passed on the refusal, every time, over a rebuilt server.
 
-Three defences went in and each would have been enough. The deployer validates every target word before it acts on any of them (a destructive step never precedes argument validation, the same rule as `app destroy` prompting for the wrong app). The root conftest strips the cloud credentials for every pytest session, as it already stripped the dev-host variables, so no test layer can hold a token that rebuilds a machine. And the rebuild itself refuses a server that does not carry a `hop3-throwaway=true` label, set once by the operator, so an id that reaches the code from a config file or the environment cannot name a box anyone uses.
+Three defences went in and each would have been enough. The deployer validates every target word before it acts on any of them (a destructive step never precedes argument validation, the same rule as `app destroy` prompting for the wrong app). The root conftest strips the cloud credentials for every pytest session, as it already stripped the dev-host variables, so no test layer can hold a token that rebuilds a machine. The rebuild itself then refuses a server that does not carry a `hop3-throwaway=true` label, set once by the operator, so an id that reaches the code from a config file or the environment cannot name a box anyone uses.
 
-Two rules for the next reader. The environment a test inherits is part of its inputs, and a credential in it turns "exercise the refusal path" into "run the command"; the guard belongs in the conftest, not in each test's memory. And when a machine is found reset, the first record to open is the provider's action log, which dates every rebuild to the second; the correlation with launch times found the test in minutes where reading code for a mechanism had not.
+Two rules for the next reader: the environment a test inherits is part of its inputs, and a credential in it turns "exercise the refusal path" into "run the command"; the guard belongs in the conftest, not in each test's memory. When a machine is found reset, the first record to open is the provider's action log, which dates every rebuild to the second; the correlation with launch times found the test in minutes where reading code for a mechanism had not.
 
+
+## Two runners of one check are two implementations of one contract
+
+An app's `check.py` runs twice in a catalog run: at the end of the deploy, from the server, and again from hop3-testing, which uploads it and executes it on the box. Each built the check's environment its own way, and they disagreed twice.
+The first time was the port. The harness passed 80 on the reasoning that loopback is the app's nginx and the `Host` header picks the vhost. That held until the check started building `https://` URLs unconditionally, after which it sent a TLS ClientHello to a plain-HTTP port and reported `[SSL: WRONG_VERSION_NUMBER]` as *the first step of the check failing*: "the admin credential signs in", pointing at the credential, the app and the recipe, none of which were involved.
+
+The second was the credential, and it had been wrong the whole time. The harness read the encrypted credential store and exported `HOP3_ADMIN_*` alone, so `Check.has_probe` was false for every app it ever tested and every check fell back silently to the operator's credential: a weaker claim, made without saying so. Piwigo turned weaker into wrong: on an empty gallery it serves an onboarding interstitial to a guest *or an administrator* on every page, and to an ordinary user it does not. The probe is an ordinary user. The deploy's smoke test passed and the harness's run of the same file failed one minute apart, and the failure named the application.
+
+Which credentials a check may see is now one function on the server that both callers read. The rule: when two places invoke the same artifact, the invocation itself is the contract. Put it in one place and have the second ask for it, because the drift is not detectable from either side. The tell that it has happened is a green result and a red result from the same file in the same minute; when you see that, stop looking at the app.

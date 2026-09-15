@@ -45,4 +45,4 @@ This supersedes the red list carried in earlier planning notes (`easy-appointmen
 
 ## Standing rule
 
-An application's disposition is one of **runs**, **fix** (ours, with the defect named), **defer-upstream** (theirs, with the blocker named), or **drop** (with the reason). "Not tested recently" is not a disposition; it is the absence of one, and it is recorded as pending.
+An application's disposition is one of **runs**, **fix** (ours, with the defect named), **defer-upstream** (theirs, with the blocker named), or **drop** (with the reason). "Not tested recently" is the absence of a disposition, and it is recorded as pending.

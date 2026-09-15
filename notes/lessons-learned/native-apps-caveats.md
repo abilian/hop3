@@ -1,6 +1,6 @@
 # Native Apps Deployment Caveats
 
-Lessons from debugging native (non-Docker) app deployments on Hop3. These caveats apply to apps that set `builder = "local"` in their `hop3.toml`.
+These lessons come from debugging native (non-Docker) app deployments on Hop3. They apply to apps that set `builder = "local"` in their `hop3.toml`.
 
 ## Table of Contents
 
@@ -145,7 +145,7 @@ IllegalStateChangeError: Method 'close()' can't be called here
 
 1. **WAL Mode**: Readers proceed concurrently with a writer
 2. **Busy Timeout**: Wait up to 30 seconds for a locked database to become available (`busy_timeout=30000`)
-3. **Connection Pool**: `pool_size=5, max_overflow=10`. WAL makes a real pool safe, so reads (e.g. auth-token verification) get their own connection and never queue behind a long-running deploy's write transaction. An earlier `pool_size=1` serialized *all* access, reads included, and surfaced as bogus 401s on `/rpc` and 302s on `/api/stream` during heavy deploys.
+3. **Connection Pool**: `pool_size=5, max_overflow=10`. WAL makes a real pool safe, so reads (e.g. auth-token verification) get their own connection and never queue behind a long-running deploy's write transaction. An earlier `pool_size=1` serialized *all* access, reads included, which surfaced as bogus 401s on `/rpc` and 302s on `/api/stream` during heavy deploys.
 
 These are configured automatically in `hop3/orm/session.py`.
 
@@ -286,7 +286,7 @@ start = "php -S 0.0.0.0:${PORT:-8080}"
 cp: cannot overwrite non-directory '././local' with directory 'piwigo/./local'
 ```
 
-**Cause**: `[[volumes]]` are symlinked into the app tree **before** `[build].before-build` runs. Any directory the upstream archive ships that is also a volume target is therefore already a symlink, and `cp -a` refuses to replace a symlink with a directory. Nothing in the recipe is wrong; the ordering is simply not what an unpack script assumes.
+**Cause**: `[[volumes]]` are symlinked into the app tree **before** `[build].before-build` runs. Any directory the upstream archive ships that is also a volume target is therefore already a symlink, and `cp -a` refuses to replace a symlink with a directory. Nothing in the recipe is wrong; the ordering is just not what an unpack script assumes.
 
 Most recipes never meet this, because the directories they declare as volumes (`data`, `media`) are ones they create themselves. It bites when upstream's own tree ships the directory: Piwigo 16.4.0 ships `local/`, `galleries/` and `_data/`, and all three hold state that must survive a redeploy.
 
@@ -366,4 +366,4 @@ When a native app fails to deploy or start:
 
 ## Elixir and Mix
 
-Mix keeps dependency metadata separate from the dependency files, so `rm -rf deps` leaves it believing every dependency is up to date, and the next compile fails on files that are not there (`could not read file "lib/plug/debugger.ex"`). A clean build is `mix deps.clean --all` before `mix deps.get`. A `before-build` hook that does the cleaning must never also be a worker; see [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md), "Build hooks are not workers".
+Mix keeps dependency metadata separate from the dependency files. `rm -rf deps` leaves it believing every dependency is up to date, and the next compile fails on files that are not there (`could not read file "lib/plug/debugger.ex"`). A clean build is `mix deps.clean --all` before `mix deps.get`. A `before-build` hook that does the cleaning must never also be a worker; see [`app-deploy-runtime-model.md`](./app-deploy-runtime-model.md), "Build hooks are not workers".

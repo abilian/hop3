@@ -22,7 +22,7 @@ A simple CalDAV and CardDAV server.
 
 ## What this app exercised
 
-Authentication with no user store: an account is a line in an htpasswd file, so both accounts are created by writing that file. Also the app that showed a file the server reads at startup cannot be created by a post-deploy command.
+Authentication with no user store: an account is a line in an htpasswd file, so both accounts are created by writing that file. Also the app showed that a file the server reads at startup cannot be created by a post-deploy command.
 
 ## What broke
 
@@ -30,7 +30,7 @@ Authentication with no user store: an account is a line in an htpasswd file, so 
 
 The config was also written once and left alone, so a deployment that had ever run open stayed open for the rest of its life. It is rewritten on every start now, and the auth type is spelled out where no environment can switch it off.
 
-**There is no signed-in screenshot to take.** Radicale authenticates over HTTP Basic and its `.web` interface renders identically whether or not a credential was sent; the two images were once byte-identical and were being counted as two.
+**There is no signed-in screenshot to take.** Radicale authenticates over HTTP Basic and its `.web` interface renders identically whether or not a credential was sent. The two screenshots were once byte-identical and were being counted as two.
 
 ## What the platform gained
 
@@ -38,7 +38,7 @@ The screenshot harness no longer photographs a page it has not signed into.
 
 ## Deployment variants
 
-Available as a top-level nixpkgs package. The **Nix** variants wrap it without a build step. File-based storage and no addon. Accounts are lines in an htpasswd file (there is no user CLI), so `create` writes a bcrypt hash directly, which is why the derivation puts a `python3` carrying bcrypt on the app's PATH in its own right.
+Radicale is available as a top-level nixpkgs package. The **Nix** variants wrap it without a build step. Storage is file-based and the app needs no addon. Accounts are lines in an htpasswd file (there is no user CLI), so `create` writes a bcrypt hash directly, which is why the derivation puts a `python3` carrying bcrypt on the app's PATH in its own right.
 
 ## Verification
 
@@ -53,10 +53,10 @@ hop3 app check --app radicale
 
 ## Open
 
-- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot, deliberately (see above).
+- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in screenshot (see above).
 
 ## Screenshots
 
 ![Sign-in page](images/radicale-01-login.png)
 
-Only the sign-in page, deliberately: a signed-in image would be identical (see above).
+Only the sign-in page: a signed-in image would be identical (see above).

@@ -18,10 +18,10 @@ variants:
 ---
 # Experience Report: Jenkins
 
-> **Withdrawn.** Jenkins is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar — not by signing in — which is the bar the current reports reject.
+> **Withdrawn.** Jenkins is no longer part of the packaged corpus and is not published in the catalog, so nothing here is maintained or re-verified. It is kept because the packaging work was real and the findings below may still save someone time. Everything it says was measured at the *deployed and serving* bar (not by signing in), which is the bar the current reports reject.
 
 **Status:** Draft (0.5)
-**App:** Jenkins — CI/CD server
+**App:** Jenkins, a CI/CD server
 **Language:** Java
 **Database:** None
 **Website:** https://www.jenkins.io/

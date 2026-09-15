@@ -30,11 +30,11 @@ A Laravel application whose UI is a Flutter canvas, so nothing a selector can re
 
 **`APP_URL` pinned to localhost put `/` in a redirect loop.** Laravel derives the scheme and host of every redirect it issues from that value; Chromium gave up with `ERR_TOO_MANY_REDIRECTS` while the recipe's own `contains` assertion on `/login` passed throughout.
 
-**Invoice Ninja authenticates on the email**, and the generated variant had acquired a `username` the native recipe deliberately omits, which a credential reader then prefers.
+**Invoice Ninja authenticates on the email**. The native recipe omits `username`; the generated variant had acquired one, which a credential reader then prefers.
 
 ## What the platform gained
 
-The screenshot harness's `unsupported` declaration: a way to say *this application cannot be driven by a browser, and here is why*. It isn't a gap. Radicale uses it for a different reason.
+The screenshot harness's `unsupported` declaration: a way to say this application cannot be driven by a browser, and why. It isn't a gap. Radicale uses it for a different reason.
 
 ## Deployment variants
 
@@ -53,7 +53,7 @@ hop3 app check --app invoice-ninja
 
 ## Open
 
-- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot. The Flutter canvas offers no DOM inputs a selector can reach: declared `unsupported`, not a gap. `check.py` signs in over HTTP and is unaffected.
+- **nix, nix-gen:** the sign-in page is photographed; there is no signed-in shot. The Flutter canvas offers no DOM inputs a selector can reach, so the signed-in shot is declared `unsupported`: not a gap, per the section above. `check.py` signs in over HTTP and is unaffected.
 
 ## Screenshots
 

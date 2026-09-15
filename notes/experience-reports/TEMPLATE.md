@@ -31,13 +31,13 @@ variants:
 
 # Experience Report: Example App
 
-One paragraph: what the application is, who runs it, and why it was packaged:
-*which edge of the platform it was chosen to probe*. Packaging is
+One paragraph: what the app is, who runs it, and which edge of the
+platform it was chosen to probe. Packaging is
 system-validation work; say what this app was expected to stress.
 
 ## What this app exercised
 
-The platform capabilities this application depended on, and which of them it was
+List the platform capabilities this app depended on, and name the ones it was
 the first or hardest consumer of. Be specific: a toolchain, an addon, a template
 field, an installer step, a runtime behaviour.
 
@@ -46,26 +46,26 @@ field, an installer step, a runtime behaviour.
 
 ## What broke
 
-Every failure worth another packager's time: the symptom, the error as it
-actually appeared, how it was diagnosed, and what resolved it. Include failures
+Every failure worth another packager's time: name the symptom, quote the error as it
+actually appeared, say how it was diagnosed, and give what resolved it. Include failures
 that turned out to be our own misreading; they cost the most
 time and are least likely to be written down elsewhere.
 
-> Required. "Nothing broke" is a legitimate answer for a genuinely clean app and
+> Required. "Nothing broke" is a legitimate answer for a clean app and
 > must be stated explicitly, with what was attempted, so that a reader can tell
 > it apart from an unfinished section.
 
 ## What the platform gained
 
-The changes to Hop3 this application forced, with links (ADR, commit, template
-field). This is the section that makes the corpus an instrument.
+The changes to Hop3 this app forced, with links (ADR, commit, template
+field). These changes make the corpus an instrument.
 
 > If the answer is "nothing", the app was a confirmation.
 > Say that.
 
 ## Deployment variants
 
-One short subsection per variant that has a recipe, covering what is specific to
+Write one short subsection per variant that has a recipe, covering what is specific to
 it. Do not restate the metadata block above; statuses live there and are
 checked. Explain the *shape*: what the build does, what the runtime needs, what
 had to be worked around and why.
@@ -78,13 +78,13 @@ had to be worked around and why.
 
 ## Verification
 
-What was checked and how, at the bar named in the metadata. For a catalog app
+Describe what was checked and how, at the bar named in the metadata. For a catalog app
 this is its `check.py`: which account it signs in as, what it asserts once
 signed in, and anything it deliberately does not cover.
 
 ## Reproduce
 
-The exact commands a reader runs to see this for themselves.
+List the exact commands a reader runs to see this for themselves.
 
 ```bash
 hop3 catalog install example-app --app example-app
@@ -93,7 +93,7 @@ hop3 app check --app example-app
 
 ## Open
 
-What remains unresolved, deferred, or untested, with the reason and a pointer
+State what remains unresolved, deferred, or untested, with the reason and a pointer
 to where it is tracked. A report with nothing open should say so; a report with
 an empty section reads as unfinished.
 

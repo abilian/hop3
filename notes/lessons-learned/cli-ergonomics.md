@@ -27,9 +27,9 @@ The catalog the client fetches filters `hidden`, but dispatch keeps it: test bot
 
 ## A Rename Isn't Finished Until the Platform Stops Teaching the Old Name
 
-Every place the platform prints a command name is part of the surface: failure diagnostics, troubleshooting hints, a command's own `--help`/usage text, and when those still show the old spelling, users learn the deprecated form.
+Every place the platform prints a command name is part of the surface: failure diagnostics, troubleshooting hints, and a command's own `--help`/usage text. When those still show the old spelling, users learn the deprecated form.
 
-**Case (June 2026):** after renaming `app launch`→`create`, `domains`→`domain`, `backup info`→`show`, and `app build-logs`→`app logs --build`, dispatch resolved both names and the suite was green, but ~10 user-facing messages still printed the old spelling, including the deployer's hint on *every* failed build (`run hop3 app build-logs`).
+**Case (June 2026):** after renaming `app launch`→`create`, `domains`→`domain`, `backup info`→`show`, and `app build-logs`→`app logs --build`, dispatch resolved both names and the suite was green. But ~10 user-facing messages still printed the old spelling, including the deployer's hint on *every* failed build (`run hop3 app build-logs`).
 
 The verification that caught it:
 
@@ -44,7 +44,7 @@ Help text and errors must only suggest actions the caller can perform *from thei
 
 ## A Client-Side Cache Is a Feature's Weakest Link
 
-Suggestions, completion and offline help all read a cache the client writes on the user's own machine. Three ways that cache stops working, all of which present as "the feature does nothing":
+Suggestions, completion and offline help all read a cache the client writes on the user's own machine. That cache stops working in three ways, all of which present as "the feature does nothing":
 
 - **It was written in place.** An interrupted write leaves a truncated or NUL-padded file that nothing downstream can tell from content. Write beside the target and rename over it, so a reader sees either the old file or the new one.
 - **Nothing refreshes it.** A cache filled only by an explicit `--refresh` subcommand holds, for most users, whatever it held the day they installed the CLI. Hang the refresh on an event that already happens: a successful login.
@@ -58,17 +58,17 @@ Read the artifact on disk before theorizing about the code that reads it.
 
 A client that mirrors part of the server's command list (for completion, offline help, anything usable before the first connection) owns a duplicate of a source of truth it cannot see. The duplicate drifts without either test suite noticing, since each side is self-consistent on its own.
 
-Two defences: copy as little as possible (top-level names; the deeper tree comes from the cache the server fills), then pin what you do copy with a test that resolves every entry against the real registry.
+Copy as little as possible: top-level names only, since the deeper tree comes from the cache the server fills. Then pin what you do copy with a test that resolves every entry against the real registry.
 
 **Case (September 2026):** the client's fallback list still named the pre-ADR-036 `config:*` and `addons:*` spellings a release after the colon syntax was removed. A bad reformat had also flattened `"addons create"` into a bare `"create"` and `"destroy"`. Shell completion offered those to anyone whose cache was missing. The list is now the client's own commands plus the server's top-level names, with a test that fails when a top-level command is added or renamed.
 
 ## Send the Structure, Don't Scrape the Prose
 
-When one side of a boundary knows something the other needs, it should send it as data. A client that recovers structure by regex over the peer's error message is coupled to that sentence's wording, and every new site of the same kind costs another regex.
+When one side of a boundary knows something the other needs, it should send it as data. A client that recovers structure by regex over the peer's error message is coupled to that sentence's wording. Every new site of the same kind costs another regex.
 
 The server knows the token the user typed and the candidate set that was valid where the lookup failed; it is the party holding both. Carry them on the error (`{kind, typed, candidates, hint}`) and let the client render one phrasing per kind. Rendering stays on the client, where the user's own dialect (`--context`, `--app`) is known.
 
-**Case (September 2026):** `hop3 cataloig` produced a suggestion only if a locally cached command list happened to exist, because the client was pulling the typed token out of `"Command 'x' not found"` with a regex and matching it against that cache. With the payload on the error, the suggestion arrives from the side that had the answer all along, leaving the cache to what it is good for: working offline.
+**Case (September 2026):** `hop3 cataloig` produced a suggestion only if a locally cached command list happened to exist, because the client was pulling the typed token out of `"Command 'x' not found"` with a regex and matching it against that cache. With the payload on the error, the suggestion arrives from the side that had the answer all along. The cache goes back to what it is good for: working offline.
 
 Keep the scraping path while old servers exist. A CLI on a laptop meets whatever server the operator has deployed.
 
@@ -76,7 +76,7 @@ Keep the scraping path while old servers exist. A CLI on a laptop meets whatever
 
 A value passed as `KEY=VALUE` is in the shell history, in `ps` for the length of the call, and in whatever the receiving side logs. So the fix belongs in the client, before the value is ever a command-line token: a value source per key (`KEY=-` for stdin, `KEY=@<path>` for a file) and a hidden prompt for a bare key. The marker sits on the key itself so that several keys in one call stay unambiguous.
 
-Then audit the write path. A redactor is usually added for the *display* commands and forgotten on the *mutation* that accepts the secret in the first place.
+Then audit the write path. A redactor is usually added for the *display* commands, and forgotten on the *mutation* that accepts the secret in the first place.
 
 **Case (September 2026):** `redact_sensitive_value` had been guarding `env show`, `env live` and `app info` since March, while `env set` printed `Set KEY=<value>` and, on an overwrite, `(was: <the previous secret>)`. The same audit found the heuristic blind to the credential in the sample that prompted it: a Sentry DSN carries its key as colon-less userinfo (`https://<key>@host`), which matched neither the name patterns nor a URL rule written for `user:password@`.
 
@@ -88,12 +88,13 @@ A destructive command checks its arguments before it asks anything. `hop3 app de
 
 ## Global Flags Stop at the Program
 
-The flag parser scanned the whole argv for global flags, so inside `hop3 run --app x python -c "..."` it took `-c` as `--context`, stripped it with its value, and failed on an unknown context. For `run` and `app run`, global-flag parsing stops at the program. Everything after it passes through verbatim, with `run`'s own `--input` still recognized before the program, and a POSIX `--` ends flag parsing for every command.
+The flag parser scanned the whole argv for global flags, so inside `hop3 run --app x python -c "..."` it took `-c` as `--context`, stripped it with its value, and failed on an unknown context. For `run` and `app run`, global-flag parsing stops at the program, and everything after it passes through verbatim. `run`'s own `--input` is still recognized before the program. A POSIX `--` ends flag parsing for every command.
 
 ## One Settings Object Behind Every ssh
 
-The CLI spawns ssh in four places: the RPC tunnel, `hop3 tunnel`, `hop3 app shell`, and the `login --ssh` bootstrap (a fifth caller lived in another package; see [`development-process.md`](./development-process.md)). Each read the key and port from the config its own way. The bootstrap ran a bare `ssh user@host`, so a server on a non-standard SSH port answered through the tunnel while the login that sets that tunnel up could not reach it. One `SshSettings` read once from the config (`ssh_key`, `ssh_port`, `ssh_options`), one `ssh_base_argv` every call site starts from, a port accepted in the target (`root@host:2222`), and a new `ssh_options` setting for what an operator needs (`ProxyJump`, a private known_hosts).
+The CLI spawns ssh in four places: the RPC tunnel, `hop3 tunnel`, `hop3 app shell`, and the `login --ssh` bootstrap (a fifth caller lived in another package; see [`development-process.md`](./development-process.md)). Each read the key and port from the config its own way. The bootstrap ran a bare `ssh user@host`, so a server on a non-standard SSH port answered through the tunnel while the login that sets that tunnel up could not reach it. One `SshSettings` read once from the config (`ssh_key`, `ssh_port`, `ssh_options`), one `ssh_base_argv` every call site starts from, a port accepted in the target (`root@host:2222`), and a new `ssh_options` setting for what an operator needs (`ProxyJump`, a private known_hosts). Every call site now starts from that object.
 
 ## Escape User Content Before a Markup Renderer
 
 Log lines containing brackets (`[database]`, `[2026-02-27]`) were parsed as Rich markup and garbled the output. Anything that came from outside (log text, filenames, app output) is escaped at the boundary before it meets a formatting library.
+ library.

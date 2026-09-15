@@ -1,6 +1,6 @@
 # App deploy & runtime model
 
-How a Hop3 app behaves as it moves config → build → run, and how to read its failures. These are platform lessons (originally harvested while building the demos); none are demo-specific.
+This file describes how a Hop3 app behaves as it moves through config → build → run, and how to read its failures. These are platform lessons (originally harvested while building the demos); none are demo-specific.
 
 Related: [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) (Emperor / vassal / `attach-daemon` env propagation) and [`deployment-diagnostics.md`](./deployment-diagnostics.md) (making failures actionable).
 
@@ -150,7 +150,7 @@ Two later lessons follow from the same contract:
 
 ## Build hooks are not workers
 
-`before-build` commands were also registered as a `prebuild` worker, so `rm -rf _build deps && mix compile` ran as a daemon, forever, deleting the artifacts the web worker was using. First deploy fine, redeploy broken, the Emperor logging a respawn loop.
+Build hooks and workers are different things. `before-build` commands were also registered as a `prebuild` worker, so `rm -rf _build deps && mix compile` ran as a daemon, forever, deleting the artifacts the web worker was using. The first deploy worked; the redeploy broke, with the Emperor logging a respawn loop.
 
 | Kind | Runs | Owner |
 |---|---|---|

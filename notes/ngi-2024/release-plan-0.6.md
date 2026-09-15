@@ -7,15 +7,15 @@
 
 ## Goals
 
-0.6 is **not** the final NGI deliverable release; that role moves to 0.7 (`release-plan-0.7.md`). 0.6 ships real platform capability on top of the operability work of 0.5: per-app resource limits and volumes (ADR 046 Phase 2), a much richer addon-management surface, and the signed app-catalog distribution mechanism (ADR 049). In parallel it turns the documentation and the design record into a form a reviewer can read end to end (the published ADR corpus, the testing and migration series, and the second interim technical report). The milestones still open at the close of 0.6 are carried forward to 0.7 with their state recorded plainly.
+0.6 is an intermediate release; the final NGI deliverable is 0.7 (`release-plan-0.7.md`). 0.6 ships real platform capability on top of the operability work of 0.5: per-app resource limits and volumes (ADR 046 Phase 2), a much richer addon-management surface, and the signed app-catalog distribution mechanism (ADR 049). In parallel it turns the documentation and the design record into a form a reviewer can read end to end (the published ADR corpus, the testing and migration series, and the second interim technical report).
 
-This file records **what was actually done** in the 0.6 cycle (~190 commits since the 0.5.0 tag). Items still open at the close of 0.6 are listed under "Carried to 0.7" and planned in `release-plan-0.7.md`.
+This file records what shipped in the 0.6 cycle (~190 commits since the 0.5.0 tag). Items still open at the close of 0.6 are listed under "Carried to 0.7" and planned in `release-plan-0.7.md`.
 
 ## NGI Milestone Status After 0.6
 
 | Milestone | 0.5 Status | 0.6 Outcome |
 |-----------|-----------|-------------|
-| M2.2 Nix runtime beta | Stabilised | Catalogue maintained; several deferred apps recovered |
+| M2.2 Nix runtime beta | Stabilised | Catalog maintained; several deferred apps recovered |
 | M2.3 Nix runtime 1.0 | Not started | → 0.7 (docs polish, CI, release notes) |
 | M3.1 Backing services | + S3 addon | **Addon-management surface greatly expanded** (query/diagnostics/clone/export-import/expose/promote/tunnel); email addon → 0.7 |
 | M3.2 Upgrades | Partial | Upgrade path hardened (migrations on upgrade, venv preserved); production `hop3 upgrade` → 0.7 |
@@ -54,8 +54,8 @@ Beyond the named milestones, 0.6 also delivered two cross-cutting platform featu
 
 ### Dissemination and documentation (T5): DONE
 
-- [x] **ADR corpus published.** `docs/scripts/convert_adrs.py` publishes all ADRs from `notes/adrs/` to `docs/src/developers/adrs/`, rewriting cross-links and generating a status-grouped index in the navigation. The design record is now part of the documentation site rather than living only in the source tree.
-- [x] **ADR accuracy and voice pass.** All ADRs reviewed against the conventions in `000-readme.md`: status vocabulary normalised, stale "draft/deferred" statuses corrected to reflect shipped work, and the prose brought to a timeless architectural-record voice (no changelog-style play-by-play, no line/test counts).
+- [x] **ADR corpus published.** `docs/scripts/convert_adrs.py` publishes all ADRs from `notes/adrs/` to `docs/src/developers/adrs/`, rewriting cross-links and generating a status-grouped index in the navigation. The design record is now part of the documentation site.
+- [x] **ADR accuracy and voice pass.** All ADRs reviewed against the conventions in `000-readme.md`: status vocabulary normalised, stale "draft/deferred" statuses corrected to reflect shipped work, and the prose brought to a timeless architectural-record voice (without changelog-style play-by-play or line/test counts).
 - [x] **Documentation accuracy audit against the code.** A full pass corrected drift between the docs and the shipped behaviour: the old colon command syntax replaced by the space form (ADR 036), the test taxonomy updated to the three-layer model (`a_unit`/`b_integration`/`c_e2e`, ADR 043), the build tool corrected from MkDocs to Zensical, a documented-but-unimplemented `logs --follow` flag removed, and all tutorials fixed.
 - [x] **Blog.** The 0.5.0 release post; a five-part series on the testing architecture (overview, runner, Test Lab, demos, executable-docs/validoc); and the first "migrating from X" post (Heroku). Conference posts for OW2Con 2025, OSXP 2025, and OW2Con 2026 are live.
 - [x] **Diagrams.** ASCII-art diagrams across the docs aligned and, where the renderer supports it, converted to Mermaid.
@@ -64,7 +64,7 @@ Beyond the named milestones, 0.6 also delivered two cross-cutting platform featu
 ### Resilience (T3, M3.3): DONE
 
 - [x] **Automated cross-server backup-migration test** (`packages/hop3-server/tests/c_e2e/test_backup_migration.py`): backup on instance A, transfer, register, and restore on instance B, with negative-path coverage (corrupted backup refused, name-collision handling, manifest round-trip, byte-equal source tree).
-- [x] **Backups capture all app data**: volume data and the app `data/` directory are now archived.
+- [x] **Backups capture all app data**: volume data and the app `data/` directory are archived.
 
 ### CLI (T3, M3.6): refinements landed
 
@@ -80,17 +80,17 @@ Beyond the named milestones, 0.6 also delivered two cross-cutting platform featu
 
 ### Network firewall (T3, M3.5): hardened
 
-- [x] Fixed-port registry teardown hardened; firewall errors now fail loud rather than passing silently. **ADR 045 (Fixed-Port Registry)** is Final and supersedes ADR 040.
+- [x] Fixed-port registry teardown hardened; firewall errors now fail loud. **ADR 045 (Fixed-Port Registry)** is Final and supersedes ADR 040.
 - WAF (LeWAF / OWASP CRS) → 0.7.
 
 ### Secret single-sourcing and deploy reliability (T3): DONE
 
-- [x] **`HOP3_SECRET_KEY` single-sourced** in `/etc/hop3/secret-key` (ADR 048), ending the environment-vs-config desync that could leave addon credentials unreadable after a restart. Redeploys are idempotent: they reuse existing DB secrets and preserve operator config rather than regenerating them.
+- [x] **`HOP3_SECRET_KEY` single-sourced** in `/etc/hop3/secret-key` (ADR 048), ending the environment-vs-config desync that could leave addon credentials unreadable after a restart. Redeploys are idempotent: they reuse existing DB secrets and preserve operator config.
 - [x] **Redeploy no longer SIGTERMs its own in-flight `git receive-pack`** (the process reaper now spares its own tree); stable app port across redeploys; static sites without a Procfile served via `[build].static-dir`; build-output dirs (`target/`) excluded from the upload; Redis health check authenticates when `REDIS_PASSWORD` is unset.
 
-### Packaged-application catalogue (T4): maintained
+### Packaged-application catalog (T4): maintained
 
-(The set of packaged app *configs*, distinct from the catalog-distribution mechanism above.)
+(The packaged app *configs*, distinct from the catalog-distribution mechanism above.)
 
 - [x] 159 app configurations: 41 native, 34 hand-crafted Nix, 31 template-generated Nix, 53 Docker.
 - [x] Several previously deferred Nix apps recovered into working variants (etherpad → nix-gen, listmonk → nix-gen, matrix-synapse → nix). HedgeDoc and CryptPad remain under `apps/bad/` with `DEFERRED.md` notes pointing at the platform gap.
@@ -119,4 +119,4 @@ Planned in `release-plan-0.7.md`:
 
 ## Out of Scope for 0.6
 
-Valuable but not NGI commitments, post-NGI (towards 0.7+/1.0): the agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboard, and multi-server / distributed deployment (JumpGATE).
+Several valuable items sit outside the NGI commitments and are candidates for post-NGI work (towards 0.7+/1.0): the agent model (ADR 017), SSO / identity management, a monitoring / metrics dashboard, and multi-server / distributed deployment (JumpGATE).

@@ -26,7 +26,7 @@ Same shape as Gitea. Showed that a Go binary is named after its module path (`fo
 
 ## What broke
 
-Four defects are shared with Gitea, whose report describes them: an admin bootstrap calling `./forgejo` in a layout where the binary lives in the store, `$out/bin` holding only the generated wrapper, three signing secrets minted by the wrapper and rotating on every restart, and open registration shipping in every Nix variant; the same fixes apply, and the same lesson about what the sign-in bar cannot catch.
+Four defects are shared with Gitea, whose report describes them. The admin bootstrap calls `./forgejo` in a layout where the binary lives in the store. `$out/bin` holds only the generated wrapper. Three signing secrets are minted by the wrapper and rotate on every restart. Each Nix variant enables open registration. The same fixes apply, and so does the same lesson about what the sign-in bar cannot catch.
 
 **The binary's name alone is Forgejo's own.** `buildGoModule` names the output after the module path element, so the source build produces `forgejo.org` (as Miniflux's produces `miniflux.app`), and every `forgejo …` invocation in the recipe had to be `forgejo.org …`.
 
@@ -36,7 +36,7 @@ Nothing beyond what Gitea contributed; the two share their defects and their fix
 
 ## Deployment variants
 
-**Nix (hand-crafted)** takes nixpkgs' `forgejo`, whose `generic.nix` renames the server binary to `gitea` in preInstall; **Nix (template-generated)** compiles from source with `go-source`, and `buildGoModule` names it after the module path element, `forgejo.org`. One application, two Nix packagings, two different binaries.
+**Nix (hand-crafted)** takes nixpkgs' `forgejo`, whose `generic.nix` renames the server binary to `gitea` in preInstall; **Nix (template-generated)** compiles from source with `go-source`, and `buildGoModule` names it after the module path element, `forgejo.org`. One application, two Nix packagings, and the build puts two different binaries on disk.
 
 ## Verification
 

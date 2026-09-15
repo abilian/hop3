@@ -43,21 +43,21 @@ All 8 apps debugged on Docker target (2026-04-11). Root causes identified for al
 Trivial fixes (~1 hour total): **DONE (W16)**:
 - [x] **searxng:** replaced hand-crafted `hop3.nix` with `nixpkgs-wrapper`
 - [x] **xwiki:** heredoc quoting fixed via sed-substitution with `__APPDIR__`/`__JDK__` placeholders + symlink into writable cwd
-- [x] **matrix-synapse:** placeholders renamed to `__VENV__`/`__ZSTDLIB__`; added `pillow.libs/` to `LD_LIBRARY_PATH`; auto-generates `homeserver.yaml`
+- [x] **matrix-synapse:** placeholders renamed to `__VENV__`/`__ZSTDLIB__`, added `pillow.libs/` to `LD_LIBRARY_PATH`, auto-generates `homeserver.yaml`
 
 Medium fixes (1-3 hours each):
 - [ ] **hedgedoc:** `Cannot find module 'express'` (node_modules
       from release tarball lost during cp to Nix store)
 - [ ] **matrix-synapse:** also needs libzstd LD_LIBRARY_PATH fix
-- [ ] **etherpad:** build OK; runtime masked by hop3-server
-      RepositoryError on retry deploys; needs clean re-run
-- [ ] **cryptpad:** `npm install` exceeds 10-min deploy timeout;
-      try `pkgs.cryptpad` or raise nix-slow tier timeout
+- [ ] **etherpad:** build OK. Runtime masked by hop3-server
+      RepositoryError on retry deploys. Needs a clean re-run
+- [ ] **cryptpad:** `npm install` exceeds 10-min deploy timeout.
+      Try `pkgs.cryptpad` or raise nix-slow tier timeout
 
 Re-evaluate / drop:
 - [ ] **listmonk:** SMTP-relay reasoning was wrong (listmonk
       stores SMTP creds in its own DB). Viable via `pkgs.listmonk`
-      from nixpkgs; or drop if not in nixpkgs.
+      from nixpkgs, or drop if not in nixpkgs.
 - [x] **sonarqube:** dropped. Bundled ES 8.19 crashes on startup
       (`vm.max_map_count` + heap). Deferred to `apps/bad/` with
       `DEFERRED.md`. Also: read-only Nix store + amd64-only +
@@ -70,7 +70,7 @@ Re-evaluate / drop:
 - [x] `static-hello` test app passes on Docker target (verified)
 - [x] Added regression test app: `apps/real-apps-nix/landing/`
       (multi-page HTML + CSS, validates index, second page, and CSS
-      asset). Both `static-hello` and `landing` PASS on Docker.
+      asset). Both `static-hello` and `landing` pass on Docker.
 - [x] Bumped `body_preview` 500 → 4096 chars in test framework so
       `contains` checks see beyond the head/header (was masking the
       regression test until fixed).
@@ -135,17 +135,17 @@ Re-evaluate / drop:
 ### Security fixes (M3.8 completion): CODE DONE
 
 - [x] Remove magic link default username (no more `default="admin"` in CLI)
-- [x] Add rate limiting to auth endpoints (in-memory sliding window,
+- [x] Add rate limiting to auth endpoints (in-memory sliding window:
       5 req/min/IP on `/auth/login` and `/auth/magic/{token}`)
 - [x] Fix bearer token case sensitivity (RFC 7235: auth-scheme is
       case-insensitive)
-- [x] Make session lifetime configurable (`HOP3_TOKEN_EXPIRY_HOURS`
-      now read by `create_token()`)
+- [x] Session lifetime is configurable: `HOP3_TOKEN_EXPIRY_HOURS` is
+      now read by `create_token()`
 - [ ] Contact NGI security audit team for external review
 
 ### Backing services (M3.1): S3 DONE
 
-The current addon set (PostgreSQL, MySQL, Redis) covered most applications but left visible gaps for apps that need object storage or email. The 0.5 goal was to add at least one; S3 shipped.
+The current addon set (PostgreSQL, MySQL, Redis) covered most applications. It left visible gaps for apps that need object storage or email, and the 0.5 goal was to add at least one. S3 shipped.
 
 #### S3-compatible storage addon: DONE
 
@@ -158,17 +158,17 @@ The current addon set (PostgreSQL, MySQL, Redis) covered most applications but l
       supervisord fallback for containers), and exposes
       `MC_HOST_hop3` to the hop3 user via `/etc/hop3/s3-env`
 - [x] `addons:attach <addon> <app>` injects
-      `S3_ENDPOINT`/`S3_BUCKET`/`S3_ACCESS_KEY`/`S3_SECRET_KEY`/`S3_REGION`
+      `S3_ENDPOINT`, `S3_BUCKET`, `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `S3_REGION`
 - [x] CLI parity: `addons:info`, `addons:list`, `addons:destroy`
 - [x] Integration test: `apps/test-apps-procfile/flask-s3` reads/writes
       to the addon end-to-end (passes on SSH + Docker targets)
 
 **Licensing note:** MinIO moved toward source-available in 2025. The
-plan is to replace it with Garage (truly AGPL) in a future release; the backend abstraction already exists to make the swap a one-liner on the plugin side.
+plan is to replace it with Garage (AGPL) in a future release; the backend abstraction already exists to make the swap a one-liner on the plugin side.
 
 #### Email addon (stretch: did NOT ship in 0.5 or 0.6; reslotted to 0.7)
 
-The email/SMTP addon is not in the 0.6 changelog; it is now a 0.7 deliverable.
+The email/SMTP addon is absent from the 0.6 changelog. It is now a 0.7 deliverable.
 
 - [ ] Design decision: SMTP relay config vs full mail server?
       Recommendation: SMTP relay only (point at user's existing
@@ -184,7 +184,7 @@ The email/SMTP addon is not in the 0.6 changelog; it is now a 0.7 deliverable.
 - [ ] Document all addons in `docs/src/guides/addons.md`: supported,
       new, and planned
 - [ ] Add `[env]` mapping examples for each addon type (how to map
-      `PGHOST`/`PGPORT` to the app's expected variable names)
+      `PGHOST` and `PGPORT` to the app's expected variable names)
 - [ ] Update `[[addons]]` section in `config.md` reference
 
 **Definition of done:** At least one new addon type (S3) shipped
@@ -202,8 +202,8 @@ with CLI commands, env var injection, tests, and documentation. MET in 0.5. Emai
       - Docker builder (not-found, timeout)
       - Docker Compose deployer (not-found, timeout, command failure)
       - uWSGI worker config errors (`UWSGI_IDLE`, `UWSGI_ASYNCIO`)
-      - Git-based deployer (prebuild/build/postbuild, no workers,
-        no app detected)
+      - Git-based deployer (prebuild/build/postbuild, missing workers,
+        undetected app)
       - Main deployer (config parse, start timeout, hook failure)
       - Addon provisioning
 - [x] Updated existing tests that matched the old Abort strings
@@ -217,7 +217,7 @@ highest-traffic failure paths use it; next-batch sites (health, ports, nginx) ca
 
 ### CLI DX pass (M3.6): DONE (W16, ADR 036 M1-M8 shipped)
 
-The "full refactor" previously deferred to 0.6 was actually executed across W16 (Apr 15–17) on the `cli-refact` branch and merged. ADR 036 moved from Draft to Accepted.
+The "full refactor" previously deferred to 0.6 was executed in W16 (Apr 15–17) on the `cli-refact` branch and merged. ADR 036 moved from Draft to Accepted.
 
 - [x] Colon→space command syntax migration (M1): `hop3 config:set`
       → `hop3 config set`. 71 server commands, 1033 tests green.
@@ -281,10 +281,10 @@ Surfaced from the 30-app packaging effort (G1–G7 gaps). Tier 1 landed in W16 a
       10-minute cap with a tier-keyed table (fast=5m, medium=10m,
       slow=20m, very-slow=30m) driven by `[build].tier`.
 - [x] **G7 Phase 1: Python toolchain (ADR 039).** Drops
-      `--upgrade` from pip-install paths; adds `--no-dev` to
-      `uv sync`; errors on both-files-present; detects Poetry-only
-      pyprojects with actionable hint. Non-breaking; unblocks
-      future Django catalogue apps. Phases 2-3 (explicit
+      `--upgrade` from pip-install paths, adds `--no-dev` to
+      `uv sync`, errors on both-files-present, detects Poetry-only
+      pyprojects with actionable hint. The change is non-breaking and
+      unblocks future Django catalogue apps. Phases 2-3 (explicit
       `[build.python].strategy`, lint rules, tutorial rewrite)
       deferred to 0.6.
 
@@ -297,7 +297,7 @@ Tier 2 (G2 `[build].packages`, G5 `nix-env-exports`) and Tier 3 (G4 Rust toolcha
 
 ### Tier-F fediverse packaging (new track, W16)
 
-A dedicated Tier F for fediverse apps was added to the internal packaging priority list explicitly because NGI has been the primary funder of the fediverse ecosystem. W16 batch landed:
+A dedicated Tier F for fediverse apps was added to the internal packaging priority list because NGI has been the primary funder of the fediverse ecosystem. W16 batch landed:
 
 - [x] GoToSocial (3/4 variants; nix-gen deferred)
 - [x] WriteFreely (3/4; nix-gen deferred; hybrid nixpkgs+tarball)
@@ -305,7 +305,7 @@ A dedicated Tier F for fediverse apps was added to the internal packaging priori
 
 ### Packaged apps: experience reports (M4.1-4)
 
-20 draft reports already exist in `notes/experience-reports/`. This task converts them from descriptive drafts into real-world reports based on actual production deployments.
+20 draft reports already exist in `notes/experience-reports/`. This task converts them from descriptive drafts into reports based on production deployments.
 
 **Apps to deploy (in order, easiest first):**
 1. Miniflux (RSS, single-user)
@@ -326,10 +326,10 @@ week, 5 updated experience reports published. (Remaining 15 reports stay as draf
 
 ### Test suite green
 
-App counts updated from post-W16 reality:
+App counts updated to post-W16 reality:
 - [ ] All `test-apps-procfile/` passing
 - [ ] All `test-apps-nix/` passing
-- [ ] All `real-apps-native/` passing (target: 38/38; MediaWiki landed 2026-04-17; Pretalx + Redmine deferred)
+- [ ] All `real-apps-native/` passing (target: 38/38; MediaWiki landed 2026-04-17, Pretalx + Redmine deferred)
 - [ ] All `real-apps-nix/` passing (target: 30+/32)
 - [ ] All `real-apps-nix-gen/` passing (target: 22+/25)
 - [ ] All `real-apps-docker/` passing (target: 40+/42)
@@ -354,7 +354,9 @@ App counts updated from post-W16 reality:
 8. **Nix CI integration:** infrastructure polish
 9. **Focalboard decision:** trivial cleanup
 
-Done in earlier iterations: S3 addon (M3.1), multi-service ADR 038, diagnostics foundation + top failure sites, nix bad-app triage + installer infra fixes, **CLI DX refactor (ADR 036 M1-M8)**, **Tier-1 server-side packaging fixes (G1/G3/G7 + ADR 039 Phase 1)**, **interim TR-01 refactor**, **nix trivial-batch bad-app fixes**.
+Done in earlier iterations: S3 addon (M3.1), multi-service ADR 038, diagnostics foundation + top failure sites, nix bad-app triage with installer infra fixes, CLI DX refactor (ADR 036 M1-M8), and interim TR-01 refactor.
+
+Also done: Tier-1 server-side packaging fixes (G1/G3/G7 + ADR 039 Phase 1) and nix trivial-batch bad-app fixes.
 
 Moved to 0.6: paper benchmarks, screencasts (M5.6), final paper submission (M5.3 final).
 

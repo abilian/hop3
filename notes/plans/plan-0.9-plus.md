@@ -15,7 +15,7 @@ Ordered by how likely each is to be picked up first.
 
 **Per-resource ownership (`App.owner`).** Ownership recorded on the row, dispatcher-level authorization, and a migration for existing applications. Needs its own ADR. ADR 011 notes that per-tenant encryption keys only become meaningful once the control plane distinguishes accounts, so this gates that too.
 
-**SSO / identity management.** Evaluate Canaille as an IDM component, design an OAuth2/OIDC gateway, prototype. Related: **MFA (ADR 012)** is deferred with a settled design (TOTP gating token issuance, U2F/FIDO2 above it) and its stated trigger is the dashboard becoming the primary administrative surface. The 0.7 acceptance campaign, in which all twenty catalog applications were installed by hand through the web interface, suggests that trigger has quietly been met, so the deferral is worth re-reading.
+**SSO / identity management.** Evaluate Canaille as an IDM component, design an OAuth2/OIDC gateway, prototype. Related: **MFA (ADR 012)** is deferred with a settled design (TOTP gating token issuance, U2F/FIDO2 above it) and its stated trigger is the dashboard becoming the primary administrative surface. The 0.7 acceptance campaign, in which all twenty catalog applications were installed by hand through the web interface, suggests that trigger is already met, so the deferral should be revisited.
 
 **CSRF tokens.** Today `samesite=lax` plus the invariant that every mutation is a POST stands in for them, and a route-map test enforces the invariant. Tokens are the belt to that pair of braces.
 
@@ -43,7 +43,7 @@ Ordered by how likely each is to be picked up first.
 
 **Toolchain breadth.** A `.NET` toolchain exists but no corpus application exercises it; Clojure and Elixir are in the same position. Each is a real packaging gap the moment an application needs it.
 
-**The Docker corpus at the sign-in bar.** Recipes exist for most of the twenty catalog applications and none has ever been verified by signing in. The variant is deliberately not claimed anywhere as a result. Measuring it is a campaign, and the two families that *have* been measured both failed comprehensively on first contact, so this remains a known unknown.
+**The Docker corpus at the sign-in bar.** Recipes exist for most of the twenty catalog applications and none has ever been verified by signing in. Nothing claims this variant as measured. Measuring it is a campaign, and the two families that *have* been measured both failed comprehensively on first contact, so it remains a known unknown.
 
 ## Smaller, self-contained
 

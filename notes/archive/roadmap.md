@@ -215,7 +215,7 @@ This is an old TODO, kept for reference only. The "official" TODO is currently i
 ### DX
 
 - [ ] Improve Python builder (support for poetry, pipenv, etc.)
-- [ ] Enhance developer experience (DX) by streamlining common tasks and improving tooling
+- [ ] Enhance developer experience (DX) by simplifying common tasks and improving tooling
 - [ ] Support for (or migration from) Heroku, Render, Docker Compose, Fly… config files
 - [ ] Integrate with popular CI/CD pipelines
 - [ ] Continuous improvements based on user feedback and usage metrics
@@ -252,9 +252,9 @@ This is an old TODO, kept for reference only. The "official" TODO is currently i
 - [ ] SBOMs
 - [ ] Security (Firewall, WAF, better isolation, etc.)
 - [ ] Implement advanced monitoring and alerting capabilities
-- [ ] Conduct regular security audits and integrate automated security scanning
+- [ ] Run regular security audits and integrate automated security scanning
 - [ ] Develop comprehensive security documentation and best practices guides
-- [ ] Conduct security audits and integrate automated security scanning
+- [ ] Run security audits and integrate automated security scanning
 
 ### Monitoring and Logging
 
@@ -266,5 +266,5 @@ This is an old TODO, kept for reference only. The "official" TODO is currently i
 
 ### Performance
 
-- [ ] Enhance scalability features for high-traffic applications
+- [ ] Improve scalability for high-traffic applications
 - [ ] Continuous performance improvements based on user feedback and usage metrics
