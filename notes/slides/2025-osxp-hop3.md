@@ -124,7 +124,7 @@ Self-hosting F/OSS applications means:
 </div>
 </div>
 
-**The cruel irony:** To gain sovereignty, you need a dedicated DevOps team. Most SMEs, NGOs, and public institutions can't afford this.
+To gain sovereignty, you need a dedicated DevOps team. Most SMEs, NGOs, and public institutions can't afford this.
 
 <!-----
 
@@ -147,7 +147,7 @@ The "Linux Distribution" model works for infrastructure and desktops.
 ---
 ## Our Thesis
 
-**The solution isn't to work harder — it's to build smarter platforms.**
+**The solution is to build smarter platforms.**
 
 What if we could:
 - Deploy any F/OSS (or not) app with a single click, CLI command or `git push`
@@ -254,7 +254,7 @@ COMMANDS
 ---
 ## Declarative Configuration
 
-**`hop3.toml`** - Your application's complete specification:
+**`hop3.toml`**: your application's complete specification.
 
 ```toml
 [metadata]
@@ -276,7 +276,7 @@ version = "15"
 name = "redis"
 ```
 
-No Kubernetes YAML. No Docker Compose complexity. Just your app's needs.
+No Kubernetes YAML or Docker Compose. Just your app's needs.
 
 ---
 ## Backing Services: First-Class Citizens
@@ -313,7 +313,7 @@ hop3 addons:attach mydb --app my-nextcloud
 ---
 ## Backup & Restore: Built-In
 
-**Complete data protection**, not an afterthought:
+**Complete data protection:**
 
 ```
 backup/
@@ -581,7 +581,7 @@ $ hop sbom demo-app | head -25
 
 ![bg right:60% fit](./images/marketplace-1.jpg)
 
-**Rich app ecosystem**
+**App ecosystem**
 
 Browse and deploy pre-configured applications from the marketplace.
 
@@ -658,8 +658,8 @@ Inspect backup contents and restore with one click.
 **NGI Zero Commons Fund** (NLnet)
 - Security & resilience
 - "Nix Integration for Hop3"
-- POC applications packages
-- Robust testing infrastructure
+- POC application packages
+- Extensive testing infrastructure
 - **TRL 5-8: Experimental development**
 
 </div>
@@ -745,7 +745,7 @@ paranoia_level = 1
 - **Reproducibility:** Same inputs → identical outputs, forever
 - **Auditability:** Complete dependency graph, no hidden packages
 - **Security:** Immutable builds, instant rollback
-- **Sustainability:** Builds work years later, not just today
+- **Sustainability:** Builds still work years later
 
 **Roadmap:**
 - Nix builder plugin for apps with existing expressions
@@ -845,7 +845,7 @@ From individual tools → integrated, sovereign infrastructure.
 
 **For Europe:**
 - Concrete implementation of digital autonomy
-- Production-ready, not just research
+- Production-ready (TRL 8)
 - Funded (in part) by EU, built for EU values
 
 ---
