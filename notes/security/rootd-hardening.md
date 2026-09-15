@@ -7,7 +7,6 @@ matching the proven-working container/supervisor model.
 
 **Why this is still open (not closed as "won't do"):** one of the two items
 below is a live privilege-escalation path. The other is defence in depth.
-They are recorded together because the same relocation unblocks both.
 
 **ADRs:** [041](../adrs/041-privileged-operations-agent.md) is the governing
 decision (the privileged-operations agent; §10 no hop3→root escalation, §14
@@ -62,9 +61,9 @@ to start, the hardening broke the nginx role on three independent axes:
 ## The escalation this leaves open (HIGH)
 
 rootd executes its interpreter and code from `/home/hop3/venv`, which is
-**owned and writable by the unprivileged `hop3` user**. A compromised `hop3`
+owned and writable by the unprivileged `hop3` user. A compromised `hop3`
 can overwrite that code and trigger a restart, giving root RCE with
-`CAP_NET_ADMIN`. This is precisely what ADR 041 §10 exists to eliminate; its
+`CAP_NET_ADMIN`. This is what ADR 041 §10 exists to eliminate; its
 reference unit installs to a root-owned `/opt`. `BindReadOnlyPaths` protects
 only the namespace *view*; it does **not** protect the host source or fix the
 escalation.
@@ -77,15 +76,14 @@ as a candidate but is not where the installer puts the daemon.
 
 ### 1. Relocate rootd out of `/home` into a root-owned tree
 
-Fixes the escalation **and** lets `ProtectHome=true` work as written; one
-change unblocks both items, which is why it is first.
+Fixes the escalation **and** lets `ProtectHome=true` work as written.
 
-Target: `/opt/hop3-rootd` with its own venv, `root:root`, not writable by
-`hop3`. Touches `install_rootd_package` (install as root into the new venv
-rather than via `su - hop3`), the `_resolve_daemon_command` candidate order,
-`constants.py`, and the demo/supervisor path (`demos/lib/backends/docker.py`
-runs `/home/hop3/venv/bin/hop3-rootd`). Re-validate on systemd **and** in a
-container.
+The target is `/opt/hop3-rootd` with its own venv, `root:root`, not writable
+by `hop3`. The change touches `install_rootd_package` (install as root into the
+new venv rather than via `su - hop3`), the `_resolve_daemon_command` candidate
+order, `constants.py`, and the demo/supervisor path
+(`demos/lib/backends/docker.py` runs `/home/hop3/venv/bin/hop3-rootd`).
+Re-validate on systemd **and** in a container.
 
 ### 2. Redesign the sandbox, tested against all three tools
 
@@ -122,9 +120,8 @@ be unverified exactly as before.
 ## The guard
 
 `test_rootd.py::test_service_template_is_minimal_pending_v06_hardening` fails
-if a breaking directive is re-added without this redesign. It is deliberate:
-the minimal unit is a deliberate decision, and the test makes re-adding
-hardening a conscious act. Rename it alongside item 2: the `v06` in its name
+if a breaking directive is re-added without this redesign. The minimal unit is
+a deliberate decision, and the test makes re-adding hardening a conscious act. Rename it alongside item 2: the `v06` in its name
 is now three releases stale.
 
 ## Resolved since this note was written
@@ -136,8 +133,8 @@ is now three releases stale.
   invalidate freshly-minted tokens.
 - **The deployer did not upload `hop3-rootd`** (only `hop3-server`). Fixed in
   0.5 (`deployer/deploy.py::_upload_rootd_package`). The cloud test surfaced it
-  only because a freshly-rebuilt server has no leftover `/tmp/hop3-rootd`; worth
-  remembering for other deploy paths that assume leftovers.
+  only because a freshly-rebuilt server has no leftover `/tmp/hop3-rootd`;
+  other deploy paths that assume leftovers carry the same gap.
 
 ## Not a security item
 
@@ -145,5 +142,4 @@ is now three releases stale.
 Poetry support: a Poetry-managed `pyproject.toml` without a committed
 `requirements.txt` fails with "Poetry is not detected by the Python toolchain".
 Either detect Poetry and `poetry export` at package time, or document the
-requirement. This is a toolchain gap and belongs in the deferred-apps log, not
-in a security note.
+requirement. This is a toolchain gap and belongs in the deferred-apps log.
