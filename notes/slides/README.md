@@ -1,4 +1,4 @@
-# Hop3 — Slide Decks
+# Hop3: Slide Decks
 
 Presentations about Hop3, written in Markdown and rendered with [Prezo](https://github.com/abilian/prezo) or [Marp](https://marp.app/). Each deck declares its own renderer in its front matter (`marp: true` → Marp, otherwise Prezo), and the Makefile routes the build automatically.
 
@@ -25,8 +25,8 @@ slides/
 
 ## Prerequisites
 
-- **Prezo** — for the Prezo decks: `uv tool install prezo` (or `pipx install prezo`).
-- **Marp CLI** — for the Marp decks: `npm install -g @marp-team/marp-cli`.
+- **Prezo**: for the Prezo decks, `uv tool install prezo` (or `pipx install prezo`).
+- **Marp CLI**: for the Marp decks, `npm install -g @marp-team/marp-cli`.
 
 A recent Chrome/Chromium is used as the PDF backend by both tools.
 
@@ -55,7 +55,7 @@ Marp decks are best previewed with `marp --preview <deck>.md` or the Marp VS Cod
 
 ### Building a single deck
 
-The deck filename maps directly to its output, so you can build just one — the renderer is auto-detected:
+The deck filename maps directly to its output, so you can build just one; the renderer is auto-detected:
 
 ```bash
 make 2025-ow2con-hop3.pdf                 # built with Marp
@@ -84,5 +84,5 @@ Override any of these on the command line, e.g. `make pdf SIZE=120x40`:
 ## Notes
 
 - All figures referenced by the decks live in `images/`; the Marp decks read them at build time via `--allow-local-files`.
-- Exported PDFs/HTML are build artifacts — regenerate them with `make pdf`; no need to commit them.
+- Exported PDFs/HTML are build artifacts; regenerate them with `make pdf`, no need to commit them.
 - For Prezo decks, speaker notes live after `???` in each slide and are picked up by the presenter view.

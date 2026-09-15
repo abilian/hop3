@@ -1,12 +1,12 @@
 # Testing Strategy
 
-This document outlines Hop3's comprehensive testing strategy, covering unit tests, integration tests, system integration tests, and full end-to-end tests.
+This document outlines Hop3's testing strategy, covering unit tests, integration tests, system integration tests, and full end-to-end tests.
 
 **Last Updated**: 2026-02-17
 
 ## Overview
 
-Hop3 uses a three-layer testing pyramid plus a unified test runner (`hop3-test`). A test's layer is decided by what it *needs* — Docker, root, a mutated host — not by how complex it is ([ADR 043](../adrs/043-unified-testing-architecture.md)).
+Hop3 uses a three-layer testing pyramid plus a unified test runner (`hop3-test`). A test's layer is decided by what it *needs*: Docker, root, a mutated host. Complexity does not decide the layer ([ADR 043](../adrs/043-unified-testing-architecture.md)).
 
 ```
                     ▲
@@ -31,7 +31,7 @@ Hop3 uses a three-layer testing pyramid plus a unified test runner (`hop3-test`)
  ╱_____________________________________╲
 ```
 
-Current counts and results live in [`status.md`](status.md), deliberately not here: a structure document that also carries numbers goes stale as soon as someone adds a test. `c_system/` and `d_e2e/` were the old layers 3 and 4 — the first dissolved into the other two, the second was renamed `c_e2e/`.
+Current counts and results live in [`status.md`](status.md): a structure document that also carries numbers goes stale as soon as someone adds a test. `c_system/` and `d_e2e/` were the old layers 3 and 4. The first dissolved into the other two; the second was renamed `c_e2e/`.
 
 ## Layer 1: Unit Tests (`tests/a_unit/`)
 
@@ -137,7 +137,7 @@ See [`status.md`](status.md).
 
 ### Guidelines
 - Each test should complete in < 1 second
-- Use TestClient instead of real HTTP requests
+- Use TestClient rather than real HTTP requests
 - Use temporary directories for file operations
 - Mock external services (nginx, systemd)
 - Test failure scenarios and error handling

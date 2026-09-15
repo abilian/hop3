@@ -58,4 +58,4 @@ python demos/demo.py run --host <your-server> --local
 |----------|---------|
 | `HOP3_LOCAL` | Use local code instead of git |
 
-> The SSH demo target is passed explicitly via `--host` — it is not read from an env var. `HOP3_DEV_HOST` / `HOP3_TEST_HOST` are retired as target selectors (ADR 043); the demo runner even strips `HOP3_DEV_HOST` from the CLI subprocess env so a stray value can't redirect it.
+> The SSH demo target is passed explicitly via `--host`; it is not read from an env var. `HOP3_DEV_HOST` / `HOP3_TEST_HOST` are retired as target selectors (ADR 043); the demo runner even strips `HOP3_DEV_HOST` from the CLI subprocess env so a stray value can't redirect it.

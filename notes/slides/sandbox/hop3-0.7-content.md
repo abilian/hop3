@@ -145,7 +145,7 @@ Four cards:
 Cards:
 1. cli — "Predictable by design": Space-separated commands, an implicit current app, the --app flag everywhere, aliases, did-you-mean, categorized help with an example on every command.
 2. naming — "hop3-deploy-server": The developer deploy tool is renamed for consistency; follow-up hints now remember the selectors you typed, and unknown flags are rejected.
-3. web ui — "Basic, clean, usable": The dashboard covers the core flows: app list, status, logs, addons, backups, env. Git-URL deploy and log streaming ride to 0.8.
+3. web ui — "Basic, clean, usable": The dashboard covers the core flows: app list, status, logs, addons, backups, env. Git-URL deploy and log streaming land in 0.8.
 
 Terminal (small):
 ```
@@ -163,7 +163,7 @@ RUNNING · 1 instance · https://edrix.example.com
 - Lede: A narrow root boundary, a firewall roadmap, and a plugin core: the machinery that lets many real apps share one server without stepping on each other.
 
 Four cards:
-1. rootd · ADR 041 — "Privileged-ops daemon": The operations that need root run through one small, audited daemon. The privilege boundary is a single narrow, reviewable seam (no broad sudoers).
+1. rootd · ADR 041 — "Privileged-ops daemon": The operations that need root run through one small, audited daemon. The privilege boundary is one narrow, reviewable surface (no broad sudoers).
 2. LeWAF · ADR 050 — "Pure-Python WAF" — Status: landing: An OWASP-CRS engine: schema, SecLang compiler, engine plugin, and named networks are merged. The proxy-running slice lands in 0.8.
 3. ADR 045 / auth — "Hardened and isolated": Fixed-port registry and network firewall; the June 2026 auth audit remediated; hop3.toml holds zero secrets.
 4. Pluggy + Dishka — "Everything is a plugin": Builders, language toolchains, deployers, addons, proxies, and OS support: extend the platform without forking it.
