@@ -10,7 +10,7 @@ This policy applies to the services we operate to support the Hop3 project, incl
 
 ## 1. The Hop3 Software (Self-Hosted)
 
-**The Hop3 software, when installed and run on your own infrastructure ("self-hosted"), does not collect or transmit any personal data to us.**
+The Hop3 software, when installed and run on your own infrastructure ("self-hosted"), does not collect or transmit any personal information to us.
 
 You maintain full control over your server, your data, and your applications. The design of Hop3 is centered on this principle of data sovereignty. Any data collection or analytics (e.g., for your own deployed applications) is your own responsibility to configure and manage.
 
@@ -22,17 +22,17 @@ To manage and promote the Hop3 open-source project, we operate several public-fa
 
 When you visit our official websites (such as `hop3.cloud` and its documentation pages), we may collect non-personally-identifying information to better understand how our site is used.
 
--   **Analytics:** We use [Umami](https://umami.is/), a privacy-respecting analytics platform, self-hosted on our own infrastructure. No data is sent to a third-party analytics provider. Umami sets no cookies and does not track visitors across sites or sessions. We collect:
-    -   Pages visited, and the date and time of the visit.
+-   **Analytics:** We use [Umami](https://umami.is/), a self-hosted, privacy-respecting analytics platform. No data is sent to a third-party analytics provider. Umami sets no cookies and does not track visitors across sites or sessions. We collect:
+    -   Pages visited and the date and time of the visit.
     -   Referring site.
     -   Browser, operating system and device type.
     -   Country, derived from the IP address. The IP address itself is not stored.
--   **Repository README:** the project's `README.md` carries a tracking pixel served by a self-hosted [Matomo](https://matomo.org/) instance, which counts views of that page where the hosting platform renders images. It records the same class of anonymous data, with IP addresses anonymised.
+-   **Repository README:** The project's `README.md` carries a tracking pixel served by a self-hosted [Matomo](https://matomo.org/) instance, which counts views of that page where the hosting platform renders images. It records the same class of anonymous data, with IP addresses anonymized.
 -   **Cookies:** We may use cookies for the essential operation of our websites, such as session management. We do not use analytics, third-party tracking or advertising cookies.
 
 #### b) Community and Contributor Information
 
-When you interact with the Hop3 community, you may provide information as part of your participation.
+When you interact with the Hop3 community, you may give us information as part of your participation.
 
 -   **Code Repositories (GitHub, SourceHut):** When you contribute code, open an issue, or comment, your username and any information in your public profile are visible. Your name and email address will be embedded in Git commit data, which is a permanent and public part of the project's history.
 -   **Community Forums & Chat (Matrix):** To participate, you will need an account, which includes a username and may be associated with an email address. Your posts, comments, and IP address may be logged by the service to prevent abuse.
@@ -55,7 +55,7 @@ We use the information we collect for the following purposes:
 
 We do not sell, rent, or trade your personal information. We only share it in the following limited circumstances:
 
--   **With Service Providers:** We may use third-party services (e.g., hosting providers) to operate our websites and community platforms. These providers are contractually obligated to protect your data and only use it to provide services to us.
+-   **With Service Providers:** We may use third-party services (e.g., hosting providers) to operate our websites and community platforms. These providers are contractually obligated to protect your personal information and use it only to provide services to us.
 -   **For Legal Compliance:** We may disclose information if required by law, subpoena, or other legal process, or to protect the rights, property, or safety of the Hop3 project, our community, or the public.
 -   **As Part of Public Contributions:** Information that is part of a public contribution (e.g., your name and email in a git commit) is publicly available by design.
 -   **With Your Consent:** We may share your information with your explicit consent.
@@ -77,11 +77,11 @@ Depending on your location, you may have certain rights regarding your personal 
 -   Request erasure of your personal information.
 -   Object to the processing of your data.
 
-To exercise these rights, please contact us at `dpo@abilian.com`. Please note that we may be unable to delete information that is essential to the public record of the project, such as git commit history.
+To exercise these rights, please contact us at `dpo@abilian.com`. We may be unable to delete information that is essential to the public record of the project, such as git commit history.
 
 ## 8. Children's Privacy
 
-Our services are not directed to individuals under the age of 16. We do not knowingly collect personal information from children. If we become aware that a child has provided us with personal information, we will take steps to delete it.
+Our services are not directed to individuals under the age of 16. We do not knowingly collect personal information from children. If we become aware that a child has provided us with personal information, we will delete it.
 
 ## 9. Changes to This Privacy Policy
 
