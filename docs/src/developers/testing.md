@@ -10,9 +10,9 @@ Hop3 uses a multi-layer testing approach across three complementary runners (pyt
 
 Three layers live under each package's `tests/`. The layer is decided by what a test *needs*: Docker, root, or host-mutation. Duplication across layers is allowed (see ADR 043).
 
-1. **Unit Tests** (`tests/a_unit/`) - Individual components in isolation; no Docker; count toward coverage; tier `fast`
-2. **Integration Tests** (`tests/b_integration/`) - Multiple components within a subsystem, in-process against a real in-memory DB; no Docker; count toward coverage; tier `check`
-3. **E2E Tests** (`tests/c_e2e/`) - Full deployments with a real Docker target; no coverage; run in the check tier (Docker) and nightly
+1. **Unit Tests** (`tests/a_unit/`): Individual components in isolation; no Docker; count toward coverage; tier `fast`
+2. **Integration Tests** (`tests/b_integration/`): Multiple components within a subsystem, in-process against a real in-memory DB; no Docker; count toward coverage; tier `check`
+3. **E2E Tests** (`tests/c_e2e/`): Full deployments with a real Docker target; no coverage; run in the check tier (Docker) and nightly
 
 ### Application Testing (hop3-test)
 
@@ -121,7 +121,7 @@ pytest -m "not needs_docker"   # everything except the Docker e2e layer
 
 **Location**: `packages/hop3-server/tests/a_unit/`
 **Speed**: < 1 second
-**Requirements**: None. Counts toward coverage
+**Requirements**: None; counts toward coverage
 **Marker**: `fast`
 
 ```bash
@@ -132,7 +132,7 @@ pytest packages/hop3-server/tests/a_unit/ -v
 
 **Location**: `packages/hop3-server/tests/b_integration/`
 **Speed**: ~10 seconds
-**Requirements**: None. In-process, real in-memory DB; counts toward coverage
+**Requirements**: In-process, real in-memory DB; counts toward coverage
 **Marker**: `integration`
 
 ```bash
@@ -143,7 +143,7 @@ pytest packages/hop3-server/tests/b_integration/ -v
 
 **Location**: `packages/hop3-server/tests/c_e2e/`
 **Speed**: 10-20 minutes
-**Requirements**: Docker (real deploy). No coverage
+**Requirements**: Docker (real deploy); no coverage
 **Marker**: `e2e` (+ `needs_docker`)
 
 ```bash
@@ -202,7 +202,7 @@ Note: `tier` is *only* a report-grouping label, and all builds share a single 30
 
 **Standalone `test.toml` files still exist for Procfile-only test apps** (`apps/test-apps-procfile/*/`), which don't pair with a `hop3.toml`. Two other kinds of test are configured differently:
 
-- Negative-test cases are the recipes the catalog files as `broken`. They carry a normal `hop3.toml`, and the runner treats any deploy under `broken/` as expected-to-fail (a failed deploy counts as PASS). An `expects-failure = false` in `[test]` opts one back out — a recipe dropped for business reasons that still deploys fine — and `expects-failure = true` opts any other app in.
+- Negative-test cases are the recipes the catalog files as `broken`. They carry a normal `hop3.toml`, and the runner treats any deploy under `broken/` as expected-to-fail (a failed deploy counts as PASS). An `expects-failure = false` in `[test]` opts one back out (a recipe dropped for business reasons that still deploys fine), and `expects-failure = true` opts any other app in.
 - Demos (`demos/*/`) and tutorials (`docs/tutorials/**/`) are discovered structurally, without a `test.toml`: a demo by its `demo-script.py`, a tutorial by its `bash exec`/`output`/`file` markers.
 
 ### Test Modes
@@ -310,7 +310,7 @@ open htmlcov/index.html
 
 ## Cloud Testing
 
-For E2E testing on real cloud infrastructure, use `hop3-test run --provider hetzner`. Requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
+For E2E testing on real cloud infrastructure, run `hop3-test run --provider hetzner`. It requires the `HETZNER_API_TOKEN` environment variable (Hetzner provider).
 
 ```bash
 # List available images
@@ -334,12 +334,12 @@ hop3-test run --host <server> --reuse
 
 ### Supported Images
 
-- `ubuntu-24.04` - Ubuntu 24.04 LTS (default)
-- `debian-13` - Debian 13 (trixie)
-- `debian-12` - Debian 12 (bookworm)
-- `fedora-42` - Fedora 42
-- `rocky-9` - Rocky Linux 9
-- `alma-9` - AlmaLinux 9
+- `ubuntu-24.04`: Ubuntu 24.04 LTS (default)
+- `debian-13`: Debian 13 (trixie)
+- `debian-12`: Debian 12 (bookworm)
+- `fedora-42`: Fedora 42
+- `rocky-9`: Rocky Linux 9
+- `alma-9`: AlmaLinux 9
 
 ## Troubleshooting
 

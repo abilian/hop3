@@ -1,6 +1,6 @@
 # Migrating from Clever Cloud to Hop3
 
-Clever Cloud already gives you a European PaaS, so this isn't a sovereignty story. It's a cost-and-control story. When the per-application runtime billing stops matching what the workload actually needs, or you want the whole stack on infrastructure you own and can move, Hop3 gives you the same `git push` deployment experience on a server you control. This guide helps you migrate existing Clever Cloud apps to Hop3.
+Clever Cloud already gives you a European PaaS, so the reasons to move come down to cost and control. When the per-application runtime billing stops matching what the workload needs, or you want the whole stack on infrastructure you own and can move, Hop3 gives you the same `git push` deployment experience on a server you control. This guide helps you migrate existing Clever Cloud apps to Hop3.
 
 ## What's Similar
 
@@ -15,9 +15,9 @@ If you're comfortable on Clever Cloud, the Hop3 workflow will feel familiar:
 | `clever logs` | `hop3 app logs` |
 | `clever scale` | `hop3 ps scale` |
 
-You push a Git repository, the platform inspects your stack and builds it, and a reverse proxy fronts the result. Both platforms detect the runtime from your project files rather than asking you to hand-write a build pipeline.
+You push a Git repository. The platform inspects your stack, builds it, and fronts the result with a reverse proxy. Both platforms detect the runtime from your project files.
 
-One syntactic difference to keep in mind: where the `clever` CLI takes the app implicitly from the linked directory (`clever link`), Hop3 targets an app with the `--app` flag rather than a positional argument. So `clever env set FOO bar` becomes `hop3 env set FOO=bar --app myapp`. (Hop3 can also resolve the app from a `hop3.toml` in the current directory, so once your repo has one, `--app` is usually optional.)
+One syntactic difference: the `clever` CLI takes the app implicitly from the linked directory (`clever link`). Hop3 targets an app with the `--app` flag; the app name is never positional. `clever env set FOO bar` becomes `hop3 env set FOO=bar --app myapp`. (Hop3 can also resolve the app from a `hop3.toml` in the current directory, so once your repo has one, `--app` is usually optional.)
 
 ## What's Different
 
@@ -25,13 +25,13 @@ One syntactic difference to keep in mind: where the `clever` CLI takes the app i
 |--------------|------|
 | Managed platform | Self-hosted |
 | Vertical + horizontal auto-scalers | Single server, manual scaling |
-| Broad addon catalogue | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| Broad addon catalogue | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
 | `CC_*` runtime knobs | `hop3.toml` + `[env]` |
 | Multi-instance, multi-zone | One server you manage |
 
-The biggest difference is scaling. Clever Cloud's vertical scaler resizes an instance and its horizontal scaler adds instances automatically as load rises. Hop3 runs on a single server and scales **manually**: you set the process count yourself with `hop3 ps scale`. There is no autoscaler, no edge, no multi-region. If automatic burst handling is load-bearing for your app, weigh that before you move.
+The biggest difference is scaling. Clever Cloud's vertical scaler resizes an instance and its horizontal scaler adds instances automatically as load rises. Hop3 runs on a single server and scales **manually**: you set the process count yourself with `hop3 ps scale`. There is no autoscaler, and no edge or multi-region layer either. If automatic burst handling matters to your app, weigh that before you move.
 
-Hop3 is simpler in exchange. You manage one server instead of a fleet, and you own every layer of it.
+Hop3 is simpler in exchange. You manage one server, and you own every layer of it.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -63,17 +63,17 @@ Get your Clever Cloud environment variables from the linked app directory:
 clever env > clever-env.txt
 ```
 
-Review the file and remove Clever-specific variables — they map to Hop3 mechanisms rather than carrying over verbatim:
+Review the file and remove Clever-specific variables. They map to Hop3 mechanisms; they don't carry over verbatim:
 
-- `CC_*` build/run knobs (e.g. `CC_RUN_COMMAND`, `CC_PYTHON_VERSION`, `CC_PRE_BUILD_HOOK`) — these become `hop3.toml` sections, not environment variables. See Step 3.
-- `POSTGRESQL_ADDON_URI` / `REDIS_URL` and similar addon URIs — Hop3 sets these for you when you attach an addon.
-- `PORT` — auto-set by Hop3.
+- `CC_*` build/run knobs (e.g. `CC_RUN_COMMAND`, `CC_PYTHON_VERSION`, `CC_PRE_BUILD_HOOK`): these become `hop3.toml` sections, not environment variables. See Step 3.
+- `POSTGRESQL_ADDON_URI` / `REDIS_URL` and similar addon URIs: Hop3 sets these for you when you attach an addon.
+- `PORT`: auto-set by Hop3.
 
 Keep your own application variables (secrets, feature flags, settings module, and so on).
 
 ## Step 3: Translate `CC_*` Knobs into hop3.toml
 
-Clever Cloud configures the build and run through `CC_*` environment variables. Hop3 puts the same information in a `hop3.toml` file. There is no automatic importer for this translation — you do it by hand, and it's a short, mechanical mapping:
+Clever Cloud configures the build and run through `CC_*` environment variables. Hop3 puts the same information in a `hop3.toml` file. There is no automatic importer for this translation. You do it by hand; it's a short, mechanical mapping:
 
 | Clever Cloud `CC_*` | hop3.toml |
 |---------------------|-----------|
@@ -110,7 +110,7 @@ worker = "celery -A myapp worker"
 path = "/health/"
 ```
 
-If you already deploy with a `Procfile`, Hop3 reads it directly for the process model — and you can convert it to a starter `hop3.toml` with:
+If you already deploy with a `Procfile`, Hop3 reads it directly for the process model. You can convert it to a starter `hop3.toml` with:
 
 ```bash
 hop3 app migrate procfile .
@@ -159,7 +159,7 @@ sudo -u postgres pg_restore --verbose --no-owner \
     -d your_app_db /tmp/latest.dump
 ```
 
-Hop3's four addon types are PostgreSQL, MySQL, Redis, and S3/MinIO — and growing. If you depend on a Clever Cloud addon Hop3 doesn't offer, you have two options: keep that managed service and point `[env]` at its URL, or run the dependency yourself. There is no in-platform equivalent for the broader Clever Cloud addon catalogue.
+Hop3 ships four addon types (PostgreSQL, MySQL, Redis, S3/MinIO), and more are in development. If you depend on a Clever Cloud addon Hop3 doesn't offer, you have two options: keep that managed service and point `[env]` at its URL, or run the dependency yourself.
 
 ## Step 5: Deploy to Hop3
 
@@ -197,7 +197,7 @@ Once Let's Encrypt / ACME is configured on the server, Hop3 requests a certifica
 
 ### Runtime Detection vs `CC_*`
 
-Clever Cloud reads `CC_*` variables to decide how to build and start. Hop3 auto-detects the toolchain (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET) from your project files, and you only reach for `[build]` / `[run]` when the defaults aren't right. Most apps need just `[metadata].id` plus their own `[env]`.
+Clever Cloud reads `CC_*` variables to decide how to build and start. Hop3 auto-detects the toolchain (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET) from your project files. You only reach for `[build]` / `[run]` when the defaults aren't right. Most apps need just `[metadata].id` plus their own `[env]`.
 
 ### Runtime Versions
 
@@ -212,7 +212,7 @@ A Nix builder is also available when you want fully reproducible builds.
 
 ### Multi-Language Builds
 
-For an app that needs a second toolchain (e.g. Python plus a Node asset build), use the `[build]` section instead of a Clever build hook:
+For an app that needs a second toolchain (e.g. Python plus a Node asset build), use the `[build]` section; a Clever build hook has no direct Hop3 equivalent:
 
 ```toml
 [build]
@@ -222,7 +222,7 @@ before-build = "npm install && npm run build"
 
 ### Postgres Extensions
 
-If your app relies on a Postgres extension (like `pg_stat_statements`), enable it through the addon command — no SSH or manual `psql` needed:
+If your app relies on a Postgres extension (like `pg_stat_statements`), enable it through the addon command. No SSH or manual `psql` needed:
 
 ```bash
 hop3 addon postgres extensions your-app-db pg_stat_statements
@@ -238,7 +238,7 @@ Clever Cloud's scalers move automatically. On Hop3 you set the process count you
 hop3 ps scale your-app web=3 worker=2
 ```
 
-There is no autoscaler. Size the server for your peak, and adjust `ps scale` when the workload changes. This is the migration's main trade-off — plan for it rather than discovering it under load.
+There is no autoscaler. Size the server for your peak, and adjust `ps scale` when the workload changes. This is the migration's main trade-off: plan for it before you discover it under load.
 
 ### Scheduled Jobs
 
@@ -270,7 +270,7 @@ Or use system cron on the server directly.
 
 ## Cost and Lock-In
 
-Clever Cloud already keeps your data in the EU, so the move isn't about jurisdiction. It's about two things: a predictable bill and total control of the stack.
+Clever Cloud already keeps your data in the EU, so the move isn't about jurisdiction. It's about a predictable bill and total control of the stack.
 
 On Clever Cloud you pay per running instance and per addon, and the auto-scalers can grow that bill on their own as traffic moves. On Hop3 you pay for one VPS. A small app that costs roughly the price of a couple of instances plus a database addon on Clever Cloud runs on a ~10 EUR/month VPS; a medium app on a ~30 EUR/month VPS. The trade-off is that the elastic headroom the scalers gave you is now your job to provision.
 
@@ -281,7 +281,7 @@ The deeper win is lock-in. Your app is a Git repository plus a `hop3.toml`, your
 Keep your Clever Cloud app running during migration:
 
 1. Deploy to Hop3 with a test domain.
-2. Verify everything works — including database imports and worker processes.
+2. Verify everything works, including database imports and worker processes.
 3. Switch DNS to Hop3.
 4. Keep the Clever Cloud app running for 1-2 weeks.
 5. Delete the Clever Cloud app and its addons once you're confident.

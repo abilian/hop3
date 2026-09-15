@@ -1,6 +1,6 @@
 # Hop3 Installers
 
-Single-file Python installers for the Hop3 CLI and Server components. These installers use only the Python standard library for maximum portability.
+The installers are single-file Python scripts for the Hop3 CLI and Server components. They use only the Python standard library for maximum portability.
 
 ## Quick Start
 
@@ -30,7 +30,7 @@ sudo python3 install-server.py --help
 
 - **Python 3.10+** (checked at runtime)
 - **Server installer**: Must be run as root
-- **Git**: Required only when using `--git` flag
+- **Git**: Required only when the `--git` flag is used
 
 ## CLI Installer (`install-cli.py`)
 
@@ -136,7 +136,7 @@ After these steps the installer writes the server config, installs acme.sh, and 
 | `--skip-package-install` | | Skip the `hop3-server` package install (when installed separately) |
 | `--verbose` | `HOP3_VERBOSE=1` | Show verbose output |
 
-PostgreSQL is always set up (unless `--skip-postgres`). The other backing services — MySQL, Redis, S3/MinIO object storage — and the optional Docker and Nix runtimes are enabled with `--with`, for example `--with redis,s3` or `--with all`.
+PostgreSQL is always set up (unless `--skip-postgres`). The optional Docker and Nix runtimes are enabled with `--with`, as are the other backing services (MySQL, Redis, S3/MinIO object storage), for example `--with redis,s3` or `--with all`.
 
 ### Examples
 
@@ -257,8 +257,8 @@ hop3 system status
 
 After installation, the Hop3 server is reachable at:
 
-- `https://<server-ip>/rpc` - JSON-RPC API endpoint (used by the CLI and TUI)
-- `https://<server-ip>/dashboard` - Web dashboard (the root URL `/` redirects here, or to `/auth/login` when not signed in)
+- `https://<server-ip>/rpc`: JSON-RPC API endpoint (used by the CLI and TUI)
+- `https://<server-ip>/dashboard`: Web dashboard (the root URL `/` redirects here, or to `/auth/login` when not signed in)
 
 If using Let's Encrypt with a domain:
 - `https://hop3.example.com/rpc`
@@ -416,4 +416,4 @@ python3 install-cli.py --local-path ./hop3/packages/hop3-cli
 
 ## License
 
-Apache-2.0 - Copyright (c) 2025, Abilian SAS
+Released under the Apache-2.0 license (Copyright (c) 2025, Abilian SAS).

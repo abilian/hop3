@@ -4,8 +4,8 @@ This page is for the person running a Hop3 server. It describes what the platfor
 
 Two companion documents:
 
-- [Security Policy](../reference/policies/security-policy.md) — how to report a vulnerability, and what we commit to in return.
-- [Security Model](../developers/security-model.md) — the developer-facing view: trust boundaries, reviewed code patterns, and how to run a security review. Read that one if you are auditing the code rather than operating it.
+- [Security Policy](../reference/policies/security-policy.md): how to report a vulnerability, and what we commit to in return.
+- [Security Model](../developers/security-model.md): the developer-facing view: trust boundaries, reviewed code patterns, and how to run a security review. Read that one when auditing the code; this page covers operation.
 
 ## The account model: accounts are operator-equivalent
 
@@ -17,7 +17,7 @@ What follows from it:
 
 - **Treat every account as an administrator account**, whatever its scope. Hand them out on that basis.
 - **Do not use one Hop3 server to host applications for parties who should not see each other's data.** Give them separate servers.
-- Application *runtimes* are isolated from each other — separate Unix users, separate process supervision, resource limits, separate proxy routing. The shared surface is the control plane, not the running apps.
+- Application *runtimes* are isolated from each other: separate Unix users, separate process supervision, resource limits, separate proxy routing. The shared surface is the control plane; the running applications stay separate.
 
 Per-application ownership is planned for a future release. Until it ships, the rule above is the one to provision by.
 
@@ -27,10 +27,10 @@ Per-application ownership is planned for a future release. Until it ships, the r
 |------|------------------------|
 | **Addon credentials** | Encrypted at rest in the control-plane database with Fernet AEAD, keyed from `HOP3_SECRET_KEY` via PBKDF2-HMAC-SHA256 (600 000 iterations, per-install salt). A stolen database backup is useless without the key. |
 | **Passwords** | Hashed with bcrypt. Never stored or logged in the clear. |
-| **Sessions** | Signed JWTs, 24 h default lifetime (`HOP3_TOKEN_EXPIRY_HOURS`), revocable — logout writes the token id to a revocation list. |
+| **Sessions** | Signed JWTs, 24 h default lifetime (`HOP3_TOKEN_EXPIRY_HOURS`), revocable: logout writes the token id to a revocation list. |
 | **Login endpoints** | Rate-limited to 5 attempts per minute per client IP, on both password login and magic-link redemption. |
 | **Secrets in transit to subprocesses** | Database and service passwords are passed by environment variable or stdin, never on a command line where `ps` and `/proc` would expose them. |
-| **Uploaded archives** | Deploy tarballs are validated member by member before extraction — path traversal, symlink and hardlink entries, and decompression bombs are all rejected. |
+| **Uploaded archives** | Deploy tarballs are validated member by member before extraction: path traversal, symlink and hardlink entries, and decompression bombs are all rejected. |
 | **Privileged operations** | Firewall changes, proxy reloads and mounts run through `hop3-rootd`, a small root daemon reachable only over a local socket with a kernel-enforced caller check, restricted to an allow-list of binaries, with an append-only audit log. |
 | **Network exposure** | An L3/L4 firewall plus an optional L7 web application firewall (OWASP Core Rule Set) in front of applications that enable it. |
 
@@ -45,9 +45,9 @@ Per-application ownership is planned for a future release. Until it ships, the r
 - Use a different key on every installation.
 - To rotate it: change the key, then run `hop3 admin reencrypt-credentials` (`--dry-run` first). There is no automatic rotation.
 
-**Database file confidentiality.** Secrets are encrypted inside their rows, which protects them even from someone reading the database directly. The rest of the file — application names, hostnames, configuration — is not encrypted. Use filesystem permissions and, if you need it, full-disk encryption.
+**Database file confidentiality.** Secrets are encrypted inside their rows, which protects them even from someone reading the database directly. The rest of the file (application names, hostnames, configuration) is not encrypted. Use filesystem permissions and, if you need it, full-disk encryption.
 
-**TLS.** Production should terminate TLS. Configure ACME (Let's Encrypt) with a valid contact address; the self-signed fallback exists so a server is never unencrypted, not as a production answer.
+**TLS.** Production should terminate TLS. Configure ACME (Let's Encrypt) with a valid contact address; the self-signed fallback exists only to keep a server from going live unencrypted.
 
 **Account hygiene.** Given the account model above, the shortest path to a secure deployment is few accounts, promptly removed when no longer needed.
 
@@ -70,9 +70,7 @@ curl -X POST http://your-server/rpc \
 
 ## What Hop3 does not do
 
-Stated plainly, so you can plan around them:
-
-- **No multi-factor authentication.** The design is written down but not built. If you reach the server over an SSH tunnel — the intended pattern — your SSH key is a second factor in practice.
+- **No multi-factor authentication.** The design is written down but not built. If you reach the server over an SSH tunnel (the intended pattern), your SSH key is a second factor in practice.
 - **No control-plane audit log.** Privileged root operations are audited; logins, token issuance and application changes are not yet recorded in a structured, queryable form.
 - **No hardware-backed key storage.** No HSM, TPM or cloud KMS integration. Operators who need it integrate at the OS level.
 - **No isolation between accounts**, as described above.

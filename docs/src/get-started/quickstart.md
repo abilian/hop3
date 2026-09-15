@@ -2,7 +2,7 @@
 
 This guide will walk you through deploying your first web application from scratch. We will create a simple Python Flask application, configure it for Hop3, and deploy it to your server.
 
-By the end of this tutorial, you will have a live, running web application managed by Hop3.
+By the end of this tutorial, you will have a live web application managed by Hop3.
 
 ## Prerequisites
 
@@ -46,14 +46,14 @@ if __name__ == '__main__':
 
 #### `requirements.txt`
 
-This file lists the Python dependencies our application needs. Hop3 will use this to install the necessary packages.
+This file lists the Python dependencies our application needs. Hop3 installs them during the build.
 
 ```
 # requirements.txt
 Flask
 gunicorn
 ```
-We include `gunicorn` as it is a production-grade WSGI server that Hop3 will use to run our application.
+We include `gunicorn`, a production WSGI server that Hop3 will use to run our application.
 
 ## Step 2: Configure the Application for Hop3
 
@@ -89,8 +89,8 @@ public = true
 
 !!! note "What does this file do?"
     - **`[metadata]`**: Provides essential information like a unique `id` for your app.
-    - **`[build]`**: Instructs Hop3 to use a Python environment and install the dependencies listed in `requirements.txt`.
-    - **`[run]`**: Defines the command that starts the web server. Hop3 automatically provides the `$PORT` environment variable.
+    - **`[build]`**: Instructs Hop3 to create a Python environment and install the dependencies listed in `requirements.txt`.
+    - **`[run]`**: Defines the command that starts the web server. Hop3 sets the `$PORT` environment variable automatically.
     - **`[port.web]`**: Tells Hop3's internal router (Nginx) that the application process listening on its container port should be made publicly accessible via HTTP/HTTPS.
 
 ## Step 3: Deploy to Hop3
@@ -103,7 +103,7 @@ With your application code and configuration ready, you can now deploy it.
     hop3 login root@hop3.example.com
     ```
 
-    Your SSH access to the server is the credential — no password, and no admin user to create first: the server makes one if there isn't one. The token is stored in `~/.config/hop3-cli/credentials.toml`.
+    Your SSH access to the server is the credential: no password, and no admin user to create first, since the server makes one if there isn't one. The token is stored in `~/.config/hop3-cli/credentials.toml`.
 
     See [Signing In](./authentication.md) for the web dashboard, several servers, and what to do when you can't get in.
 
@@ -118,13 +118,13 @@ With your application code and configuration ready, you can now deploy it.
 
     You will see output from Hop3 as it:
     -   Uploads your application code.
-    -   Builds the application environment and installs dependencies.
+    -   Builds the application environment, then installs dependencies.
     -   Starts the application process.
     -   Configures the router to direct traffic to your app.
 
 ## Step 4: Verify Your Deployment
 
-Once the deployment is complete, Hop3 will provide you with the URL for your application. It will typically be in the format `http://<app-id>.<your-hop3-host>`.
+Once the deployment is complete, Hop3 will provide you with the URL for your application, typically in the format `http://<app-id>.<your-hop3-host>`.
 
 Open your web browser and navigate to the URL. For our example, it would be something like:
 
@@ -134,7 +134,7 @@ You should see the "Hello, Hop3!" message from your Flask application.
 
 ## Step 5: Managing Your App
 
-Hop3 provides commands to manage your running application. The CLI features rich, colorful output to make information easy to read and understand.
+Hop3 provides commands to manage your running application. The CLI output is formatted for readability.
 
 #### Check Application Status
 To see the status of your app and its running processes:
@@ -207,7 +207,7 @@ hop3 app destroy --app hello-hop3 -y
 
 ## Step 6: Backup and Restore
 
-Hop3 includes a backup system to protect your applications. Always backup before making significant changes.
+Hop3 includes a backup system to protect your applications. Always take a backup before making significant changes.
 
 ```bash
 # Create a backup (includes code, data, env vars, and attached services)
@@ -230,11 +230,11 @@ hop3 app restart --app hello-hop3
     hop3 app restart --app hello-hop3
     ```
 
-For complete backup documentation including what's backed up, retention policies, and troubleshooting, see the **[Backup and Restore Guide](../guides/backup-restore.md)**.
+For complete backup documentation, including what's backed up, retention policies, and troubleshooting, see the [Backup and Restore Guide](../guides/backup-restore.md).
 
 ## Step 7: Working with Environment Variables
 
-Applications often need configuration through environment variables. Hop3 makes this easy with intuitive commands.
+Applications often need configuration through environment variables. Hop3 provides straightforward commands for this.
 
 #### Setting Environment Variables
 
@@ -243,7 +243,7 @@ Set a single environment variable:
 hop3 env set --app hello-hop3 LOG_LEVEL=info
 ```
 
-Set multiple variables at once:
+Set several variables in one command:
 ```bash
 hop3 env set --app hello-hop3 LOG_LEVEL=info MAX_WORKERS=4 SECRET_KEY=your-secret
 ```
@@ -344,7 +344,7 @@ hop3 app destroy --app old-app -y
 hop3 backup destroy old-backup-id -y
 ```
 
-⚠️ **Use with caution** - the `-y` flag bypasses safety confirmations!
+⚠️ The `-y` flag bypasses safety confirmations. Use it with caution.
 
 ### Verbose Output for Debugging
 

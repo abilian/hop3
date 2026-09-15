@@ -113,7 +113,7 @@ ssh -L 8000:127.0.0.1:8000 root@your-server
 
 ### Sign In
 
-The installer does **not** create an admin user or print a token — the first `hop3 login` does it for you.
+The installer does **not** create an admin user or print a token; the first `hop3 login` does it for you.
 
 From your own machine:
 
@@ -121,9 +121,9 @@ From your own machine:
 hop3 login root@your-server.com
 ```
 
-SSH access to the server *is* administrator access ([ADR 014](https://github.com/abilian/hop3/blob/main/notes/adrs/014-authentication-bootstrap.md)), so there is no password to type: this runs `admin:ssh-token` on the server, auto-creating a default `admin` if none exists, and stores the token in `~/.config/hop3-cli/credentials.toml`.
+SSH access to the server *is* administrator access ([ADR 014](https://github.com/abilian/hop3/blob/main/notes/adrs/014-authentication-bootstrap.md)), so there is no password to type. This runs `admin:ssh-token` on the server, auto-creating a default `admin` if none exists, and stores the token in `~/.config/hop3-cli/credentials.toml`.
 
-That signs in the CLI, and records the server's own HTTPS address when it has an admin domain — SSH is the bootstrap, not the everyday route. The Web UI holds a separate credential; `hop3 login --browser` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
+That signs in the CLI and records the server's own HTTPS address when it has an admin domain. SSH is the bootstrap, not the everyday route: the Web UI holds a separate credential, and `hop3 login --browser` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
 
 To do the same on the server itself, run `hop3-server` as the `hop3` user so the database stays owned by `hop3` and not by `root`:
 
@@ -244,18 +244,18 @@ certificate) instead of the Hop3 Web UI.
 
 **Cause**: the control plane isn't claiming the bare host. Each app's nginx
 vhost matches only its own `server_name`, so a request to a host that matches no
-app falls through to whichever vhost nginx loaded first — the distro default on
-port 80, an arbitrary app on port 443. This happens on servers installed before
+app falls through to whichever vhost nginx loaded first (the distro default on
+port 80, an arbitrary app on port 443). This happens on servers installed before
 the control plane started pinning nginx's `default_server`.
 
 **Fix**: redeploy. `hop3-deploy-server --host your-server.com` now makes
 `your-server.com` the admin hostname automatically and pins the Hop3 control
-plane as nginx's `default_server`, so the bare host — and any unmatched Host —
-reaches the Web UI instead of a random app. To serve the Web UI on a *different*
+plane as nginx's `default_server`, so the bare host and any unmatched Host
+reach the Web UI instead of a random app. To serve the Web UI on a *different*
 hostname, pass it explicitly:
 
 ```bash
-# Developer tool — a different admin hostname:
+# Developer tool with a different admin hostname:
 hop3-deploy-server --from local --host your-server.com --admin-domain admin.your-server.com
 
 # Production installer (uses --domain):
@@ -263,7 +263,7 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain your-s
 ```
 
 > The admin-domain step runs on every deploy, so a redeploy re-asserts the
-> control-plane vhost and self-heals an older box — no `--clean` required.
+> control-plane vhost and self-heals an older box (no `--clean` required).
 > (On RHEL/Fedora the `default_server` pin is skipped to avoid clashing with the
 > stock `nginx.conf`; the `server_name` match still routes the admin host.)
 

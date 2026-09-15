@@ -1,18 +1,18 @@
 # Hop3 Contribution Guidelines
 
-If you're reading this, this means that you're interested in contributing to Hop3, and this alone makes us happy! Your contributions will help make Hop3 a better platform and strengthen the open source community around it.
+You're reading this because you're interested in contributing to Hop3, and that makes us happy! Your contributions make Hop3 a better platform and strengthen the open source community around it.
 
-To ensure a smooth collaboration process for everyone involved, we've established some guidelines for contributing to the project.
+These guidelines keep collaboration smooth for everyone.
 
 ## Getting Started
 
-Before you start, it's important to familiarize yourself with Hop3's core values and objectives. Please take a moment to read the [core values of Hop3](core-values.md) document. Understanding these principles will help you make meaningful contributions that align with the project's goals.
+Before you start, read the [core values of Hop3](core-values.md) document. These principles keep your contributions aligned with the project's goals.
 
 ## Contribution Process
 
 ### 1. Open an Issue
 
-If you've identified a bug, have a feature suggestion, or have any question, start by opening an issue. Describe the bug, feature, or question in detail, providing as much context as possible. This helps us understand your concern or proposal and address it effectively.
+If you've identified a bug, have a feature suggestion, or have a question, start by opening an issue. Describe the bug, feature, or question in detail, providing as much context as possible. Context helps us understand and address your concern or proposal.
 
 ### 2. Fork and Clone the Repository
 
@@ -24,25 +24,25 @@ For each set of changes, create a new branch in your forked repository. Use a de
 
 ### Guidelines for Contributions
 
-- **Small and Focused Pull Requests (PRs)**: Please ensure your PRs are focused on a single issue or feature request. Avoid including unrelated changes, as this makes it harder to review and merge your contributions.
+- **Small and Focused Pull Requests (PRs)**: Keep each PR focused on a single issue or feature request. Unrelated changes make it harder to review and merge your contributions.
 
 - **Code Style**: Follow the project's coding style. For Python code, we adhere to PEP8 guidelines, except where explicitly stated otherwise. When importing functions, import them directly: `from os.path import abspath`.
 
-- **Write Meaningful Commit Messages**: Your commit messages should clearly describe what changes have been made and why. This helps maintainers understand the purpose of your changes and speeds up the review process.
+- **Write Meaningful Commit Messages**: Commit messages should clearly describe what changed and why. This helps maintainers understand your changes and speeds up review.
 
 - **Update Documentation**: If your changes require updates to the documentation, include those in your PR. Users and contributors depend on the documentation being accurate and current.
 
 - **Testing**: Include tests for your changes to ensure that the new code works as expected and does not break existing functionality. Add new tests if you're introducing new features or fixing bugs. See the [Testing](#testing) section below for detailed requirements.
 
-- **Review Process**: After submitting your PR, one of the project maintainers will review your changes. Be open to feedback and be prepared to make adjustments to your code. The review process is a collaborative effort, and constructive dialogue is welcome.
+- **Review Process**: After you submit your PR, a project maintainer will review it. Be open to feedback and prepared to adjust your code. The review is a collaborative effort, and constructive dialogue is welcome.
 
 ### 4. Submitting Your Pull Request
 
-Once you've completed your changes, pushed them to your fork, and ensured they align with the contribution guidelines, you're ready to submit a pull request to the main Hop3 repository. In your PR, provide a clear description of the changes and reference any related issues.
+Once your changes are complete and pushed to your fork, submit a pull request to the main Hop3 repository with a clear description of the changes and references to any related issues.
 
 ## Testing
 
-Hop3 uses a three-layer testing strategy (see ADR 043). All contributions should include appropriate tests. A test's layer is decided by what it *needs*: Docker, root, or host mutation. Duplication across layers is allowed.
+Hop3 uses a three-layer testing strategy (see ADR 043). All contributions should include appropriate tests. A test's layer is decided by what it *needs*: Docker, root, or host mutation. Duplicating a test across layers is allowed.
 
 ### Test Requirements
 
@@ -75,17 +75,17 @@ make test-e2e
 
 Each package's `tests/` directory holds up to three layers. The root `conftest.py` stamps a marker on each layer (`fast`, `integration`, `e2e`, `needs_docker`), so `pytest -m fast` and `pytest -m "not needs_docker"` work across all packages.
 
-1. **Unit Tests** (`tests/a_unit/`): Fast, isolated tests of individual functions
+1. **Unit Tests** (`tests/a_unit/`): fast, isolated tests of individual functions
    - No Docker or other external dependencies
    - Counts toward coverage
    - Tier: `fast` (the inner loop, < 1 min for the whole suite)
 
-2. **Integration Tests** (`tests/b_integration/`): Component interaction tests
+2. **Integration Tests** (`tests/b_integration/`): component interaction tests
    - In-process, against a real in-memory database; no Docker
    - Counts toward coverage
    - Tier: `check`
 
-3. **E2E Tests** (`tests/c_e2e/`): Complete workflow tests
+3. **E2E Tests** (`tests/c_e2e/`): complete workflow tests
    - **Requires Docker**: real application deploys, backups, git-push
    - Does *not* count toward coverage
    - Runs in the check tier (Docker) and nightly
@@ -125,7 +125,7 @@ pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_D
 
 Follow these guidelines when writing tests:
 
-1. **Place tests in the correct layer**: Unit tests for isolated functions, integration tests for component interactions, etc.
+1. **Place tests in the correct layer**: unit tests for isolated functions, integration tests for component interactions, and so on.
 
 2. **Use descriptive names**: Test names should clearly describe what they test
    ```python
@@ -169,19 +169,16 @@ Follow these guidelines when writing tests:
 
 ### Test Configuration
 
-E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authentication. This is **only** safe because:
-- Tests run in completely isolated Docker containers
-- Containers are destroyed after tests complete
-- Containers are not exposed to any network
+E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authentication. This is **only** safe because tests run in completely isolated Docker containers, which are destroyed after tests complete and never exposed to any network.
 
 **Never** use `HOP3_UNSAFE` outside of isolated test containers. See the [Security Policy](../reference/policies/security-policy.md#hop3_unsafe-mode) for more details.
 
 ### Additional Testing Resources
 
 For comprehensive testing documentation, see:
-- [Testing Strategy](./testing-strategy.md) - Complete testing guide
-- [Testing Documentation](./testing.md) - Quick reference
-- test-status - Current test status
+- [Testing Strategy](./testing-strategy.md) for the complete testing guide
+- [Testing Documentation](./testing.md) for a quick reference
+- test-status for current test status
 
 ## Continuous Integration
 
@@ -189,9 +186,9 @@ Hop3 runs CI on [SourceHut builds](https://builds.sr.ht/), driven by the manifes
 
 ### Test Runners
 
-Three runners cover three domains. Only pytest produces coverage.
+Three runners cover three domains; only pytest produces coverage:
 
-- **pytest**: platform code (unit → integration → e2e). The only runner that produces coverage.
+- **pytest**: platform code (unit, integration, e2e).
 - **hop3-test**: applications, real apps and demos alike, deployed and verified over the `DeploymentTarget` ABC (Docker, SSH, Hetzner). See `make test-apps` / `uv run hop3-test list`.
 - **validoc**: narratives, tutorials-as-tests. See `make test-tutorials`.
 
@@ -210,8 +207,8 @@ make test-cov  # Coverage on the in-process layers (what coverage.py sees)
 
 ### Coverage Requirements
 
-Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`). The Docker e2e layer contributes none. Run `make test-cov` to reproduce it. While we don't enforce strict coverage requirements, we expect:
-- New features to include tests that cover the main code paths
+Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`). The Docker e2e layer contributes none. Run `make test-cov` to reproduce it. We don't enforce strict coverage requirements; we expect:
+- New features to include tests covering the main code paths
 - Bug fixes to include regression tests
 - Coverage not to decrease significantly with new changes
 
@@ -221,7 +218,7 @@ When developing CLI commands or modifying server responses, follow these message
 
 ### Message Format
 
-All CLI output is formatted as a list of message dictionaries. Each message has a `"t"` (type) field that determines how it's rendered. A command's `call()` method returns a plain `list` of these dictionaries, built with the helpers in `hop3.commands._response`:
+All CLI output is formatted as a list of message dictionaries. Each message has a `"t"` (type) field that determines how it renders. A command's `call()` method returns a plain `list` of these dictionaries, built with the helpers in `hop3.commands._response`:
 
 ```python
 from hop3.commands._response import success, table
@@ -395,9 +392,7 @@ Data displayed in a formatted table.
 
 ### Example: Complete Command Output
 
-Here's a complete example of a well-formatted command response:
-
-Helpers exist in `hop3.commands._response` for the common types (`text`, `success`, `error`, `warning`, `table`, `code`, `summary`, `data`, `blob`, `log_entry`, `stream`). Types without a helper (`info`, `progress`, `panel`) are emitted as literal dictionaries.
+Here is a complete example of a well-formatted command response. Helpers exist in `hop3.commands._response` for the common types (`text`, `success`, `error`, `warning`, `table`, `code`, `summary`, `data`, `blob`, `log_entry`, `stream`). Types without a helper (`info`, `progress`, `panel`) are emitted as literal dictionaries.
 
 ```python
 from hop3.commands._response import success, error
@@ -454,14 +449,12 @@ When `--json` flag is used, all message types are collected and output as JSON:
 ```
 
 **Guidelines for JSON mode:**
-- All message types are preserved in JSON
-- Scripts can parse the `"t"` field to filter message types
-- Errors are still included in the JSON array
-- JSON output is always valid JSON (no partial output)
+
+All message types are preserved in JSON. Scripts can parse the `"t"` field to filter message types. Errors are still included in the JSON array. JSON output is always valid JSON (no partial output).
 
 ### Quiet Mode Behavior
 
-In quiet mode (`--quiet`), most message types are suppressed:
+In quiet mode (`--quiet`), most message types are suppressed. Only errors are shown, to ensure critical failures are never silently ignored.
 
 | Type | Shown in Quiet Mode? |
 |------|---------------------|
@@ -473,8 +466,6 @@ In quiet mode (`--quiet`), most message types are suppressed:
 | `panel` | ✗ No |
 | `table` | ✗ No |
 | `text` | ✗ No |
-
-**Design rationale:** Only errors are shown in quiet mode to ensure critical failures are never silently ignored.
 
 ### Implementation Reference
 
@@ -521,10 +512,10 @@ def test_backup_create_success():
 
 ## Community and Conduct
 
-Hop3 is committed to fostering an inclusive and welcoming community. We expect all contributors to adhere to our Code of Conduct, which outlines our expectations for behavior within our community. Respect, collaboration, and constructive communication are key to our community's health and success.
+Hop3 commits to fostering an inclusive and welcoming community. All contributors adhere to our Code of Conduct, which outlines our expectations for behavior within our community. Respect, collaboration, and constructive communication are key to our community's health and success.
 
 ## Questions and Support
 
-If you have any questions or need help with your contributions, ask the Hop3 community. You can open an issue for questions related to contributing or seek help on our community forums or chat channels.
+If you have questions or need help with your contributions, ask the Hop3 community. Open an issue for questions related to contributing, or seek help on our community forums or chat channels.
 
-Thank you for contributing to Hop3! Your efforts will help make Hop3 stronger and more successful.
+Thank you for contributing to Hop3!

@@ -4,7 +4,7 @@ This guide provides a comprehensive overview of Hop3: the vision, deployment met
 
 ## Vision and Philosophy
 
-Hop3 is an open-source Platform as a Service (PaaS) designed for **simplicity, security, and digital sovereignty**. It enables deployment and management of web applications on a single server.
+Hop3 is an open-source Platform as a Service (PaaS) designed for simplicity and digital sovereignty. It enables deployment and management of web applications on a single server.
 
 ### Core Principles
 
@@ -158,7 +158,7 @@ Hop3 has no `release` process type. Run migrations with `[run].before-run` in
 
 ### hop3.toml
 
-Optional configuration file for advanced settings. Provides more control than Procfile alone.
+This optional file holds settings the Procfile cannot express.
 `hop3 scaffold` writes a starter one for the project in the current directory,
 including a `#:schema` line so your editor can complete and validate the fields
 as you type.
@@ -298,7 +298,7 @@ hop3 app credentials --app bookstack
 ```
 
 That password is the INITIAL one. If you change it inside the application, Hop3's
-copy is stale — the output says so.
+copy is stale: the output says so.
 
 ### Verifying an Application Works
 
@@ -498,7 +498,7 @@ PORT = "8080"
 number = 8080
 ```
 
-`[[ports]]` is for a fixed host port an app binds *directly* — SMTP, XMPP, RTMP.
+`[[ports]]` is for a fixed host port an app binds *directly*: SMTP, XMPP, RTMP.
 Your HTTP port stays dynamic: Hop3 assigns `$PORT` and proxies to it, which is
 what `internal_port` in `fly.toml` corresponds to, so there is usually nothing
 to translate.
@@ -605,15 +605,15 @@ export HOP3_DEBUG=1
 
 ## Next Steps
 
-- **[Quickstart](../get-started/quickstart.md)** - Step-by-step first deployment tutorial
-- **[Domains and Hostnames](domains.md)** - Configure custom domains and SSL certificates
-- **[Backup and Restore](backup-restore.md)** - Comprehensive backup documentation
-- **[CLI Reference](../reference/cli.md)** - Complete command documentation
-- **[hop3.toml Reference](../reference/config.md)** - Full configuration file reference
-- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
+- **[Quickstart](../get-started/quickstart.md)**: Step-by-step first deployment tutorial
+- **[Domains and Hostnames](domains.md)**: Configure custom domains and SSL certificates
+- **[Backup and Restore](backup-restore.md)**: Backup documentation
+- **[CLI Reference](../reference/cli.md)**: Complete command documentation
+- **[hop3.toml Reference](../reference/config.md)**: Full configuration file reference
+- **[Troubleshooting](troubleshooting.md)**: Diagnose and fix common issues
 - **[FAQ](faq.md)** - Frequently asked questions
 
-For help at any time:
+For help at any time, run:
 
 ```bash
 hop3 help

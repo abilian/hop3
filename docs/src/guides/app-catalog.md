@@ -12,29 +12,29 @@ Open the dashboard and go to **Catalog** (`/dashboard/catalog`). You can:
 - Search and filter the full list at **Catalog → All apps** (search matches an app's title, description, tags, and author).
 - Open any app to see its full **README**, version, license, author, website, resource needs (a `light` / `medium` / `heavy` tier plus a memory hint), and an **Install** form.
 
-You can install from either the **web dashboard** or the **command line** (`hop3 catalog install` / `hop3 catalog list`), and keep the catalog fresh with `hop3 catalog refresh` — see below.
+You can install from either the **web dashboard** or the **command line** (`hop3 catalog install` / `hop3 catalog list`), and keep the catalog fresh with `hop3 catalog refresh` (see below).
 
 ## Installing and deploying an app
 
-Install from the command line — this seeds, configures, builds, **and** starts the app in one step, streaming the deploy log live (just like `hop3 deploy`):
+Install from the command line: this seeds, configures, builds, **and** starts the app in one step, streaming the deploy log live (just like `hop3 deploy`):
 
 ```bash
 hop3 catalog install nextcloud --app my-notes
 ```
 
-- `--app <name>` (required) — the name your instance will have (2–50 characters, must start with a lowercase letter and contain only lowercase letters, digits and `-`; e.g. `my-notes`). A small set of names such as `admin`, `api`, and `dashboard` is reserved.
-- `--domain <host>` (optional) — the public hostname to serve it on. If you omit it, the app is published at **`<name>.<admin-domain>`** (your server's admin domain), so it is reachable straight away with no extra steps.
-- `--env KEY=VALUE` (optional, repeatable) — any values the app needs. Passing `--env HOST_NAME=…` overrides the domain default.
+- `--app <name>` (required): the name your instance will have (2–50 characters, must start with a lowercase letter and contain only lowercase letters, digits and `-`; e.g. `my-notes`). A small set of names such as `admin`, `api`, and `dashboard` is reserved.
+- `--domain <host>` (optional): the public hostname to serve it on. If you omit it, the app is published at **`<name>.<admin-domain>`** (your server's admin domain), so it is reachable straight away with no extra steps.
+- `--env KEY=VALUE` (optional, repeatable): any values the app needs. Passing `--env HOST_NAME=…` overrides the domain default.
 
 The dashboard **Install** form does the same thing: fill in the app name, an optional domain, then submit.
 
-Because the app gets a hostname at install time, its reverse-proxy vhost is wired on the first deploy — you do **not** need a separate `hop3 domain add` + redeploy. Manage it afterwards exactly like a hand-configured app — `hop3 app status --app my-notes`, `hop3 app logs --app my-notes`, attach addons, and so on. To change the hostname later, use `hop3 domain`.
+Because the app gets a hostname at install time, its reverse-proxy vhost is wired on the first deploy; you do **not** need a separate `hop3 domain add` + redeploy. Manage it afterwards exactly like a hand-configured app (`hop3 app status --app my-notes`, `hop3 app logs --app my-notes`, attach addons, and so on). To change the hostname later, use `hop3 domain`.
 
-> **DNS prerequisite.** For the default `<name>.<admin-domain>` to resolve, point a **wildcard DNS record** (`*.<admin-domain>` → your server's IP) at the box, or add a specific record per app. Hop3 assigns the hostname and configures the vhost; making the name resolve on the public internet is the operator's DNS responsibility. Certificates follow your `ACME_ENGINE` setting (self-signed by default — a browser warning until you switch to `certbot`).
+> **DNS prerequisite.** For the default `<name>.<admin-domain>` to resolve, point a **wildcard DNS record** (`*.<admin-domain>` → your server's IP) at the box, or add a specific record per app. Hop3 assigns the hostname and configures the vhost; making the name resolve on the public internet is the operator's DNS responsibility. Certificates follow your `ACME_ENGINE` setting (self-signed by default, a browser warning until you switch to `certbot`).
 
 ## Keeping the catalog up to date
 
-The catalog is synced to your server **once during `hop3-server setup`** (best-effort — if the source is unreachable, setup still completes and warns you), and you refresh it on demand afterwards:
+The catalog is synced to your server **once during `hop3-server setup`** (best-effort: if the source is unreachable, setup still completes and warns you), and you refresh it on demand afterwards:
 
 ```bash
 hop3 catalog refresh
@@ -46,7 +46,7 @@ On success it prints the new catalog **serial**:
 Catalog refreshed to serial 42.
 ```
 
-`refresh` downloads the latest signed bundle, verifies its signature, refuses any bundle older than the one you already have (anti-rollback), and swaps it in atomically. If anything fails — the source is unreachable, the signature doesn't verify, or the bundle is a rollback — the command **fails loudly and your current catalog is left untouched**:
+`refresh` downloads the latest signed bundle, verifies its signature, refuses any bundle older than the one you already have (anti-rollback), and swaps it in atomically. If anything fails (the source is unreachable, the signature doesn't verify, or the bundle is a rollback), the command **fails loudly and your current catalog is left untouched**:
 
 ```
 Catalog refresh failed: Catalog source URL must be https://...
@@ -56,7 +56,7 @@ There is no automatic refresh timer yet; run `hop3 catalog refresh` when you wan
 
 ## Where the catalog comes from
 
-The catalog is a **signed artifact that your server pulls** — the source never pushes to your server. Authenticity is mandatory: because installing a catalog app runs code you didn't write, the bundle's signature is verified against a public key **built into your hop3-server release** (not a file on disk that could be swapped). A bundle that fails verification is rejected and never loaded.
+The catalog is a **signed artifact that your server pulls**; the source never pushes to your server. Authenticity is mandatory: because installing a catalog app runs code you didn't write, the bundle's signature is verified against a public key **built into your hop3-server release** (not a file on disk that could be swapped). A bundle that fails verification is rejected and never loaded.
 
 The default source is Hop3's own catalog at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`). An empty-but-verified catalog is valid; a *failed fetch* is reported as an error rather than treated as an empty catalog.
 
@@ -66,7 +66,7 @@ These settings are read from the environment (or your server config); most deplo
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
-| `CATALOG_SOURCE_URL` | `https://apps.hop3.cloud/catalog/catalog.tar.gz` | The signed bundle to pull. Override to point at a **staging** catalog or an **air-gapped mirror**. Must be `https://` — the sync refuses any other scheme, and TLS verification is always on. |
+| `CATALOG_SOURCE_URL` | `https://apps.hop3.cloud/catalog/catalog.tar.gz` | The signed bundle to pull. Override to point at a **staging** catalog or an **air-gapped mirror**. Must be `https://`: the sync refuses any other scheme, and TLS verification is always on. |
 | `CATALOG_ROOT` | `$HOP3_ROOT/catalog` | Where the active catalog lives (a symlink the sync manages). |
 | `CATALOG_STATE_ROOT` | `$HOP3_ROOT/catalog-state` | Holds the anti-rollback serial, kept outside `CATALOG_ROOT` so it survives catalog swaps. |
 
@@ -82,4 +82,4 @@ If the dashboard shows a yellow banner saying the catalog isn't available, no ca
 hop3 catalog refresh
 ```
 
-once the source is reachable. Hop3 deliberately reports this state rather than showing an empty catalog as if it had loaded successfully.
+once the source is reachable. Hop3 distinguishes this state from an empty catalog that loaded successfully.

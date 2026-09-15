@@ -1,8 +1,8 @@
 # Migrating from Fly.io to Hop3
 
-Thinking about leaving Fly.io? Maybe you spun up an app in three regions, watched the bill climb, and realised you only ever serve one continent. Maybe a Machine got stuck, or a cold start bit a request, or you just want the whole thing on one box you understand. Whatever the reason, Hop3 gives you a familiar `fly.toml`-shaped deployment on your own infrastructure. This guide helps you migrate existing Fly.io apps to Hop3.
+Thinking about leaving Fly.io? Maybe you started an app in three regions, watched the bill climb, and realised you only ever serve one continent. Maybe a Machine got stuck, or a cold start bit a request, or you just want the whole thing on one box you understand. Whatever the reason, Hop3 gives you a familiar `fly.toml`-shaped deployment on your own infrastructure. This guide helps you migrate existing Fly.io apps to Hop3.
 
-The trade-off is worth stating up front, before you spend an afternoon on it. Fly.io is built for global distribution: anycast routing, Machines you can place in dozens of regions, an edge that puts your app close to users everywhere. Hop3 is a single server. You give up multi-region and per-Machine scaling, and in exchange you get one predictable bill, one place to look when something breaks, and your data living in exactly one jurisdiction you chose. If your app genuinely needs to be on five continents at once, stay on Fly. If it's a web app, a database, a couple of workers — and the regions were aspirational — Hop3 will feel like a relief.
+Know the trade-off before you spend an afternoon on it. Fly.io is built for global distribution: anycast routing, Machines you can place in dozens of regions, an edge that puts your app close to users everywhere. Hop3 is a single server. You give up multi-region and per-Machine scaling. In exchange you get one predictable bill, one place to look when something breaks, and your data living in exactly one jurisdiction you chose. If your app needs to be on five continents at once, stay on Fly. If it's a web app, a database, a couple of workers (and the regions were aspirational), Hop3 will feel like a relief.
 
 ## What's Similar
 
@@ -16,9 +16,9 @@ Hop3 was designed with the same deploy-from-a-config-file workflow Fly users alr
 | `fly postgres create` | `hop3 addon create postgres` |
 | `fly logs` | `hop3 app logs` |
 
-The shape is the same: one declarative file in your repo, one command to ship. Where Fly drives everything through `flyctl <noun> <verb>`, Hop3 uses space-separated `hop3 <noun> <verb>`, and the app you're targeting is always the `--app` flag rather than baked into the command's context. So `fly secrets set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
+The shape is the same: one declarative file in your repo, one command to ship. Where Fly drives everything through `flyctl <noun> <verb>`, Hop3 uses space-separated `hop3 <noun> <verb>`. The app you're targeting is always the `--app` flag. So `fly secrets set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
 
-There's no automated `fly.toml` importer, but the translation is short and mechanical — the sections below walk through it field by field. (If your app keeps its process definitions in a `Procfile` rather than `fly.toml`'s `[processes]` block, `hop3 app migrate procfile . --dry-run` will scaffold a starting `hop3.toml` from that.)
+There's no automated `fly.toml` importer. The translation is short and mechanical; the sections below walk through it field by field. (If your app keeps its process definitions in a `Procfile`, `hop3 app migrate procfile . --dry-run` will scaffold a starting `hop3.toml` from that.)
 
 ## What's Different
 
@@ -27,10 +27,10 @@ There's no automated `fly.toml` importer, but the translation is short and mecha
 | Multi-region, anycast edge | Single server |
 | Fly Machines (per-machine scaling) | Manual scaling on one host |
 | Autoscaling | Manual via `hop3 ps scale` |
-| Many managed services | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| Many managed services | PostgreSQL, MySQL, Redis, S3/MinIO, with more on the way |
 | Private 6PN networking | Apps colocated on one host (localhost) |
 
-Hop3 is simpler. You manage one server instead of a fleet of Machines spread across regions.
+Hop3 is simpler: you manage one server, where Fly ran a fleet of Machines spread across regions.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -56,22 +56,22 @@ hop3 init --ssh root@your-server.com
 
 ## Step 2: Export Your Fly.io Configuration
 
-Your `fly.toml` is the obvious starting point — copy it somewhere handy. Your secrets are not in it (Fly keeps them encrypted and won't print values back), so list the names so you know what you'll need to re-set:
+Your `fly.toml` is the obvious starting point. Copy it somewhere handy. Your secrets are not in it: Fly keeps them encrypted and won't print values back. List the key names so you know what you'll need to re-set:
 
 ```bash
 fly secrets list -a your-app
 ```
 
-Fly only shows you the keys and a digest, never the values. Pull the actual values from wherever you originally got them — your password manager, your provider dashboards, the `.env` you deployed from. Then plan to remove Fly-specific entries that Hop3 sets for you:
+Fly only shows you the keys and a digest, never the values. Pull the actual values from wherever you originally got them: your password manager, your provider dashboards, the `.env` you deployed from. Then plan to remove Fly-specific entries that Hop3 sets for you:
 
 - `DATABASE_URL` (will be set by the Hop3 Postgres addon)
 - `REDIS_URL` (will be set by the Hop3 Redis addon)
 - `PORT` (auto-set by Hop3)
-- `FLY_*` variables (`FLY_APP_NAME`, `FLY_REGION`, `FLY_PUBLIC_IP`, …) — these have no meaning off Fly
+- `FLY_*` variables (`FLY_APP_NAME`, `FLY_REGION`, `FLY_PUBLIC_IP`, …), which have no meaning off Fly
 
 ## Step 3: Add hop3.toml
 
-Here's where the concept mapping gets concrete. A representative `fly.toml` for a web app with a Dockerfile, a volume, and an internal port looks roughly like this:
+A representative `fly.toml` for a web app with a Dockerfile, a volume, and an internal port looks roughly like this:
 
 ```toml
 # fly.toml
@@ -118,12 +118,12 @@ target = "data/uploads"
 path = "/health/"
 ```
 
-A few things changed, and each one is a Fly primitive landing on a Hop3 one:
+A few things changed. Each one is a Fly primitive landing on a Hop3 one:
 
 - **`app` → `[metadata].id`.** Same canonical name; the server uses it as the app's identity.
-- **`primary_region` simply disappears.** There's one host, so there's nowhere to pin a region. That line is the most visible thing you lose — and the whole point of the trade-off.
+- **`primary_region` simply disappears.** There's one host, so there's nowhere to pin a region. That line is both the most visible thing you lose and the whole point of the trade-off.
 - **The Dockerfile maps to `[build] builder = "docker"`.** Hop3 builds the same `Dockerfile` you shipped to Fly. (See the next section if you'd rather drop the Dockerfile entirely.)
-- **`[http_service].internal_port` → bind `$PORT`.** Hop3 assigns a dynamic `$PORT`, sets it in the environment, and the reverse proxy routes to it by hostname. Make your app read `$PORT` instead of hardcoding `8080`. `force_https` has no equivalent toggle — Hop3 terminates TLS at the proxy and you point the domain at it (Step 6).
+- **`[http_service].internal_port` → bind `$PORT`.** Hop3 assigns a dynamic `$PORT` and sets it in the environment. The reverse proxy routes to it by hostname. Make your app read `$PORT` and drop the hardcoded `8080`. `force_https` has no equivalent toggle: Hop3 terminates TLS at the proxy, and you point the domain at it (Step 6).
 - **`[[mounts]]` → `[[volumes]]`.** Fly's `destination` is an absolute path; Hop3's `target` is a directory inside your app tree (relative, no `..`) that survives redeploys. Storage lives under the app's data root, outside the source tree that gets replaced on each deploy.
 - **`[checks]` → `[healthcheck]`.** Same idea, single path.
 
@@ -196,9 +196,9 @@ Once Let's Encrypt is configured on the server, Hop3 requests a certificate for 
 
 ### Dockerfile vs Native Toolchains
 
-Fly always builds a container — a Dockerfile, or a buildpack that produces one. Hop3 can do the same with `[build] builder = "docker"`, so the simplest migration keeps your Dockerfile unchanged.
+Fly always builds a container: a Dockerfile, or a buildpack that produces one. Hop3 can do the same with `[build] builder = "docker"`, so the simplest migration keeps your Dockerfile unchanged.
 
-But you often don't need it. Hop3 auto-detects a native toolchain from the files in your repo — Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET — and builds without a container at all. If your Dockerfile was just "install the runtime, copy the code, run the server", you can usually delete it and let Hop3 detect the language:
+A container is often unnecessary. Hop3 auto-detects a native toolchain from the files in your repo (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET) and builds without a container at all. If your Dockerfile was just "install the runtime, copy the code, run the server", you can usually delete it and let Hop3 detect the language:
 
 ```toml
 [build]
@@ -213,11 +213,11 @@ toolchain = "python"
 before-build = "npm install && npm run build"
 ```
 
-Keep `builder = "docker"` when your image does something Hop3's toolchains don't — a system package, a compiled C extension with awkward deps, a pinned runtime version. There's also a Nix builder and a static-site builder for the cases in between.
+Keep `builder = "docker"` when your image does something Hop3's toolchains don't: a system package, a compiled C extension with awkward deps, a pinned runtime version. There's also a Nix builder and a static-site builder for the cases in between.
 
 ### Non-HTTP Services
 
-If your Fly app exposed a raw TCP/UDP port (`[[services]]` with an `internal_port` that wasn't HTTP — SMTP, RTMP, a game server), that's not the HTTP path. HTTP apps use the dynamic `$PORT` and are proxied by hostname, so they never declare a port. A fixed host port is declared with `[[ports]]`:
+If your Fly app exposed a raw TCP/UDP port for SMTP, RTMP, a game server (`[[services]]` with a non-HTTP `internal_port`), that's not the HTTP path. HTTP apps use the dynamic `$PORT` and are proxied by hostname, so they never declare a port. A fixed host port is declared with `[[ports]]`:
 
 ```toml
 [[ports]]
@@ -226,11 +226,11 @@ protocol = "tcp"
 name = "rtmp"
 ```
 
-Hop3 records each fixed port in a host-wide registry and refuses a second app that wants the same one — before it builds — so two apps can't silently fight over it. One caveat worth knowing up front: fixed ports are opened for native and Nix builds; a Docker-deployed app claims the port (so the conflict check works) but the firewall isn't opened for it yet. Use a native or Nix build for an app that needs a reachable fixed port.
+Hop3 records each fixed port in a host-wide registry and refuses a second app that wants the same one before it builds, so two apps can't silently fight over it. One caveat: fixed ports are opened for native and Nix builds. A Docker-deployed app claims the port, so the conflict check works, but the firewall isn't opened for it yet. Use a native or Nix build for an app that needs a reachable fixed port.
 
 ### Secrets
 
-`fly secrets` are encrypted at rest and injected into the Machine environment. Hop3's `[env]` is the same idea — values are stored encrypted in the database — so secrets land in `[env]` in `hop3.toml`, or you set them out of band so they never touch the repo:
+`fly secrets` are encrypted at rest and injected into the Machine environment. Hop3's `[env]` is the same idea: values are stored encrypted in the database. Secrets therefore land in `[env]` in `hop3.toml`, or you set them out of band so they never touch the repo:
 
 ```bash
 hop3 env set --app your-app SECRET_KEY=… STRIPE_KEY=…
@@ -248,7 +248,7 @@ Maybe you ran Fly Postgres but your real database is a managed Postgres elsewher
 DATABASE_URL = "postgresql://user:pass@db.example.com:5432/mydb"
 ```
 
-Hop3 won't manage that database, but your app talks to it exactly as before. You can adopt a Hop3 addon later.
+Hop3 leaves that database alone, and your app talks to it exactly as before. You can adopt a Hop3 addon later.
 
 ### Postgres Extensions
 
@@ -262,7 +262,7 @@ Extensions are allow-listed, so only the ones Hop3 ships support for will instal
 
 ### Redis Data
 
-Most Redis on Fly is cache and doesn't need migrating — let it warm up fresh. If you do have data to keep, dump it from your Fly Redis and load it into the Hop3 addon:
+Most Redis on Fly is cache and doesn't need migrating; let it warm up fresh. If you do have data to keep, dump it from your Fly Redis and load it into the Hop3 addon:
 
 ```bash
 # Or just start fresh — most Redis data is cache
@@ -271,7 +271,7 @@ hop3 addon redis import your-app-cache --confirm=your-app-cache < dump.rdb
 
 ### Scheduled Jobs
 
-Fly has no built-in scheduler — you typically ran a cron Machine or a supervised process. In Hop3, declare a worker in `hop3.toml`:
+Fly has no built-in scheduler, so you typically ran a cron Machine or a supervised process. In Hop3, declare a worker in `hop3.toml`:
 
 ```toml
 [run.workers]
@@ -288,7 +288,7 @@ crontab -e
 
 ### Multi-Region
 
-This is the gap that matters most for Fly users, so it's worth being plain about it. Hop3 runs on one server. There is no `primary_region`, no `fly regions add`, no anycast, no edge. If your app served users on multiple continents from multiple regions, Hop3 does not replace that — pick the region closest to your users, put the server there, and accept the latency for everyone else. The flip side is data locality: everything lives in one place you chose, which for a lot of apps (and a lot of compliance regimes) is the feature, not the limitation.
+This is the gap that matters most for Fly users. Hop3 runs on one server, so `primary_region` has nothing to point at. If your app served users on multiple continents from multiple regions, Hop3 does not replace that. Pick the region closest to your users, put the server there, and accept the latency for everyone else. The flip side is data locality: everything lives in one place you chose, which for a lot of apps (and a lot of compliance regimes) is the feature.
 
 ## Command Mapping
 
@@ -311,7 +311,7 @@ This is the gap that matters most for Fly users, so it's worth being plain about
 
 ## Cost and Lock-In
 
-Fly's pricing is per-Machine, per-region, per-volume, with bandwidth on top, and it's usage-based — which is great until a region you forgot about, or a Machine that wouldn't scale to zero, shows up on the invoice. The bill moves. Hop3's doesn't: you rent a VPS, you know the number, and adding an app or a region's worth of traffic doesn't change it.
+Fly's pricing is per-Machine, per-region, per-volume, with bandwidth on top, and it's usage-based. That's great until a region you forgot about, or a Machine that wouldn't scale to zero, shows up on the invoice. The bill moves. Hop3's bill doesn't: you rent a VPS, you know the number, and adding an app or a region's worth of traffic doesn't change it.
 
 | | Fly.io | Hop3 (self-hosted) |
 |-|--------|-------------------|
@@ -321,11 +321,11 @@ Fly's pricing is per-Machine, per-region, per-volume, with bandwidth on top, and
 | **Small app** | usage-based, climbs with regions | ~$10/month (VPS) |
 | **Medium app** | usage-based | ~$30/month (VPS) |
 
-The lock-in angle is the quieter win. On Fly your app is shaped around Fly Machines, 6PN private networking, and `fly.dev` hostnames. On Hop3 it's a Dockerfile (or a plain native build), a Postgres you can `pg_dump`, and a config file in your repo — nothing that only one vendor can run. If you ever leave Hop3 too, you leave with a standard app, not a platform-shaped one. The trade-off is the obvious one: you manage the server, but you control everything on it.
+Lock-in is a smaller risk on Hop3. On Fly your app is shaped around Fly Machines, 6PN private networking, and `fly.dev` hostnames. On Hop3 it's a Dockerfile (or a plain native build), a Postgres you can `pg_dump`, and a config file in your repo. Nothing in it runs only on one vendor. If you ever leave Hop3 too, you leave with a standard app. The trade-off is the obvious one: you manage the server, but you control everything on it.
 
 ## Rollback Plan
 
-Keep your Fly app running during migration — Machines you don't touch keep serving:
+Keep your Fly app running during migration; Machines you don't touch keep serving:
 
 1. Deploy to Hop3 with a test domain (or a `*.fly.dev`-style subdomain of your own)
 2. Verify everything works against real data
@@ -333,7 +333,7 @@ Keep your Fly app running during migration — Machines you don't touch keep ser
 4. Keep the Fly app running for 1–2 weeks
 5. Run `fly apps destroy your-app` (and `fly postgres` / `fly volumes`) once you're confident
 
-Because DNS is the only switch, rollback is just pointing the record back at Fly — no data has to move twice.
+Because DNS is the only switch, rollback is pointing the record back at Fly; no data has to move twice.
 
 ## Getting Help
 
@@ -344,3 +344,4 @@ Because DNS is the only switch, rollback is just pointing the record back at Fly
 ---
 
 *Coming from a different platform? The concepts are similar. Check the [Getting Started guide](/get-started/) for a fresh start.*
+.*

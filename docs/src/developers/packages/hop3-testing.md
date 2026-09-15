@@ -1,16 +1,16 @@
 # hop3-testing Deep Dive
 
-This document provides detailed internal documentation for the hop3-testing package. For a quick overview, see the [package overview](index.md).
+This document describes the internals of the hop3-testing package. For a quick overview, see the [package overview](index.md).
 
 ## Architecture Overview
 
 hop3-testing provides infrastructure for validating Hop3 deployments:
 
-1. **Test Targets** - Docker containers or remote SSH servers
-2. **Catalog** - Discovery of tests defined in `hop3.toml` (or standalone `test.toml`)
-3. **Deployment Sessions** - Automated deploy/verify/cleanup
-4. **Runners** - Deployment, demo, and tutorial execution strategies
-5. **pytest Integration** - the `c_e2e` layer that drives real deploys
+1. **Test Targets**: Docker containers or remote SSH servers
+2. **Catalog**: Discovery of tests defined in `hop3.toml` (or standalone `test.toml`)
+3. **Deployment Sessions**: Automated deploy/verify/cleanup
+4. **Runners**: Deployment, demo, and tutorial execution strategies
+5. **pytest Integration**: the `c_e2e` layer that drives real deploys
 
 The `hop3-test` CLI exposes three subcommands: `run`, `list`, and `why`.
 
@@ -147,7 +147,7 @@ docs/tutorials/            # Tutorial scripts (the source tree, not the built on
 ../hop3-catalog/apps/<status>/   # Real applications, in the sibling catalog (ADR 059)
 ```
 
-Each real app declares its test configuration under a `[test]` section in its own `hop3.toml`. Apps without a `hop3.toml` — Procfile-only test apps, demos, tutorials, and negative-test cases — keep a standalone `test.toml`.
+Each real app declares its test configuration under a `[test]` section in its own `hop3.toml`. Apps without a `hop3.toml` (Procfile-only test apps, demos, tutorials, and negative-test cases) keep a standalone `test.toml`.
 
 ### Test definition
 
@@ -175,7 +175,7 @@ status = 200
 contains = "Hello"
 ```
 
-For Procfile-only apps, demos, tutorials, and negative-test cases (no `hop3.toml`), the legacy standalone `test.toml` is still supported:
+For Procfile-only apps, demos, tutorials, and negative-test cases (no `hop3.toml`), the legacy standalone `test.toml` remains supported:
 
 ```toml
 [test]
@@ -356,7 +356,7 @@ runs the suite across cloud OS images (Hetzner). Each image is a full
 `hop3-test run --provider hetzner`, so a cloud run shares `run`'s lexicon
 (positional apps, `--from`, `--with`). Requires `HETZNER_API_TOKEN` and
 `HETZNER_SERVER_ID`, and the server must carry the label `hop3-throwaway=true`
-(`hcloud server add-label <id> hop3-throwaway=true`): a rebuild wipes it.
+(`hcloud server add-label <id> hop3-throwaway=true`), because a rebuild wipes it.
 
 ```bash
 hop3-test run --list-images                                       # Available OS images
@@ -405,7 +405,7 @@ status = 200
 contains = "Welcome"
 ```
 
-Each validation hits a `path`, asserts a `status`, and can assert response body content (`contains`). For richer checks, an app can ship a `check.py` exposing a `check(hostname, port)` function, run via `run_check_script_detailed`. Asserting app-specific body content (not just a 200) is the gate before an app is advertised — a 200 can be a placeholder, an error page, or another app's content.
+Each validation hits a `path`, asserts a `status`, and can assert response body content (`contains`). For richer checks, an app can ship a `check.py` exposing a `check(hostname, port)` function, run via `run_check_script_detailed`. Asserting app-specific body content (a bare 200 is not enough) is the gate before an app is advertised: a 200 can be a placeholder, an error page, or another app's content.
 
 ## Debugging
 
@@ -440,4 +440,4 @@ When a run fails, copy the `RUN_ID` from the failure headline and replay its dia
 hop3-test why <run-id> --section proxy
 ```
 
-The proxy section captures the silent-502 class (a healthy app behind a front-end 502 because the proxy points at the wrong port/host) that motivated the unified diagnostics in ADR 043.
+The proxy section captures the silent-502 class: a healthy app behind a front-end 502 because the proxy points at the wrong port or host, the class that motivated the unified diagnostics in ADR 043.

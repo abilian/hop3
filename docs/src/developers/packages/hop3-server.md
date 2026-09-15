@@ -1,17 +1,17 @@
 # hop3-server Deep Dive
 
-This document provides detailed internal documentation for the hop3-server package. For a quick overview, see the [package overview](index.md).
+This document describes the internals of the hop3-server package. For a quick overview, see the [package overview](index.md).
 
 ## Architecture Overview
 
 hop3-server is the central orchestrator for the Hop3 PaaS. It handles:
 
-1. **API Layer** - JSON-RPC over HTTP via Litestar
-2. **Command Handlers** - Business logic for each operation
-3. **Deployment Pipeline** - Build and deploy applications
-4. **Plugin System** - Extensible architecture via pluggy
-5. **Process Management** - uWSGI configuration and lifecycle
-6. **Proxy Configuration** - Nginx/Caddy/Traefik setup
+1. **API Layer**: JSON-RPC over HTTP via Litestar
+2. **Command Handlers**: Business logic for each operation
+3. **Deployment Pipeline**: Build and deploy applications
+4. **Plugin System**: Extensible architecture via pluggy
+5. **Process Management**: uWSGI configuration and lifecycle
+6. **Proxy Configuration**: Nginx/Caddy/Traefik setup
 
 ## Module Structure
 
@@ -75,7 +75,7 @@ class AppsCmd(Command):
 
 ### ORM Layer (`hop3/orm/`)
 
-SQLAlchemy models with Advanced Alchemy patterns:
+The ORM layer uses SQLAlchemy models with Advanced Alchemy patterns:
 
 ```
 orm/
@@ -153,12 +153,12 @@ deployers/
 
 Deployment stages:
 
-1. **Receive** - Accept git push or tarball upload
-2. **Checkout** - Extract source to `src/` directory
-3. **Build** - Run builder (LocalBuilder, DockerBuilder, or Nix builder)
-4. **Configure** - Generate uWSGI and proxy configs
-5. **Deploy** - Activate the application
-6. **Verify** - Health check
+1. **Receive**: Accept git push or tarball upload
+2. **Checkout**: Extract source to `src/` directory
+3. **Build**: Run builder (LocalBuilder, DockerBuilder, or Nix builder)
+4. **Configure**: Generate uWSGI and proxy configs
+5. **Deploy**: Activate the application
+6. **Verify**: Health check
 
 ### Runtime Management (`hop3/run/`)
 
@@ -215,7 +215,7 @@ class AppController:
 
 ### Configuration
 
-Configuration sources (in order of precedence):
+Configuration comes from these sources, in order of precedence:
 
 1. Environment variables (`HOP3_*`)
 2. Config file (`hop3-server.toml` under `$HOP3_ROOT`)
@@ -261,11 +261,11 @@ flowchart LR
 
 ## Testing
 
-Testing follows ADR 043. There are three pytest layers under `tests/`. A test's layer is decided by what it *needs* (Docker, root, or host mutation), not by how complex it is, so duplication across layers is allowed:
+Testing follows ADR 043. There are three pytest layers under `tests/`. What a test *needs* (Docker, root, or host mutation) decides its layer, so duplication across layers is allowed:
 
-- `a_unit/` - Unit tests; no Docker; counts toward coverage; tier `fast`.
-- `b_integration/` - Integration tests; in-process, against a real in-memory database; no Docker; counts toward coverage; tier `check`.
-- `c_e2e/` - End-to-end tests; real Docker deploys; no coverage; runs in the check tier (Docker) and nightly.
+- `a_unit/`: Unit tests; no Docker; counts toward coverage; tier `fast`.
+- `b_integration/`: Integration tests; in-process, against a real in-memory database; no Docker; counts toward coverage; tier `check`.
+- `c_e2e/`: End-to-end tests; real Docker deploys; no coverage; runs in the check tier (Docker) and nightly.
 
 Markers are stamped from the directory by the root `conftest.py` (`fast` / `integration` / `e2e` / `needs_docker`), so selection works from anywhere:
 
@@ -312,7 +312,7 @@ def hop3_container():
 
 - **Authentication**: JWT tokens with configurable expiry
 - **Authorization**: Role-based access (admin, user)
-- **Transport**: HTTPS via Nginx, with pluggable certificate engines (self-signed or certbot/Let's Encrypt)
+- **Transport**: HTTPS via Nginx, with pluggable certificate engines (self-signed or Let's Encrypt via certbot)
 - **Secrets**: Environment variables, never in code
 
 ## Debugging

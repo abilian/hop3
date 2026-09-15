@@ -15,12 +15,12 @@ This guide covers server administration tasks for Hop3 operators, including inst
 
 ### Supported Operating Systems
 
-- **Debian** 12 (Bookworm) - Recommended
+- **Debian** 12 (Bookworm): recommended
 - **Ubuntu** 24.04 LTS, 26.04 LTS
 - **Rocky Linux** 9
-- **NixOS** (experimental — via the Nix flake / `services.hop3` module)
+- **NixOS** (experimental: via the Nix flake / `services.hop3` module)
 
-On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. (Separately, the Nix package manager is also available as an app *builder* on any supported host.)
+On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. The Nix package manager is also available as an app *builder* on any supported host.
 
 ## Installation
 
@@ -89,14 +89,14 @@ hop3-deploy-server --host server.example.com --from local            # this chec
 /home/hop3/venv/bin/pip list | grep hop3
 ```
 
-Each upgrade runs the same sequence: **install `hop3-server`, `hop3-rootd` and `hop3-cli` at one version → check the venv holds exactly that version → `hop3-server db:upgrade` (migrations) → restart `hop3-rootd`, then `hop3-server` → verify the server answers.** Running apps are not touched: the uWSGI emperor, its vassals and nginx keep serving throughout. Do not pass `--clean`, which wipes the installation and its addon databases.
+Each upgrade runs the same sequence: install `hop3-server`, `hop3-rootd` and `hop3-cli` at one version → check the venv holds exactly that version → `hop3-server db:upgrade` (migrations) → restart `hop3-rootd`, then `hop3-server` → verify the server answers. Running apps are not touched: the uWSGI emperor, its vassals and nginx keep serving throughout. Never pass `--clean` for an upgrade; it wipes the installation and its addon databases.
 
-**Do not upgrade by re-running the single-file installer** (`install-server.py`). On an existing server it does not run the migrations, does not upgrade the code unless a version is pinned, and restarts the uWSGI emperor, which restarts every app. The single-file installer is for a first install.
+**Do not upgrade by re-running the single-file installer** (`install-server.py`). On an existing server it skips the migrations, upgrades the code only when a version is pinned, and restarts the uWSGI emperor, which restarts every app. The single-file installer exists for a first install only.
 
-**What the upgrade guarantees.** Migrations run *between* install and restart, and both ends are gated so a broken upgrade never leaves you silently down:
+**What the upgrade guarantees.** Migrations run *between* install and restart. Both ends are gated, so a broken upgrade never leaves you silently down:
 
-- **A failed migration aborts before the restart** — the *old* server keeps running on the old schema. Fix the migration and re-run.
-- **After the restart, the upgrade verifies the server actually answers.** If the new code fails to start, the upgrade **fails loudly** (it does not report "complete") and prints the exact command to revert to the previous release. The schema has already migrated forward, so a revert may also need a pre-upgrade database restore.
+- **A failed migration aborts before the restart**: the *old* server keeps running on the old schema. Fix the migration and re-run.
+- **After the restart, the upgrade verifies the server actually answers.** If the new code fails to start, the upgrade fails with an explicit error (it does not report "complete") and prints the exact command to revert to the previous release. The schema has already migrated forward; a revert may also need a pre-upgrade database restore.
 
 **Recovering from a bad upgrade.** Follow the revert command the failed upgrade printed (it names the previous git commit or PyPI version). Then diagnose:
 
@@ -109,7 +109,7 @@ Because platform migrations are forward-only, if the previous code cannot run on
 
 ### Upgrading an application
 
-Individual apps have their own safe-upgrade command that snapshots, redeploys, and rolls back automatically on failure — see [Backup & Restore](#backup-restore):
+Individual apps have their own safe-upgrade command that snapshots, redeploys, and rolls back automatically on failure; see [Backup & Restore](#backup-restore):
 
 ```bash
 hop3 app upgrade --app myapp      # snapshot -> redeploy + migrate -> verify -> auto-rollback on failure
@@ -141,7 +141,7 @@ hop3 app rollback --app myapp     # restore the most recent backup (--to <backup
 
 **Location:** `/home/hop3/hop3-server.toml`
 
-The server reads top-level keys from this file (each key is also overridable by an environment variable of the same name). It is a flat key/value file — there are no `[section]` tables for these settings.
+The server reads top-level keys from this file (each key is also overridable by an environment variable of the same name). The file is a flat key/value store with no `[section]` tables for these settings.
 
 ```toml
 HOP3_SECRET_KEY = "your-secret-key-here"
@@ -178,12 +178,10 @@ sudo nginx -t && sudo systemctl reload nginx
 
     Hop3 has no per-application ownership: any account you create can stop,
     reconfigure, back up or destroy **every** app on the server, and can read
-    every addon's credentials. The `--admin` flag controls user-management
-    rights, not application access.
-
-    Provision accounts on that basis, and don't host applications for parties
-    who shouldn't see each other's data on the same server. See
-    [Security](security.md#the-account-model-accounts-are-operator-equivalent).
+    every addon's credentials. The `--admin` flag governs user-management
+    rights. Provision accounts on that basis, and do not host applications
+    for parties who should not see each other's data on the same server.
+    See [Security](security.md#the-account-model-accounts-are-operator-equivalent).
 
 ### Creating Admin Users
 
@@ -225,7 +223,7 @@ hop3 user list
 
 ## Database Addon Management
 
-Hop3 supports PostgreSQL, MySQL, and Redis as backing services. For complete addon command documentation, see the **[CLI Reference: Services (Addons)](../reference/cli.md#services-addons)**.
+Hop3 supports PostgreSQL, MySQL, and Redis as backing services. Complete addon command documentation is in the [CLI Reference: Services (Addons)](../reference/cli.md#services-addons).
 
 ### Quick Reference
 
@@ -355,7 +353,7 @@ ps aux | grep uwsgi
 
 ## Backup & Restore
 
-For application-level backups, see the **[Backup and Restore Guide](backup-restore.md)**.
+For application-level backups, see the [Backup and Restore Guide](backup-restore.md).
 
 ### Application Backups
 
@@ -367,7 +365,7 @@ hop3 backup restore <id>         # Restore from backup
 
 ### Full Server Backup
 
-`hop3-backup-server` (installed with `hop3-deploy-server`) takes a complete snapshot of a server from your machine, without stopping anything on it: a consistent copy of the control-plane database, every config and secret file, the service units, the proxy and uWSGI trees, the apps tree, and a dump of each backing service that is installed (PostgreSQL, MySQL, Redis; Docker volumes with `--docker-volumes`). It uploads the server-side script it ships with, runs it as root, and streams the report: every step prints ok, skip or FAIL, the result carries checksums and a `RESTORE.md`, and the directory is mode 0700 because it holds every secret the server has. `--fetch DIR` copies the snapshot to your machine, which is where a backup belongs if the server itself is the thing that might fail.
+`hop3-backup-server` (installed with `hop3-deploy-server`) takes a complete snapshot of a server from your machine, without stopping anything on it. The snapshot holds a consistent copy of the control-plane database, every config and secret file, the service units, the proxy and uWSGI trees, the apps tree, and a dump of each backing service that is installed (PostgreSQL, MySQL, Redis; Docker volumes with `--docker-volumes`). It uploads the server-side script it ships with, runs it as root, and streams the report: every step prints ok, skip or FAIL, the result carries checksums and a `RESTORE.md`, and the directory is mode 0700 because it holds every secret the server has. `--fetch DIR` copies the snapshot to your machine, which is where a backup belongs when the server itself is the thing that might fail.
 
 ```bash
 hop3-backup-server --host server.example.com --version 0.7.3           # /var/backups/hop3/<host>-pre-0.7.3
@@ -439,7 +437,6 @@ sudo ufw enable
 host key of an unknown server is accepted on first contact. That first
 connection is also the one that installs Hop3 as root, so on a host you did
 not just provision yourself, verify the key out-of-band first:
-
 ```bash
 # On the target (via console, or your provider's control panel):
 ssh-keyscan -t ed25519 localhost | ssh-keygen -lf -
@@ -450,7 +447,7 @@ ssh-keygen -lf ~/.ssh/known_hosts | grep your-server.com
 ```
 
 Once the key is in `known_hosts`, a mismatch on any later connection is
-refused rather than accepted.
+refused.
 
 ### SSH Hardening
 
@@ -468,7 +465,7 @@ sudo systemctl reload sshd
 
 ### Database Security
 
-**PostgreSQL** - Edit `/etc/postgresql/*/main/pg_hba.conf`:
+**PostgreSQL**: edit `/etc/postgresql/*/main/pg_hba.conf`:
 ```
 # Local connections
 local   all   all                 peer
@@ -478,7 +475,7 @@ host    all   all   172.16.0.0/12   md5
 host    all   all   192.168.0.0/16  md5
 ```
 
-**MySQL** - Ensure strong root password:
+**MySQL**: ensure a strong root password:
 ```bash
 sudo mysql_secure_installation
 ```
@@ -518,7 +515,7 @@ proxy_cache_path /var/cache/nginx levels=1:2 keys_zone=cache:10m;
 
 ### Database Tuning
 
-**PostgreSQL** - Edit `/etc/postgresql/*/main/postgresql.conf`:
+**PostgreSQL**: edit `/etc/postgresql/*/main/postgresql.conf`:
 ```
 shared_buffers = 256MB
 effective_cache_size = 1GB
@@ -726,18 +723,18 @@ sudo systemctl restart systemd-journald
 
 A build competes for CPU, memory and disk with every application already
 running on the server, so Hop3 runs `MAX_CONCURRENT_BUILDS` of them at a time
-and queues the rest. A queued deploy says so in its own output and starts on
-its own; nothing is lost by waiting.
+and queues the rest; a queued deploy says so in its own output and starts on
+its own.
 
 Raise `MAX_CONCURRENT_BUILDS` on a machine with cores to spare, and lower it to
-`1` on a small one where a deploy noticeably slows the apps being served. Past
-`MAX_WAITING_BUILDS` waiting deploys, a new one is refused with a message
-rather than queued, so a burst cannot grow the wait line without limit.
+`1` on a small one where a deploy noticeably slows the apps being served. When
+the number of deploys waiting for a build slot passes `MAX_WAITING_BUILDS`, a
+new one is refused with a message naming the limit.
 
 ## Related Guides
 
-- **[Server Setup](../get-started/server-setup.md)** - Initial server installation
-- **[User Guide](user-guide.md)** - Core concepts and daily operations
-- **[Backup and Restore](backup-restore.md)** - Data protection and recovery
-- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
-- **[CLI Reference](../reference/cli.md)** - Complete command documentation
+- **[Server Setup](../get-started/server-setup.md)**: initial server installation
+- **[User Guide](user-guide.md)**: core concepts and daily operations
+- **[Backup and Restore](backup-restore.md)**: data protection and recovery
+- **[Troubleshooting](troubleshooting.md)**: diagnose and fix common issues
+- **[CLI Reference](../reference/cli.md)**: complete command documentation

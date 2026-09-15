@@ -2,75 +2,73 @@
 
 **Q: Why "Hop3"?**
 
-**A:** "Hop3" means "hop cubed" or "hop to the power of 3", or "hop, hop, hop!", which in French means "hurry up!". This name reflects the agility, speed, and efficiency we aim for with this platform.
-
-The number 3 is also a nod to the fact that it's the third iteration of a similar system we've been developing and using for years (Abilian Cloud Controller -> Nua -> Hop3).
+**A:** "Hop3" means "hop cubed" or "hop to the power of 3", or "hop, hop, hop!", which in French means "hurry up!". The name also nods to the third iteration of a similar system we've been developing and using for years (Abilian Cloud Controller -> Nua -> Hop3).
 
 **Q: What makes Hop3 different from other PaaS offerings?**
 
-**A:** Hop3 distinguishes itself from other Platform as a Service (PaaS) offerings through its unique combination of simplicity, modularity, and commitment to open-source principles. Unlike many PaaS solutions that are either proprietary or that lean heavily on complex, resource-intensive containerization and orchestration tools like Docker and Kubernetes, Hop3 is designed to be lightweight and accessible, ensuring efficient performance even on low-end devices or in resource-constrained environments.
+**A:** Hop3 sets itself apart by combining simplicity, modularity, and a commitment to open-source principles. Many PaaS solutions are proprietary, or lean on complex, resource-intensive containerization and orchestration tools such as Docker and Kubernetes. Hop3 is designed to be lightweight and accessible, and runs efficiently even on low-end devices and in resource-constrained environments.
 
-At its core, Hop3 is built to be highly extensible and customizable through a plugin-oriented architecture. This approach allows users to tailor the platform to their specific needs, extending its functionality without bloating the core system. This level of modularity is rare in the PaaS space, where platforms often trade off customizability for simplicity.
+Hop3 is extensible and customizable through a plugin-oriented architecture. Such modularity is rare in the PaaS space, where platforms often trade customizability for simplicity. With plugins, users can tailor the platform to their needs, extending its functionality without bloating the core.
 
-Hop3's open-source nature makes it easy to tailor or enhance the platform, share knowledge, and develop new features. This stands in contrast to many commercial PaaS offerings, where users are subject to the limitations and costs imposed by proprietary technologies and cannot directly influence the platform's development trajectory.
+Hop3's open-source nature makes it easy to tailor or enhance the platform, share knowledge, and develop new features. Commercial PaaS offerings impose the limitations and costs of proprietary technologies, and their users have no influence over how the platform develops.
 
-Hop3 prioritizes direct integration with the host system, offering improved performance and resource utilization over solutions that abstract away the underlying infrastructure. This direct approach also enhances security and reliability, as users maintain closer control over their deployment environments.
+Hop3 prioritizes direct integration with the host system, which improves performance and resource use compared with solutions that abstract away the underlying infrastructure. The direct approach also enhances security and reliability, since users keep closer control over their deployment environments.
 
-Finally, Hop3's philosophy eschews the complexity and overhead associated with larger platforms like Kubernetes, aiming instead to provide a straightforward and user-friendly deployment experience. This makes Hop3 particularly appealing to small to medium-sized projects, early-stage startups, and developers looking for an agile and cost-effective way to deploy and manage their applications, without sacrificing the power and flexibility typically associated with larger PaaS solutions.
+Finally, Hop3 avoids the complexity and overhead of larger platforms like Kubernetes. It aims for a straightforward deployment experience, which appeals to small and medium-sized projects, early-stage startups, and developers who want an agile, cost-effective way to deploy and manage their applications without giving up the power and flexibility of larger PaaS solutions.
 
 **Q: Why Python? / why not Go/Rust/Erlang/...?**
 
-**A:** Python was chosen for Hop3 for its simplicity, readability, and vast ecosystem, which are essential for a platform designed to be accessible and easily adopted by a broad range of developers.
+**A:** Python was chosen for its simplicity, readability, and large ecosystem, which make the platform accessible to a broad range of developers.
 
-While Go, Rust, Erlang, and other languages offer their own set of advantages, including performance and concurrency support, Python strikes an optimal balance between performance, ease of development, and community support. It also happens to be the language we are most comfortable with and have the most experience in.
+Go, Rust, and Erlang have their own advantages, including performance and concurrency support, but Python balances performance, ease of development, and community support, and it is the language we know best.
 
 **Q: Can Hop3 support applications built with various programming languages?**
 
-**A:** Yes, Hop3 is designed to be language-agnostic, supporting a wide range of programming languages and frameworks. This flexibility allows developers to deploy applications written in languages like Python, JavaScript (Node.js), Ruby, Java, and more. The platform's underlying infrastructure and tooling are built to accommodate the diverse needs of modern web applications, ensuring that developers can use their preferred languages and technologies without compatibility concerns.
+**A:** Yes. Hop3 is language-agnostic: developers can deploy applications written in Python, JavaScript (Node.js), Ruby, Java, and more. The underlying infrastructure and tooling accommodate the needs of modern web applications, so developers can use their preferred languages and frameworks without compatibility concerns.
 
 **Q: Why not just use Dokku?**
 
-**A:** While Dokku was the original "self-hosted and lightweight Heroku-clone", Hop3 seeks to address certain limitations inherent in Dokku's architecture. Specifically, Dokku can be heavier for small-scale deployments or low-end hardware, and its customization options are limited by its reliance on Docker. Hop3 is engineered to be leaner, offering improved performance and security, and its modular, plugin-oriented design affords a level of flexibility and extensibility that Dokku lacks.
+**A:** Dokku was the original "self-hosted and lightweight Heroku-clone", but it has architectural limitations: it can be heavy for small-scale deployments or low-end hardware, and its customization options are limited by its reliance on Docker. Hop3 is leaner, with better performance and security, and its modular, plugin-oriented design is more flexible and extensible.
 
 **Q: Why not just use Piku or Sailor?**
 
-**A:** Both Piku and Sailor offer compelling solutions; however, Hop3 differentiates itself by focusing on providing a broader set of functionalities and a more polished user experience. We aim to support an expansive array of deployment contexts with enhanced ease of use. Although we share roots with Piku and Sailor, including some shared code, Hop3's architecture is conceived to be more openly extensible. This encourages both the use of and the contribution to its ecosystem, with a particular emphasis on plugins that can broaden its applicability.
+**A:** Both Piku and Sailor are good solutions. Hop3 aims to offer broader functionality, a more polished user experience, and support for more deployment contexts. We share roots with Piku and Sailor, including some shared code, but Hop3's architecture is more openly extensible, which encourages use of and contribution to its ecosystem, especially through plugins.
 
 **Q: Why not use Docker or a similar container-based technology?**
 
-**A:** Docker's complexity and the resource demand it places on systems, particularly for smaller projects or devices with limited capabilities, is a significant drawback. Hop3 aspires to offer a more streamlined, efficient alternative that sidesteps the bulk and intricacy of Docker, focusing instead on straightforward deployment processes. Our system is designed for deeper integration with the host and/or external services, optimizing both performance and resource use.
+**A:** Docker is complex and demands many system resources, particularly for smaller projects or devices with limited capabilities. Hop3 keeps deployment straightforward and integrates more deeply with the host and external services, which improves performance and resource use.
 
 **Q: Why not use Kubernetes?**
 
-**A:** Kubernetes, despite its scalability and robustness, often introduces unnecessary complexity and overhead for simpler applications or smaller-scale deployments. Hop3 is tailored for those seeking a more accessible, less cumbersome solution. Our platform avoids the steep learning curve and extensive setup associated with Kubernetes, offering a streamlined path to deploying applications efficiently.
+**A:** Kubernetes, despite its scalability and robustness, often brings unnecessary complexity and overhead to simpler applications and smaller-scale deployments. Hop3 targets those who want a more accessible, less cumbersome solution, avoiding the steep learning curve and extensive setup that Kubernetes requires, and offering a simpler path to deploying applications.
 
 **Q: Why not use Heroku?**
 
-**A:** Heroku's ease of use and developer-friendly approach are commendable, but it comes at a cost—both literally and in terms of flexibility and control. Hop3 aims to deliver a more cost-effective, adaptable alternative that does not compromise on the breadth of deployment scenarios it supports. By fostering an open, plugin-enhanced ecosystem, Hop3 offers a level of customization and community engagement that Heroku cannot match, all while steering clear of proprietary confines.
+**A:** Heroku is easy to use and developer-friendly, but it comes at a cost, both in money and in flexibility and control. Hop3 is a more cost-effective, adaptable alternative that still supports a broad range of deployment scenarios. By fostering an open, plugin-enhanced ecosystem, Hop3 offers a level of customization and community engagement that Heroku cannot match, without proprietary lock-in.
 
 **Q: Why not use platforms like Render, Vercel, Netlify, etc.?**
 
-**A:** Platforms such as Render, Vercel, Netlify, etc. provide valuable services but often at the expense of flexibility, control, and cost. Hop3 is envisioned as a more versatile and economical alternative, empowering users with broader deployment capabilities and deeper customization options. Unlike these platforms, Hop3 champions open-source development, ensuring users aren't locked into proprietary ecosystems. This openness encourages innovation, collaboration, and a level of control over deployment environments that proprietary platforms can't match, making Hop3 an attractive option for those seeking greater autonomy in their development workflows.
+**A:** Platforms such as Render, Vercel, and Netlify provide valuable services, but often with less flexibility and control, and at a higher price. Hop3 is more versatile and economical, with broader deployment capabilities and deeper customization. It is also open source, so users are not locked into proprietary ecosystems, and its openness encourages collaboration and gives users a level of control over their deployment environments that proprietary platforms cannot match.
 
 **Q: How does Hop3 contribute to environmental sustainability?**
 
-**A:** Hop3 contributes to environmental sustainability by optimizing resource usage and encouraging the adoption of green computing practices. Through efficient coding, resource allocation, and the utilization of energy-efficient technologies, Hop3 minimizes the carbon footprint associated with hosting and running web applications. Additionally, by providing developers with tools and guidelines for sustainable app development, Hop3 promotes practices that reduce electronic waste and encourage the use of renewable energy sources in cloud computing environments.
+**A:** Hop3 contributes to environmental sustainability by optimizing resource use and encouraging green computing practices. Through efficient coding, resource allocation, and energy-efficient technologies, it minimizes the carbon footprint of hosting and running web applications. It also provides developers with tools and guidelines for sustainable app development, which reduces electronic waste and encourages the use of renewable energy in cloud computing.
 
 **Q: Why did Hop3 choose uWSGI for application deployment?**
 
-**A:** The choice of [uWSGI](https://uwsgi-docs.readthedocs.io/) in [emperor mode](https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html) for Hop3 was driven by its robust feature set that aligns with our core objectives of simplicity, performance, and security.
+**A:** We chose [uWSGI](https://uwsgi-docs.readthedocs.io/) in [emperor mode](https://uwsgi-docs.readthedocs.io/en/latest/Emperor.html) because its feature set aligns with our objectives of simplicity, performance, and security.
 
-1. uWSGI offers seamless integration with Python WSGI applications and `virtualenvs`, making it an ideal tool for Python-based projects which constitute a significant portion of web applications today. This integration simplifies the deployment process, allowing developers to focus on their application logic rather than the intricacies of server configuration.
+1. uWSGI integrates cleanly with Python WSGI applications and `virtualenvs`, which suits Python-based projects, a large portion of web applications today. This simplifies deployment: developers focus on their application logic, and they build and ship their applications faster as a result.
 
-1. uWSGI provides a suite of process management features, including monitoring, restarting, and basic resource limiting, which are essential for maintaining the reliability and efficiency of applications. These capabilities ensure that apps remain responsive and stable under varying loads without requiring manual intervention, thereby enhancing the overall user experience.
+1. uWSGI provides process management features, including monitoring, restarting, and basic resource limiting. These capabilities keep applications responsive and stable under varying loads, which removes the need for manual intervention and contributes to a better overall user experience.
 
-While uWSGI has served Hop3 well, future versions of Hop3 will propose alternatives to uWSGI (as plugins), reflecting our commitment to flexibility and the desire to accommodate a broader range of use cases and technologies. [Potential alternatives are listed here](https://github.com/abilian/books/blob/main/uwsgi/chap-9-2.md).
+While uWSGI has served Hop3 well, future versions will offer alternatives (as plugins) to accommodate a broader range of use cases and technologies. Potential alternatives are listed in the [uWSGI chapter of the abilian books](https://github.com/abilian/books/blob/main/uwsgi/chap-9-2.md), along with the criteria we use to compare them.
 
-More notes about uWSGI: <https://github.com/abilian/books/blob/main/uwsgi/README.md>
+For more notes about uWSGI, see <https://github.com/abilian/books/blob/main/uwsgi/README.md>.
 
 ## Troubleshooting
 
-For comprehensive troubleshooting, see the **[Troubleshooting Guide](troubleshooting.md)**.
+For troubleshooting, see the **[Troubleshooting Guide](troubleshooting.md)**.
 
 **Q: My deployment failed. How do I see what went wrong?**
 
@@ -103,3 +101,4 @@ See [502 Bad Gateway](troubleshooting.md#502-bad-gateway) in the Troubleshooting
 hop3 deploy --app myapp -v          # Verbose mode
 hop3 deploy --app myapp --debug     # Maximum verbosity
 ```
+

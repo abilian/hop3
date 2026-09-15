@@ -1,6 +1,6 @@
 # Hop3 Cheat Sheet
 
-A quick reference for Hop3 users.
+This page is a quick reference for Hop3 users.
 
 ## Mental Model
 
@@ -41,9 +41,9 @@ hop3 version
 
 ### Deploy Environments (devel / staging / …)
 
-Examples throughout use `devel` as the context name. Name your own contexts
-whatever you like — just be deliberate about which one a command targets, since
-`--context` is the only thing standing between a test command and a live server.
+The examples throughout this page use `devel` as the context name. Name your own contexts
+whatever you like. Be careful which one a command targets: `--context` is the
+only thing standing between a test command and a live server.
 
 ```bash
 # Declare environments in this project's hop3.toml (committed, no secrets)
@@ -58,28 +58,28 @@ hop3 context use staging
 hop3 context show
 
 # Pin a context for this checkout (run from inside the project tree;
-# writes .hop3-local.toml, auto-gitignored — ADR 042)
+# writes .hop3-local.toml, auto-gitignored; see ADR 042)
 cd myproject/
 hop3 context use devel
 
 # Override for one shell (ambient)
 export HOP3_CONTEXT=devel
 
-# Use context for single command (the one selector — works for any command)
+# Use context for single command (the one selector; works for any command)
 hop3 --context devel apps
 
 # Remove context
 hop3 context remove old-staging
 ```
 
-**Project-less commands target a context too — `--context` is the one selector:**
+**Project-less commands also target a context. `--context` is the one selector:**
 
 ```bash
 # Name a global server (login authenticates, names the global context, makes it default)
 hop3 auth login --context devel --ssh root@devel.example.com
 # (or, without logging in: hop3 context add devel --server ssh://root@devel.example.com)
 
-# Now target it by name with no project — same flag as an in-project deploy:
+# Now target it by name with no project (same flag as an in-project deploy):
 hop3 app list --context devel
 hop3 system info --context devel
 
@@ -127,7 +127,7 @@ hop3 app list
 # Destroy app (requires confirmation)
 hop3 app destroy --app <app>
 
-# Scriptable destroy — no prompt, still safe
+# Scriptable destroy: no prompt, still safe
 hop3 app destroy --app oldapp --confirm=oldapp
 ```
 
@@ -154,7 +154,7 @@ echo myapp > .hop3-app
 hop3 --why logs
 ```
 
-Resolution order: `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app`. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
+The resolution order is `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app`. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
 
 ### Configuration / Environment
 
@@ -262,7 +262,7 @@ hop3 <command> --help
 | `-y` / `--yes` / `--force` | Skip confirmations |
 | `--confirm=<name>` | Scriptable typed-name confirmation (safer than `--yes`) |
 | `--no-input` | Refuse to prompt; fail fast with a hint |
-| `--context <name>` / `-c` | Select the target context (the one selector — project-then-global; no `--server` flag) |
+| `--context <name>` / `-c` | Select the target context (the one selector: project-then-global; no `--server` flag) |
 | `--app <name>` / `-a` | Override the resolved app |
 | `--why` | Print app/context/alias resolution trace to stderr |
 | `--no-alias` | Bypass the alias table (run the typed command literally) |
@@ -294,7 +294,7 @@ hop3 app status --app myapp --json | jq '.data.state'
 # Safer scripted destroy: typed-name match + still runs safety checks
 hop3 app destroy --app myapp --confirm=myapp
 
-# CI: refuse to block on prompts — fail fast with instructions
+# CI: refuse to block on prompts; fail fast with instructions
 hop3 user add alice alice@ex.com --password-file ./pw --no-input
 
 # Distinguish "user declined" from other failures
@@ -309,7 +309,7 @@ esac
 
 ### Helpful diagnostics
 
-<!-- lint-cli-ignore: `hop3 deplo` is a deliberate typo demonstrating did-you-mean -->
+<!-- lint-cli-ignore: `hop3 deplo` is an intentional typo demonstrating did-you-mean -->
 
 ```bash
 # Why did the CLI pick that app / context?
@@ -326,7 +326,7 @@ hop3 deplo --app myapp   # -> "Did you mean 'deploy'?"
 
 ### Procfile (Simple / Heroku-compatible)
 
-Location: `Procfile` in project root.
+The file lives at `Procfile` in the project root.
 
 ```procfile
 web: gunicorn app:app --workers 4
@@ -344,7 +344,7 @@ prerun: python manage.py migrate
 
 ### hop3.toml (Full Configuration)
 
-Location: `hop3.toml` in project root (or `src/hop3.toml`).
+The file lives at `hop3.toml` in the project root (or `src/hop3.toml`).
 
 ```toml
 [metadata]
@@ -484,7 +484,7 @@ hop3 ps scale --app myapp worker=2
 ### Configuration
 
 - **Don't hardcode secrets** in `hop3.toml` or Procfile
-- For app-internal random secrets (`SECRET_KEY`, `APP_KEY`, …), declare `KEY = { generate = "hex", length = 32 }` in `[env]` — generated once on first deploy, persisted, never committed
+- For app-internal random secrets (`SECRET_KEY`, `APP_KEY`, …), declare `KEY = { generate = "hex", length = 32 }` in `[env]`; Hop3 generates once on first deploy, persists, and never commits the value
 - Use `hop3 env set` for externally-supplied secrets (API keys, passwords)
 - Keep `hop3.toml` in version control (without secrets)
 - Use `[env]` for non-sensitive defaults only
@@ -518,8 +518,8 @@ hop3 ps scale --app myapp worker=2
 
 - **Declare them in hop3.toml:** `hop3 context add devel --server ssh://root@devel --app myapp`
 - **Select one for this checkout:** `hop3 context use devel` (writes the gitignored `.hop3-local.toml`), or `export HOP3_CONTEXT=devel` for one shell, or `--context devel` for one command.
-- **Log into a server (store its token):** `hop3 login root@your-server.com` — records it as the context `default` and makes it current. Add `--context devel` to name it instead: `hop3 login --context devel root@devel.example.com`. A second, differently-addressed server logged in *without* a name is refused rather than silently replacing `default`.
-- **Project-less commands** (`hop3 app list`, `hop3 system info`): select a server by name with the same flag — `hop3 app list --context devel` — or, with no `--context`, target the default context. `--context` is the one selector; there is no `--server` flag.
+- **Log into a server (store its token):** `hop3 login root@your-server.com` records it as the context `default` and makes it current. Add `--context devel` to name it instead: `hop3 login --context devel root@devel.example.com`. A second, differently-addressed server logged in *without* a name is refused; it never silently replaces `default`.
+- **Project-less commands** (`hop3 app list`, `hop3 system info`): select a server by name with the same flag, as in `hop3 app list --context devel`. With no `--context`, they target the default context. `--context` is the one selector; there is no `--server` flag.
 - **Create shell aliases:**
   ```bash
   alias hop3-devel='HOP3_CONTEXT=devel hop3'
@@ -555,8 +555,8 @@ hop3 <command> --help  # Help for specific command
 
 ## Related Guides
 
-- **[User Guide](user-guide.md)** - Core concepts and daily operations
-- **[CLI Reference](../reference/cli.md)** - Complete command documentation
-- **[hop3.toml Reference](../reference/config.md)** - Full configuration file reference
-- **[Backup and Restore](backup-restore.md)** - Comprehensive backup documentation
-- **[Troubleshooting](troubleshooting.md)** - Diagnose and fix common issues
+- [User Guide](user-guide.md): core concepts and daily operations
+- [CLI Reference](../reference/cli.md): complete command documentation
+- [hop3.toml Reference](../reference/config.md): full configuration file reference
+- [Backup and Restore](backup-restore.md): comprehensive backup documentation
+- [Troubleshooting](troubleshooting.md): diagnose and fix common issues

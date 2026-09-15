@@ -142,7 +142,7 @@ def test_backup_manager(di_container):
 
 ### APP Scope Services
 
-APP scope services are singletons - one instance per container lifetime.
+APP scope services are singletons: one instance per container lifetime.
 
 **Examples**: `CertificatesManager`, `PostgresAdmin`, `RedisClientFactory`
 
@@ -346,8 +346,6 @@ def test_service_does_work(di_container):
 
 ## Example: Complete Test Module
 
-Here's a complete example showing clean DI testing patterns:
-
 ```python
 # tests/a_unit/services/test_my_service.py
 
@@ -423,13 +421,13 @@ def test_session_cleanup(di_container):
 3. ✅ **Test with real services** using in-memory database
 4. ✅ **Use pytest fixtures** for setup/teardown
 5. ✅ **Use `autouse=True` fixtures** for environment setup
-6. ✅ **Test real behavior**, not mock interactions
-7. ✅ **Keep tests simple** - one assertion per test when possible
+6. ✅ **Test real behavior** with in-memory services
+7. ✅ **Keep tests simple**: one assertion per test when possible
 8. ✅ **Use descriptive test names** that explain what's being tested
 
 ## References
 
-- [Testing Strategy](testing-strategy.md) - Overall testing approach
-- [ADR 028: Pluggy + Dishka Integration](adrs/028-pluggy-dishka-integration.md) - Plugin-contributed services
-- [Dishka Documentation](https://dishka.readthedocs.io/) - Dishka framework docs
-- [Pytest Documentation](https://docs.pytest.org/) - Pytest testing framework
+- [Testing Strategy](testing-strategy.md): Overall testing approach
+- [ADR 028: Pluggy + Dishka Integration](adrs/028-pluggy-dishka-integration.md): Plugin-contributed services
+- [Dishka Documentation](https://dishka.readthedocs.io/): Dishka framework docs
+- [Pytest Documentation](https://docs.pytest.org/): Pytest testing framework

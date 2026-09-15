@@ -13,14 +13,14 @@ Hop3 supports two modes for Nix-based deployment, in order of preference:
    `hop3.nix` file. Use this when the templates can't express what you
    need.
 
-**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, run `hop3 nix eject <app>` (which writes the file and is the deliberate way to switch from generated to hand-crafted mode).
+**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, run `hop3 nix eject <app>`; this writes the file and is the supported way to switch from generated to hand-crafted mode.
 
 ## When to use Nix
 
 Nix-based deployment is a good choice when you want:
 
 - **Reproducible builds**: the exact same source produces the exact
-  same output (with caveats — see below)
+  same output (with caveats; see below)
 - **Content-addressed closures**: precise dependency tracking, smaller
   diffs on updates
 - **Multi-architecture support**: builds work on x86_64, aarch64,
@@ -39,11 +39,11 @@ Every template builds in a sealed sandbox against a hash-pinned dependency set, 
 | 2 | Source build against a committed lockfile | Yes | Yes | One arch per lockfile |
 | 3 | Pre-built upstream artefact (`fetchurl`) | Yes | No | Usually x86_64 only |
 
-**Tier 1 is the goal.** When the upstream is in nixpkgs at a usable version, prefer the `nixpkgs-wrapper` template — you get the maintained nixpkgs build for free, including multi-arch support.
+**Tier 1 is the goal.** When the upstream is in nixpkgs at a usable version, prefer the `nixpkgs-wrapper` template: you get the maintained nixpkgs build for free, including multi-arch support.
 
 **Tier 2 is where most real apps land**, because nixpkgs either doesn't package them or packages a version you can't deploy. You commit the ecosystem's lockfile (`requirements.txt`, `composer.lock`, `pnpm-lock.yaml`, `go.sum`, `gemset.nix`, `deps.json`); Hop3 vendors it into a fixed-output derivation and builds offline against that. Same auditability as Tier 1, but the lockfile is yours to refresh.
 
-**Tier 3 is a known compromise.** Pre-built artefact templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `java-war`) are convenient for apps whose upstream ships no buildable source for the packaged version, but they sacrifice auditability: you are trusting the upstream release process. Treat them as a stepping stone toward a nixpkgs or source build.
+**Tier 3 is a known compromise.** Pre-built artefact templates (`prebuilt-binary`, `prebuilt-archive`, `node-prebuilt`, `java-war`) are convenient for apps whose upstream ships no buildable source for the packaged version. They sacrifice auditability: you are trusting the upstream release process. Treat them as a stepping stone toward a nixpkgs or source build.
 
 Run `hop3-tools nix tiers <app-dir>` to see the tier of any app, and `make gate-nix` to check that the corpus both rebuilds identically and still deploys.
 
@@ -90,7 +90,7 @@ No Nix code, no `fetchurl`, no hash to maintain.
 
 | Template | When to use |
 |----------|-------------|
-| `nixpkgs-wrapper` | App is already in nixpkgs (preferred — Tier 1) |
+| `nixpkgs-wrapper` | App is already in nixpkgs (preferred; Tier 1) |
 | `python-venv` | Python apps installed via pip into a virtualenv |
 | `php-app` | PHP apps (Composer + extensions + writable dirs) |
 | `java-war` | Java WAR files served with a JDK |
@@ -120,7 +120,7 @@ The nixpkgs-wrapper template builds from source via nixpkgs. The `prebuilt-*` an
 - Multi-arch (x86_64-linux, aarch64-linux, armv7l-linux, riscv64-linux,
   and more)
 - Source hash and dependency closure tracked by Nix
-- Reproducible via a pinned nixpkgs commit (nixos-24.11) — no per-app version maintenance
+- Reproducible via a pinned nixpkgs commit (nixos-24.11); no per-app version maintenance
 
 **The rule:** if `pkgs.<your-app>` exists in nixpkgs, use
 `nixpkgs-wrapper`. Only fall back to a `prebuilt-*` template when there
@@ -143,7 +143,7 @@ When you `hop3 nix eject <app>`, Hop3 materializes the generated Nix expression 
 
 ### Minimal hand-crafted example
 
-A simple Python Flask app:
+A Python Flask app served by gunicorn:
 
 ```nix
 { pkgs ? import (fetchTarball {
@@ -238,7 +238,7 @@ Notice: no `fetchurl`. The `${gitea}` interpolation is a reference to the nixpkg
 
 ## Static sites
 
-Static sites use a special `static` worker. Hop3 detects the `"static"` key in `runtime.json` and configures nginx to serve files directly — no backend process runs.
+Static sites use a special `static` worker. Hop3 detects the `"static"` key in `runtime.json` and configures nginx to serve files directly; no backend process runs.
 
 ```nix
 { pkgs ? import (fetchTarball {
@@ -352,7 +352,7 @@ Notable examples:
 
 | App | Template / approach | Notes |
 |-----|---------------------|-------|
-| `beta/miniflux-nixgen` | nixpkgs-wrapper | Cleanest case — a short `[nix]` block over a nixpkgs package |
+| `beta/miniflux-nixgen` | nixpkgs-wrapper | Cleanest case: a short `[nix]` block over a nixpkgs package |
 | `beta/gitea-nixgen` | nixpkgs-wrapper | INI config generation at startup |
 | `alpha/grafana-nixgen` | nixpkgs-wrapper | PostgreSQL backend, env-driven homepath |
 | `beta/wordpress-nixgen` | php-app | Composer + writable dir handling |
@@ -361,9 +361,9 @@ Notable examples:
 
 ## Related
 
-- [Nix Integration Reference](../reference/nix.md) — Full technical
+- [Nix Integration Reference](../reference/nix.md): Full technical
   reference, runtime.json schema
-- [hop3.toml `[nix]` section](../reference/config.md#nix-template-based-nix-builds)
-  — All template fields
-- [`nix eject` command](../reference/cli.md#hop3-nix-eject) — CLI reference
-- [User Guide](user-guide.md) — General deployment guide
+- [hop3.toml `[nix]` section](../reference/config.md#nix-template-based-nix-builds):
+  All template fields
+- [`nix eject` command](../reference/cli.md#hop3-nix-eject): CLI reference
+- [User Guide](user-guide.md): General deployment guide

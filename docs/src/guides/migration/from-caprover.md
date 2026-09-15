@@ -1,6 +1,6 @@
 # Migrating from CapRover to Hop3
 
-CapRover gave you a self-hosted PaaS with a web dashboard, one-click databases, and `caprover deploy`. The thing it also gave you, whether you wanted it or not, is Docker Swarm: an orchestrator you have to keep healthy, almost always for a single node that never needed a cluster in the first place. If you're tired of maintaining Swarm to run one box, Hop3 offers the same deploy-and-forget feeling on a plain single-server model — and your apps don't even need a Dockerfile. This guide helps you migrate existing CapRover apps to Hop3.
+CapRover gave you a self-hosted PaaS with a web dashboard, one-click databases, and `caprover deploy`. It also gave you Docker Swarm, whether you wanted it or not: an orchestrator you have to keep healthy, almost always for a single node that never needed a cluster in the first place. If you're tired of maintaining Swarm to run one box, Hop3 offers the same deploy-and-forget feeling on a plain single-server model. Your apps don't even need a Dockerfile. This guide helps you migrate existing CapRover apps to Hop3.
 
 ## What's Similar
 
@@ -15,9 +15,9 @@ Both are self-hosted PaaS layers that sit between "raw VPS" and "managed cloud,"
 | Persistent directories | `[[volumes]]` |
 | Custom domains + auto-HTTPS | `hop3 domain add` + ACME |
 
-You still push code and get a running app behind HTTPS on your own server. The difference is what runs underneath it.
+You still push code and get a running app behind HTTPS on your own server.
 
-One thing worth internalizing early: CapRover is dashboard-first, and Hop3 is config-and-CLI-first. Where you used to click through the captain panel, you'll edit a `hop3.toml` checked into your repo and run space-separated CLI commands. The app you're targeting is always the `--app` flag, never a positional argument. So "set a variable on app `myapp` in the dashboard" becomes `hop3 env set FOO=bar --app myapp`.
+CapRover is dashboard-first; Hop3 is config-and-CLI-first. Where you used to click through the captain panel, you'll edit a `hop3.toml` checked into your repo and run space-separated CLI commands. The app you're targeting is always the `--app` flag, never a positional argument. "Set a variable on app `myapp` in the dashboard" becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -25,13 +25,13 @@ One thing worth internalizing early: CapRover is dashboard-first, and Hop3 is co
 |----------|------|
 | Docker Swarm under the hood | Plain single-server, no Swarm |
 | Everything is a container | Native toolchains *or* Docker builder |
-| One-click app marketplace | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| One-click app marketplace | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
 | Richer web dashboard | Config-in-repo + CLI/TUI |
 | Cluster-capable (multi-node) | Single server |
 
-The headline is the orchestrator. CapRover runs your apps as Swarm services, which means a Swarm manager, an overlay network, and a scheduler you're on the hook to keep alive — overhead you pay even when there's exactly one node. Hop3 drops Swarm entirely. Apps run as ordinary processes managed by uWSGI behind nginx, and if an app genuinely wants to be a container, you opt into the Docker builder for that one app. You get to keep "it's just Docker" for the apps that need it, without making every app pay the Swarm tax.
+The headline is the orchestrator. CapRover runs your apps as Swarm services, which means a Swarm manager, an overlay network, and a scheduler you're on the hook to keep alive. That's overhead you pay even when there's exactly one node. Hop3 drops Swarm entirely. Apps run as ordinary processes managed by uWSGI behind nginx. If an app wants to be a container, you opt into the Docker builder for that one app.
 
-Be clear-eyed about the trade: CapRover's one-click marketplace and dashboard are more featureful than what Hop3 ships today. Hop3 gives you four first-class addons (Postgres, MySQL, Redis, S3/MinIO) and a CLI/TUI rather than a point-and-click catalog. And scaling is manual — there's no autoscaler.
+CapRover's one-click marketplace and dashboard are more featureful than what Hop3 ships today. Hop3 gives you four first-class addons (Postgres, MySQL, Redis, S3/MinIO) plus a CLI/TUI, where CapRover offers a point-and-click catalog. Scaling is manual: there's no autoscaler.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -48,32 +48,31 @@ Install the CLI on your local machine:
 hop3-install cli
 ```
 
-Connect the CLI to your server. On a first install this also creates the
-admin account and stores your API token:
+Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
 hop3 init --ssh root@your-server.com
 ```
 
-Unlike CapRover, there's no Swarm to initialize, no leader to elect, and no overlay network to wire up. The installer sets up nginx, uWSGI, and the Hop3 server, and you're ready to deploy.
+Unlike CapRover, there's no Swarm to initialize or overlay network to wire up. The installer sets up nginx, uWSGI, and the Hop3 server.
 
 ## Step 2: Read Your CapRover App Definition
 
 Open each app in the CapRover dashboard and collect three things before you touch Hop3:
 
-1. **The `captain-definition`** in your repo — it either points at a `Dockerfile` (or an inline `dockerfileLines`) or at a prebuilt image.
+1. **The `captain-definition`** in your repo: it either points at a `Dockerfile` (or an inline `dockerfileLines`) or at a prebuilt image.
 2. **The environment variables** from the app's *App Configs* tab.
 3. **The persistent directories** from the app's *Persistent Directories* setting (the host paths CapRover bind-mounts into the container).
 
-You're going to translate each of those into a `hop3.toml`. There is no automatic importer for `captain-definition` — Hop3's only config importer is for Procfiles (`hop3 app migrate procfile <dir>`), so the `captain-definition` mapping below is done by hand. It's mechanical, and you only do it once per app.
+You're going to translate each of those into a `hop3.toml`. There is no automatic importer for `captain-definition`: Hop3's only config importer is for Procfiles (`hop3 app migrate procfile <dir>`), so the `captain-definition` mapping below is done by hand. It's mechanical, and you do it once per app.
 
-## Step 3: Decide — Native Toolchain or Docker Builder
+## Step 3: Native Toolchain or Docker Builder
 
-This is the one real decision in the migration, and CapRover never gave you the choice: everything was a container.
+This is the one real decision in the migration. CapRover never gave you the choice: everything was a container.
 
-**Option A — drop the Dockerfile, go native.** If your `captain-definition` Dockerfile is the standard "install a runtime, copy code, install deps, run a server" recipe, Hop3 can almost certainly build it natively with no Dockerfile at all. Native toolchains auto-detect Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, and .NET from the files in your repo. This is the lighter, faster path — no image builds, no registry.
+**Option A: drop the Dockerfile, go native.** If your `captain-definition` Dockerfile is the standard "install a runtime, copy code, install deps, run a server" recipe, Hop3 can almost certainly build it natively with no Dockerfile at all. Native toolchains auto-detect Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, and .NET from the files in your repo. This path skips image builds and a registry.
 
-**Option B — keep the Dockerfile, use the Docker builder.** If your Dockerfile does something genuinely custom (system packages, a compiled C extension, a multi-stage build you trust), keep it and tell Hop3 to use it:
+**Option B: keep the Dockerfile, use the Docker builder.** If your Dockerfile does something custom (system packages, a compiled C extension, a multi-stage build you trust), keep it and tell Hop3 to use it:
 
 ```toml
 [build]
@@ -136,10 +135,10 @@ path = "/health/"
 
 A few notes on the mapping:
 
-- **The `CMD`/server command** doesn't need to be transcribed by hand if you keep a `Procfile` — Hop3 reads it for the process model. A `web: gunicorn myapp.wsgi` line is enough. (`$PORT` is auto-assigned by Hop3; don't hardcode a port.)
+- **The `CMD`/server command** doesn't need to be transcribed by hand if you keep a `Procfile`: Hop3 reads it for the process model. A `web: gunicorn myapp.wsgi` line is enough. (`$PORT` is auto-assigned by Hop3; don't hardcode a port.)
 - **`RUN` steps** split between build-time and run-time. Dependency installs and asset compilation that should happen during the build go in `[build] before-build`; migrations and anything that must run against the live database go in `[run] before-run`.
 - **CapRover persistent directories** become `[[volumes]]`. Each `target` is a directory inside your app tree that survives redeploys (each deploy wipes and re-extracts `src/`, so anything you need to keep lives in a volume).
-- **The container itself** disappears in the native path. If you chose Option B instead, you'd drop the `[build] toolchain` line, set `builder = "docker"`, and keep your `Dockerfile` — the `[env]`, `[[volumes]]`, `[domains]`, and `[healthcheck]` sections stay exactly the same.
+- **The container itself** disappears in the native path. If you chose Option B instead, you'd drop the `[build] toolchain` line, set `builder = "docker"`, and keep your `Dockerfile`; the `[env]`, `[[volumes]]`, `[domains]`, and `[healthcheck]` sections stay exactly the same.
 
 If your app already ships a `Procfile`, you can generate a starting `hop3.toml` from it:
 
@@ -153,7 +152,7 @@ Then add the `[env]`, `[[volumes]]`, and `[domains]` sections by hand from your 
 
 ## Step 5: Migrate Your Databases
 
-In CapRover, your database was a one-click app — a Postgres/MySQL/Redis container with a persistent directory. In Hop3, it's a first-class addon with managed credentials, dump/restore verbs, and backup integration.
+In CapRover, your database was a one-click app: a Postgres/MySQL/Redis container with a persistent directory. In Hop3, it's a first-class addon with managed credentials, dump/restore verbs, and backup integration.
 
 ### Create and attach the addon
 
@@ -162,7 +161,7 @@ hop3 addon create postgres myapp-db
 hop3 addon attach myapp-db --app myapp
 ```
 
-Attaching injects the connection variables (`DATABASE_URL`, …) into the app's environment automatically — you don't copy a connection string around by hand the way you did between CapRover apps.
+Attaching injects the connection variables (`DATABASE_URL`, …) into the app's environment automatically. You don't copy a connection string around by hand the way you did between CapRover apps.
 
 ### Move the data
 
@@ -190,7 +189,7 @@ MySQL and Redis follow the same shape (`mysqldump` / `BGSAVE` on the CapRover si
 
 ### Postgres extensions
 
-If your CapRover Postgres relied on an extension like `pg_stat_statements`, enable it through the addon command — no SSH or manual `psql`:
+If your CapRover Postgres relied on an extension like `pg_stat_statements`, enable it through the addon command, with no SSH or manual `psql`:
 
 ```bash
 hop3 addon postgres extensions myapp-db pg_stat_statements
@@ -209,11 +208,11 @@ DATABASE_URL = "postgresql://user:pass@db.example.com:5432/mydb"
 
 ### A note on addon coverage
 
-CapRover's marketplace offers one-click containers for a long tail of services. Hop3 ships four addons — PostgreSQL, MySQL, Redis, and S3/MinIO. If a CapRover app depended on something outside that set (a message broker, a document store), you have two routes: run it as its own Docker-builder Hop3 app, or point at an external/managed instance via `[env]`. There's no MongoDB addon and no managed queue today.
+CapRover's marketplace offers one-click containers for a long tail of services. Hop3 ships four addons: PostgreSQL, MySQL, Redis, and S3/MinIO. If a CapRover app depended on something outside that set (a message broker, a document store), you have two routes: run it as its own Docker-builder Hop3 app, or point at an external/managed instance via `[env]`. There's no MongoDB addon or managed queue today.
 
 ## Step 6: Deploy to Hop3
 
-Add Hop3 as a git remote and push — this is the `caprover deploy` equivalent:
+Add Hop3 as a git remote and push; this is the `caprover deploy` equivalent:
 
 ```bash
 git remote add hop3 hop3@your-server.com:myapp
@@ -234,7 +233,7 @@ hop3 domain add myapp.example.com --app myapp
 myapp.example.com  A  your-server-ip
 ```
 
-Out of the box, a freshly installed server serves a self-signed certificate. Once Let's Encrypt/ACME is configured on the server, Hop3 requests a real certificate for the domain at deploy time — the same automatic-HTTPS outcome CapRover gave you, just configured server-side rather than per-app in a dashboard.
+Out of the box, a freshly installed server serves a self-signed certificate. Once Let's Encrypt/ACME is configured on the server, Hop3 requests a real certificate for the domain at deploy time: the same automatic-HTTPS outcome CapRover gave you, configured server-side once per server.
 
 ## Common Migration Issues
 
@@ -257,15 +256,13 @@ CapRover lets you set the replica count of a Swarm service. Hop3 scales the same
 hop3 ps scale myapp web=3 worker=2
 ```
 
-There's no automatic scaling — you set the process counts you want.
-
 ### The Docker registry
 
-CapRover builds images and pushes them to a registry (its own or an external one) so Swarm nodes can pull them. With Hop3's native path there's no image and no registry at all. With the Docker builder, the image is built and run on the same single server — still no registry to operate.
+CapRover builds images and pushes them to a registry (its own or an external one) so Swarm nodes can pull them. With Hop3's native path there's no image and no registry at all. With the Docker builder, the image is built and run on the same single server, so there's still no registry to operate.
 
 ### Multi-node clusters
 
-If you were genuinely using CapRover across several Swarm nodes, that's the one capability Hop3 doesn't replace: Hop3 is a single-server model. There's no multi-node clustering, no multi-region, and no edge. If you need a cluster, Hop3 isn't the destination. If — like most CapRover installs — you were running one node and maintaining Swarm anyway, that's exactly the overhead Hop3 removes.
+If you were using CapRover across several Swarm nodes, that's the one capability Hop3 doesn't replace: Hop3 is a single-server model. There's no multi-node clustering or multi-region support. If you need a cluster, Hop3 isn't the destination. If, like most CapRover installs, you were running one node and maintaining Swarm anyway, that's exactly the overhead Hop3 removes.
 
 ## Command and Concept Mapping
 
@@ -290,23 +287,21 @@ If you were genuinely using CapRover across several Swarm nodes, that's the one 
 
 ## Lock-in and Cost Angle
 
-Neither CapRover nor Hop3 charges you a platform fee — both are open-source and run on a VPS you already pay for, so this isn't a pricing comparison. The real axis is operational overhead and lock-in.
+Neither CapRover nor Hop3 charges you a platform fee: both are open-source and run on a VPS you already pay for, so this isn't a pricing comparison. The real axis is operational overhead and lock-in.
 
 **Operational overhead.** With CapRover, part of what you maintain is Swarm itself: the manager, the overlay network, the registry, and the failure modes that come with an orchestrator. For a single node, that's complexity with no payoff. Hop3 removes the orchestrator layer; you maintain one server running ordinary processes behind nginx.
 
-**Lock-in.** CapRover's unit of truth is the `captain-definition` plus dashboard state; Hop3's is a `hop3.toml` checked into your repo, and for the apps you keep on the Docker builder, your existing `Dockerfile`. Your data leaves through standard `pg_dump`/`mysqldump`/RDB dumps in both directions. Migrating *out* of either is a matter of moving images or dumps — there's no proprietary data format holding you.
-
-The trade-off is the one this whole post circles: you give up CapRover's richer dashboard and one-click marketplace, and in return you stop running an orchestrator to manage a single box.
+**Lock-in.** CapRover's unit of truth is the `captain-definition` plus dashboard state; Hop3's is a `hop3.toml` checked into your repo, and for the apps you keep on the Docker builder, your existing `Dockerfile`. Your data leaves through standard `pg_dump`/`mysqldump`/RDB dumps in both directions. Migrating *out* of either is a matter of moving images or dumps; there's no proprietary data format holding you.
 
 ## Rollback Plan
 
 Keep your CapRover app running during the migration:
 
 1. Deploy to Hop3 with a test domain (e.g. `myapp-hop3.example.com`).
-2. Verify the app and its data — hit real endpoints, check the database restored correctly.
+2. Verify the app and its data: hit real endpoints, check the database restored correctly.
 3. Switch DNS to the Hop3 server.
 4. Keep the CapRover app running for 1–2 weeks as a fallback.
-5. Tear down the CapRover app — and, if it was your only one, the Swarm node — once you're confident.
+5. Tear down the CapRover app, and the Swarm node too if it was your only one, once you're confident.
 
 Because your CapRover stack is untouched until step 3, the rollback at any point before then is just "don't switch DNS."
 

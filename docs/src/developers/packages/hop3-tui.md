@@ -1,6 +1,6 @@
 # hop3-tui Deep Dive
 
-This document provides detailed internal documentation for the hop3-tui package. For a quick overview, see the [package overview](index.md).
+This document describes the internals of the hop3-tui package. For a quick overview, see the [package overview](index.md).
 
 ## Architecture Overview
 
@@ -47,9 +47,9 @@ hop3_tui/
 
 ## Immediate mode
 
-turbodesk has no widget tree. The whole app is a function `(UI) -> View` re-run
-whenever a frame is marked dirty — state changed, an event arrived, the terminal
-resized, a timer fired — and the runtime diffs the returned grid row by row. Nothing
+turbodesk has no widget tree. The whole app is a function `(UI) -> View` that the
+runtime re-runs whenever a frame is marked dirty: state changed, an event arrived, the
+terminal resized, a timer fired. It diffs the returned grid row by row. Nothing
 survives a frame except hook slots, so there is no `compose()`, no `reactive`, no
 `watch_*`, no `query_one`, and no stylesheet. A `View` is an immutable grid of styled
 cells composed with `hcat`, `vcat` and `zcat`; layout is arithmetic and styles are
@@ -58,7 +58,7 @@ cells composed with `hcat`, `vcat` and `zcat`; layout is arithmetic and styles a
 ### Main Application
 
 `app.py` holds no widget state. Navigation is one immutable `Nav` value in `ui.state`
-— a mode plus a stack of pushed screens — and a table of render functions:
+(a mode plus a stack of pushed screens), plus a table of render functions:
 
 ```python
 class Nav(NamedTuple):
@@ -92,15 +92,16 @@ def app(hop3: Hop3TUI) -> Callable[[UI], View]:
 `Hop3TUI` is now only what outlives a frame: the API client, the config, and the
 consecutive-failure count behind the connection indicator.
 
-The `ui.scope(screen)` is load-bearing. Hook slots (`ui.state`, `ui.every`) are matched
-between frames **by call order**, so without a per-screen scope, switching screens
-hands one screen's state slot to whatever the next screen calls first.
+The `ui.scope(screen)` call holds the render together. Hook slots (`ui.state`,
+`ui.every`) are matched between frames **by call order**, so without a per-screen
+scope, switching screens hands one screen's state slot to whatever the next screen
+calls first.
 
 ### Screen Pattern
 
 A screen is a function with a fixed signature returning a `View`. Key bindings are a
-dict, which is what Textual's `BINDINGS` list plus its `action_*` naming convention
-amounted to:
+dict, which covers the job Textual's `BINDINGS` list did with its `action_*` naming
+convention:
 
 ```python
 def render(
@@ -247,16 +248,13 @@ The other models are `EnvVar`, `Addon`, and `Backup`.
 ```
 
 The system panel is empty because `Hop3Client.get_system_status` makes the RPC call
-but does not yet parse the response. It says so rather than showing a number: see
+but does not yet parse the response, so it displays "not reported by the server": see
 [Nothing is invented](#nothing-is-invented).
 
 ### Apps Screen
 
-Features:
-- Sortable data table
-- Real-time status updates
-- Filter/search
-- Keyboard shortcuts for actions
+Features: sortable data table, real-time status updates, filter and search,
+keyboard shortcuts for actions.
 
 ### Log Viewer
 
@@ -277,10 +275,10 @@ def render(ui: UI, hop3, size: Size, ...) -> View:
         ui.spawn(run_command(box.value))
 ```
 
-Tab completion is a hint line under the prompt rather than an inline ghost
-completion: `textbox` has no suggester hook. The first word is completed against a
-static command list; the second, for app-related commands, against app names fetched
-via `list_apps()`.
+Tab completion is a hint line under the prompt, since `textbox` has no suggester hook
+for an inline ghost completion. The first word is completed against a static command
+list; the second, for app-related commands, against app names fetched via
+`list_apps()`.
 
 ```python
 COMMANDS = [
@@ -292,7 +290,7 @@ COMMANDS = [
 ## Layout, in place of CSS
 
 There is no stylesheet. Every layout in hop3-tui is a grid of halves or a single
-scrolling pane, so `screens/_common.py` covers all of it in about a dozen lines:
+scrolling pane, and `screens/_common.py` covers all of it in about a dozen lines:
 
 ```python
 def halves(width: int) -> tuple[int, int]:
@@ -309,7 +307,7 @@ def rows(size: Size, *fractions: float) -> list[int]:
 
 The dashboard's `layout: grid; grid-size: 2` becomes
 `vcat([hcat([a, b]), hcat([c, d])])` over a computed cell size. Colours come from the
-theme's role names (`ui.theme.green`, `ui.theme.role("subtext1")`) rather than CSS
+theme's role names (`ui.theme.green`, `ui.theme.role("subtext1")`) instead of CSS
 variables, and the status-badge rules become a `match` returning a `Style`.
 
 The one cost: a hand-computed panel crops when the terminal is too short, where CSS
@@ -414,7 +412,7 @@ A panel shows what the server reported or says that it does not know. It never s
 plausible-looking constant.
 
 This is not hypothetical tidiness. Before it was fixed, the log pane served eight
-hardcoded lines and appended an invented one roughly every three seconds — so it
+hardcoded lines and appended an invented one roughly every three seconds, so it
 showed `[ERROR] Failed to connect to redis` for an app that was fine, and the log
 download wrote those invented lines to a file an operator could attach to a bug
 report. The system screen reported CPU/memory/disk as the constants 42/63/81 on a
@@ -428,14 +426,14 @@ The rules the code now follows:
 - A services dict of `None` means nothing was reported; `{}` means reported, and empty.
   They read differently on screen.
 - The log pane's heading drops from `LIVE` to `UNREACHABLE`, showing the error, when a
-  poll fails. It keeps the lines it already had — a blink of RPC failure should not
-  blank a pane someone is reading — but it stops claiming to be live.
+  poll fails. It keeps the lines it already had (a blink of RPC failure should not
+  blank a pane someone is reading), but it stops claiming to be live.
 - Pressing `r` on the system screen says "System metrics are not reported by the server
   yet." rather than "refreshed". Claiming a refresh that fetched nothing is the same
   defect one layer up.
 
 `tests/test_no_fabricated_data.py` asserts the absence of each specific fabrication as
-well as the presence of the real values, because none of this ever failed — which is
+well as the presence of the real values, because none of this ever failed: that is
 why it lasted.
 
 ## Testing
@@ -467,9 +465,9 @@ grid's characters. Geometry is assertable too (`view.width`, `view.height`).
 
 ### Testing the pure parts directly
 
-Anything that is a decision rather than a drawing is a plain function, tested as one —
-which is most of what used to be spread across `reactive` attributes and `watch_*`
-methods:
+Anything that is a decision rather than a drawing is a plain function, tested as one.
+Most of what used to be spread across `reactive` attributes and `watch_*` methods was
+just that:
 
 ```python
 def test_a_failed_fetch_stops_the_pane_claiming_to_be_live():
@@ -498,12 +496,13 @@ uv run pytest packages/hop3-tui/tests
 
 ## Performance
 
-Network calls run as turbodesk tasks (`ui.every`, `ui.spawn`) rather than blocking a
-render, and screens refresh on an interval rather than continuously. Data is fetched
-per screen on demand rather than all at once.
+Network calls run as turbodesk tasks (`ui.every`, `ui.spawn`) so they never block a
+render. Screens refresh on an interval, and each screen fetches its own data on
+demand.
 
 Rendering itself is cheap by construction: a frame produces an immutable grid, and the
 runtime diffs it row by row, writing escape codes only for rows that changed.
 
 Pagination, response caching, and input debouncing are design goals for large
 deployments and are not yet implemented across all screens.
+all screens.

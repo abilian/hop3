@@ -75,7 +75,7 @@ list = ["myapp.example.com", "www.myapp.example.com"]
 
 By default the listed domains are treated as defaults (existing hostnames are kept). Set `_policy = "override"` to update `HOST_NAME` on every deploy.
 
-Setting `HOST_NAME` directly under `[env]` also works, but it is mutually exclusive with `[domains]` — declare hostnames in one place or the other, not both.
+Setting `HOST_NAME` directly under `[env]` also works, but it is mutually exclusive with `[domains]`: declare hostnames in one place or the other.
 
 ### No Domain (Direct Port Access)
 
@@ -140,7 +140,7 @@ Hop3 uses pluggable TLS issuance engines. When the certbot engine is configured 
 3. Sets up automatic certificate renewal
 4. Redirects HTTP traffic to HTTPS
 
-If the certbot engine cannot issue a certificate for a public domain, issuance fails loudly rather than silently falling back to a self-signed certificate. When no ACME engine is configured, Hop3 issues a self-signed certificate instead (see below).
+If the certbot engine cannot issue a certificate for a public domain, issuance fails with an error; Hop3 does not fall back to a self-signed certificate. When no ACME engine is configured, Hop3 issues a self-signed certificate instead (see below).
 
 ### Certificate Requirements
 
@@ -180,7 +180,7 @@ Use the underscore hostname to create a catch-all application that responds to a
 hop3 domain set --app myapp _
 ```
 
-The catch-all `_` must be the sole hostname — it cannot be combined with other domains.
+The catch-all `_` must be the sole hostname and cannot be combined with other domains.
 
 This is useful for:
 

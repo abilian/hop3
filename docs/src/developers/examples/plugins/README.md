@@ -13,7 +13,7 @@ A minimal build strategy plugin that demonstrates:
 - Error handling and logging
 - Build artifact creation
 
-**Use this example to learn**:
+Use this example to learn:
 - Basic plugin development workflow
 - How to implement the `accept()` and `build()` methods
 - How to return `BuildArtifact` information
@@ -80,20 +80,18 @@ python3 -c "from hop3.core.plugins import get_plugin_manager; pm = get_plugin_ma
 
 ## More Examples
 
-Want to see more examples? Check:
-
 - **Real implementations** in `packages/hop3-server/src/hop3/plugins/`
-  - `postgresql/` - Service strategy example
-  - `docker/` - Build and deployment strategies
-  - `proxy/nginx/` - Proxy strategy example
+  - `postgresql/`: Service strategy example
+  - `docker/`: Build and deployment strategies
+  - `proxy/nginx/`: Proxy strategy example
 - **Language toolchain implementations** in `packages/hop3-server/src/hop3/toolchains/`
-  - `python.py` - Production Python toolchain
-  - `node.py` - Node.js toolchain
-  - `static.py` - Static file toolchain
+  - `python.py`: Production Python toolchain
+  - `node.py`: Node.js toolchain
+  - `static.py`: Static file toolchain
 
 ## Contributing Examples
 
-Have a useful example to share? Contributions are welcome!
+Contributions are welcome.
 
 1. Create your example following the structure above
 2. Document it thoroughly with comments and README

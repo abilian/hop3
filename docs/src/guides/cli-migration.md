@@ -1,19 +1,19 @@
 # CLI Migration Guide: Updating Scripts for New CLI
 
-This guide helps you update existing automation scripts and workflows to work with Hop3's enhanced CLI interface introduced in Step 2.4.
+This guide helps you update existing automation scripts and workflows to work with the CLI introduced in Step 2.4.
 
 ## Overview of Changes
 
-The Hop3 CLI has been enhanced with:
+The Hop3 CLI now includes:
 
-- **Rich formatted output** - Tables, colors, and panels for better readability
-- **JSON output mode** - Machine-readable output for automation (`--json`)
-- **Quiet mode** - Minimal output for scripts (`--quiet`)
-- **Confirmation prompts** - Type-to-confirm for destructive operations
-- **Skip confirmations** - `-y` flag to bypass prompts in automation
-- **Consistent command naming** - Some commands have been renamed for clarity
+- **Rich formatted output**: tables, colors, and panels for readability
+- **JSON output mode**: machine-readable output for automation (`--json`)
+- **Quiet mode**: minimal output for scripts (`--quiet`)
+- **Confirmation prompts**: type-to-confirm for destructive operations
+- **Skip confirmations**: `-y` flag to bypass prompts in automation
+- **Consistent command naming**: some commands have been renamed for clarity
 
-**Good news:** The core functionality remains the same. Most scripts will continue to work without changes. However, we recommend updating them to take advantage of new features.
+The core functionality is unchanged, so most scripts will continue to work without changes. We recommend updating them to take advantage of the new features.
 
 ## Breaking Changes
 
@@ -54,13 +54,13 @@ expect eof
 EOF
 ```
 
-**Recommendation:** Use the `-y` flag for automation, but ensure your scripts have proper safeguards to prevent accidental deletions.
+**Recommendation:** Use the `-y` flag for automation, and make sure your scripts have safeguards against accidental deletions.
 
 ## Recommended Updates
 
 ### 2. Use JSON Output for Parsing
 
-**Why:** Rich formatted output (tables, colors) is great for humans but difficult to parse in scripts. Use `--json` for machine-readable output.
+**Why:** Rich formatted output (tables, colors) is easy for humans to read and hard for scripts to parse. Use `--json` for machine-readable output.
 
 **Migration:**
 
@@ -85,7 +85,7 @@ fi
 ```
 
 **Benefits:**
-- Stable API (JSON structure won't change)
+- Stable API (the JSON structure will not change)
 - Easy parsing with `jq`
 - No dependency on output formatting
 
@@ -142,7 +142,7 @@ Some commands have been renamed for consistency and clarity.
 | `hop3 status <app>` | `hop3 app status --app <app>` | Namespaced under `app` |
 | `hop3 restart <app>` | `hop3 app restart --app <app>` | Namespaced under `app` |
 
-The CLI is space-separated (no colon syntax such as `app:status`), and the target app is always passed with the `--app` flag rather than as a positional argument. When you run inside an app's directory or have set a sticky app for the context, `--app` can be omitted and the app is resolved automatically.
+The CLI uses space-separated commands (no colon syntax such as `app:status`), and the target app is always passed with the `--app` flag rather than as a positional argument. When you run inside an app's directory, or have set a sticky app for the context, `--app` can be omitted and the app is resolved automatically.
 
 **Migration:**
 
@@ -161,7 +161,7 @@ hop3 app restart --app myapp
 hop3 app destroy --app myapp
 ```
 
-**Note:** The old short names are still accepted as aliases (`hop3 status`, `hop3 restart`, `hop3 destroy`), but we recommend updating to the namespaced names.
+**Note:** The old short names are still accepted as aliases (`hop3 status`, `hop3 restart`, `hop3 destroy`); we recommend updating to the namespaced names.
 
 ## Complete Migration Examples
 
@@ -473,7 +473,7 @@ fi
 
 ### Q: Do I need to migrate to JSON output?
 
-**A:** No, but it's highly recommended. JSON output is stable and easier to parse. Text output may change in future versions.
+**A:** No, though it is highly recommended. JSON output is stable and easier to parse. Text output may change in future versions.
 
 ### Q: Can I still use colored output in CI/CD?
 
@@ -488,7 +488,7 @@ export NO_COLOR=1
 
 ### Q: What if I need to parse output without jq?
 
-**A:** Install `jq` - it's the best tool for JSON parsing. Alternatively, use Python:
+**A:** Install `jq`; it is the best tool for JSON parsing. Alternatively, use Python:
 ```bash
 hop3 app status --app myapp --json | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['state'])"
 ```
@@ -537,6 +537,6 @@ hop3 <command> --help
 2. **Use `--json`** for parsing output in scripts
 3. **Use `--quiet`** to minimize output noise
 4. **Update command names** to namespaced versions
-5. **Always test** in development before production
+5. **Test in development** before production
 
-The new CLI provides better error handling, cleaner output, and more robust automation capabilities. Taking the time to migrate your scripts will make them more maintainable and reliable.
+The new CLI provides better error handling, cleaner output, and more reliable automation. Migrating your scripts makes them easier to maintain.

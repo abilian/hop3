@@ -6,15 +6,15 @@ If you operate a Hop3 server, read [Security](../guides/security.md). To report 
 
 !!! note "Where the full catalogue lives"
 
-    This page covers the model and the method. The exhaustive site-by-site catalogue of *reviewed and deliberate* code patterns lives in [`notes/security/security-model.md`](https://github.com/abilian/hop3/blob/main/notes/security/security-model.md) in the repository, alongside the per-round audit reports. Deliberately one copy: a duplicated catalogue drifts, and a drifted catalogue is worse than none.
+    This page covers the model and the method. The exhaustive site-by-site catalogue of *reviewed and deliberate* code patterns lives in [`notes/security/security-model.md`](https://github.com/abilian/hop3/blob/main/notes/security/security-model.md) in the repository, alongside the per-round audit reports. One copy exists on purpose: a duplicated catalogue drifts, and a drifted catalogue is worse than none.
 
 ## Actors
 
-Five actors, with real privilege boundaries between them. Most security findings resolve to a single question: **across which of these boundaries does the tainted data flow?** When the answer is "none", the finding is misaligned with the model however alarming the surface code looks.
+Hop3 separates five actors with real privilege boundaries between them. Most security findings resolve to a single question: across which of these boundaries does the tainted data flow? When the answer is "none", the finding is misaligned with the model however alarming the surface code looks.
 
 | Actor | Trust posture |
 |-------|---------------|
-| **Operator** | The sysadmin who installed Hop3; root on the host. Fully trusted. Operator compromise is host compromise, and is not modelled. |
+| **Operator** | The sysadmin who installed Hop3; root on the host. Fully trusted. Operator compromise is host compromise and the model does not cover it. |
 | **App deployer** | An authenticated user pushing apps over the CLI or RPC. Trusted inside the application runtime: they choose its entrypoint, env and dependencies. Cannot escalate to operator. |
 | **hop3-server** | The ASGI daemon, running as the unprivileged `hop3` user. Confidant of both actors above; not internet-trusted. Everything it exposes on its listening port is public attack surface. |
 | **hop3-cli / hop3-tui** | Workstation tools. Trusted by the user invoking them, since that user owns the shell. Their threats are a hostile *remote server*, a malicious `hop3.toml` in a cloned repo, and on-disk permissions of the token file. |
@@ -28,21 +28,21 @@ Three boundaries carry the security weight:
 2. **App deployer → host.** A deployer supplies a `hop3.toml` and a tarball; Hop3 turns those into a process supervisor entry, a proxy configuration and an addon-secrets record. Sinks that interpolate deployer-controlled strings into shell, SQL, config files or filesystem paths are where to look.
 3. **hop3 user → root.** `hop3-server` asks `hop3-rootd` to perform a privileged operation over a local socket. Every operation revalidates its arguments inside rootd.
 
-There is deliberately **no boundary between two app deployers** (see below).
+The model defines **no boundary between two app deployers** (see below).
 
 ## The control plane is single-tenant
 
 An authenticated account is an operator-equivalent credential: it can act on any application and any addon on the host. This is by design for the current release.
 
-Structurally, `App` has no owner column, addon credentials bind to an application, and commands do not receive the caller's identity unless they opt in, which only the user-management surface does. The RPC dispatcher authenticates and checks scope; it has nothing to check ownership against.
+Structurally, `App` has no owner column, addon credentials bind to an application, and commands do not receive the caller's identity unless they opt in; only the user-management surface opts in. The RPC dispatcher authenticates and checks scope; it has nothing to check ownership against.
 
 Consequences when reviewing:
 
 - "User X can reach user Y's application" is **the model**. It belongs against the ownership work.
 - "An *unauthenticated* caller reaches an app-scoped command" **is** a vulnerability, and a serious one.
-- Leaking one account's credentials to another is still in scope. Operator-equivalence is a statement about authorization, not a licence to leak secrets across the RPC boundary.
+- Leaking one account's credentials to another is still in scope. Operator-equivalence constrains authorization only; it does not license leaking secrets across the RPC boundary.
 
-Note that single-tenant is not the same claim as single-server. Hop3 targets one server per deployment today and one tenant per deployment today; those are separate properties, and per-application ownership (multi-tenancy on one host) is the planned next step.
+Note that single-tenant and single-server are separate claims. Hop3 targets one server per deployment today and one tenant per deployment today; per-application ownership (multi-tenancy on one host) is the planned next step.
 
 ## In and out of scope
 
@@ -50,26 +50,26 @@ Note that single-tenant is not the same claim as single-server. Hop3 targets one
 
 **Out of scope:** post-host-compromise scenarios ("an attacker who is already root could…"); self-injection on a developer's own workstation; key custody beyond the process environment (no HSM/TPM/KMS) and automated key rotation; encryption of the database *file* itself, distinct from the secrets inside it; separation between accounts on the control plane; a control-plane audit log; multi-node isolation; compliance certification; multi-factor authentication.
 
-Several of those are planned work. The repository note tracks which.
+Several of those are planned work; the repository note tracks which ones.
 
 ## Conventions in the source
 
-Two grep-able comment prefixes:
+The source uses two grep-able comment prefixes:
 
 - **`# SECURITY:`**: this code *is* a security control. Weakening it changes the platform's posture. The comment names the threat and any upstream contract the control depends on.
-- **`# AUDIT:`**: this code *looks* suspicious, has been reviewed, and carries the boundary argument that makes it safe. Use it where a reviewer would otherwise re-flag the construction.
+- **`# AUDIT:`**: this code *looks* suspicious, has been reviewed, and carries the boundary argument that makes it safe. Add it where a reviewer would otherwise re-flag the construction.
 
 ```sh
 git grep -n -E "^[ \t]*# (SECURITY|AUDIT):" -- packages/
 ```
 
-Whole-module reasoning goes in a top-of-file *Trust model* docstring instead.
+Whole-module reasoning belongs in a top-of-file *Trust model* docstring.
 
 ## Sister-site discipline
 
 A hardening pattern that applies in one module almost certainly applies in others. This is the single most reliable source of real findings in Hop3's review history. In one round, *every* confirmed finding was a pattern already fixed elsewhere and missed in a sibling. A password had moved off the command line in one package while its neighbour still passed it there. An atomic write with restricted permissions covered one config file and skipped its twin. A hostname validator sat in one proxy plugin and was missing from two others.
 
-**When you fix a hardening pattern, grep for the anti-pattern across every package before calling the fix done.** Search for the *anti-pattern's shape*, not the fix's. Anything you find belongs in the same change or an immediate follow-up.
+**When you fix a hardening pattern, grep for the anti-pattern across every package before calling the fix done.** Search for the *anti-pattern's shape*, rather than the fix's. Anything you find belongs in the same change or an immediate follow-up.
 
 ## Running a review
 
@@ -77,19 +77,19 @@ A hardening pattern that applies in one module almost certainly applies in other
 
 Give any reviewer (an LLM included) this page and the repository catalogue before it reads a line of source. Measurably fewer invalid findings come back: after the catalogue first existed, reviewing models began classifying constructions as intentional-and-documented, and the recurring noise of earlier rounds largely stopped.
 
-State the local-only threat model explicitly, because it is the most common source of invalid findings. `hop3-installer`, `hop3-cli` and `hop3-tui` run on the user's own machine with that user's privileges on input that user typed. Injection there crosses no boundary. Reviewers not told this reliably produce reports full of "command injection via `--branch`" and "no authentication on the CLI".
+State the local-only threat model explicitly, because it is the most common source of invalid findings. `hop3-installer`, `hop3-cli` and `hop3-tui` run on the user's own machine with that user's privileges on input that user typed. Injection there crosses no boundary. Reviewers told nothing about this reliably produce reports full of "command injection via `--branch`" and "no authentication on the CLI".
 
 ### Scope whole-repo
 
-Package-scoped reviews are blind to the findings that matter most. In one round, four package-scoped audits each returned clean while a systemic authorization gap sat between the RPC dispatcher and the command classes, visible only to a review that could see across both. Boundary bugs live *between* components.
+Package-scoped reviews are blind to the findings that matter most. In one round, four package-scoped audits each returned clean while a systemic authorization gap sat between the RPC dispatcher and the command classes, visible only to a review that could see across both. Scope whole-repo; boundary bugs live *between* components.
 
 ### Demand evidence proportional to the claim
 
-Every finding needs a trace from a named entry point to a named sink. Anything above informational needs something that runs. A "proof" that only asserts a substring appears in the source is not a demonstration; if a finding cannot be shown, report it as a structural concern, marked unverified, without a severity.
+Every finding needs a trace from a named entry point to a named sink. Anything above informational needs something that runs. A "proof" that only asserts a substring appears in the source is no demonstration; if a finding cannot be shown, report it as a structural concern, marked unverified, without a severity.
 
 ### Re-verify before reporting
 
-Record the commit audited and diff it against `HEAD` before publishing. In one round, five of eleven findings were fixed within an hour of the run finishing and the report asserted them for another week. Stale findings spend reviewer attention on work already done.
+Record the commit audited and diff it against `HEAD` before publishing. In one round, five of eleven findings were fixed within an hour of the run finishing and the report asserted them for another week; reviewer attention went to work already done.
 
 ### Triage into four buckets
 
