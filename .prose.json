@@ -6,7 +6,31 @@
     "R34-verbless/labels": "'**Case Study - <topic> (<date>)**:' and '**Fix:**' open a case or a remedy. Rule 34 exempts labels; the parser reads them as prose and mis-tags the imperative that follows.",
     "R9-hedge/work-to-Level": "'delegates that work to Level 2 LanguageToolchains': 'work' is a noun (the delegated work), not the hedge verb 'work to'. Parse artifact on en_core_web_sm.",
     "R34-verbless/inline-code+verb": "'Only the `LocalBuilder` delegates to LanguageToolchains': the verb 'delegates' is present; the parser loses it at the inline-code span. Parse artifact on en_core_web_sm.",
-    "R34-verbless/list-question": "'What resources?' sits in a bullet list; rule 34 exempts list items. Same class: 'What package manager?', 'How to isolate?'."
+    "R34-verbless/list-question": "'What resources?' sits in a bullet list; rule 34 exempts list items. Same class: 'What package manager?', 'How to isolate?'.",
+    "R34-verbless/docstring-fence": "hook-specifications.md:390 fires inside a ```python fence nested in a ```` fence; the linter fails to mask the inner fence and reads the docstring as prose. The line is docstring prose, exempt under rule 34's fence exemption.",
+    "R34-verbless/screenshot-alt": "Rule 34 exempts figure captions; the parser reads consecutive markdown image lines '![alt](src)' as one prose sentence with no verb. The alt text is a caption, not a claim.",
+    "R34-verbless/report-tagline": "Experience-report series: the one-line app descriptor under the H1 ('Open source ERP and CRM for small and medium businesses.') is a subtitle, present verbatim-shaped in every sibling report (matomo, kanboard, gitea). A label, not a claim.",
+    "R34-verbless/tr-title-label": "reports/README.md: the bold '[TR-nn](...). <Full report title>' heading at the head of each entry is a label (link + verbatim report title), not a claim; the entry prose that follows carries the verbs.",
+    "R34-verbless/report-section-lead": "Experience-report series: each 'What this app exercised' section opens with a noun-phrase lead naming what the app tested ('An application that ships no installer CLI at all.'; matomo: 'An application with no user-creation CLI.'). House pattern across the 20 reports; the elaborating sentences that follow carry the verbs.",
+    "R34-verbless/inline-code+verb-2": "quickstart.md: '⚠️ The `-y` flag bypasses safety confirmations.': the verb 'bypasses' is present; the parser loses it at the inline-code span after the emoji. Same class as R34-verbless/inline-code+verb.",
+    "R34-verbless/invoice-ninja-tagline": "invoice-ninja.md:21 'Free open-source invoicing platform.': the series tagline under the H1, already allowed series-wide as R34-verbless/report-tagline. Recorded once under the app name so later passes stop re-reading it.",
+    "R34-verbless/limesurvey-tagline": "limesurvey.md:21 'Professional online survey and data collection tool.': the series tagline under the H1, same class as R34-verbless/report-tagline.",
+    "R34-verbless/mattermost-tagline": "mattermost.md:21 'Open source team collaboration platform.': the series tagline under the H1, same class as R34-verbless/report-tagline.",
+    "R37-bold/invoice-ninja-why": "invoice-ninja.md:37 carried a 66-char italic claim; rewritten in the 2026-07 pass, not exempted. Note for future passes: the sibling pattern 'declared `unsupported`' in Open sections is a plain negation, not a rule-7 foil.",
+    "R34-verbless/paheko-tagline": "paheko.md:21 'Nonprofit accounting and association management.': the series tagline under the H1, same class as R34-verbless/report-tagline.",
+    "R34-verbless/vikunja-tagline": "vikunja.md:21 'Open source task and project management.': the series tagline under the H1, same class as R34-verbless/report-tagline.",
+    "R8-triad/hop3-fetch-guarantees": "packaging-applications.md: the `hop3-fetch` paragraph's three-item enumeration (HTTP-error handling / transient-failure retries / sha256 verification) is a genuine enumerable list of distinct behaviours, not rule-8 cadence padding.",
+    "R37-bold/milestone-status": "results-links-2026-07.md: the italicised per-milestone status annotation after each ✅ heading ('**M1.1:** ... ✅: *status sentence*') is the file's standing field format, a label in summary position, not a bold punchline in running prose. Applies to every milestone line in this and sibling final-report files.",
+    "R34-verbless/sm-verb-mistag": "TR-01.md: en_core_web_sm tags the finite verbs 'provisions', 'ship', 'address' and 'summarises' as nouns (NNS/NN), so the conservative rule-34 test reports sentences that carry a main verb. Four allowlist entries recorded; transformer models would not fire.",
+    "R31-runon/enumerated-foil-list": "TR-01.md: '(i)/(ii)/(iii)' enumeration sentences and the catalogued application-mix sentence are enumerations or serial lists, not stitched distinct claims.",
+    "R12-inflated/next-generation-internet": "TR-01.md acknowledgements: 'Next Generation Internet' is the EC programme's proper name.",
+    "R8-triad/tier3-label": "TR-01.md 5.3: 'prebuilt-archive or prebuilt-binary' names the two Tier-3 template names; a genuine enumeration, already allowlisted.",
+    "R34-verbless/reference-entries": "TR-01.md §9 References: each '[n] Author. \"Title.\" Venue, year.' entry is a verbatim bibliographic record, not a claim; rule 34's running-prose scope does not extend to reference lists. Covers lines 354-376 (Borg/Omega, Dolstra, NixOS, Unikraft, Pluggy) and the PhD thesis line.",
+    "R37-bold/reference-venue": "TR-01.md §9: italicised venue names (*Proc. 13th ACM SIGPLAN ICFP*, *Proc. 16th EuroSys*) are citation formatting, not bold punchlines.",
+    "R31-runon/template-pattern-list": "TR-01.md 3.5: the 58-word sentence ends in an eight-item serial enumeration of template patterns; rule 31's list exemption applies and splitting would hide that the list is the subject's predicate.",
+    "R29-synonym/document-root": "TR-01.md 4.2: 'a fixed document root' is the nginx term (the web server's root directory), not a synonym rotation with 'deployer'/'file'. False positive on 'document'.",
+    "R34-verbless/privacy-data-list": "privacy-policy.md: '- Browser, operating system and device type.' sits in the bullet list of data Umami collects; rule 34 exempts list items, and a bare enumeration of data categories is the correct shape there.",
+    "R30-frozen/code-of-conduct": "privacy-policy.md: 'Code of Conduct violation' is the policy document's proper name; 'conduct' is the noun of the title, not a nominalised verb."
   },
   "allowlist": {
     "R33-taboo": [
@@ -21,17 +45,55 @@
     ],
     "R34-verbless": [
       "LocalBuilder` delegates",
-      "What resources?"
+      "What resources?",
+      "python from dishka import Provider",
+      "Sign-in page",
+      "Open source ERP and CRM",
+      "An application that ships",
+      "flag bypasses safety confirmations",
+      "Free open-source invoicing platform",
+      "Professional online survey",
+      "Open source team collaboration platform",
+      "Nonprofit accounting and association management",
+      "Open source task and project management",
+      "A Sovereignty-First Platform-as-a-Service",
+      "Consolidation, Operability",
+      "A Sovereignty-First PaaS",
+      "Redis addon provisions",
+      "proxy plugins ship",
+      "mechanisms in combination address",
+      "table below summarises",
+      "Browser, operating system and device type"
     ],
     "R37-bold": [
       "whether a packet may reach a port",
-      "whether an HTTP request"
+      "whether an HTTP request",
+      "the Nix runtime ships in Hop3 0.7.0",
+      "PostgreSQL/MySQL/Redis/S3 shipped",
+      "L3/L4 firewall + L7 WAF",
+      "the acceptance campaign drove all twenty",
+      "four audit rounds processed in-house",
+      "the 20 are packaged",
+      "68 asciicasts recorded and published"
+    ],
+    "R8-triad": [
+      "fails loudly on an HTTP error",
+      "prebuilt-archive or prebuilt-binary"
     ],
     "R31-runon": [
       "(1) ban check",
       "Positive**: meets the NGI WAF commitment",
       "Negative**: a new long-lived platform service",
-      "selects the managed attack ruleset"
+      "selects the managed attack ruleset",
+      "the unified testing architecture and failure-diagnosis",
+      "departs from them in three ways: (i)",
+      "application mix spans CMS and publishing"
+    ],
+    "R12-inflated": [
+      "Next Generation Internet"
+    ],
+    "R30-nominalisation": [
+      "Conduct violation"
     ]
   }
 }

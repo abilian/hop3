@@ -4,9 +4,9 @@
 
 ## Introduction
 
-Security is a foundational principle of the Hop3 project, deeply integrated into our core values of sovereignty, resilience, and trust. Our approach is proactive and transparent. We are committed to a "secure-by-design" philosophy, ensuring that security is considered at every stage of the development lifecycle.
+Security is a foundational principle of the Hop3 project. We follow a "secure-by-design" philosophy: security is considered at every stage of the development lifecycle.
 
-This document outlines our security practices and provides guidelines for reporting vulnerabilities. We believe that a strong security posture is a collaborative effort, and we welcome the participation of our community and security researchers to help us protect our users.
+This document outlines our security practices and provides guidelines for reporting vulnerabilities. A strong security posture is a collaborative effort, and we welcome the participation of our community and security researchers in protecting our users.
 
 ## Scope
 
@@ -28,7 +28,7 @@ We have implemented several measures to ensure the security and integrity of the
 -   **Software Supply Chain Security:**
     -   We use tools like `safety` to check our dependencies against known vulnerability databases.
     -   We are committed to providing a Software Bill of Materials (SBOM) for our releases, ensuring full transparency of all included components and their licenses.
-    -   Our integration with package managers like Nix aims to create deterministic, reproducible, and isolated build environments, significantly reducing supply chain risks.
+    -   Our integration with package managers like Nix aims to create deterministic, reproducible, and isolated build environments, which reduces supply chain risks.
 
 ### Infrastructure Security
 
@@ -44,7 +44,7 @@ We are committed to protecting any data we handle. For detailed information, ple
 
 #### HOP3_SECRET_KEY Requirement
 
-Hop3 stores backing service credentials (databases, caches, etc.) encrypted at rest using industry-standard encryption. This requires a secret key configured via the `HOP3_SECRET_KEY` environment variable.
+Hop3 stores backing service credentials (databases, caches, etc.) encrypted at rest with Fernet. This requires a secret key configured via the `HOP3_SECRET_KEY` environment variable.
 
 **Encryption Details:**
 - **Algorithm:** Fernet (symmetric AEAD - Authenticated Encryption with Associated Data)
@@ -58,7 +58,7 @@ Hop3 stores backing service credentials (databases, caches, etc.) encrypted at r
 
 **Generating HOP3_SECRET_KEY:**
 
-Generate a strong, cryptographically secure secret key:
+Generate a cryptographically secure secret key:
 
 ```bash
 # Using Python (recommended)
@@ -134,7 +134,7 @@ If you lose your HOP3_SECRET_KEY:
 
 #### HOP3_UNSAFE Mode
 
-For automated testing purposes, Hop3 includes a `HOP3_UNSAFE` configuration option that **completely disables authentication and authorization**. This mode exists solely to simplify automated testing in isolated Docker containers.
+For automated testing purposes, Hop3 includes a `HOP3_UNSAFE` configuration option that **disables authentication and authorization**. This mode exists to simplify automated testing in isolated Docker containers.
 
 ⚠️ **CRITICAL SECURITY WARNING** ⚠️
 
@@ -226,7 +226,7 @@ Your report should include, if possible:
 When you report a vulnerability to us in good faith, we commit to the following:
 
 1.  **Timely Acknowledgment:** We will acknowledge receipt of your report, typically within 2 business days.
-2.  **Dedicated Investigation:** We will promptly investigate your report and work to validate the vulnerability.
+2.  **Dedicated Investigation:** We will promptly investigate your report and validate the vulnerability.
 3.  **Open Communication:** We will maintain an open line of communication, keeping you informed of our progress.
 4.  **Public Recognition:** Once the vulnerability is remediated, we will publicly credit you for your discovery, unless you prefer to remain anonymous.
 5.  **Safe Harbor:** We will not take legal action against you or ask law enforcement to investigate you for your responsible, good-faith security research and reporting activities.
@@ -241,7 +241,7 @@ We ask that you act in good faith and adhere to the following guidelines:
 
 ## Security Advisories
 
-Once a vulnerability has been fixed and a patch is released, we will publish a security advisory. Advisories will be published through appropriate channels, which may include:
+Once a vulnerability has been fixed and a patch is released, we will publish a security advisory through appropriate channels, which may include:
 
 -   GitHub Security Advisories in the relevant repository.
 -   A post on our official project blog or news section.
@@ -249,4 +249,4 @@ Once a vulnerability has been fixed and a patch is released, we will publish a s
 
 ## Questions
 
-If you have any questions about this Security Policy, please feel free to contact us at the email address listed above.
+If you have any questions about this Security Policy, contact us at the email address listed above.
