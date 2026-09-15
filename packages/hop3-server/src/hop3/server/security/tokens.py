@@ -141,11 +141,18 @@ def create_token(
     if scopes is None:
         scopes = ["authenticated"]
 
-    if expires_hours is None:
-        expires_hours = _get_config().HOP3_TOKEN_EXPIRY_HOURS
+    # Annotated because `_get_config()` returns a `ModuleType`, whose attributes
+    # are untyped — so the `int` that `HopConfig.HOP3_TOKEN_EXPIRY_HOURS`
+    # declares does not survive the lazy import, and the caller's `int | None`
+    # would reach `timedelta` unnarrowed.
+    hours: int = (
+        expires_hours
+        if expires_hours is not None
+        else _get_config().HOP3_TOKEN_EXPIRY_HOURS
+    )
 
     now = datetime.now(timezone.utc)
-    expiry = now + timedelta(hours=expires_hours)
+    expiry = now + timedelta(hours=hours)
 
     payload = {
         "sub": username,  # Subject (username)

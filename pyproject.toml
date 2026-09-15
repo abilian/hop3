@@ -1,6 +1,6 @@
 [project]
 name = "hop3"
-version = "0.7.3"
+version = "0.7.4"
 description = "Simple PaaS - Deploy and manage web applications on a single server"
 authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
@@ -159,6 +159,29 @@ warn_no_return = true
 warn_unused_ignores = false
 check_untyped_defs = true
 
+
+[tool.pyrefly]
+# Every package's source root, so a cross-package `hop3.*` import resolves the
+# same way here as it does at runtime in the workspace venv.
+#
+# Without this, pyrefly 1.3 resolves those imports to `Unknown` — it no longer
+# infers the source roots of a uv workspace, and falls back to importing
+# [tool.mypy] above, whose `strict_optional` and `warn_no_return` then report
+# the unknowns as errors in code mypy and zuban both accept. `Abort` came out
+# as `Unknown`, so `isinstance(e, Abort)` narrowed to `Exception` and `e.msg`
+# "did not exist"; `abort_with_diagnosis` came out as `Unknown`, so its
+# `NoReturn` stopped reaching the callers that rely on it.
+search-path = [
+    "packages/hop3-cli/src",
+    "packages/hop3-installer/src",
+    "packages/hop3-marketplace/src",
+    "packages/hop3-rootd/src",
+    "packages/hop3-server/src",
+    "packages/hop3-testing/src",
+    "packages/hop3-testlab/src",
+    "packages/hop3-tooling/src",
+    "packages/hop3-tui/src",
+]
 
 [tool.ty.rules]
 # Suppress warnings about mypy-style type: ignore comments
