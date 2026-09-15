@@ -6,7 +6,7 @@ This directory contains example plugins demonstrating various aspects of the Hop
 
 ### [example-builder](example-builder/)
 
-A minimal build strategy plugin that demonstrates:
+This example is a minimal build strategy plugin. It demonstrates:
 - Plugin structure and registration
 - Builder protocol implementation
 - Hook implementation (`get_builders()`)

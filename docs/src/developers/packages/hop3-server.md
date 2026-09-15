@@ -17,7 +17,7 @@ hop3-server is the central orchestrator for the Hop3 PaaS. It handles:
 
 ### Server Layer (`hop3/server/`)
 
-The ASGI application built on Litestar:
+The ASGI application is built on Litestar:
 
 ```
 server/
@@ -317,7 +317,7 @@ def hop3_container():
 
 ## Debugging
 
-Common issues and debugging approaches:
+These are the common issues, and how to debug them:
 
 | Symptom | Check |
 |---------|-------|

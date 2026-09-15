@@ -23,14 +23,21 @@
     "R37-bold/milestone-status": "results-links-2026-07.md: the italicised per-milestone status annotation after each ✅ heading ('**M1.1:** ... ✅: *status sentence*') is the file's standing field format, a label in summary position, not a bold punchline in running prose. Applies to every milestone line in this and sibling final-report files.",
     "R34-verbless/sm-verb-mistag": "TR-01.md: en_core_web_sm tags the finite verbs 'provisions', 'ship', 'address' and 'summarises' as nouns (NNS/NN), so the conservative rule-34 test reports sentences that carry a main verb. Four allowlist entries recorded; transformer models would not fire.",
     "R31-runon/enumerated-foil-list": "TR-01.md: '(i)/(ii)/(iii)' enumeration sentences and the catalogued application-mix sentence are enumerations or serial lists, not stitched distinct claims.",
-    "R12-inflated/next-generation-internet": "TR-01.md acknowledgements: 'Next Generation Internet' is the EC programme's proper name.",
+    "R12-inflated/next-generation-internet": "README.md:270 'Next Generation Internet' is the NGI programme's name, linked to ngi.eu, in the funding statement. Only the spaced form is allowed; the marketing adjective 'next-generation' is hyphenated and still fires.",
     "R8-triad/tier3-label": "TR-01.md 5.3: 'prebuilt-archive or prebuilt-binary' names the two Tier-3 template names; a genuine enumeration, already allowlisted.",
     "R34-verbless/reference-entries": "TR-01.md §9 References: each '[n] Author. \"Title.\" Venue, year.' entry is a verbatim bibliographic record, not a claim; rule 34's running-prose scope does not extend to reference lists. Covers lines 354-376 (Borg/Omega, Dolstra, NixOS, Unikraft, Pluggy) and the PhD thesis line.",
     "R37-bold/reference-venue": "TR-01.md §9: italicised venue names (*Proc. 13th ACM SIGPLAN ICFP*, *Proc. 16th EuroSys*) are citation formatting, not bold punchlines.",
     "R31-runon/template-pattern-list": "TR-01.md 3.5: the 58-word sentence ends in an eight-item serial enumeration of template patterns; rule 31's list exemption applies and splitting would hide that the list is the subject's predicate.",
     "R29-synonym/document-root": "TR-01.md 4.2: 'a fixed document root' is the nginx term (the web server's root directory), not a synonym rotation with 'deployer'/'file'. False positive on 'document'.",
     "R34-verbless/privacy-data-list": "privacy-policy.md: '- Browser, operating system and device type.' sits in the bullet list of data Umami collects; rule 34 exempts list items, and a bare enumeration of data categories is the correct shape there.",
-    "R30-frozen/code-of-conduct": "privacy-policy.md: 'Code of Conduct violation' is the policy document's proper name; 'conduct' is the noun of the title, not a nominalised verb."
+    "R30-frozen/code-of-conduct": "privacy-policy.md: 'Code of Conduct violation' is the policy document's proper name; 'conduct' is the noun of the title, not a nominalised verb.",
+    "R34-verbless/link-definitions": "CHANGES.md ends with a block of markdown link-reference definitions ('[0.7.4]: https://github.com/.../compare/...'). They are link syntax, not running prose; the parser reads the run of them as one verbless sentence. Same class as rule 34's exemption for labels and table cells.",
+    "R34-verbless/html-image": "README.md opens and closes with raw '<img src=...>' tags (the logo, the REUSE badge). Image markup, not running prose; rule 34 exempts captions and labels for the same reason.",
+    "R31semi/letscode-tool-list": "README.md:284 lists three tool groups whose items carry their own commas, so semicolons are the correct separator. Rule 31 names this exact case as its exemption and reports it as 'inspect'.",
+    "R27-aphorism/url-tails-NOT-allowed": "NOT exempted, recorded so the next pass does not chase it: the rule-27 count on README.md is a false positive. The sentence splitter breaks markdown link targets at the dot, so 'https://hop3.cloud/get-started/installer/).' becomes a short final 'sentence' with no digit and trips the aphorism test. Seven of the eight counted closers are URL tails, one is a list lead-in ('The stack includes:'). The fix belongs in the linter's masking, not in the prose. Do not silence it with a ')' pattern, which would blind rule 27 across the project.",
+    "R34-verbless/principle-implementation": "core-values.md pairs '- **Principle**: …' with '- **Implementation**: …' under each numbered security heading. They are nested list items, which rule 34 exempts; the linter does not read a bullet indented under an ordered item as a list item, so all twenty fired. The label-value shape is the point of the section and rewriting them into sentences would lose the parallel.",
+    "R31-runon/threat-model-scope-lists": "security-model.md:49,51 are the threat model's 'In scope:' / 'Out of scope:' enumerations. Each item carries its own commas, so semicolons are the correct separator and the count (5 and 8) is list length, not stitching. Rule 31 names this case as its exemption and reports it as 'inspect'.",
+    "R34-verbless/nested-fence-leak": "external-plugins.md:356,400 and hook-specifications.md:393 are code-fence CONTENT, reported as prose. The masker toggles on any line starting with ``` and ignores fence length, so a nested example desyncs it and everything after leaks. external-plugins.md's outer README example was widened to four backticks in this pass, which is what CommonMark requires and fixes the rendering; the masker still desyncs because it does not compare fence lengths. Reported upstream."
   },
   "allowlist": {
     "R33-taboo": [
@@ -63,7 +70,14 @@
       "proxy plugins ship",
       "mechanisms in combination address",
       "table below summarises",
-      "Browser, operating system and device type"
+      "Browser, operating system and device type",
+      "[Unreleased]: https",
+      "<img src=",
+      "**principle**",
+      "**implementation**",
+      "bash hop3 deploy --app myapp",
+      "yaml # myframework.yaml",
+      "class MyPluginProvider(Provider)"
     ],
     "R37-bold": [
       "whether a packet may reach a port",
@@ -81,16 +95,13 @@
       "prebuilt-archive or prebuilt-binary"
     ],
     "R31-runon": [
-      "(1) ban check",
-      "Positive**: meets the NGI WAF commitment",
-      "Negative**: a new long-lived platform service",
-      "selects the managed attack ruleset",
-      "the unified testing architecture and failure-diagnosis",
-      "departs from them in three ways: (i)",
-      "application mix spans CMS and publishing"
+      "letscode",
+      "**in scope:**",
+      "**out of scope:**"
     ],
     "R12-inflated": [
-      "Next Generation Internet"
+      "Next Generation Internet",
+      "next generation"
     ],
     "R30-nominalisation": [
       "Conduct violation"

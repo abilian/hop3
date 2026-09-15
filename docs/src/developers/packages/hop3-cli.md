@@ -51,7 +51,7 @@ hop3_cli/
 
 ### Direct HTTP Mode
 
-For servers exposed directly (development or internal networks):
+Servers exposed directly (development or internal networks) take this form:
 
 ```
 CLI → HTTP → hop3-server:8000 → JSON-RPC response → CLI
@@ -64,7 +64,7 @@ export HOP3_API_URL="http://localhost:8000"
 
 ### SSH Tunnel Mode
 
-For production servers (secure communication):
+Production servers, reached over a secure channel, take this form:
 
 ```
 CLI → SSH Tunnel → localhost:random_port → hop3-server:8000 → response
@@ -158,11 +158,11 @@ hop3 help              # Show help
 
 ## Configuration
 
-Under ADR 042 the CLI's on-disk state is split in two: a **secret-free** `config.toml` for local preferences and **global** contexts, and a **per-server credential store** (`credentials.toml`) for bearer tokens. A *context* — the one target selector — exists at two scopes: a **project** environment in the committed `hop3.toml`, and a **global** named server in `config.toml`. `--context <name>` resolves project-first, then global.
+Under ADR 042 the CLI's on-disk state is split in two: a **secret-free** `config.toml` for local preferences and **global** contexts, and a **per-server credential store** (`credentials.toml`) for bearer tokens. A *context* (the one target selector) exists at two scopes: a **project** environment in the committed `hop3.toml`, and a **global** named server in `config.toml`. `--context <name>` resolves project-first, then global.
 
 ### Config File (`config.toml`)
 
-Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the exact path is platform-specific) and honoring `$HOP3_CONFIG_DIR`. It holds local preferences, the **global** `[contexts.<name>].server` blocks (named servers, address-only) and `[cli].default_context`, plus an optional legacy `[cli].default_server` (and `[cli].current_context`, read-only for one release). It does **not** hold bearer tokens.
+Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the exact path is platform-specific) and honoring `$HOP3_CONFIG_DIR`. It holds local preferences, the **global** `[contexts.<name>].server` blocks (named servers, address-only) and `[cli].default_context`, plus an optional legacy `[cli].default_server` (and `[cli].current_context`, read-only for one release); it holds no bearer tokens.
 
 ```toml
 [cli]
@@ -189,7 +189,7 @@ This file is invisible plumbing: `hop3 auth login` / `hop3 init` populate it, de
 
 ### Contexts (the one target selector)
 
-A *context* is a named target, and `--context <name>` is the single selector for every command, app-bound or not. It exists at two scopes: a **project** environment declared under `[contexts.<name>]` in the committed `hop3.toml` (server address, app instance name, domains, env), and a **global** named server in `config.toml` (`[contexts.<name>].server`, address-only) for project-less use. Both are non-secret — the `server` is a literal address, never a token. `--context` resolves project-first, then global; an explicit `--context` that resolves to nothing aborts loud (it never silently retargets). There is no `--server` flag. Contexts are managed with `hop3 context add|use|list|show|remove|rename` (see `commands/local/context_cmd.py`, which operates on the project scope inside a project and the global scope outside one, or with `--global`); the per-checkout project selection is pinned in the gitignored `.hop3-local.toml`.
+A *context* is a named target, and `--context <name>` is the single selector for every command, app-bound or not. It exists at two scopes: a **project** environment declared under `[contexts.<name>]` in the committed `hop3.toml` (server address, app instance name, domains, env), and a **global** named server in `config.toml` (`[contexts.<name>].server`, address-only) for project-less use. Both are non-secret: the `server` is a literal address. `--context` resolves project-first, then global; an explicit `--context` that resolves to nothing aborts loud (it never silently retargets). There is no `--server` flag. Contexts are managed with `hop3 context add|use|list|show|remove|rename` (see `commands/local/context_cmd.py`, which operates on the project scope inside a project and the global scope outside one, or with `--global`); the per-checkout project selection is pinned in the gitignored `.hop3-local.toml`.
 
 ### Config Class
 
@@ -305,7 +305,7 @@ password path goes through the server's `auth get-token` primitive:
 `hop3 auth get-token <user> --password-file -` exposes that same primitive
 directly, for scripts that want to capture a token without saving config.
 
-`hop3 auth login --ssh <target>` obtains the token over SSH and stores it the same way — in the per-server credential store, keyed by the canonical server address, with the server set as the project-less default. With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` (still secret-free — only the address is written). `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. This is what the local `hop3 init` and `hop3 auth login` commands rely on.
+`hop3 auth login --ssh <target>` obtains the token over SSH and stores it the same way: in the per-server credential store, keyed by the canonical server address, with the server set as the project-less default. With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` (still secret-free, since only the address is written). `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. The local `hop3 init` and `hop3 auth login` commands rely on that retry.
 
 ## Development Notes
 
@@ -314,7 +314,7 @@ directly, for scripts that want to capture a token without saving config.
 Most commands are implemented server-side; the CLI just forwards the tokens via the `cli` RPC method. To add one:
 
 1. Add a `Command` subclass in hop3-server's `commands/` (it defines its own `name` and help text)
-2. Nothing is usually needed in the CLI — the new command is reachable as soon as the server exposes it
+2. Nothing is usually needed in the CLI: the new command is reachable as soon as the server exposes it
 
 A purely client-side command (one with local side effects, like `init` or `settings`) is added under `commands/local/` and registered in `LOCAL_COMMANDS_INFO`.
 

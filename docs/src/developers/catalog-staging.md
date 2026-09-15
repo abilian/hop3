@@ -73,7 +73,7 @@ hop3 app status --app mycloud                 # RUNNING / FAILED / ...
 hop3 app destroy --app mycloud                # remove (a catalog app is a normal app)
 ```
 
-`hop3 catalog install` deploys with the same live streaming output as `hop3 deploy`. The `--app` name is the **new** app to create; it is required (there is no ambient default for a create-style command). Add `--env KEY=VALUE` (repeatable) to seed environment variables.
+The `hop3 catalog install` command deploys with the same live streaming output as `hop3 deploy`. The `--app` name is the **new** app to create; it is required (there is no ambient default for a create-style command). Add `--env KEY=VALUE` (repeatable) to seed environment variables.
 
 The same flow is available in the **dashboard** at `/dashboard/catalog`: browse, open an app, and use the Install form, which stages the recipe and starts the deploy in the background, taking you to the app's live status page.
 

@@ -338,7 +338,7 @@ Maintain a `CHANGELOG.md`:
 
 Your README should include:
 
-```markdown
+````markdown
 # My Hop3 Plugin
 
 Description of what your plugin does.
@@ -376,7 +376,7 @@ MYFRAMEWORK_VERSION = "2.0"
 ## License
 
 Apache 2.0
-```
+````
 
 ### API Documentation
 
@@ -524,7 +524,7 @@ plugin = SimplePlugin()
 
 ### Service Plugin
 
-A plugin that adds a new service:
+This plugin adds a new service:
 
 ```python
 # src/mysql_plugin/plugin.py

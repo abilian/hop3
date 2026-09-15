@@ -270,7 +270,7 @@ Everything else (name, category, services, deployment type) is derived automatic
 
 #### Legacy `test.toml` Configuration
 
-This format is for Procfile-only apps, demos, tutorials, and negative-test cases. Same fields, wrapped in a top-level `[test]` rather than sitting inside `hop3.toml`:
+This format is for Procfile-only apps, demos, tutorials, and negative-test cases. It carries the same fields, wrapped in a top-level `[test]`:
 
 ```toml
 [test]
@@ -740,7 +740,7 @@ def test_non_admin_cannot_create_users():
 
 ## Part 9: Cloud Testing
 
-For comprehensive E2E testing on real cloud infrastructure, `hop3-test run --provider hetzner` provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image run is a full `hop3-test run --provider hetzner`, so a cloud run takes the same deploy lexicon as any other `run` (positional app names, `--from`, `--branch`, `--with`).
+Hop3 can be tested end to end on real cloud infrastructure: `hop3-test run --provider hetzner` provisions cloud servers and runs the suite on them. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image run is a full `hop3-test run --provider hetzner`, so a cloud run takes the same deploy lexicon as any other `run` (positional app names, `--from`, `--branch`, `--with`).
 
 ### Commands
 

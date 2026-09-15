@@ -73,7 +73,7 @@ make test-e2e
 
 ### Test Layers
 
-Each package's `tests/` directory holds up to three layers. The root `conftest.py` stamps a marker on each layer (`fast`, `integration`, `e2e`, `needs_docker`), so `pytest -m fast` and `pytest -m "not needs_docker"` work across all packages.
+Each package's `tests/` directory holds up to three layers. Each layer gets a marker from the root `conftest.py` (`fast`, `integration`, `e2e`, `needs_docker`), so `pytest -m fast` and `pytest -m "not needs_docker"` work across all packages.
 
 1. **Unit Tests** (`tests/a_unit/`): fast, isolated tests of individual functions
    - No Docker or other external dependencies
@@ -104,7 +104,7 @@ docker --version
 docker ps
 ```
 
-If you don't have Docker installed:
+Docker is installed differently on each platform:
 - **macOS**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - **Linux**: Install via your package manager (e.g., `apt install docker.io`)
 - **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
@@ -506,7 +506,7 @@ def test_backup_create_success():
 3. **Provide context:** Include relevant details in messages (IDs, filenames, etc.)
 4. **Test both modes:** Verify output works correctly in both text and JSON modes
 5. **Respect quiet mode:** Only show errors in quiet mode unless necessary
-6. **Use tables for lists:** Lists of items should use `table` type, not multiple `text` messages
+6. **Use tables for lists:** Lists of items should use the `table` type
 7. **Group related info:** Use `panel` to group related information together
 8. **Show progress:** Use `progress` type for operations that take >1 second
 

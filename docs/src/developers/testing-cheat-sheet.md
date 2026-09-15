@@ -2,7 +2,7 @@
 
 > **Updated by ADR 043.** The pytest pyramid is now **three** layers: `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. Whether a test needs Docker, root or host-mutation decides its layer; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 
-Quick reference for developers running tests.
+This page is a quick reference for developers running tests.
 
 ## Quick Commands
 
@@ -101,7 +101,7 @@ hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04
 
 `--host <server>` is accepted but warns, because an existing server is not a clean slate. `0.6.0` is excluded from the default chain because its `hop3-rootd` can't start.
 
-### App Testing (Testing Apps, Not Hop3)
+### App Testing (the catalog apps)
 
 App testing runs through the same `run` command. Pass app directories or
 specific app paths as positional arguments; combine with `--reuse` to skip the

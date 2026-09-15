@@ -10,7 +10,7 @@ Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)
 
 ## About
 
-Hop3 is an open source platform as a service (PaaS): it enable you to deploy and manage your applications seamlessly. It is designed to be simple, secure, and easy to use.
+Hop3 is an open source platform as a service (PaaS): it lets you deploy and manage your applications. It is designed to be simple and secure.
 
 The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [GitHub](https://github.com/abilian/hop3) and [Eclipse Research Labs](https://gitlab.eclipse.org/eclipse-research-labs/nephele-project/opencall-2/h3ni/hop3-h3ni).
 
@@ -51,7 +51,7 @@ The project is hosted on [SourceHut](https://git.sr.ht/~sfermigier/hop3) and [Gi
 > [!WARNING]
 > This code is still evolving quickly, and is not yet recommended for unattended production use.
 
-Hop3 is at **version 0.7.x**, with **0.8** in development. It already deploys and manages real web applications — your own code and off-the-shelf software from a curated catalog, each catalog app verified by installing it and signing in through the app's own login — but its APIs and internals are still changing.
+Hop3 is at **version 0.7.x**, with **0.8** in development. It already deploys and manages real web applications: your own code and off-the-shelf software from a curated catalog, each catalog app verified by installing it and signing in through the app's own login. Its APIs and internals are still changing.
 
 ## Getting Started
 
@@ -67,7 +67,7 @@ Install the **CLI** on your own machine:
 curl -LsSf https://hop3.cloud/install-cli.py | python3 -
 ```
 
-Both installers are also published on PyPI as [`hop3-installer`](https://pypi.org/project/hop3-installer/) — run the toolkit straight from there (nothing to download) with `uvx` or `pipx run`:
+Both installers are also published on PyPI as [`hop3-installer`](https://pypi.org/project/hop3-installer/). Run the toolkit straight from there (nothing to download) with `uvx` or `pipx run`:
 
 ```bash
 uvx --from hop3-installer hop3-install cli          # CLI (no root)
@@ -78,13 +78,13 @@ Run `hop3-install server` as root to install the server the same way.
 
 The server installer accepts `--domain example.com --acme-email you@example.com` for a Let's Encrypt certificate, `--with all` to enable optional backing services (Redis, S3/MinIO) and runtimes (Docker, Nix), and more. Full reference: the [installation guide](https://hop3.cloud/get-started/installer/).
 
-Once installed, per-app configuration lives in each app's `hop3.toml`, and the full guides are at [https://hop3.cloud](https://hop3.cloud).
+Once installed, per-app configuration lives in each app's `hop3.toml`. The full guides are at [https://hop3.cloud](https://hop3.cloud).
 
 ## Overview
 
-Hop3 is an open-source platform designed to enhance cloud computing with a focus on sovereignty, security, sustainability, and inclusivity.
+Hop3 is an open-source platform for running cloud applications on infrastructure you control.
 
-It aims to facilitate access to cloud technologies for a diverse range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers. By leveraging robust web, cloud, and open source technologies, Hop3 enables these groups to deploy and manage web applications efficiently and securely.
+It aims to facilitate access to cloud technologies for a diverse range of users, including small and medium-sized enterprises (SMEs), non-profits, public services, and individual developers, who can deploy and manage web applications on it without a platform team.
 
 See also the following presentations:
 
@@ -101,24 +101,24 @@ See also the following presentations:
 
 ## Features (Including Planned Features)
 
-Hop3 provides a comprehensive suite of features (some still in development) designed for robust application management, security, and intelligent automation.
+Hop3 provides the following features, some still in development.
 
 ### Management and User Experience
 
-*   **Centralized Web UI:** A powerful web dashboard for managing applications, users, and system settings, complete with real-time analytics and event logs.
+*   **Centralized Web UI:** A web dashboard for managing applications, users, and system settings, complete with real-time analytics and event logs.
 *   **User & Access Control:** Integrates with LDAP for centralized authentication and supports Single Sign-On (SSO). A granular Role-Based Access Control (RBAC) system with audit logs allows for precise permission management.
-*   **Domain & SSL Management:** Simplifies DNS configuration and automates the entire lifecycle of SSL certificates with services like Let's Encrypt.
+*   **Domain & SSL Management:** Simplifies DNS configuration and automates the lifecycle of SSL certificates with services like Let's Encrypt.
 
 ### Automation and Orchestration
 
 *   **Intelligent Orchestration Engine:** A built-in engine that manages the deployment, scaling, and resource allocation of applications without requiring external tools like Kubernetes.
-*   **Dynamic Scaling & Workload Management:** Automatically scales applications based on demand and intelligently schedules tasks, including offloading heavy computations to more powerful infrastructure.
-*   **Automated Lifecycle:** Supports automated deployments through CI/CD integration, automated backups with disaster recovery capabilities, and seamless live migration of running services between nodes without downtime.
+*   **Dynamic Scaling & Workload Management:** Automatically scales applications based on demand and intelligently schedules tasks, including offloading heavy computations to bigger machines.
+*   **Automated Lifecycle:** Supports automated deployments through CI/CD integration, automated backups with disaster recovery capabilities, and live migration of running services between nodes without downtime.
 
 ### Architecture and Design
 
 *   **Modular and Extensible:** Built on a flexible, pluggable architecture that allows users to add and customize functionality with plugins.
-*   **Distributed and Resilient:** Utilizes a distributed, agent-based architecture for decentralized control, ensuring fault tolerance, high availability, and easy scalability.
+*   **Distributed and Resilient:** Uses a distributed, agent-based architecture for decentralized control, ensuring fault tolerance, high availability, and easy scalability.
 *   **Comprehensive Security:** Incorporates advanced security measures, including real-time monitoring, encryption for data at rest and in transit, and secure network management tools (firewalls, VPNs, etc.).
 
 
@@ -126,7 +126,7 @@ Hop3 provides a comprehensive suite of features (some still in development) desi
 
 Hop3's technology stack is carefully chosen to support its goals without relying on conventional containerization tools like Docker or Kubernetes. Instead, it focuses on alternative, lightweight solutions that align with the project's principles of efficiency and sovereignty. The stack includes:
 
-- **Lightweight Isolation**: Utilizes lean isolation technologies privided by POSIX operating systems, and improved by technologies such as Nix or Guix, to ensure efficient resource use and reproducible builds.
+- **Lightweight Isolation**: Uses lean isolation technologies provided by POSIX operating systems, and improved by technologies such as Nix or Guix, to ensure efficient resource use and reproducible builds.
 - **Decentralized Architecture**: Employs a decentralized model for data storage and processing to enhance sovereignty and resilience.
 - **Security Tools**: Incorporates a suite of security tools designed for continuous monitoring, proactive threat mitigation, and compliance with the CRA.
 - **Energy-Efficient Computing**: Adopts strategies and technologies aimed at minimizing energy consumption across all operations.
@@ -143,7 +143,7 @@ We run CI tests on the SourceHut platform, which supports a wide range of open s
 
 ## Development and Contribution
 
-Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. The development and delivery pipeline is designed to be hermetic, reproducible, and highly responsive, integrating modern cross-platform functional package management with continuous integration/continuous delivery (CI/CD). This ensures that the development process is transparent, secure, and efficient.
+Contributions to Hop3 are highly encouraged, whether it involves fixing bugs, adding features, or enhancing documentation. The development and delivery pipeline is designed to be hermetic, reproducible, and highly responsive, integrating modern cross-platform functional package management with continuous integration/continuous delivery (CI/CD).
 
 ### Development Environment
 
@@ -161,7 +161,7 @@ You can check your environment by running `python3 scripts/check-dev-env.py` or 
 
 ### Development and Delivery Pipeline
 
-To ensure a hermetic, reproducible, and highly responsive internal delivery process, Hop3 integrates modern cross-platform functional package management with CI/CD. This approach leverages Nix to make the entire dependency tree transparent and validatable, enhancing the reliability and security of the delivery pipeline.
+To ensure a hermetic, reproducible, and highly responsive internal delivery process, Hop3 integrates modern cross-platform functional package management with CI/CD. Nix makes every dependency transparent and checkable, so the delivery pipeline can be audited.
 
 #### CI/CD Integration
 
@@ -199,7 +199,7 @@ The following tools will soon be available:
 - **Community Forums/Discussion Boards**: For discussions, questions, and community support.
 - **Mailing List**: Subscribe to receive updates, announcements, and participate in discussions.
 
-<!-- For additional information, visit the official Hop3 project page or reach out to the team via our support channels. -->
+<!-- For additional information, visit the official Hop3 project page or contact the team via our support channels. -->
 
 ### Additional Notes
 
@@ -269,7 +269,7 @@ Here are the REUSE compliance results for Hop3 (as of 2026/07/16):
 
 This project is partly funded through the [NGI0 Commons Fund](https://nlnet.nl/commonsfund), a fund established by [NLnet](https://nlnet.nl) with financial support from the European Commission's [Next Generation Internet](https://ngi.eu) programme, under the aegis of [DG Communications Networks, Content and Technology](https://commission.europa.eu/about-european-commission/departments-and-executive-agencies/communications-networks-content-and-technology_en) under grant agreement No [101135429](https://cordis.europa.eu/project/id/101135429). Additional funding is made available by the [Swiss State Secretariat for Education, Research and Innovation](https://www.sbfi.admin.ch/sbfi/en/home.html) (SERI).
 
-More information here: <https://nlnet.nl/project/Hop3-Nixified/>
+More information is at <https://nlnet.nl/project/Hop3-Nixified/>.
 
 
 ### GenAI usage
@@ -281,13 +281,13 @@ Generative AI is been used for specific tasks in this project:
 - Reviewing documentation for consistency and correct English.
 - Large-scale refactorings, when standard tools
 
-Tools we use include the ([letscode coding agent](https://github.com/abilian/letscode)), which we developped as a side-project to this project, and its plugins; a dedicated, soon to be published, security audit tool; and Claude and Pi, two popular coding agents, one of them Open Source. LLM we use include Devstral (from Mistral), Deepseek (Deepseek), GLM (Z.ai) and Opus (Anthropic).
+Tools we use include the ([letscode coding agent](https://github.com/abilian/letscode)), which we developed as a side-project to this project, and its plugins; a dedicated, soon to be published, security audit tool; and Claude and Pi, two popular coding agents, one of them Open Source. LLM we use include Devstral (from Mistral), Deepseek (Deepseek), GLM (Z.ai) and Opus (Anthropic).
 
-All these tasks are driven, supervised, and, eventually, verified by a human.
+A human drives and verifies all of these tasks.
 
 ## What's the story behind the name?
 
-"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something. It generally carries a light, motivating tone.
+"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something.
 
 ## Links / References
 

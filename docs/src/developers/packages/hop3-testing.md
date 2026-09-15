@@ -245,7 +245,7 @@ class DeploymentSession:
         """Destroy the deployed app and its addon state."""
 ```
 
-`__enter__` only arms cleanup; the caller drives `prepare()` and `deploy()` explicitly. `__exit__` always calls `cleanup()`.
+Entering the context only registers cleanup; the caller drives `prepare()` and `deploy()` explicitly. The `__exit__` method always calls `cleanup()`.
 
 Teardown goes through the target's `destroy_app`, which reaps the app's processes, releases its port, and removes its addon slots, so destroying one app never disturbs another.
 

@@ -9,71 +9,71 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-- **A test run can no longer rebuild a cloud server.** `hop3-deploy-server` validated `--docker --provider` only after acting on `--provider`, so an installer unit test issued a real rebuild on any machine with `HETZNER_*` exported. Targets are validated before anything is provisioned, pytest strips the cloud credentials, and a rebuild now requires the server label `hop3-throwaway=true`.
+- **A test run can no longer rebuild a cloud server.** `hop3-deploy-server` validated `--docker --provider` only after acting on `--provider`, so an installer unit test issued a real rebuild on any machine with `HETZNER_*` exported. Targets are validated before anything is provisioned, pytest strips the cloud credentials. A rebuild now requires the server label `hop3-throwaway=true`.
 
 ### Added
 
 - **`[proxy]` sets the reverse proxy's limits per app.** `max-body-size` (`2G`, or `0` for no limit) and `request-buffering = false`, rendered for whichever of nginx, Caddy or Traefik is active. Uploads were capped at a hardcoded 50 MB with no way to raise it.
 
-- **The S3 addon runs on Garage instead of MinIO.** MinIO withdrew its server binaries, which broke `hop3-install server --with s3` — and with it the whole install. Apps see the same endpoint and per-bucket key. Existing MinIO data is not migrated; `HOP3_S3_BACKEND=minio` still selects the old backend. (ADR 060)
+- **Garage replaces MinIO behind the S3 addon.** MinIO withdrew its server binaries, which broke `hop3-install server --with s3`, and with it the whole install. Apps see the same endpoint and per-bucket key. Existing MinIO data is not migrated; `HOP3_S3_BACKEND=minio` still selects the old backend. (ADR 060)
 
-- **`hop3-backup-server` snapshots a whole server.** The control-plane database, config and secrets, the apps tree, and dumps of PostgreSQL, MySQL, Redis and — on request — Docker volumes. `--fetch DIR` brings the snapshot home; every step reports ok, skip or FAIL.
+- **`hop3-backup-server` snapshots a whole server.** The control-plane database, config and secrets, the apps tree, and dumps of PostgreSQL, MySQL, Redis and, on request, Docker volumes. `--fetch DIR` brings the snapshot home; every step reports ok, skip or FAIL.
 
 - **`hop3-restore-server` puts a server back to a snapshot.** `--only` restores a subset, `--from-local` uploads one fetched earlier. It keeps a `.pre-restore` copy of everything it replaces and reports success only once the server answers.
 
 - **The CLI talks HTTPS by default; SSH is bootstrap and rescue.** Signing in over SSH recorded the SSH target as *the* connection, so every later `hop3 apps` or `hop3 logs` opened a root shell. A login now records the server's public address and uses SSH only to mint a token; a server without a trusted certificate keeps the tunnel and the login says so. `--via-ssh` forces one command through SSH.
 
-- **Every target the CLI can reach has a name.** `hop3 login` wrote an unnamed default target that sat below every context, so a login could report success and then send every command elsewhere. A login with no `--context` now writes the reserved context `default`, and `HOP3_API_URL` appears as the context `env`. Existing configuration is migrated on first run.
+- **Every target the CLI can reach has a name.** `hop3 login` wrote an unnamed default target that sat below every context, so a login could report success and then send every command elsewhere. A login with no `--context` now writes the reserved context `default`. `HOP3_API_URL` appears as the context `env`. Existing configuration is migrated on first run.
 
 - **`hop3 login` takes its target positionally**: `hop3 login root@server`, with `--browser` for a dashboard magic link. The old `--ssh` and `--web` spellings still work.
 
 ### Fixed
 
-- **A deploy no longer claims the CLI's `default` context, or points it at the API port.** It signed this machine in by passing `--context default` explicitly, which skips the guard that refuses to move an existing `default` onto another server — and pointed it at `http://<host>:8000`, the API in clear. An SSH deploy now configures nothing and gives one login command, which negotiates HTTPS or a tunnel itself; a `--docker` deploy still configures the CLI, under the context `hop3-docker`.
+- **A deploy no longer claims the CLI's `default` context, or points it at the API port.** It signed this machine in by passing `--context default` explicitly, which skips the guard that refuses to move an existing `default` onto another server. It also pointed the CLI at `http://<host>:8000`, the API in clear. An SSH deploy now configures nothing and gives one login command, which negotiates HTTPS or a tunnel itself; a `--docker` deploy still configures the CLI, under the context `hop3-docker`.
 
-- **The deploy banner stopped contradicting itself.** It told you to run `hop3 login root@<host>` after writing the context that makes the CLI refuse exactly that; then, once fixed, gave three different spellings of one command and never said what `--context` does. One command now, with its variations as added flags, and `Server URL:` names `https://<admin-domain>` instead of the API port.
+- **The deploy banner stopped contradicting itself.** It told you to run `hop3 login root@<host>` after writing the context that makes the CLI refuse exactly that; then, once fixed, gave three different spellings of one command and never said what `--context` does. One command now, with its variations as added flags. `Server URL:` now names `https://<admin-domain>`.
 
-- **A login is visible to the rest of its own invocation.** The context reached disk, but this process had resolved its connection before that — so the cache refresh that runs on the back of a login reported "API URL not configured" one line under "Signed in to …", about the server it had just signed in to.
+- **A login is visible to the rest of its own invocation.** The context reached disk, but this process had resolved its connection before that. The cache refresh that runs on the back of a login therefore reported "API URL not configured" one line under "Signed in to …", about the server it had just signed in to.
 
 - **Refusing to repoint `default` says whose the two addresses are.** Almost always one machine by two routes, since the deployer wrote the first; the refusal listed both and left the reader to guess they had two servers.
 
-- **"No server configured" names a real command and an obvious placeholder.** It said `hop3 init --ssh root@server`, which reads as a target rather than a template: typed as printed it fails with `Could not resolve hostname server`.
+- **"No server configured" names a real command and an obvious placeholder.** It said `hop3 init --ssh root@server`, which reads as a real target: typed as printed it fails with `Could not resolve hostname server`.
 
-- **A deploy that times out while the app is answering now says so.** When `[healthcheck].contains` never matches, the failure names the path, the status and what the page actually contained, instead of reporting a dead worker and advising a longer timeout.
+- **A deploy that times out while the app is answering now says so.** When `[healthcheck].contains` never matches, the failure names the path, the status and what the page actually contained. It used to report a dead worker and advise a longer timeout.
 
-- **`hop3-test` runs an app's `check.py` with the credentials the deploy uses.** It exported only `HOP3_ADMIN_*`, so every check signed in as the operator instead of the app's `[probe]` account — and reported working apps as broken.
+- **`hop3-test` runs an app's `check.py` with the credentials the deploy uses.** It exported only `HOP3_ADMIN_*`, so every check signed in as the operator, never the app's `[probe]` account, and reported working apps as broken.
 
-- **The pnpm version a server builds with is pinned.** It was whatever `npm install -g pnpm` fetched on install day and was never reconciled, so servers drifted apart; pnpm 12 removed a flag Etherpad calls at every boot, and the app died four seconds into startup. Upgrading a server installs the pinned version.
+- **The pnpm version a server builds with is pinned.** It was whatever `npm install -g pnpm` fetched on install day and was never reconciled, so servers drifted apart; pnpm 12 removed a flag Etherpad calls at every boot. The app died four seconds into startup. Upgrading a server installs the pinned version.
 
-- **Health checks identify themselves** with a `hop3-healthcheck` User-Agent. Apps that reject anonymous requests — GoToSocial answers 418 — failed readiness while serving everyone else.
+- **Health checks identify themselves** with a `hop3-healthcheck` User-Agent. Apps that reject anonymous requests (GoToSocial answers 418) failed readiness while serving everyone else.
 
 - **A readiness timeout names the port the app actually bound.** An app that ignores `$PORT` (Grafana defaults to 3000) was reported as slow to start. The failure now lists the ports the app's own processes hold and points at `[run].start`.
 
-- **`${VAR}` in `[env]` is refused instead of exported literally.** `[env]` does not interpolate, so a recipe using `${PGHOST}` there got the characters — Grafana ran on SQLite beside the empty PostgreSQL addon Hop3 had provisioned. The error names the section that does: `[env.computed]`, or `[run].start` for `$PORT`. `[env.computed]` now fails the deploy on a missing reference instead of storing the template.
+- **`${VAR}` in `[env]` is refused at validation.** `[env]` does not interpolate, so a recipe using `${PGHOST}` there got the characters: Grafana ran on SQLite beside the empty PostgreSQL addon Hop3 had provisioned. The error names the section that does: `[env.computed]`, or `[run].start` for `$PORT`. `[env.computed]` now fails the deploy on a missing reference, where it used to store the template.
 
 - **Deploys are no longer refused at random for an nginx reload that worked.** A rounding error in the reload's freshness check rejected workers that had just forked, aborting the deploy with "nginx kept the previous config".
 
-- **A failed nginx reload reports what it measured** — the reference tick, the workers it saw, whether the error log was readable — instead of only "no fresh worker processes appeared".
+- **A failed nginx reload reports what it measured**: the reference tick, the workers it saw, whether the error log was readable. It used to say only "no fresh worker processes appeared".
 
 - **`hop3 run` streams its output and no longer times out.** Long commands were killed at five minutes and showed nothing until they ended. Output appears as the program prints it, stderr interleaved.
 
 - **A streamed `hop3 run` no longer signs off with "App deployed successfully".**
 
-- **A long-running stream is no longer dropped after an hour.** Only finished streams are collected, and the replay buffer is bounded.
+- **A long-running stream is no longer dropped after an hour.** Only finished streams are collected. The replay buffer is bounded.
 
 - **Readiness probes php-fpm over FastCGI.** The gate opened a plain HTTP connection, which no php-fpm pool can answer. A backend declares its protocol in the build artifact and the proxy reads the same field.
 
-- **A proxy config the server rejects is rolled back instead of left in place.** One bad vhost aborted every later deploy and every certificate renewal, naming an app neither of them touched. The rejected file is parked as `<app>.conf.rejected`, outside the include glob, and named in the diagnosis.
+- **A proxy config the server rejects is rolled back.** One bad vhost aborted every later deploy and every certificate renewal, naming an app neither of them touched. The rejected file is parked as `<app>.conf.rejected`, outside the include glob, and named in the diagnosis.
 
-- **Caddy and Traefik abort when they cannot validate a config**, as nginx already did, instead of deploying it unchecked.
+- **Caddy and Traefik abort when they cannot validate a config**, as nginx already did.
 
 - **`hop3 run mycli --help` reaches the program.** Global flag parsing stopped at the program token; help handling did not.
 
-- **A failed SSH bootstrap says what broke.** Connecting as a non-root admin failed with `su: Authentication failure`, naming neither the command nor the requirement. The error now carries both, and `hop3@host` is refused up front.
+- **A failed SSH bootstrap says what broke.** Connecting as a non-root admin failed with `su: Authentication failure`, naming neither the command nor the requirement. The error now carries both. `hop3@host` is refused up front.
 
 - **The warning before a destructive command names the server address**, not only the context name.
 
-- **The deployer writes a real context** instead of a deprecated setting that every context outranked, so "CLI configured to connect to `<host>`" is now true.
+- **The deployer writes a real context.** It used to write a deprecated setting that every context outranked, so "CLI configured to connect to `<host>`" is now true.
 
 - **The docs linter stops calling `hop3 apps`, `login`, `logout` and `ssh` deprecated.** They are the intended short forms (ADR 036).
 
@@ -85,7 +85,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`hop3 login --help` documents `--web`**, `--context`, and the password reset that does not need the password. The docs also stop offering `--ssh` and `--web` as alternatives: only the first is a login, the second prints a dashboard link.
 
-- **The dashboard login page tells a first-time operator how to get in** — `hop3 login --web root@<server>` — since the generated password is never shown in the clear.
+- **The dashboard login page tells a first-time operator how to get in**: `hop3 login --web root@<server>`, since the generated password is never shown in the clear.
 
 - **The CLI reference gives the real token lifetime**: 24 hours, not 30 days. The 14-day figure belongs to the web session, which is a separate credential.
 
@@ -93,13 +93,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Uploads work on a server with a non-standard SSH port.** `scp` was passed ssh's `-p`, which it reads as "preserve times".
 
-- **An in-place server upgrade upgrades rootd and the CLI too.** They were left at the old version beside a new server, so the first addon change afterwards failed with "no such op". All three are installed at one version from one source, and the venv is checked before migrations run.
+- **An in-place server upgrade upgrades rootd and the CLI too.** They were left at the old version beside a new server, so the first addon change afterwards failed with "no such op". All three are installed at one version from one source. The venv is checked before migrations run.
 
 - **`--from local` on the Docker backend no longer reinstalls the old code** and reports success: `docker cp` was nesting the new tree inside the old one.
 
 - **The Docker update path works on a container created by an older deployer.**
 
-- **`hop3-test upgrade-chain` actually upgrades.** It asked every worktree for the current deployer name, and `uv run` answered a missing script by falling through to `PATH`, so each hop installed the current version. Every hop now asserts the version it claims.
+- **`hop3-test upgrade-chain` actually upgrades.** It asked every worktree for the current deployer name. `uv run` answered a missing script by falling through to `PATH`, so each hop installed the current version. Every hop now asserts the version it claims.
 
 - **The administration guide gives the real upgrade path.** Re-running the single-file installer does not migrate the schema and restarts every app.
 
@@ -107,11 +107,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`hop3 app shell` opens a shell inside a deployed app**, with the environment its workers get: the toolchain's `PATH`, the addon credentials, `$PORT`, and the source directory as cwd. It travels over the SSH forced command that already serves `git push`, so nothing new listens. `hop3 ssh` is an alias, and `hop3 run` now shares the same environment.
+- **`hop3 app shell` opens a shell inside a deployed app**, with the environment its workers get: the toolchain's `PATH`, the addon credentials, `$PORT`, and the source directory as cwd. It travels over the SSH forced command that already serves `git push`, so nothing new listens. `hop3 ssh` is an alias. `hop3 run` now shares the same environment.
 
-- **`hop3 env set` keeps secrets off the command line.** `KEY=-` reads the value from stdin, `KEY=@path` from a file, and a bare `KEY` prompts with echo off, so it never reaches the shell history or `ps`. Output is redacted, including the previous value reported on an overwrite. (ADR 036)
+- **`hop3 env set` keeps secrets off the command line.** `KEY=-` reads the value from stdin, `KEY=@path` from a file. A bare `KEY` prompts with echo off, so it never reaches the shell history or `ps`. Output is redacted, including the previous value reported on an overwrite. (ADR 036)
 
-- **`hop3 help` works before you log in**, from a command list the client refreshes at every login, and a mistyped command gets a suggestion the server computes. `hop3 help --all --json` emits the whole command tree.
+- **`hop3 help` works before you log in**, from a command list the client refreshes at every login. A mistyped command gets a suggestion the server computes. `hop3 help --all --json` emits the whole command tree.
 
 - **One SSH configuration for everything the CLI spawns.** `ssh_key`, `ssh_port` and the new `ssh_options` (`HOP3_SSH_KEY`, `HOP3_SSH_PORT`, `HOP3_SSH_OPTIONS`) are read by the RPC tunnel, `hop3 tunnel`, `app shell` and the login bootstrap alike. A port in the target (`root@host:2222`) is honoured everywhere; `ssh_options` takes a ProxyJump or a private known_hosts.
 
@@ -121,11 +121,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The documentation build produces `llms.txt` and `llms-full.txt`** for language-model readers.
 
-- **PHP applications get a production runtime.** Ten catalog apps ran on PHP's single-threaded built-in server, where Nextcloud and Matomo deadlock against their own only worker. The toolchain now builds a php-fpm pool under the uWSGI Emperor, and nginx serves the front-controller directory (`public/`, `web/`, `htdocs/`), keeping `.env` and the vendor tree off the web.
+- **PHP applications get a production runtime.** Ten catalog apps ran on PHP's single-threaded built-in server, where Nextcloud and Matomo deadlock against their own only worker. The toolchain now builds a php-fpm pool under the uWSGI Emperor. nginx serves the front-controller directory (`public/`, `web/`, `htdocs/`), keeping `.env` and the vendor tree off the web.
 
 ### Changed
 
-- **PostgreSQL, Caddy and Traefik are reloaded through rootd.** Three call sites ran `sudo -n systemctl reload`, which fails on any host where the `hop3` user has no passwordless sudo — and the PostgreSQL one discarded the result, so a `pg_hba.conf` that was never applied looked exactly like one that was.
+- **PostgreSQL, Caddy and Traefik are reloaded through rootd.** Three call sites ran `sudo -n systemctl reload`, which fails on any host where the `hop3` user has no passwordless sudo. The PostgreSQL one also discarded the result, so a `pg_hba.conf` that was never applied looked exactly like one that was.
 
 - **JSON-RPC errors carry JSON-RPC codes.** A malformed request body used to get an HTML 500 no client could parse. The endpoint now answers -32600, -32601 and -32602 for a bad envelope, -32001 unauthenticated, -32002 rate-limited, and -32603 for a command that failed while doing its work.
 
@@ -139,9 +139,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Login failures are indistinguishable, including in time.** An unknown username answered faster than a wrong password, because it returned before any hashing, so the response revealed whether an account existed (CWE-204).
 
-- **A builder's refusal stops the deploy.** It was swallowed as "this builder does not apply", so the next builder in line built the app the wrong way. Two plugins claiming one identity now fail at startup, and a hook implementation with no specification is an error rather than a silent no-op.
+- **A builder's refusal stops the deploy.** It was swallowed as "this builder does not apply", so the next builder in line built the app the wrong way. Two plugins claiming one identity now fail at startup. A hook implementation with no specification is an error, where it used to be a permanent no-op.
 
-- **The PostgreSQL addon refuses a name that would derive a reserved role.** An addon named `pg-…` derives `pg_…`, which PostgreSQL reserves — and was rejected only after the database had been created.
+- **The PostgreSQL addon refuses a name that would derive a reserved role.** An addon named `pg-…` derives `pg_…`, which PostgreSQL reserves, and was rejected only after the database had been created.
 
 ### Fixed
 
@@ -149,7 +149,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`--with nix` either installs Nix or stops the install.** A failure printed a warning and reported success, so every Nix app on that server failed to build later. The installer also installs `xz`, which Nix needs and a bare Ubuntu 24.04 does not ship.
 
-- **A restart against a garbage-collected Nix closure is refused for static sites too.** The guard gated on artifact kind, and a Nix-built static site is a `static` artifact, so the restart reported success over missing files.
+- **A restart against a garbage-collected Nix closure is refused for static sites too.** The guard gated on artifact kind. A Nix-built static site is a `static` artifact, so the restart reported success over missing files.
 
 - **`hop3 run … python -c "…"` no longer loses `-c` to `--context`.** Global flag parsing stops at the program for `run` and `app run`, and at a POSIX `--` for every command.
 
@@ -165,11 +165,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Dashboard actions report their failure.** A restart, stop or backup that failed printed to the server's stdout and redirected to a page saying only "failed". An app whose `Procfile` or `hop3.toml` could not be parsed was rendered as "no workers".
 
-- **`hop3-server plugins` reports a broken plugin** instead of dropping it from the listing, which turned a plugin bug into "that feature does not exist".
+- **`hop3-server plugins` reports a broken plugin.** Dropping it from the listing turned a plugin bug into "that feature does not exist".
 
 - **Two apps can no longer share a name.** `app.name` is unique now; the migration aborts and names the duplicates if a database already holds two, since each owned its own env vars and addon credentials while every lookup by name raised.
 
-- **hop3-test and the Docker e2e suite test what they claim.** The main deploy suite pointed at fixture directories renamed long ago, collected zero tests and reported "1 skipped"; it now runs 22 fixture deploys, and a missing fixture directory is an error. Eighteen e2e tests that skipped on a default run now run: Nix, PostgreSQL backup and restore, archive integrity, and the SSH transport.
+- **hop3-test and the Docker e2e suite test what they claim.** The main deploy suite pointed at fixture directories renamed long ago, collected zero tests and reported "1 skipped"; it now runs 22 fixture deploys. A missing fixture directory is an error. Eighteen e2e tests that skipped on a default run now run: Nix, PostgreSQL backup and restore, archive integrity, and the SSH transport.
 
 ## [0.7.2] - 2026-08-30
 
@@ -181,49 +181,49 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The application gallery is live at `apps.hop3.cloud`.** A page per application with its screenshots and readme, category and tag pages, and a search index that runs in the browser. It is generated by a new package, `hop3-marketplace`, which imports the server's own catalog loader and taxonomy, so the public site and the dashboard on your server cannot disagree about what an app is.
 
-- **An entry that would look unfinished can no longer be published.** `hop3-tools catalog lint` asserts what an operator sees before installing — title, description, version, a category from the known taxonomy, tags, a memory estimate, an icon, a screenshot — and refuses two entries claiming one id, which used to make one of them vanish with nothing logged. It runs as part of building the catalog.
+- **An entry that would look unfinished can no longer be published.** `hop3-tools catalog lint` checks what an operator sees before installing: title, description, version, a category from the known taxonomy, tags, a memory estimate, an icon, a screenshot. It also refuses two entries claiming one id, which used to make one of them vanish with nothing logged. It runs as part of building the catalog.
 
 ### Security
 
-- **Addon passwords are no longer briefly world-readable.** The file was created with default permissions, written, then locked down, so every write and rotation left a readable window. It is created locked down now, and a half-finished write no longer leaves no password at all. Affects PostgreSQL, MySQL, Redis and email addons.
+- **Addon passwords are no longer briefly world-readable.** The file was created with default permissions, written, then locked down, so every write and rotation left a readable window. It is created locked down now. A half-finished write no longer leaves the app without one. Affects PostgreSQL, MySQL, Redis and email addons.
 
-- **Two Redis addons can no longer be handed the same database.** The number was picked and written down three round trips later, so two `hop3 addon redis create` calls close together could take the same one and silently share keys. It is claimed and recorded in a single step, given back if the create then fails, and when all fifteen are in use the error says which addon holds each.
+- **Two Redis addons can no longer be handed the same database.** The number was picked and written down three round trips later, so two `hop3 addon redis create` calls close together could take the same one and silently share keys. It is claimed and recorded in a single step, given back if the create then fails. When all fifteen are in use the error says which addon holds each.
 
-- **Deploys no longer all build at once.** Each deploy got its own thread immediately, so ten `hop3 deploy` calls became ten simultaneous builds competing for the server that is also running your apps. Two build at a time (`MAX_CONCURRENT_BUILDS`) and the rest queue, saying so; past 32 waiting (`MAX_WAITING_BUILDS`) a deploy is refused rather than queued.
+- **Deploys no longer all build at once.** Each deploy got its own thread immediately, so ten `hop3 deploy` calls became ten simultaneous builds competing for the server that is also running your apps. Two build at a time (`MAX_CONCURRENT_BUILDS`) and the rest queue, saying so; past 32 waiting (`MAX_WAITING_BUILDS`) a deploy is refused.
 
-- **`hop3 app create <repo_url>` checks the URL and bounds the clone.** A URL is not inert to git: `ext::sh -c …` runs its argument and `file:///…` reads any path the server can. Only `https://`, `http://`, `ssh://`, `git://` and `git@host:user/repo.git` are accepted, and the clone is shallow, single-branch, and stops at 10 minutes or 2 GiB.
+- **`hop3 app create <repo_url>` checks the URL and bounds the clone.** A URL is not inert to git: `ext::sh -c …` runs its argument and `file:///…` reads any path the server can. Only `https://`, `http://`, `ssh://`, `git://` and `git@host:user/repo.git` are accepted. The clone is shallow, single-branch, and stops at 10 minutes or 2 GiB.
 
 ### Fixed
 
-- **Catalog entries showed almost nothing they declared.** `catalog.toml` was never read by the server, so all fifty-five entries loaded with no tags, no memory estimate, no services, no icon and one category between them. The dashboard compounded it by reading three field names the model has never defined. Both front ends now describe an application identically, checked by a test.
+- **Catalog entries showed almost nothing they declared.** `catalog.toml` was never read by the server, so all fifty-five entries loaded without their tags, memory estimate, services or icon, and with one category between them. The dashboard compounded it by reading three field names the model has never defined. Both front ends now describe an application identically, checked by a test.
 
-- **An app whose front page redirects is no longer reported as failing to start.** The content check read the first response and stopped, and a redirect has no body, so Kanboard and Invoice Ninja could never satisfy a check they demonstrably passed in a browser. It now follows the app's own redirects, up to five, and never off to another host.
+- **An app whose front page redirects is no longer reported as failing to start.** The content check read the first response and stopped. A redirect has no body, so Kanboard and Invoice Ninja could never satisfy a check they demonstrably passed in a browser. It now follows the app's own redirects, up to five, and never off to another host.
 
-- **A comment in a Nix recipe could stop the app from starting.** Config files are written at startup by a shell that expands `${VAR}` — and ran anything in backticks, so a recipe explaining itself in ordinary prose had those fragments executed and the app died at boot having built perfectly. Backticks in config content are text now. Four bundled recipes were carrying this.
+- **A comment in a Nix recipe could stop the app from starting.** Config files are written at startup by a shell that expands `${VAR}`, and ran anything in backticks too, so a recipe explaining itself in ordinary prose had those fragments executed and the app died at boot having built perfectly. Backticks in config content are text now. Four bundled recipes were carrying this.
 
-- **The terminal UI showed invented logs and invented metrics.** `hop3-tui` displayed eight made-up log lines — including an error for an app that was fine — and fixed CPU, memory and disk readings dressed as live ones. It now shows your app's real logs, and says plainly when a value has not been reported.
+- **The terminal UI showed invented logs and invented metrics.** `hop3-tui` displayed eight made-up log lines (including an error for an app that was fine) and fixed CPU, memory and disk readings dressed as live ones. It now shows your app's real logs, and says when a value has not been reported.
 
-- **`hop3-test` could not run an app's smoke test at all.** It handed the check a plain-HTTP port while the check has spoken HTTPS for some time, so every app failed identically at "the admin credential signs in" — pointing at the credential and the app rather than at the harness. Three faults were stacked behind it. A check now behaves identically whether a deploy runs it or the harness does.
+- **`hop3-test` could not run an app's smoke test at all.** It handed the check a plain-HTTP port while the check has spoken HTTPS for some time, so every app failed identically at "the admin credential signs in", which points at the credential and the app. The harness was at fault. Three faults were stacked behind it. A check now behaves identically whether a deploy runs it or the harness does.
 
 - **`--keep` no longer reports that it destroyed the app it kept**, sending you to a static bundle while the app was still up for inspection.
 
 - **A failed host-key scan in `hop3-test` says which host it could not read, and why.** The error was discarded, so a scan that timed out looked like one that never ran.
 
-- **A signing key too short to sign with is refused.** `HOP3_SECRET_KEY` under 32 bytes weakens every token the server issues (RFC 7518 §3.2), and PyJWT warned and signed anyway into a log nobody reads. Hop3 now stops with the length it found, the command to generate a good key, and the three places it looks.
+- **A signing key too short to sign with is refused.** `HOP3_SECRET_KEY` under 32 bytes weakens every token the server issues (RFC 7518 §3.2). PyJWT warned and signed anyway into a log nobody reads. Hop3 now stops with the length it found, the command to generate a good key, and the three places it looks.
 
 - **`APP_START_TIMEOUT` now does something.** The reconciler was constructed without it and kept its hardcoded 60 seconds, so raising the setting changed nothing and a slow-starting app could be marked failed while it was still coming up.
 
-- **Forgejo's licence is `GPL-3.0-or-later`, not `MIT`.** It relicensed at v9.0 and we package v14. Mattermost stays `MIT`, which is right for the binary Mattermost, Inc. publishes, and the recipe now says so.
+- **Forgejo's licence is `GPL-3.0-or-later`, not `MIT`.** It relicensed at v9.0 and we package v14. Mattermost stays `MIT`, which is right for the binary Mattermost, Inc. publishes. The recipe now says so.
 
-- **A truncated download is no longer cached and reused as if complete.** A connection cut mid-transfer poisoned the cache, and every later build reused the partial archive and failed somewhere further on, where the cause was no longer visible. The size received is checked against the size declared; `hop3-fetch --refresh <url>` re-fetches a poisoned entry.
+- **A truncated download is no longer cached and reused as if complete.** A connection cut mid-transfer poisoned the cache. Every later build reused the partial archive and failed somewhere further on, where the cause was no longer visible. The size received is checked against the size declared; `hop3-fetch --refresh <url>` re-fetches a poisoned entry.
 
-- **A pinned pnpm dependency hash could mean different things on different machines.** The fetcher normalised the store's key order and timestamps but not file permissions, so a hash recorded on one machine failed on another with an identical lockfile — which a catalog install of Vikunja hit. Recipes can now ask for the normalisation nixpkgs added later (`node-pnpm-fetcher-version`).
+- **A pinned pnpm dependency hash could mean different things on different machines.** The fetcher normalised the store's key order and timestamps but not file permissions, so a hash recorded on one machine failed on another with an identical lockfile, which a catalog install of Vikunja hit. Recipes can now ask for the normalisation nixpkgs added later (`node-pnpm-fetcher-version`).
 
 - **Python packages with Rust extensions build under Nix.** The build derivation is sandboxed and offline, so cargo died reaching for crates.io; crates are vendored during the fetch step, which is the one place with network access. Gradle and PHP applications each had a gap of their own in the same generator.
 
-- **A deploy can no longer report success for an app whose background worker never ran.** A missing command dies on spawn and is respawned, but the process manager announces throttling only several cycles in — so on an idle server the same broken app passed, with a dead queue behind a login page that rendered perfectly.
+- **A deploy can no longer report success for an app whose background worker never ran.** A missing command dies on spawn and is respawned, but the process manager announces throttling only several cycles in. On an idle server the same broken app passed, with a dead queue behind a login page that rendered perfectly.
 
-- **A slow deploy upload no longer looks like a server that is down.** The bound meant for the connection handshake was applied to the body, so an upload needing more than thirty seconds was killed mid-send and reported as "Could not connect to the Hop3 server" — a 20 MB deploy on a 2 Mbit/s uplink could never succeed. The body has its own allowance now, and a large upload shows a progress bar.
+- **A slow deploy upload no longer looks like a server that is down.** The bound meant for the connection handshake was applied to the body, so an upload needing more than thirty seconds was killed mid-send and reported as "Could not connect to the Hop3 server". A 20 MB deploy on a 2 Mbit/s uplink could never succeed. The body has its own allowance now. A large upload shows a progress bar.
 
 - **An expired token no longer surfaces as "Unexpected response format".** An unauthenticated call was answered with a redirect to a login page, which the client followed, so HTML arrived where a JSON-RPC response was expected. The client no longer follows redirects from the RPC endpoint, which also stops a token being replayed to wherever the redirect points.
 
@@ -233,62 +233,62 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
-Affects every release up to and including 0.7.0. **If your hop3-server is reachable from an untrusted network, upgrade.** Nothing to reconfigure and no credential to rotate, but weak account passwords are worth changing: until now they could be guessed far faster than intended.
+Affects every release up to and including 0.7.0. Upgrade if your hop3-server is reachable from an untrusted network. There is nothing to reconfigure and no credential to rotate. Change weak account passwords: until now they could be guessed far faster than intended.
 
 - **Password guessing over JSON-RPC was not rate limited.** The web login form has been capped at 5 attempts per IP per minute since 0.5, but `hop3 auth get-token` checks the same credentials and applied no limit, so an attacker could guess ~100x faster by choosing that path. Both now draw on one shared budget.
-- **Login failures revealed which accounts exist.** A disabled account answered differently from a wrong password, and an unknown username answered faster than a real one. All three failures now return one identical response in the same time.
-- **Signing in over plain HTTP looped instead of failing.** The session cookie is `Secure`, so a browser with no TLS discarded it and the login bounced back to the login page forever, with no error anywhere. It now refuses up front and says why. Local development over HTTP still works with `HOP3_DEBUG=true`.
+- **Login failures revealed which accounts exist.** A disabled account answered differently from a wrong password. An unknown username answered faster than a real one. All three failures now return one identical response in the same time.
+- **Signing in over plain HTTP looped forever.** The session cookie is `Secure`, so a browser with no TLS discarded it and the login bounced back to the login page forever, with no error anywhere. It now refuses up front and says why. Local development over HTTP still works with `HOP3_DEBUG=true`.
 - **Signing out was a link, so another site could sign you out.** `GET /auth/logout` is now a form POST. Minor by itself, but it was the only state-changing GET, and "every mutation is a POST" is what lets Hop3 ship without CSRF tokens.
 
 Details, and the remaining open items, in `notes/security/`.
 
-One behaviour that looks like a bug and is not: a magic link is spent the moment it is presented, even if the sign-in then fails because the account was deleted or disabled. A link that has been used cannot be replayed, whatever happened next. The one case where the link is *not* spent is a redemption that could never have worked for a reason you can fix — over plain HTTP, above, Hop3 refuses before touching the token, so the link still works once you reach the server over HTTPS.
+One behaviour looks like a bug and is not. A magic link is spent the moment it is presented, even if the sign-in then fails because the account was deleted or disabled. A link that has been used cannot be replayed, whatever happened next. The one case where the link is *not* spent is a redemption that could never have worked for a reason you can fix: over plain HTTP, above, Hop3 refuses before touching the token, so the link still works once you reach the server over HTTPS.
 
 ### Fixed
 
-- **Bugsink's Nix recipe runs its background worker.** The hand-written recipe deployed the web process alone, so the app signed in and then failed on any path that queues work: its "snappea" queue lives in a second database that was never migrated. Configuration and both migrations now run before any worker starts, and the queue worker is declared alongside the web one. The other two Bugsink variants were unaffected.
+- **Bugsink's Nix recipe runs its background worker.** The hand-written recipe deployed the web process alone, so the app signed in and then failed on any path that queues work: its "snappea" queue lives in a second database that was never migrated. Configuration and both migrations now run before any worker starts. The queue worker is declared alongside the web one. The other two Bugsink variants were unaffected.
 
 ## [0.7.0] - 2026-07-31
 
 ### Changed
 
 - **Consistent command-line names**: the developer deploy tool is now `hop3-deploy-server` (renamed from `hop3-deploy`), part of a pass to give every Hop3 tool one consistent set of flags and verbs.
-- **Failed deploys show the real cause**: `hop3 deploy` now surfaces the actual error line once — not a repeated, buried backtrace — with a working pointer to the full log (`hop3 app logs --app <app> --build`).
+- **Failed deploys show the real cause**: `hop3 deploy` now surfaces the actual error line once, with a working pointer to the full log (`hop3 app logs --app <app> --build`).
 
 ### Added
 
-- **Content-aware health checks**: set `[healthcheck].contains = "..."` and a deploy is only reported healthy when your app actually serves its own page — a bare `200` can be a placeholder or an error page.
-- **Server-level email transport** *(experimental)*: set your SMTP submission credentials once with `hop3 server email set … --from-domain example.com`, and per-app email addons created without their own `--smtp-*` inherit them — no credentials repeated per app. An app can still override with its own provider, and rotating the server transport propagates to every inheriting app.
-- **Unified email backend selection** *(experimental)*: `hop3 server email backend <relay|catch|direct>` names the backend every declaring app inherits — `relay` (a provider or corporate smarthost, also spelled `server email set`), `catch` (a dev sink that captures mail and never sends it), and `direct` (below).
-- **Direct / self-hosted email backend** *(experimental)*: `hop3 server email backend direct --from-domain example.com` turns the box into its own MTA — Postfix delivers to recipients' MX and opendkim signs outbound mail, with no third party. Hop3 generates the DKIM keypair and prints the exact SPF/DKIM/DMARC records to publish (plus the PTR reminder), runs an SPF/DKIM/DMARC pre-flight, and probes outbound port 25 — never claiming "ready" over unpublished DNS or a blocked egress. Needs `--with email` (Postfix + opendkim).
-- **Loopback email relay** *(experimental)*: selecting the relay backend now configures a queuing Postfix null-client on `127.0.0.1:25` (via hop3-rootd), and an app that attaches an inheriting email addon is injected `SMTP_HOST=127.0.0.1` — it sends over SMTP to the local relay, which forwards to the provider, so the provider credential never enters an app's environment and the backend is swappable without re-touching apps. Install Postfix with `hop3-install server --with email` (included in `--with all`).
-- **Email provider profiles + DKIM auto-verify** *(experimental)*: `hop3 server email set --provider <name>` fills the SMTP host/port for a known provider (`--list-providers`: Resend, Postmark, Brevo, Mailgun/Mailgun-EU, Scaleway TEM — EU-hosted ones flagged). The deliverability pre-flight now also **verifies DKIM** once its selector is known (`--dkim-selector`, or automatically for Resend), instead of only SPF/DMARC.
-- **Operator email alerts** *(experimental)*: `hop3 server email notifications on` opts in to being emailed (via the active email backend) when things break — TLS certificate-renewal failures (a cert that stops renewing reaches you before it expires) and **failed deploys** (best-effort, never masking the failure itself). `status` reports whether the channel is actually deliverable, and `test` sends a test message.
-- **Safe app upgrades with automatic rollback**: `hop3 app upgrade --app <app>` snapshots the app, redeploys it (rebuilding and running its migrations), verifies it comes back healthy, and — if the build, a migration, or the health check fails — automatically restores the pre-upgrade snapshot instead of leaving you on a half-upgraded app. `hop3 app rollback --app <app>` restores a backup on demand (the most recent by default, `--to <backup-id>` for a specific one).
-- **Install apps from the catalog, from the dashboard or the CLI**: 0.6 could browse the signed catalog; 0.7 installs and deploys from it. Twenty apps ship in the official catalog — BookStack, Bugsink, Dolibarr, Easy!Appointments, Forgejo, Gitea, Invoice Ninja, Isso, Kanboard, Keycloak, LimeSurvey, Matomo, Mattermost, Miniflux, Nextcloud, Paheko, Radicale, Uptime Kuma, Vikunja and WordPress — each with an admin account created for you at install time.
+- **Content-aware health checks**: set `[healthcheck].contains = "..."` and a deploy is only reported healthy when your app actually serves its own page: a bare `200` can be a placeholder or an error page.
+- **Server-level email transport** *(experimental)*: set your SMTP submission credentials once with `hop3 server email set … --from-domain example.com`, and per-app email addons created without their own `--smtp-*` inherit them, with no credentials repeated per app. An app can still override with its own provider. Rotating the server transport propagates to every inheriting app.
+- **Unified email backend selection** *(experimental)*: `hop3 server email backend <relay|catch|direct>` names the backend every declaring app inherits: `relay` (a provider or corporate smarthost, also spelled `server email set`), `catch` (a dev sink that captures mail and never sends it), and `direct` (below).
+- **Direct / self-hosted email backend** *(experimental)*: `hop3 server email backend direct --from-domain example.com` turns the box into its own MTA: Postfix delivers to recipients' MX and opendkim signs outbound mail, with no third party. Hop3 generates the DKIM keypair and prints the exact SPF/DKIM/DMARC records to publish (plus the PTR reminder), runs an SPF/DKIM/DMARC pre-flight, and probes outbound port 25, never claiming "ready" over unpublished DNS or a blocked egress. Needs `--with email` (Postfix + opendkim).
+- **Loopback email relay** *(experimental)*: selecting the relay backend now configures a queuing Postfix null-client on `127.0.0.1:25` (via hop3-rootd). An app that attaches an inheriting email addon is injected `SMTP_HOST=127.0.0.1`. It sends over SMTP to the local relay, which forwards to the provider, so the provider credential never enters an app's environment and the backend is swappable without re-touching apps. Install Postfix with `hop3-install server --with email` (included in `--with all`).
+- **Email provider profiles + DKIM auto-verify** *(experimental)*: `hop3 server email set --provider <name>` fills the SMTP host/port for a known provider (`--list-providers`: Resend, Postmark, Brevo, Mailgun/Mailgun-EU, Scaleway TEM, with the EU-hosted ones flagged). The deliverability pre-flight now also **verifies DKIM** once its selector is known (`--dkim-selector`, or automatically for Resend); it used to check SPF/DMARC alone.
+- **Operator email alerts** *(experimental)*: `hop3 server email notifications on` opts in to being emailed (via the active email backend) when things break: TLS certificate-renewal failures (a cert that stops renewing reaches you before it expires) and **failed deploys** (best-effort, never masking the failure itself). `status` reports whether the channel is actually deliverable. `test` sends a test message.
+- **Safe app upgrades with automatic rollback**: `hop3 app upgrade --app <app>` snapshots the app, redeploys it (rebuilding and running its migrations), verifies it comes back healthy, and automatically restores the pre-upgrade snapshot if the build, a migration, or the health check fails. `hop3 app rollback --app <app>` restores a backup on demand (the most recent by default, `--to <backup-id>` for a specific one).
+- **Install apps from the catalog, from the dashboard or the CLI**: 0.6 could browse the signed catalog; 0.7 installs and deploys from it. Twenty apps ship in the official catalog: BookStack, Bugsink, Dolibarr, Easy!Appointments, Forgejo, Gitea, Invoice Ninja, Isso, Kanboard, Keycloak, LimeSurvey, Matomo, Mattermost, Miniflux, Nextcloud, Paheko, Radicale, Uptime Kuma, Vikunja and WordPress. Each gets an admin account created for you at install time.
 - **Every app is verified by signing in, not by returning a page**: each catalog app ships a smoke test that logs in through the app's own authentication with the credential Hop3 generated, and confirms a wrong password is refused. It runs at the end of every deploy (dashboard included), and on demand with `hop3 app check --app <app>`. A `200` from an app that nobody can log into no longer counts as working.
-- **`[probe]` — a Hop3-owned account for verification**: an app can declare a non-privileged account whose password Hop3 owns and rotates, so its smoke test keeps working after you change the admin password. Apps that shouldn't have one can leave it out.
+- **`[probe]`, a Hop3-owned account for verification**: an app can declare a non-privileged account whose password Hop3 owns and rotates, so its smoke test keeps working after you change the admin password. Apps that shouldn't have one can leave it out.
 - **`hop3 scaffold`**: writes a starter `hop3.toml` for the project in the current directory, with a `#:schema` line so your editor completes and validates the file as you type.
-- **Published `hop3.toml` JSON Schema**: at `https://hop3.cloud/schema/hop3.toml.json`, generated from the server's own validation models, so an editor with a TOML language server flags a typo as you type instead of at deploy time.
-- **Every bundled app is verified under Nix too.** The two Nix build strategies are now held to the same sign-in bar as the native one: 16 of 16 hand-written recipes and 18 of 19 template-generated ones sign in and refuse a wrong password on a recorded run. Easy!Appointments is the exception — it builds its login form in JavaScript, which neither check can drive.
+- **Published `hop3.toml` JSON Schema**: at `https://hop3.cloud/schema/hop3.toml.json`, generated from the server's own validation models, so an editor with a TOML language server flags a typo as you type.
+- **Every bundled app is verified under Nix too.** The two Nix build strategies are now held to the same sign-in bar as the native one: 16 of 16 hand-written recipes and 18 of 19 template-generated ones sign in and refuse a wrong password on a recorded run. Easy!Appointments is the exception: it builds its login form in JavaScript, which neither check can drive.
 - **`hop3-deploy-server --provider hetzner --image <image>`**: rebuilds the target server from scratch before deploying, matching `hop3-test`. One command for a genuinely pristine box.
 
 ### Fixed
 
-- **A failed server upgrade can no longer report success**: after installing the new code and migrating, the deployer now confirms hop3-server actually came back up before reporting the upgrade complete. If it didn't, the deploy fails loudly with the exact command to revert to the previous release — and a reminder that a forward-migrated schema may also need a pre-upgrade database backup — instead of leaving a silently dead server behind a "complete" message. The restart also picks the right mechanism for the target (systemd or supervisor), so it can't silently keep serving old code.
-- **Admin-domain and TLS setup fail loud on a broken nginx reload**: configuring the server's admin domain or its certificate during a deploy now stops with a clear error when nginx can't be reloaded, instead of warning and carrying on — so a "complete" deploy never hides a domain that nginx never actually picked up.
-- **Nix apps survive garbage collection**: a running Nix app no longer loses its files to a `nix` garbage-collect — new installs pin auto-GC off and rebuilds keep the previous version rooted — and if anything is ever missing the deploy fails fast with a clear message instead of a slow timeout. Apps that need a newer package set can pin their own nixpkgs revision.
+- **A failed server upgrade can no longer report success**: after installing the new code and migrating, the deployer now confirms hop3-server actually came back up before reporting the upgrade complete. If it didn't, the deploy fails loudly with the exact command to revert to the previous release, and a reminder that a forward-migrated schema may also need a pre-upgrade database backup. It used to leave a dead server behind a "complete" message. The restart also picks the right mechanism for the target (systemd or supervisor), so it can't silently keep serving old code.
+- **Admin-domain and TLS setup fail loud on a broken nginx reload**: configuring the server's admin domain or its certificate during a deploy now stops with a clear error when nginx can't be reloaded, so a "complete" deploy never hides a domain that nginx never actually picked up.
+- **Nix apps survive garbage collection**: a running Nix app no longer loses its files to a `nix` garbage-collect: new installs pin auto-GC off. Rebuilds keep the previous version rooted. If anything is ever missing, the deploy fails fast with a clear message. Apps that need a newer package set can pin their own nixpkgs revision.
 - **`hop3 app restart` checks the Nix closure too**: the check above ran on deploy and start but not on restart, because a restart relaunches the worker from its existing config without going through the start path. A restart against a reclaimed closure therefore came up and died into a health-check timeout with nothing pointing at the cause. It now aborts with the same message naming the missing store path.
-- **A fresh install no longer serves a stale configuration**: the installer now restarts hop3-server once its configuration file is written, so a first-time install picks up its operator email, database credentials and admin domain immediately. Previously, on a brand-new server the service started *before* that file existed and cached the empty values — so every app using the built-in admin account failed to deploy with "this server has no operator email", even though the setting was correct on disk. Redeploys were unaffected, which is what made it a fresh-install-only bug.
-- **Build failures inside your Dockerfile are reported right away, not retried as phantom registry errors**: a step that fails in your own build (for example a truncated download surfacing as "tar: Error is not recoverable") is now surfaced immediately instead of being mistaken for a transient container-registry outage and retried three times. Genuine registry blips are still retried.
-- **Apps are served over HTTPS by default**: plain HTTP now redirects. Apps that set `Secure` cookies — most of them — were unloggable over the HTTP vhost, because the browser correctly refused to send the session cookie back, and the login silently looped.
-- **PHP's built-in server gets more than one worker**: it is single-threaded, so any app that makes a request to itself while installing — Nextcloud's installer does — deadlocked against its own only worker and never finished.
-- **A failed install can be retried**: installing an app from the catalog recorded it before deploying, so if the deploy failed, every retry was refused with "already exists" — leaving an app you could neither use nor reinstall. A second install now resumes one whose deploy never completed.
+- **A fresh install no longer serves a stale configuration**: the installer now restarts hop3-server once its configuration file is written, so a first-time install picks up its operator email, database credentials and admin domain immediately. Previously, on a brand-new server the service started *before* that file existed and cached the empty values, so every app using the built-in admin account failed to deploy with "this server has no operator email", even though the setting was correct on disk. Redeploys were unaffected, which is what made it a fresh-install-only bug.
+- **Build failures inside your Dockerfile are reported right away, not retried as phantom registry errors**: a step that fails in your own build (for example a truncated download surfacing as "tar: Error is not recoverable") is now surfaced immediately. It used to be mistaken for a transient container-registry outage and retried three times. Genuine registry blips are still retried.
+- **Apps are served over HTTPS by default**: plain HTTP now redirects. Apps that set `Secure` cookies (most of them) were unloggable over the HTTP vhost, because the browser correctly refused to send the session cookie back. The login looped with no error.
+- **PHP's built-in server gets more than one worker**: it is single-threaded, so any app that makes a request to itself while installing (Nextcloud's installer does) deadlocked against its own only worker and never finished.
+- **A failed install can be retried**: installing an app from the catalog recorded it before deploying, so if the deploy failed, every retry was refused with "already exists", leaving an app you could neither use nor reinstall. A second install now resumes one whose deploy never completed.
 - **`[build].build` runs in every language**: the setting was read and then ignored by seven of the twelve toolchains, so a project's declared build command silently never ran.
-- **`--clean` reclaims addon databases**: a clean reinstall wiped Hop3's records but left the databases behind, so the next install found a populated database and adopted it. It now stops the apps, drops what it tracks, and sweeps databases it has lost track of. MySQL also refuses to adopt a populated database it holds no credentials for, instead of silently taking it over.
-- **`hop3 app credentials` no longer shows a password for an account that was never created**: when an app's own bootstrap failed, the generated credential was still presented as if it worked. The failure is now named, and a bootstrap error includes the failing command's output instead of only an exit status.
+- **`--clean` reclaims addon databases**: a clean reinstall wiped Hop3's records but left the databases behind, so the next install found a populated database and adopted it. It now stops the apps, drops what it tracks, and sweeps databases it has lost track of. MySQL also refuses to adopt a populated database it holds no credentials for.
+- **`hop3 app credentials` no longer shows a password for an account that was never created**: when an app's own bootstrap failed, the generated credential was still presented as if it worked. The failure is now named. A bootstrap error includes the failing command's output, where it used to give an exit status alone.
 - **`--app` works on `app check`, `app upgrade` and `app rollback`**: the three commands documented the flag and then rejected it.
-- **Addon teardown reports what it could not remove** instead of leaving storage behind quietly.
+- **Addon teardown reports what it could not remove**, which used to be left behind without a word.
 - **More bundled apps deploy and verify correctly**, from packaging and content-check fixes across several apps.
 - **Authentication hardening**: remediated the findings from the June 2026 auth audit.
 - **DNS**: fixed some server-side DNS resolution issues.
@@ -297,10 +297,10 @@ One behaviour that looks like a bug and is not: a magic link is spent the moment
 
 These are defects in Hop3's own bundled application recipes, all found by the sign-in check described above and none visible to a deploy that returned HTTP 200. Anyone who deployed the affected Nix variants should redeploy.
 
-- **Radicale served without authentication.** The Nix recipes set the calendar server's auth type from a variable that defaulted to `none` and was never set, so every calendar and address book was readable by anyone who asked. Authentication is now declared in the recipe where no environment can switch it off, and the config is rewritten on every start so a deployment that once ran open does not stay open.
-- **Isso's moderation dashboard was served disabled.** Its config carried no administrator section, so `/admin/` never asked for a password. It is now enabled against the generated credential, comment moderation is on, and the app refuses to start without the credential rather than serving the dashboard open.
+- **Radicale served without authentication.** The Nix recipes set the calendar server's auth type from a variable that defaulted to `none` and was never set, so every calendar and address book was readable by anyone who asked. Authentication is now declared in the recipe where no environment can switch it off. The config is rewritten on every start so a deployment that once ran open does not stay open.
+- **Isso's moderation dashboard was served disabled.** Its config carried no administrator section, so `/admin/` never asked for a password. It is now enabled against the generated credential, comment moderation is on. The app refuses to start without the credential.
 - **Published default passwords in three apps, under both Nix strategies.** Miniflux, Keycloak and LimeSurvey shipped literal credentials (`changeme`, `password123`), so the deployed instance had an administrator whose password is in this repository while the operator held a generated one that did not work. All six recipes now refuse to start unless Hop3's generated credential is injected.
-- **Gitea and Forgejo deployed with open registration** under both Nix strategies, because the setting that disables it lived in a shell script only the native recipe carried — so the first visitor to a fresh forge could register an account.
+- **Gitea and Forgejo deployed with open registration** under both Nix strategies, because the setting that disables it lived in a shell script only the native recipe carried, so the first visitor to a fresh forge could register an account.
 - **Signing keys rotated on every restart.** The Gitea and Forgejo Nix recipes minted `SECRET_KEY`, `INTERNAL_TOKEN` and `JWT_SECRET` inside a config file rewritten at each start, which invalidates every session and makes 2FA secrets and stored credentials undecryptable. They are now generated once and re-injected unchanged.
 
 ## [0.6.2] - 2026-06-26
@@ -315,13 +315,13 @@ These are defects in Hop3's own bundled application recipes, all found by the si
 ### Fixed
 
 - **Bare host no longer serves the wrong app**: the control-plane vhost claims `default_server`, so requests with no matching Host reach the Web UI, not a random app. Distro default sites are cleaned up on redeploy.
-- **Admin-domain TLS fixed on rootd hosts**: `acme.sh` reloaded nginx as the `hop3` user (blocked by rootd). The deploy now reloads nginx itself and checks for the cert on disk instead of trusting acme.sh's exit code.
+- **Admin-domain TLS fixed on rootd hosts**: `acme.sh` reloaded nginx as the `hop3` user (blocked by rootd). The deploy now reloads nginx itself and checks for the cert on disk, which acme.sh's exit code did not guarantee.
 - **Self-signed cert upgraded to Let's Encrypt**: a previously-issued self-signed certificate is now replaced when `--acme-email` is added. When self-signed, the deploy tells you why.
 - **Server knows its own admin domain**: `hop3-deploy` records `ADMIN_DOMAIN` so magic links and `addon expose` URLs use the right hostname.
-- **Dashboard login survives redeploys**: web auth now uses a signed JWT cookie instead of a server-side session, matching the CLI credential. Stays valid across restarts.
-- **`HOP3_UNSAFE` production override now works**: the auth guards re-read the env instead of caching an import-time snapshot.
-- **Unknown CLI flags fail loud**: the RPC argument parser rejects unrecognized tokens with an error instead of silently dropping them. This also fixed `hop3 backup list --app X` ignoring the filter.
-- **`hop3 context use` recognizes global contexts**: instead of "not found", it now points to the right mechanism (`hop3 login --context` or `--context` per command).
+- **Dashboard login survives redeploys**: web auth now uses a signed JWT cookie, matching the CLI credential. Stays valid across restarts.
+- **`HOP3_UNSAFE` production override now works**: the auth guards re-read the env on every call.
+- **Unknown CLI flags fail loud**: the RPC argument parser rejects unrecognized tokens with an error, where they used to be dropped without a word. This also fixed `hop3 backup list --app X` ignoring the filter.
+- **`hop3 context use` recognizes global contexts**: it no longer answers "not found", and points to the right mechanism (`hop3 login --context` or `--context` per command).
 
 ## [0.6.1] - 2026-06-24
 
@@ -340,7 +340,7 @@ A consolidation release: simpler context model, pinned nixpkgs for reproducible 
 
 ### Fixed
 
-- **`--context` resolution fails loud**: the CLI shows the full resolution chain instead of silently falling back.
+- **`--context` resolution fails loud**: the CLI shows the full resolution chain.
 - **Nix GC root retained across rebuilds**: prevents a running worker's closure from being garbage-collected mid-deploy.
 - **Elixir runtime env**: `MIX_HOME` no longer clobbered.
 - **Discourse**: assets precompiled at build time so the container binds `$PORT` within the health-check window.
@@ -408,7 +408,7 @@ Per-app resource limits and volumes, richer addon commands, a signed app catalog
 
 ### Added
 
-- **CLI ergonomics overhaul (ADR 036)**: a redesigned command surface — space-separated command names (`hop3 env set`), an implicit current app, a sticky working context (`hop3 use`), command aliases, did-you-mean suggestions, categorized help with an example on every command, scriptable confirmations and non-interactive flags, and secret inputs from a file or stdin.
+- **CLI ergonomics overhaul (ADR 036)**: a redesigned command surface: space-separated command names (`hop3 env set`), an implicit current app, a sticky working context (`hop3 use`), command aliases, did-you-mean suggestions, categorized help with an example on every command, scriptable confirmations and non-interactive flags, and secret inputs from a file or stdin.
 - **Nix integration**: hermetic, reproducible builds from a `hop3.nix` file, a starter set of Nix-based application packages, and installer support for Nix on every supported distribution.
 - **Computed environment variables**: interpolate values in `hop3.toml` with `${VAR}`, resolved after addon variables are injected, so platform variables can be mapped to the names an app expects.
 - **WSGI auto-discovery**: Python web entry points are detected automatically when no worker is configured.
@@ -436,10 +436,10 @@ Per-app resource limits and volumes, richer addon commands, a signed app catalog
 - **Command syntax (BREAKING, ADR 036)**: multi-word commands use spaces, not colons (`hop3 env set`, not `hop3 config:set`); the old colon form prints a migration hint.
 - **Command names (BREAKING, ADR 036)**: user management moved under `user`, addon commands to the singular `addon`, and a few verbs were normalized.
 - **Exit codes (ADR 036)**: the exit-code scheme was reorganized; scripts that branch on specific codes may need updating.
-- **Server vs context vocabulary (BREAKING, ADR 042)**: the old global "context" is now a *server*, and "context" means a project deploy target; existing config is migrated on first run.
+- **Server vs context vocabulary (BREAKING, ADR 042)**: the old global "context" is now a *server*. "Context" means a project deploy target; existing config is migrated on first run.
 - **Testing layers (ADR 043)**: the test suite is three layers selected by speed tier; a plain `pytest` run never starts Docker.
 - **More reliable deploys**: clearer messages about already-set env vars, IPv4 addon hosts to avoid IPv6 resolution issues, and assorted build and worker-precedence fixes.
-- **Safer upgrades**: pending database migrations run on upgrade, and an existing virtualenv is no longer replaced.
+- **Safer upgrades**: pending database migrations run on upgrade. An existing virtualenv is no longer replaced.
 - **Containerized app database access**: addons are reachable from apps on any private Docker network.
 - **Space-separated commands (BREAKING, ADR 036)**: `hop3 config set` not `hop3 config:set`.
 - **Exit codes reorganized (ADR 036)**.
@@ -494,7 +494,7 @@ Major release: Hop3 becomes a complete self-hosted PaaS.
 
 ## [0.1.0] - 2024-04-11
 
-Initial release: core architecture, app builders, addon support, SQLAlchemy models, first test runner.
+The initial release covers the core architecture, app builders, addon support, SQLAlchemy models and the first test runner.
 
 [Unreleased]: https://github.com/abilian/hop3/compare/0.7.1...HEAD
 [0.7.1]: https://github.com/abilian/hop3/compare/0.7.0...0.7.1
