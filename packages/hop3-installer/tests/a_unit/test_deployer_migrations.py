@@ -4,12 +4,17 @@
 
 from __future__ import annotations
 
+import re
+from typing import TYPE_CHECKING
 from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
 from hop3_installer.common import CommandResult
 from hop3_installer.deployer.config import DeployConfig
 from hop3_installer.deployer.deploy import Deployer
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @pytest.fixture
@@ -19,20 +24,35 @@ def config():
 
 
 @pytest.fixture
-def backend():
+def backend(config):
     """A backend mock with a configurable .run() result."""
     b = MagicMock()
     b.run.return_value = CommandResult(returncode=0, stdout="", stderr="")
-    # The version probe after an install must see one version, or the update
-    # path stops before the migration these tests are about.
+    # The version probe after an install must see one version, and it must be
+    # the version the deployer is about to expect — it reads that from the
+    # checkout's own pyproject, so a hardcoded literal here breaks on the next
+    # release bump instead of on a real defect. 0.7.4 broke it exactly that way.
+    installed = _declared_version(config.server_package_path / "pyproject.toml")
     b.run.side_effect = lambda cmd, **_kw: (
         CommandResult(
-            returncode=0, stdout="hop3_server 0.7.3\nhop3_rootd 0.7.3\nhop3_cli 0.7.3\n"
+            returncode=0,
+            stdout=(
+                f"hop3_server {installed}\n"
+                f"hop3_rootd {installed}\n"
+                f"hop3_cli {installed}\n"
+            ),
         )
         if "importlib.metadata" in cmd
         else DEFAULT
     )
     return b
+
+
+def _declared_version(pyproject: Path) -> str:
+    """The version the deployer will read for itself, read the same way."""
+    match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject.read_text(), re.MULTILINE)
+    assert match, f"{pyproject}: no version line"
+    return match.group(1)
 
 
 def _make_deployer(config: DeployConfig, backend) -> Deployer:
