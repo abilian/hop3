@@ -283,6 +283,26 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
 # =============================================================================
 
 
+#: The pnpm every Hop3 server runs. Pinned, and reconciled on every install.
+#:
+#: This was `npm install -g pnpm`, skipped whenever any pnpm was already there.
+#: So the version an app built with was whatever npm's `latest` tag pointed at
+#: on the day that server was installed, and it moved under the app afterwards
+#: with no change to the app, the recipe, or Hop3. Two servers of the same Hop3
+#: version built the same app differently, which is the reproducibility the
+#: blank-slate rebuild exists to protect everywhere else.
+#:
+#: Etherpad absorbed three breaking pnpm changes this way, two of them patched
+#: into its own download.sh. The third could not be: pnpm 12 removed
+#: `pnpm list --no-production`, which Etherpad's plugin migration runs at every
+#: boot, so the build succeeded and the app died four seconds into startup.
+#: 9, 10 and 11 accept the flag; 12 does not.
+#:
+#: Bump this deliberately, and re-run the catalog's Node apps when you do —
+#: that is the whole point of it being a decision rather than a date.
+PNPM_VERSION = "11.27.0"
+
+
 def install_node_global_packages() -> None:
     """
     Install global npm packages needed for various apps.
@@ -295,23 +315,53 @@ def install_node_global_packages() -> None:
         print_warning("npm not found, skipping global npm packages")
         return
 
-    # Install pnpm if not already installed
-    if cmd_exists("pnpm"):
-        print_info("pnpm already installed")
-    else:
-        print_info("Installing pnpm...")
-        with Spinner("Installing pnpm globally..."):
-            result = run_cmd(["npm", "install", "-g", "pnpm"], check=False)
-        if result.returncode == 0:
-            print_success("pnpm installed")
-        else:
-            print_warning("pnpm installation failed")
-            if result.stderr:
-                print_detail(result.stderr.strip().split("\n")[-1])
+    _install_pnpm()
 
     # nodeenv (for per-app [build].node-version pins) is installed separately:
     # it is a PyPI tool, not an npm package — see _install_nodeenv.
     _install_nodeenv()
+
+
+def _install_pnpm() -> None:
+    """Install :data:`PNPM_VERSION`, replacing whatever version is present."""
+    installed = _pnpm_version()
+    if installed == PNPM_VERSION:
+        print_info(f"pnpm {PNPM_VERSION} already installed")
+        return
+
+    if installed:
+        print_info(f"Replacing pnpm {installed} with the pinned {PNPM_VERSION}...")
+    else:
+        print_info(f"Installing pnpm {PNPM_VERSION}...")
+    with Spinner(f"Installing pnpm {PNPM_VERSION} globally..."):
+        result = run_cmd(["npm", "install", "-g", f"pnpm@{PNPM_VERSION}"], check=False)
+    if result.returncode != 0:
+        print_warning(f"pnpm {PNPM_VERSION} installation failed")
+        if result.stderr:
+            print_detail(result.stderr.strip().split("\n")[-1])
+        return
+
+    # Say so when the pin did not take. A pnpm installed by some other route
+    # (corepack, the standalone script) shadows npm's global bin on PATH, and
+    # the silent outcome would be the drift this pin exists to end — with the
+    # installer reporting the version it meant to install.
+    effective = _pnpm_version()
+    if effective == PNPM_VERSION:
+        print_success(f"pnpm {PNPM_VERSION} installed")
+    else:
+        print_warning(
+            f"Installed pnpm {PNPM_VERSION}, but `pnpm --version` still reports "
+            f"{effective or 'nothing'} — another pnpm is ahead of it on PATH, "
+            f"and that is the one apps will build with."
+        )
+
+
+def _pnpm_version() -> str:
+    """The version `pnpm` on PATH reports, or "" when there is none."""
+    if not cmd_exists("pnpm"):
+        return ""
+    result = run_cmd(["pnpm", "--version"], check=False)
+    return result.stdout.strip() if result.returncode == 0 else ""
 
 
 # nodeenv lives in its own venv, symlinked onto the build PATH (mirrors Rust).
