@@ -16,7 +16,7 @@ Hop3 was designed with Heroku workflows in mind:
 
 Your `Procfile` works unchanged. Your deployment workflow stays the same.
 
-One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`), and the app you're targeting is always the `--app` flag rather than a positional argument. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
+One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`). The app you're targeting is always the `--app` flag rather than a positional argument. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -24,11 +24,11 @@ One syntactic difference to keep in mind: where Heroku uses a colon (`config:set
 |--------|------|
 | Managed platform | Self-hosted |
 | Automatic scaling | Manual scaling |
-| Many addon types | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| Many addon types | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
 | Review apps | Not yet supported |
 | Pipelines | Not yet supported |
 
-Hop3 is simpler. You manage one server instead of a complex cloud setup.
+Hop3 is simpler: one server to manage, with root access to everything that runs your app.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -162,7 +162,7 @@ Heroku uses buildpacks; Hop3 uses toolchains. Most apps work unchanged, but some
 | `heroku/ruby` | `ruby` (auto-detected) |
 | Multi-buildpack | Use `[build]` section |
 
-For multi-language apps (e.g., Python + Node for assets):
+For a multi-language app (Python for the backend, Node for assets), set the primary toolchain and run the frontend build as a pre-build step:
 
 ```toml
 [build]
@@ -172,7 +172,7 @@ before-build = "npm install && npm run build"
 
 ### Runtime Versions
 
-Heroku uses `runtime.txt` for Python version. Hop3 uses the system Python (3.11-3.13 depending on OS).
+Heroku uses `runtime.txt` to pin the Python version. Hop3 uses the system Python (3.11-3.13 depending on OS).
 
 For specific versions, you can set up pyenv or use Docker builder:
 
@@ -183,7 +183,7 @@ builder = "docker"
 
 ### Heroku Postgres Extensions
 
-If you use Heroku-specific Postgres extensions (like `pg_stat_statements`), enable them through the addon command — no SSH or manual `psql` needed:
+If you use Heroku-specific Postgres extensions (like `pg_stat_statements`), enable them through the addon command, with no SSH or manual `psql` needed:
 
 ```bash
 hop3 addon postgres extensions your-app-db pg_stat_statements
@@ -256,7 +256,7 @@ Hop3 doesn't have review apps yet. Workarounds:
 | **Total (small app)** | ~$60/month | ~$10/month (VPS) |
 | **Total (medium app)** | ~$150/month | ~$30/month (VPS) |
 
-The trade-off: you manage the server, but you control everything.
+The trade-off: you manage the server, and you control everything.
 
 ## Rollback Plan
 

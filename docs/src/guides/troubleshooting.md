@@ -4,7 +4,7 @@ This guide helps you diagnose and fix common issues with Hop3 deployments.
 
 ## Quick Diagnostics
 
-Before diving into specific issues, run these commands to gather information:
+Run these commands first to gather information:
 
 ```bash
 # System health check

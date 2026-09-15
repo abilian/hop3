@@ -1,6 +1,6 @@
 # Migrating from Piku to Hop3
 
-If you run [Piku](https://github.com/piku/piku), you already know the best part of Hop3 by heart: you `git push`, and your app is live behind nginx. Hop3 grew out of that same lineage — a tiny git-push PaaS on nginx and uWSGI, no Docker or Kubernetes required. So this is the easiest migration in the series: the mental model barely changes. What changes is what sits around it. You keep `git push` and your `Procfile`, and you gain managed addons (Postgres, MySQL, Redis, S3), more language toolchains, a proper CLI and dashboard, healthchecks, and a declarative `hop3.toml`. This guide helps you move an existing Piku app to Hop3.
+If you run [Piku](https://github.com/piku/piku), Hop3's core workflow will feel familiar: you `git push`, and your app is live behind nginx. Hop3 grew out of that same lineage. It is a tiny git-push PaaS on nginx and uWSGI, with no Docker or Kubernetes required. So this is the easiest migration in the series: the mental model barely changes. The tooling around it is new. You keep `git push` and your `Procfile`, and you gain managed addons (Postgres, MySQL, Redis, S3), more language toolchains, a proper CLI and dashboard, healthchecks, and a declarative `hop3.toml`. This guide shows how to move an existing Piku app to Hop3.
 
 ## What's Similar
 
@@ -15,9 +15,9 @@ Hop3 shares Piku's core ideas, so most of your habits carry over:
 | `piku run` | `hop3 app run --app X` |
 | `piku logs` | `hop3 app logs --app X` |
 
-Your `Procfile` works unchanged, and the runtime model is the one you already trust: each web process binds to `$PORT` and Hop3 puts nginx in front of uWSGI for you. The difference is that Hop3 wires that nginx + uWSGI plumbing automatically, instead of you tuning `ENV` knobs like `NGINX_*` and `UWSGI_*` by hand.
+Your `Procfile` works unchanged. The runtime model is the one you already trust: each web process binds to `$PORT` and Hop3 puts nginx in front of uWSGI for you. The difference is that Hop3 wires that nginx + uWSGI plumbing automatically; you no longer tune `ENV` knobs like `NGINX_*` and `UWSGI_*` by hand.
 
-One syntactic difference to keep in mind: where Piku uses a colon (`config:set`) and a positional app inferred from the directory, Hop3 uses spaces (`hop3 env set`) and the app you're targeting is always the `--app` flag. So `piku config:set FOO=bar` (run from the app's checkout) becomes `hop3 env set FOO=bar --app myapp`.
+One syntactic difference to keep in mind: Piku uses a colon (`config:set`) and a positional app inferred from the directory, while Hop3 uses spaces (`hop3 env set`) and the app you're targeting is always the `--app` flag. So `piku config:set FOO=bar` (run from the app's checkout) becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -25,13 +25,13 @@ One syntactic difference to keep in mind: where Piku uses a colon (`config:set`)
 |------|------|
 | Single-file, dependency-light | Larger system (server + CLI + TUI) |
 | `ENV` file for config | `[env]` in `hop3.toml` (or `hop3 env set`) |
-| No managed databases (install them yourself) | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| No managed databases (install them yourself) | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
 | `piku` over SSH only | CLI, terminal dashboard (TUI), JSON-RPC API |
 | No declarative healthchecks | `[healthcheck]` in `hop3.toml` |
 
-This is genuinely a trade. Piku is smaller and leaner — that is its whole point, and if a single Python file on a tiny VPS is all you want, Piku is a fine place to stay. Hop3 is a bigger system because it does more: it manages backing services as first-class addons, ships a real CLI and a dashboard, and runs healthchecks. The thing you'd move *for* is usually the database. On Piku you install and babysit Postgres or Redis yourself; on Hop3 they're addons you create and attach.
+Piku is smaller and leaner, by design: if a single Python file on a tiny VPS is all you want, Piku is a fine place to stay. Hop3 is a bigger system because it does more: it manages backing services as first-class addons, ships a real CLI and a dashboard, and runs healthchecks. The usual reason to move is the database. On Piku you install and babysit Postgres or Redis yourself; on Hop3 they're addons you create and attach.
 
-Hop3 is still single-server like Piku. There's no multi-region, no cluster, no edge, no review apps, no pipelines, and scaling is manual (you choose the process counts, nothing autoscales). If you're happy on one box, that's the same box you've always had.
+Hop3 is still single-server like Piku: no multi-region or clustering, no review apps or pipelines, and scaling is manual (you choose the process counts; nothing autoscales). If you're happy on one box, that's the same box you've always had.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -42,7 +42,7 @@ ssh root@your-server.com
 curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 ```
 
-This can be the same box you run Piku on, or a fresh one — running both side by side during the move is the safe path (see Rollback below).
+This can be the same box you run Piku on, or a fresh one. Running both side by side during the move is the safe path (see Rollback below).
 
 Install the CLI on your local machine:
 
@@ -62,15 +62,15 @@ hop3 init --ssh root@your-server.com
 Piku keeps per-app config in an `ENV` file in the app's repo. Hop3 keeps it in `[env]` inside `hop3.toml` (or you set it with `hop3 env set`). Open your Piku `ENV` and split it into two buckets:
 
 - **Your app's own settings** (`SECRET_KEY`, `DJANGO_SETTINGS_MODULE`, feature flags, …) move into `[env]` verbatim.
-- **Piku plumbing variables** can be dropped — Hop3 manages them for you:
-  - `NGINX_*`, `UWSGI_*` — Hop3 configures nginx and uWSGI itself.
-  - `PORT` — auto-assigned by Hop3 (your app still reads `$PORT`).
-  - `SERVER_NAME` — becomes the `[domains]` section (see below).
-  - `DATABASE_URL` / `REDIS_URL` — if you used self-installed databases, these are replaced by addon-injected values in Step 4.
+- **Piku plumbing variables** can be dropped, because Hop3 manages them for you:
+  - `NGINX_*`, `UWSGI_*`: Hop3 configures nginx and uWSGI itself.
+  - `PORT`: auto-assigned by Hop3 (your app still reads `$PORT`).
+  - `SERVER_NAME`: becomes the `[domains]` section (see below).
+  - `DATABASE_URL` / `REDIS_URL`: if you used self-installed databases, addon-injected values replace them in Step 4.
 
 ## Step 3: Add hop3.toml
 
-While your `Procfile` works as-is, `hop3.toml` is where Hop3 earns its keep — config, addons, and healthchecks become declarative and live in the repo. Here's a representative Python/Flask app translated from a Piku `ENV` + `Procfile`:
+Your `Procfile` works as-is, and `hop3.toml` adds declarative config, addons, and healthchecks that live in the repo. Here's a representative Python/Flask app translated from a Piku `ENV` + `Procfile`:
 
 A typical Piku app looks like this:
 
@@ -105,18 +105,18 @@ before-run = ["python manage.py migrate"]
 path = "/health/"
 ```
 
-You can keep the `Procfile` for the process model (`web: gunicorn app:app`) and let `hop3.toml` carry config — they coexist. If you'd rather not retype the `Procfile`, Hop3 can read it and scaffold a `hop3.toml` for you:
+You can keep the `Procfile` for the process model (`web: gunicorn app:app`) and let `hop3.toml` carry config; they coexist. If you'd rather not retype the `Procfile`, Hop3 can read it and scaffold a `hop3.toml` for you:
 
 ```bash
 cd myapp/
 hop3 app migrate procfile .
 ```
 
-This is the only built-in config importer: it translates a `Procfile` into a starter `hop3.toml`. There's no importer for other formats — the `ENV` → `[env]` and `SERVER_NAME` → `[domains]` mapping above is done by hand, which is short work for a Piku app.
+This is the only built-in config importer: it translates a `Procfile` into a starter `hop3.toml`. There is no importer for other formats. The `ENV` → `[env]` and `SERVER_NAME` → `[domains]` mapping above is done by hand, which is short work for a Piku app.
 
-## Step 4: Migrate Your Data (the main upgrade)
+## Step 4: Migrate Your Data
 
-This is the step that makes the move worth it. On Piku you installed Postgres or Redis yourself and pointed `DATABASE_URL` at it. On Hop3 these are addons: Hop3 provisions them, stores the credentials, and injects the connection variables for you.
+On Piku you installed Postgres or Redis yourself and pointed `DATABASE_URL` at it. On Hop3 these are addons: Hop3 provisions them, stores the credentials, and injects the connection variables for you.
 
 ### Postgres
 
@@ -134,7 +134,7 @@ hop3 addon create postgres myapp-db
 hop3 addon attach myapp-db --app myapp
 ```
 
-Attaching injects `DATABASE_URL` into the app's environment — you no longer maintain it by hand. Check the connection details:
+Attaching injects `DATABASE_URL` into the app's environment, so you no longer maintain it by hand. Check the connection details:
 
 ```bash
 hop3 addon show myapp-db
@@ -152,7 +152,7 @@ sudo -u postgres pg_restore --verbose --no-owner \
     -d myapp_db /tmp/myapp.dump
 ```
 
-If your app relies on a Postgres extension (like `pg_stat_statements`), enable it through the addon command — no manual `psql` needed:
+If your app relies on a Postgres extension (like `pg_stat_statements`), enable it through the addon command; no manual `psql` needed:
 
 ```bash
 hop3 addon postgres extensions myapp-db pg_stat_statements
@@ -178,18 +178,18 @@ If you already pay for a managed database elsewhere and want to keep it, skip th
 DATABASE_URL = "postgresql://user:pass@managed-host:5432/myapp"
 ```
 
-Note the available addon types are PostgreSQL, MySQL, Redis, and S3/MinIO (and growing). If you ran something else next to Piku — MongoDB, a message queue — there's no first-class addon for it yet; run it externally and point `[env]` at it.
+Note the available addon types: PostgreSQL, MySQL, Redis, and S3/MinIO (and growing). If you ran something else next to Piku (MongoDB, a message queue), there's no first-class addon for it yet; run it externally and point `[env]` at it.
 
 ## Step 5: Deploy to Hop3
 
-The part you already know. Add Hop3 as a git remote and push:
+Deploy the same way you always have: add Hop3 as a git remote and push.
 
 ```bash
 git remote add hop3 hop3@your-server.com:myapp
 git push hop3 main
 ```
 
-(Piku pushes the `master` branch by convention; Hop3 examples use `main` — push whichever branch you deploy.) If you'd rather not set up a remote, `hop3 deploy` uploads the current directory directly.
+(Piku pushes the `master` branch by convention; Hop3 examples use `main`. Push whichever branch you deploy.) If you'd rather not set up a remote, `hop3 deploy` uploads the current directory directly.
 
 After the push you can drive the app exactly as you did with Piku, just with the verb mapping:
 
@@ -214,11 +214,11 @@ You set the hostname declaratively in `hop3.toml` (`[domains]`, above) or with t
 hop3 domain add myapp.example.com --app myapp
 ```
 
-On Piku, TLS was something you arranged yourself (often via an `acme.sh` integration). Hop3 serves a self-signed certificate out of the box, and once you point the server at an ACME provider (Let's Encrypt), it requests a real certificate for the domain at deploy time.
+On Piku, TLS was something you arranged yourself (often via an `acme.sh` integration). Hop3 serves a self-signed certificate out of the box. Once you point the server at an ACME provider (Let's Encrypt), it requests a real certificate for the domain at deploy time.
 
 ## Scheduled Jobs
 
-Piku has no built-in scheduler — you used system cron, and you still can. For app-aware periodic work, declare a worker in `hop3.toml`:
+Piku has no built-in scheduler; you used system cron, and you still can. For app-aware periodic work, declare a worker in `hop3.toml`:
 
 ```toml
 [run.workers]
@@ -246,11 +246,11 @@ Or keep using system cron on the server for one-off scripts.
 | `piku destroy` | `hop3 app destroy --app X` |
 | (install your own DB) | `hop3 addon create postgres <name>` |
 
-## Lock-in and What You're Really Buying
+## Lock-in and Operational Surface
 
-Neither Piku nor Hop3 locks you in: both are open source, both deploy to a plain Linux server you control, and both keep the `git push` workflow that means your repo is the source of truth. Moving between them is config translation, not a rewrite — and moving *off* either one is the same `git push` to wherever you go next.
+Neither Piku nor Hop3 locks you in: both are open source, both deploy to a plain Linux server you control, and both keep the `git push` workflow that means your repo is the source of truth. Moving between them is config translation, not a rewrite. Moving *off* either one is the same `git push` to wherever you go next.
 
-So the question isn't lock-in, it's operational surface. With Piku you own the database lifecycle, the TLS plumbing, and the nginx/uWSGI knobs. With Hop3 those become managed: addons, ACME at deploy time, automatic proxy config, healthchecks, and a CLI/dashboard to see it all. You pay for that with a larger system to run. If your app is a single process with no database, Piku's leanness is hard to beat. The moment you're hand-managing Postgres next to Piku, Hop3's addons are the upgrade you came for.
+The real question is operational surface. With Piku you own the database lifecycle, the TLS plumbing, and the nginx/uWSGI knobs. With Hop3 those become managed: addons, ACME at deploy time, automatic proxy config, healthchecks, and a CLI/dashboard to see it all. You pay for that with a larger system to run. If your app is a single process with no database, Piku's leanness wins. The moment you're hand-managing Postgres next to Piku, Hop3's addons are the reason to move.
 
 ## Rollback Plan
 

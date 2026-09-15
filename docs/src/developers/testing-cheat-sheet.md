@@ -1,6 +1,6 @@
 # Hop3 Testing Cheat Sheet
 
-> **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker, root or host-mutation; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+> **Updated by ADR 043.** The pytest pyramid is now **three** layers: `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. Whether a test needs Docker, root or host-mutation decides its layer; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 
 Quick reference for developers running tests.
 
@@ -20,7 +20,7 @@ Quick reference for developers running tests.
 
 ## hop3-test CLI
 
-The unified test runner for Hop3 deployment testing.
+hop3-test is the unified test runner for Hop3 deployment testing.
 
 ### System Testing (Testing Hop3 Itself)
 
@@ -83,7 +83,7 @@ The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `
 
 ### Upgrade Chain (Cross-Version Upgrades)
 
-Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions, each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Every hop after the first is an in-place update, asserted to come back healthy with a readable schema.
+Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions, each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Each hop after the first is an in-place update, and the test asserts the app comes back healthy with a readable schema.
 
 ```bash
 # Fresh Docker container: 0.6.2 -> current tree
@@ -99,7 +99,7 @@ hop3-test upgrade-chain --docker --chain local,local
 hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04
 ```
 
-`--host <server>` is accepted but warns, since an existing server is not a clean slate. `0.6.0` is excluded from the default chain because its `hop3-rootd` can't start.
+`--host <server>` is accepted but warns, because an existing server is not a clean slate. `0.6.0` is excluded from the default chain because its `hop3-rootd` can't start.
 
 ### App Testing (Testing Apps, Not Hop3)
 
@@ -342,7 +342,7 @@ Tests are configured via a `[test]` section in the app's `hop3.toml`. Most field
 ```toml
 [test]
 priority = "P0"                    # P0 | P1 | P2
-tier = "fast"                      # report label only — no longer drives timeouts
+tier = "fast"                      # report label only; does not drive timeouts
 targets = ["docker", "remote"]
 covers = ["python", "flask", "pip", "uwsgi"]
 

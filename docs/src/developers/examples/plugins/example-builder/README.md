@@ -4,13 +4,13 @@ This is a minimal example of a Hop3 build strategy plugin. It demonstrates the c
 
 ## What This Plugin Does
 
-This plugin provides a simple build strategy that creates a Python virtualenv for applications. It's similar to the built-in Python builder but simplified for educational purposes.
+This plugin provides a simple build strategy that creates a Python virtualenv for applications. It is a simplified version of the built-in Python builder, written for teaching.
 
 ## Files
 
-- `plugin.py` - Plugin class with hook implementation
-- `builder.py` - Build strategy implementation
-- `README.md` - This file
+- `plugin.py`: Plugin class with hook implementation
+- `builder.py`: Build strategy implementation
+- `README.md`: This file
 
 ## How It Works
 
@@ -66,7 +66,7 @@ def get_builders(self) -> list:
 
 ### Error Handling
 
-Uses `Abort` from `hop3.lib` for user-facing errors:
+Raise `Abort` from `hop3.lib` for user-facing errors:
 
 ```python
 from hop3.lib import Abort
@@ -76,7 +76,7 @@ raise Abort("Build failed: requirements.txt not found")
 
 ### Logging
 
-Uses `log()` from `hop3.lib` for user feedback:
+The plugin reports progress with `log()` from `hop3.lib`:
 
 ```python
 from hop3.lib import log
@@ -113,6 +113,6 @@ assert artifact.kind == "virtualenv"
 
 ## Next Steps
 
-- See [plugin-development.md](../../../plugin-development.md) for comprehensive guide
+- See [plugin-development.md](../../../plugin-development.md) for the full guide
 - See [protocol-reference.md](../../../protocol-reference.md) for protocol details
-- Check the real-world Python build implementation: `hop3/toolchains/python.py`
+- See the built-in Python builder: `hop3/toolchains/python.py`

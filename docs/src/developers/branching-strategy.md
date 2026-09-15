@@ -9,11 +9,11 @@ The repository has two long-lived main branches:
 ### `main`
 *   **Purpose:** This is the production-ready branch. It always contains the latest stable, released version of Hop3.
 *   **Users:** End-users who want to install and use Hop3 should clone or check out this branch.
-*   **State:** This branch is intended to be highly stable. Direct commits are discouraged; changes are merged in from `release` or `hotfix` branches.
+*   **State:** This branch is expected to be stable. Direct commits are discouraged; changes are merged in from `release` or `hotfix` branches.
 *   **Current Version:** `v0.5.0`
 
 ### `devel`
-*   **Purpose:** This is the primary development branch. All new features, refactoring, and other ongoing work are integrated here. It represents the "next" version of the software.
+*   **Purpose:** This is the primary development branch. All new features and refactoring are integrated here. It represents the "next" version of the software.
 *   **Users:** Contributors who want to add new features or fix non-critical bugs should base their work on this branch.
 *   **State:** This branch is actively developed and may be unstable at times. All automated tests must pass before code is merged into `devel`.
 *   **Current Version:** Work-in-progress towards the next release.
@@ -24,7 +24,7 @@ Several types of short-lived branches are used to manage the development and rel
 
 ### 1. Feature Branches
 
-* **Purpose:** To develop new features or significant refactors.
+* **Purpose:** To develop new features or large refactors.
 *   **Branch from:** `devel`
 *   **Merge to:** `devel`
 *   **Naming Convention:** Names are descriptive, with no strict convention (e.g., `refact-certificates`, `feature/sbom-generator`).

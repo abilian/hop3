@@ -1,6 +1,6 @@
 # Hook Specifications
 
-This document provides comprehensive documentation for the Hop3 plugin hook system, built on [pluggy](https://pluggy.readthedocs.io/).
+This document describes the Hop3 plugin hook system, built on [pluggy](https://pluggy.readthedocs.io/).
 
 ## Overview
 
@@ -178,7 +178,7 @@ class MyPlugin:
 
 **Usage in Core**:
 
-Deployers are used in two ways:
+Deployers serve two purposes:
 
 1. **During deployment** (auto-selection):
 ```python
@@ -553,7 +553,7 @@ for contributed in pm.hook.cli_commands():
 ```
 
 **Notes**:
-- Return `Command` **subclasses** (not instances, not Click commands)
+- Return `Command` **subclasses** (not instances or Click commands)
 - Each command's `name` is a tuple of tokens, matched space-separated on the CLI
 - Contributed commands are dispatched over JSON-RPC alongside the core commands
 

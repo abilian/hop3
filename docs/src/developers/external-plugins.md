@@ -1,6 +1,6 @@
 # External Plugin Guide
 
-This guide covers how to create, package, distribute, and maintain external Hop3 plugins as separate Python packages.
+This guide covers how to create and maintain external Hop3 plugins as separate Python packages.
 
 ## Overview
 
@@ -503,7 +503,7 @@ If your plugin has security issues:
 
 ### Minimal Plugin
 
-The simplest possible external plugin:
+The simplest possible external plugin is a single file:
 
 ```python
 # src/simple_plugin/plugin.py
@@ -558,7 +558,7 @@ mysql = "mysql_plugin.plugin:plugin"
 
 ### Multi-Strategy Plugin
 
-A comprehensive plugin with multiple strategies:
+This plugin combines several strategies:
 
 ```python
 # src/myframework_plugin/plugin.py

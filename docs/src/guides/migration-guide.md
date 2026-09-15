@@ -1,6 +1,6 @@
 # Migrating to Hop3
 
-Moving an application to Hop3 from another platform. This page is the method that applies whatever you are coming from; the [per-platform guides](#per-platform-guides) below translate one specific platform's primitives, step by step.
+This page is the method for moving an application to Hop3 from another platform. The [per-platform guides](#per-platform-guides) below translate one specific platform's primitives, step by step.
 
 If your source platform has a guide, start there and use this page for the parts it does not cover.
 
@@ -8,19 +8,19 @@ If your source platform has a guide, start there and use this page for the parts
 
 Every migration is the same five moves, regardless of source.
 
-**1. Inventory what the app actually needs.** Not what its current platform provides — what the app reads at runtime. The environment variables it consumes, the backing services it opens connections to, the files it writes, the scheduled jobs, the domains that point at it. Anything you cannot name here will be the thing that breaks after cutover.
+**1. Inventory what the app actually needs.** List what the app reads at runtime. The environment variables it consumes, the backing services it opens connections to, the files it writes, the scheduled jobs, the domains that point at it. Anything you cannot name here will break after cutover.
 
-**2. Translate the configuration.** Your source platform describes the app in *its* format — `app.json`, `fly.toml`, `render.yaml`, `.ebextensions`, a Helm values file, or a chain of imperative `config:set` commands. Hop3 describes it in a `hop3.toml` checked into the repo. This is the step with real work in it, and it is what each per-platform guide spends most of its length on.
+**2. Translate the configuration.** Your source platform describes the app in *its* format (`app.json`, `fly.toml`, `render.yaml`, `.ebextensions`, a Helm values file, or a chain of imperative `config:set` commands). Hop3 describes it in a `hop3.toml` checked into the repo. This is the step with real work in it, and each per-platform guide spends most of its length here.
 
-**3. Move the data.** Dump from the old backing service, restore into the Hop3 addon. Do this while the old deployment is still serving traffic, verify the restore, and only then cut over. See [Addons](addons.md) for per-service dump and restore commands.
+**3. Move the data.** Dump from the old backing service, restore into the Hop3 addon. Do this while the old deployment is still serving traffic, verify the restore, and cut over only after both. See [Addons](addons.md) for per-service dump and restore commands.
 
-**4. Deploy and verify before touching DNS.** Deploy to Hop3, reach it by its own hostname, and check the app actually works — sign in, exercise a write path, read the logs. A `200` on the homepage is not verification.
+**4. Deploy and verify before touching DNS.** Deploy to Hop3, reach it by its own hostname, and check the app actually works: sign in, exercise a write path, read the logs. A `200` on the homepage is not verification.
 
 **5. Cut over, and keep the rollback.** Point DNS at the new server. Keep the old deployment running and untouched until you are confident; DNS is the fastest thing to change back.
 
 ## Set up the server and connect
 
-Common to every guide. Provision a server (Ubuntu 24.04 LTS or later; Debian, Fedora, and Rocky/Alma also work) and install Hop3:
+Every guide starts from the same setup. Provision a server (Ubuntu 24.04 LTS or later; Debian, Fedora, and Rocky/Alma also work) and install Hop3:
 
 ```bash
 ssh root@your-server.com
@@ -39,11 +39,11 @@ Connect the CLI to your server. On a first install this also creates the admin a
 hop3 init --ssh root@your-server.com
 ```
 
-Full detail in [Server Setup](../get-started/server-setup.md).
+See [Server Setup](../get-started/server-setup.md) for the full detail.
 
 ## From a Procfile
 
-Hop3 reads a Heroku-style `Procfile` as-is, so an app that has one already deploys. You do not need to convert it to migrate — convert it when you want what `hop3.toml` adds: health checks, declared addons, resource limits, backups, and configuration that is reviewable in a diff instead of accumulated on a server.
+Hop3 reads a Heroku-style `Procfile` as-is, so an app that has one already deploys. You do not need to convert it to migrate. Convert it when you want what `hop3.toml` adds: health checks, declared addons, resource limits, backups, and a diff-reviewable configuration.
 
 Convert automatically:
 
@@ -79,19 +79,19 @@ start = "node dist/server.js"
 before-run = "npm run migrate"
 ```
 
-The two can coexist: keep the `Procfile` for the process definitions and add a `hop3.toml` for everything else. Where both describe the same thing, `hop3.toml` wins.
+The two can coexist: keep the `Procfile` for the process definitions and add a `hop3.toml` for everything else. When both describe the same thing, `hop3.toml` wins.
 
-Full key-by-key detail in the [hop3.toml reference](../reference/config.md).
+See the [hop3.toml reference](../reference/config.md) for the full key-by-key detail.
 
 ## Environments
 
-Hop3 has one `hop3.toml` per app, not one per environment. Differences between staging and production belong in environment variables, set per deployment:
+Hop3 keeps one `hop3.toml` per app and no per-environment variants. Differences between staging and production belong in environment variables, set per deployment:
 
 ```bash
 hop3 env set --app myapp LOG_LEVEL=info
 ```
 
-To deploy the same project to more than one server, use contexts (`--context <name>`) rather than branching the configuration file. See the [CLI reference](../reference/cli.md).
+To deploy the same project to more than one server, use contexts (`--context <name>`) and keep a single configuration file. See the [CLI reference](../reference/cli.md).
 
 ## Verify
 
@@ -104,7 +104,7 @@ hop3 env show --app myapp --sources
 hop3 app check --app myapp
 ```
 
-`hop3 app check` is the one that matters: it runs the app's own smoke test, which signs in through the app's authentication rather than asking for a status code.
+`hop3 app check` is the one that matters: it runs the app's own smoke test, which signs in through the app's authentication instead of trusting a status code.
 
 ## Per-platform guides
 
@@ -121,7 +121,7 @@ hop3 app check --app myapp
 
 ### Self-hosted PaaS
 
-- [From Dokku](migration/from-dokku.md) — the closest cousin
+- [From Dokku](migration/from-dokku.md): the closest cousin
 - [From Piku](migration/from-piku.md)
 - [From CapRover](migration/from-caprover.md)
 - [From Coolify](migration/from-coolify.md)
@@ -148,11 +148,11 @@ hop3 app check --app myapp
 - [From a hand-managed VPS](migration/from-vps.md)
 - [From Capistrano](migration/from-capistrano.md)
 
-Coming from something not listed? The method above still applies, and [an issue](https://github.com/abilian/hop3/issues) telling us what you moved from is how the list grows.
+Coming from something not listed? The method above still applies, and [an issue](https://github.com/abilian/hop3/issues) telling us what you moved from will add it to the list.
 
 ## Migrating between Hop3 versions
 
-Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise: see [CLI Migration](cli-migration.md).
+Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise. See [CLI Migration](cli-migration.md).
 
 ## Need help?
 

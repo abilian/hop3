@@ -2,81 +2,79 @@
 
 ## Target Users
 
-When discussing the architecture and design of Hop3, it's essential to consider the target users and their needs.
-
-The primary users of Hop3 are small and medium-sized businesses (SMBs) with limited IT resources. These users typically require robust, scalable, and easy-to-manage IT infrastructure solutions that can be deployed and maintained with minimal complexity. The specific target user groups include:
+The primary users of Hop3 are small and medium-sized businesses (SMBs) with limited IT resources. They need IT infrastructure they can deploy and run with minimal complexity. The target user groups are:
 
 ### Small and Medium-sized Businesses (SMBs)
 
 **IT Administrators:**
 
-- Seeking a centralized and simplified management portal to handle various IT infrastructure needs.
-- Needing to migrate existing services to new hardware or virtual environments without significant downtime or complexity.
-- Requiring reliable and straightforward backup and restore solutions to ensure business continuity.
+- Want a single portal for managing their IT infrastructure.
+- Need to migrate existing services to new hardware or virtual machines with little downtime or complexity.
+- Need reliable backup and restore for business continuity.
 
 **Business Owners and Managers:**
 
-- Aiming to reduce dependency on large upstream vendors and increase the independence of their IT operations.
-- Looking for cost-effective solutions to manage their IT infrastructure, especially on limited budgets.
+- Want to reduce dependency on large upstream vendors and run their IT independently.
+- Want to manage their IT infrastructure on a limited budget.
 
 ### Managed Service Providers (MSPs)
 
 **Service Providers:**
 
-- Providing IT services to SMBs and requiring a flexible, scalable platform to manage multiple client environments efficiently.
-- Needing a multi-tenant, SaaS-compatible solution that can be easily deployed on-premise for clients or hosted in a data center.
+- Need a flexible, scalable platform for managing many client environments.
+- Need a multi-tenant, SaaS-compatible solution they can deploy on-premise for clients or host in a data center.
 
 ### Developers and DevOps Teams
 
 **Software Developers:**
 
-- Interested in creating and deploying applications within a consistent and reliable infrastructure.
-- Looking for an easy-to-use platform to test, develop, and deploy new software modules.
+- Want to create and deploy applications on a consistent, reliable infrastructure.
+- Want an easy-to-use platform for testing and deploying new software modules.
 
 **DevOps Engineers:**
 
-- Requiring a system that supports modern DevOps practices such as continuous integration and continuous deployment (CI/CD).
-- Seeking a platform with built-in tools for automated testing, monitoring, and scaling of applications.
+- Need support for DevOps practices such as continuous integration and continuous deployment (CI/CD).
+- Want built-in tools for automated testing, monitoring, and scaling of applications.
 
 ### Educational Institutions
 
 **IT Departments in Schools and Universities:**
 
-- Needing a manageable and scalable IT infrastructure to support administrative and academic needs.
-- Looking for secure, reliable solutions to manage user accounts, data storage, and application deployment.
+- Need IT infrastructure they can manage at scale for administrative and academic workloads.
+- Need secure, reliable ways to manage user accounts, data storage, and application deployment.
 
 ### Non-profit Organizations
 
 **IT Volunteers and Staff:**
 
-- Requiring cost-effective IT solutions to support their missions without the need for extensive technical expertise.
-- Seeking secure and manageable IT infrastructure to handle data, applications, and communication services.
+- Need affordable IT solutions they can run without extensive technical expertise.
+- Need secure, manageable infrastructure for data, applications, and communication services.
 
 ## Goals and Key Features
 
-Hop3 aims to provide a versatile, user-friendly platform that meets the diverse needs of its target audience while ensuring reliability, security, and efficiency. The design of Hop3 should fulfill these goals, derived from the needs of the users:
+Hop3 aims to give these users a platform that is reliable, secure, and efficient. The design goals follow from those needs:
 
 ### Solve Sysadmin Daily Problems
 
-- **Easy Software Installation:** Simplify the process of installing software to make it as straightforward as possible, reducing the need for extensive technical expertise.
-- **On-premise and Cloud Deployments:** Support both on-premise and cloud deployments, allowing users to choose the best environment for their needs.
-- **Migrate Software between Machines / Clusters:** Enable easy migration of software and services from one machine to another with minimal downtime and effort.
-- **Centralized Management Portal:** Provide a centralized management portal as a unified interface for managing the whole infrastructure.
+- **Easy Software Installation:** Simplify software installation so that it requires little technical expertise.
+- **On-premise and Cloud Deployments:** Support both on-premise and cloud deployments, so users can choose their environment.
+- **Migrate Software between Machines / Clusters:** Move software and services between machines with minimal downtime.
+- **Centralized Management Portal:** Provide one portal as the interface for the whole infrastructure.
 
 ### Independence and Control
 
-- **Self-Hosting:** Enable users to self-host their infrastructure, increasing control and reducing reliance on external service providers.
-- **Software Supply Chain Independence:** Ensure that the software supply chain is independent and secure, reducing the risks associated with third-party dependencies.
-- **Easy and Robust Upgrades:** Ensure that upgrades are simple and reliable, minimizing disruptions and ensuring compatibility with existing configurations.
-- **Limit Upstream Dependency:** Reduce reliance on specific upstream projects or vendors to enhance flexibility and control over the IT infrastructure.
+- **Self-Hosting:** Let users self-host their infrastructure for more control and less reliance on external providers.
+- **Software Supply Chain Independence:** Keep the software supply chain independent of third-party dependencies.
+- **Simple, Reliable Upgrades:** Keep upgrades simple so they cause minimal disruption and leave existing configurations working.
+- **Limit Upstream Dependency:** Reduce reliance on specific upstream projects or vendors.
 
 ### Cost Efficiency and Scalability
 
-- **Cost Efficiency:** Design the system to run efficiently on low-cost hardware and entry-level virtual private servers, making it accessible to SMBs.
-- **Scalability:** Optimize the system for single servers and small clusters.
+- **Cost Efficiency:** Run efficiently on low-cost hardware and entry-level virtual private servers.
+- **Scalability:** Optimize for single servers and small clusters.
 
 ### Security and Resilience
 
-- **Security:** Prioritize security in all aspects of the design, including access control, data encryption, and secure communications.
-- **Secure Software Supply Chain:** Ensure that the software supply chain is secure by using trusted sources and implementing stringent verification processes.
-- **Effective Data Backup and Restore:** Provide robust backup and restore capabilities to ensure data integrity and quick recovery from failures.
+- **Security:** Treat security as a priority across the design: access control, data encryption, secure communications.
+- **Secure Software Supply Chain:** Build the software supply chain from trusted sources and verify what comes from them.
+- **Data Backup and Restore:** Provide backups that protect data integrity and restore quickly after a failure.

@@ -299,7 +299,7 @@ def check_status(self) -> bool:
 
 #### `scale(deltas: dict[str, int] | None = None) -> None`
 
-Scale workers up or down.
+Scale the workers up or down.
 
 **Parameters**:
 - `deltas`: Dictionary mapping worker names to scaling changes (e.g., `{"web": 2}` to set 2 web workers)
@@ -597,7 +597,7 @@ def setup_backend(self) -> None:
 
 #### `setup_certificates() -> None`
 
-Setup SSL/TLS certificates for the application.
+Set up SSL/TLS certificates for the application.
 
 **Implementation Guidelines**:
 - Generate self-signed certificates for development
@@ -624,7 +624,7 @@ Configure static file serving.
 
 #### `extra_setup() -> None`
 
-Perform additional proxy-specific setup.
+Apply additional proxy-specific setup.
 
 **Implementation Guidelines**:
 - Custom headers

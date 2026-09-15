@@ -1,15 +1,15 @@
 # hop3-installer Deep Dive
 
-This document provides detailed internal documentation for the hop3-installer package. For a quick overview, see the [package overview](index.md).
+This document describes the internals of the hop3-installer package. For a quick overview, see the [package overview](index.md).
 
 ## Architecture Overview
 
-hop3-installer serves two distinct purposes:
+hop3-installer has two entry points:
 
-1. **Production installers** (`hop3-install`) - Single-file scripts for end users
-2. **Developer deployment** (`hop3-deploy-server`) - Tool for development workflow
+1. **Production installers** (`hop3-install`): single-file scripts for end users
+2. **Developer deployment** (`hop3-deploy-server`): the tool for the development workflow
 
-Both are designed with no external dependencies (stdlib only for installers).
+Neither has external dependencies (the installers use only the standard library).
 
 ## Module Structure
 
@@ -66,14 +66,14 @@ def bundle_installer(installer_type: str) -> str:
     ...
 ```
 
-The bundler returns the source as a string; the CLI (`hop3-install bundle`) and `DeployConfig.installer_path` write it to disk and `chmod 0o755` it. Module order matters — `common.py` and `constants.py` come first because later modules depend on them.
+The bundler returns the source as a string; the CLI (`hop3-install bundle`) and `DeployConfig.installer_path` write it to disk and `chmod 0o755` it. Module order matters: `common.py` and `constants.py` come first because later modules depend on them.
 
 ### Why Single-File?
 
-- **No pip required** - Works on fresh systems
-- **Curl-friendly** - `curl ... | python3 -`
-- **Offline capable** - Copy and run
-- **Auditable** - Single file to review
+- **No pip required**: works on fresh systems
+- **Curl-friendly**: `curl ... | python3 -`
+- **Offline capable**: copy and run
+- **Auditable**: one file to review
 
 ## CLI Installer (`hop3-install cli`)
 
@@ -88,7 +88,7 @@ Installs hop3-cli on local machines:
 5. Configure PATH in the user's shell config (unless `--no-modify-path`)
 6. Verify the installation
 
-The CLI is installed into its own venv with command symlinks rather than via pipx or `pip install --user`, which keeps the install self-contained and easy to remove (`rm -rf ~/.hop3-cli`).
+The CLI installs into its own venv with command symlinks; it skips pipx and `pip install --user`, which keeps the install self-contained and easy to remove (`rm -rf ~/.hop3-cli`).
 
 ### Configuration
 
@@ -113,7 +113,7 @@ Installs hop3-server on target machines (requires root):
 
 The server installer runs as a numbered sequence of steps (see `server_installer/installer.py`):
 
-1. **System dependencies** — install base system packages (nginx, uwsgi, git, etc.) plus the catalogue-derived baseline on Debian/Fedora
+1. **System dependencies**: install base system packages (nginx, uwsgi, git, etc.) plus the catalogue-derived baseline on Debian/Fedora
 2. **Create `hop3` user and group**
 3. **Create the Python virtual environment** at `/home/hop3/venv`
 4. **Install the `hop3-server` package** into the venv
@@ -158,7 +158,7 @@ Tool for deploying during development:
 
 ### Backends
 
-Both backends subclass `DeployBackend` and implement the same interface: `setup()`, `run()`, `upload_file()`, `upload_dir()`, `is_hop3_installed()`, `clean()`, `teardown()`, and `get_server_url()`. They take a `DeployConfig`.
+Both backends subclass `DeployBackend` and implement one interface: `setup()`, `run()`, `upload_file()`, `upload_dir()`, `is_hop3_installed()`, `clean()`, `teardown()`, and `get_server_url()`. They take a `DeployConfig`.
 
 #### SSH Backend
 
@@ -220,7 +220,7 @@ The default install source is PyPI. Use `--git` (optionally `--branch`) to insta
 
 ## Installation Validators
 
-The `validators.py` module provides validation functions used both as post-install self-tests (run by the installers themselves) and by E2E tests through the deploy backends. Each validator takes a `runner` callable that executes a shell command and returns a `CommandResult`, so the same logic works locally (`LocalRunner`) or remotely (a deploy backend's `run`):
+The `validators.py` module holds validation functions used both as post-install self-tests (run by the installers themselves) and by E2E tests through the deploy backends. Each validator takes a `runner` callable that executes a shell command and returns a `CommandResult`, so the same logic works locally (`LocalRunner`) or remotely (a deploy backend's `run`):
 
 ```python
 def validate_cli_installation(runner: CommandRunner) -> bool:
@@ -238,7 +238,7 @@ def validate_server_installation(
     ...
 ```
 
-`check_systemd=False` is used on Docker targets that run supervisor instead of systemd, where the systemd service checks would not apply.
+`check_systemd=False` is used on Docker targets that run supervisor, where the systemd checks would not apply.
 
 Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-test`), which deploys Hop3 to Docker or SSH targets and then deploys and verifies real apps. See the [hop3-testing overview](hop3-testing.md).
 
@@ -250,11 +250,11 @@ Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-t
 |----------|-------------|
 | `HOP3_HOST` | Target server hostname (deprecated aliases: `HOP3_DEV_HOST`, `HOP3_TEST_SERVER`) |
 | `HOP3_SSH_USER` | SSH user (default: root) |
-| `HOP3_GIT` | Install from git instead of PyPI (PyPI is the default) |
+| `HOP3_GIT` | Install from git (PyPI is the default) |
 | `HOP3_BRANCH` | Git branch to deploy (implies `HOP3_GIT`, default: devel) |
 | `HOP3_LOCAL` | Upload and use local working-tree code |
 | `HOP3_CLEAN` | Clean before deploy |
-| `HOP3_DOCKER` | Use the Docker backend instead of SSH |
+| `HOP3_DOCKER` | Use the Docker backend (the default is SSH) |
 
 ### For hop3-install server
 
@@ -264,17 +264,17 @@ Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-t
 | `HOP3_ACME_EMAIL` | Email for Let's Encrypt registration |
 | `HOP3_WITH` | Optional features (comma-separated: `mysql`, `redis`, `docker`, `nix`, `s3`, `rust`, or `all`) |
 | `HOP3_VERSION` | Specific PyPI version to install |
-| `HOP3_GIT` | Install from git instead of PyPI |
+| `HOP3_GIT` | Install from git |
 | `HOP3_BRANCH` | Git branch (implies `HOP3_GIT`) |
 
 PostgreSQL is always installed as the default database; there is no database-type environment variable.
 
 ## Security Considerations
 
-- **Root required** - Server installer must run as root
-- **SSH keys** - Deployer uses SSH key authentication; it never prompts interactively for a password
-- **Admin password** - The deployer auto-generates an admin password when one isn't supplied, and passes it to the server via stdin (not argv) so it never appears in process listings; it's shown only with `--verbose` and only when a new admin user is created
-- **Minimal privileges** - The `hop3` user has minimal system access
+- **Root required**: the server installer must run as root
+- **SSH keys**: the deployer uses SSH key authentication; it never prompts interactively for a password
+- **Admin password**: the deployer auto-generates an admin password when one isn't supplied, and passes it to the server via stdin (not argv) so it never appears in process listings; it's shown only with `--verbose` and only when a new admin user is created
+- **Minimal privileges**: the `hop3` user has minimal system access
 
 ## Debugging
 

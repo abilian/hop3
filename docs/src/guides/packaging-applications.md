@@ -16,14 +16,14 @@ This guide provides step-by-step instructions for packaging your applications so
 
 Hop3 applications require minimal configuration to deploy. At its core, you need:
 
-1. **Your application code** - The actual source files
-2. **Dependency declaration** - How to install required packages
-3. **Process definition** - How to run your application
+1. **Your application code**: the actual source files.
+2. **Dependency declaration**: how to install required packages.
+3. **Process definition**: how to run your application.
 
 Hop3 supports two configuration approaches:
 
-- **Procfile** (convention) - Simple, Heroku-compatible, works out of the box
-- **hop3.toml** (configuration) - Advanced, full-featured, optional
+- **Procfile** (convention): simple, Heroku-compatible, works out of the box.
+- **hop3.toml** (configuration): advanced, full-featured, optional.
 
 You can use either one or both together. When both exist, `hop3.toml` settings override `Procfile` settings.
 
@@ -95,9 +95,7 @@ before-build = "pip install -r requirements-dev.txt"
 type = "postgres"
 ```
 
-Result:
-- `web` and `worker` processes from Procfile
-- Build configuration and database from hop3.toml
+Result: the `web` and `worker` processes come from the Procfile, and the build configuration and database come from `hop3.toml`.
 
 ## Configuration Options
 
@@ -176,20 +174,20 @@ test = "npm test"
 
 ##### Downloading upstream sources: use `hop3-fetch`, not `curl`
 
-A recipe that fetches an upstream tarball in `before-build` should call `hop3-fetch` rather than `curl` or `wget`:
+A recipe that fetches an upstream tarball in `before-build` should call `hop3-fetch`, and not `curl` or `wget`:
 
 ```bash
 hop3-fetch "$URL" | tar xz --strip-components=1          # pipe into tar
 hop3-fetch "$URL" -o app.tar.gz --sha256 "$SHA256"       # or write a file
 ```
 
-It downloads through a cache shared by every app on the server, so redeploying the same pinned version does not ask upstream again. That is not only a speed matter: a catalog run pulls dozens of tags from the same few hosts within minutes, and GitHub's codeload rate-limits the address — after which `curl` gets `HTTP 429` and the deploy fails with nothing wrong in the recipe. Retrying harder makes it worse; not asking twice fixes it.
+It downloads through a cache shared by every app on the server, so redeploying the same pinned version does not ask upstream again. The benefit goes beyond speed: a catalog run pulls dozens of tags from the same few hosts within minutes, and GitHub's codeload rate-limits the address. After that, `curl` gets `HTTP 429` and the deploy fails with nothing wrong in the recipe. Retrying harder makes it worse; not asking twice fixes it.
 
 `hop3-fetch` also fails loudly on an HTTP error instead of saving the error page as the artifact, retries transient failures with backoff (honouring `Retry-After`), and verifies `--sha256` **before** admitting the download to the cache, so a cache hit is proof the bytes are the ones the recipe pinned.
 
-It also checks the body against the `Content-Length` the server promised. A connection that drops mid-transfer leaves a short file and raises nothing, so without that check the fetch reports a download that did not happen — and an unpinned recipe, having nothing else to compare against, caches the fragment and serves it to every later build. That is why `--sha256` is worth pinning wherever upstream publishes one: it is the only thing that can detect a body which arrived complete but wrong.
+It also checks the body against the `Content-Length` the server promised. A connection that drops mid-transfer leaves a short file and raises nothing. Without that check, the fetch reports a download that did not happen, and an unpinned recipe, having nothing else to compare against, caches the fragment and serves it to every later build. Pin `--sha256` wherever upstream publishes one: it is the only thing that can detect a body which arrived complete but wrong.
 
-`--refresh` discards any cached copy and downloads again. Reach for it when a cache entry is suspect; a cache hit is otherwise returned without being read.
+`--refresh` discards any cached copy and downloads again. Use it when a cache entry is suspect; otherwise a cache hit is returned without being read.
 
 When piping into `tar`, set `set -eo pipefail` in the script. Without it the pipeline's exit status is `tar`'s, so a failed download surfaces as a misleading "Unexpected EOF" instead of the actual error.
 
@@ -219,7 +217,7 @@ ALLOWED_HOSTS = "myapp.example.com"
 
 **⚠️ Security Note:** Don't hardcode secrets in `hop3.toml`. There are two cases:
 
-- **App-internal random secrets** (`SECRET_KEY`, `SECRET_KEY_BASE`, `APP_KEY`, …) — values the app only needs to be random and unguessable. Declare them and Hop3 generates one on the first deploy, persists it, and never rotates or commits it:
+- **App-internal random secrets** (`SECRET_KEY`, `SECRET_KEY_BASE`, `APP_KEY`, …): values the app only needs to be random and unguessable. Declare them and Hop3 generates one on the first deploy, persists it, and never rotates or commits it:
 
   ```toml
   [env]
@@ -228,7 +226,7 @@ ALLOWED_HOSTS = "myapp.example.com"
 
   See [Generated secrets](../reference/config.md#generated-secrets) for the available generators.
 
-- **Externally-supplied secrets** (API tokens, third-party passwords) — specific values you provide. Set these with the CLI, never in `hop3.toml`:
+- **Externally-supplied secrets** (API tokens, third-party passwords): specific values you provide. Set these with the CLI, never in `hop3.toml`:
 
   ```bash
   hop3 env set --app my-app API_TOKEN="sensitive-token"
@@ -752,7 +750,7 @@ build = "npm run build"
 
 ### Wiring config from injected credentials
 
-When you attach an addon, Hop3 injects its connection details as environment variables (`DATABASE_URL`, `REDIS_URL`, `SMTP_HOST`, …). An app that reads those from the environment is configured the moment it's attached — no further work. Some apps instead read their settings from a **config file** (`homeserver.yaml`, `LocalSettings.php`, an INI section) or from their own **database** (set through a CLI like `occ`). Environment injection cannot reach those, so render the config from the injected environment in a `before-run` command — it runs on every deploy with every injected variable present:
+When you attach an addon, Hop3 injects its connection details as environment variables (`DATABASE_URL`, `REDIS_URL`, `SMTP_HOST`, …). An app that reads those from the environment is configured the moment it's attached, with no further work. Some apps instead read their settings from a **config file** (`homeserver.yaml`, `LocalSettings.php`, an INI section) or from their own **database** (set through a CLI like `occ`). Environment injection cannot reach those, so render the config from the injected environment in a `before-run` command; it runs on every deploy with every injected variable present:
 
 ```toml
 [run]
@@ -775,7 +773,7 @@ EOF
 chmod 600 config/mail.yaml
 ```
 
-Four conventions keep these scripts correct — each targets a real failure seen while packaging the catalog:
+Four conventions keep these scripts correct; each targets a real failure seen while packaging the catalog:
 
 **Never hardcode a feature off.** A generated config that pins `MAIL_MAILER=log` or `MAILER_ENABLED=false` *shadows* the injected value and silently disables the feature. Default *through* the injected value so an attached addon (or an `[env]` remap) wins:
 
@@ -801,7 +799,7 @@ if ! php occ status | grep -q 'installed: true'; then
 fi
 ```
 
-> A future Hop3 release may add a declarative form of this — `[[config-files]]` to render a file and `[[setup]]` to run a guarded command — that applies these rules by construction (see [ADR 051](/developers/adrs/051-config-injection/)). Until then, a `before-run` script held to the four conventions is the supported way to wire a config-file or DB app.
+> A future Hop3 release may add a declarative form of this: `[[config-files]]` to render a file and `[[setup]]` to run a guarded command, applying these rules by construction (see [ADR 051](/developers/adrs/051-config-injection/)). Until then, a `before-run` script held to the four conventions is the supported way to wire a config-file or DB app.
 
 ## Testing Your Package
 

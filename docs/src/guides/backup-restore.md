@@ -1,6 +1,6 @@
 # Backup and Restore
 
-Hop3 provides a comprehensive backup and restore system to protect your applications and data. This guide covers everything you need to know about backing up and restoring your Hop3 applications.
+Hop3 provides a backup and restore system to protect your applications and data. This guide covers how to use it.
 
 ## Table of Contents
 
@@ -130,7 +130,7 @@ To create a backup excluding attached addons (databases, caches):
 hop3 backup create --app <app-name> --no-addons
 ```
 
-**Use case:** Quickly backup just the application code and data when addons are backed up separately.
+**Use case:** Quickly back up just the application code and data when addons are backed up separately.
 
 ### What Happens During Backup?
 
@@ -144,7 +144,7 @@ hop3 backup create --app <app-name> --no-addons
 8. **Metadata Creation**: Generates `metadata.json` with inventory
 9. **Database Update**: Records backup in database
 
-The entire process is **atomic** - if any step fails, partial backups are cleaned up automatically.
+The process is **atomic**: if any step fails, partial backups are cleaned up automatically.
 
 ## Listing Backups
 
@@ -502,12 +502,12 @@ ls -la /var/hop3/backups/
 
 If a restore fails:
 
-1. **Check the error message** - it will indicate which step failed
-2. **Verify the application state** - it may be partially restored
-3. **Try the restore again** - some failures are transient
-4. **Use a different backup** - if the issue persists
+1. **Check the error message**: it indicates which step failed
+2. **Verify the application state**: it may be partially restored
+3. **Try the restore again**: some failures are transient
+4. **Use a different backup** if the issue persists
 
-The restore process is designed to be **idempotent** - you can safely retry.
+The restore process is **idempotent**: you can safely retry.
 
 ### Service Restore Fails
 
@@ -622,11 +622,11 @@ Other addons are backed up by their own `backup()`/`restore()` implementations:
 
 #### Large Applications
 
-For applications with large data directories:
+Applications with large data directories take longer to back up:
 
-- **Expect** ~1-5 minutes per GB for backup creation
-- **Compression** reduces size by 50-80% typically
-- **Network** transfers not involved (all local)
+- **Backup time**: ~1-5 minutes per GB
+- **Compression**: typically reduces size by 50-80%
+- **Network**: all transfers are local
 
 #### Optimization Tips
 
@@ -646,7 +646,7 @@ Always check compatibility warnings during restore.
 
 ### Disaster Recovery
 
-In case of complete server failure:
+In case of complete server failure, do the following:
 
 1. **Install Hop3** on a new server
 2. **Copy backups** from the old server (or remote storage)
@@ -656,7 +656,7 @@ In case of complete server failure:
    hop3 app restart --app <app-name>
    ```
 
-**Pro tip:** Keep backups in multiple locations:
+Keep backups in multiple locations:
 - Local server
 - Remote backup server
 - Cloud storage (future feature)
@@ -736,9 +736,9 @@ If you encounter issues:
 
 ## Related Guides
 
-- [Quickstart Guide](../get-started/quickstart.md) - Getting started with Hop3
-- [FAQ](faq.md) - Frequently asked questions
-- [Configuration Reference](../reference/config.md) - Application configuration
-- [CLI Reference](../reference/cli.md) - Complete command reference
+- [Quickstart Guide](../get-started/quickstart.md): Getting started with Hop3
+- [FAQ](faq.md): Frequently asked questions
+- [Configuration Reference](../reference/config.md): Application configuration
+- [CLI Reference](../reference/cli.md): Complete command reference
 
-**Remember:** Backups are your safety net. Test them regularly, store them securely, and never skip a backup before making changes!
+Backups are your safety net: test them regularly and store them securely.

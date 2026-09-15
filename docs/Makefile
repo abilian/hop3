@@ -65,4 +65,4 @@ deploy:
 	hop3 --context prod deploy
 
 clean:
-	rm -rf site/ src/tutorials/ src/blog/posts/ src/developers/adrs/
+	rm -rf site/ src/tutorials/ src/blog/* src/developers/adrs/

@@ -1,8 +1,8 @@
 # Migrating from Azure App Service to Hop3
 
-Thinking about leaving Azure App Service? Whether it's the cost curve, the lock-in, or simply wanting your own box, Hop3 gives you a familiar deploy-from-git workflow on infrastructure you control. This guide helps you move an existing App Service web app to Hop3.
+Thinking about leaving Azure App Service? Whether it's the cost curve, the lock-in, or wanting your own box, Hop3 gives you a familiar deploy-from-git workflow on infrastructure you control. This guide helps you move an existing App Service web app to Hop3.
 
-The pitch in one sentence: on App Service you rent a managed runtime and pay per plan tier; on Hop3 you run the same app on a server you own, and it stays up without an Always-On toggle to pay for.
+On App Service you rent a managed runtime and pay per plan tier. On Hop3 you run the same app on a server you own, and it stays up without an Always-On toggle to pay for.
 
 ## What's Similar
 
@@ -26,12 +26,12 @@ One syntactic habit to retrain: App Service's app target is the resource you sel
 |-------------------|------|
 | Managed platform | Self-hosted |
 | Autoscale (rules / metrics) | Manual scaling (`ps scale`) |
-| Many backing services | PostgreSQL, MySQL, Redis, S3/MinIO — and growing |
+| Many backing services | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
 | Deployment slots | Not supported (use a separate staging app) |
 | Always-On toggle | Always on (no toggle) |
 | WebJobs | `[run.workers]` or system cron |
 
-Hop3 is simpler. You manage one server instead of an App Service plan, a region, and a sprawl of resource settings. The trade-off is real and worth stating up front: there are no deployment slots and no autoscale. Both have plain workarounds, covered below.
+Hop3 is simpler. You manage one server instead of an App Service plan, a region, and a sprawl of resource settings. The trade-off: there are no deployment slots, and scaling is manual. Both have workarounds, covered below.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -80,13 +80,13 @@ Review both files and drop the App Service-managed and infrastructure entries:
 - `SCM_*` / `DOCKER_*` deployment-center variables
 - Any connection string you intend to replace with a Hop3 addon (see Step 4)
 
-Note your **startup command** too — App Service stores it under the runtime stack settings (the "Startup Command" field, or `az webapp config show --query appCommandLine`). That string becomes your `web` process in a `Procfile` or `[run]`.
+Note your **startup command** too. App Service stores it under the runtime stack settings (the "Startup Command" field, or `az webapp config show --query appCommandLine`). That string becomes your `web` process in a `Procfile` or `[run]`.
 
 ## Step 3: Add hop3.toml
 
 A `Procfile` is supported, but `hop3.toml` gives you more control. The mapping from App Service primitives is direct:
 
-- **Runtime stack** (e.g. "Python 3.12", "Node 20", ".NET 8") → Hop3's native toolchain, auto-detected from your repo. Native auto-detection covers Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, and .NET.
+- **Runtime stack** (e.g. "Python 3.12", "Node 20", ".NET 8") → Hop3's native toolchain, auto-detected from your repo. Detection covers Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, and .NET.
 - **Startup command** → the `web` line of your `Procfile`, or `[run]`.
 - **App settings + connection strings** → `[env]`.
 - **WebJobs** → `[run.workers]` (long-running) or system cron (scheduled).
@@ -114,33 +114,33 @@ If you had an App Service startup command rather than a framework Hop3 can launc
 web: gunicorn myapp.wsgi --bind 0.0.0.0:$PORT
 ```
 
-There is no importer for App Service configuration — App Service has no portable config file to read. The only config importer Hop3 ships converts a `Procfile` to `hop3.toml`:
+There is no importer for App Service configuration, because App Service has no portable config file to read. The only importer Hop3 ships converts a `Procfile` to `hop3.toml`:
 
 ```bash
 cd your-app/
 hop3 app migrate procfile .
 ```
 
-Everything else in this post (app settings, connection strings, the startup command, WebJobs) is translated by hand into the `hop3.toml` shown above. That hand mapping *is* the migration.
+Everything else (app settings, connection strings, the startup command, WebJobs) is translated by hand into the `hop3.toml` shown above.
 
 ## Step 4: Migrate Your Database
 
-App Service itself doesn't host your database — it points at Azure Database for PostgreSQL, Azure Database for MySQL, or another store via a connection string. You have two clean choices.
+App Service itself doesn't host your database; it points at Azure Database for PostgreSQL, Azure Database for MySQL, or another store via a connection string. You have two options.
 
 ### Option A: Keep the external managed database
 
-If you want to keep Azure Database (or any managed DB) for now, don't migrate the data at all — just point Hop3 at the same URL:
+If you want to keep Azure Database (or any managed DB) for now, skip the data migration and point Hop3 at the same URL:
 
 ```bash
 hop3 env set --app your-app \
     DATABASE_URL=postgresql://user:pass@your-db.postgres.database.azure.com/yourdb
 ```
 
-This is the lowest-risk first move: switch where the app *runs* without touching where the data *lives*.
+This is the lowest-risk first move: switch where the app runs without touching where the data lives.
 
 ### Option B: Move the data onto a Hop3 addon
 
-To leave Azure entirely, dump from Azure Database and load into a Hop3 PostgreSQL addon. Hop3's addons today are PostgreSQL, MySQL, Redis, and S3/MinIO — and growing.
+To leave Azure entirely, dump from Azure Database and load into a Hop3 PostgreSQL addon. Hop3 also ships MySQL, Redis, and S3/MinIO addons.
 
 Dump from Azure Database for PostgreSQL:
 
@@ -177,13 +177,13 @@ sudo -u postgres pg_restore --verbose --no-owner \
 
 For MySQL, the shape is identical: dump from Azure Database for MySQL with `mysqldump`, `hop3 addon create mysql your-app-db`, attach, then load the dump.
 
-If your app uses Postgres extensions, enable them through the addon command — no SSH or manual `psql`:
+If your app uses Postgres extensions, enable them through the addon command, with no SSH or manual `psql`:
 
 ```bash
 hop3 addon postgres extensions your-app-db pg_stat_statements
 ```
 
-Extensions are allow-listed, so only the ones Hop3 ships support for will install.
+Extensions are allow-listed; only the ones Hop3 supports will install.
 
 ## Step 5: Deploy to Hop3
 
@@ -253,7 +253,7 @@ App Service's startup command becomes the `web` process. If your framework is on
 web: gunicorn myapp.wsgi --bind 0.0.0.0:$PORT
 ```
 
-Always bind to `$PORT` — Hop3 sets it, just as App Service set `WEBSITES_PORT`/`PORT` for you.
+Always bind to `$PORT`. Hop3 sets it, just as App Service set `WEBSITES_PORT`/`PORT` for you.
 
 ### WebJobs and Scheduled Work
 
@@ -283,7 +283,7 @@ crontab -e
 
 ### Deployment Slots
 
-This is the gap that matters most coming from App Service. Hop3 has **no deployment-slot equivalent** — no blue/green swap, no slot-scoped settings, no warm-up-then-swap.
+This is the gap that matters most coming from App Service. Hop3 has **no deployment-slot equivalent**: no blue/green swap, no slot-scoped settings, no warm-up-then-swap.
 
 The workaround is a separate staging app:
 
@@ -295,13 +295,13 @@ There is no atomic swap; you re-deploy the validated commit to the production ap
 
 ### Autoscale
 
-App Service autoscale (rule- or metric-based) has no equivalent — Hop3 scaling is manual. Set process counts yourself with `ps scale`:
+App Service autoscale (rule- or metric-based) has no equivalent; Hop3 scaling is manual. Set process counts with `ps scale`:
 
 ```bash
 hop3 ps scale your-app web=3 worker=2
 ```
 
-This is a single-server platform: there is no multi-region, no cluster, and no edge. If your App Service app genuinely relied on autoscaling across instances to absorb load, size the server for the peak and scale processes manually — and treat horizontal scale-out as something Hop3 doesn't do today.
+This is a single-server platform: there is no multi-region, no cluster, and no edge. If your App Service app relied on autoscaling across instances to absorb load, size the server for the peak and scale processes manually. Horizontal scale-out is something Hop3 doesn't do today.
 
 ## Command Mapping
 
@@ -322,24 +322,24 @@ This is a single-server platform: there is no multi-region, no cluster, and no e
 
 ## Cost and Lock-In
 
-App Service bills per plan: you pay for the tier, for Always-On, often for a separate Azure Database, and for staging slots that ride on a higher tier. The number grows with each managed piece, and every one of those pieces is Azure-shaped — your config lives in the portal, not in a file you own.
+App Service bills per plan: you pay for the tier, for Always-On, often for a separate Azure Database, and for staging slots that ride on a higher tier. The number grows with each managed piece, and every one of those pieces is Azure-shaped: your config lives in the portal.
 
 On Hop3 the bill is your VPS. A small app that ran on a Basic/Standard plan plus a managed database fits comfortably on a modest single server; a medium app on a larger one. The configuration that used to live in App Service settings now lives in `hop3.toml`, committed alongside your code.
 
-The trade-off is the same one this whole post circles: you manage the server, you give up slots and autoscale, and in exchange you own the box, own the config, and stop paying per managed primitive. The process is always on — there is no Always-On toggle to remember or to pay for.
+You manage the server and give up slots and autoscale; in exchange you own the box, own the config, and stop paying per managed primitive. The process is always on; there is no Always-On toggle.
 
 ## Rollback Plan
 
 Keep your App Service app running during the migration so you always have a way back:
 
 1. Deploy to Hop3 on a test domain (or `your-app-staging`).
-2. Point Hop3 at the *same* Azure Database first (Step 4, Option A) so the data layer is identical while you validate the runtime.
+2. Point Hop3 at the same Azure Database first (Step 4, Option A) so the data layer is identical while you validate the runtime.
 3. Verify everything works against real data.
 4. Switch DNS to Hop3.
 5. Keep the App Service app running for 1–2 weeks.
 6. Once you're confident, migrate the data off Azure Database (Step 4, Option B) if you want to leave Azure entirely, then decommission the App Service plan.
 
-Because there's no atomic slot swap, the DNS cutover plus the kept-running App Service app *is* your blue/green: traffic moves when DNS moves, and reverting is a DNS change back.
+Because there's no atomic slot swap, the DNS cutover plus the kept-running App Service app is your blue/green. Traffic moves when DNS moves; reverting is a DNS change back.
 
 ## Getting Help
 
@@ -349,4 +349,4 @@ Because there's no atomic slot swap, the DNS cutover plus the kept-running App S
 
 ---
 
-*Coming from a different platform? The concepts are similar. Check the [Getting Started guide](/get-started/) for a fresh start.*
+*Coming from a different platform? Check the [Getting Started guide](/get-started/) for a fresh start.*

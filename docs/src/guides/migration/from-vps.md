@@ -2,13 +2,13 @@
 
 You already run the box. You wrote the nginx vhost, you wrote the systemd unit, you put certbot on a cron, and your deploy is muscle memory: `ssh in`, `git pull`, `pip install -r requirements.txt`, `systemctl restart myapp`. It works. It's been working for years. So why move?
 
-Because every one of those pieces is something you maintain by hand, and none of it is the app. The nginx config drifts. The certbot renewal silently fails one Sunday and you find out when the browser does. A dependency bump breaks the deploy and now you're debugging on the live server at the worst possible time. You are, in effect, running a tiny PaaS that you built yourself and have to keep building. Hop3 is that PaaS, already built — and it runs on the same kind of box you already understand, no Docker or Kubernetes required. It keeps the server yours and stops you hand-maintaining nginx, systemd units, and certbot. Your deploy becomes `git push`.
+Because every one of those pieces is something you maintain by hand, and none of it is the app. The nginx config drifts. The certbot renewal fails one Sunday without a word; you find out when the browser does. A dependency bump breaks the deploy and now you're debugging on the live server at the worst possible time. You are running a tiny PaaS that you built yourself and have to keep building. Hop3 is that PaaS, already built. It runs on the same kind of box you already understand, with no Docker or Kubernetes required. It keeps the server yours and stops you hand-maintaining nginx, systemd units, and certbot. Your deploy becomes `git push`.
 
-This is, conceptually, the easiest migration of all, because you're not changing your mental model — you already think in processes, a reverse proxy, and a TLS cert. You're handing those three chores to something that does them the same way you would, just automatically. This guide walks one hand-rolled app over to Hop3, primitive by primitive.
+This is the easiest migration of all, because you already think in processes, a reverse proxy, and a TLS cert. You're handing those three chores to something that does them the same way you would, automatically. This guide walks one hand-rolled app over to Hop3, primitive by primitive.
 
 ## What's Similar
 
-You're not learning a new way of thinking. You're naming the things you already do:
+You're naming the things you already do:
 
 | Your VPS, by hand | Hop3 |
 |-------------------|------|
@@ -18,7 +18,7 @@ You're not learning a new way of thinking. You're naming the things you already 
 | `apt install postgresql`, by hand | `hop3 addon create postgres` |
 | Editing the nginx `server_name` | `hop3 domain add` |
 
-The runtime is the same one you already run: nginx out front, a process supervised below it, a Postgres on the box. Hop3 just owns the wiring instead of you. One thing to internalize about the CLI: the app you're targeting is always the `--app` flag, never a positional argument and never a `verb:action` colon. So where you'd `sudo -u myapp env | grep` to read config, you `hop3 env show --app myapp`.
+The runtime is the same one you already run: nginx out front, a process supervised below it, a Postgres on the box. Hop3 owns the wiring. One thing to internalize about the CLI: the app you're targeting is always the `--app` flag, never a positional argument and never a `verb:action` colon. So where you'd `sudo -u myapp env | grep` to read config, you `hop3 env show --app myapp`.
 
 ## What's Different
 
@@ -31,13 +31,13 @@ The runtime is the same one you already run: nginx out front, a process supervis
 | Hand-installed Postgres you babysit | A managed addon (or keep yours) |
 | You decide the layout | Hop3 expects its layout (`$PORT`, app/venv tree) |
 
-The trade-off is plain, and it's the whole point: Hop3 takes ownership of nginx and process management. In exchange for the chores, you adopt its conventions — your app binds the `$PORT` Hop3 hands it instead of a port you picked, and it lives in the app/venv tree Hop3 lays out. For a single web app that's a clean swap. A box crowded with unrelated hand-tuned services (your own mail stack, a bespoke nginx doing clever `location` routing for three different things) is more work to hand over, because Hop3 wants to own the reverse proxy. Move the app; leave the rest where it is until you're ready.
+The trade-off is ownership: Hop3 takes over nginx and process management. In exchange, your app binds the `$PORT` Hop3 hands it and lives in the app/venv tree Hop3 lays out. For a single web app that's a straight swap. A box crowded with unrelated hand-tuned services (your own mail stack, a bespoke nginx doing clever `location` routing for three different things) is more work to hand over, because Hop3 wants to own the reverse proxy. Move the app; leave the rest where it is until you're ready.
 
-And you can do this on the very same VPS. Hop3 installs onto a Linux box you already have.
+You can do this on the very same VPS, because Hop3 installs onto a Linux box you already have.
 
 ## Step 1: Set Up Your Hop3 Server
 
-Provision a server — or use the one you already have. Ubuntu 24.04 LTS is recommended; Debian, Fedora, and Rocky/Alma also work. Install Hop3:
+Provision a server, or use the one you already have. Ubuntu 24.04 LTS is recommended; Debian, Fedora, and Rocky/Alma also work. Install Hop3:
 
 ```bash
 ssh root@your-server.com
@@ -61,7 +61,7 @@ If you're installing onto the box your app already lives on, note that Hop3 want
 
 ## Step 2: Inventory What You Wired by Hand
 
-There's no config to export — that's the point, your configuration is spread across the system. Walk these four spots and write down what you find; each maps onto a single Hop3 concept in Step 3.
+There's no config to export, because your configuration is spread across the system. Walk these four spots and write down what you find; each maps onto a single Hop3 concept in Step 3.
 
 ```bash
 # Your start command — read it off the unit
@@ -80,14 +80,14 @@ certbot certificates
 
 Note three things from the unit and vhost: the **command** that starts your app (`ExecStart=`), the **port** it binds (you'll stop hardcoding it), and the **`server_name`** nginx routes to it. Then plan to drop the entries Hop3 sets for you:
 
-- `DATABASE_URL` — set by the Hop3 Postgres addon (or kept, if you point at your existing DB; see Step 4)
-- `REDIS_URL` — set by the Hop3 Redis addon
-- `PORT` — auto-set by Hop3; your app reads `$PORT` instead of a fixed number
+- `DATABASE_URL`: set by the Hop3 Postgres addon (or kept, if you point at your existing DB; see Step 4)
+- `REDIS_URL`: set by the Hop3 Redis addon
+- `PORT`: auto-set by Hop3; your app reads `$PORT` instead of a fixed number
 - Anything nginx- or systemd-specific that only made sense in your hand-rolled setup
 
 ## Step 3: Add hop3.toml
 
-Here's where the four chores collapse into one file. A representative hand-rolled Django app is three artifacts. The systemd unit:
+The four chores collapse into one file. A representative hand-rolled Django app is three artifacts. The systemd unit:
 
 ```ini
 # /etc/systemd/system/myapp.service
@@ -110,7 +110,7 @@ server {
 }
 ```
 
-And `/etc/myapp/env`, your `Environment=` by another name.
+`/etc/myapp/env` is your `Environment=` by another name.
 
 The same app as `hop3.toml`:
 
@@ -135,18 +135,18 @@ path = "/health/"
 
 Each line of that file replaces a piece of your by-hand setup:
 
-- **The systemd unit disappears.** Your `ExecStart` gunicorn command becomes the app's process model. Hop3 supervises it (via uWSGI) and restarts it for you — that's the `Restart=always` you used to write. Put the web process in a `Procfile` (`web: gunicorn myapp.wsgi`) or let Hop3's Python toolchain detect it; either way you stop maintaining a unit file. `hop3 app migrate procfile . --dry-run` will scaffold a starting `hop3.toml` from an existing `Procfile`.
+- **The systemd unit disappears.** Your `ExecStart` gunicorn command becomes the app's process model. Hop3 supervises it (via uWSGI) and restarts it for you. That's the `Restart=always` you used to write. Put the web process in a `Procfile` (`web: gunicorn myapp.wsgi`) or let Hop3's Python toolchain detect it; either way you stop maintaining a unit file. `hop3 app migrate procfile . --dry-run` will scaffold a starting `hop3.toml` from an existing `Procfile`.
 - **`ExecStartPre=… migrate` → `[run] before-run`.** The pre-start step you bolted onto the unit becomes an explicit, ordered command that runs on every deploy.
 - **`EnvironmentFile` → `[env]`.** Your `/etc/myapp/env` moves into `[env]` (values stored encrypted in Hop3's database), or you set them out of band with `hop3 env set` so they never touch the repo. Drop `DATABASE_URL` and `PORT`.
 - **`--bind 127.0.0.1:8000` → bind `$PORT`.** Hop3 assigns a dynamic `$PORT`, sets it in the environment, and routes the proxy to it by hostname. Change `--bind 127.0.0.1:8000` to `--bind 0.0.0.0:$PORT` (or have your framework read `PORT`). This is the one code-shaped change the migration asks of you.
 - **The nginx vhost disappears.** Hop3 generates the `server`/`proxy_pass` config from `[metadata].id` and the domain you bind, and reloads nginx itself. You stop hand-editing `sites-enabled`.
-- **The `[healthcheck]` is new, and it's a quiet upgrade.** systemd only knew whether the process was alive; Hop3 can probe an HTTP path and refuse to flip traffic to a deploy that doesn't answer.
+- **The `[healthcheck]` is new.** systemd only knew whether the process was alive; Hop3 can probe an HTTP path and refuse to flip traffic to a deploy that doesn't answer.
 
 ## Step 4: Migrate Your Database
 
-You installed Postgres on the box yourself (`apt install postgresql`, `createdb`, a `pg_hba.conf` line). You have two clean options.
+You installed Postgres on the box yourself (`apt install postgresql`, `createdb`, a `pg_hba.conf` line). You have two options.
 
-### Option A — Hand it to a Hop3 addon
+### Option A: Hand it to a Hop3 addon
 
 Dump your existing database the ordinary way:
 
@@ -154,7 +154,7 @@ Dump your existing database the ordinary way:
 sudo -u postgres pg_dump -Fc myapp_production > latest.dump
 ```
 
-Create the addon and attach it — this is what replaces your hand-run `createdb` and the `DATABASE_URL` you wrote into `/etc/myapp/env`:
+Create the addon and attach it. This replaces your hand-run `createdb` and the `DATABASE_URL` you wrote into `/etc/myapp/env`:
 
 ```bash
 hop3 addon create postgres myapp-db
@@ -174,9 +174,9 @@ sudo -u postgres pg_restore --verbose --no-owner \
     -d myapp_db latest.dump
 ```
 
-From here Hop3 injects `DATABASE_URL` for you on every deploy — you never write it again.
+From here Hop3 injects `DATABASE_URL` on every deploy, so you never write it again.
 
-### Option B — Keep the Postgres you already run
+### Option B: Keep the Postgres you already run
 
 Maybe your database is finely tuned and you're not ready to move it. You don't have to. Skip the addon and point `[env]` at the local instance exactly as your old `.env` did:
 
@@ -185,21 +185,21 @@ Maybe your database is finely tuned and you're not ready to move it. You don't h
 DATABASE_URL = "postgresql://myapp:pass@127.0.0.1:5432/myapp_production"
 ```
 
-Hop3 won't manage that database — backups, extensions, and upgrades stay your job — but the app talks to it byte-for-byte as before. You can adopt a Hop3 addon later when you're ready to let it take over.
+Hop3 won't manage that database (backups, extensions, and upgrades stay your job), but the app talks to it byte-for-byte as before. You can adopt a Hop3 addon later when you're ready to let it take over.
 
 ### Postgres Extensions
 
-If your hand-built database relied on an extension (`pg_stat_statements`, `pgcrypto`, …) and you move to an addon, enable it through the addon command — no `psql` as `postgres` needed:
+If your hand-built database relied on an extension (`pg_stat_statements`, `pgcrypto`, …) and you move to an addon, enable it through the addon command (no `psql` as `postgres` needed):
 
 ```bash
 hop3 addon postgres extensions myapp-db pg_stat_statements
 ```
 
-Extensions are allow-listed, so only the ones Hop3 ships support for will install.
+Extensions are allow-listed, so only the ones Hop3 supports will install.
 
 ### Redis
 
-If you ran a local Redis, the same fork applies: `hop3 addon create redis myapp-cache` and attach it (Hop3 injects `REDIS_URL`), or point `[env]` at your existing instance. Most Redis is cache and doesn't need migrating — let it warm up fresh.
+If you ran a local Redis, the same fork applies: `hop3 addon create redis myapp-cache` and attach it (Hop3 injects `REDIS_URL`), or point `[env]` at your existing instance. Most Redis is cache and doesn't need migrating, so let it warm up fresh.
 
 ## Step 5: Deploy to Hop3
 
@@ -215,7 +215,7 @@ Deploy by pushing:
 git push hop3 main
 ```
 
-On push, Hop3 does everything your ritual did, in order and on its own: checks out the code, builds it with the Python toolchain (creates the venv, installs `requirements.txt`), runs your `before-run` migration, supervises the process, writes the nginx config, and reloads the proxy. Your next deploy is the same one line — no SSH session, no manual restart.
+On push, Hop3 does everything your ritual did, in order and on its own: checks out the code, builds it with the Python toolchain (creates the venv, installs `requirements.txt`), runs your `before-run` migration, supervises the process, writes the nginx config, and reloads the proxy. Your next deploy is the same one line, with no SSH session or manual restart.
 
 ## Step 6: Point Your Domain (and Retire the Old vhost)
 
@@ -231,13 +231,13 @@ Bind the hostname so Hop3 generates the vhost for it:
 hop3 domain add myapp.example.com --app myapp
 ```
 
-Once Let's Encrypt is configured on the server, Hop3 requests a certificate for the domain at deploy time — that's your certbot cron, gone. Out of the box, a freshly installed server serves a self-signed certificate until you point it at an ACME provider. If you're migrating on the same machine, disable your old hand-written vhost (`rm /etc/nginx/sites-enabled/myapp && nginx -s reload` before Hop3 takes 443) so the two configs don't collide.
+Once Let's Encrypt is configured on the server, Hop3 requests a certificate for the domain at deploy time. The certbot cron goes with it. Out of the box, a freshly installed server serves a self-signed certificate until you point it at an ACME provider. If you're migrating on the same machine, disable your old hand-written vhost (`rm /etc/nginx/sites-enabled/myapp && nginx -s reload` before Hop3 takes 443) so the two configs don't collide.
 
 ## Common Migration Issues
 
 ### "But I liked owning the nginx config"
 
-The most common worry, and a fair one. You wrote that vhost for a reason — a rate-limit rule, a `client_max_body_size`, a `location` block for static files. Hop3 owns the generated config, so a hand-edit to its file is overwritten on the next deploy. Most of what you customized has a first-class home: static files come from your framework or the static-site builder, body size and timeouts are proxy concerns Hop3 sets sanely, and domains are `hop3 domain add`. If you genuinely need nginx behavior Hop3 doesn't expose, that's a gap worth raising — don't paper over it with a hand-edit that the next `git push` will erase.
+The objection is common, and fair. You wrote that vhost for a reason: a rate-limit rule, a `client_max_body_size`, a `location` block for static files. Hop3 owns the generated config, so a hand-edit to its file is overwritten on the next deploy. Most of what you customized has a first-class home: static files come from your framework or the static-site builder, body size and timeouts are proxy concerns Hop3 sets sanely, and domains are `hop3 domain add`. If you need nginx behavior Hop3 doesn't expose, raise it as a gap; don't paper over it with a hand-edit that the next `git push` will erase.
 
 ### Pinned Python (or Node) Version
 
@@ -264,7 +264,7 @@ target = "data/uploads"
 
 ### A Non-HTTP Port the App Binds Directly
 
-If your app also bound a raw, fixed port on the host — not the HTTP one — that's outside the proxied `$PORT` path. Your web traffic uses the dynamic `$PORT` and is proxied by hostname, so it never declares a port. A fixed host port is declared explicitly:
+If your app also bound a raw, fixed host port (something other than the HTTP one), that's outside the proxied `$PORT` path. Your web traffic uses the dynamic `$PORT` and is proxied by hostname, so it never declares a port. A fixed host port is declared explicitly:
 
 ```toml
 [[ports]]
@@ -273,18 +273,18 @@ protocol = "tcp"
 name = "rtmp"
 ```
 
-Hop3 records each fixed port in a host-wide registry and refuses a second app that wants the same one — before it builds — so two apps can't silently collide on it. One caveat: fixed ports are opened for native and Nix builds; a Docker-deployed app claims the port (so the conflict check works) but the firewall isn't opened for it yet. Use a native or Nix build for an app that needs a reachable fixed port.
+Hop3 records each fixed port in a host-wide registry and refuses a second app that wants the same one, before it builds, so two apps cannot collide on it. One caveat: fixed ports are opened for native and Nix builds; a Docker-deployed app claims the port (so the conflict check works) but the firewall isn't opened for it yet. Use a native or Nix build for an app that needs a reachable fixed port.
 
 ### Scheduled Jobs (Your Other Crontab Entries)
 
-Beyond certbot, you probably had app cron jobs — a nightly cleanup, a digest mailer. Two homes for them on Hop3. A long-running scheduler is a worker in `hop3.toml`:
+Beyond certbot, you probably had app cron jobs: a nightly cleanup, a digest mailer. On Hop3 they have two homes. A long-running scheduler is a worker in `hop3.toml`:
 
 ```toml
 [run.workers]
 scheduler = "celery -A myapp beat"
 ```
 
-Or keep using system cron on the one box — it's still your server:
+Or keep using system cron on the one box; it's still your server:
 
 ```bash
 ssh root@your-server.com
@@ -294,7 +294,7 @@ crontab -e
 
 ### Scaling
 
-You scaled by hand: edit `--workers 3` in the unit, `systemctl restart`. Hop3 scales the same idea explicitly, but there's no autoscaling — it stays manual:
+You scaled by hand: edit `--workers 3` in the unit, `systemctl restart`. Hop3 scales the same idea explicitly, but there's no autoscaling; it stays manual:
 
 ```bash
 hop3 ps scale myapp web=3 worker=2
@@ -318,7 +318,7 @@ hop3 ps scale myapp web=3 worker=2
 
 ## Cost and Lock-In
 
-The cost story barely moves, and that's the appeal: you were already paying for a VPS, and you still pay for one VPS. There's no managed-platform premium and no per-feature line items. Hop3 itself is open source. What you're buying isn't compute — you had that — it's your own afternoons back: the ones you spent debugging a failed certbot renewal, a drifted nginx config, or a deploy that broke on the live box.
+The cost story barely moves: you were already paying for a VPS; you still pay for one VPS. There is no managed-platform premium or per-feature line item. Hop3 itself is open source. You are buying your own afternoons back: the ones you spent debugging a failed certbot renewal, a drifted nginx config, or a deploy that broke on the live box.
 
 | | Hand-rolled VPS | Hop3 (self-hosted) |
 |-|-----------------|--------------------|
@@ -328,19 +328,19 @@ The cost story barely moves, and that's the appeal: you were already paying for 
 | **Small app** | ~$10/month (VPS) | ~$10/month (VPS) |
 | **Medium app** | ~$30/month (VPS) | ~$30/month (VPS) |
 
-On lock-in, you're already in the best possible spot — and Hop3 keeps you there. A hand-rolled VPS app has no vendor under it, and after migrating it still doesn't: it's a standard app, a `git push` away from deploying, with a Postgres you can `pg_dump` and a `hop3.toml` in the repo. Nothing here is shaped around a vendor's API. If you ever leave Hop3, you leave the same way you arrived — with an ordinary app and a server you control. The trade-off is the one you already accept: you manage the box. Hop3 just stops you hand-managing the parts of it that aren't your app.
+On lock-in, you are already in the best possible spot. Hop3 keeps you there. A hand-rolled VPS app has no vendor under it. After migrating, it still doesn't: it's a standard app, a `git push` away from deploying, with a Postgres you can `pg_dump` and a `hop3.toml` in the repo. Nothing here is shaped around a vendor's API. If you ever leave Hop3, you leave the same way you arrived, with an ordinary app and a server you control. The trade-off is the one you already accept: you manage the box. Hop3 stops you hand-managing the parts of it that aren't your app.
 
 ## Rollback Plan
 
-Your old setup is still right there on disk, which makes rollback trivial — the safest migration of the lot:
+Your old setup is still right there on disk, which makes rollback the safest migration of the lot:
 
 1. Deploy to Hop3 under a test domain (or a subdomain like `new.myapp.example.com`), with your old vhost still serving the real one
 2. Verify everything works against real data
 3. Disable the old nginx vhost and let Hop3 take the production hostname (Step 6)
-4. Leave the old systemd unit and vhost on disk, just `systemctl disable --now myapp` and move the nginx file aside — don't delete them
+4. Leave the old systemd unit and vhost on disk: run `systemctl disable --now myapp` and move the nginx file aside; don't delete them
 5. Once you're confident (give it a week or two), remove the old unit, vhost, and any unused packages
 
-Because the old process and config are only *disabled*, not deleted, rolling back is one `systemctl enable --now myapp` and restoring the nginx file — no data has to move twice.
+Because the old process and config are only *disabled*, not deleted, rolling back is one `systemctl enable --now myapp` and restoring the nginx file, so no data has to move twice.
 
 ## Getting Help
 

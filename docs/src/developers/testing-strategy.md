@@ -1,17 +1,17 @@
 # Hop3 Testing Strategy
 
-> **Updated by ADR 043.** The pytest pyramid is now **three** layers — `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
+> **Updated by ADR 043.** The pytest pyramid is now **three** layers: `a_unit` (fast, no Docker) · `b_integration` (in-process, real in-memory DB, no Docker) · `c_e2e` (Docker/real-deploy, renamed from `d_e2e`). The old `c_system` layer is **dissolved**. A test's layer is decided by whether it needs Docker/root/host-mutation, not by complexity; coverage is measured on `a_unit` + `b_integration` only (e2e runs out-of-process). Markers (`fast`/`integration`/`e2e`/`needs_docker`) are stamped from the directory layer (root `conftest.py`), so `pytest -m fast` / `-m "not needs_docker"` work everywhere.
 >
 > **Entry points:** `make test-fast` (unit, all packages, < 1 min) · `make test` (check tier: in-process across all 6 packages) · `make test-e2e` (Docker e2e) · `make test-apps` / `test-app APP=…` (deploy real apps via `hop3-test`) · `uv run hop3-test run --docker --mode nightly` (full matrix).
 
 ## Overview
 
-Hop3 uses a comprehensive testing strategy combining two complementary approaches:
+Hop3 testing combines two approaches:
 
 1. **pytest-based Test Layers** - Three layers placed by need: unit, integration, and E2E
 2. **Application Deployment Testing** - Testing real app deployments via `hop3-test`
 
-This document describes both approaches, their purposes, and how to use them effectively.
+This document describes both and how to use them.
 
 ## Testing Architecture
 
@@ -59,7 +59,7 @@ This document describes both approaches, their purposes, and how to use them eff
 /______________________\ - No Docker, counts toward coverage
 ```
 
-A test's layer is decided by **what it needs**: Docker, root, or host-mutation. Anything that needs a real Docker deploy lives in `c_e2e`; everything that can run in-process (even with a real in-memory database) lives in `a_unit` or `b_integration`. Duplication across layers is allowed.
+A test's layer is decided by **what it needs**: Docker, root, or host-mutation. Anything that needs a real Docker deploy lives in `c_e2e`; anything that can run in-process (even with a real in-memory database) lives in `a_unit` or `b_integration`. Duplication across layers is allowed.
 
 ### Test Layer Characteristics
 
@@ -180,7 +180,7 @@ make test-e2e
 
 ## Part 2: Application Deployment Testing (hop3-test)
 
-The `hop3-test` CLI provides a dedicated system for testing application deployments against Hop3. This complements the pytest layers by focusing on real-world deployment scenarios.
+The `hop3-test` CLI provides a dedicated system for testing application deployments against Hop3. It complements the pytest layers by focusing on real-world deployment scenarios.
 
 ### Architecture
 
@@ -218,7 +218,7 @@ The test catalog discovers and manages test applications by scanning for `hop3.t
 
 Two conventions coexist:
 
-**Apps with full `hop3.toml`** (every catalog recipe, plus `apps/test-apps-nix/` and `apps/test-apps-nix-gen/`): test configuration lives in the app's `hop3.toml` under `[test]`. No separate `test.toml` file.
+**Apps with full `hop3.toml`** (every catalog recipe, plus `apps/test-apps-nix/` and `apps/test-apps-nix-gen/`): test configuration lives in the app's `hop3.toml` under `[test]`. There is no separate `test.toml` file.
 
 ```
 ../hop3-catalog/apps/alpha/listmonk-nixgen/
@@ -226,7 +226,7 @@ Two conventions coexist:
 └── (no test.toml)
 ```
 
-**Apps without `hop3.toml`** (procfile-only test apps, negative-test cases, demos, tutorials): use a standalone `test.toml` file. This covers the historical Procfile-based test harness and a few special shapes the main config doesn't model.
+**Apps without `hop3.toml`** (procfile-only test apps, negative-test cases, demos, tutorials) use a standalone `test.toml` file. This covers the historical Procfile-based test harness and a few special shapes the main config does not model.
 
 ```
 apps/test-apps-procfile/010-flask-pip-wsgi/
@@ -270,7 +270,7 @@ Everything else (name, category, services, deployment type) is derived automatic
 
 #### Legacy `test.toml` Configuration
 
-For Procfile-only apps, demos, tutorials, and negative-test cases. Same fields, just wrapped in a top-level `[test]` rather than sitting inside `hop3.toml`:
+This format is for Procfile-only apps, demos, tutorials, and negative-test cases. Same fields, wrapped in a top-level `[test]` rather than sitting inside `hop3.toml`:
 
 ```toml
 [test]
@@ -292,7 +292,7 @@ status = 200
 
 ### Test Modes
 
-The `--mode` profile selects which tests run, filtering by tier and priority (a few profiles instead pin an explicit curated list). The default is `smoke`:
+The `--mode` profile selects which tests run, filtering by tier and priority (a few profiles pin an explicit curated list instead). The default is `smoke`:
 
 | Mode | Tiers | Priorities | Targets | Use Case |
 |------|-------|------------|---------|----------|
@@ -340,7 +340,7 @@ hop3-test run --docker --reuse <app-path>    # Reuse the running container
 5. Collects diagnostics on failure
 6. Cleans up the container (unless `--keep`)
 
-To iterate on a single app against an already-running container, pass `--reuse` together with the app path; this skips redeployment and runs only that app's validations.
+To iterate on a single app against an already-running container, pass `--reuse` together with the app path. This skips redeployment and runs only that app's validations.
 
 ```bash
 # Deploy the whole catalog on Docker (all addons available)
@@ -459,7 +459,7 @@ test-logs/
             └── 010-flask.log     # Per-app logs
 ```
 
-Diagnostic phases:
+The diagnostics cover these phases:
 - `setup` - Target initialization
 - `deploy` - Deployment command
 - `health_check` - Health verification
@@ -525,8 +525,8 @@ hop3-test run --docker -q
 
 ### Writing Tests
 
-1. **Follow the test pyramid**: More unit tests, fewer E2E tests
-2. **Test one thing**: Each test should verify one behavior
+1. **Follow the test pyramid**: more unit tests, fewer E2E tests
+2. **Test one thing**: each test should verify one behavior
 3. **Use descriptive names**: `test_user_cannot_delete_other_users_apps()`
 4. **Arrange-Act-Assert**: Structure tests clearly
 5. **Avoid test interdependence**: Tests should be independent and order-agnostic
@@ -627,7 +627,7 @@ pytest --lf
 uv sync
 ```
 
-pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_DEV_HOST` / `HOP3_TEST_HOST`, so an ambient value can't redirect a run at a real box (ADR 043). Pass `--ssh-host` to target a remote server explicitly.
+pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_DEV_HOST` / `HOP3_TEST_HOST`, so an ambient value cannot redirect a run at a real box (ADR 043). Pass `--ssh-host` to target a remote server explicitly.
 
 ## Part 5: Continuous Integration
 
@@ -711,9 +711,9 @@ For Docker tests, `HOP3_UNSAFE=true` is set in the container. If tests fail with
 
 ### HOP3_UNSAFE Mode
 
-For testing in Docker environments, `HOP3_UNSAFE=true` bypasses authentication.
+When `HOP3_UNSAFE=true` is set, authentication is bypassed.
 
-**Warning**: Never use in production. Only for isolated test environments.
+**Warning**: Never use in production. Use it only in isolated test environments.
 
 ### Testing Authentication
 
@@ -740,7 +740,7 @@ def test_non_admin_cannot_create_users():
 
 ## Part 9: Cloud Testing
 
-For comprehensive E2E testing on real cloud infrastructure, `hop3-test run --provider hetzner` provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image is a full `hop3-test run --provider hetzner`, so a cloud run takes the same deploy lexicon as any other `run` (positional app names, `--from`, `--branch`, `--with`).
+For comprehensive E2E testing on real cloud infrastructure, `hop3-test run --provider hetzner` provisions and tests Hop3 on cloud servers. Hetzner Cloud is the default (and currently only) provider; it covers both single-image and multi-distribution runs. Each image run is a full `hop3-test run --provider hetzner`, so a cloud run takes the same deploy lexicon as any other `run` (positional app names, `--from`, `--branch`, `--with`).
 
 ### Commands
 
@@ -789,7 +789,7 @@ hop3-test run --host server.example.com --reuse
 The Hetzner server (`HETZNER_SERVER_ID`, a dedicated throwaway box) and API token
 (`HETZNER_API_TOKEN`) come from the environment. A rebuild wipes the box, so it
 refuses any server that does not carry the Hetzner label `hop3-throwaway=true`;
-set it once, on that server only (`hcloud server add-label <id>
+set the label once, on that server only (`hcloud server add-label <id>
 hop3-throwaway=true`), and never on a box anyone deploys to. pytest strips both
 variables for the whole session: provisioning is a CLI operation, never a test.
 

@@ -36,9 +36,9 @@ git push hop3 main
 
 ### Addons
 
-Managed backing services with automatic connection configuration:
+Addons manage backing services and configure their connections automatically:
 
-- **PostgreSQL** - Full-featured relational database
+- **PostgreSQL** - Relational database
 - **MySQL/MariaDB** - Popular relational database
 - **Redis** - In-memory data store and cache
 - **S3/MinIO** - Object storage
@@ -59,7 +59,7 @@ Free SSL certificates via Let's Encrypt with automatic renewal:
 
 ### Reverse Proxy
 
-Automatic Nginx configuration for each application:
+Hop3 configures Nginx automatically for each application:
 
 - HTTP/HTTPS routing
 - WebSocket support
@@ -68,7 +68,7 @@ Automatic Nginx configuration for each application:
 
 ### Process Management
 
-Robust process management via uWSGI:
+Process management via uWSGI:
 
 - Declarative worker configuration via `[run.workers]` in hop3.toml
 - Automatic restart on failure
@@ -86,7 +86,7 @@ hop3 env show --app myapp
 
 ### CLI Interface
 
-Full-featured command-line interface:
+Command-line interface:
 
 ```bash
 hop3 app list                      # List applications
@@ -137,9 +137,9 @@ See the [Configuration Reference](reference/config.md) for full documentation.
 - Debian 12 (Bookworm) - Recommended
 - Ubuntu 24.04 LTS, 26.04 LTS
 - Rocky Linux 9
-- NixOS (experimental — via the Nix flake / `services.hop3` module)
+- NixOS (experimental: via the Nix flake / `services.hop3` module)
 
-On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. (Separately, the Nix package manager is also available as an app *builder* on any supported host.)
+On the distros above, hop3-server is installed by the standard installer; on NixOS it is deployed via the Nix flake and the `services.hop3` NixOS module. The Nix package manager is also available as an app *builder* on any supported host.
 
 ### Single-Server Architecture
 
@@ -183,7 +183,7 @@ Extensible via plugins:
 
 ### Web Application Firewall (WAF)
 
-- Per-app Layer-7 WAF (LeWAF, OWASP Core Rule Set) — `nginx → WAF proxy → app`
+- Per-app Layer-7 WAF (LeWAF, OWASP Core Rule Set): `nginx → WAF proxy → app`
 - Blocks SQLi / XSS / RCE / path-traversal before requests reach the app
 - Positive-model access lists and network-gated paths, configured via `[waf]` in `hop3.toml`
 - Auto-bans repeat offenders (reconciled in-process); fails closed if the proxy is down

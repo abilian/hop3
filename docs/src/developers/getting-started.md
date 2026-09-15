@@ -1,6 +1,6 @@
 # Getting Started
 
-Before you start, it's important to familiarize yourself with Hop3's core values and objectives. Please take a moment to read the [core values of Hop3](core-values.md) document. Understanding these principles will help you make meaningful contributions that align with the project's goals.
+Start by reading the [core values of Hop3](core-values.md). They shape what counts as a contribution.
 
 ## Development Environment
 
@@ -38,11 +38,11 @@ nix develop .#fhs
 
 ## Tooling
 
-The project uses several tools to ensure code quality and consistency. These tools are configured in the `pyproject.toml` file and in tool-specific files like `ruff.toml` for Ruff.
+The project lints, formats and type-checks with tools configured in `pyproject.toml` and in tool-specific files like `ruff.toml` for Ruff.
 
 ### Main tools
 
-We use the following tools, most of which are standard in the Python ecosystem:
+Hop3 uses these tools, most of them standard in the Python ecosystem:
 
 - **uv**: Package and virtual environment manager
 - **ruff**: Linter and code formatter
@@ -56,6 +56,6 @@ We use the following tools, most of which are standard in the Python ecosystem:
 
 ### Running Tools
 
-`make` is the primary task runner. Typing `make help` will show you the available commands.
+`make` is the primary task runner; `make help` shows the available commands.
 
-A `tasks.py` file with [Invoke](https://www.pyinvoke.org/) tasks also exists for a few monorepo-wide operations; Invoke is not part of the default dependency set, so install it separately if you want to run `inv -l`.
+A `tasks.py` file with [Invoke](https://www.pyinvoke.org/) tasks covers a few monorepo-wide operations. Invoke is not part of the default dependency set, so install it separately if you want to run `inv -l`.

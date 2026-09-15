@@ -1,6 +1,6 @@
 # Guides
 
-Comprehensive guides for using Hop3 effectively.
+Guides for using Hop3.
 
 ## Quick Reference
 

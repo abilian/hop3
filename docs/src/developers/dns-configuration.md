@@ -11,7 +11,7 @@ Run the provided setup script:
 python scripts/setup-dnsmasq.py <server-ip>
 ```
 
-This configures:
+The script configures two wildcard mappings:
 - `*.hop3.dev` -> `<server-ip>` (for remote SSH testing)
 - `*.hop3-docker.dev` -> `127.0.0.1` (for Docker testing)
 

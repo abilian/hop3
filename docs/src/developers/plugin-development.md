@@ -1,17 +1,17 @@
 # Plugin Development Guide
 
-This guide covers how to create plugins for Hop3 to extend its functionality with new builders, language toolchains, deployers, addons, proxies, and operating system support.
+This guide covers how to create plugins for Hop3: builders, language toolchains, deployers, addons, proxies, and operating system support.
 
 ## Overview
 
 Hop3 uses a plugin-based architecture built on [pluggy](https://pluggy.readthedocs.io/), the same plugin framework used by pytest. Plugins allow you to extend Hop3 with:
 
-- **Builders**: Orchestrate builds (local vs containerized) - e.g., LocalBuilder, DockerBuilder
-- **Language Toolchains**: Language-specific build tooling - e.g., Python, Node, Ruby, Go, Rust
-- **Deployers**: Run build artifacts - e.g., uWSGI, Docker Compose, Static
-- **Addons**: Backing services (databases, caches) - e.g., PostgreSQL, Redis, MySQL
-- **Proxies**: Configure reverse proxies - e.g., Nginx, Caddy, Traefik
-- **OS Implementations**: Support Linux distributions - e.g., Debian family, Red Hat family
+- **Builders**: Orchestrate builds (local vs containerized), e.g., LocalBuilder, DockerBuilder
+- **Language Toolchains**: Language-specific build tooling, e.g., Python, Node, Ruby, Go, Rust
+- **Deployers**: Run build artifacts, e.g., uWSGI, Docker Compose, Static
+- **Addons**: Backing services (databases, caches), e.g., PostgreSQL, Redis, MySQL
+- **Proxies**: Configure reverse proxies, e.g., Nginx, Caddy, Traefik
+- **OS Implementations**: Support Linux distributions, e.g., Debian family, Red Hat family
 
 ## When to Create a Plugin
 
@@ -36,7 +36,7 @@ Modify core code when you need to:
 ### 1. Builders
 
 Builders orchestrate the build process. There are two levels:
-- **Level 1 (Orchestrators)**: Decide HOW to build (local vs containerized)
+- **Level 1 (Orchestrators)**: Decide how to build (local vs containerized)
 - **Level 2 (Language Toolchains)**: Language-specific build logic (used by LocalBuilder)
 
 **Protocol**: `Builder` (from `hop3.core.protocols`)
@@ -301,7 +301,7 @@ Proxies configure reverse proxies for applications.
 - `check_config() -> None`: Validate config
 - `reload_proxy() -> None`: Reload proxy to apply changes
 
-**The `setup()` method is already implemented in BaseProxy** and orchestrates the setup process.
+The `setup()` method is already implemented in `BaseProxy` and orchestrates the setup process.
 
 **Example** (simplified Nginx proxy):
 
@@ -585,7 +585,7 @@ def test_build():
 
 ### Integration Testing
 
-Test plugin registration and discovery:
+These tests cover plugin registration and discovery:
 
 ```python
 # tests/test_plugin_registration.py
@@ -816,7 +816,7 @@ def check_status(self) -> bool:
 - See [Protocol Reference](protocol-reference.md) for detailed protocol specifications
 - See [Hook Specifications](hook-specifications.md) for complete hook documentation
 - See [External Plugin Guide](external-plugins.md) for publishing plugins
-- Check `hop3/plugins/` for real-world examples
+- Check `hop3/plugins/` for working examples
 
 ## Getting Help
 

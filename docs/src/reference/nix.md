@@ -13,7 +13,7 @@ Hop3 supports Nix-based deployments as an alternative to native buildpacks and D
    Used when the templates don't fit, or when extracted via
    `hop3 nix eject`.
 
-**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` rather than silently picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name>`.
+**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` instead of picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name>`.
 
 ## Architecture
 
@@ -24,7 +24,7 @@ The NixBuilder is a Level 1 Builder in Hop3's two-level build architecture:
 - **Level 2 (LanguageToolchains)**: Execute *what* to build (Python,
   Node, Ruby, etc.)
 
-NixBuilder does **not** delegate to LanguageToolchains. All build logic is encapsulated in the `hop3.nix` expression — either hand-crafted or generated.
+NixBuilder does **not** delegate to LanguageToolchains. All build logic is encapsulated in the `hop3.nix` expression (hand-crafted or generated).
 
 ## hop3.toml configuration
 
@@ -108,8 +108,8 @@ If `workers` contains **only** the key `"static"`, Hop3 produces a `BuildArtifac
 
 Worker commands support shell variable expansion at runtime. The following variables are available:
 
-- `$PORT` — Port assigned by Hop3
-- `$BIND_ADDRESS` — Bind address (default `127.0.0.1`)
+- `$PORT`: Port assigned by Hop3
+- `$BIND_ADDRESS`: Bind address (default `127.0.0.1`)
 - All environment variables from `[env]`, addons, and `runtime.json`
 
 Note: Nix `${...}` interpolations in `hop3.nix` are evaluated by Nix at build time and produce store paths. Shell `$VAR` expansions are evaluated at runtime by the wrapper. To produce a literal `${VAR}` in the generated wrapper script, escape it as `''${VAR}` inside Nix `''` strings.
@@ -136,15 +136,15 @@ For the full field reference per template, see the [hop3.toml `[nix]` section](c
 
 ### Reproducibility tiers
 
-Every template builds in the Nix sandbox with no network access, against a hash-pinned dependency set, so all three tiers rebuild bit-for-bit. What the tier tells you is where the running bytes came from:
+Every template builds in the Nix sandbox with no network access, against a hash-pinned dependency set, so all three tiers rebuild bit-for-bit. The tier records where the running bytes came from:
 
 | Tier | Method | Rebuilds identically | Auditable to source | Multi-arch |
 |------|--------|--------------|-----------|------------|
 | 1 | nixpkgs package (`pkgs.foo`) | Yes | Yes | Yes |
 | 2 | Source build against a committed lockfile (pip, composer, pnpm, go, bundler, gradle) | Yes | Yes | One arch per lockfile |
-| 3 | Pre-built upstream artefact (`fetchurl`) | Yes | No — the binary is taken on trust | Usually x86_64-linux only |
+| 3 | Pre-built upstream artefact (`fetchurl`) | Yes | No; the binary is taken on trust | Usually x86_64-linux only |
 
-Tier 1 is the goal: you inherit nixpkgs' build, its architectures and its security updates for free. Tier 2 is where most real apps land, because nixpkgs either doesn't package them or packages a version you can't deploy; you get the same auditability, but the lockfile is yours to refresh. Tier 3 is a floor for apps whose upstream ships no buildable source for the packaged version.
+Tier 1 is the goal: you inherit nixpkgs' build, its architectures and its security updates for free. Tier 2 is where most real apps land, because nixpkgs either doesn't package them or packages a version you can't deploy; you get the same auditability, and the lockfile is yours to refresh. Tier 3 is a floor for apps whose upstream ships no buildable source for the packaged version.
 
 To see the tier of every app in a checkout:
 
@@ -152,7 +152,7 @@ To see the tier of every app in a checkout:
 hop3-tools nix tiers ../hop3-catalog/apps/beta
 ```
 
-A tier describes the *build*, never the running app. A bit-identical rebuild says nothing about whether the app starts — see [reproducibility checks](#checking-reproducibility) below.
+A tier describes the *build*. A bit-identical rebuild says nothing about whether the app starts; see [reproducibility checks](#checking-reproducibility) below.
 
 ### Checking reproducibility
 
@@ -255,13 +255,15 @@ hop3-test run --docker --clean --with nix --covers nix --status alpha
 ## Related
 
 - [ADR 006: Nix Integration](/developers/adrs/006-nix-integration/)
-  — Phase 1 architecture decision
+  (Phase 1 architecture decision)
 - [ADR 008: Template-Based Nix Generation](/developers/adrs/008-nix-builders-2/)
-  — Phase 3 template system
+  (Phase 3 template system)
 - [ADR 058: Build Reproducibility Model](/developers/adrs/058-build-reproducibility-model/)
-  — what the tiers mean, how the claim is checked, and what it is scoped to
-- [Nix Deployment Guide](../guides/nix-deployment.md) — Tutorial-style
+  (what the tiers mean, how the claim is checked, and what it is scoped to)
+- [Nix Deployment Guide](../guides/nix-deployment.md): Tutorial-style
   introduction
 - [hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds)
-  — Field-by-field reference
+  (Field-by-field reference)
 - [`nix eject` command](cli.md#hop3-nix-eject)
+(cli.md#hop3-nix-eject)
+

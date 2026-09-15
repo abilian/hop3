@@ -1,6 +1,6 @@
 # Package Documentation
 
-This section provides access to the technical deep-dive documentation for each Hop3 package. Each package keeps its own deep-dive in `packages/<package-name>/docs/internals.md`; the pages in this directory mirror that content so it is reachable from the main documentation site.
+This section documents each Hop3 package in depth. Each package keeps its deep-dive in `packages/<package-name>/docs/internals.md`; the pages in this directory mirror that content so it is reachable from the main documentation site.
 
 ## Package Overview
 

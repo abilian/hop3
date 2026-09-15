@@ -1,8 +1,8 @@
 # Addons
 
-Addons are backing services — databases, caches, object storage — that your app depends on. Hop3 manages their lifecycle (create, attach, detach, destroy) and injects the connection details into your app as environment variables on deploy.
+Addons are backing services (databases, caches, object storage) that your app depends on. Hop3 manages their lifecycle (create, attach, detach, destroy) and injects the connection details into your app as environment variables on deploy.
 
-This guide covers the four addons shipped in Hop3 0.5 — `postgres`, `mysql`, `redis`, and `s3` — plus the experimental `email` (SMTP relay) addon added in 0.6.1.
+This guide covers the four addons shipped in Hop3 0.5 (`postgres`, `mysql`, `redis`, and `s3`) plus the experimental `email` (SMTP relay) addon added in 0.6.1.
 
 ## Quick Start
 
@@ -22,7 +22,7 @@ type = "postgres"
 type = "redis"
 ```
 
-After `hop3 deploy`, your app has `DATABASE_URL` and `REDIS_URL` in its environment — no further wiring needed.
+After `hop3 deploy`, your app has `DATABASE_URL` and `REDIS_URL` in its environment: no further wiring needed.
 
 ## CLI Workflow
 
@@ -37,7 +37,7 @@ hop3 addon create mysql legacy-db
 hop3 addon create s3 uploads
 ```
 
-The addon name is free-form; pick one that describes the data, not the app. This keeps the name stable across apps that share the addon.
+The addon name is free-form; pick a name that describes the data it holds, and the name stays stable across the apps that share it.
 
 ### Attach to an app
 
@@ -121,7 +121,7 @@ type = "postgres"
 extensions = ["postgis", "pgvector"]
 ```
 
-Hop3 enforces an allow-list. The default set covers the PG13+ trusted extensions (`pg_trgm`, `hstore`, `citext`, `pgcrypto`, `uuid-ossp`, …) plus widely-used non-trusted ones audited to carry no privilege-escalation surface (`postgis`, `pgvector`, `bloom`, `cube`, `earthdistance`, `ip4r`, `pg_stat_statements`). To enable an additional extension on a specific Hop3 install — e.g. `pg_partman` or a vendor extension — set the operator-side env var `HOP3_EXTRA_PG_EXTENSIONS` (comma-separated). A small hard-deny set (`postgres_fdw`, `dblink`, `file_fdw`, `adminpack`, untrusted PL languages) cannot be enabled even via the override; those grant filesystem / network / arbitrary-code-execution capability and would defeat the separation between "deploy an app" and "execute as the postgres superuser".
+Hop3 enforces an allow-list. The default set covers the PG13+ trusted extensions (`pg_trgm`, `hstore`, `citext`, `pgcrypto`, `uuid-ossp`, …) plus widely-used non-trusted ones audited to carry no privilege-escalation surface (`postgis`, `pgvector`, `bloom`, `cube`, `earthdistance`, `ip4r`, `pg_stat_statements`). To enable an additional extension on a specific Hop3 install (e.g. `pg_partman` or a vendor extension), set the operator-side env var `HOP3_EXTRA_PG_EXTENSIONS` (comma-separated). A small hard-deny set (`postgres_fdw`, `dblink`, `file_fdw`, `adminpack`, untrusted PL languages) cannot be enabled even via the override; those grant filesystem / network / arbitrary-code-execution capability and would defeat the separation between "deploy an app" and "execute as the postgres superuser".
 
 > Some extensions (`pg_cron`, `timescaledb`) require `shared_preload_libraries` and a Postgres restart on top of `CREATE EXTENSION`. Hop3's default installer does not yet pre-load arbitrary extensions; treat those as a separate setup step.
 
@@ -138,7 +138,7 @@ Hop3 enforces an allow-list. The default set covers the PG13+ trusted extensions
 | `MYSQL_HOST` | `localhost` |
 | `MYSQL_PORT` | `3306` |
 
-**Docker apps:** Hop3 grants MySQL access on multiple host patterns (`@'localhost'`, `@'127.0.0.1'`, `@'10.%'`, `@'172.%'`, `@'192.168.%'`) so apps reaching the host MySQL from any of the private ranges a Docker network might use authenticate correctly. This is automatic, but it's worth knowing if you inspect the `mysql.user` table.
+**Docker apps:** Hop3 grants MySQL access on multiple host patterns (`@'localhost'`, `@'127.0.0.1'`, `@'10.%'`, `@'172.%'`, `@'192.168.%'`) so apps reaching the host MySQL from any of the private ranges a Docker network might use authenticate correctly. This is automatic; you'll see one user row per pattern if you inspect the `mysql.user` table.
 
 ### redis
 
@@ -176,7 +176,7 @@ Path-style URLs are required for MinIO; virtual-host style will arrive with the 
 
 > **Experimental (added 0.6.1; backend model reworked in 0.7).** The command surface is subject to change. Every `addon email` / `server email` command prints a one-line experimental banner.
 
-Email is a **backing service with a swappable backend**, like the database addons. You pick a backend once at the server level; an app opts in by attaching an email addon and sends over a platform-owned **loopback SMTP endpoint** (`127.0.0.1:25`) — a queuing Postfix relay that forwards to whatever the backend is. Apps never shell `sendmail` (a local-binary side-channel isn't config-driven), and the provider credential never enters an app's environment. It is **outbound transactional email only**: no inbound, IMAP, or MX.
+Email is a backing service with a swappable backend, like the database addons. You pick a backend once at the server level; an app opts in by attaching an email addon and sends over a platform-owned **loopback SMTP endpoint** (`127.0.0.1:25`): a queuing Postfix relay that forwards to whatever the backend is. Apps never shell `sendmail` (a local-binary side-channel isn't config-driven), and the provider credential never enters an app's environment. It is **outbound transactional email only**: no inbound, IMAP, or MX.
 
 Install the local relay with the email feature (it's in `--with all`):
 
@@ -186,9 +186,9 @@ hop3-install server --with email
 
 **Pick a backend** (admin-only):
 
-- **`relay`** — submit to a provider or corporate smarthost (Scaleway TEM, SES, SendGrid, Mailgun, Brevo, …); the provider owns deliverability. The recommended production backend — also spelled `server email set`.
-- **`catch`** — a local dev sink: mail is captured, never sent. The safe non-production default.
-- **`direct`** *(preview)* — a Hop3-run MTA that delivers to recipients itself and signs with DKIM, no third party (the sovereign path). Hop3 generates the DKIM keypair and prints the SPF/DKIM/DMARC records to publish. Preview in 0.7: it needs a systemd host with outbound port 25 unblocked (it fails loud otherwise), and fresh-IP reputation is your responsibility — full support lands in 0.8.
+- **`relay`**: submit to a provider or corporate smarthost (Scaleway TEM, SES, SendGrid, Mailgun, Brevo, …); the provider owns deliverability. The recommended production backend, also spelled `server email set`.
+- **`catch`**: a local dev sink; mail is captured, never sent. The safe non-production default.
+- **`direct`** *(preview)*: a Hop3-run MTA that delivers to recipients itself and signs with DKIM, no third party (the sovereign path). Hop3 generates the DKIM keypair and prints the SPF/DKIM/DMARC records to publish. Preview in 0.7: it needs a systemd host with outbound port 25 unblocked (it fails loud otherwise), and fresh-IP reputation is your responsibility; full support lands in 0.8.
 
 Name a known provider with `--provider` and Hop3 fills the SMTP host/port (`--list-providers`: Resend, Postmark, Brevo, Mailgun / Mailgun-EU, Scaleway TEM; EU-hosted ones flagged):
 
@@ -207,7 +207,7 @@ hop3 server email backend direct --from-domain example.com
 hop3 server email status        # active backend + a live SPF/DKIM/DMARC pre-flight
 ```
 
-Keep the password out of your shell history (ADR 036): `--smtp-password @<path>` reads it from a file, `--smtp-password -` reads it from stdin. Selecting a backend is idempotent and re-pointable — swapping it never re-touches an app.
+Keep the password out of your shell history (ADR 036): `--smtp-password @<path>` reads it from a file, `--smtp-password -` reads it from stdin. Selecting a backend is idempotent and re-pointable; swapping it never re-touches an app.
 
 **Attach it to an app.** An app declares it needs email by creating an addon **without** `--smtp-*` (so it inherits the backend) and attaching it (the type isn't inferred from the name, so pass `--type email`):
 
@@ -217,9 +217,9 @@ hop3 addon attach mail --app my-app --type email          # injects SMTP_HOST=12
 hop3 addon email status mail                              # never the password
 ```
 
-The app is injected `SMTP_HOST=127.0.0.1` / `SMTP_PORT=25` (no auth) and relays through the loopback Postfix; the provider credential stays in Postfix. Inheriting is refused if `--from` is not on the backend's verified sending domain. An app can bring its own provider by passing `--smtp-*` (all three creds or none), which sends to that provider directly instead of the shared relay.
+The app is injected `SMTP_HOST=127.0.0.1` / `SMTP_PORT=25` (no auth) and relays through the loopback Postfix; the provider credential stays in Postfix. Inheriting is refused if `--from` is not on the backend's verified sending domain. An app can bring its own provider by passing `--smtp-*` (all three creds or none), which sends to that provider directly.
 
-**Get alerted when things break.** Reuse the backend to email yourself on server events (cert-renewal failures and failed deploys today; more with the monitoring roadmap) — opt-in, admin-only. The recipient defaults to your ACME email:
+**Get alerted when things break.** Reuse the backend to email yourself on server events (cert-renewal failures and failed deploys today; more with the monitoring roadmap). Opt-in, admin-only. The recipient defaults to your ACME email:
 
 ```bash
 hop3 server email notifications on --to ops@example.com
@@ -227,9 +227,9 @@ hop3 server email notifications test        # send a test message now
 hop3 server email notifications status      # enabled? and actually deliverable?
 ```
 
-`status` tells you loudly if notifications are on but can't send (no backend / no recipient), so a misconfigured alert channel never stays silently broken.
+`status` tells you immediately if notifications are on but can't send (no backend / no recipient), so a misconfigured alert channel never stays silently broken.
 
-**Injected env vars** — one endpoint, every common spelling. An inheriting app points at the loopback (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=25`, no auth); an own-provider app points at its provider directly:
+**Injected env vars**: one endpoint, every common spelling. An inheriting app uses the loopback (`SMTP_HOST=127.0.0.1`, `SMTP_PORT=25`, no auth); an own-provider app points at its provider directly:
 
 | Variables | Consumer |
 |-----------|----------|
@@ -238,17 +238,17 @@ hop3 server email notifications status      # enabled? and actually deliverable?
 | `EMAIL_HOST`, `EMAIL_PORT`, `EMAIL_HOST_USER`, `EMAIL_HOST_PASSWORD`, `EMAIL_USE_TLS`, `EMAIL_USE_SSL`, `DEFAULT_FROM_EMAIL` | Django (`django.core.mail`) |
 | `MAIL_SERVER`, `MAIL_PORT`, `MAIL_USERNAME`, `MAIL_PASSWORD`, `MAIL_USE_TLS`, `MAIL_USE_SSL`, `MAIL_DEFAULT_SENDER` | Flask-Mail |
 
-So **Django**, **Flask-Mail**, and **Node/nodemailer** read their native names directly — no remapping.
+So **Django**, **Flask-Mail**, and **Node/nodemailer** read their native names directly, with no remapping.
 
-**Frameworks that read no SMTP env** are pointed at the same `127.0.0.1:25` endpoint through their own config — never `sendmail`:
+**Frameworks that read no SMTP env** are pointed at the same `127.0.0.1:25` endpoint through their own config, never `sendmail`:
 
-- **Rails (ActionMailer)** — in `config/environments/production.rb`, read the injected vars:
+- **Rails (ActionMailer)**: in `config/environments/production.rb`, read the injected vars:
   ```ruby
   config.action_mailer.smtp_settings = {
     address: ENV["SMTP_HOST"], port: ENV["SMTP_PORT"].to_i,
   }
   ```
-- **WordPress** — stock `wp_mail()` uses PHP `mail()`. Hop3's WordPress packaging drops a must-use plugin (a `phpmailer_init` hook) that routes `wp_mail()` through the attached email addon's `SMTP_HOST`/`SMTP_PORT` automatically, and self-disables when no email addon is attached. For a custom app, write the equivalent from `before-run` — never `sendmail`.
+- **WordPress**: stock `wp_mail()` uses PHP `mail()`. Hop3's WordPress packaging drops a must-use plugin (a `phpmailer_init` hook) that routes `wp_mail()` through the attached email addon's `SMTP_HOST`/`SMTP_PORT` automatically, and self-disables when no email addon is attached. For a custom app, write the equivalent from `before-run`; never `sendmail`.
 
 > Email is configured imperatively, so don't declare it in `[[addons]]`: a declarative block has no credentials to provision, and the deploy fails loud telling you to run `addon email create`.
 
@@ -257,17 +257,17 @@ So **Django**, **Flask-Mail**, and **Node/nodemailer** read their native names d
 For a **relay** backend Hop3 hands the message to your provider; for **direct** it delivers itself. Either way, whether it reaches the inbox is gated by DNS **on your sending domain**, not by Hop3:
 
 - Publish **SPF**, **DKIM**, and **DMARC** for the From-domain (for a relay, your provider's dashboard generates the exact records; for **direct**, Hop3 generates the DKIM keypair and prints the records to publish). Since 2024, Gmail/Yahoo/Microsoft reject or spam-folder unauthenticated mail.
-- The unit you authenticate is the **domain**, not the address. Once `example.com` is verified, any From on it — `noreply@`, `support@`, `billing@` — sends for free.
+- The unit you authenticate is the **domain**, not the address. Once `example.com` is verified, any From on it (`noreply@`, `support@`, `billing@`) sends for free.
 - Sending **as** `support@example.com` does not mean Hop3 hosts that mailbox; replies follow your domain's existing MX (Google Workspace, etc.).
 
-`server email status` checks **SPF and DMARC** for the domain via DNS and reports what's missing — never claiming "ready" over unpublished records. **DKIM is auto-verified too once its selector is known**: pass `--dkim-selector <sel>` (copy it from your provider's dashboard), or use `--provider resend` (Resend's selector is fixed, so it's supplied automatically). Without a selector the DKIM row stays guidance — Hop3 never guesses a selector and reports a fake "missing".
+`server email status` checks **SPF and DMARC** for the domain via DNS and reports what's missing, and never claims "ready" over unpublished records. **DKIM is auto-verified too once its selector is known**: pass `--dkim-selector <sel>` (copy it from your provider's dashboard), or use `--provider resend` (Resend's selector is fixed, so it's supplied automatically). Without a selector the DKIM row stays guidance; Hop3 never guesses a selector and reports a fake "missing".
 
 #### Wiring it into apps (recipes)
 
-Attaching the addon injects the superset above. A few apps read those names directly; most read their own names and need a short `[env]` remap (Hop3's `${VAR}` interpolation, resolved *after* addon injection). The injected values follow the backend the app inherits — for the shared backends that's the **loopback** (`127.0.0.1:25`, no auth, no TLS; the local relay does auth/TLS upstream); for an own-`--smtp-*` app it's your provider (587/STARTTLS + creds). Two recurring gotchas:
+Attaching the addon injects the superset above. A few apps read those names directly; most read their own names and need a short `[env]` remap (Hop3's `${VAR}` interpolation, resolved *after* addon injection). The injected values follow the backend the app inherits. For the shared backends that's the **loopback** (`127.0.0.1:25`, no auth or TLS; the local relay does auth/TLS upstream), and for an own-`--smtp-*` app it's your provider (587/STARTTLS + creds). Two recurring gotchas:
 
-- **TLS / auth flags:** toward the loopback, keep encryption and auth **off** (`SMTP_TLS` is injected `false`, `SMTP_USER`/`SMTP_PASSWORD` empty) — an app that hardcodes STARTTLS/465 or requires a username toward `127.0.0.1` will fail. For an own-provider app, `SMTP_TLS` means STARTTLS on 587; an implicit-TLS/465 or enum flag (`SMTP_SECURITY`, …) must be set literally, not piped from `SMTP_TLS`.
-- **Combined host:port:** Grafana and Gitea want one `host:port` string — splice it with `[env.computed]` (e.g. `GF_SMTP_HOST = "${SMTP_HOST}:${SMTP_PORT}"`).
+- **TLS / auth flags:** toward the loopback, keep encryption and auth **off** (`SMTP_TLS` is injected `false`, `SMTP_USER`/`SMTP_PASSWORD` empty): an app that hardcodes STARTTLS/465 or requires a username toward `127.0.0.1` will fail. For an own-provider app, `SMTP_TLS` means STARTTLS on 587; an implicit-TLS/465 or enum flag (`SMTP_SECURITY`, …) must be set literally, not piped from `SMTP_TLS`.
+- **Combined host:port:** Grafana and Gitea want one `host:port` string; splice it with `[env.computed]` (e.g. `GF_SMTP_HOST = "${SMTP_HOST}:${SMTP_PORT}"`).
 
 **Works on attach (no remap):** BookWyrm, Bugsink (Django `EMAIL_*`).
 
@@ -284,7 +284,7 @@ MAIL_ENCRYPTION = ""                 # empty for the loopback; "tls" for an own-
 MAIL_FROM_ADDRESS = "${SMTP_FROM}"   # BookStack uses MAIL_FROM instead
 ```
 
-**Bespoke-prefix apps** — the `[env]` lines beyond a bare attach:
+**Bespoke-prefix apps**: the `[env]` lines beyond a bare attach:
 
 | App | `[env]` remap (values are `${SMTP_*}` unless quoted literal) |
 |-----|-------------------------------------------------------------|
@@ -302,13 +302,13 @@ MAIL_FROM_ADDRESS = "${SMTP_FROM}"   # BookStack uses MAIL_FROM instead
 
 > A few apps ship with their mailer toggled **off** in Hop3's generated config (Forgejo/Gitea `[mailer] ENABLED=false`, Vikunja `VIKUNJA_MAILER_ENABLED=false`); the remap above only takes effect once that default is cleared.
 
-**Not yet reachable by env:** apps that read SMTP from a config file or DB — Nextcloud, Matrix-Synapse, MediaWiki, Keycloak, Wiki.js, Redmine, Dolibarr, Kanboard, LimeSurvey, Ghost — can't be wired by `[env]` today. They need a per-app config-file/post-deploy step; see the internal catalog-fit note.
+**Not yet reachable by env:** apps that read SMTP from a config file or DB (Nextcloud, Matrix-Synapse, MediaWiki, Keycloak, Wiki.js, Redmine, Dolibarr, Kanboard, LimeSurvey, Ghost) can't be wired by `[env]` today. They need a per-app config-file/post-deploy step; see the internal catalog-fit note.
 
 ## Common Patterns
 
 ### Mapping to app-specific variable names
 
-If your app expects variables like `DB_HOST` or `CACHE_URL` rather than the canonical Hop3 names, remap in `[env]`:
+If your app expects variables with other names (`DB_HOST`, `CACHE_URL`), remap in `[env]`:
 
 ```toml
 [env]
@@ -320,7 +320,7 @@ DB_PASS = "${PGPASSWORD}"
 CACHE_URL = "${REDIS_URL}"
 ```
 
-Or — for apps that translate only at runtime (e.g. Django reading `POSTGRES_USER`) — wrap the start command:
+Or, for apps that translate only at runtime (e.g. Django reading `POSTGRES_USER`), wrap the start command:
 
 ```toml
 [run]
@@ -367,6 +367,7 @@ For a single addon, `hop3 addon <type> dump <name>` writes a standalone dump to 
 
 ## See Also
 
-- [hop3.toml reference: `[[addons]]`](../reference/config.md) — full schema
+- [hop3.toml reference: `[[addons]]`](../reference/config.md): full schema
 - [Backup & Restore](backup-restore.md)
 - [Troubleshooting](troubleshooting.md)
+d)
