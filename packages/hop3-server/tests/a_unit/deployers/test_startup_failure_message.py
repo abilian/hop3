@@ -37,7 +37,7 @@ def _app(
 
 def _abort_message(outcome: StartOutcome, timeout: float = 180.0) -> str:
     with pytest.raises(Abort) as exc:
-        _handle_startup_failure(_app(), outcome, timeout)
+        _handle_startup_failure(_app(), outcome, timeout, "", "")
     return str(exc.value)
 
 
@@ -77,7 +77,11 @@ def test_the_recorded_error_matches_the_verdict():
     app = _app()
     with pytest.raises(Abort):
         _handle_startup_failure(
-            app, StartOutcome(started=False, crash_looped=True, elapsed=11), 180.0
+            app,
+            StartOutcome(started=False, crash_looped=True, elapsed=11),
+            180.0,
+            "",
+            "",
         )
     assert "crashed repeatedly" in app.error_message
     assert "180" not in app.error_message
@@ -92,7 +96,11 @@ def test_the_named_cause_reaches_the_abort_not_only_the_log():
     """
     with pytest.raises(Abort) as exc:
         _handle_startup_failure(
-            _bound_but_not_serving(), StartOutcome(started=False, elapsed=180.0), 180.0
+            _bound_but_not_serving(),
+            StartOutcome(started=False, elapsed=180.0),
+            180.0,
+            "",
+            "",
         )
 
     message = str(exc.value)
@@ -105,7 +113,9 @@ def test_the_named_cause_is_recorded_where_the_dashboard_looks():
     app = _bound_but_not_serving()
 
     with pytest.raises(Abort):
-        _handle_startup_failure(app, StartOutcome(started=False, elapsed=180.0), 180.0)
+        _handle_startup_failure(
+            app, StartOutcome(started=False, elapsed=180.0), 180.0, "", ""
+        )
 
     assert "no worker is serving" in app.error_message
     assert len(app.error_message) <= 1024  # the column's width
@@ -116,7 +126,9 @@ def test_a_failure_we_cannot_name_stays_generic():
     app = _app()
 
     with pytest.raises(Abort):
-        _handle_startup_failure(app, StartOutcome(started=False, elapsed=180.0), 180.0)
+        _handle_startup_failure(
+            app, StartOutcome(started=False, elapsed=180.0), 180.0, "", ""
+        )
 
     assert app.error_message == "App failed to start within 180.0s timeout"
 
@@ -143,7 +155,7 @@ class TestTheAppBoundItsOwnPort:
         app = _app(port=TestTheAppBoundItsOwnPort.ASSIGNED, state=AppStateEnum.STOPPED)
         with pytest.raises(Abort) as exc:
             _handle_startup_failure(
-                app, StartOutcome(started=False, elapsed=60.0), 60.0
+                app, StartOutcome(started=False, elapsed=60.0), 60.0, "", ""
             )
         return app, str(exc.value)
 
