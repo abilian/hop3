@@ -103,7 +103,7 @@ builder = get_builder(context)
 
 ### get_language_toolchains
 
-**Purpose**: Register language-specific toolchains (Python, Node, Ruby, Go, Rust, Java, PHP, etc.) used by the local builder.
+**Purpose**: Register language-specific toolchains (Python, Node, Ruby, Go, Rust, Java, PHP and others) used by the local builder.
 
 **Location**: `hop3.core.hookspecs.get_language_toolchains`
 
@@ -568,7 +568,7 @@ This means external plugins can override internal behavior if needed.
 
 ### Controlling Hook Order
 
-To ensure a hook runs first or last, use `hookimpl` options:
+Two `hookimpl` options control whether a hook runs first or last:
 
 ```python
 @hookimpl(tryfirst=True)

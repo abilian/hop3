@@ -129,7 +129,7 @@ def render(
     return fill(ui, table(ui, COLUMNS, rows, ...), size)
 ```
 
-Modal dialogs are awaited rather than mounted, so there is no pending-action state to
+Modal dialogs are awaited, so there is no pending-action state to
 carry between a dialog and its response handler:
 
 ```python
@@ -142,9 +142,9 @@ ui.spawn(ask())
 
 ## API Client
 
-Async HTTP client using httpx. The TUI talks to the same JSON-RPC endpoint
+The API client is async, built on httpx. The TUI talks to the same JSON-RPC endpoint
 as `hop3-cli`: a single `cli` method that forwards the CLI argv (`cli_args`)
-to the server. The TUI therefore shares the server's command surface, and
+to the server. The TUI therefore shares the server's command surface. 
 each typed client method is a thin wrapper that builds the matching argv.
 
 ```python
@@ -198,7 +198,7 @@ parses the rich-text payload the server returns (`{"t": "table", ...}` or
 
 ## Data Models
 
-Pydantic models for type safety (`api/models.py`):
+Pydantic models carry the types (`api/models.py`):
 
 ```python
 class App(BaseModel):
@@ -264,7 +264,7 @@ server. Streaming/follow mode is not implemented; refresh re-fetches.
 
 ### Chat Interface
 
-REPL-style command interface over turbodesk's `textbox`. The transcript is a tuple in
+The command bar is a REPL-style interface over turbodesk's `textbox`. The transcript is a tuple in
 `ui.state`; submitting a line appends to it and dispatches:
 
 ```python
@@ -307,10 +307,10 @@ def rows(size: Size, *fractions: float) -> list[int]:
 
 The dashboard's `layout: grid; grid-size: 2` becomes
 `vcat([hcat([a, b]), hcat([c, d])])` over a computed cell size. Colours come from the
-theme's role names (`ui.theme.green`, `ui.theme.role("subtext1")`) instead of CSS
-variables, and the status-badge rules become a `match` returning a `Style`.
+theme's role names (`ui.theme.green`, `ui.theme.role("subtext1")`) where CSS
+variables used to be. The status-badge rules become a `match` returning a `Style`.
 
-The one cost: a hand-computed panel crops when the terminal is too short, where CSS
+It costs one thing: a hand-computed panel crops when the terminal is too short, where CSS
 would have scrolled. Panels mark the corner with `…` when they crop, so a vanished row
 does not read as a data bug.
 
@@ -383,7 +383,7 @@ confirm_destructive = true
 
 Updates are poll-based. Timers are `ui.every(seconds, callback)` hooks, cancelled
 automatically when the screen that registered them stops being rendered; a one-off call
-is `ui.spawn(coro())`. The app health-checks every 30s, and each screen re-fetches on
+is `ui.spawn(coro())`. The app health-checks every 30s. Each screen re-fetches on
 its own interval (the dashboard on the configured `refresh_interval`).
 
 ```python
@@ -413,21 +413,21 @@ plausible-looking constant.
 
 This is not hypothetical tidiness. Before it was fixed, the log pane served eight
 hardcoded lines and appended an invented one roughly every three seconds, so it
-showed `[ERROR] Failed to connect to redis` for an app that was fine, and the log
+showed `[ERROR] Failed to connect to redis` for an app that was fine. The log
 download wrote those invented lines to a file an operator could attach to a bug
 report. The system screen reported CPU/memory/disk as the constants 42/63/81 on a
 timer, four services as `RUNNING` whatever the server said, and a host called
 `hop3.dev` running `v0.5.0` with 14 days of uptime.
 
-The rules the code now follows:
+The code now follows these rules:
 
 - A missing measurement renders as `not reported by the server` (`widgets.util.UNAVAILABLE`).
   `None` means no measurement; `0%` is a measurement and renders as one.
 - A services dict of `None` means nothing was reported; `{}` means reported, and empty.
   They read differently on screen.
 - The log pane's heading drops from `LIVE` to `UNREACHABLE`, showing the error, when a
-  poll fails. It keeps the lines it already had (a blink of RPC failure should not
-  blank a pane someone is reading), but it stops claiming to be live.
+  poll fails. It keeps the lines it already had, because a blink of RPC failure should not
+  blank a pane someone is reading, and it stops claiming to be live.
 - Pressing `r` on the system screen says "System metrics are not reported by the server
   yet." rather than "refreshed". Claiming a refresh that fetched nothing is the same
   defect one layer up.
@@ -439,8 +439,7 @@ why it lasted.
 ## Testing
 
 Rendering has no side effect on the screen, so a test calls the app function at any
-size and asserts on what came out. There is no pilot, no event loop and no async
-harness.
+size and asserts on what came out. There is no pilot, event loop or async harness.
 
 ### Rendering a screen
 
@@ -465,7 +464,7 @@ grid's characters. Geometry is assertable too (`view.width`, `view.height`).
 
 ### Testing the pure parts directly
 
-Anything that is a decision rather than a drawing is a plain function, tested as one.
+Anything that is a decision, not a drawing, is a plain function, tested as one.
 Most of what used to be spread across `reactive` attributes and `watch_*` methods was
 just that:
 

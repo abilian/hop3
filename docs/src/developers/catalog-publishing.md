@@ -38,7 +38,7 @@ Then bake the **public** key into the build that your nodes run:
 
 ## 2. Build and sign (each release): `make build`
 
-Content is one directory per app under `apps/<status>/<app-id>/`, and the directory naming the status is what records it ([ADR 059](adrs/059-catalog-maturity-status.md)); each app directory holds at least a `hop3.toml` (plus an optional `readme.md` and a raster `icon.png`/`icon.webp`). Publish walks the hierarchy and emits a **flat** `<app-id>/…` tree, so the signed artifact's shape is unchanged, and it refuses a recipe whose status is not publishable rather than dropping it silently. `make build` validates then signs:
+Content is one directory per app under `apps/<status>/<app-id>/`. The directory naming the status records it ([ADR 059](adrs/059-catalog-maturity-status.md)). Each app directory holds at least a `hop3.toml`, plus an optional `readme.md` and a raster `icon.png`/`icon.webp`. Publish walks the hierarchy and emits a **flat** `<app-id>/…` tree, so the signed artifact's shape is unchanged. A recipe whose status is not publishable is refused with a message, never dropped in passing. `make build` validates then signs:
 
 ```bash
 make build                       # = validate, then:
@@ -48,7 +48,7 @@ hop3-catalog publish apps/ --key keys/catalog.key --out-dir dist/ --serial $(dat
 
 `publish` validates every spec through the coexistence gate **before signing**. A spec that pins the nginx catch-all host `"_"` or a wildcard host is rejected here, because it would hijack the reverse-proxy default server and shadow every other app on a node. The tarball is built from the generated `index.json`, so the published tree is exactly the signed file set.
 
-`--serial` must **strictly increase** on every republish a node will fetch: a node records the highest serial it has installed (`CATALOG_STATE_ROOT/serial`) and refuses anything less than or equal to it as a rollback. The `$(date +%s)` default is naturally monotonic, but two `make build` runs in the same second, or a machine whose clock has moved backward, collide. The node then silently rejects the newer tarball as a rollback. Pass `--serial` explicitly when you need to guarantee the increment.
+`--serial` must **strictly increase** on every republish a node will fetch: a node records the highest serial it has installed (`CATALOG_STATE_ROOT/serial`) and refuses anything less than or equal to it as a rollback. The `$(date +%s)` default is naturally monotonic, but two `make build` runs in the same second, or a machine whose clock has moved backward, collide. The node then silently rejects the newer tarball as a rollback. Passing `--serial` explicitly guarantees the increment.
 
 ## 3. Verify before deploying: `make verify`
 
@@ -69,7 +69,7 @@ make deploy CONTEXT=<ctx>      # hop3 --context <ctx> deploy --app apps-hop3-clo
 
 so nodes fetch them at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (+ `.minisig`).
 
-**The signing key never ships.** `hop3 deploy` uploads a tar of the working directory, and this repo also holds `keys/catalog.key`. The site's `hop3.toml` guards against that with an allowlist `[build].ignore`:
+**The signing key never ships.** `hop3 deploy` uploads a tar of the working directory, and this repo also holds `keys/catalog.key`. An allowlist guards against that, declared as `[build].ignore` in the site's own `hop3.toml`:
 
 ```toml
 ignore = ["**", "!/public/", "!/public/**", "!/hop3.toml"]

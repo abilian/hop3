@@ -81,7 +81,7 @@ State the local-only threat model explicitly, because it is the most common sour
 
 ### Scope whole-repo
 
-Package-scoped reviews are blind to the findings that matter most. In one round, four package-scoped audits each returned clean while a systemic authorization gap sat between the RPC dispatcher and the command classes, visible only to a review that could see across both. Scope whole-repo; boundary bugs live *between* components.
+Package-scoped reviews are blind to the findings that matter most. In one round, four package-scoped audits each returned clean while a systemic authorization gap sat between the RPC dispatcher and the command classes, visible only to a review that could see across both. Scoping is whole-repo: boundary bugs live *between* components.
 
 ### Demand evidence proportional to the claim
 

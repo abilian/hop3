@@ -68,7 +68,7 @@ Below are the key principles guiding Hop3's approach to security:
 
 1. **Open Source Transparency**:
 
-   - **Principle**: Leverage the transparency of open source to enhance security.
+   - **Principle**: Use the transparency of open source to strengthen security.
    - **Implementation**: Use open-source software where possible to allow for community scrutiny and auditing. Encourage contributions from the community to identify and fix security issues. Regularly run and participate in security audits and code reviews to ensure the integrity of the codebase.
 
 1. **Isolation and Containment**:

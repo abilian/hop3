@@ -6,7 +6,7 @@ This guide covers best practices for testing Hop3 code that uses Dishka dependen
 
 ## Core Principles
 
-### 1. Use Real Services, Not Mocks
+### 1. Use Real Services
 
 **Bad**:
 ```python
@@ -392,7 +392,7 @@ def test_service_from_plugin(container_with_plugins):
 
 ### Testing Resource Cleanup
 
-For services that manage resources (files, connections, etc.), test that REQUEST scope properly cleans up:
+For services that manage resources such as files and connections, test that REQUEST scope cleans up properly:
 
 ```python
 def test_session_cleanup(di_container):

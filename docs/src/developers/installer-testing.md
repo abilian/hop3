@@ -122,7 +122,7 @@ The bundled installers (`install-cli.py`, `install-server.py`) accept a few sour
 | `--git --branch BRANCH` | Install from the git repository (default branch: `devel`) |
 | `--local-path PATH` | Install from a local package directory uploaded to the target (used during development) |
 
-Other installer flags used by the suite to keep runs fast and offline:
+The suite passes other installer flags to keep runs fast and offline:
 
 | Flag | Effect |
 |------|--------|

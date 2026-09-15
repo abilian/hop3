@@ -106,11 +106,11 @@ hop3-test why <run-id>              # Show the diagnostic bundle for a failed ru
 
 ### Upgrade-chain testing
 
-`hop3-test upgrade-chain` verifies that a running server survives a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update, and each is asserted to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
+`hop3-test upgrade-chain` verifies that a running server survives a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update. Each one has to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
 
 ## Test Organization
 
-A test's layer is decided by what it *needs*, not by complexity: if it needs Docker, root, or host-mutation it belongs in `c_e2e`; otherwise it stays in-process in `a_unit` or `b_integration`. The root `conftest.py` stamps a marker from the directory, so `-m fast`, `-m integration`, `-m e2e`, and `-m "not needs_docker"` select the right lane regardless of package.
+A test's layer is decided by what it *needs*: if it needs Docker, root, or host-mutation it belongs in `c_e2e`; otherwise it stays in-process in `a_unit` or `b_integration`. Each layer gets its marker from the root `conftest.py`, so `-m fast`, `-m integration`, `-m e2e`, and `-m "not needs_docker"` select the right lane regardless of package.
 
 ```bash
 pytest -m fast                 # a_unit (+ flat unit suites)
@@ -198,7 +198,7 @@ status = 200
 contains = "Hello"
 ```
 
-Note: `tier` is *only* a report-grouping label, and all builds share a single 30-minute budget (see [config.md](../reference/config.md#test-test-harness-metadata)). The legacy `[build].tier` field no longer exists.
+Note: `tier` is *only* a report-grouping label. All builds share a single 30-minute budget (see [config.md](../reference/config.md#test-test-harness-metadata)). The legacy `[build].tier` field no longer exists.
 
 **Standalone `test.toml` files still exist for Procfile-only test apps** (`apps/test-apps-procfile/*/`), which don't pair with a `hop3.toml`. Two other kinds of test are configured differently:
 

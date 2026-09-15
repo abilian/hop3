@@ -77,7 +77,7 @@ The bundler returns the source as a string; the CLI (`hop3-install bundle`) and 
 
 ## CLI Installer (`hop3-install cli`)
 
-Installs hop3-cli on local machines:
+This command installs hop3-cli on local machines:
 
 ### Installation Steps
 
@@ -107,7 +107,7 @@ class CLIInstallerConfig:
 
 ## Server Installer (`hop3-install server`)
 
-Installs hop3-server on target machines (requires root):
+This command installs hop3-server on target machines, and needs root:
 
 ### Installation Steps
 
@@ -150,11 +150,11 @@ Optional toolchains (Rust, Node global packages, Leiningen, Elixir, Nix) and ext
 /etc/default/hop3              # EnvironmentFile read by the systemd units
 ```
 
-The default database is PostgreSQL (step 10); `hop3.db` only exists for SQLite-backed installs. The `apps/`, `uwsgi-available/`, and `uwsgi-enabled/` directories under `/home/hop3` are created and populated when apps are deployed, not by the installer itself.
+The default database is PostgreSQL (step 10); `hop3.db` only exists for SQLite-backed installs. The `apps/`, `uwsgi-available/`, and `uwsgi-enabled/` directories under `/home/hop3` are created and populated when apps are deployed, after the install has finished.
 
 ## Developer Deployer (`hop3-deploy-server`)
 
-Tool for deploying during development:
+This tool deploys Hop3 during development:
 
 ### Backends
 

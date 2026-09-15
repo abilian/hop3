@@ -16,8 +16,8 @@ The directory **is** the status. Nothing else records it, because a `status` fie
 
 | Status | Admitted when | Published |
 |---|---|---|
-| `golden` | It installs **from the published catalog** and signs in through the application's own authentication with the credential Hop3 generated, and a wrong password is refused. Carries `[admin]`, and `[probe]` where the application has accounts. Presentation metadata complete. | yes |
-| `beta` | It deploys and serves its own content: readiness passes a `[healthcheck].contains` assertion, not a bare status line. The sign-in bar is unmet or does not apply. | yes, marked |
+| `golden` | It installs **from the published catalog** and signs in through the application's own authentication with the credential Hop3 generated. A wrong password is refused. Carries `[admin]`, and `[probe]` where the application has accounts. Presentation metadata complete. | yes |
+| `beta` | It deploys and serves its own content: readiness passes a `[healthcheck].contains` assertion on the body. The sign-in bar is unmet or does not apply. | yes, marked |
 | `alpha` | It deploys. Verification is status-only or unproven. | no |
 | `broken` | A recorded failure, with the reason written down. Kept: the failure names a platform gap. | no |
 | `retired` | Withdrawn for a reason upstream of the platform: archived project, incompatible licence, superseded by another variant. | no |
@@ -42,7 +42,7 @@ apps/golden/gitea/
 
 ## The two runners
 
-Both run each app's `check.py`. They differ in where the recipe comes from, and that decides which questions a green run answers.
+Both run each app's `check.py`. They differ in where the recipe comes from. That decides which questions a green run answers.
 
 | | `hop3-test` | `scripts/check-catalog.py` |
 |---|---|---|
@@ -111,7 +111,7 @@ git mv apps/beta/<app> apps/golden/<app>
 make validate && make publish CONTEXT=<ctx>
 ```
 
-A status can also go **backwards**. A `golden` recipe whose next verification fails is demoted, and demotion is the normal outcome of a failing run.
+A status can also go **backwards**. A `golden` recipe whose next verification fails is demoted. Demotion is the normal outcome of a failing run.
 
 ## The ordering trap
 
@@ -124,7 +124,7 @@ The script guards this by comparing every recipe's mtime against the staged tarb
 ## Limits of each check
 
 - `check.py` verifies the application's **web** authentication. A two-process application whose background worker never started can pass it, sign in perfectly, and fail on the first task that needs its queue.
-- `[healthcheck].contains` asserts a substring of the body at one path. It catches a placeholder page or another app behind the proxy; it does not exercise the application.
+- `[healthcheck].contains` checks for a substring of the body at one path. It catches a placeholder page or another app behind the proxy; it does not exercise the application.
 - A green `hop3-test` run says the recipe works from the working tree. Only `check-catalog.py` says an operator can install it.
 
 ## See also
