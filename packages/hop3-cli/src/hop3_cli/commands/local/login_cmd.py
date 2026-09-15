@@ -497,19 +497,37 @@ def refuse_unnamed_retarget(config: Config, server_url: str) -> None:
     current = config.get_context_server(DEFAULT_CONTEXT_NAME)
     if not current or current == server_url:
         return
+    # Two routes to one machine is the common case, not the exception: the
+    # deployer writes `default` -> http://<host>:8000 at the end of every
+    # deploy, and the login it then suggests is ssh://root@<host>. Reading
+    # those as two servers is the reader's obvious first guess, and it is
+    # wrong — so say whose they are before offering the remedies.
+    same_host = _hostname(current) == _hostname(server_url) != ""
+    whose = (
+        f"\nBoth reach {_hostname(server_url)}, by different routes — the first"
+        f"\nwas written when the server was deployed.\n"
+        if same_host
+        else ""
+    )
     print(
         f"Hop3 won't repoint the {DEFAULT_CONTEXT_NAME!r} context.\n"
         f"\n"
         f"  it names   {current}\n"
         f"  this login is for {server_url}\n"
-        f"\n"
-        f"Name this one, or drop the old one first:\n"
+        f"{whose}"
+        f"\nKeep both, or replace the old one:\n"
         f"\n"
         f"  hop3 login … --context <name>\n"
         f"  hop3 context remove {DEFAULT_CONTEXT_NAME}",
         file=sys.stderr,
     )
     sys.exit(ExitCode.GENERAL_ERROR)
+
+
+def _hostname(url: str) -> str:
+    """The host an address points at, for telling one server from two."""
+    parsed = urlparse(url if "://" in url else f"//{url}")
+    return parsed.hostname or ""
 
 
 def record_server_login(
@@ -571,6 +589,13 @@ def record_server_login(
     previous_server = config.get_context_server(context_name)
     config.set_context_server(context_name, server_url, bootstrap=bootstrap)
     config.set_default_context(context_name)
+    # The context is on disk now, but this process resolved its connection
+    # before the login wrote it, so everything after this point in the same
+    # invocation still sees the pre-login answer. `refresh_caches_after_login`
+    # below asked `get_api_url()` and was told "API URL not configured" — one
+    # line under "Signed in to …", about the server it had just signed in to.
+    config.set_active_server(server_url)
+    config.set_active_bootstrap(bootstrap)
     # Only what changed. A repeat login of the same target says nothing extra;
     # a switch of the current context, or a context that now points somewhere
     # else, is exactly what an operator must not discover by surprise later.
