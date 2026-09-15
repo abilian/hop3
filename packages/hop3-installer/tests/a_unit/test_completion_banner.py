@@ -31,18 +31,25 @@ def _banner(*, created: bool = True, verbose: bool = False, **overrides) -> str:
     return buf.getvalue()
 
 
-def test_gives_one_command_to_run():
+def test_gives_one_command_and_one_variation_of_it():
     """
-    The dashboard link is prose, not a second bullet.
+    The dashboard is prose, not a co-equal bullet — still true. What changed:
+    the named-context form now gets a line, because it is the way out when the
+    operator already has a `default` pointing elsewhere, and burying it in
+    prose left them assembling the command themselves.
 
-    `--ssh` names a transport and `--web` a destination; presenting them as a
-    pair taught a symmetry that does not exist. Only the command that has to be
-    run gets its own line.
+    Both lines are the same command; the second only adds a flag. The browser
+    is a third flag and gets no line of its own, since spelling it as a full
+    command raised "is it `--browser` or `--browser --context …`?".
     """
     out = _banner()
     lines = [ln.strip() for ln in out.splitlines() if ln.startswith("  hop3 login")]
-    assert lines == ["hop3 login root@server.example.com"]
-    assert "hop3 login --browser" in out  # named, in prose
+    assert lines == [
+        "hop3 login root@server.example.com",
+        "hop3 login root@server.example.com --context hop3-dev",
+    ]
+    assert "--browser" in out
+    assert "hop3 login --browser" not in out
 
 
 def test_offers_a_reset_that_exists():

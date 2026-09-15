@@ -29,6 +29,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A deploy no longer claims the CLI's `default` context, or points it at the API port.** It signed this machine in by passing `--context default` explicitly, which skips the guard that refuses to move an existing `default` onto another server — and pointed it at `http://<host>:8000`, the API in clear. An SSH deploy now configures nothing and gives one login command, which negotiates HTTPS or a tunnel itself; a `--docker` deploy still configures the CLI, under the context `hop3-docker`.
+
+- **The deploy banner stopped contradicting itself.** It told you to run `hop3 login root@<host>` after writing the context that makes the CLI refuse exactly that; then, once fixed, gave three different spellings of one command and never said what `--context` does. One command now, with its variations as added flags, and `Server URL:` names `https://<admin-domain>` instead of the API port.
+
+- **A login is visible to the rest of its own invocation.** The context reached disk, but this process had resolved its connection before that — so the cache refresh that runs on the back of a login reported "API URL not configured" one line under "Signed in to …", about the server it had just signed in to.
+
+- **Refusing to repoint `default` says whose the two addresses are.** Almost always one machine by two routes, since the deployer wrote the first; the refusal listed both and left the reader to guess they had two servers.
+
+- **"No server configured" names a real command and an obvious placeholder.** It said `hop3 init --ssh root@server`, which reads as a target rather than a template: typed as printed it fails with `Could not resolve hostname server`.
+
 - **A deploy that times out while the app is answering now says so.** When `[healthcheck].contains` never matches, the failure names the path, the status and what the page actually contained, instead of reporting a dead worker and advising a longer timeout.
 
 - **`hop3-test` runs an app's `check.py` with the credentials the deploy uses.** It exported only `HOP3_ADMIN_*`, so every check signed in as the operator instead of the app's `[probe]` account — and reported working apps as broken.

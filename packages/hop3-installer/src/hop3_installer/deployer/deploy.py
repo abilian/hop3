@@ -62,11 +62,21 @@ _VERSION_PROBE = (
 )
 
 
-# The global context `hop3 login` writes for the server this deployer just set
-# up. Named rather than unnamed: an unnamed default target (`[cli].default_server`)
-# resolves *below* every context, so it is silently ignored by any operator who
-# has one. See tasks/cli-auth-target-model.md.
-CLI_CONTEXT_NAME = "default"
+# The context a `--docker` deploy writes for the container it just set up.
+#
+# NOT `default`, which this used to claim. `hop3 login` writes `default` only
+# when it is free, and refuses to repoint an existing one at another server —
+# the deployer passed `--context default` explicitly, which skips that guard
+# and silently moved an operator's `default` onto the box being deployed. A
+# name of its own cannot collide with one a person chose.
+#
+# Only Docker. An SSH deploy configures no CLI at all: the address worth
+# talking to is `https://<admin-domain>`, whose certificate may not be trusted
+# from here, and working that out — HTTPS or an SSH tunnel, and saying which —
+# is what `hop3 login <target>` already does. Re-deciding it here with
+# `--token --url` is the second implementation of one contract that this
+# codebase keeps paying for.
+CLI_CONTEXT_NAME = "hop3-docker"
 
 
 class Deployer:
@@ -79,6 +89,11 @@ class Deployer:
         self.quiet = config.quiet
         self.log_file = config.log_file
         self.admin_user_created = False  # Track if admin was newly created
+        # Set by `_login_local_cli` when it signs this machine's CLI in. The
+        # closing banner reads it: having written the `default` context itself,
+        # the deployer must not then tell the operator to run a plain
+        # `hop3 login <target>`, which that very context makes the CLI refuse.
+        self.cli_context_server: str | None = None
 
         # Generate default log file for quiet mode
         if self.quiet and not self.log_file:
@@ -219,11 +234,17 @@ class Deployer:
 
         print("\n" + "=" * 60)
         print("Deployment complete!")
-        print(f"Server URL: {self.backend.get_server_url()}")
 
+        # The server's own URL, not the API port it listens on. `hop3-server`
+        # binds 0.0.0.0:8000 in clear, and printing that as "Server URL" both
+        # advertises an address that should not be reached from off the box
+        # and invites pasting it somewhere a bearer token will follow. nginx
+        # in front of it is the address an operator has any business using.
         admin_domain = self.config.effective_admin_domain
         if admin_domain:
-            print(f"Admin URL: https://{admin_domain}")
+            print(f"Server URL: https://{admin_domain}")
+        else:
+            print(f"Server URL: {self.backend.get_server_url()}")
 
         self._print_how_to_log_in()
         print("=" * 60)
@@ -244,20 +265,36 @@ class Deployer:
 
         A Docker target has no SSH target to name and its CLI was configured in
         place by `_setup_cli`, so it gets no login block.
+
+        One command shape throughout. An earlier version gave a bare login on
+        one line and `--context <name>` on the next without saying they were
+        the same command, then a third spelling for the browser — three shapes
+        for one operation, and the reader has to work out which parts compose.
+        Here the login is stated once and each variation is an added flag.
+
+        What `--context` does is spelled out. "sign in under a name of its
+        own" does not tell a reader that the name is theirs to invent and that
+        the flag creates the context.
         """
         if self.config.use_docker or not self.config.host:
             return
 
         target = self.config.ssh_target
         print()
-        print("Sign in from this machine. Your SSH access to the server is the")
-        print("credential, so there is no password to type:")
+        print("Sign in from this machine — your SSH access to the server is")
+        print("the credential, so there is no password to type:")
         print()
         print(f"  hop3 login {target}")
         print()
-        print("That authenticates the CLI — `hop3 apps` and the rest work from")
-        print("here. For the dashboard in a browser, `hop3 login --browser`")
-        print("prints a one-time link (it authenticates over SSH too).")
+        print("`hop3 apps` and the rest then work from here. That files the")
+        print("server under the CLI context named 'default'. If you already")
+        print("have a 'default' pointing somewhere else, Hop3 says so rather")
+        print("than moving it, and you give this one a name of your choosing:")
+        print()
+        print(f"  hop3 login {target} --context hop3-dev")
+        print()
+        print("For the dashboard in a browser, add --browser to either command:")
+        print("it prints a one-time sign-in link instead.")
         print()
         print(f"Admin user: {self.config.admin_user}")
 
@@ -269,11 +306,15 @@ class Deployer:
         if self.verbose:
             print(f"Admin password: {self.config.admin_password}")
             return
-        print("Admin password: [hidden — re-run with --verbose to display]")
-        print("  Neither command above uses it. To set one you know, sign in")
-        print(
-            f"  as above, then: hop3 user set-password {self.config.admin_user} --stdin"
-        )
+        # "re-run with --verbose" did not say re-run *what*, and "to set one
+        # you know" read as an instruction rather than an option nobody has to
+        # take. Neither sign-in above needs this password: both authenticate
+        # over SSH. It exists for the dashboard's own form, later.
+        print("Admin password: not shown (re-run this deploy with --verbose to")
+        print("  print it). You do not need it to sign in — both commands above")
+        print("  authenticate over SSH. To replace it with one you choose, sign")
+        print("  in first, then:")
+        print(f"    hop3 user set-password {self.config.admin_user} --stdin")
 
     def _setup_and_prepare(self) -> tuple[bool, int, str | None]:
         """
@@ -1551,7 +1592,17 @@ class Deployer:
         configured to connect to <host>" and then had every command go
         somewhere else. `login` writes the per-server credential store and a
         named context, at the rank the rest of the resolution chain uses.
+
+        Docker only. An SSH deploy leaves the CLI alone and the banner gives
+        the one login command: the address worth recording for a real server
+        is `https://<admin-domain>`, and `http://<host>:8000` — what this
+        wrote — is the API port in clear, which would carry the operator's
+        bearer token over plain HTTP to a socket bound on every interface.
+        Loopback into a container is the one case where that address is the
+        right one.
         """
+        if not self.config.use_docker:
+            return
         token = self._fetch_admin_token()
         if not token:
             return
@@ -1635,6 +1686,7 @@ class Deployer:
                     self.log(stream.strip(), "warning")
             return
 
+        self.cli_context_server = api_url
         self.log(
             f"CLI configured: context {CLI_CONTEXT_NAME!r} -> {api_url}", "success"
         )

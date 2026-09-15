@@ -165,7 +165,11 @@ class Client:
         if api_url is None:
             # This shouldn't happen if main.py checks is_configured() first,
             # but provide a sensible fallback for direct Client usage
-            msg = "API URL not configured. Run 'hop3 init --ssh root@server' to set up."
+            # `root@server` read as a real target, not a placeholder, and was
+            # typed verbatim — `ssh: Could not resolve hostname server`. It also
+            # named `hop3 init`, a heavier flow than the one command needed
+            # here. Placeholders wear angle brackets everywhere else.
+            msg = "No server configured. Sign in first: hop3 login root@<your-server>"
             raise CliError(msg)
         return api_url
 

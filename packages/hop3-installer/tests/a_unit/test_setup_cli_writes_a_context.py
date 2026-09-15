@@ -11,6 +11,13 @@ an operator with any context configured was told "CLI configured to connect to
 
 It also logged that success line unconditionally: after a failed token fetch,
 after a failed write, always.
+
+Scope narrowed since: only a `--docker` deploy configures the CLI. An SSH
+deploy leaves it alone, because the address worth recording for a real server
+is `https://<admin-domain>` and deciding whether that is reachable — or
+whether to tunnel — is `hop3 login`'s job, not a second implementation here.
+And the context is no longer `default`: passing `--context default` skipped
+the guard that refuses to move an operator's `default` onto another server.
 """
 
 from __future__ import annotations
@@ -64,7 +71,9 @@ def spawned(monkeypatch):
 def make_deployer(backend: _Backend, **cfg) -> Deployer:
     # Not quiet: `log` prints warnings only when quiet is off, and the failure
     # paths below are exactly what must be visible.
-    settings = {"host": "server.example.com", **cfg}
+    #
+    # Docker by default: that is the only target this step still acts on.
+    settings = {"host": "server.example.com", "use_docker": True, **cfg}
     return Deployer(DeployConfig(**settings), backend=backend)  # type: ignore[arg-type]
 
 
@@ -76,8 +85,35 @@ def test_writes_through_hop3_login_into_a_named_context(spawned):
     assert argv[:2] == ["hop3", "login"]
     assert "--context" in argv
     assert argv[argv.index("--context") + 1] == CLI_CONTEXT_NAME
-    assert argv[argv.index("--url") + 1] == "http://server.example.com:8000"
+    assert argv[argv.index("--url") + 1] == "http://localhost:8000"
     assert argv[argv.index("--token") + 1].startswith("eyJ")
+
+
+def test_the_context_is_never_the_operators_default(spawned):
+    """
+    `--context default` skips `hop3 login`'s own guard, which refuses to
+    repoint an existing `default` at a different server. A deploy silently
+    moving the CLI's default target onto the box being deployed is the
+    "hop3 apps reports on the wrong machine" failure that guard exists for.
+    """
+    assert CLI_CONTEXT_NAME != "default"
+
+    make_deployer(_Backend())._setup_cli()
+
+    argv = spawned[0]
+    assert argv[argv.index("--context") + 1] != "default"
+
+
+def test_an_ssh_deploy_leaves_the_local_cli_alone(spawned):
+    """
+    It used to point the CLI at `http://<host>:8000` — the API port, in
+    clear, on a socket bound to every interface, carrying a bearer token.
+    The banner gives `hop3 login <target>` instead, which negotiates HTTPS
+    or a tunnel and says which.
+    """
+    make_deployer(_Backend(), use_docker=False)._setup_cli()
+
+    assert spawned == []
 
 
 def test_the_deprecated_settings_command_is_never_invoked(spawned):
