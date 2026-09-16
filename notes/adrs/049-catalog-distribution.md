@@ -45,9 +45,9 @@ This is the APT model in miniature (sign the index, the index hashes the artifac
 
 ### How a refresh works
 
-Catalog refresh runs as a sub-step of `hop3-server setup` (once, after dirs exist, before the service starts) and on demand via `hop3 catalog refresh`; it never runs per request. It fetches the tarball and its signature over HTTPS into a staging area and verifies the signature before opening the archive. Extraction uses path confinement and resource caps. The loader then enforces the design's central invariant: the extracted tree must be **exactly** the file set named in the signed `index.json`. Every listed file is present with a matching hash, and nothing else is on disk. Only then is the new version published, by an atomic symlink flip plus an in-process snapshot swap, and the new serial recorded.
+Catalog refresh runs as a sub-step of `hop3-server setup` (once, after dirs exist, before the service starts) and on demand via `hop3 catalog refresh`; it never runs per request. It fetches the tarball and its signature over HTTPS into a staging area and verifies the signature before opening the archive. Extraction uses path confinement and resource caps. The loader then enforces the design's central invariant: the extracted tree must be **exactly** the file set named in the signed `index.json`. Every listed file is present with a matching hash. Nothing else is on disk. Only then is the new version published, by an atomic symlink flip plus an in-process snapshot swap, and the new serial recorded.
 
-Every failure aborts, leaves the previously verified catalog serving, and reports why. There is no "verification unavailable → load anyway" branch and no silent-empty or silent-stale fallback: a *verified* catalog with zero apps is allowed; a fetch or verification failure is surfaced. With no key compiled in, refresh refuses to run rather than fetch something it cannot verify.
+Every failure aborts, leaves the previously verified catalog serving, and reports why. There is no "verification unavailable → load anyway" branch and no silent-empty or silent-stale fallback: a *verified* catalog with zero apps is allowed; a fetch or verification failure is surfaced. With no key compiled in, refresh refuses to run at all; it will not fetch what it cannot verify.
 
 ### Producer side
 
@@ -55,7 +55,7 @@ The release process builds and signs the artifact offline with the `hop3-catalog
 
 ## Considered Alternatives
 
-**Transport: git repo (pinned commit) instead of a tarball.** Viable, and a documented fallback (the repo tree *is* the catalog, Homebrew-tap style). Rejected for v1: it puts `git` in the fetch path, re-ships the whole tree per refresh, and has no clean atomic-verify-then-swap story. A tarball over HTTPS needs only stdlib `urllib` and swaps atomically.
+**Transport: git repo (pinned commit) instead of a tarball.** Viable, and documented as a fallback: the repo tree *is* the catalog, Homebrew-tap style. Rejected for v1: it puts `git` in the fetch path, re-ships the whole tree per refresh, and has no clean atomic-verify-then-swap story. A tarball over HTTPS needs only stdlib `urllib` and swaps atomically.
 
 **Integrity: bare HTTPS, no signature. Rejected.** For executed code this is negligent: one compromised static host = RCE across every node, and a `verify_ssl false` escape hatch already exists in the client.
 

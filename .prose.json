@@ -44,7 +44,31 @@
     "R8-triad/two-item-condition": "release-plan-0.7.md:93 'an empty or non-zero recording' is a two-branch failure condition, not a triad assembled for cadence.",
     "R31-runon/checklist-headers": "release-plan-0.7.md:160,170 are italic headers introducing checkbox lists ('*Ships in 0.7, supported (experimental):*'); the semicolons counted belong to the list items merged in after them. Same class as the threat-model scope lists.",
     "R34-verbless/annex-deliverable-text": "annex.md:51 'Package 20 popular or useful open-source applications…' is the T4 deliverable description, an imperative the parser reads as a noun. It is contractual text from Annexe I as submitted to NLnet, so it is not rewritten for style.",
-    "R31-runon/submitted-final-report": "results-links-2026-06.md:6 is a serial list whose items carry their own commas (docs links; code on SourceHut; ADRs), which rule 31 exempts. The report is also marked 'Status: final' and was submitted; it records what was sent."
+    "R31-runon/submitted-final-report": "results-links-2026-06.md:6 is a serial list whose items carry their own commas (docs links; code on SourceHut; ADRs), which rule 31 exempts. The report is also marked 'Status: final' and was submitted; it records what was sent.",
+    "R1-emdash/table-no-data-cell": "NOT exempted, deliberately: TR-03's results tables use '—' in a cell to mean 'no measurement' (461, 463, 527, 616-620), the standard scientific-table convention, not a prose incise. The snippet is the bare character, so the only pattern that would silence it is '—', which would disable rule 1 project-wide. Left visible; the fix belongs in the linter, which should mask markdown table rows as it masks fenced code.",
+    "R34-verbless/section-sign-subject": "TR-03:369 '§7.4 states where each claim's replication stops.' has the verb 'states'; the tokenizer mis-reads '§7.4' and the verb becomes a noun. The paper uses § 166 times, so respelling one of them for the parser would break its own convention.",
+    "R34-verbless/past-tense-read-as-participle": "TR-03:439 'Four applications in this corpus rebuilt deterministically while failing to start' — 'rebuilt' is the finite past tense, read as a participle.",
+    "R34-verbless/table-and-figure-captions": "TR-03:465 is a '*Table 6: …*' caption and :704 a markdown image with alt text. Rule 34 exempts captions.",
+    "R29-synonym/distinct-referents-tr03": "TR-03's three rotation hits name different things: 'a small business' and 'an organisation' are separate example actors in one enumeration of who needs sovereignty; 'the decision record' and the 'lessons-learned notes' are two artefacts, with 'file' naming files inside them; 'a codebase' is generic (what codaviz explores) while 'the repository' is Hop3's own.",
+    "R30-frozen/make-X-executable": "TR-03:698 '`validoc` makes documentation executable' is a resultative (make + object + adjective), not a light verb in front of a nominalisation. There is no verb the sentence is avoiding.",
+    "R37-bold/term-being-coined": "TR-03:85 italicises '*dependency-level reproducibility without OS-level virtualisation*' at the point it names the paper's fourth path, right after 'A fourth path is available:'. A term being defined, which rule 37 exempts as a label.",
+    "R31-runon/tr03-lists-and-arguments": "NOT exempted by pattern, recorded as a standing judgement: TR-03's twenty rule-31 hits were each read in this pass and none is a stitch. Thirteen are serial lists whose items carry their own commas — enumerated requirements '(i) …; (ii) …', the five credential defects, the deploy-time figures per strategy — which rule 31 names as its exemption. The rest are single arguments developed through subordination, which rule 31 says are fine and which splitting would damage: the verification-bar progression at :804 and the closure-size comparison at :512 are the clearest. Re-read them if the text changes; do not split them on the count alone.",
+    "R12-inflated/elevated-privilege": "ADR 041 uses 'elevated privileges' / 'elevated capabilities' in the security sense (privilege elevation), which is the field's term. Rule 12 targets the marketing register (leverage, seamless, robust-as-compliment).",
+    "R9-hedge/work-to-noun": "ADR 041:16 'pushed root-needing work to install time' and :86 'copying the work to two more proxy plugins'. 'work' is the noun, not the hedging verb 'work to'. Same parse artifact as the recorded work-to-Level case.",
+    "R34-verbless/verb-read-as-noun": "ADR 041:204 'Common fields map 1:1 (…)' — 'map' is the finite verb, read as a noun after a plural subject. :720 'The error-code taxonomy is unchanged: `ProxyError` / …' has 'is'; the masked code spans after the colon leave the parser nothing to attach.",
+    "R37-bold/named-threat-model": "ADR 041:60 bolds 'hop3-server compromise = total compromise' at the point it names the threat model ('The threat model is therefore named explicitly:'). A coined label, which rule 37 exempts.",
+    "R3-foil/rejected-because-list": "ADR 041:768 the nlp foil detector fires inside an alternatives entry, '**Rejected** because: heavy dependency (polkit not always present on minimal systemd setups); …'. A reasons list, not a balanced foil.",
+    "R31-runon/adr041-alternatives-and-lists": "NOT exempted by pattern, recorded as a judgement: ADR 041's nine rule-31 hits were read in this pass. Most are the 'Considered alternatives' entries, whose form is '**Rejected** because: reason; reason; reason' — serial lists whose items carry their own commas, which rule 31 names as its exemption and which is the ADR genre's own shape. The rest (the three-layer threat model at :200, the drift causes at :275, the reconciliation consequences at :281) are single arguments developed through subordination. Re-read if the text changes; do not split on the count.",
+    "R3-foil/table-separator-row": "ADR 043:54 is a markdown table's '|-------|----------|' separator row; the nlp foil detector matches across the dashes. Also seen on release-plan-0.6.md's header row. A table is not prose.",
+    "R3-foil/plain-negation-in-adr": "ADR 045:35 'conflict detection is DB-based and does not need rootd' and ADR 049:98 'no signed timestamp/TTL, so a NAT'd node can sit on old-but-valid content' are plain factual negations, which rule 3 explicitly leaves alone, not balanced foils.",
+    "R34-verbless/adr-verb-present": "Eight sentences across ADRs 042, 045, 046, 047 and 048 carry their finite verb (seeds, has, are baked, routes, require, errors, are, resolves) and are reported verbless anyway: each has an inline-code span or a § reference between the subject and the verb, or a long parenthetical, and the masker blanks it to whitespace so the parse loses the head.",
+    "R37-bold/quoted-project-ethos": "ADR 044:13 italicises the project ethos as quoted from CLAUDE.md: '*packaging apps is system-validation work; each app is a deliberate probe of the platform's edges.*' Rule 37 exempts quotations set in italics, and an invariant forbids editing quoted material.",
+    "R35-coordination/adr043-enumerations": "NOT exempted: ADR 043's three remaining hits are a three-item list sharing one verb ('the README, `CLAUDE.md`, and the Makefile call them'), a second such list, and a relative clause ('which every release accepts, and the current deployer keeps as aliases'). The sheet names enumerations and relatives as NOT this rule. Three rewrites were tried in this pass and each read worse than the original, which was restored.",
+    "R27-aphorism/short-factual-closers": "NOT exempted: ADR 048 reports 5 of 8 paragraphs closing on a 'short generalisation'. Two are masking artifacts ('`hop3-server.toml` carries no secret.' loses its subject to the mask, leaving three words); the other three are short factual statements ('No separate salt is provisioned by default.'), which is how technical paragraphs end. With 8 eligible paragraphs the 33% ceiling allows two. Padding factual closers to clear a rate would be the wrong trade.",
+    "R34-verbless/adr05x-verb-present": "Five sentences across ADRs 050, 051, 052 and 054 carry their finite verb (commits, is, recur, takes, is) and are reported verbless: each has a long parenthetical, an inline-code run, or a masked quotation between the subject and the verb, and the masker blanks it to whitespace.",
+    "R37-bold/adr052-labels": "ADR 052:20 italicises a parenthetical enumeration of the concepts the ADR is about ('*which server, where to install from, which optional services, how loud, machine-readable?*'), and :119 bolds the precedence formula 'explicit flag > env var > built-in default'. Both are labels, which rule 37 exempts; neither is a sentence set as a punchline.",
+    "R31-runon/adr05x-enumerations": "NOT exempted, recorded as a judgement: the fifteen rule-31 hits across ADRs 050-058 were read in this pass. They are the genre's own shapes — '**Positive**: …; …; …' and '**Negative**: …; …; …' consequence lists, the per-request evaluation order '(1) …; (2) …; (3) …', and the flag-inventory comparisons in 052 that list each tool's options. Every one is a serial list whose items carry their own commas, which rule 31 names as its exemption. Re-read if the text changes; do not split on the count.",
+    "R31-runon/adr060-three-ways-list": "NOT exempted, recorded as a judgement: ADR 060:53 'Three ways to empty a bucket were available: keep `mc`, which …, so …; add `boto3`, roughly 15 MB …; or sign the two required S3 requests directly.' is a serial list whose items carry their own commas, which rule 31 names as its exemption."
   },
   "allowlist": {
     "R33-taboo": [
@@ -52,10 +76,18 @@
     ],
     "R29-synonym": [
       "client",
-      "user"
+      "user",
+      "business",
+      "organisation",
+      "file",
+      "record",
+      "codebase",
+      "repository"
     ],
     "R9-hedge": [
-      "work to Level"
+      "work to Level",
+      "work to install",
+      "work to two"
     ],
     "R34-verbless": [
       "LocalBuilder` delegates",
@@ -88,7 +120,27 @@
       "• m",
       "status: final",
       "evidence for the nlnet/ngi",
-      "package 20 popular or useful"
+      "package 20 popular or useful",
+      "§7.4 states",
+      "rebuilt deterministically",
+      "*table 6:",
+      "[the public application catalog",
+      "full distributions for run b",
+      "common fields map 1:1",
+      "the error-code taxonomy is unchanged",
+      "the old current-context seeds",
+      "everything else (smtp",
+      "they are baked into the app",
+      "hop3 routes http by hostname",
+      "native `tmpfs`/`bind` mounts",
+      "a command that needs an app and didn't get one",
+      "they are related (both are per-command metadata",
+      "non-secret configuration resolves",
+      "the ngi 0.5 deliverable commits",
+      "the nix-gen `configfile` is",
+      "the same handful of concepts",
+      "but `hop3-deploy` takes",
+      "the twelve-factor \"backing services\" principle is explicit"
     ],
     "R37-bold": [
       "whether a packet may reach a port",
@@ -99,7 +151,12 @@
       "the acceptance campaign drove all twenty",
       "four audit rounds processed in-house",
       "the 20 are packaged",
-      "68 asciicasts recorded and published"
+      "68 asciicasts recorded and published",
+      "dependency-level reproducibility without",
+      "hop3-server compromise = total compromise",
+      "packaging apps is system-validation work",
+      "which server, where to install from",
+      "explicit flag > env var > built-in default"
     ],
     "R8-triad": [
       "fails loudly on an HTTP error",
@@ -117,13 +174,18 @@
     ],
     "R12-inflated": [
       "Next Generation Internet",
-      "next generation"
+      "next generation",
+      "elevated"
     ],
     "R30-nominalisation": [
-      "Conduct violation"
+      "makes documentation"
     ],
     "R3-foil": [
-      "| milestone |"
+      "| milestone |",
+      "polkit not always present",
+      "|-------|",
+      "conflict detection is db-based",
+      "freshness beyond monotonic serial"
     ]
   }
 }

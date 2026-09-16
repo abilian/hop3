@@ -21,7 +21,7 @@ The two application shapes call for two outputs: a rendered file on disk (file-b
 
 ## Decision
 
-Config injection happens in the **`before-run` lifecycle hook** ([ADR 002](./002-config-format.md), §`[run]`). It already runs in the app's environment (addon credentials, generated secrets, and computed variables all present) before workers start, on every builder, and several packaged apps already wire their database this way. A `before-run` script renders any config file or runs any setup command the app needs: the shell's own `${VAR}` / `${VAR:-default}` expansion (or `envsubst`) expands the values, and the script author controls per-format quoting directly. No new platform mechanism is required to wire the file-based and DB/CLI-state apps: the imperative path is the baseline, and it works today.
+Config injection happens in the **`before-run` lifecycle hook** ([ADR 002](./002-config-format.md), §`[run]`). It already runs in the app's environment (addon credentials, generated secrets, and computed variables all present) before workers start, on every builder, and several packaged apps already wire their database this way. A `before-run` script renders any config file or runs any setup command the app needs: the shell's own `${VAR}` / `${VAR:-default}` expansion (or `envsubst`) expands the values, and the script author controls per-format quoting directly. No new platform mechanism is required to wire the file-based and DB/CLI-state apps: the imperative path is the baseline. It works today.
 
 The platform's job here is to define a small set of **conventions** that keep these scripts from repeating the failures the bespoke ones make today (documented in the packaging guide):
 
@@ -66,7 +66,7 @@ argv = ["php", "occ", "config:system:set", "mail_smtphost", "--value", "${SMTP_H
 unless = { argv = ["php", "occ", "config:system:get", "mail_smtphost"], equals = "${SMTP_HOST}" }
 ```
 
-For state that lives in a database or behind a CLI. A `[[setup]]` step is an **argv list** (never a shell string) substituted from the environment and `exec`'d directly. It runs after all `[[config-files]]` (so a step that imports a rendered file, such as `kc.sh import realm.json`, sees it) in the `before-run` slot, on every builder.
+This covers state that lives in a database or behind a CLI. A `[[setup]]` step is an **argv list** (never a shell string) substituted from the environment and `exec`'d directly. It runs after all `[[config-files]]` (so a step that imports a rendered file, such as `kc.sh import realm.json`, sees it) in the `before-run` slot, on every builder.
 
 - **Idempotency is a first-class field.** `unless` declares a probe (`argv` plus one of `equals` / `contains` / `exit-zero`). A `[[setup]]` step the platform cannot prove idempotent and that carries no `unless` is a schema error, so a packager cannot ship a step that double-applies on every redeploy (the install-gate `occ status | grep "installed: true"` that bespoke scripts hand-code becomes a declared `unless`).
 - **Secrets stay out of argv where the CLI allows it.** The convention is to pass a secret's env-var *name* (`--password-from-env=OC_PASS`) or to feed it on `stdin`; the child already carries the environment. Where a CLI only accepts `--value=<secret>`, that value is in the child's argv for its lifetime (an upstream limitation the platform cannot remove). It never appears in a shell, a log line, or the serialized build artifact: a step marked `secret = true` is redacted everywhere it is recorded.
@@ -74,7 +74,7 @@ For state that lives in a database or behind a CLI. A `[[setup]]` step is an **a
 #### Engine and ordering
 
 - `expand_vars` gains `${VAR:-default}`. Configs in the tree rely on the shell evaluating `:-` at runtime; once the platform renders at deploy time that evaluation is gone, so the engine must provide it. The change is additive (bare `${VAR}` is unaffected) and is shared with `[env.computed]`.
-- An unresolved `${…}` after substitution is **fatal**. `[env.computed]` today logs a warning and proceeds; a config file containing a literal `${SMTP_PASSWORD}` is a security and correctness failure, so rendering aborts the deploy, naming the file, the missing variable, and the addon that supplies it. `[env.computed]` is aligned to the same strictness. A reference to an unattached addon's credential therefore surfaces here, at deploy, rather than as silently-broken mail at runtime.
+- An unresolved `${…}` after substitution is **fatal**. `[env.computed]` today logs a warning and proceeds; a config file containing a literal `${SMTP_PASSWORD}` is a security and correctness failure, so rendering aborts the deploy, naming the file, the missing variable, and the addon that supplies it. `[env.computed]` is aligned to the same strictness. A reference to an unattached addon's credential therefore surfaces here, at deploy, and not as silently-broken mail at runtime.
 - Both sections resolve after the full env pipeline and run before workers start, on native, Docker, and nix builds alike; `[[config-files]]` render first, then `[[setup]]`.
 
 #### `[nix.config-files]` is subsumed
@@ -95,7 +95,7 @@ A single ordered tagged-union list (render-file or run-command) expresses arbitr
 
 ### Build the declarative layer now, instead of using the `before-run` baseline
 
-Tempting, because declarative sections read better than shell. Rejected as the immediate step: the `before-run` hook already places config from the injected environment with no platform change, so a new schema, renderer, and per-app migration is effort spent before the cheaper path (conventions plus documentation) has been shown insufficient. The declarative layer is deferred to the point where the per-app scripts demonstrably cost more than the mechanism would.
+This is tempting, because declarative sections read better than shell. Rejected as the immediate step: the `before-run` hook already places config from the injected environment with no platform change, so a new schema, renderer, and per-app migration is effort spent before the cheaper path (conventions plus documentation) has been shown insufficient. The declarative layer is deferred to the point where the per-app scripts demonstrably cost more than the mechanism would.
 
 ### Per-app `getenv()` glue in a hand-written config file
 
@@ -111,4 +111,4 @@ If the declarative layer is later built, it adds the same safety *by constructio
 
 1. **Docker apps.** A native or nix app's config file is rendered into a working directory the process reads directly. A Docker-Compose app reads its config inside the container, so a `[[config-files]]` render must land on a bind-mounted path (or a `[[setup]]` step must `exec` inside the container). This is the same class of Docker-specific plumbing that [ADR 045](./045-fixed-port-registry.md) deferred for fixed ports, and likely lands alongside it.
 2. **Where rendered files live across redeploys.** A rendered file under the app's source tree is recreated each deploy (idempotent by overwrite); one that must persist as mutable state belongs under the app's data directory or a volume ([ADR 046](./046-declarative-app-resources.md)). The schema should mark that difference explicitly.
-3. **`format` coverage.** The initial set (`yaml`, `json`, `php`, `ini`, `shell`, `raw`) covers the surveyed apps; a `python`/`pyrepr` form (for a rendered Django settings fragment) and a `toml` form may be needed, and each escaper is security-sensitive code that earns adversarial tests against secrets containing quotes, newlines, and backslashes.
+3. **`format` coverage.** The initial set (`yaml`, `json`, `php`, `ini`, `shell`, `raw`) covers the surveyed apps; a `python`/`pyrepr` form (for a rendered Django settings fragment) and a `toml` form may be needed. Each escaper is security-sensitive code that earns adversarial tests against secrets containing quotes, newlines, and backslashes.

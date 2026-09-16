@@ -21,11 +21,11 @@ The discipline holds for everything except nginx reload because Hop3 has either 
 - It does not scale to user-supplied apps the catalogue does not know about.
 - It violates least-surface as a principle.
 
-So the firewall feature forces a runtime privilege-separation step. Given such a step, the existing nginx-reload sudoers fragment is the next thing to retire: the same daemon handles both, and they are addressed together.
+So the firewall feature forces a runtime privilege-separation step. Given such a step, the existing nginx-reload sudoers fragment is the next thing to retire: the same daemon handles both. They are addressed together.
 
 [ADR 040](./040-network-firewall-and-port-exposure.md)'s draft sketches a "sudoers fragment for a tightly-scoped command" approach for firewall ops too. While workable for one feature, it has known weaknesses: every invocation is a setuid escalation, the validation surface is "whatever the wrapper script parses", the sudoers file becomes a TOFU asset, and the model does not generalise to other privileged operations Hop3 will eventually need (certificate issuance, optional runtime package installation, systemd unit management).
 
-A separate observation, made while drafting [ADR 040](./040-network-firewall-and-port-exposure.md): the cloud-provider firewall case (Hetzner Cloud Firewall, Scaleway Security Group, AWS Security Group) is architecturally simpler than the local-firewall case, because the cloud provider exposes a control-plane API that hop3-server can call directly with operator-supplied credentials. No privilege-escalation gymnastics; the kernel boundary is replaced by a network boundary, and the auth boundary shifts from a UID to a token.
+A separate observation came while drafting [ADR 040](./040-network-firewall-and-port-exposure.md): the cloud-provider firewall case (Hetzner Cloud Firewall, Scaleway Security Group, AWS Security Group) is architecturally simpler than the local-firewall case, because the cloud provider exposes a control-plane API that hop3-server can call directly with operator-supplied credentials. No privilege-escalation gymnastics; the kernel boundary is replaced by a network boundary. The auth boundary shifts from a UID to a token.
 
 This ADR proposes that we make the local case look like the cloud case: introduce a small root-running daemon that exposes a control-plane API to hop3-server over a Unix socket. The daemon is the kernel-boundary executor for privileged operations Hop3 performs at runtime. From hop3-server's perspective, "the local box" and "the cloud" become two equally-shaped backends behind a single `Firewall` plugin protocol.
 
@@ -93,7 +93,7 @@ The daemon listens on `/run/hop3-rootd/socket`, owned by root, mode `0660`, grou
 
 **Caller authentication** uses `SO_PEERCRED`: the kernel-provided peer-credentials mechanism. The daemon reads the connecting peer's UID directly from the socket and admits only `hop3` (and optionally `root`, for diagnostic / admin tools). No tokens, passwords, or shared secrets. The kernel's UID enforcement constitutes the auth model.
 
-**Wire framing** is line-delimited JSON: one JSON object per line, terminated with `\n`. Both sides write `json.dumps(obj) + "\n"` and read with `socket.makefile().readline()`. No length prefix or chunking. All payloads are small (≤2KB even with verbose audit context); JSON objects don't contain literal newlines (the JSON encoder escapes them).
+**Wire framing** is line-delimited JSON: one JSON object per line, terminated with `\n`. Both sides write `json.dumps(obj) + "\n"` and read with `socket.makefile().readline()`. No length prefix or chunking is needed. All payloads are small (≤2KB even with verbose audit context); JSON objects don't contain literal newlines (the JSON encoder escapes them).
 
 **Request envelope**:
 ```json
@@ -246,7 +246,7 @@ HETZNER_FIREWALL_TOKEN = "..."
 HETZNER_FIREWALL_ID = "1234567"
 ```
 
-Default if unset: `"local-nftables"`. The installer can suggest enabling `hetzner-cloud` at install time when it detects Hetzner cloud-metadata; no runtime auto-detection. Missing required credentials for a declared backend (`HETZNER_FIREWALL_TOKEN` unset while `hetzner-cloud` is in the list) → hop3-server fails at startup with a clear diagnostic. **No silent downgrade.**
+The default if unset is `"local-nftables"`. The installer can suggest enabling `hetzner-cloud` at install time when it detects Hetzner cloud-metadata; there is no runtime auto-detection. Missing required credentials for a declared backend (`HETZNER_FIREWALL_TOKEN` unset while `hetzner-cloud` is in the list) → hop3-server fails at startup with a clear diagnostic. **No silent downgrade.**
 
 Credentials in `hop3-server.toml` are read at hop3-server startup only. Rotation requires `sudo systemctl restart hop3-server`. Lazy reload is rejected as adding subtle behavior without enough payoff. The whole `hop3-server.toml` schema deserves its own ADR: sectioning, validation, doc-vs-reality alignment (the current administration guide describes a sectioned format that doesn't match the actual flat-key loader). This ADR extends the existing flat-key format with new keys; the broader redesign is deferred to that ADR.
 
@@ -268,9 +268,9 @@ On startup, rootd reads `state.json`, queries the kernel for rules in `inet hop3
 - **Rule in state, NOT in kernel** → re-apply (kernel was reloaded or rules flushed). Log loudly.
 - **Rule in kernel (in `inet hop3`), NOT in state** → remove it. It's "ours" by virtue of being in our table; if state doesn't know about it, it's stale from a previous run that crashed before persisting state.
 - **Rule in state with one spec, in kernel with a different spec** → kernel wins, state is updated to match. Log a warning. (Rare; indicates manual intervention.)
-- **`state.json` missing or corrupt** → daemon refuses to start. Operator must intervene (rename it aside, restart). The conservative default: never silently drop rules.
+- **`state.json` missing or corrupt** → daemon refuses to start. Operator must intervene (rename it aside, restart). The conservative default is to never silently drop rules.
 
-Anything outside the `inet hop3` table is invisible to rootd. Operator's `inet filter` rules, distro defaults, anything else: never touched, never inspected.
+Anything outside the `inet hop3` table is invisible to rootd. Operator's `inet filter` rules, distro defaults and anything else are never touched and never inspected.
 
 **No periodic reconciliation.** Drift causes are narrow (kernel reload at host reboot (handled at startup; `nft flush`-by-mistake) operator intervention; package update touching nftables: rare). Periodic checks add a timer thread, more state mutation, more code paths to test. If real drift becomes a problem, periodic is one config flag away.
 
@@ -305,7 +305,7 @@ When `firewall.add_rule(spec)` is called:
 
 The daemon's view of the world is always a superset of reality. It may know about a rule it could not apply. The reverse case (a rule applied in the kernel but unknown to the daemon) cannot occur. On startup reconciliation, applied-state rules missing from the kernel are re-applied.
 
-For `firewall.remove_rule`, mirror image: mark state `status: "removing"`, run `nft delete rule …`, on success delete state row, on failure revert state to `applied`.
+`firewall.remove_rule` is the mirror image: mark state `status: "removing"`, run `nft delete rule …`, on success delete state row, on failure revert state to `applied`.
 
 For `nginx.reload`: nginx itself does graceful reload. Daemon shells out, captures the result, returns. No daemon state tracked for nginx ops.
 
@@ -323,7 +323,7 @@ When `hop3 deploy myapp` runs, the firewall step runs *after* the app is built a
 4. App's ORM state goes back to whatever it was before (or `STOPPED` if first deploy).
 5. Build artifacts (nix store, venv, source tree) are **not** rolled back: those are accumulating state. Failed deploys leave them on disk for the next attempt.
 
-The operator's mental model: "deploy failed; the app isn't running; firewall is unchanged; my source is on disk; retry is safe."
+The operator's mental model reads: "deploy failed; the app isn't running; firewall is unchanged; my source is on disk; retry is safe."
 
 **Why this is stricter than nginx-reload's existing soft-failure**: nginx reload failure is benign (old config still serves). Firewall failure is fundamental: the app's *contract* (these ports are reachable) is broken. They deserve different handling.
 
@@ -335,7 +335,7 @@ Confirmation lives in the CLI and web UI. Before `hop3 deploy` actually invokes 
 
 #### When the prompt fires
 
-**Only when the privileged-op set differs from the previous deploy of this app** (delta-only). Routine code updates with no `[[ports]]` changes proceed silently. First deploy of an app with `[[ports]]` declarations triggers the prompt for the full set. Re-deploy with one port added → prompts for the addition. Re-deploy with one port removed → prompts for the revoke.
+**Only when the privileged-op set differs from the previous deploy of this app** (delta-only). Routine code updates with no `[[ports]]` changes proceed silently. First deploy of an app with `[[ports]]` declarations triggers the prompt for the full set. Re-deploy with one port added → prompts for the addition. Re-deploying with one port removed prompts for the revoke.
 
 Diff is computed by comparing the new app's `[[ports]]` set against the rules currently held for that app in rootd's state (via `firewall.list_rules({app_name})`).
 
@@ -374,7 +374,7 @@ In the CLI client. The flow:
 2. CLI computes and prints the summary, prompts y/N locally.
 3. On `y`, CLI sends the **actual deploy RPC** with `confirmed=true`.
 
-The dry-run RPC is read-only; the deploy RPC is the only mutating call. Cleaner than keeping a deploy session open mid-execution.
+The dry-run RPC is read-only; the deploy RPC is the only mutating call. That is cleaner than keeping a deploy session open mid-execution.
 
 ### 10. Systemd units and hardening
 
@@ -471,7 +471,7 @@ LogsDirectoryMode=0700
 WantedBy=multi-user.target
 ```
 
-Rationale for the less-obvious knobs:
+These are the rationales for the less-obvious knobs:
 
 - `User=root` is required (nftables needs `CAP_NET_ADMIN`, which can't be granted to a non-root user without it being on the daemon binary: and we don't want a setuid Python daemon).
 - `CapabilityBoundingSet=CAP_NET_ADMIN` drops all other root capabilities. The daemon can't load kernel modules, can't read arbitrary files, can't bind privileged ports for new sockets. Just nftables.
@@ -552,13 +552,13 @@ The daemon updates the file atomically (write to `state.json.tmp`, fsync, rename
 
 The audit log is hop3-readable so `hop3 firewall history` (a hop3-server CLI command) can read it directly without going through rootd. Daemon writes; hop3-server reads.
 
-**Logrotate** at `/etc/logrotate.d/hop3-rootd`: daily rotation, 90-day retention, gzip after one day. SIGUSR1 to the daemon to reopen the file. 90 days matches typical compliance requirements; operator can edit.
+**Logrotate** at `/etc/logrotate.d/hop3-rootd`: daily rotation, 90-day retention, gzip after one day. SIGUSR1 tells the daemon to reopen the file. 90 days matches typical compliance requirements; operator can edit.
 
 #### Restart safety
 
 `Restart=on-failure`, `RestartSec=2s` in the systemd unit. The `.socket` unit holds the bound socket so in-flight clients see at most a short pause. State persists; on restart, reconciliation re-syncs with the kernel.
 
-If `state.json` is missing or corrupt at startup, the daemon refuses to start. Operator must intervene: rename the corrupt file aside, restart. The conservative default: never silently drop the daemon's view of the world.
+If `state.json` is missing or corrupt at startup, the daemon refuses to start. Operator must intervene: rename the corrupt file aside, restart. The conservative default is to never silently drop the daemon's view of the world.
 
 ### 14. Distribution and install
 
@@ -592,11 +592,11 @@ If `state.json` is missing or corrupt at startup, the daemon refuses to start. O
 7. Delete `/etc/sudoers.d/hop3` (per §12).
 8. `systemctl start hop3-server`.
 
-Top-down stop, bottom-up start: same as any service-with-dependency.
+Stopping goes top-down and starting bottom-up, as for any service with a dependency.
 
 ### 15. Test infrastructure
 
-Four test layers, mirroring hop3-server's existing convention:
+There are four test layers, mirroring hop3-server's existing convention:
 
 #### a_unit (no privileges or nft)
 
@@ -609,7 +609,7 @@ Four test layers, mirroring hop3-server's existing convention:
 
 #### a_unit op-mock
 
-Same directory, specific to `firewall.*` and `nginx.*`. The subprocess wrapper from `exec.py` is mocked so calls to `nft` / `nginx` are captured and asserted against without invoking the real tools.
+These live in the same directory, specific to `firewall.*` and `nginx.*`. The subprocess wrapper from `exec.py` is mocked so calls to `nft` / `nginx` are captured and asserted against without invoking the real tools.
 
 #### b_integration (root + real nftables)
 
@@ -643,11 +643,11 @@ Skipped tests are visible in `pytest -v` output. No silent passes.
 
 #### Test isolation
 
-`b_integration` tests are serial within a worker (each creates and tears down its own table; pytest-xdist parallelism would conflict). `c_system` tests inherit `deployment_target`'s per-test isolation: already correct.
+The `b_integration` tests are serial within a worker (each creates and tears down its own table; pytest-xdist parallelism would conflict). `c_system` tests inherit `deployment_target`'s per-test isolation: already correct.
 
 ### 16. Future operations (informative)
 
-The architecture is designed so future privileged operations slot in without protocol or trust changes. Likely next entries, in rough order of need:
+The architecture is designed so future privileged operations slot in without protocol or trust changes. The likely next entries, in rough order of need, are:
 
 1. **`package.ensure_installed(name, version?)`**: retires the installer-baseline workaround for runtime package needs.
 2. **`cert.request(domain)` / `cert.renew(domain)`**: drives certbot / acme.sh from hop3-server lifecycle events.
@@ -688,7 +688,7 @@ Native `[limits]` enforcement and native `[[volumes]]` ([ADR 046](./046-declarat
 
 **Guard discipline and fallback.** A realization is gated on its op: a guard that refuses a resource the platform cannot realize stays until the matching op is live, so no app deploys *looking* capped or persisted when it isn't. If this unit-hardening is not adopted, native `[limits]` / `tmpfs` / `bind` are infeasible and only the Docker paths are available: [ADR 046](./046-declarative-app-resources.md)'s guaranteed-deployable baseline.
 
-The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `state_conflict` cover both families), and the client surface stays `LocalRootdClient.call(op, args)`.
+The error-code taxonomy is unchanged (`validation_failed` / `kernel_error` / `state_conflict` cover both families). The client surface stays `LocalRootdClient.call(op, args)`.
 
 ### 19. Amendment: `proxy.*` op family ([ADR 040](./040-network-firewall-and-port-exposure.md) addon exposure)
 
@@ -753,11 +753,11 @@ rootd **never `exec`s the proxy binary itself.** It writes the two unit files (a
 
 ### A. Sudoers fragment for a tightly-scoped command
 
-The pattern implied by [ADR 040](./040-network-firewall-and-port-exposure.md)'s earlier draft and exemplified by the current `/etc/sudoers.d/hop3`. **Rejected** because: every invocation is a setuid escalation, the validation surface is "whatever the wrapper script parses on every call" (no shared state), the sudoers fragment is itself a TOFU asset, and the model does not generalise to other privileged operations without one sudoers entry per op.
+This pattern comes from [ADR 040](./040-network-firewall-and-port-exposure.md)'s earlier draft, and the current `/etc/sudoers.d/hop3` exemplifies it. **Rejected** because: every invocation is a setuid escalation, the validation surface is "whatever the wrapper script parses on every call" (no shared state), the sudoers fragment is itself a TOFU asset, and the model does not generalise to other privileged operations without one sudoers entry per op.
 
 ### B. Setuid binary
 
-A `hop3-firewall` setuid-root binary that takes a tight argument schema. **Rejected** because: setuid is the most-attacked Linux pattern in history; the bar for "is this binary actually correct" is brutal; the same generalisation problem as (A) applies.
+The alternative is a `hop3-firewall` setuid-root binary taking a tight argument schema. **Rejected** because: setuid is the most-attacked Linux pattern in history; the bar for "is this binary actually correct" is brutal; the same generalisation problem as (A) applies.
 
 ### C. Capabilities on hop3-server (CAP_NET_ADMIN ambient)
 
@@ -769,7 +769,7 @@ Register a polkit action; hop3 user invokes pkexec to run a helper. **Rejected**
 
 ### E. D-Bus system service
 
-`hop3-rootd` registers a name on the system bus. **Rejected** because: hard dependency on dbus-daemon; protocol is heavier than we need; the Python d-bus bindings are not stdlib and would re-introduce the third-party dependency we are avoiding. Future option if D-Bus integration becomes required for other reasons.
+`hop3-rootd` registers a name on the system bus. **Rejected** because: hard dependency on dbus-daemon; protocol is heavier than we need; the Python d-bus bindings are not stdlib and would re-introduce the third-party dependency we are avoiding. It stays a future option if D-Bus integration becomes required for other reasons.
 
 ### F. Per-app network namespaces
 
@@ -777,7 +777,7 @@ Run each app in its own `unshare(CLONE_NEWNET)` namespace. The local-firewall pr
 
 ### G. Per-operation policy file with auto_allow / prompt / deny outcomes
 
-A `/etc/hop3/rootd-policy.toml` file with per-port-range / per-bind-interface outcomes. **Rejected.** Two problems: (1) The "prompt" outcome would force operators to edit a config file as root and retry, contradicting the "single click to grant a port" UX goal; the deploy-time y/N prompt in the CLI (§9) handles "did you mean this?" without any policy-edit cycle. (2) The auth layer would be theatre against a compromised hop3-server: SO_PEERCRED only authenticates the hop3 user; per-app authorization claims are unverifiable. Acknowledging the threat model explicitly (hop3-server compromise = total compromise) and omitting the policy file describes what is actually defended and keeps the daemon's code surface smaller.
+The alternative is a `/etc/hop3/rootd-policy.toml` file with per-port-range / per-bind-interface outcomes. **Rejected.** Two problems: (1) The "prompt" outcome would force operators to edit a config file as root and retry, contradicting the "single click to grant a port" UX goal; the deploy-time y/N prompt in the CLI (§9) handles "did you mean this?" without any policy-edit cycle. (2) The auth layer would be theatre against a compromised hop3-server: SO_PEERCRED only authenticates the hop3 user; per-app authorization claims are unverifiable. Acknowledging the threat model explicitly (hop3-server compromise = total compromise) and omitting the policy file describes what is actually defended and keeps the daemon's code surface smaller.
 
 If real demand for finer-grained policy emerges, the schema can be reintroduced later with a clear-eyed understanding of what it does and doesn't defend against.
 
@@ -845,7 +845,7 @@ packages/hop3-rootd/
 
 The systemd units (`hop3-rootd.service`, `hop3-rootd.socket`) and the logrotate config ship under `packages/hop3-installer/` so the installer can drop them in place. The installer's `setup_sudoers` step in `server_installer/nginx.py` becomes a no-op (with a migration-cleanup pass for upgrades).
 
-`hop3-server` gains a `LocalRootdClient` in `hop3.lib.rootd` (or similar): a thin class wrapping `socket.connect("/run/hop3-rootd/socket")`, sending JSON requests, parsing responses, raising on errors. Plugins (`LocalNftablesFirewall`, future `LocalNginxOps`) use the client.
+The server gains a `LocalRootdClient` in `hop3.lib.rootd` (or similar): a thin class wrapping `socket.connect("/run/hop3-rootd/socket")`, sending JSON requests, parsing responses, raising on errors. Plugins (`LocalNftablesFirewall`, future `LocalNginxOps`) use the client.
 
 The daemon is intentionally small: stdlib Python plus its tests, small enough to be reviewed end-to-end in a sitting.
 

@@ -58,7 +58,7 @@ Values are still produced by [ADR 042](./042-cli-context-model.md)'s resolution 
 
 ### Server-side consumption
 
-The RPC dispatch pops `_context` (exactly as it pops `verbosity`/`_token` today: it never reaches `command.call(**kwargs)`). Then, for the command being dispatched:
+The RPC dispatch pops `_context` (exactly as it pops `verbosity`/`_token` today: it never reaches `command.call(**kwargs)`). The CLI then resolves, for the command being dispatched:
 
 - If the command's `call`/`run` signature declares an `app` (or `app_name`) parameter **and** no app was supplied positionally, fill it from `_context.app`.
 - An explicit positional/flag app always wins over the ambient context.
@@ -90,7 +90,7 @@ Rejected: adds latency and a network dependency to every command, breaks offline
 
 ### Do nothing (keep the hardcoded set, patched)
 
-Acceptable short-term, guarded by patching as drift is found. Rejected as the end state because drift is silent and recurring, and plugins can't be covered.
+This is acceptable short-term, guarded by patching as drift is found. Rejected as the end state because drift is silent and recurring, and plugins can't be covered.
 
 ## Open questions
 

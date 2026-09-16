@@ -12,7 +12,7 @@ HTTP/HTTPS is the only protocol Hop3 multiplexes. The reverse proxy (nginx) virt
 
 Without a registry, Hop3 is blind to those ports. They are baked into the app rather than into `hop3.toml`: e.g. owncast hardcodes RTMP 1935 internally, which appears nowhere in its config. The failure mode (observed with owncast on the Test Lab) is: a second owncast instance, or a leftover one, fails to bind 1935 and crashes on startup, surfacing only as an opaque *"app did not respond to health checks within 120s."* The platform can neither detect the conflict nor explain it.
 
-The user requirement: a user who tries to install a second SMTP server (or XMPP, RTMP, …) must get a clear error up front, before the install attempt.
+The user requirement is that someone installing a second SMTP server (or XMPP, RTMP, …) gets a clear error up front, before the install attempt.
 
 Under the platform-robustness ethos, apps must coexist without interference and failures must be actionable. Reliable teardown (the leftover-process fix in the uWSGI deployer) stops a *previous* instance from holding the port; this ADR stops a *concurrent* second app from silently colliding.
 

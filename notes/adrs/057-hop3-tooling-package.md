@@ -11,7 +11,7 @@ Hop3 accumulates tooling that no shipped package owns: automation a *maintainer*
 
 Today this tooling lives as ad-hoc files under the repo-root `scripts/` directory. That directory has grown into a broad mix (Python and shell, checks and generators and deploy helpers) with structural problems that compound as it grows:
 
-- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. The filename is the only interface: nothing answers `--help`, and nothing indexes what a maintainer can run here.
+- **No discovery.** A tool is useful only to a maintainer who already knows its filename exists. The filename is the only interface: nothing answers `--help`. Nothing indexes what a maintainer can run here.
 - **No contract.** Scripts vary in argument style, exit-code discipline, and output. Some are `set -e` shell, some argparse Python, some neither.
 - **No tests.** A 500-line script like `verify-security-batch.py`, which SSHes to a box, drives `hop3 catalog install`, and asserts security properties, has no test and no way to acquire one in place.
 - **No shared library.** Every script re-implements the same primitives: shell out to the `hop3` CLI, parse `hop3 app credentials`, SSH to a box, talk to a staged catalog. The logic drifts between copies.
@@ -38,8 +38,8 @@ The boundary follows the **audience**, with the mechanism as the secondary test:
 
 ## Consequences
 
-- Maintainer tooling gains discovery (`hop3-tools --help`), a UX contract, tests, and a shared library that removes duplication; these are the properties every shipped package already has.
-- The catalog-acceptance work has a proper home, and the eventual decoupling of packaging from the platform (when the catalog becomes the packaging source of truth) has somewhere for its channel-management tooling to live.
+- Maintainer tooling gains discovery (`hop3-tools --help`), a UX contract, tests, and a shared library that removes duplication. These are the properties every shipped package already has.
+- The catalog-acceptance work has a proper home. The eventual decoupling of packaging from the platform (when the catalog becomes the packaging source of truth) has somewhere for its channel-management tooling to live.
 - Cost: one more package to maintain, a one-time migration as scripts move in, and a recurring judgment call (script vs. tool), bounded by the audience heuristic above.
 - The line stays clean only if the boundary is enforced in review: the temptation to drop a user-facing convenience into `hop3-tools`, or a test into it, is the failure mode to watch.
 
