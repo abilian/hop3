@@ -104,6 +104,7 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
         PythonVenvPayload,
         {
             "pip-requirements": "requirements",
+            "pip-local-source": "local_source",
             "pip-deps-hash": "deps_hash",
             "pip-source-packages": "source_packages",
             "pip-build-inputs": "build_inputs",
@@ -115,6 +116,7 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
         NodePnpmInstallPayload,
         {
             "npm-package": "npm_package",
+            "node-local-source": "local_source",
             "node-manifest": "manifest",
             "node-lockfile": "lockfile",
             "node-deps-hash": "deps_hash",

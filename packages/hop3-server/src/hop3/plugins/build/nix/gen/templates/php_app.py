@@ -30,6 +30,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    local_source_expr,
     pinned_nixpkgs_header,
 )
 from hop3.run.spawn import PHP_BUILTIN_SERVER_WORKERS
@@ -60,10 +61,22 @@ class PhpAppTemplate:
         ruff suppression for complexity/branches/statements.
         """
         p = spec.payload_as(PhpAppPayload)
-        binding = f"{spec.pname}-src"
+
+        # No `url` means the application IS the recipe directory — a user's own
+        # code pushed to Hop3, rather than third-party software fetched from a
+        # release. Without this the Nix path is reachable only for software
+        # someone else publishes, which is not the case a PaaS exists for.
+        local_source = not spec.source.url
+        if local_source:
+            _refuse_unsupported_local_combinations(spec, p)
+            binding = local_source_expr()
+            source_binding = ""
+        else:
+            binding = f"{spec.pname}-src"
+            source_binding = spec.source.as_nix(binding)
 
         composer_project = _composer_project(spec, p, binding)
-        unpack_phase = _unpack_phase(spec, p)
+        unpack_phase = _unpack_phase(spec, p, local_source=local_source)
 
         # Must precede the wrapper: the writable-tree copy belongs in the
         # runtime prelude (before the generated config files), not pre_exec.
@@ -90,7 +103,7 @@ let
   version = "{spec.version}";
 
 {_format_php_binding(p)}
-{spec.source.as_nix(binding)}
+{source_binding}
 {composer_project}
 
   app = pkgs.stdenv.mkDerivation {{
@@ -129,6 +142,45 @@ def _native_build_inputs(spec: AppSpec, p: PhpAppPayload) -> str:
     if not native_inputs:
         return ""
     return f"    nativeBuildInputs = [ {' '.join(native_inputs)} ];\n"
+
+
+def _refuse_unsupported_local_combinations(spec: AppSpec, p: PhpAppPayload) -> None:
+    """
+    Say plainly what local-source php-app does not do yet.
+
+    Refused rather than half-supported: each of these would generate an
+    expression that builds and then behaves wrongly, which is the failure mode
+    that is expensive to diagnose.
+
+    - **composer.** With `src = ./.` the app's own tree becomes an input to
+      `buildComposerProject`, a hash-pinned build — so `composer-deps-hash`
+      would pin the *user's* `composer.lock`. A recipe author records that hash
+      by reading it off a failed build; someone pushing their own code has no
+      such loop, and a hash that must be re-recorded on every `composer
+      require` is not a deploy path.
+    - **needs-writable-dir.** It makes the build emit `writable_tree =
+      "$out/app"`, and the runtime materialisation copies that store tree back
+      over the app's source directory — which in local mode is the directory
+      the build just read. The app would overwrite its own source with a copy
+      of itself.
+    """
+    if p.needs_composer:
+        msg = (
+            f"{spec.pname}: php-app cannot yet build from the recipe directory "
+            f"AND run composer. `composer-deps-hash` would pin your own "
+            f"composer.lock, and it has to be re-recorded from a failed build "
+            f"every time a dependency changes. Commit `vendor/` and drop "
+            f"`composer` from [nix], or package a released archive with a `url`."
+        )
+        raise ValueError(msg)
+    if p.needs_writable_dir:
+        msg = (
+            f"{spec.pname}: php-app cannot build from the recipe directory with "
+            f"`needs-writable-dir`. The writable tree is copied from the store "
+            f"back over the app's source directory, which in this mode is the "
+            f"directory the build read — the app would overwrite its own source."
+        )
+        raise ValueError(msg)
 
 
 def _composer_project(spec: AppSpec, p: PhpAppPayload, binding: str) -> str:
@@ -178,8 +230,16 @@ def _composer_project(spec: AppSpec, p: PhpAppPayload, binding: str) -> str:
 """
 
 
-def _unpack_phase(spec: AppSpec, p: PhpAppPayload) -> str:
+def _unpack_phase(
+    spec: AppSpec, p: PhpAppPayload, *, local_source: bool = False
+) -> str:
     """The unpack/build phase attributes."""
+    if local_source:
+        # `src` is a directory, so stdenv's default unpackPhase copies it into
+        # the build tree — the same thing ruby-bundler's local mode relies on.
+        # Emitting an unpackPhase here (or demanding an archive type below)
+        # would be describing an archive that does not exist.
+        return "    dontBuild = true;\n"
     if p.single_file or p.needs_composer:
         # single-file: $src is the file itself. composer: buildComposerProject
         # already unpacked + built the source, so the wrapping derivation only

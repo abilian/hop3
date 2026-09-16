@@ -48,6 +48,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    local_source_expr,
     pinned_nixpkgs_header,
 )
 
@@ -81,7 +82,7 @@ class RubyBundlerTemplate:
             )
         else:
             source_nix = ""
-            src_attr = "./."
+            src_attr = local_source_expr()
             gemfile_install = ""
 
         prelude_parts: list[str] = []

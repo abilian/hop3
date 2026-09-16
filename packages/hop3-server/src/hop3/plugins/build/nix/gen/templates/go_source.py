@@ -37,6 +37,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    local_source_expr,
     pinned_nixpkgs_header,
 )
 
@@ -198,7 +199,7 @@ class GoSourceTemplate:
             src_attr = binding
         else:
             source_nix = ""
-            src_attr = "./."
+            src_attr = local_source_expr()
 
         vendor_attr = (
             "null" if p.vendor_hash == NO_DEPENDENCIES else f'"{p.vendor_hash}"'

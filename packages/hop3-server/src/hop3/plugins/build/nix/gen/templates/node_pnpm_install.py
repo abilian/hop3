@@ -55,6 +55,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    local_source_expr,
     pinned_nixpkgs_header,
 )
 
@@ -138,15 +139,18 @@ class NodePnpmInstallTemplate:
 
     def generate(self, spec: AppSpec) -> str:
         p = spec.payload_as(NodePnpmInstallPayload)
-        if p.npm_package is None:
+        if p.npm_package is None and not p.local_source:
             raise ValueError(
                 "node-pnpm-install requires npm-package (the package to "
-                "install from the registry, e.g. 'directus')"
+                "install from the registry, e.g. 'directus'), or "
+                "`node-local-source = true` for an app that IS this directory"
             )
         if spec.exec_target is None:
             raise ValueError(
-                "node-pnpm-install requires exec_target (binary name "
-                "under node_modules/.bin/, e.g., 'directus')"
+                "node-pnpm-install requires exec_target: the binary name under "
+                "node_modules/.bin/ (e.g. 'directus'), or — with "
+                "`node-local-source` — the app's own entry script "
+                "(e.g. 'server.js')"
             )
         if not spec.version:
             raise ValueError("node-pnpm-install requires version (pinned npm version)")
@@ -155,6 +159,17 @@ class NodePnpmInstallTemplate:
         if not p.deps_hash:
             raise ValueError(_NO_DEPS_HASH.format(pname=spec.pname))
 
+        # The app's own directory becomes the build input. Copied in BEFORE
+        # `pnpm install`, which populates `node_modules` in this same tree —
+        # copying afterwards would overwrite it.
+        src_attr = f"\n    src = {local_source_expr()};" if p.local_source else ""
+        app_install = (
+            "\n      # The application's own code, from the recipe directory."
+            "\n      cp -r $src/. $out/app/"
+            if p.local_source
+            else ""
+        )
+
         npm_pkg = p.npm_package
         runtime_pkg = spec.runtime_package or "nodejs_22"
         pnpm_pkg = p.pnpm_package
@@ -162,7 +177,16 @@ class NodePnpmInstallTemplate:
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         # Exec line uses the runtime-exported `$APPDIR` (not the `$out` from
         # the Nix build context, which is undefined at wrapper runtime).
-        exec_line = f"$APPDIR/node_modules/.bin/{spec.exec_target}{exec_args}"
+        #
+        # A registry app's entry point is a bin shim its package installed; a
+        # local app's is a file it wrote, so `exec-target` names that file and
+        # node runs it. Hardcoding the `node_modules/.bin/` prefix would make
+        # the local case unexpressible — there is no shim for `server.js`.
+        exec_line = (
+            f"node $APPDIR/{spec.exec_target}{exec_args}"
+            if p.local_source
+            else f"$APPDIR/node_modules/.bin/{spec.exec_target}{exec_args}"
+        )
         wrapper_body = format_wrapper_body(spec, exec_line)
 
         # Splice two bootstrap lines in after the shebang so the wrapper
@@ -273,14 +297,14 @@ let
     meta.description = "{spec.description}";
 
     dontUnpack = true;
-    dontBuild = true;
+    dontBuild = true;{src_attr}
 
     nativeBuildInputs = [ nodejs pnpm{native_build_inputs} ];
 
     installPhase = ''
       mkdir -p $out/app $out/bin $out/hop3
       cd $out/app
-
+{app_install}
       export HOME=$TMPDIR
 
       # The committed manifest/lockfile pair defines the tree; both are

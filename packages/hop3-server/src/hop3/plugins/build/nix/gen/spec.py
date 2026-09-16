@@ -209,6 +209,15 @@ class PythonVenvPayload(TemplatePayload):
     # `uv export --format requirements-txt` or `pip-compile --generate-hashes`;
     # every entry needs a `--hash=sha256:...`.
     requirements: str | None = None
+    # Whether the application IS the recipe directory (the git-push case), as
+    # opposed to a package named in the lockfile (isso, bugsink).
+    #
+    # Declared, not inferred. The other templates read "no `url`" as "local",
+    # because for them a url is how third-party software is fetched. python-venv
+    # has never read `spec.source` at all — no python-venv recipe has ever
+    # carried a url — so absence there means nothing, and inferring from it made
+    # every existing recipe look local.
+    local_source: bool = False
     # sha256 of the vendored-wheels fixed-output derivation (the analogue of
     # buildGoModule's `vendorHash`). Build once with a placeholder and read the
     # `got:` line Nix prints.
@@ -264,6 +273,13 @@ class PythonVenvPayload(TemplatePayload):
 @dataclass(frozen=True)
 class NodePnpmInstallPayload(TemplatePayload):
     template_name: ClassVar[str] = "node-pnpm-install"
+
+    # Whether the application IS the recipe directory (the git-push case), as
+    # opposed to a package installed from the registry (directus). Declared,
+    # not inferred from a missing `url`: this template never reads
+    # `spec.source`, so absence there means nothing. Same reasoning as
+    # `PythonVenvPayload.local_source`.
+    local_source: bool = False
 
     # The npm package to install (e.g. "directus@11.17.2").
     npm_package: str | None = None
