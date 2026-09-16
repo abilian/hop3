@@ -4,6 +4,7 @@ from __future__ import annotations
 import http.client
 import os
 import re
+import ssl
 import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
@@ -58,7 +59,7 @@ from hop3.lib import (
 )
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
-from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY
+from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY, should_redirect_to_https
 from hop3.project.config import AppConfig
 from hop3.run.fastcgi import fastcgi_ping
 from hop3.run.listening import listening_ports
@@ -644,6 +645,61 @@ _DIAGNOSIS_TIMEOUT = 3.0
 #: dashboard shows and the column bounds at 1024.
 _DIAGNOSIS_BODY_CHARS = 200
 
+#: nginx's own ports. A php-fpm pool speaks FastCGI and nothing else, so the
+#: only place an HTTP response for such an app exists is in front of the proxy.
+_PROXY_HTTP_PORT = 80
+_PROXY_HTTPS_PORT = 443
+
+
+@dataclass(frozen=True, slots=True)
+class _HttpEndpoint:
+    """
+    Where an HTTP request to this app goes, and what to call it in a message.
+
+    Most apps answer HTTP on their own port. A php-fpm app answers *FastCGI*
+    there and nothing else, so its only HTTP face is nginx's — and the scheme
+    matters, because HTTPS-only is the default for every vhost
+    (:func:`~hop3.plugins.proxy._policy.should_redirect_to_https`), so a plain
+    request to port 80 collects a 301 and no body at all.
+
+    One value, two readers: the readiness gate and the failure diagnosis. Two
+    places that invoke the same artifact share one contract — the invocation —
+    and these two have disagreed before, once about the port and once about the
+    probe credential. Each time the tell was the same check passing in one and
+    failing in the other within the same minute.
+    """
+
+    port: int
+    host: str
+    tls: bool
+    via_proxy: bool
+
+    def describe(self) -> str:
+        """
+        Name this endpoint the way an operator would recognise it.
+
+        Carries its own preposition, so the two messages that use it read as
+        sentences rather than as a slot filled in.
+        """
+        if not self.via_proxy:
+            return f"on its port ({self.port})"
+        scheme = "https" if self.tls else "http"
+        return f"through the proxy ({scheme}://{self.host})"
+
+
+def _http_endpoint(app: App) -> _HttpEndpoint:
+    """Where to send an HTTP request so that *this* app answers it."""
+    host = getattr(app, "hostname", None) or "localhost"
+    if load_backend_protocol(app.app_path) != "fastcgi":
+        return _HttpEndpoint(port=app.port, host=host, tls=False, via_proxy=False)
+    tls = should_redirect_to_https(app.get_runtime_env(), "NGINX_HTTPS_ONLY")
+    return _HttpEndpoint(
+        port=_PROXY_HTTPS_PORT if tls else _PROXY_HTTP_PORT,
+        host=host,
+        tls=tls,
+        via_proxy=True,
+    )
+
 
 def _app_serves_http(
     app: App,
@@ -680,41 +736,70 @@ def _app_serves_http(
     ping endpoint, which is answered by a child. See
     notes/readiness-and-non-http-backends.md.
 
+    That ping answers "is a worker serving", and it is the *whole* answer only
+    when no marker is set. With ``healthcheck_contains`` the gate is a claim
+    about a page, and a pool child answering `ping.path` says nothing about
+    what the application serves at ``/`` — an install wizard pings exactly as
+    healthily as a finished install. So the marker is asserted through the
+    proxy, which is where a php-fpm app's HTTP responses exist. Six catalog
+    recipes carry a ``[healthcheck].contains`` whose comment explains it is
+    what proves "installed, not sitting on the wizard"; without this, flipping
+    them to FastCGI would silently retire that proof.
+
     Returns True for apps with no web ``port`` (background workers): there is no
     HTTP endpoint to probe, so the process/TCP check is all we can assert.
     """
     if not app.port:
         return True
-    if load_backend_protocol(app.app_path) == "fastcgi":
-        return fastcgi_ping("127.0.0.1", app.port, timeout)
     path = healthcheck_path or "/"
     if not path.startswith("/"):
         path = "/" + path
-    host = getattr(app, "hostname", None) or "localhost"
+    endpoint = _http_endpoint(app)
+    if endpoint.via_proxy and not fastcgi_ping("127.0.0.1", app.port, timeout):
+        return False
+    if endpoint.via_proxy and not healthcheck_contains:
+        return True
     try:
-        return _probe_until_content(app.port, host, path, timeout, healthcheck_contains)
-    except (OSError, http.client.HTTPException):
+        return _probe_until_content(endpoint, path, timeout, healthcheck_contains)
+    except (OSError, http.client.HTTPException, ssl.SSLError):
         return False
 
 
 def _fetch(
-    port: int, host: str, path: str, timeout: float, *, want_body: bool
+    endpoint: _HttpEndpoint, path: str, timeout: float, *, want_body: bool
 ) -> tuple[int, str, str | None]:
     """
-    One GET at the app's port: its status, its body head, its ``Location``.
+    One GET at the endpoint: its status, its body head, its ``Location``.
 
     ``want_body`` is not an optimisation. Without ``[healthcheck].contains`` the
     readiness gate is answered by the status line alone, and reading a body
     there would fail an app that answers its headers and then stalls — an app
     that passes the gate today.
+
+    The connection is always to loopback; the ``Host`` header is what selects
+    the app's vhost. Over TLS the certificate is not verified, and that is the
+    correct call rather than a shortcut: the peer is this box's own nginx on
+    127.0.0.1, presenting a certificate Hop3 issued to itself, so there is no
+    identity here that verifying could establish. The question being asked is
+    what *our* application served. (SNI is the loopback address, which selects
+    the default server for the handshake alone — the vhost is chosen from the
+    ``Host`` header after termination.)
     """
-    conn = http.client.HTTPConnection("127.0.0.1", port, timeout=timeout)
+    if endpoint.tls:
+        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+        context.check_hostname = False
+        context.verify_mode = ssl.CERT_NONE
+        conn: http.client.HTTPConnection = http.client.HTTPSConnection(
+            "127.0.0.1", endpoint.port, timeout=timeout, context=context
+        )
+    else:
+        conn = http.client.HTTPConnection("127.0.0.1", endpoint.port, timeout=timeout)
     try:
         conn.request(
             "GET",
             path,
             headers={
-                "Host": host,
+                "Host": endpoint.host,
                 "Connection": "close",
                 "User-Agent": _PROBE_USER_AGENT,
             },
@@ -729,7 +814,7 @@ def _fetch(
 
 
 def _probe_until_content(
-    port: int, host: str, path: str, timeout: float, contains: str
+    endpoint: _HttpEndpoint, path: str, timeout: float, contains: str
 ) -> bool:
     """
     GET ``path``, following same-app redirects, until the content is found.
@@ -740,7 +825,7 @@ def _probe_until_content(
     """
     for _ in range(_MAX_REDIRECT_HOPS + 1):
         status, body, location = _fetch(
-            port, host, path, timeout, want_body=bool(contains)
+            endpoint, path, timeout, want_body=bool(contains)
         )
         if not contains:
             return True  # a status line alone == serving
@@ -748,7 +833,7 @@ def _probe_until_content(
             return True
         if status not in _REDIRECT_STATUSES:
             return False
-        target = _same_app_redirect(location, host)
+        target = _same_app_redirect(location, endpoint.host)
         if target is None:
             return False
         path = target
@@ -964,13 +1049,21 @@ def _name_the_start_failure(
     if not port:
         return ""
     if actual_state == AppStateEnum.RUNNING:
+        # Naming where we asked matters only when it is somewhere other than
+        # the port just named — saying "its port (N) is listening but nothing
+        # answered on its port (N)" tells the reader nothing twice.
+        endpoint = _http_endpoint(app)
+        asked = (
+            f"nothing answered {endpoint.describe()}"
+            if endpoint.via_proxy
+            else "it did not answer an HTTP request"
+        )
         return _name_the_content_mismatch(
             app, healthcheck_path, healthcheck_contains
         ) or (
-            f"the app's port ({port}) is listening but it did not answer an "
-            "HTTP request: the server bound its socket but no worker is serving "
-            "(the worker failed to boot, or is hung). The app would be "
-            "unreachable behind the proxy"
+            f"the app's port ({port}) is listening but {asked}: the server "
+            "bound its socket but no worker is serving (the worker failed to "
+            "boot, or is hung). The app would be unreachable behind the proxy"
         )
     return _name_the_wrong_port(app, port)
 
@@ -995,16 +1088,16 @@ def _name_the_content_mismatch(app: App, path: str, contains: str) -> str:
     probe_path = path or "/"
     if not probe_path.startswith("/"):
         probe_path = "/" + probe_path
-    host = app.hostname or "localhost"
+    endpoint = _http_endpoint(app)
     try:
         status, body, _ = _fetch(
-            app.port, host, probe_path, _DIAGNOSIS_TIMEOUT, want_body=True
+            endpoint, probe_path, _DIAGNOSIS_TIMEOUT, want_body=True
         )
-    except (OSError, http.client.HTTPException):
+    except (OSError, http.client.HTTPException, ssl.SSLError):
         return ""
     served = " ".join(body.split())[:_DIAGNOSIS_BODY_CHARS]
     return (
-        f"the app answers on its port ({app.port}) — {probe_path} returned "
+        f"the app answers {endpoint.describe()} — {probe_path} returned "
         f"{status} — but no page it served contained [healthcheck].contains = "
         f"{contains!r} before the deadline. The app is serving; the marker is "
         f"what does not match, so a longer deadline cannot help. It came back "
