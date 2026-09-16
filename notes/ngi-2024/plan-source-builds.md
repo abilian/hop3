@@ -4,7 +4,7 @@
 Miniflux, Gitea, Grafana, Mattermost, Vikunja, Wiki.js. Phases 4–5 (custom
 `go-module` / `node-package` templates) never needed: `nixpkgs-wrapper`
 covered every case. **Focalboard was dropped** (upstream archived 2023; it
-exists in no `apps/real-apps-*` directory today, and Vikunja covers the use
+exists in no `apps/real-apps-*` directory today. Vikunja covers the use
 case). The document below describes the design and the decision trail. The
 Definition-of-Done checkboxes further down are left unticked as the original
 per-app worksheet. Read the addendum immediately below for the actual
@@ -17,12 +17,12 @@ disposition.
 
 ---
 
-**Reproducibility status (2026-06-22, for the NGI 0.7 review).** This plan delivered *source builds*: converting opaque `prebuilt-binary` apps to `nixpkgs-wrapper`, removing the x86_64-only, trust-the-vendor-binary problem. It did **not** deliver *reproducible* builds in the full Nix sense, and the "reproducible, multi-arch" phrasing in Approach A below overreaches on its own:
+**Reproducibility status (2026-06-22, for the NGI 0.7 review).** This plan delivered *source builds*: converting opaque `prebuilt-binary` apps to `nixpkgs-wrapper`, removing the x86_64-only, trust-the-vendor-binary problem. It did **not** deliver *reproducible* builds in the full Nix sense. The "reproducible, multi-arch" phrasing in Approach A below overreaches on its own:
 
-- **nixpkgs is now pinned (shipped in 0.6.1, M1/M2).** Every generated and hand-crafted expression imports a specific nixpkgs commit (nixos-24.11) via `import (fetchTarball { url; sha256; }) {}`. No moving channel, and `<nixpkgs>`/`NIX_PATH` is never consulted, so two builds on different dates/hosts resolve the same nixpkgs. (When this plan closed in 2026-04, expressions still used the ambient `import <nixpkgs> {}` against the moving channel; that gap is now closed.)
+- **nixpkgs is now pinned (shipped in 0.6.1, M1/M2).** Every generated and hand-crafted expression imports a specific nixpkgs commit (nixos-24.11) via `import (fetchTarball { url; sha256; }) {}`. No moving channel. `<nixpkgs>`/`NIX_PATH` is never consulted, so two builds on different dates/hosts resolve the same nixpkgs. (When this plan closed in 2026-04, expressions still used the ambient `import <nixpkgs> {}` against the moving channel; that gap is now closed.)
 - **A per-app pin override exists (2026-07).** The single global pin can be too old for a package added to nixpkgs later. Etherpad-lite entered nixpkgs only in nixos-25.05, while the default is 24.11, so the `nixpkgs-wrapper` template accepts an optional `[nix].nixpkgs-rev` / `nixpkgs-sha256` that overrides the global pin for one app (rejected loudly on templates that can't honour it, so it never silently no-ops). This softens Approach A's "pinned to one nixpkgs version" disadvantage without giving up reproducibility.
-- ~~**Some builds are not hermetic.**~~ **Closed (2026-07).** The `python-venv` / `pnpm` / `composer` paths no longer set `__noChroot`; each vendors its dependency set into a fixed-output derivation from a committed lockfile and then builds offline in the sandbox. The floating-dependency escape went with it; `pip-packages` was retired, and a recipe that still carries the key is now rejected by name.
-- Of the two Definition-of-Done items below, the **ADR 008 reproducibility-tier update is done** (2026-07: the tiers were rewritten to rank provenance now that sandbox purity is uniform, and each template declares its tier in code). **aarch64 remains open deliberately**: a vendored dependency set is resolved per platform, so supporting a second architecture means vendoring a second set, and the reproducibility claim is scoped to x86_64 explicitly.
+- ~~**Some builds are not hermetic.**~~ **Closed (2026-07).** The `python-venv` / `pnpm` / `composer` paths no longer set `__noChroot`; each vendors its dependency set into a fixed-output derivation from a committed lockfile and then builds offline in the sandbox. The floating-dependency escape went with it; `pip-packages` was retired. A recipe that still carries the key is now rejected by name.
+- Of the two Definition-of-Done items below, the **ADR 008 reproducibility-tier update is done** (2026-07: the tiers were rewritten to rank provenance now that sandbox purity is uniform; each template declares its tier in code). **aarch64 remains open deliberately**: a vendored dependency set is resolved per platform, so supporting a second architecture means vendoring a second set, and the reproducibility claim is scoped to x86_64 explicitly.
 
 The reproducibility tiers table in **ADR 008** names these gaps explicitly and overclaims none of them. [ADR 058](../adrs/058-build-reproducibility-model.md) now describes the model itself.
 
@@ -180,7 +180,7 @@ pkgs.buildGoModule {
 }
 ```
 
-**Challenge:** Computing `vendorHash`. Options:
+**Challenge:** computing `vendorHash`. There are three options:
 - `nix-prefetch` tooling (manual, per-app)
 - Set to `lib.fakeHash`, build, read error, paste real hash
 - Document the workflow in a playbook

@@ -24,7 +24,7 @@ This is the longest blocking chain. Everything else can run in parallel.
 
 #### Triage `apps/bad/real-apps-nix-bad/` (8 apps): TRIAGED
 
-All 8 apps debugged on Docker target (2026-04-11). Root causes identified for all; full report at `/tmp/nix-triage/findings.md`.
+All 8 apps debugged on Docker target (2026-04-11). Root causes were identified for all; the full report is at `/tmp/nix-triage/findings.md`.
 
 **Infrastructure bugs found and fixed (c65f5509):**
 - Bundler silent name collision (`_has_systemd` in nix.py vs s3.py)
@@ -45,7 +45,7 @@ Trivial fixes (~1 hour total): **DONE (W16)**:
 - [x] **xwiki:** heredoc quoting fixed via sed-substitution with `__APPDIR__`/`__JDK__` placeholders + symlink into writable cwd
 - [x] **matrix-synapse:** placeholders renamed to `__VENV__`/`__ZSTDLIB__`, added `pillow.libs/` to `LD_LIBRARY_PATH`, auto-generates `homeserver.yaml`
 
-Medium fixes (1-3 hours each):
+These medium fixes take one to three hours each:
 - [ ] **hedgedoc:** `Cannot find module 'express'` (node_modules
       from release tarball lost during cp to Nix store)
 - [ ] **matrix-synapse:** also needs libzstd LD_LIBRARY_PATH fix
@@ -106,7 +106,7 @@ Re-evaluate / drop:
 
 ### Source builds for Go apps (replace pre-built binaries): DONE
 
-6 of 7 Nix apps converted from pre-built binaries to nixpkgs source builds via the `nixpkgs-wrapper` template. Multi-arch support gained (aarch64, ARM, RISC-V, etc.). See `plan-source-builds.md`.
+6 of 7 Nix apps converted from pre-built binaries to nixpkgs source builds via the `nixpkgs-wrapper` template. They gained multi-arch support (aarch64, ARM, RISC-V and others). See `plan-source-builds.md`.
 
 - [x] Miniflux: `pkgs.miniflux` (built from source by nixpkgs)
 - [x] Gitea: `pkgs.gitea`
@@ -220,7 +220,7 @@ highest-traffic failure paths use it; next-batch sites (health, ports, nginx) ca
 The "full refactor" previously deferred to 0.6 was executed in W16 (Apr 15–17) on the `cli-refact` branch and merged. ADR 036 moved from Draft to Accepted.
 
 - [x] Colon→space command syntax migration (M1): `hop3 config:set`
-      → `hop3 config set`. 71 server commands, 1033 tests green.
+      → `hop3 config set`. The tree carries 71 server commands, with 1033 tests green.
 - [x] Namespace reorganization (M1b): `admin:user:*` → `user *`,
       `addons` → `addon`, verb normalization, `sbom` demoted.
 - [x] Implicit app + sticky context (M2): 6-source resolution chain
@@ -242,7 +242,7 @@ The "full refactor" previously deferred to 0.6 was executed in W16 (Apr 15–17)
 - [x] Streaming `hop3 deploy` output (pre-W16).
 - [x] `hop3 app info` clickable URL, `hop3 apps` sorted.
 
-Test count trajectory: 1033 → 1218 passing across M1-M8.
+The test count rose from 1033 to 1218 passing across M1-M8.
 
 ### Web UI review (M3.7)
 
@@ -253,7 +253,7 @@ Test count trajectory: 1033 → 1218 passing across M1-M8.
 
 ### Interim technical report review (M5.3): DONE (W16)
 
-TR-01 was refactored into proper technical-report form in W16: abstract, keywords, related work, system design, preliminary evaluation, threats to validity, references. Appendix E updated for ADR 039 Phase 1. App counts and Nix/ADR 008 content reflect current state.
+TR-01 was refactored into proper technical-report form in W16: abstract, keywords, related work, system design, preliminary evaluation, threats to validity, references. Appendix E was updated for ADR 039 Phase 1. App counts and Nix/ADR 008 content reflect current state.
 
 - [x] Re-read TR-01 against 0.5 state
 - [x] Nix section reflects ADR 008 (template-based generation, 8 templates, reproducibility tiers)
@@ -271,7 +271,7 @@ Surfaced from the 30-app packaging effort (G1–G7 gaps). Tier 1 landed in W16 a
 - [x] **G1: Postgres CREATE grants.** `plugins/postgresql/postgres.py`
       now grants `CREATE ON DATABASE` + `CREATE, USAGE ON SCHEMA
       public` to the per-app user so migrations can install trusted
-      extensions (`pg_trgm`, `hstore`, …) on PG 15+. Plus a new
+      extensions (`pg_trgm`, `hstore`, …) on PG 15+. It also adds an
       `install_extensions()` method that runs
       `CREATE EXTENSION IF NOT EXISTS` as superuser for non-trusted
       extensions declared via `[[addons]].extensions` (bloom,
