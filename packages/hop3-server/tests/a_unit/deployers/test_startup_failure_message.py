@@ -13,6 +13,7 @@ seconds and the operator was told it "did not respond to health checks within
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -29,6 +30,7 @@ def _app(
         name="forgejo",
         runtime="uwsgi",
         src_path="/srv/forgejo",
+        app_path=Path("/nonexistent/no-artifact"),  # no artifact: speaks HTTP
         log_path=None,
         port=port,
         check_actual_status=lambda: state,

@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import socket
 import threading
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -80,8 +81,14 @@ def redirecting():
 
 
 def _app(port: int) -> SimpleNamespace:
+    # No build artifact on this path, so the app speaks HTTP on its own port —
+    # which is what these cases are about. The FastCGI variant, whose only HTTP
+    # face is nginx's, is covered in test_readiness_backend_protocol.py.
     return SimpleNamespace(
-        name="invoice-ninja-nix", port=port, hostname="invoice-ninja.test.local"
+        name="invoice-ninja-nix",
+        port=port,
+        hostname="invoice-ninja.test.local",
+        app_path=Path("/nonexistent/no-artifact"),
     )
 
 
