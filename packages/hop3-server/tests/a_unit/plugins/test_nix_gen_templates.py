@@ -199,6 +199,212 @@ def _composer_spec(**overrides) -> AppSpec:
     return spec_for(PhpAppPayload, **{**defaults, **overrides})
 
 
+class TestNodePnpmFromTheRecipeDirectory:
+    """
+    A Node app that IS the recipe directory, rather than a package installed
+    from the registry (directus). Its dependencies still come from the
+    hash-pinned, offline pnpm store; what changes is that its own code is the
+    build input and its entry point is a file it wrote.
+    """
+
+    @staticmethod
+    def _spec(**overrides) -> AppSpec:
+        defaults = {
+            "pname": "my-node-app",
+            "version": "1.0.0",
+            "description": "t",
+            "manifest": "package.json",
+            "lockfile": "pnpm-lock.yaml",
+            "deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "exec_target": "server.js",
+            "local_source": True,
+            "source": Source(url="", sha256=""),
+        }
+        return spec_for(NodePnpmInstallPayload, **{**defaults, **overrides})
+
+    def test_no_npm_package_is_required(self):
+        """It names a registry package, and a local app is not one."""
+        generate(self._spec())  # does not raise
+
+    def test_the_recipe_directory_is_the_filtered_src(self):
+        output = generate(self._spec())
+        assert "pkgs.lib.cleanSource ./." in output
+        assert '!= "hop3.nix"' in output
+
+    def test_the_app_tree_is_copied_before_pnpm_populates_it(self):
+        """
+        `pnpm install` writes node_modules into $out/app, so the copy has to
+        precede it — the other order would overwrite the install.
+        """
+        output = generate(self._spec())
+        copy_at = output.index("cp -r $src/. $out/app/")
+        install_at = output.index("pnpm install")
+        assert copy_at < install_at
+
+    def test_the_entry_point_is_the_apps_own_file(self):
+        output = generate(self._spec())
+        assert "node $APPDIR/server.js" in output
+        assert "node_modules/.bin/server.js" not in output
+
+    def test_a_registry_app_still_runs_its_bin_shim(self):
+        spec = spec_for(
+            NodePnpmInstallPayload,
+            pname="directus",
+            version="11.17.2",
+            description="t",
+            npm_package="directus",
+            manifest="package.json",
+            lockfile="pnpm-lock.yaml",
+            deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            exec_target="directus",
+            source=Source(url="", sha256=""),
+        )
+        output = generate(spec)
+        assert "$APPDIR/node_modules/.bin/directus" in output
+        assert "cleanSource" not in output
+        assert "cp -r $src/." not in output
+
+
+class TestPythonVenvFromTheRecipeDirectory:
+    """
+    A Python app that IS the recipe directory, rather than a package named in
+    the lockfile (isso, bugsink). The venv is still built offline from the
+    hash-pinned lockfile; the app's own code is installed beside it and put on
+    PYTHONPATH, so `exec-target` keeps its meaning — a console script in the
+    venv's bin — and names the server that runs the app (gunicorn, uvicorn).
+    """
+
+    @staticmethod
+    def _spec(**overrides) -> AppSpec:
+        defaults = {
+            "pname": "my-flask-app",
+            "version": "1.0",
+            "description": "t",
+            "requirements": "requirements.txt",
+            "deps_hash": "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            "exec_target": "gunicorn",
+            "exec_args": ["app:app", "-b", "0.0.0.0:$PORT"],
+            "local_source": True,
+            "source": Source(url="", sha256=""),
+        }
+        return spec_for(PythonVenvPayload, **{**defaults, **overrides})
+
+    def test_the_recipe_directory_becomes_the_src(self):
+        output = generate(self._spec())
+        assert "pkgs.lib.cleanSource ./." in output
+        assert '!= "hop3.nix"' in output
+
+    def test_the_app_tree_is_installed_beside_the_venv(self):
+        output = generate(self._spec())
+        assert "cp -r $src/. $out/app/" in output
+
+    def test_the_app_is_on_pythonpath_at_runtime(self):
+        """Without this `gunicorn app:app` cannot import the app."""
+        output = generate(self._spec())
+        assert "export PYTHONPATH" in output
+        assert 'sed -i "s|APPDIR_PLACEHOLDER|$out/app|g"' in output
+
+    def test_exec_target_still_names_a_script_in_the_venv(self):
+        output = generate(self._spec())
+        assert "VENVBIN/gunicorn app:app" in output
+
+    def test_the_lockfile_is_still_required(self):
+        """The offline, hash-pinned install is the template's whole claim."""
+        with pytest.raises(ValueError, match="lockfile"):
+            generate(self._spec(requirements=None))
+
+
+class TestPythonVenvPackagedFromTheLockfile:
+    def test_a_packaged_app_gets_no_src_and_no_app_tree(self):
+        """
+        Every existing recipe is this shape. `local-source` is declared, not
+        inferred from a missing url — python-venv recipes have never had one,
+        so inferring made all three of them look local.
+        """
+        spec = spec_for(
+            PythonVenvPayload,
+            pname="isso",
+            version="0.14.0",
+            description="t",
+            requirements="requirements.txt",
+            deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+            exec_target="isso",
+            source=Source(url="", sha256=""),
+        )
+        output = generate(spec)
+        assert "cleanSource" not in output
+        assert "cp -r $src/. $out/app/" not in output
+
+
+class TestPhpAppFromTheRecipeDirectory:
+    """
+    A PHP app that IS the recipe directory — the git-push case.
+
+    Nine of the eleven templates could only package software fetched from
+    elsewhere, because the evaluation corpus was made of exactly that.
+    """
+
+    @staticmethod
+    def _spec(**overrides) -> AppSpec:
+        defaults = {
+            "pname": "my-php-app",
+            "version": "1.0",
+            "description": "t",
+            "php_extensions": ["mysqli"],
+            "source": Source(url="", sha256=""),
+            "extra_paths": ["${php}/bin"],
+        }
+        return spec_for(PhpAppPayload, **{**defaults, **overrides})
+
+    def test_no_url_builds_the_recipe_directory(self):
+        output = generate(self._spec())
+        assert "./." in output
+        assert "fetchurl" not in output
+
+    def test_the_directory_is_filtered_before_it_reaches_the_store(self):
+        output = generate(self._spec())
+        assert "pkgs.lib.cleanSource ./." in output
+        assert '!= "hop3.nix"' in output
+
+    def test_no_unpack_phase_is_emitted_for_a_directory(self):
+        """
+        stdenv copies a directory `src` itself. Emitting an unpackPhase — or
+        demanding an archive type, which is what this used to do — describes an
+        archive that does not exist.
+        """
+        output = generate(self._spec())
+        assert "unpackPhase" not in output
+        assert "dontBuild = true;" in output
+
+    def test_a_url_still_fetches(self):
+        output = generate(
+            self._spec(
+                source=Source(url="https://x/a.tar.gz", sha256="x", archive="tar-gz")
+            )
+        )
+        assert "pkgs.fetchurl" in output
+        assert "cleanSource" not in output
+
+    def test_composer_is_refused_with_its_reason(self):
+        """
+        `composer-deps-hash` would pin the user's own composer.lock, and it is
+        re-recorded by reading a failed build — not a deploy path for someone
+        pushing their own code.
+        """
+        with pytest.raises(ValueError, match="composer"):
+            generate(
+                self._spec(
+                    needs_composer=True,
+                    composer_deps_hash="sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA=",
+                )
+            )
+
+    def test_a_writable_tree_is_refused_with_its_reason(self):
+        """It would copy the store tree back over the directory it read."""
+        with pytest.raises(ValueError, match="own source"):
+            generate(self._spec(needs_writable_dir=True))
+
+
 def test_php_app_composer():
     output = generate(_composer_spec())
     assert "buildComposerProject" in output
@@ -1267,15 +1473,24 @@ class TestGoSourceLocalApp:
 
     def test_no_url_builds_the_recipe_directory(self):
         output = generate(self._spec())
-        assert "src = ./.;" in output
+        assert "./." in output
         assert "fetchurl" not in output
+
+    def test_the_recipe_directory_is_filtered_before_it_reaches_the_store(self):
+        """
+        `.git` and the generated expression must not be part of the build
+        input. See `templates.base.local_source_expr` for why each one matters.
+        """
+        output = generate(self._spec())
+        assert "pkgs.lib.cleanSource ./." in output  # drops .git
+        assert '!= "hop3.nix"' in output  # drops the expression itself
 
     def test_a_url_still_fetches(self):
         output = generate(
             self._spec(source=Source(url="https://x/src.tar.gz", sha256="x"))
         )
         assert "pkgs.fetchurl" in output
-        assert "src = ./.;" not in output
+        assert "cleanSource" not in output
 
     def test_no_dependencies_emits_a_null_vendor_hash(self):
         """
@@ -1362,7 +1577,14 @@ class TestRubyBundler:
 
     def test_local_app_builds_from_the_recipe_dir(self):
         output = generate(self._spec())
-        assert "src = ./.;" in output
+        assert "./." in output
+        assert "fetchurl" not in output
+
+    def test_the_recipe_directory_is_filtered_before_it_reaches_the_store(self):
+        """Same closed exclusion list as every other local-source template."""
+        output = generate(self._spec())
+        assert "pkgs.lib.cleanSource ./." in output
+        assert '!= "hop3.nix"' in output
 
     def test_packaged_app_fetches_a_pinned_tarball(self):
         """A released app is hash-pinned, not the recipe directory."""

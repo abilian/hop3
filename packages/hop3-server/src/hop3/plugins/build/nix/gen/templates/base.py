@@ -105,6 +105,47 @@ class Template(Protocol):
 # ---------------------------------------------------------------------------
 
 
+#: The generated expression's own filename. The builder writes it into the
+#: app's source directory before building, so an unfiltered `./.` makes every
+#: expression part of its own input.
+_GENERATED_EXPR_NAME = "hop3.nix"
+
+
+def local_source_expr() -> str:
+    """
+    The ``src`` for an app built from its own recipe directory.
+
+    A bare ``./.`` copies the whole working directory into the store, and two
+    things in there do not belong:
+
+    - **`.git`**. ``hop3 launch <repo-url>`` clones into the app's source
+      directory and nothing strips it afterwards (`core.git.clone_repository`).
+      Packfiles are not byte-stable across clones, so identical code yields a
+      different derivation; and `.git/config` holds the remote URL, token
+      included if the URL carried one, in a world-readable store.
+      ``lib.cleanSource`` drops it, with editor backups and `result` symlinks.
+    - **the generated expression itself**, which `nix.builder` writes into the
+      source directory before building. Without this a change to the generator
+      alters the `src` hash of every app it emits, so `nix build --rebuild`
+      compares two different derivations.
+
+    What is *not* in here, though it looks as if it should be: the app's
+    runtime droppings. A worker's working directory is this same source
+    directory, so a deployed app writes its generated config, its SQLite file
+    and its `data/` inside a future `src` — but every deploy clears and
+    re-extracts `src/` before building
+    (:func:`hop3.lib.archives.extract_archive_to_dir`), so none of it survives
+    to the build. That makes this list closed rather than best-effort.
+    """
+    return (
+        "pkgs.lib.cleanSourceWith {\n"
+        "      src = pkgs.lib.cleanSource ./.;\n"
+        "      filter = path: _type:\n"
+        f'        baseNameOf (toString path) != "{_GENERATED_EXPR_NAME}";\n'
+        "    }"
+    )
+
+
 def format_local_vars(local_vars: dict[str, str]) -> str:
     """Emit local shell variable assignments for the wrapper script top."""
     return "\n".join(

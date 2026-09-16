@@ -35,6 +35,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    local_source_expr,
     pinned_nixpkgs_header,
 )
 
@@ -52,6 +53,20 @@ _NO_DEPS_HASH = (
     '`pip-deps-hash = "sha256-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA="` '
     "and read the `got:` hash Nix reports."
 )
+
+
+#: Installs the app's own tree beside the venv. `$src` is the filtered recipe
+#: directory (`dontUnpack` keeps it a store path rather than unpacking it), and
+#: `$out/app` is a directory the template already creates and, until now, never
+#: wrote to.
+_LOCAL_APP_INSTALL = """
+      # The application's own code, from the recipe directory.
+      cp -r $src/. $out/app/
+"""
+
+#: `$APPDIR` in the wrapper is a placeholder until the store path exists.
+_LOCAL_APP_SED = """
+      sed -i "s|APPDIR_PLACEHOLDER|$out/app|g" $out/bin/{pname}"""
 
 
 class PythonVenvTemplate:
@@ -107,9 +122,42 @@ class PythonVenvTemplate:
             else ""
         )
 
+        # `pip-local-source = true` means the application IS the recipe
+        # directory — the git-push case. It is declared rather than inferred
+        # from a missing `url`, the way the fetching templates do it: this one
+        # never reads `spec.source`, so no python-venv recipe has ever carried
+        # a url and its absence says nothing. Inferring from it made every
+        # existing recipe (isso, bugsink, radicale) look local.
+        #
+        # The venv is still built from the hash-pinned lockfile;
+        # what changes is that the app's own code is installed beside it and
+        # put on PYTHONPATH, so `exec-target` names the console script that
+        # runs it (gunicorn, uvicorn) rather than the app being one of the
+        # pinned requirements. That keeps `exec-target`'s meaning exactly as it
+        # was — a script in the venv's bin — and asks the author for no
+        # packaging beyond the lockfile they already need.
+        local_source = p.local_source
+        src_attr = f"\n    src = {local_source_expr()};" if local_source else ""
+        app_install = _LOCAL_APP_INSTALL if local_source else ""
+        app_sed = _LOCAL_APP_SED.format(pname=spec.pname) if local_source else ""
+
         exec_args = " " + " ".join(spec.exec_args) if spec.exec_args else ""
         exec_line = f"VENVBIN/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
+        if local_source:
+            shebang, _, rest = wrapper_body.partition("\n")
+            wrapper_body = (
+                shebang
+                + "\n\n"
+                # $APPDIR is the app's own tree in the store; PYTHONPATH is what
+                # makes `gunicorn myapp:app` find it. Both are placeholders the
+                # installPhase seds, because the store path is not known here.
+                + 'APPDIR="APPDIR_PLACEHOLDER"\n'
+                + "export APPDIR\n"
+                + 'PYTHONPATH="$APPDIR'
+                "${PYTHONPATH:+:"
+                '${PYTHONPATH}}"\n' + "export PYTHONPATH" + rest
+            )
 
         runtime_env_json = format_runtime_env_json(spec.runtime_env)
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
@@ -225,7 +273,7 @@ CARGOVENDOR
     # sandboxed and offline.
     pname = "{spec.pname}";
     inherit version;
-    meta.description = "{spec.description}";
+    meta.description = "{spec.description}";{src_attr}
 
     dontUnpack = true;
     dontBuild = true;
@@ -234,6 +282,7 @@ CARGOVENDOR
 
     installPhase = ''
       mkdir -p $out/app $out/bin $out/venv $out/hop3
+{app_install}
 
       # Point cargo at the crates vendored above and forbid it the network, so
       # a Rust extension compiles from source inside the sandbox. Only written
@@ -308,7 +357,7 @@ RECORDFIX
       cat > $out/bin/{spec.pname} << 'WRAPPER'
 {wrapper_body}
 WRAPPER
-      sed -i "s|VENVBIN|$out/venv/bin|g" $out/bin/{spec.pname}
+      sed -i "s|VENVBIN|$out/venv/bin|g" $out/bin/{spec.pname}{app_sed}
       chmod +x $out/bin/{spec.pname}
 
       cat > $out/hop3/runtime.json << EOF
