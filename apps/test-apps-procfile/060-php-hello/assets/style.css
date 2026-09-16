@@ -1,0 +1,5 @@
+/* Served by nginx off disk, not by PHP: under php-fpm a static file never
+   reaches the interpreter, so this fetch is what proves nginx can read the
+   document root as www-data (it is in the hop3 group). */
+body { font-family: system-ui, sans-serif; margin: 2rem; }
+h1 { color: #2d6a4f; }

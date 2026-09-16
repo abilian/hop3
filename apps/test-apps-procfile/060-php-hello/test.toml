@@ -1,0 +1,49 @@
+# The php-fpm runtime, end to end, without composer, a database or a download.
+#
+# The ten catalog PHP apps were the only thing exercising this path, and each
+# needs all three. A regression therefore surfaced in a five-hour catalog run
+# rather than in a test.
+
+[test]
+name = "060-php-hello"
+category = "deployment"
+tier = "fast"
+priority = "P0"
+description = "PHP app served by a php-fpm pool behind nginx, no config at all"
+
+[test.requirements]
+targets = ["docker", "remote"]
+services = []
+
+[test.metadata]
+author = "hop3-team"
+covers = ["php", "php-fpm", "fastcgi", "nginx"]
+
+[deployment]
+path = "."
+type = "php"
+
+# The production runtime actually served this, and said so itself.
+[[validations]]
+type = "http"
+path = "/"
+[validations.expect]
+status = 200
+contains = "fpm-fcgi"
+
+# try_files sends an unrouted path to the front controller, which is what every
+# PHP framework expects and what `php -S` did implicitly.
+[[validations]]
+type = "http"
+path = "/no/such/page"
+[validations.expect]
+status = 200
+contains = "front controller handled: /no/such/page"
+
+# A static asset comes off disk as www-data rather than through the interpreter.
+[[validations]]
+type = "http"
+path = "/assets/style.css"
+[validations.expect]
+status = 200
+contains = "font-family"
