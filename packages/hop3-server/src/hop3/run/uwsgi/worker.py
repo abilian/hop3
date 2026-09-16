@@ -8,6 +8,7 @@ from __future__ import annotations
 import grp
 import os
 import pwd
+import shlex
 import shutil
 from abc import abstractmethod
 from dataclasses import dataclass, field
@@ -96,6 +97,61 @@ def _quote_env_value(value: object) -> str:
     for char in ("\\", "`", '"', "$"):
         text = text.replace(char, "\\" + char)
     return text.replace("'", "'\\''")
+
+
+#: Shell operators that make a command more than one program. `exec` applies to
+#: the first word, so everything after one of these is silently dropped.
+_CHAINING_OPERATORS = frozenset({"&&", "||", ";", "|", "&"})
+
+
+def _refuse_compound_command(command: str, app_name: str, kind: str) -> None:
+    """
+    Refuse a worker command that `exec` would truncate.
+
+    A worker is wrapped as ``sh -c "… ; exec <command>"``, so a command built
+    out of several programs loses everything after the first: `exec` replaces
+    the shell with that program and the rest is never reached. Nothing said so
+    — the app came up running only its first segment, or not at all.
+
+    Refused rather than repaired, because the platform already has the right
+    shape for "do this, then serve": ``[run].before-run``. An author who truly
+    wants a shell can ask for one explicitly, as `bash -c '…'`, which is a
+    single program taking a script as its argument and passes this check.
+    """
+    # `punctuation_chars` is what makes this see an operator that is glued to
+    # the word before it: plain `shlex.split` yields "migrate;" as one token and
+    # the chain goes unnoticed. Quoted operators stay inside their argument,
+    # which is why `bash -c 'a && b'` — one program, taking a script — passes.
+    lexer = shlex.shlex(command, posix=True, punctuation_chars=True)
+    lexer.whitespace_split = True
+    try:
+        words = list(lexer)
+    except ValueError:
+        # Unbalanced quotes: we cannot prove it is compound, so we do not
+        # block on a guess. The shell will report its own parse error.
+        return
+    found = _CHAINING_OPERATORS.intersection(words)
+    if not found:
+        return
+    operator = next(iter(sorted(found)))
+    abort_with_diagnosis(
+        Diagnosis(
+            component="uWSGI worker",
+            action=f"start the '{kind}' worker for '{app_name}'",
+            reason=(
+                f"its command chains several programs with {operator!r}, and a "
+                f"worker command must be a single program: it is run with "
+                f"`exec`, which replaces the shell with the first program, so "
+                f"everything after {operator!r} would never run"
+            ),
+            hint=(
+                "Move the setup half to [run].before-run, which runs once "
+                "before the worker starts. If you really want a shell, ask "
+                "for one explicitly: bash -c '<the whole thing>'."
+            ),
+            troubleshooting=[f"the command was: {command}"],
+        )
+    )
 
 
 @dataclass
@@ -244,7 +300,15 @@ class UwsgiWorker:
         the shell parse), not a security control. Do not "harden" this
         by, say, list-form ``subprocess`` — uWSGI's ``attach-daemon``
         only takes a shell string, and Procfile commands legitimately
-        rely on shell features (``$PORT`` expansion, ``&&`` chains).
+        rely on ``$PORT`` expansion.
+
+        What they may **not** rely on is chaining. The command is `exec`'d,
+        so it has to be one program: in ``a && b``, `exec` lands on ``a``,
+        the shell is replaced by it, and ``b`` never runs. This docstring
+        used to promise ``&&`` chains worked, which is how the php-fpm
+        runtime shipped with a ``sed … && exec php-fpm …`` worker that never
+        started a pool. :func:`_refuse_compound_command` now says so instead
+        of letting the tail be dropped in silence.
         """
         from hop3.orm import (  # ruff:ignore[import-outside-top-level]
             App,
@@ -307,6 +371,7 @@ class UwsgiWorker:
         log_path = app.log_path
         daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
         exports_str = "; ".join(exports)
+        _refuse_compound_command(self.command, app.name, self.kind)
         shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
         self.settings.add("attach-daemon", shell_cmd)
 
