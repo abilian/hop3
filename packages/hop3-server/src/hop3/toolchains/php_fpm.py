@@ -33,6 +33,7 @@ __all__ = [
     "document_root",
     "php_fpm_binary",
     "pool_config",
+    "render_pool_config",
     "web_command",
 ]
 
@@ -48,7 +49,7 @@ _PORT_PLACEHOLDER = "__HOP3_PORT__"
 #: Frameworks that put their front controller in a subdirectory. Serving the
 #: project root instead exposes `.env`, `composer.json` and the whole vendor
 #: tree over HTTP, so this is a security default, not a convenience.
-_FRONT_CONTROLLER_DIRS = ("public", "web", "htdocs")
+_FRONT_CONTROLLER_DIRS = ("public", "web", "htdocs", "www")
 
 #: php-fpm binaries are versioned on Debian (`php-fpm8.3`), with the unversioned
 #: name sometimes absent even though the package is installed.
@@ -94,7 +95,13 @@ def document_root(src_path: Path, declared: str = "") -> Path:
 
     Laravel and Symfony keep their front controller under `public/`; serving
     the root would publish the application's own source and `.env`. A recipe
-    that knows better says so with `PHP_DOCUMENT_ROOT`.
+    that knows better says so with ``[build].document-root``.
+
+    That used to read ``PHP_DOCUMENT_ROOT`` out of the toolchain's env, which
+    is parsed from ``<app_path>/ENV`` — a file nothing in Hop3 writes. So the
+    knob was documented, validated, and unreachable: a recipe that set it got
+    silent auto-detection, and for an app whose web root is not one of the
+    names below that means serving the project root, data directory included.
     """
     if declared:
         root = (src_path / declared).resolve()
@@ -104,10 +111,13 @@ def document_root(src_path: Path, declared: str = "") -> Path:
                     component="PHP toolchain",
                     action="resolve document root",
                     reason=(
-                        f"PHP_DOCUMENT_ROOT is {declared!r}, which is not a "
-                        f"directory in the application source"
+                        f"[build].document-root is {declared!r}, which is not "
+                        f"a directory in the application source"
                     ),
-                    hint="Set it to a path relative to the project root, or unset it.",
+                    hint=(
+                        "Set it to a path relative to the project root, or "
+                        "remove it and let the front controller be detected."
+                    ),
                 )
             )
         return root
@@ -126,6 +136,15 @@ def pool_config(app_name: str, log_path: Path) -> str:
     a pool child, so a master that has forked no working child stays silent
     and the deploy correctly fails. ``catch_workers_output`` is what makes a
     PHP fatal reach the app's log instead of being dropped.
+
+    ``clear_env = no`` is what makes the app's environment reach it at all.
+    php-fpm clears a worker's environment by default, and Hop3's entire addon
+    model is environment injection: `DATABASE_URL`, `MYSQL_*`, `REDIS_URL` and
+    every `[env]` value are exported by the `attach-daemon` line that starts
+    this pool, and without this they stop at the master. Every other runtime
+    Hop3 supervises — gunicorn, node, the old `php -S` — inherits them, so
+    leaving the default here would mean a PHP app alone could not read the
+    credentials the platform provisioned for it.
     """
     return f"""\
 [global]
@@ -144,25 +163,34 @@ ping.path = {FCGI_PING_PATH}
 ping.response = pong
 catch_workers_output = yes
 decorate_workers_output = no
+clear_env = no
 """
+
+
+def render_pool_config(template: str, port: str) -> str:
+    """
+    The pool config for a port that only exists once the app is started.
+
+    Called from the spawn path, where the port has just been resolved. It was
+    once a ``sed`` at the head of the worker's command line, which could not
+    work: uWSGI's ``attach-daemon`` wrapper prepends ``exec`` to the command,
+    so the shell was replaced by ``sed`` and the ``&& exec php-fpm`` after it
+    was never reached. The pool never started, and no test saw it, because the
+    tests asserted the shape of that command string rather than that a pool
+    came up — and because every PHP recipe still declares ``[run].start``,
+    which overrides this worker, so no deployed app had yet taken the path.
+    """
+    return template.replace(_PORT_PLACEHOLDER, port)
 
 
 def web_command(binary: str, app_path: Path) -> str:
     """
     The ``attach-daemon`` line that runs the pool.
 
-    The port is substituted at start because that is when it exists. uWSGI
-    already runs this through ``sh -c`` and already expands ``$PORT`` there,
-    so the substitution costs one `sed` rather than a deploy-time hook that
-    a recipe's own `before-run` could override.
-
-    ponytail: a sed at start is the cheap way to get a deploy-time value into
-    a build-time file. The upgrade path is a process manager that renders its
-    children's configs itself (ADR 023), at which point this line goes away.
+    One program and no shell operators. The caller wraps this in
+    ``sh -c "… ; exec <command>"``, so anything compound here would put
+    ``exec`` on the wrong word — which is exactly what happened while the
+    port substitution lived on this line. The config it names is written by
+    :func:`render_pool_config` before the worker is created.
     """
-    template = app_path / POOL_TEMPLATE_NAME
-    config = app_path / POOL_CONFIG_NAME
-    return (
-        f"sed 's/{_PORT_PLACEHOLDER}/'\"$PORT\"'/' {template} > {config} "
-        f"&& exec {binary} --nodaemonize --fpm-config {config}"
-    )
+    return f"{binary} --nodaemonize --fpm-config {app_path / POOL_CONFIG_NAME}"

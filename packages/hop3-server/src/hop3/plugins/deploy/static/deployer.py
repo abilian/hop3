@@ -6,7 +6,6 @@
 from __future__ import annotations
 
 import os
-import subprocess
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -22,6 +21,7 @@ from hop3.core.protocols import (
 from hop3.lib import log
 from hop3.orm import App, AppStateEnum
 from hop3.project.config import AppConfig
+from hop3.run.served_tree import grant_web_server_read
 
 
 @dataclass(frozen=True)
@@ -172,36 +172,14 @@ class StaticDeployer:
         """
         Make the served static tree readable by the nginx worker (www-data).
 
-        ``git checkout`` during deploy creates files mode 0600 (owner-only).
-        That's fine for proxied apps — their process runs as the hop3 user and
-        reads its own files — but nginx serves static sites directly and its
-        workers run as www-data, which then gets ``403 Forbidden`` on every
-        0600 file. ``chmod -R a+rX`` grants read to all plus traverse on
-        directories, without making data files executable.
-
-        Best-effort: a read-only artifact (e.g. a Nix store path, already
-        world-readable) or any chmod failure is logged, not fatal — the
-        proxied case never needed this at all.
+        The reasoning, and the same grant for a php-fpm app's document root,
+        live in :mod:`hop3.run.served_tree` — nginx serving an app's files off
+        disk stopped being unique to static sites when php-fpm arrived.
         """
         served = Path(static_path)
         if not served.is_absolute():
             served = self.app.src_path / served
-        if not served.exists():
-            return
-        try:
-            subprocess.run(
-                ["chmod", "-R", "a+rX", str(served)],
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-            log(f"Granted nginx read access to {served}", level=3)
-        except (subprocess.CalledProcessError, OSError) as e:
-            log(
-                f"Could not relax permissions on {served} for nginx: {e}",
-                level=1,
-                fg="yellow",
-            )
+        grant_web_server_read(served)
 
     def start(self) -> None:
         """Start the static app (same as deploy)."""

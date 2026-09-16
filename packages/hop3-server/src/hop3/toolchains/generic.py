@@ -55,13 +55,8 @@ class GenericToolchain(LanguageToolchain):
 
         Returns the toolchain name if [build] toolchain is set, otherwise None.
         """
-        if self.context is None:
-            return None
-
-        app_config = self.context.app_config
-        hop3_config = app_config.get("hop3_config", {})
-        build_section = hop3_config.get("build", {})
-        return build_section.get("toolchain")
+        declared = self.build_option("toolchain")
+        return declared if isinstance(declared, str) else None
 
     def build(self) -> BuildArtifact:
         """

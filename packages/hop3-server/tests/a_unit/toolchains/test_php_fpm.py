@@ -22,6 +22,7 @@ from hop3.toolchains.php_fpm import (
     document_root,
     php_fpm_binary,
     pool_config,
+    render_pool_config,
     web_command,
 )
 
@@ -34,7 +35,7 @@ class TestTheDocumentRootIsNotAlwaysTheProjectRoot:
         (tmp_path / ".env").write_text("APP_KEY=secret\n")
         assert document_root(tmp_path) == tmp_path / "public"
 
-    @pytest.mark.parametrize("name", ["public", "web", "htdocs"])
+    @pytest.mark.parametrize("name", ["public", "web", "htdocs", "www"])
     def test_each_known_convention_is_recognised(self, tmp_path, name) -> None:
         (tmp_path / name).mkdir()
         (tmp_path / name / "index.php").touch()
@@ -59,7 +60,17 @@ class TestTheDocumentRootIsNotAlwaysTheProjectRoot:
     def test_a_declared_root_that_does_not_exist_aborts(self, tmp_path) -> None:
         with pytest.raises(Abort) as excinfo:
             document_root(tmp_path, "nope")
-        assert "PHP_DOCUMENT_ROOT" in str(excinfo.value)
+        assert "[build].document-root" in str(excinfo.value)
+
+    def test_the_abort_names_the_key_a_recipe_can_actually_set(self, tmp_path) -> None:
+        """
+        It used to name `PHP_DOCUMENT_ROOT`, an environment variable read from
+        a file nothing writes — so the message sent a reader to a knob that
+        could not work.
+        """
+        with pytest.raises(Abort) as excinfo:
+            document_root(tmp_path, "nope")
+        assert "PHP_DOCUMENT_ROOT" not in str(excinfo.value)
 
 
 class TestThePoolAnswersTheReadinessGate:
@@ -87,19 +98,64 @@ class TestThePoolAnswersTheReadinessGate:
 
 
 class TestTheWebCommand:
-    def test_it_substitutes_the_port_then_execs_the_pool(self, tmp_path) -> None:
-        command = web_command("/usr/sbin/php-fpm8.3", tmp_path)
-        assert str(tmp_path / POOL_TEMPLATE_NAME) in command
-        assert str(tmp_path / POOL_CONFIG_NAME) in command
-        assert '"$PORT"' in command, "expanded by the sh -c attach-daemon runs"
-        assert "exec /usr/sbin/php-fpm8.3" in command
+    """
+    The command has to survive being `exec`'d.
 
-    def test_it_execs_so_the_daemon_is_the_process_uwsgi_watches(
-        self, tmp_path
-    ) -> None:
-        """Without exec, uWSGI supervises the shell and misses a pool crash."""
+    `uwsgi.worker` wraps every worker as ``sh -c "cd … ; exec <command>"``, so
+    the command must be one program. It used to be
+    ``sed … > … && exec php-fpm …``: `exec` landed on `sed`, replacing the
+    shell, and php-fpm was never reached — the pool did not start once, on any
+    app. These tests replaced ones that asserted that string's *shape*, which
+    is how a command that could not work had passing tests.
+    """
+
+    def test_it_runs_the_pool(self, tmp_path) -> None:
         command = web_command("/usr/sbin/php-fpm8.3", tmp_path)
-        assert "&& exec " in command
+        assert command.startswith("/usr/sbin/php-fpm8.3 ")
+        assert str(tmp_path / POOL_CONFIG_NAME) in command
+
+    def test_it_is_one_program_so_exec_lands_on_the_pool(self, tmp_path) -> None:
+        """
+        The caller prepends `exec`. Any shell operator here would put it on
+        the wrong word, and the pool would never be what uWSGI supervises.
+        """
+        command = web_command("/usr/sbin/php-fpm8.3", tmp_path)
+        for operator in ("&&", "||", ";", "|", ">", "<"):
+            assert operator not in command, (
+                f"{operator!r} makes this compound, so the caller's `exec` "
+                f"would apply to its first word instead of php-fpm"
+            )
+
+    def test_it_does_not_name_the_template(self, tmp_path) -> None:
+        """The template is rendered before the worker runs, not by it."""
+        command = web_command("/usr/sbin/php-fpm8.3", tmp_path)
+        assert str(tmp_path / POOL_TEMPLATE_NAME) not in command
+
+    def test_the_pool_stays_in_the_foreground(self, tmp_path) -> None:
+        """A daemon that forks away is one uWSGI cannot supervise."""
+        assert "--nodaemonize" in web_command("/usr/sbin/php-fpm8.3", tmp_path)
+
+
+class TestThePoolPassesTheAppsEnvironment:
+    """
+    php-fpm clears a worker's environment by default, and Hop3 injects every
+    addon credential as an environment variable. Without `clear_env = no` a
+    PHP app is the one runtime on the platform that cannot read the database
+    it was provisioned.
+    """
+
+    def test_the_environment_reaches_the_workers(self, tmp_path) -> None:
+        assert "clear_env = no" in pool_config("myapp", tmp_path / "l.log")
+
+
+class TestRenderingThePool:
+    def test_the_port_replaces_the_placeholder(self, tmp_path) -> None:
+        rendered = render_pool_config(pool_config("myapp", tmp_path / "l.log"), "41781")
+        assert "listen = 127.0.0.1:41781" in rendered
+
+    def test_nothing_is_left_to_substitute(self, tmp_path) -> None:
+        rendered = render_pool_config(pool_config("myapp", tmp_path / "l.log"), "41781")
+        assert "__HOP3_PORT__" not in rendered
 
 
 class TestFindingTheBinary:
