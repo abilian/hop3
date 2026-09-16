@@ -6,6 +6,7 @@ import subprocess
 from dataclasses import dataclass
 
 from hop3.config import UWSGI_ENABLED, HopConfig
+from hop3.core.artifacts import load_backend_protocol
 from hop3.core.protocols import (
     BuildArtifact,
     DeploymentContext,
@@ -100,10 +101,16 @@ class UWSGIDeployer:
         if self.app.run_state != AppStateEnum.RUNNING:
             self.app.transition_state(AppStateEnum.RUNNING)
 
-        # Return HTTP socket info (apps now listen on HTTP ports)
+        # What the app's own socket speaks, which is not always HTTP: a
+        # php-fpm pool answers FastCGI there and nothing else. This was
+        # hardcoded to "http", and nothing read it, so it drifted into being
+        # wrong — while the one reader that appeared, the test harness, used
+        # the port beside it to poll `http://127.0.0.1:<port>/` and reported
+        # every php-fpm app as a crashed app after forty attempts.
         bind_address = "127.0.0.1"
         port = self.app.port
-        return DeploymentInfo(protocol="http", address=bind_address, port=port)
+        protocol = load_backend_protocol(self.app.app_path)
+        return DeploymentInfo(protocol=protocol, address=bind_address, port=port)
 
     def start(self) -> None:
         """Starts the app by calling deploy with no scaling changes."""

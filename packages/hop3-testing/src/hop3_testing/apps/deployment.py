@@ -138,6 +138,10 @@ class DeploymentSession:
         self._last_deploy_error: str | None = None
         self._last_deploy_output: str = ""
         self._app_port: int | None = None
+        #: What the app's own port speaks. "fastcgi" (a php-fpm pool) cannot be
+        #: probed with an HTTP client at all, so such an app is tested through
+        #: nginx, which is the only place its HTTP responses exist.
+        self._app_protocol: str = "http"
 
         # Console setup
         self.console = console or PrintingConsole()
@@ -339,12 +343,19 @@ class DeploymentSession:
         self._extract_port_from_output(stdout)
 
     def _extract_port_from_output(self, stdout: str) -> None:
-        """Extract the app's direct port from deploy output.
+        """Extract the app's direct port and what that port speaks.
 
         Parses lines like:
             App running at: DeploymentInfo(protocol='http', address='127.0.0.1', port=55489)
         or:
             export PORT='55489'
+
+        The protocol matters as much as the port. A php-fpm app's socket
+        answers FastCGI and nothing else, so polling `http://127.0.0.1:<port>/`
+        against it fails forty times and the app is reported as crashed while
+        it serves perfectly through nginx. The server names the protocol on
+        this same line; taking it from there keeps one contract rather than
+        letting the harness guess from the app's shape.
         """
         import re  # noqa: PLC0415
 
@@ -352,7 +363,11 @@ class DeploymentSession:
         match = re.search(r"port=(\d+)", stdout)
         if match:
             self._app_port = int(match.group(1))
-            self.console.debug(f"Extracted app port: {self._app_port}")
+            protocol = re.search(r"protocol='([^']*)'", stdout)
+            self._app_protocol = protocol.group(1) if protocol else "http"
+            self.console.debug(
+                f"Extracted app port: {self._app_port} ({self._app_protocol})"
+            )
             return
 
         # Try export PORT pattern
@@ -442,12 +457,17 @@ class DeploymentSession:
                 "details": {},
             }
 
-        # Try to get the app's direct port and test without nginx
+        # Try to get the app's direct port and test without nginx. A port that
+        # does not speak HTTP is no use here: a php-fpm pool answers FastCGI on
+        # its socket, so the direct probe times out on an app that is serving.
+        # Such an app goes down the same route as a static one — through the
+        # proxy, which is where its HTTP responses exist.
         app_port = self.get_app_port()
-        if app_port:
+        if app_port and self._app_protocol == "http":
             return self._test_http_direct(app_port, path, expected_status, max_retries)
 
-        # No direct port (e.g., static apps served by nginx only).
+        # No usable direct port (static apps served by nginx only; FastCGI
+        # backends whose socket does not speak HTTP).
         # For SSH targets, test via curl on the server with Host header.
         is_remote = self.target.info.ssh_host not in {"localhost", "127.0.0.1", None}
         if is_remote:
@@ -608,7 +628,9 @@ class DeploymentSession:
         """
         host = self._preparation.test_hostname
         url = f"https://{host}{path}"
-        resolve = f"--resolve {host}:443:127.0.0.1 -k"
+        # Both ports: an app's own vhost redirects http -> https, so a `-L`
+        # body fetch that lands on the :80 vhost needs it mapped too.
+        resolve = f"--resolve {host}:443:127.0.0.1 --resolve {host}:80:127.0.0.1 -k"
         result: dict[str, Any] = {
             "passed": False,
             "message": "",
@@ -616,8 +638,20 @@ class DeploymentSession:
         }
 
         def fetch_body() -> str:
+            # `-L`, for the same reason the direct-port path uses it: a
+            # `contains` assertion is about CONTENT, and for an app whose entry
+            # point redirects (kanboard -> the login controller) that content
+            # lives at the redirect target — a 3xx body is typically empty. The
+            # STATUS check below is deliberately NOT followed, so a recipe can
+            # still assert the immediate `status = 302`.
+            #
+            # These two paths disagreed until a php-fpm app was routed through
+            # this one: the direct-port fetch followed redirects and this did
+            # not, so the same recipe passed or failed depending on which
+            # transport its backend happened to use.
             _, body, _ = self.target.exec_run(
-                f"curl -s {resolve} --max-time 3 '{url}' | head -c {BODY_FETCH_LIMIT}"
+                f"curl -s -L --max-redirs 5 {resolve} --max-time 5 '{url}' "
+                f"| head -c {BODY_FETCH_LIMIT}"
             )
             return body.strip() if body else ""
 
