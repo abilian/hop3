@@ -45,7 +45,7 @@ Tier 1 outranks Tier 2 because the difference is who carries the maintenance. A 
 Both sit below the tiers.
 
 - **Native builder.** Dependency versions are pinned; a Python app is refused outright if its requirements float, per [ADR 039](./039-python-deploy-strategies.md). The build itself runs on the host, with network access and against whatever system libraries happen to be installed, so it has no seal. It is repeatable in practice and guaranteed by nothing.
-- **Docker builder.** Base images are digest-pinned and app versions are explicit, while `RUN` steps have unrestricted network access and image builds embed timestamps. Bit-identical rebuilds are not claimed, and Hop3 makes no attempt to seal Docker ([ADR 033](./033-docker-integration.md)).
+- **Docker builder.** Base images are digest-pinned and app versions are explicit, while `RUN` steps have unrestricted network access and image builds embed timestamps. Bit-identical rebuilds are not claimed. Hop3 makes no attempt to seal Docker ([ADR 033](./033-docker-integration.md)).
 
 ### What a tier does not tell you
 
@@ -74,7 +74,7 @@ reads each recipe's `[nix].template` and prints its tier. It needs neither Nix n
 
 ### Checking the claim
 
-A reproducibility claim that nothing exercises decays into a marketing sentence. Two checks exercise it, and the advertised gate is their conjunction:
+A reproducibility claim that nothing exercises decays into a marketing sentence. Two checks exercise it. The advertised gate is their conjunction:
 
 - `hop3-tools nix check-reproducible` builds each recipe, then rebuilds it with `nix build --rebuild`, which compares the second output against the first. Output drift is reported as a *result* (the app is not reproducible) and distinguished from a build that failed for some other reason, which must never be read as a pass. An empty selection fails the gate.
 - The deploy check (`make test-nix`) deploys the same corpus and exercises it over HTTP.
@@ -99,17 +99,17 @@ The ordering matters. A fixed-output mismatch is checked before the determinism 
 
 ### Moving the pin
 
-Every generated expression pins nixpkgs to a commit, and an application may override that pin for itself when it needs a package the default predates. The override is per-application, and every template honours it, so the corpus can be evaluated wholesale against a candidate pin without editing each recipe. It is validated where it is parsed: a malformed revision is refused at parse time, before it can reach an expression that fails opaquely at deploy.
+Every generated expression pins nixpkgs to a commit. An application may override that pin for itself when it needs a package the default predates. The override is per-application and every template honours it, so the corpus can be evaluated wholesale against a candidate pin without editing each recipe. It is validated where it is parsed: a malformed revision is refused at parse time, before it can reach an expression that fails opaquely at deploy.
 
-That last property turns a pin bump into a *measurement*. A bump can invalidate an unbounded number of vendored dependency hashes at once, and it can remove attributes an application depends on. Both outcomes are expected, both are distinguishable by the classification above, and the resulting per-application disposition is the artefact: it says what the pin costs before anyone commits to paying it.
+That last property turns a pin bump into a *measurement*. A bump can invalidate an unbounded number of vendored dependency hashes at once. It can also remove attributes an application depends on. Both outcomes are expected, both are distinguishable by the classification above. The resulting per-application disposition is the artefact: it says what the pin costs before anyone commits to paying it.
 
 Measuring it first matters because the pin is a shared resource and a bump is close to all-or-nothing. The corpus builds against one revision, so the revision cannot move until every recipe builds against the candidate, and a single blocked application withholds the security updates of all the others. The per-application override is the pressure valve. It relieves pressure by fragmenting: an application parked on its own revision must be maintained separately from the rest. Used on purpose for a package the default predates, that is a reasonable exception. Used to route around a bump, it converts one revision to maintain into several.
 
-This is the trade the Nix path makes. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, and this is why it outranks Tier 2.
+This is the trade the Nix path makes. Integration work that a distribution performs once on behalf of all its users moves to whoever owns the pin. Tier 1 hands that work back to nixpkgs, which is why it outranks Tier 2.
 
 ### What the seal covers
 
-The sandbox fixes a build's *inputs*: the source archive, the dependency set, the toolchain, each by hash. It does not fix how the tools consuming those inputs behave. One recipe in the corpus shows the difference. Its vendored dependency set hashed identically under two nixpkgs revisions, and its package manager was the same version in both, yet the installed tree differed, because the surrounding standard environment had changed. The newer environment also carried a check that declined to ship the result, so the difference surfaced at build time.
+The sandbox fixes a build's *inputs*: the source archive, the dependency set, the toolchain, each by hash. It does not fix how the tools consuming those inputs behave. One recipe in the corpus shows the difference. Its vendored dependency set hashed identically under two nixpkgs revisions. Its package manager was the same version in both, yet the installed tree differed, because the surrounding standard environment had changed. The newer environment also carried a check that declined to ship the result, so the difference surfaced at build time.
 
 Identical inputs are necessary for a reproducible build without being sufficient. Determinism is therefore established by rebuilding and comparing rather than by reasoning over input hashes. A pin bump can change a build's output while changing none of its pinned inputs, so its cost is measured per application.
 

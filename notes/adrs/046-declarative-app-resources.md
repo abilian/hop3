@@ -14,7 +14,7 @@ This ADR establishes a declarative model for application resources in `hop3.toml
 
 Hop3's `hop3.toml` was modeled on Nua's `nua-config` (Hop3's predecessor). [ADR 002](./002-config-format.md) reserved a number of Nua-derived fields against future implementation, but several were never realized, and a side-by-side comparison of the two formats surfaced four capabilities that Nua expressed declaratively and Hop3 cannot. Each one forces a *per-app workaround*: by the project ethos, a signal that the platform is missing something.
 
-The four gaps, each a real blocker hit while greening the advertised app/tutorial set:
+The four gaps are each a real blocker hit while greening the advertised app/tutorial set:
 
 1. **No generated secrets.** Many apps require a secret/key to exist *before first boot* (the release crashes without it). Hop3 has no way to declare "generate a secret named X once and keep it"; the only paths are hardcoding (forbidden) or out-of-band `hop3 env set` / `hop3 deploy --env X=$(...)`. This bites Phoenix (`SECRET_KEY_BASE`), Laravel (`APP_KEY`), and Rails (`secret_key_base`).
 2. **No declarative persistence.** There is no `[[volumes]]`-equivalent. An app cannot declare which paths in its tree must survive the source-replacing redeploy, request a tmpfs, or attach a bind mount. The only persisted location is the implicit `data/` dir.
@@ -42,7 +42,7 @@ Adopt a **Hop3-native declarative model** that completes the config surface arou
 
 > **Declare intent in `hop3.toml`; the platform realizes it idempotently, and fails loud when it cannot.**
 
-Tenets that bind the whole design:
+These tenets bind the whole design:
 
 - **Generated-once, never-rotate.** Generated secrets are created on first deploy when unset, persisted as normal app env, and never regenerated on redeploy. Redeploys stay idempotent; secrets never silently rotate and invalidate sessions/data.
 - **Fail loud, never drop.** An unresolvable reference, an unknown `generate` type, an unsupported volume driver, or an unenforceable limit **aborts the deploy** with an actionable message. This removes the silent-drop of dict-valued env entries.
@@ -139,7 +139,7 @@ type   = "persist"          # persist (default) | tmpfs | bind
   include = true
 ```
 
-`realize_volumes` dispatches on `type`, aborting on an unknown type:
+The `realize_volumes` helper dispatches on `type`, aborting on an unknown type:
 
 - **`persist`** (default): a directory under the app's data root (`/home/hop3/apps/<app>/volumes/<name>/`), linked into `target` on every deploy. It lives **outside `src/`**, so the redeploy sequence (stop-previous-instance → wipe & re-extract `src/` → `git clean`) cannot touch it; the link is re-established after extract, before start, which is the precise fix for "which tree paths survive a redeploy". An empty volume is seeded once from shipped content; the in-src link is relative; `mode` is honoured and the dir is chowned to the run-user on root deploys.
 - **`tmpfs`**: a sized RAM mount at `src/<target>` (a real kernel mount), for caches/scratch. `size` is **required** and format-validated like `[limits].memory`: an uncapped tmpfs defaults to half of RAM, a multi-tenant footgun, so a sizeless tmpfs aborts at schema time; a cross-section validator rejects `Σ tmpfs size ≥ [limits].memory`. It is never seeded (scratch; shadowed shipped content is *logged*) and **never backed up** (a `[volumes.backup]` on a tmpfs is itself a config error).

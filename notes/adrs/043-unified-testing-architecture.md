@@ -13,7 +13,7 @@
 
 The project accumulated several parallel testing approaches, each added for a good local reason, with no unifying model. A contributor must hold a large set of entry points across many layers in their head, and know *which still work*, because a sizeable fraction are dead. An audit of the full surface (pytest layers, the `hop3-test` runner, the standalone `demos/` harness, the tutorial scripts, `validoc`, `nox`, the Makefile/CI) found:
 
-1. **No fast daily path, and the defaults are slow.** `c_system` sits in the default `testpaths`, so bare `uv run pytest` *and* `make test` pull the Docker layer and can trigger a multi-minute image build. The fast unit suite is reachable only by hand-typing its directory. This is the loudest day-to-day complaint.
+1. **No fast daily path; the defaults are slow.** `c_system` sits in the default `testpaths`, so bare `uv run pytest` *and* `make test` pull the Docker layer and can trigger a multi-minute image build. The fast unit suite is reachable only by hand-typing its directory. This is the loudest day-to-day complaint.
 2. **The primary GitHub CI workflow is dead.** `ci.yml` (the broadest trigger: every push and PR) runs `nox` sessions that do not exist; it fails at session selection on every run. The CI of record is **SourceHut** (`.builds/`); GitHub Actions is unused.
 3. **`hop3-test` advertises commands it doesn't register.** Only `system`, `list`, `cloud` exist; `dev / apps / ci / nightly / hetzner / multi-distro / show` error out, yet the README, `CLAUDE.md`, and the Makefile call them, so several Makefile targets are broken.
 4. **Deploy-and-verify is implemented four times over the same path.** `hop3-test system`, the pytest Docker fixtures, `demos/demo.py` + `demos/lib`, and `scripts/run-all-tutorials.py` each stand up a server and verify an app independently, over the one real `hop3-deploy` primitive that `hop3-testing`'s `DeploymentTarget` ABC already wraps.
@@ -31,7 +31,7 @@ The project accumulated several parallel testing approaches, each added for a go
 
 ### Why now
 
-Pre-1.0, with license to make breaking changes. The cost of carrying a broken, fast-loop-less, diagnosis-less testing surface into 1.0 is far higher than consolidating now. The consolidation is mostly clarification and deletion; the one new component is a shared diagnostic bundle.
+Hop3 is pre-1.0, with license to make breaking changes. The cost of carrying a broken, fast-loop-less, diagnosis-less testing surface into 1.0 is far higher than consolidating now. The consolidation is mostly clarification and deletion; the one new component is a shared diagnostic bundle.
 
 ## Decision
 
@@ -45,7 +45,7 @@ We keep **three** runners, each with a crisp, non-overlapping domain; we do **no
 | **hop3-test** | **applications** (real apps + demos): deploy + verify | exercises the platform indirectly; owns the app catalog + the `DeploymentTarget` ABC |
 | **validoc** | **narratives**: tutorials-as-tests, long CLI-driven scenarios | literate, doc-shaped; verifies docs match reality |
 
-The "unification" is: (a) a memorable map of *which runner for what*, (b) one set of speed tiers across all three, and (c) **one shared diagnostic bundle** every runner calls whenever a deployed server is involved.
+The unification has three parts: (a) a memorable map of *which runner for what*, (b) one set of speed tiers across all three, and (c) **one shared diagnostic bundle** every runner calls whenever a deployed server is involved.
 
 ### 2. The pytest pyramid: three layers + a placement rule
 
@@ -61,7 +61,7 @@ The "unification" is: (a) a memorable map of *which runner for what*, (b) one se
 
 **Duplication across layers is allowed and expected.** A hermetic backup-logic test in `b_integration` and a real-deploy backup test in `c_e2e` test different things and should coexist; the only question is which layer a test's *dependencies* place it in.
 
-This supersedes [ADR 026](./026-dashboard-ui-test-classification.md), which classified dashboard tests by the real-vs-mocked-dependency axis. Under the Docker/root/host-mutation axis, a test running real `App.create()` against `tmp_path` with an in-memory DB is *hermetic* and belongs in `b_integration`, reversing [ADR 026](./026-dashboard-ui-test-classification.md). The one in-process `c_system` test moves there as well, because it runs entirely in-process. The skipped Postgres-backup test is made hermetic or moved to `c_e2e`, and the disabled proxy tests are revived into `c_e2e` (they exercise the silent-502 class).
+This supersedes [ADR 026](./026-dashboard-ui-test-classification.md), which classified dashboard tests by the real-vs-mocked-dependency axis. Under the Docker/root/host-mutation axis, a test running real `App.create()` against `tmp_path` with an in-memory DB is *hermetic* and belongs in `b_integration`, reversing [ADR 026](./026-dashboard-ui-test-classification.md). The one in-process `c_system` test moves there as well, because it runs entirely in-process. The skipped Postgres-backup test is made hermetic or moved to `c_e2e`. The disabled proxy tests are revived into `c_e2e` (they exercise the silent-502 class).
 
 ### 3. Coverage policy
 
@@ -78,7 +78,7 @@ Tiers are named by feedback latency and selected by pytest markers stamped from 
 | **apps** | `hop3-test`: a P0 subset, or one named app | yes | touching deployer/proxy/builders | on-demand |
 | **nightly** | full `hop3-test` app/demo matrix + `validoc` tutorials + multi-distro, **HTML report** | yes | cron / release | SourceHut nightly |
 
-The slow Docker platform tests (backups, git-push, proxy) live in **`check`** and are not nightly-only (they are core guarantees and should gate a push). `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Bare `pytest` (and `make test`) run the in-process layers only (`a_unit` + `b_integration`); the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never starts Docker and CI invokes `c_e2e` explicitly.
+The slow Docker platform tests (backups, git-push, proxy) live in **`check`** and are not nightly-only (they are core guarantees and should gate a push). `check` requires Docker, so non-Docker distros run `fast` instead, matching the `.builds/` split. Running bare `pytest` (or `make test`) covers the in-process layers only (`a_unit` + `b_integration`); the `testpaths` default excludes the Docker `c_e2e` layer, so a reflexive `pytest` never starts Docker and CI invokes `c_e2e` explicitly.
 
 ### 5. Unified entry points
 
@@ -149,7 +149,7 @@ After a parity window (see migration):
 - The forked diagnostics collectors, folded into `collect_diagnostic_bundle`.
 - The dead Makefile targets (§5).
 
-**Kept:** `demos/demo.py`, `demos/lib`, and `runners/demo.py`. A demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression. The meta runner exercises each demo in place (`DemoTestRunner` → `demos/demo.py`) and surfaces a non-zero exit as a failed test; `runners/demo.py` is the integration layer. The HTML generator, the catalog/scanner, the `targets/` ABC, the Hetzner orchestrator, and `runners/tutorial.py` (now reached via tutorial discovery) are also kept. Reducing demo/runner duplication within that constraint is welcome.
+**Kept:** `demos/demo.py`, `demos/lib`, and `runners/demo.py`. A demo is simultaneously an educational walkthrough, a live demonstration and a test, so a broken demo is a first-class regression. The meta runner exercises each demo in place (`DemoTestRunner` → `demos/demo.py`) and surfaces a non-zero exit as a failed test; `runners/demo.py` is the integration layer. The HTML generator, the catalog/scanner, the `targets/` ABC, the Hetzner orchestrator, and `runners/tutorial.py` (now reached via tutorial discovery) are also kept. Reducing demo/runner duplication within that constraint is welcome.
 
 ### 10. Cross-version upgrade validation
 
@@ -158,7 +158,7 @@ The e2e surface validates that a running server *upgrades* across releases witho
 Two properties make it a faithful upgrade test and keep it from becoming a self-test:
 
 - **Each version is installed by its own installer.** A hop is a git ref; the chain checks it out into a worktree and runs *that* checkout's `hop3-deploy-server` (`uv run … --local`). Installing an old version with the *current* installer tests a pairing that never shipped: old binaries under a newer, stricter installer that rejects states an older, looser installer produced. The stable `--local`/`--git`/`--pypi` source flags (which every release accepts, and the current deployer keeps as aliases) let one harness drive any version's deployer.
-- **The box is fresh.** The chain starts from a clean slate (a fresh Docker container or a rebuilt cloud VPS (`--provider hetzner`)) because an old release expects the toolchain/OS state of its era, and an existing server carries state that can mask a migration bug.
+- **The box is fresh.** The chain starts from a clean slate (a fresh Docker container or a rebuilt cloud VPS (`--provider hetzner`)) because an old release expects the toolchain/OS state of its era. An existing server carries state that can mask a migration bug.
 
 It reuses the one deploy primitive (§6): a hop is `target.start()` (baseline) or `target.redeploy()` (in-place upgrade) over the `DeploymentTarget` ABC, with the per-hop assertions running through `target.exec_run`. It belongs to the **nightly** tier (real deploys, minutes per hop) and the chain is data, so widening coverage is adding a version to the list. A release whose installed binaries can't even start (e.g. a broken older wheel) is not a viable baseline and is excluded from the chain; that exclusion is itself a finding.
 

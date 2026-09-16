@@ -55,7 +55,7 @@ Adopt **one flag lexicon** (a single canonical spelling, short flag, env var, an
 
 ### D1. The canonical lexicon
 
-One concept, one flag, one env var, one meaning. `HOP3_<FLAG>` is the env var for `--flag` unless noted.
+Each concept gets one flag, one env var and one meaning. `HOP3_<FLAG>` is the env var for `--flag` unless noted.
 
 | Concept | Flag | Short | Env var | Replaces |
 |---------|------|-------|---------|----------|
@@ -108,7 +108,7 @@ The default git branch is **`main`** for every tool; a dev workflow passes `--br
 
 The full model (stacking `-v/-vv/-vvv` levels, `-q/--quiet`, `--debug`, `HOP3_VERBOSITY`, `--yes/-y`, `--no-input`, and `--json/-j`) lives on the **interactive main `hop3` CLI**, which already has it. It is *not* pushed onto the operator/dev tools: `hop3-deploy-server`, `hop3-install`, and `hop3-test` are **one-shot, non-interactive commands** that don't prompt, don't emit machine-parsed data, and have no use for a verbosity level beyond on/off. Forcing the rich model onto them is churn without benefit.
 
-Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (where it already exists) `-q/--quiet`, plus `--clean`/`--force` (D6). The rule across all of them: no tool redefines a global short flag locally (e.g. `hop3-test cloud` must not shadow the group's `-v`), and short flags keep their global meaning (D1). A tool that grows a data-emitting mode (a `--list-images`, a status query) may add `--json` at that point; it is not a blanket requirement.
+Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (where it already exists) `-q/--quiet`, plus `--clean`/`--force` (D6). The rule across all of them is that no tool redefines a global short flag locally (e.g. `hop3-test cloud` must not shadow the group's `-v`), and short flags keep their global meaning (D1). A tool that grows a data-emitting mode (a `--list-images`, a status query) may add `--json` at that point; it is not a blanket requirement.
 
 ### D6. `--force` means one thing
 
@@ -116,7 +116,7 @@ Those tools therefore carry only the minimum: a boolean `-v/--verbose` and (wher
 
 ### D7. One env-var scheme and one precedence rule
 
-One env var per concept, named `HOP3_<FLAG>` for `--flag`, replacing the `HOP3_PYPI_VERSION` / `HOP3_LOCAL_PACKAGE` / `HOP3_DEV_HOST` sprawl. Precedence is uniform and correct everywhere: **explicit flag > env var > built-in default**, and an explicitly-passed flag wins *even when its value equals the default* (fixing the `hop3-deploy` sentinel bug). Implement with "was this provided" tracking (argparse `default=SUPPRESS`, or a None sentinel), never by comparing against the default value.
+There is one env var per concept, named `HOP3_<FLAG>` for `--flag`, replacing the `HOP3_PYPI_VERSION` / `HOP3_LOCAL_PACKAGE` / `HOP3_DEV_HOST` sprawl. Precedence is uniform and correct everywhere: **explicit flag > env var > built-in default**, and an explicitly-passed flag wins *even when its value equals the default* (fixing the `hop3-deploy` sentinel bug). Implement with "was this provided" tracking (argparse `default=SUPPRESS`, or a None sentinel), never by comparing against the default value.
 
 ### D8. Enforcement: one lexicon, per-tool definitions, drift caught at the boundaries
 
@@ -130,16 +130,16 @@ There is no single arg-spec module imported by every tool. `hop3-testing` depend
 
 `hop3-install` keeps its current subcommand dispatch rather than moving to argparse subparsers: `prog` reading `install-server.py` is *correct* for the bundled standalone (`curl | python3` runs a file of that name). Where the `hop3-install server --help` program name matters, set `prog` explicitly.
 
-### D9. `hop3-test`: one `run`, with cardinality as a flag, not a `system`/`cloud`/`matrix` split
+### D9. `hop3-test`: one `run`, with cardinality as a flag
 
-`system` and `cloud` are not fundamentally different commands. Both deploy Hop3 and run the identical app/demo/tutorial catalog through the same core (`cli.runners.run_single_test` → the three runners → `DeploymentSession`, over a `RemoteTarget`). `cloud` adds exactly two things over `system --host`: it OS-rebuilds a *dedicated, operator-supplied* Hetzner server before testing (via `servers.rebuild`; it never creates or destroys the machine), and it can sweep a list of OS images serially on that one server. So the axes that actually matter are the **target** (docker / SSH host / managed cloud server) and the **cardinality** (one target vs an OS-image sweep).
+`system` and `cloud` are not fundamentally different commands. Both deploy Hop3 and run the identical app/demo/tutorial catalog through the same core (`cli.runners.run_single_test` → the three runners → `DeploymentSession`, over a `RemoteTarget`). `cloud` adds exactly two things over `system --host`: it OS-rebuilds a *dedicated, operator-supplied* Hetzner server before testing (via `servers.rebuild`; it never creates or destroys the machine). It can sweep a list of OS images serially on that one server. So the axes that actually matter are the **target** (docker / SSH host / managed cloud server) and the **cardinality** (one target vs an OS-image sweep).
 
-There is **one command, `hop3-test run`**, and both axes are expressed as *flags* on it; cardinality does not warrant a second command:
+There is **one command, `hop3-test run`**. Both axes are expressed as *flags* on it; cardinality does not warrant a second command:
 
 - **Target** per D2: `--docker`, `--host`, or `--provider hetzner` (+ `--server-id`/`--image`) to OS-rebuild a managed box first. Subsumes `system` and the single-image `cloud` path.
 - **Cardinality**: a single target by default; **`--images ubuntu-24.04,debian-13`** (or `--images all`) sweeps a matrix of OS images, each leg a full `run --provider hetzner --image X` (provision → deploy → test → persist), aggregated; `--list-images` lists them.
 
-A first draft made the sweep its own command (`matrix`, with `cloud` as an alias). Rejected on reflection: the sweep is *`run` repeated over images* (same lexicon, same core), "one vs many" is exactly what a flag expresses, and a whole command (plus its help, its alias, its docs) is heavier than `--image` vs `--images`. Folding it in leaves a single command whose help holds the entire cloud cluster (`--provider/--image/--images/--server-id/--list-images`) in one place.
+A first draft made the sweep its own command (`matrix`, with `cloud` as an alias). Rejected on reflection: the sweep is *`run` repeated over images* (same lexicon, same core), "one vs many" is exactly what a flag expresses. A whole command (plus its help, its alias, its docs) is heavier than `--image` vs `--images`. Folding it in leaves a single command whose help holds the cloud-cluster flags (`--provider/--image/--images/--server-id/--list-images`) in one place.
 
 The two deploy wrappers behind these (the `DeploymentTarget.start()` path (docker/ssh) and the separate `system_tests` `DeploymentManager` (cloud)) collapse onto one as a consequence. The cloud target is a `RemoteTarget` to the rebuilt server's address, which is what it already SSHes to. `list` and `why` are orthogonal and unchanged.
 
@@ -169,7 +169,7 @@ hop3-install server --from local --path /src --with mysql,redis,s3 --domain x   
 
 **Fold the operator tools into `hop3` subcommands** (`hop3 deploy-server`, `hop3 test`). The lexicon makes them *look* like one tool; making them *be* one is tempting but wrong, because they are completely different programs. `hop3-install`/`hop3-deploy` run before `hop3-cli` exists, as root, and ship bundled standalone; `hop3-test` is a dev-only dependency with a heavy import graph; the client talks to a running server. They stay separate binaries: the shared lexicon gives the *feel* of one family without the coupling.
 
-**A single `--target URL` with `docker://` / `hetzner://` schemes.** This was the first draft of this ADR. Rejected: those are invented URL schemes, and the three target kinds are acquired too differently (create-and-destroy a container, attach to a host, OS-rebuild a dedicated server) to share one address grammar. Only `ssh://` is a real scheme, and it is accepted as one *form* of `--host` (D2).
+**A single `--target URL` with `docker://` / `hetzner://` schemes.** This was the first draft of this ADR. Rejected: those are invented URL schemes. The three target kinds are acquired too differently (create-and-destroy a container, attach to a host, OS-rebuild a dedicated server) to share one address grammar. Only `ssh://` is a real scheme, accepted as one *form* of `--host` (D2).
 
 **Keep `system` and `cloud` as the top-level split.** Rejected: it names the target *provider* (local vs cloud) as the command boundary, but the boundary that actually matters is single-target vs OS-image sweep. It also keeps two deploy wrappers for one shared test core and leaves `cloud` a grab-bag (single-server run and multi-image sweep conflated in one command).
 
@@ -187,4 +187,4 @@ hop3-install server --from local --path /src --with mysql,redis,s3 --domain x   
 
 Old names remain accepted as **deprecated aliases** for one release, each emitting a one-line stderr deprecation notice pointing at the new spelling: the renamed binary (`hop3-deploy` → `hop3-deploy-server`), flags (`--ssh-user` → `--user`, `--ssh-key` → `--identity`, `--local` → `--from local`, `--deploy-from git` → `--from git`), the changed `--branch` default (`devel` → `main`), and env vars (`HOP3_PYPI_VERSION` → `HOP3_VERSION`, etc.). The alias table lives beside the shared spec. Makefile targets and `docs/` examples move to the new spelling in the same change. The phantom `hop3-test` subcommands are removed from the docstring and CLAUDE.md immediately (they don't exist, so there's nothing to alias). Aliases are dropped in the following release.
 
-The `hop3-test cloud`/`matrix` commands are the one exception to the deprecated-alias rule. The image sweep becomes a *flag* (`run --images`, D9), not a renamed command, so there is nothing to alias and both are removed outright. The sole automated consumer (the Test Lab, [ADR 044](./044-nightly-test-lab.md)) shells `hop3-test run`, never `cloud`/`matrix`, so nothing breaks.
+The `hop3-test cloud`/`matrix` commands are the one exception to the deprecated-alias rule. The image sweep becomes a *flag* (`run --images`, D9), so there is nothing to alias and both are removed outright. The sole automated consumer (the Test Lab, [ADR 044](./044-nightly-test-lab.md)) shells `hop3-test run`, never `cloud`/`matrix`, so nothing breaks.

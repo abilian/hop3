@@ -18,7 +18,7 @@ This is squarely on the project ethos: *packaging apps is system-validation work
 
 ## Goals
 
-1. **Morning status at a glance**: the whole suite's status (apps, docs/tutorials, demos, platform e2e): green/red, counts, duration, and the diff against the previous run (newly-failing / newly-fixed / still-failing).
+1. **Morning status at a glance**: the whole suite's status (apps, docs/tutorials, demos, platform e2e): green/red, counts, duration, plus the diff against the previous run (newly-failing / newly-fixed / still-failing).
 2. **All the logs for failures**: for any failed test, everything potentially useful: build, app/server, nginx access + error, the journal, the deploy transcript, the HTTP exchange, and the silent-502 proxy probe.
 3. **Runs on a Hop3 server, remote-controls Hetzner**: dogfooded on a Hop3 host; provisions and drives Hetzner targets as `hop3-test run --provider hetzner` does today (other providers later).
 4. **Beautiful dashboard + trends** (history, per-app trend lines, flakiness, duration creep) not just a pass/fail dump.
@@ -67,7 +67,7 @@ The reuse boundary is the functional core of `hop3-testing`, promoted to a stabl
 - `Catalog.scan() -> [TestSpec]`: unchanged.
 - `ResultStore`: extended with a read/query API and a Postgres backend (§ data model).
 
-The CLI becomes a headless driver of the same `Orchestrator` writing to the same store (recording `target_type` and a `mode` of `cli` vs `nightly`). Library-over-CLI because the dashboard needs *structured* results and *bundle references* rather than re-parsed console text; sharing the engine guarantees the manual and scheduled paths can never diverge.
+The CLI becomes a headless driver of the same `Orchestrator` writing to the same store (recording `target_type` and a `mode` of `cli` vs `nightly`). Library-over-CLI because the dashboard needs *structured* results and *bundle references*, which re-parsed console text cannot give it; sharing the engine guarantees the manual and scheduled paths can never diverge.
 
 ### C. Collecting all useful data, and surfacing it legibly
 
@@ -85,7 +85,7 @@ The failure mode to avoid is *two systems with two truths*. The single engine/st
 
 - **One store.** Both `hop3-test run` and the scheduler write to the same Postgres store with the same schema and bundle format, so a manual run **shows up in the dashboard** automatically, tagged `mode=cli` and attributed to the operator.
 - **Provenance.** Every run records who/what started it (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, target distro/image. Trends can filter to nightly-only so ad-hoc runs don't pollute the baseline.
-- **Concurrency & isolation.** Each run owns its provisioned target(s); a lightweight lease prevents two runs from claiming the same server, and the nightly scheduler queues (or refuses) if a conflicting run holds the pool.
+- **Concurrency & isolation.** Each run owns its provisioned target(s); a lightweight lease prevents two runs from claiming the same server. The nightly scheduler queues (or refuses) if a conflicting run holds the pool.
 - **Re-run one from anywhere.** The web UI's "re-run this failed test" and `hop3-test run <app> --reuse` are the same single-test path; the result attaches to the original run as a retry, feeding flakiness detection (§E).
 - **Local-repo parity.** The CLI's `--from local` is preserved; scheduled runs default to a branch/SHA. Both record exactly what was tested.
 
@@ -99,7 +99,7 @@ Three server-rendered views (Litestar + HTMX, consistent with the hop3-server da
 
 ### F. Finishing overnight: scaling the target pool
 
-Serial real deploys of the full catalog will not fit 6 h on one server, and the deploy path is largely serial per server (concurrent deploys to one host interfere). The primary lever is **horizontal: a pool of Hetzner targets**, with the catalog **sharded** across them.
+Serial real deploys of the full catalog will not fit 6 h on one server. The deploy path is largely serial per server (concurrent deploys to one host interfere). The primary lever is **horizontal: a pool of Hetzner targets**, with the catalog **sharded** across them.
 
 - **Sharded fan-out**: partition the catalog into N shards, one per target, run in parallel, merge results.
 - **Duration-aware bin-packing**: balance shards from historical per-test durations so all targets finish near the same time.

@@ -7,7 +7,7 @@
 
 ## Context
 
-Hop3 runs its control plane (`hop3-server`, the uWSGI Emperor, the git-push hooks) as the unprivileged `hop3` system user. [ADR 010](./010-security-and-resilience.md) establishes this: `hop3-server` holds no elevated privileges, and every kernel-boundary action is routed through `hop3-rootd` ([ADR 041](./041-privileged-operations-agent.md)), whose entire authentication model is `SO_PEERCRED`: the daemon reads the connecting peer's UID from the socket and admits only `hop3` (and `root` for diagnostics). [ADR 041](./041-privileged-operations-agent.md) states its trust model in one line: *"hop3-server compromise = total compromise"*. It drops per-operation authorization on the grounds that the sole caller is the trusted orchestrator.
+Hop3 runs its control plane (`hop3-server`, the uWSGI Emperor, the git-push hooks) as the unprivileged `hop3` system user. [ADR 010](./010-security-and-resilience.md) establishes this: `hop3-server` holds no elevated privileges, with every kernel-boundary action routed through `hop3-rootd` ([ADR 041](./041-privileged-operations-agent.md)), whose entire authentication model is `SO_PEERCRED`: the daemon reads the connecting peer's UID from the socket and admits only `hop3` (and `root` for diagnostics). [ADR 041](./041-privileged-operations-agent.md) states its trust model in one line: *"hop3-server compromise = total compromise"*. It drops per-operation authorization on the grounds that the sole caller is the trusted orchestrator.
 
 That reasoning holds only if `hop3-server` is the *only* thing running as the `hop3` user. It is not.
 
@@ -25,9 +25,9 @@ Docker-deployed apps are unaffected: they run in their own mount and user namesp
 
 ## Decision
 
-Native app processes run as a dedicated app-runtime identity distinct from the `hop3` orchestrator user, under a **per-app user**, and no app-runtime user is a member of the `hop3` group. The `hop3` user remains the sole member of rootd's trust domain.
+Native app processes run as a dedicated app-runtime identity distinct from the `hop3` orchestrator user, under a **per-app user**. No app-runtime user is a member of the `hop3` group. The `hop3` user remains the sole member of rootd's trust domain.
 
-This makes [ADR 041](./041-privileged-operations-agent.md)'s `SO_PEERCRED` model true as written: `hop3-server` is once again the only non-root peer that can reach rootd, so rootd's "no per-op authorization" decision is sound rather than a hole.
+This makes [ADR 041](./041-privileged-operations-agent.md)'s `SO_PEERCRED` model true as written: `hop3-server` is once again the only non-root peer that can reach rootd, so rootd's "no per-op authorization" decision is sound.
 
 ### 1. Two trust domains
 
@@ -65,20 +65,20 @@ The deployer writes an app's tree as `hop3`; the app process reads and writes it
 Principles:
 
 - **Deploy-time artifacts (`src`, `venv`) are owned by `hop3`, group-readable by the app.** The control plane produces them; the app only consumes them. The app cannot modify its own code at runtime.
-- **Runtime state (`data`) is owned by the app user.** The control plane does not need to read app data during normal operation; when it must (backups, teardown), it acts through rootd or membership arrangements rather than by sharing the app's UID.
+- **Runtime state (`data`) is owned by the app user.** The control plane does not need to read app data during normal operation; when it must (backups, teardown), it acts through rootd or membership arrangements, never by sharing the app's UID.
 - **Logs must remain readable by the control plane** so `hop3 app logs` works. Either `hop3` joins each `hop3-app-<name>` group (asymmetric: control plane reads app logs, app cannot read control-plane files), or logs are group-owned `hop3` and group-readable. The asymmetry (control plane may read down into an app, an app may never read up or sideways) is the invariant to preserve.
 
 The precise scheme (POSIX groups vs ACLs, and how apps reach addon Unix sockets such as PostgreSQL/Redis) is an open question (§Open questions); the constraint it must satisfy is the read-down / no-read-up / no-read-sideways property above.
 
 ### 4. Process launch and the privilege to change UID
 
-Switching a process to a *different* unprivileged UID requires `CAP_SETUID`/`CAP_SETGID`, which the `hop3` user does not hold. So the Emperor as currently configured (an unprivileged `hop3` process) cannot drop vassals to per-app users. The privilege has to come from somewhere. Three shapes, in order of preference:
+Switching a process to a *different* unprivileged UID requires `CAP_SETUID`/`CAP_SETGID`, which the `hop3` user does not hold. So the Emperor as currently configured (an unprivileged `hop3` process) cannot drop vassals to per-app users. The privilege has to come from somewhere. Three shapes are possible, in order of preference:
 
 1. **Capability-scoped Emperor.** Grant the Emperor unit exactly `AmbientCapabilities=CAP_SETUID CAP_SETGID` (plus `CAP_CHOWN`/`CAP_DAC_OVERRIDE` only if uWSGI's socket/log chowning needs them), `NoNewPrivileges` off for the priv-drop, and nothing else. The Emperor is a master that drops each vassal to its app user: the standard master/worker priv-drop pattern (as nginx's master does), scoped to just the identity-changing capabilities rather than full root.
 2. **Root Emperor dropping per vassal.** `User=root` on the Emperor unit; uWSGI drops each vassal to the vassal's declared `uid`/`gid`. The standard uWSGI deployment, and simple, at the cost of a full-root master process: a larger surface than (1) and a partial step back from [ADR 010](./010-security-and-resilience.md)'s "no root control-plane process".
 3. **rootd-mediated spawn.** A future `process.*` op family spawns vassals at the requested UID, keeping the single root boundary rootd already owns. Purest, but couples rootd to process lifecycle and is a materially larger rootd surface; deferred.
 
-This ADR selects **(1)**: it changes the smallest amount, keeps the root surface to two capabilities on one unit, and leaves rootd's boundary as the only *general* privileged path. `run/uwsgi/worker.py` changes to set the vassal `uid`/`gid` to `hop3-app-<name>` rather than the deployer's own identity.
+This ADR selects **(1)**: it changes the smallest amount, keeps the root surface to two capabilities on one unit, and leaves rootd's boundary as the only *general* privileged path. The `run/uwsgi/worker.py` module changes to set the vassal `uid`/`gid` to `hop3-app-<name>`, never the deployer's own identity.
 
 Whichever mechanism is chosen, the vassal ends up as `hop3-app-<name>:hop3-app-<name>`, and that identity is what `SO_PEERCRED` sees at the rootd socket: exactly the identity rootd must refuse.
 
@@ -101,7 +101,7 @@ Once app users are distinct, the control plane's secret store ([ADR 048](./048-s
 
 ### 8. Migration
 
-Existing installs run every app as `hop3`. The migration, per app, on upgrade or next deploy:
+Existing installs run every app as `hop3`. The migration runs per app, on upgrade or next deploy:
 
 1. Create `hop3-app-<name>`.
 2. Re-`chown`/`chmod` the app tree to the §3 model.
@@ -126,7 +126,7 @@ The window is per-app and each step is idempotent, so a partially migrated box i
 
 ### Negative
 
-- **Per-app user lifecycle machinery** (create/delete/verify), and its teardown and UID-reuse edges, are new code and new failure modes.
+- **Per-app user lifecycle machinery** (create/delete/verify), with its teardown and UID-reuse edges, are new code and new failure modes.
 - **A privileged process-launch surface reappears**: two capabilities on the Emperor unit (§4 option 1), or a root Emperor (option 2). Smaller than an unrestricted root control plane, but larger than today's fully-unprivileged Emperor.
 - **The permission model is more intricate** (per-app groups or ACLs, addon-socket access), with more ways to misconfigure than a single shared UID.
 - **Migration touches every app tree** (re-chown) and the Emperor unit once.
@@ -141,7 +141,7 @@ The window is per-app and each step is idempotent, so a partially migrated box i
 
 ### A. Single shared app user (`hop3-apps`) for all apps
 
-One non-`hop3` user shared by every app. Rejected as the end state, accepted as a valid first increment. It fixes the rootd hole (apps are no longer `hop3`) and the control-plane secret exposure, at a fraction of the lifecycle cost. It does not fix inter-app interference: every app still shares one UID, so app A can still read and kill app B. Given the finding was specifically cross-app compromise and the platform advertises multiple coexisting apps, per-app users are the target; a shared app user is an acceptable milestone on the way if per-app lifecycle needs to land later.
+The alternative is one non-`hop3` user shared by every app. Rejected as the end state, accepted as a valid first increment. It fixes the rootd hole (apps are no longer `hop3`) and the control-plane secret exposure, at a fraction of the lifecycle cost. It does not fix inter-app interference: every app still shares one UID, so app A can still read and kill app B. Given the finding was specifically cross-app compromise and the platform advertises multiple coexisting apps, per-app users are the target; a shared app user is an acceptable milestone on the way if per-app lifecycle needs to land later.
 
 ### B. Keep the shared UID, add a token/secret for `hop3-server` → rootd
 
@@ -149,15 +149,15 @@ Have `hop3-server` present a secret rootd checks, so rootd distinguishes it from
 
 ### C. Per-operation authorization / policy in rootd
 
-Have rootd verify that a caller owns the `app_name` it acts on. **Rejected** (and already rejected in [ADR 041](./041-privileged-operations-agent.md) §G). It cannot work while callers share a UID (rootd cannot tell which same-UID process is which app), and it is unnecessary once callers are separated: with apps out of the trust domain, `hop3-server` is again the sole caller and legitimately owns every app.
+Have rootd verify that a caller owns the `app_name` it acts on. **Rejected** (and already rejected in [ADR 041](./041-privileged-operations-agent.md) §G). It cannot work while callers share a UID (rootd cannot tell which same-UID process is which app). It is unnecessary once callers are separated: with apps out of the trust domain, `hop3-server` is again the sole caller and legitimately owns every app.
 
 ### D. Per-app namespaces / containers for native apps
 
-`unshare` per-app mount/network/user namespaces, or run natives in containers. **Rejected as the mechanism here.** It is a far larger change that reintroduces most of the Docker complexity Hop3 avoids on the native path, and it still needs a privileged step to set up. UID separation is the minimal, sufficient fix for the auth and interference problems; namespace isolation, if pursued, is a separate ADR building on this one.
+`unshare` per-app mount/network/user namespaces, or run natives in containers. **Rejected as the mechanism here.** It is a far larger change that reintroduces most of the Docker complexity Hop3 avoids on the native path. It still needs a privileged step to set up. UID separation is the minimal, sufficient fix for the auth and interference problems; namespace isolation, if pursued, is a separate ADR building on this one.
 
 ### E. Route vassal spawning through rootd (`process.*` ops)
 
-A rootd op family that spawns vassals at a requested UID, preserving a single root boundary. **Deferred.** It is the purest fit with [ADR 041](./041-privileged-operations-agent.md)'s "one kernel boundary" but couples rootd to process lifecycle and adds a large new privileged surface; the capability-scoped Emperor (§4.1) achieves the same isolation with far less new code.
+The alternative is a rootd op family that spawns vassals at a requested UID, preserving a single root boundary. **Deferred.** It is the purest fit with [ADR 041](./041-privileged-operations-agent.md)'s "one kernel boundary" but couples rootd to process lifecycle and adds a large new privileged surface; the capability-scoped Emperor (§4.1) achieves the same isolation with far less new code.
 
 ## Open questions
 

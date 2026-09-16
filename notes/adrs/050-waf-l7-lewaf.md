@@ -56,7 +56,7 @@ uwsgi emperor
 
 ### 2. Access model: two use cases, regex pattern lists, named networks
 
-Per-app access policy is reduced to the only two patterns that are real. An unconditional per-URL deny is unnecessary: use case 1 covers it, and it would only invite unscalable rule lists.
+Per-app access policy is reduced to the only two patterns that are real. An unconditional per-URL deny is unnecessary: use case 1 covers it, and would only invite unscalable rule lists.
 
 **Use case 1: positive model (default-deny).** The app lists the URL-path patterns it actually serves; everything else is denied. A denied request is, by definition, a probe, so it also feeds the ban scorer (§4). This subsumes honeypot lists: `/wp-admin` on a non-WordPress app is denied because it isn't in the allowlist.
 
@@ -140,11 +140,11 @@ A `WafEngine` protocol + `get_waf_engines()` Pluggy hook, mirroring `get_proxies
 
 ### 7. Nginx integration and lifecycle
 
-When `[waf].enabled`, the app's generated nginx upstream points at the LeWAF socket rather than the app's web socket; LeWAF forwards clean traffic on to the app socket. When disabled, nginx points straight at the app (today's behaviour): the single integration point in `plugins/proxy/nginx/`. `configure_app` on deploy, `remove_app` on destroy, file-touch reload (the uWSGI-emperor pattern Hop3 already uses). Per-app generated config lives under `WAF_ROOT`. A redeploy that flips `enabled` re-points the upstream.
+When `[waf].enabled`, the app's generated nginx upstream points at the LeWAF socket rather than the app's web socket; LeWAF forwards clean traffic on to the app socket. When disabled, nginx points straight at the app (today's behaviour): the single integration point in `plugins/proxy/nginx/`. The `configure_app` op runs on deploy and `remove_app` on destroy, with a file-touch reload (the uWSGI-emperor pattern Hop3 already uses). Per-app generated config lives under `WAF_ROOT`. A redeploy that flips `enabled` re-points the upstream.
 
 ### 8. Config vs runtime state (the Web-UI boundary)
 
-Two clean tiers, so an admin UI can manage the operational parts without editing app repos:
+There are two clean tiers, so an admin UI can manage the operational parts without editing app repos:
 
 | Tier | Where | Examples |
 |------|-------|----------|

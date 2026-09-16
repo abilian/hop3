@@ -83,7 +83,7 @@ LOG_LEVEL = "warning"
 
 ## Transport: everyday, bootstrap, rescue
 
-[ADR 014](./014-authentication-bootstrap.md) establishes that **SSH access is authentication**: whoever can reach the machine can mint an administrator token, so no password need be exchanged to get started. That is a statement about *authority*, and it was read as one about *transport*: a login recorded its SSH target as the connection, so every later `hop3 apps`, `hop3 logs` and `hop3 status` opened a root shell, once per invocation, to list applications.
+[ADR 014](./014-authentication-bootstrap.md) establishes that **SSH access is authentication**: whoever can reach the machine can mint an administrator token, so no password need be exchanged to get started. That is a statement about *authority*. It was read as one about *transport*: a login recorded its SSH target as the connection, so every later `hop3 apps`, `hop3 logs` and `hop3 status` opened a root shell, once per invocation, to list applications.
 
 The two roles separate:
 
@@ -114,7 +114,7 @@ The environment sits at 3 because that is where the connection already resolved 
 
 The name then resolves to a context **project-first, then global**: the nearest `hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit `--context` that resolves to nothing aborts loud. The CLI reads the chosen block, extracts the server address, looks up its token, computes the effective config (the context's `app`; its `domains` and `env` merged per the rules below), and applies it. The server is never asked to interpret `[contexts.*]`.
 
-**Merge rules.** `context.domains`, when present, *fully replaces* top-level `[domains]`; when absent, top-level is inherited. `context.env` merges **over** top-level `[env]`, key by key. (`domains` and `HOST_NAME` stay mutually exclusive: a context setting both is rejected.)
+**Merge rules.** `context.domains`, when present, *fully replaces* top-level `[domains]`; when absent, top-level is inherited. A `context.env` block merges **over** top-level `[env]`, key by key. (`domains` and `HOST_NAME` stay mutually exclusive: a context setting both is rejected.)
 
 **App resolution is project-rooted**: the nearest `hop3.toml` at or above the CWD. The chain gains the selected context's app as a *conditionally-trusted* source:
 
@@ -125,7 +125,7 @@ The name then resolves to a context **project-first, then global**: the nearest 
 5. the selected context's `app`
 6. `hop3.toml [metadata].id`
 
-Source 5 is trusted only when the context was selected CWD-rooted (`--context` or an in-tree `.hop3-local.toml`); a context selected ambiently (`$HOP3_CONTEXT`, an ancestor overlay, or the single-context fallback) is untrusted, and the project-mismatch guard fires if its app is foreign to where you stand. Destructive verbs additionally go through [ADR 047](./047-cli-invocation-context.md)'s guard. There is no `protected`-context flag.
+Source 5 is trusted only when the context was selected CWD-rooted (`--context` or an in-tree `.hop3-local.toml`); a context selected ambiently (`$HOP3_CONTEXT`, an ancestor overlay, or the single-context fallback) is untrusted. The project-mismatch guard fires if its app is foreign to where you stand. Destructive verbs additionally go through [ADR 047](./047-cli-invocation-context.md)'s guard. There is no `protected`-context flag.
 
 ### Global / ambient commands
 
@@ -133,7 +133,7 @@ Project-less commands (`hop3 apps`, `hop3 status`) have no project context, so t
 
 ## Server side
 
-The server stays a **pure app-config processor**: context resolution does not move server-side. A committed `hop3.toml` now *contains* `[contexts.*]`, and the server parses uploaded files (notably on git-push deploys), so the schema **accepts** `[contexts.*]` via a validation-only `ContextSection`; the deployer ignores it (the CLI already applied the chosen environment).
+The server stays a **pure app-config processor**: context resolution does not move server-side. A committed `hop3.toml` now *contains* `[contexts.*]`. The server parses uploaded files (notably on git-push deploys), so the schema **accepts** `[contexts.*]` via a validation-only `ContextSection`; the deployer ignores it (the CLI already applied the chosen environment).
 
 `hop3.toml` is secret-free *by convention* (secrets belong server-side) and the schema backs that with a **committed-credential tripwire** that fails the upload loud on an obvious secret: a `server` address with embedded credentials, or an env value matching a known secret shape (`sk_live_…`, `ghp_…`, `AKIA…`, a connection string, high-entropy material). The tripwire is best-effort; it turns "a Stripe key got committed" into a refused deploy. Per-context `domains` run the same host-safety checks (the wildcard/catch-all ban) as top-level domains.
 
@@ -151,9 +151,9 @@ A context can be hand-written in the file or created with `hop3 context add` (mi
 
 ## Migration
 
-Machines that already ran the first-revision rewriter have `[contexts.*]` with tokens in `config.toml`. An automatic, idempotent one-shot migration drains each token into the per-server store and rewrites each context **address-only** (`{server = url}`): an old named connection ("prod") becomes a **global context** you still select with `--context prod`. The old current-context seeds `[cli].default_context`. `ssh://` servers re-mint tokens on demand (SSH-is-auth); `http(s)://` tokens are preserved by the drain, never stranded. The per-checkout selector key was renamed `[current].context` → `[local].context`, with the legacy key still read for one transitional release.
+Machines that already ran the first-revision rewriter have `[contexts.*]` with tokens in `config.toml`. An automatic, idempotent one-shot migration drains each token into the per-server store and rewrites each context **address-only** (`{server = url}`): an old named connection ("prod") becomes a **global context** you still select with `--context prod`. The old current-context seeds `[cli].default_context`. Servers reached over `ssh://` re-mint tokens on demand (SSH-is-auth); `http(s)://` tokens are preserved by the drain, never stranded. The per-checkout selector key was renamed `[current].context` → `[local].context`, with the legacy key still read for one transitional release.
 
-A third stage completes the "every target is named" rule: an unnamed default-server becomes a context (reusing one that already holds that address, else `default`), and the two keys that both meant "which context is current" collapse into one. Every outcome is reported, including the two that drop something. One shape is unresolvable (an unnamed default *and* a `default` context naming a different server, with nothing current); the migration aborts there, because it does not guess which the operator meant.
+A third stage completes the "every target is named" rule: an unnamed default-server becomes a context (reusing one that already holds that address, else `default`). The two keys that both meant "which context is current" collapse into one. Every outcome is reported, including the two that drop something. One shape is unresolvable (an unnamed default *and* a `default` context naming a different server, with nothing current); the migration aborts there, because it does not guess which the operator meant.
 
 `[contexts.*]` is a new top-level section, so a v2 `hop3.toml` deploys only to a server new enough to parse it; an older server fails validation **loud**. A CLI shim that strips `[contexts.*]` for old servers is exactly the silent compatibility behaviour this project forbids. Pre-1.0: one breaking release, no compat shim.
 
@@ -171,11 +171,11 @@ A third stage completes the "every target is named" rule: an unnamed default-ser
 **Negative**
 
 - "Context" carries two shapes (a bare named server vs a full environment); the scope is implicit from where you stand (with `--global` to force it).
-- A migration for already-migrated machines (`https` tokens are preserved, not re-minted).
+- A migration for already-migrated machines (`https` tokens are preserved).
 - Per-environment *secret* env is still set manually per instance (`hop3 env set`) until a fleet-scale secret system exists.
 - Secret-freeness rests on a best-effort tripwire: a novel secret shape could slip through to the committed file.
-- A context now carries two addresses, and an operator who reads only `server` will not see how renewal happens.
-- A server with no admin domain keeps the SSH tunnel for everything, so the privilege reduction lands only where TLS is configured, and the admin domain is what carries it.
+- A context now carries two addresses. An operator who reads only `server` will not see how renewal happens.
+- A server with no admin domain keeps the SSH tunnel for everything, so the privilege reduction lands only where TLS is configured. The admin domain carries it.
 - The CLI depends on a server-side command to learn a server's public address; against a server too old to answer, it falls back to the tunnel and says so.
 
 ## Rejected alternatives
