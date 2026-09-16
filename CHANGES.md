@@ -5,6 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **PHP apps are served by php-fpm behind nginx, and need no start command.** Delete `[run].start` from a PHP recipe: nginx serves static files from disk and passes `.php` requests to a per-app pool, with the front-controller fallback every framework expects. `php -S` and `artisan serve` are development servers and single-threaded, so an app that makes an HTTP request to itself (Nextcloud, Matomo) hangs until the request times out. Declaring `[run].start` still overrides the pool, which is how you would run Laravel Octane or FrankenPHP.
+
+- **`[build].document-root` sets a PHP app's web root** when it is not one of `public/`, `web/`, `htdocs/` or `www/`, which are detected. Getting it wrong publishes your `.env` and your `vendor/` tree, so a value that is not a directory fails the build, and only the document root is made readable by the web server. Replaces `PHP_DOCUMENT_ROOT`, which never took effect.
+
+### Fixed
+
+- **A worker command must be a single program.** `start = "setup.sh && serve"` ran `setup.sh` alone, silently. Hop3 now rejects a chained command and points at `[run].before-run`, or `bash -c '…'` if you want a shell.
+
+- **A Nix app built from its own directory no longer copies `.git` or the generated `hop3.nix` into the store.** A clone left by `hop3 launch <repo-url>` could carry a remote URL with a token in it.
+
+- **`hop3-test` checks a PHP app through the proxy.** It probed the app's own port with an HTTP client, which a php-fpm pool does not speak, and reported a working app as crashed.
+
 ## [0.7.4] - 2026-09-15
 
 ### Security

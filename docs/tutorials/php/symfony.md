@@ -266,12 +266,12 @@ prebuild: composer install --no-dev --optimize-autoloader --ignore-platform-req=
 # Pre-run: Clear and warm cache
 prerun: php bin/console cache:clear --env=prod && php bin/console cache:warmup --env=prod
 
-# Main web process
-web: php -S 0.0.0.0:$PORT -t public
+# No `web:` line: Hop3 serves a PHP app through php-fpm behind nginx,
+# with `public/` detected as the document root.
 ```
 
-!!! tip "Production Server"
-    For production, use PHP-FPM with Nginx or Apache. The built-in PHP server is used here for simplicity.
+!!! tip "What serves this"
+    php-fpm behind nginx, which Hop3 sets up for you — nginx serves your static files off disk and hands `.php` requests to the pool, and `public/` is detected as the document root. If you later want a long-running application server instead (FrankenPHP, RoadRunner), declare it as `[run].start`; doing so replaces the pool.
 
 ### Create hop3.toml
 
@@ -288,7 +288,6 @@ before-build = [
 packages = ["php", "php-pgsql", "php-mbstring", "php-xml", "php-intl", "composer"]
 
 [run]
-start = "php -S 0.0.0.0:$PORT -t public"
 before-run = "php bin/console cache:clear --env=prod && php bin/console cache:warmup --env=prod"
 
 [env]
@@ -643,7 +642,6 @@ before-build = [
 packages = ["php", "php-pgsql", "php-mbstring", "php-xml", "php-intl", "php-redis", "composer", "nodejs"]
 
 [run]
-start = "php -S 0.0.0.0:$PORT -t public"
 before-run = "php bin/console doctrine:migrations:migrate --no-interaction && php bin/console cache:warmup --env=prod"
 
 [env]
@@ -673,7 +671,6 @@ plan = "basic"
 ```procfile
 prebuild: composer install --no-dev --optimize-autoloader --ignore-platform-req=ext-redis && npm install && npm run build
 prerun: php bin/console doctrine:migrations:migrate --no-interaction && php bin/console cache:warmup --env=prod
-web: php -S 0.0.0.0:$PORT -t public
 worker: php bin/console messenger:consume async --time-limit=3600
 scheduler: while true; do php bin/console schedule:run; sleep 60; done
 ```

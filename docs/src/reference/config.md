@@ -105,6 +105,8 @@ pip-install = ["setuptools", "wheel"]
 - `pip-install` (array): Python packages to install during build
 - `ignore` (array): Gitignore-style patterns excluded from the `hop3 deploy` upload (see below)
 - `static-dir` (string): For a static site (`toolchain = "static"`), the directory to serve, relative to the app root (e.g. `"site"`, `"html"`, `"dist"`). Defaults to `"public"`. See [Static sites](#static-sites) below.
+- `document-root` (string): For a PHP app, the directory nginx serves, relative to the app root. Needed only when it cannot be detected: a front controller (`index.php`) in `public/`, `web/`, `htdocs/` or `www/` is found automatically, in that order, and the project root is the fallback. Declaring the wrong root publishes the application's own source, so a value that is not a directory is refused at build time rather than silently ignored. See [PHP apps](#php-apps) below.
+- `node-version` (string): Pin the Node.js version for this app (e.g. `"22.11.0"`), installed into the app's virtualenv with `nodeenv`. Use when the app needs a Node other than the host's.
 
 **Procfile Mapping:**
 - `build.before-build` → Procfile `prebuild`
@@ -145,6 +147,26 @@ The served directory is resolved in this order (first match wins):
 4. `public` — the default when nothing is declared.
 
 So `[build].static-dir` (or just relying on the `public` default) is all a static site needs; the worker and Procfile forms exist only for compatibility.
+
+#### PHP apps
+
+A PHP app is served by a **php-fpm pool behind nginx**, and like a static site it needs **no start command**: nginx serves static files off disk, hands `.php` requests to the pool, and falls back to the front controller (`try_files $uri $uri/ /index.php?$query_string`) so framework routing works unconfigured.
+
+```toml
+[build]
+toolchain = "php"
+# document-root = "www"   # only if it cannot be detected
+```
+
+The document root is resolved in this order (first match wins):
+
+1. `[build].document-root` — the canonical, first-class key.
+2. The first of `public/`, `web/`, `htdocs/`, `www/` that contains an `index.php`.
+3. The project root.
+
+Getting this wrong publishes the application's own source over HTTP — a framework's `.env`, its `composer.json`, its whole `vendor/` tree — so a `document-root` naming something that is not a directory is refused at build time, and only the resolved document root is made readable by the web server. Everything above it stays unreadable.
+
+Declaring `[run].start` overrides all of this and runs your command instead, which is how you would use a long-running application server (Laravel Octane, FrankenPHP, RoadRunner). `php -S` and `php artisan serve` are **development** servers: single-threaded, so an app that makes an HTTP request to itself deadlocks against its own only worker.
 
 ### `[run]` - Runtime Configuration
 

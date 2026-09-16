@@ -536,6 +536,45 @@ git commit -m "Initial commit"
 hop3 deploy
 ```
 
+### PHP Application
+
+PHP is the one language with **no start command**. Hop3 runs a php-fpm pool and points nginx at it over FastCGI: nginx serves static files off disk, hands `.php` requests to the pool, and falls back to the front controller so framework routing works unconfigured.
+
+**Files needed:**
+```
+my-php-app/
+├── public/
+│   └── index.php        # front controller
+├── src/
+├── composer.json
+└── hop3.toml
+```
+
+**hop3.toml:**
+```toml
+[metadata]
+id = "my-php-app"
+version = "1.0.0"
+
+[build]
+toolchain = "php"
+packages = ["php", "php-pgsql", "php-mbstring", "composer"]
+before-build = "composer install --no-dev --optimize-autoloader"
+
+[run]
+before-run = "php bin/console doctrine:migrations:migrate --no-interaction"
+
+[[addons]]
+type = "postgres"
+
+[healthcheck]
+path = "/"
+```
+
+**The document root.** Hop3 serves `public/`, `web/`, `htdocs/` or `www/` when one of them holds an `index.php`, and the project root otherwise. Declare `[build].document-root = "…"` when your web root is elsewhere. This matters more than it looks: serving the project root publishes your `.env`, your `composer.json` and your whole `vendor/` tree, so only the resolved document root is made readable by the web server and a `document-root` that is not a directory is refused at build time.
+
+**If you want a different runtime** — Laravel Octane, FrankenPHP, RoadRunner — declare it as `[run].start` and it replaces the pool. Do not reach for `php -S` or `php artisan serve`: they are development servers, single-threaded, and an app that makes an HTTP request to itself (Nextcloud and Matomo both do) deadlocks against its own only worker.
+
 ### Go Application
 
 **Files needed:**

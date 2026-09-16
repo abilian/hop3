@@ -358,12 +358,13 @@ prebuild: composer install --no-dev --optimize-autoloader
 # Pre-run: Run migrations and cache config
 prerun: php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache
 
-# Main web process
-web: php artisan serve --host=0.0.0.0 --port=$PORT
+# No `web:` line. Hop3 serves a PHP app through php-fpm behind nginx and
+# detects `public/` as the document root, so there is no start command to
+# write — `php artisan serve` is a single-threaded development server.
 ```
 
-!!! tip "Production Server"
-    For production, consider using PHP-FPM with Nginx or Laravel Octane for better performance. The built-in server is used here for simplicity.
+!!! tip "What serves this"
+    php-fpm behind nginx, which Hop3 sets up for you — nginx serves your static files off disk and hands `.php` requests to the pool. If you later want a long-running application server instead (Laravel Octane, FrankenPHP), declare it as `[run].start`; doing so replaces the pool.
 
 ### Create hop3.toml
 
@@ -382,7 +383,6 @@ before-build = [
 packages = ["php", "php-pgsql", "php-mbstring", "php-xml", "php-curl", "composer"]
 
 [run]
-start = "php artisan serve --host=0.0.0.0 --port=$PORT"
 before-run = "php artisan migrate --force && php artisan config:cache && php artisan route:cache"
 
 [env]
@@ -641,7 +641,6 @@ web: php artisan octane:start --server=frankenphp --host=0.0.0.0 --port=$PORT
 Add a queue worker to your `Procfile`:
 
 ```procfile
-web: php artisan serve --host=0.0.0.0 --port=$PORT
 worker: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
 ```
 
@@ -808,7 +807,6 @@ before-build = [
 packages = ["php", "php-pgsql", "php-mbstring", "php-xml", "php-curl", "php-redis", "composer", "nodejs"]
 
 [run]
-start = "php artisan serve --host=0.0.0.0 --port=$PORT"
 before-run = "php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache"
 
 [env]
@@ -848,8 +846,7 @@ prebuild: composer install --no-dev --optimize-autoloader && npm install && npm 
 # Pre-run hooks (migrations and caching)
 prerun: php artisan migrate --force && php artisan config:cache && php artisan route:cache && php artisan view:cache
 
-# Web server
-web: php artisan serve --host=0.0.0.0 --port=$PORT
+# No `web:` line: php-fpm behind nginx serves this, with `public/` detected.
 
 # Queue worker (optional)
 worker: php artisan queue:work --sleep=3 --tries=3 --max-time=3600
