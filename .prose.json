@@ -37,7 +37,14 @@
     "R27-aphorism/url-tails-NOT-allowed": "NOT exempted, recorded so the next pass does not chase it: the rule-27 count on README.md is a false positive. The sentence splitter breaks markdown link targets at the dot, so 'https://hop3.cloud/get-started/installer/).' becomes a short final 'sentence' with no digit and trips the aphorism test. Seven of the eight counted closers are URL tails, one is a list lead-in ('The stack includes:'). The fix belongs in the linter's masking, not in the prose. Do not silence it with a ')' pattern, which would blind rule 27 across the project.",
     "R34-verbless/principle-implementation": "core-values.md pairs '- **Principle**: …' with '- **Implementation**: …' under each numbered security heading. They are nested list items, which rule 34 exempts; the linter does not read a bullet indented under an ordered item as a list item, so all twenty fired. The label-value shape is the point of the section and rewriting them into sentences would lose the parallel.",
     "R31-runon/threat-model-scope-lists": "security-model.md:49,51 are the threat model's 'In scope:' / 'Out of scope:' enumerations. Each item carries its own commas, so semicolons are the correct separator and the count (5 and 8) is list length, not stitching. Rule 31 names this case as its exemption and reports it as 'inspect'.",
-    "R34-verbless/nested-fence-leak": "external-plugins.md:356,400 and hook-specifications.md:393 are code-fence CONTENT, reported as prose. The masker toggles on any line starting with ``` and ignores fence length, so a nested example desyncs it and everything after leaks. external-plugins.md's outer README example was widened to four backticks in this pass, which is what CommonMark requires and fixes the rendering; the masker still desyncs because it does not compare fence lengths. Reported upstream."
+    "R34-verbless/nested-fence-leak": "external-plugins.md:356,400 and hook-specifications.md:393 are code-fence CONTENT, reported as prose. The masker toggles on any line starting with ``` and ignores fence length, so a nested example desyncs it and everything after leaks. external-plugins.md's outer README example was widened to four backticks in this pass, which is what CommonMark requires and fixes the rendering; the masker still desyncs because it does not compare fence lengths. Reported upstream.",
+    "R34-verbless/bullet-character": "notes/ngi-2024/annex.md lists milestones as '• M2.1 …' with U+2022, not '-'. The linter reads only '-'/'*' as list markers, so each run of bullets is parsed as one verbless sentence. Rule 34 exempts list items. The annex is the contractual Annexe I submitted to NLnet; its wording is not ours to edit for style.",
+    "R34-verbless/report-front-matter": "results-links-2026-*.md open with 'Status: … / Date: …' label lines and a one-line scope note under the H1. Front matter and a caption, not running prose. The 06 report is marked final and was submitted; it is a record of what was sent and is not edited for style.",
+    "R3-foil/table-header-row": "release-plan-0.6.md:16 is a markdown table header, '| Milestone | 0.5 Status | 0.6 Outcome |'. The nlp foil detector matches across the pipe delimiters. A table row is not prose.",
+    "R8-triad/two-item-condition": "release-plan-0.7.md:93 'an empty or non-zero recording' is a two-branch failure condition, not a triad assembled for cadence.",
+    "R31-runon/checklist-headers": "release-plan-0.7.md:160,170 are italic headers introducing checkbox lists ('*Ships in 0.7, supported (experimental):*'); the semicolons counted belong to the list items merged in after them. Same class as the threat-model scope lists.",
+    "R34-verbless/annex-deliverable-text": "annex.md:51 'Package 20 popular or useful open-source applications…' is the T4 deliverable description, an imperative the parser reads as a noun. It is contractual text from Annexe I as submitted to NLnet, so it is not rewritten for style.",
+    "R31-runon/submitted-final-report": "results-links-2026-06.md:6 is a serial list whose items carry their own commas (docs links; code on SourceHut; ADRs), which rule 31 exempts. The report is also marked 'Status: final' and was submitted; it records what was sent."
   },
   "allowlist": {
     "R33-taboo": [
@@ -77,7 +84,11 @@
       "**implementation**",
       "bash hop3 deploy --app myapp",
       "yaml # myframework.yaml",
-      "class MyPluginProvider(Provider)"
+      "class MyPluginProvider(Provider)",
+      "• m",
+      "status: final",
+      "evidence for the nlnet/ngi",
+      "package 20 popular or useful"
     ],
     "R37-bold": [
       "whether a packet may reach a port",
@@ -92,12 +103,17 @@
     ],
     "R8-triad": [
       "fails loudly on an HTTP error",
-      "prebuilt-archive or prebuilt-binary"
+      "prebuilt-archive or prebuilt-binary",
+      "empty or non-zero"
     ],
     "R31-runon": [
       "letscode",
       "**in scope:**",
-      "**out of scope:**"
+      "**out of scope:**",
+      "supported (experimental)",
+      "functionality lost)",
+      "documentation links resolve",
+      "live at submission"
     ],
     "R12-inflated": [
       "Next Generation Internet",
@@ -105,6 +121,9 @@
     ],
     "R30-nominalisation": [
       "Conduct violation"
+    ],
+    "R3-foil": [
+      "| milestone |"
     ]
   }
 }
