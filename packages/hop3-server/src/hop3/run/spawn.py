@@ -35,7 +35,13 @@ from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 from hop3.run.app_env import build_app_env
+from hop3.run.served_tree import grant_web_server_read
 from hop3.run.uwsgi.naming import vassal_glob, vassal_name
+from hop3.toolchains.php_fpm import (
+    POOL_CONFIG_NAME,
+    POOL_TEMPLATE_NAME,
+    render_pool_config,
+)
 
 from .nix_closure import (
     NIX_STORE_CANDIDATES,
@@ -333,6 +339,71 @@ class AppLauncher:
     #: Written into the app directory once the store tree has been copied there,
     #: so a redeploy does not overwrite files the app (or its bootstrap) wrote.
     _WRITABLE_TREE_MARKER = ".hop3-writable-tree"
+
+    def _render_php_fpm_pool(self, env: Env) -> None:
+        """
+        Write the php-fpm pool's config, now that the port exists.
+
+        The template is written at build time with a placeholder, because the
+        port is allocated at deploy. Substituting it here — in Python, where
+        the port has just been resolved — keeps the worker's command a single
+        program, which is what uWSGI's ``attach-daemon`` wrapper requires: it
+        prepends ``exec``, so a compound command puts ``exec`` on its first
+        word and the rest never runs. That is precisely what the previous
+        ``sed … && exec php-fpm`` did, and the pool never started once.
+
+        Nothing caught it because no app had taken this path: all ten PHP
+        recipes still declare ``[run].start``, which overrides this worker.
+        """
+        if not self.artifact or self.artifact.runtime.backend_protocol != "fastcgi":
+            return
+
+        template = self.app.app_path / POOL_TEMPLATE_NAME
+        if not template.exists():
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="PHP toolchain",
+                    action="configure the php-fpm pool",
+                    reason=(
+                        f"the build artifact says this app is served over "
+                        f"FastCGI, but {template} — the pool config the "
+                        f"toolchain writes at build time — is not there"
+                    ),
+                    hint=(
+                        "The build did not complete as the artifact claims. "
+                        "Redeploy; if it recurs, the build log is the place "
+                        "to look."
+                    ),
+                )
+            )
+
+        port = env.get("PORT", "")
+        if not port:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="PHP toolchain",
+                    action="configure the php-fpm pool",
+                    reason=(
+                        "no port was allocated for this app, so the pool has "
+                        "no address to listen on"
+                    ),
+                    hint="This is a Hop3 bug: report it with the deploy log.",
+                )
+            )
+
+        config = self.app.app_path / POOL_CONFIG_NAME
+        config.write_text(render_pool_config(template.read_text(), port))
+        log(f"php-fpm pool will listen on 127.0.0.1:{port}", level=2, fg="cyan")
+
+        # nginx serves this app's document root for everything that is not a
+        # .php script, and the source was extracted owner-only, so without
+        # this every stylesheet, script and image is a 403 on an app that
+        # otherwise deploys green. Scoped to the document root: what sits
+        # above it stays unreadable, which is what a Laravel `.env` one level
+        # up from `public/` depends on.
+        document_root = env.get("PHP_DOCUMENT_ROOT", "")
+        if document_root:
+            grant_web_server_read(Path(document_root))
 
     def _materialize_writable_tree(self) -> None:
         """
@@ -683,6 +754,10 @@ class AppLauncher:
 
         # BEFORE before-run: an app's bootstrap needs the application present.
         self._materialize_writable_tree()
+
+        # BEFORE the workers exist: the pool's config names the port they will
+        # be told to answer on, and the port is only settled a few lines above.
+        self._render_php_fpm_pool(env)
 
         # Execute before-run commands from artifact
         self._run_before_run_commands(env)

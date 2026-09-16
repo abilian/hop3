@@ -93,7 +93,10 @@ class PHPToolchain(LanguageToolchain):
         working until each drops that line, which is the whole migration.
         """
         binary = php_fpm_binary()
-        root = document_root(self.src_path, env.get("PHP_DOCUMENT_ROOT", ""))
+        declared = self.build_option("document-root")
+        root = document_root(
+            self.src_path, declared if isinstance(declared, str) else ""
+        )
         log_path = self.app_path / "log" / "php-fpm.log"
         log_path.parent.mkdir(parents=True, exist_ok=True)
 

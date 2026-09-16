@@ -126,6 +126,32 @@ class LanguageToolchain(ABC):
         # Check if any of the files exist in the source path
         return any((self.src_path / file).exists() for file in files)
 
+    def build_option(self, key: str) -> object:
+        """
+        One ``[build]`` key from the recipe, or None when there is no recipe.
+
+        The recipe is where a build-time declaration lives. The obvious-looking
+        alternative, ``get_env()``, reads ``<app_path>/ENV`` — a file **nothing
+        in Hop3 writes**, so it answers empty for every app and every key read
+        through it silently becomes "unset". The Node toolchain already routes
+        around it (`[build].node-version`, which its own comment says
+        "surfaces as NODE_VERSION"); this is that route, named once.
+
+        Four call sites walked ``app_config["hop3_config"]["build"]``
+        themselves, each with its own idea of how far down to check the types.
+        Returns ``object``: this is TOML a user wrote, so the caller narrows it
+        to the shape its own key promises.
+        """
+        if self.context is None:
+            return None
+        hop3_config = self.context.app_config.get("hop3_config", {})
+        if not isinstance(hop3_config, dict):
+            return None
+        build_section = hop3_config.get("build", {})
+        if not isinstance(build_section, dict):
+            return None
+        return build_section.get(key)
+
     def _get_custom_build_command(self) -> str | None:
         """
         Get custom build command from hop3.toml if specified.
@@ -134,13 +160,7 @@ class LanguageToolchain(ABC):
             Build command string, or None if not specified.
             If multiple commands are specified as a list, they are joined with ' && '.
         """
-        if self.context is None:
-            return None
-
-        app_config = self.context.app_config
-        hop3_config = app_config.get("hop3_config", {})
-        build_section = hop3_config.get("build", {})
-        build_cmd = build_section.get("build")
+        build_cmd = self.build_option("build")
 
         match build_cmd:
             case list() if build_cmd:

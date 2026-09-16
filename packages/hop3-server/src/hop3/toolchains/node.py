@@ -40,16 +40,7 @@ class NodeToolchain(LanguageToolchain):
         in the env (uses `nodeenv --prebuilt --node=<version>` against
         the app's virtualenv).
         """
-        if self.context is None:
-            return None
-        app_config = self.context.app_config
-        hop3_config = app_config.get("hop3_config", {})
-        if not isinstance(hop3_config, dict):
-            return None
-        build_section = hop3_config.get("build", {})
-        if not isinstance(build_section, dict):
-            return None
-        value = build_section.get("node-version")
+        value = self.build_option("node-version")
         return str(value) if value else None
 
     def build(self) -> BuildArtifact:

@@ -90,6 +90,18 @@ class BuildSection(BaseModel):
         default=None,
         description="System packages required for build",
     )
+    document_root: str | None = Field(
+        default=None,
+        alias="document-root",
+        description=(
+            "The directory the web server serves for a PHP app, relative to "
+            "the project root. Only needed when it is not detected: a front "
+            "controller in public/, web/, htdocs/ or www/ is found "
+            "automatically, and the project root is the fallback. Declaring "
+            "the wrong root publishes the application's own source, so this "
+            "is refused at build time when the path is not a directory."
+        ),
+    )
     node_version: str | None = Field(
         default=None,
         alias="node-version",
