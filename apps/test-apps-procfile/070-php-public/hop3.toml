@@ -1,0 +1,44 @@
+# The front-controller-in-a-subdirectory layout, and the containment it exists
+# for. Carries a hop3.toml (rather than a standalone test.toml) because the
+# `[healthcheck].contains` below is half the point: it makes the *deploy's own*
+# readiness gate assert page content for a FastCGI app, which it can only do
+# through nginx — a pool child answers `ping.path` just as healthily when the
+# application is sitting on an install wizard.
+
+[metadata]
+id = "php-public-root"
+version = "1.0.0"
+title = "PHP app with a public/ document root"
+description = "Front controller under public/, with a canary above it"
+
+[build]
+builder = "local"
+toolchain = "php"
+# No composer.json and nothing to compile; without this the toolchain would
+# look for dependencies to install.
+build = "true"
+
+[healthcheck]
+path = "/"
+contains = "fpm-fcgi"
+
+[test]
+priority = "P0"
+tier = "fast"
+targets = ["docker", "remote"]
+covers = ["php", "php-fpm", "fastcgi", "nginx", "document-root"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Served from public/"
+
+# The containment assertion. `/.env` resolves under the *project* root, not the
+# document root, so nginx has no file to serve and try_files hands the path to
+# the front controller — a 200 carrying the app's own page. What must never
+# appear is the canary. check.py makes the negative assertion, which this
+# validation cannot express.
+[[test.validations]]
+path = "/.env"
+status = 200
+contains = "Served from public/"
