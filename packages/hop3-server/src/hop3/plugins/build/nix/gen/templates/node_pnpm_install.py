@@ -269,6 +269,23 @@ let
       mkdir -p $TMPDIR/proj && cd $TMPDIR/proj
       cp ${{manifest}} package.json
       cp ${{lockfile}} pnpm-lock.yaml
+
+      # pnpm 9's `fetch` compiles native addons while populating the store,
+      # which puts a C++ toolchain, kernel headers and a compiler's idea of
+      # file permissions inside a *fixed-output* derivation. An FOD is the
+      # sanctioned escape from purity: it gets network access, and in exchange
+      # Nix verifies only its output hash, so its content must be a download
+      # and nothing else. directus-nixgen's store built once in August and was
+      # never re-entered — nine green runs off one store path — until a rebuild
+      # emptied the store and `isolated-vm@5.0.3` failed to compile here.
+      #
+      # The config file rather than a CLI flag: `pnpm fetch --help` documents
+      # no scripts option and the command is marked experimental, so the knob
+      # that survives a pnpm upgrade is the one pnpm reads from disk. Native
+      # addons are built where they belong, in the pure derivation below, from
+      # `node-native-packages`.
+      printf 'ignore-scripts=true\\n' > .npmrc
+
       mkdir -p $out
       ${{pnpm}}/bin/pnpm fetch --store-dir $out
 

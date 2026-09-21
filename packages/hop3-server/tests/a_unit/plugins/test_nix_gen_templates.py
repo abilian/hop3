@@ -854,6 +854,26 @@ class TestNodePnpmInstallTemplate:
         # postinstall hooks routinely fetch prebuilt binaries
         assert "--ignore-scripts" in output
 
+    def test_the_fetch_step_compiles_nothing(self):
+        """
+        A fixed-output derivation must contain a download and nothing else.
+
+        pnpm 9's `fetch` builds native addons while populating the store, which
+        makes the FOD's content depend on a C++ toolchain and on the file modes
+        a compiler leaves behind — and Nix verifies only the output hash, so it
+        cannot see that happening. It stayed invisible for another reason too:
+        Nix never re-enters a derivation whose store path exists, so
+        directus-nixgen passed nine runs off one August store path and failed
+        the moment an OS rebuild emptied the store (blocker #38).
+        """
+        output = generate(self._base_spec())
+        store, _, app = output.partition("pnpm fetch --store-dir")
+        assert "ignore-scripts=true" in store, (
+            "the fetch step must disable build scripts before it runs"
+        )
+        # The app derivation is pure and is where native addons belong.
+        assert "--ignore-scripts" in app
+
     def test_requires_npm_package(self):
         spec = self._base_spec(npm_package=None)
         with pytest.raises(ValueError, match="npm-package"):
