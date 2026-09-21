@@ -19,6 +19,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A worker command must be a single program.** `start = "setup.sh && serve"` ran `setup.sh` alone, silently. Hop3 now rejects a chained command and points at `[run].before-run`, or `bash -c '…'` if you want a shell.
 
+- **A `node-pnpm-install` Nix app builds from scratch again.** The step that fetches dependencies also compiled native addons, so it depended on a C++ toolchain and on file permissions rather than being a plain download. Nix reuses a store path it already has, so this stayed hidden until a machine was rebuilt. Recipes using this template must re-record `node-deps-hash` from one build; Nix prints the value to use.
+
 - **A Nix app built from its own directory no longer copies `.git` or the generated `hop3.nix` into the store.** A clone left by `hop3 launch <repo-url>` could carry a remote URL with a token in it.
 
 - **`hop3-test` checks a PHP app through the proxy.** It probed the app's own port with an HTTP client, which a php-fpm pool does not speak, and reported a working app as crashed.
