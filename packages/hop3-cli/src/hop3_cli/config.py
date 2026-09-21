@@ -89,12 +89,26 @@ class Config:
 
     def is_configured(self) -> bool:
         """
-        Check if the CLI has been configured with a server URL.
+        Check if the CLI has a server to talk to.
 
-        Returns True if api_url is set via:
-        1. Environment variable (HOP3_API_URL)
-        2. Current context
-        3. Developer mode (HOP3_DEV_MODE=true enables localhost:8000)
+        Returns True if a server address resolves from:
+        1. Developer mode (HOP3_DEV_MODE=true enables localhost:8000)
+        2. Environment variable (HOP3_API_URL)
+        3. This invocation's resolved context (``_active_server``)
+        4. The named context in play, read from ``[contexts.<name>].server``
+        5. The configured default server (project-less commands)
+        6. Legacy config.toml context (one-release read fallback)
+
+        Step 4 is the one this predicate was missing, and it is where ADR 042
+        r2 put a global context's address. The two steps that used to stand in
+        for it do not cover the early callers: ``_active_server`` is wired
+        *after* local dispatch and offline help, and the legacy ``Context``
+        reads ``url``/``api_url`` keys a migrated config.toml no longer has. So
+        a CLI with three working contexts answered ``hop3 --context prod app
+        --help`` with "Not connected to a server yet" while ``hop3 --context
+        prod system info`` reached the box in the same second — and
+        ``completion refresh``, ``login`` and ``settings show``, all dispatched
+        before the wiring, gave the same wrong answer.
         """
         if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
             return True
@@ -103,6 +117,10 @@ class Config:
             return True
 
         if self._active_server:
+            return True
+
+        name = self.get_current_context_name()
+        if name and self.get_context_server(name):
             return True
 
         if self.get_default_server():
