@@ -47,6 +47,25 @@ def test_not_handled_here(args, configured):
     assert serve_offline_help(args, FakeConfig(configured=configured)) is False
 
 
+def test_a_configured_context_is_not_answered_offline(monkeypatch):
+    """
+    The help path against the real predicate, not a stand-in.
+
+    Every test above hands `serve_offline_help` a `FakeConfig`, so none of them
+    could see that `Config.is_configured` did not know where ADR 042 r2 keeps a
+    context's address. `hop3 --context prod app --help` printed the built-in
+    list while `hop3 --context prod system info` reached that same server.
+    """
+    from hop3_cli.config import Config  # ruff:ignore[import-outside-top-level]
+
+    for var in ("HOP3_DEV_MODE", "HOP3_API_URL", "HOP3_CONTEXT"):
+        monkeypatch.delenv(var, raising=False)
+    config = Config(data={"contexts": {"prod": {"server": "ssh://root@prod"}}})
+    config.set_context_override("prod")
+
+    assert serve_offline_help(["help", "app"], config) is False
+
+
 def test_a_corrupt_cache_reads_as_empty():
     """An interrupted write left NULs in a real user's cache; junk is not a command."""
     assert read_cached_names("\x00\x00\n") == []

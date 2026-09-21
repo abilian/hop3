@@ -15,6 +15,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`hop3 help` and `hop3 <command> --help` reach the server again.** With a context configured, `hop3 --context prod app --help` printed the built-in command list and "Not connected to a server yet" while the same context served `hop3 --context prod system info`. `hop3 login`, `hop3 settings show` and `hop3 completion refresh` gave the same wrong answer. The CLI was looking for a context's address under a key it stopped using in 0.7.4.
+
 - **A worker command must be a single program.** `start = "setup.sh && serve"` ran `setup.sh` alone, silently. Hop3 now rejects a chained command and points at `[run].before-run`, or `bash -c '…'` if you want a shell.
 
 - **A Nix app built from its own directory no longer copies `.git` or the generated `hop3.nix` into the store.** A clone left by `hop3 launch <repo-url>` could carry a remote URL with a token in it.
