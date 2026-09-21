@@ -253,6 +253,28 @@ test-nix:
 	uv run hop3-test run $(if $(HOST),--host $(HOST),--docker) --with nix \
 	  --status golden --status beta --covers nix $(NIX_SUITE)
 
+## The same suite on a COLD Nix store, which is the only way it means anything.
+## Nix never re-enters a derivation whose store path exists, so a dependency
+## fetch that succeeded once on one machine is never run again: directus-nixgen
+## passed nine runs off an August store path and failed the moment a rebuild
+## emptied it (blocker #38). `--clean` does not help — it removes Hop3 and
+## leaves /nix — so the store is emptied the only way it can be, by rebuilding
+## the OS. That needs the throwaway cloud box (it refuses a server without the
+## `hop3-throwaway=true` label) and SERVER_ID must be passed explicitly, for the
+## same reason HOST is above: an ambient value must never aim a rebuild at
+## someone's server.
+##
+##   make test-nix-cold SERVER_ID=<throwaway server id>
+##
+## Slow by construction: every Nix app builds from source with nothing cached.
+test-nix-cold:
+ifndef SERVER_ID
+	$(error SERVER_ID is required: this rebuilds the OS of that server, wiping /nix and everything else on it. Pass the throwaway box's id.)
+endif
+	@echo "--> Testing Nix apps on a cold store (OS rebuild of server $(SERVER_ID))"
+	uv run hop3-test run --provider hetzner --server-id $(SERVER_ID) --with nix \
+	  --status golden --status beta --covers nix $(NIX_SUITE)
+
 ## Reproducibility gate: rebuild every nix-gen app and fail if any output drifts
 ## The catalog files `-nix` and `-nixgen` together under `beta`, but the tier
 ## does not have to be selected by path: `_nix_gen_recipes` already keeps only
