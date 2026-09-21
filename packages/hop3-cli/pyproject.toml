@@ -1,6 +1,6 @@
 [project]
 name = "hop3-cli"
-version = "0.7.4"
+version = "0.7.5"
 authors = [
     {name = "Stefane Fermigier", email = "sf@abilian.com"},
 ]
