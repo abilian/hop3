@@ -1,6 +1,74 @@
 # TODO
 
-Engineering tasks captured during day-to-day work live here. Move items out to plans / weeklies / commit messages as they're picked up.
+Engineering tasks captured during day-to-day work live here. Move items out to plans / weeklies / commit messages as they are picked up. The first section runs the other way: work that plans and ADRs have already decided, written out in full because a reference by number tells a reader nothing.
+
+## Next up: five tasks, decided and unstarted
+
+Three of them come from an internal safe-defaults review, and two from [ADR 050](adrs/050-waf-l7-lewaf.md) and [ADR 055](adrs/055-app-runtime-uid-separation.md). They are written out here because referring to them by number names nothing to anyone outside the review. Checked against the tree on 2026-09-22: none of the five has started.
+
+### 1. An authenticated gate in front of apps
+
+An app is public the moment it deploys. That is right for an application with its own accounts and wrong for the class people actually deploy: scripts with a web page, generated tools, admin dashboards, staging copies. The only access control today is `[waf]`, whose gate keys on named networks, and `require = "auth"` is a hard validation error until forward-auth exists ([ADR 050](adrs/050-waf-l7-lewaf.md) §5).
+
+```toml
+[access]
+require = "auth"                 # anonymous requests go to the Hop3 login
+roles = ["admin", "editors"]     # optional; default: any authenticated user
+public_paths = ["/webhook", "/api/public/"]
+```
+
+- nginx `auth_request`, Caddy `forward_auth` and Traefik `ForwardAuth`, all against one hop3-server endpoint that validates the session cookie or a bearer token.
+- `X-Hop3-User` and `X-Hop3-Roles` injected after any inbound `X-Hop3-*` is stripped, so an app can trust them.
+- WebSocket upgrades gated the same way; a server-level `new_apps_private = true` for operators who want it.
+
+**Acceptance bar**, which the ADR should carry. A Procfile app with no authentication of its own answers 302 to the login anonymously, 200 signed in, 403 outside `roles`, and 200 anonymously on a public path. The same on all three proxies, with a spoofed `X-Hop3-User` never reaching the app. One e2e per proxy.
+
+**Size:** its own ADR extending ADR 050, then the implementation. It unblocks fourteen catalogued applications, closes ADR 050's own deferral, and is the largest single unblock in the backlog. Displaced three weeks running.
+
+### 2. No silent skips in the test suites
+
+A skipped test in a standard target is a silent skip, which this project's own rules forbid. `make test-fast` prints `1 skipped` on every run today. Seven sites:
+
+| Where | Skips on |
+|---|---|
+| `hop3-server/tests/a_unit/waf/test_compiler_lewaf.py` | `lewaf` absent |
+| `hop3-server/tests/b_integration/waf/test_proxy_integration.py` | `lewaf` absent |
+| `hop3-server/tests/b_integration/plugins/test_s3_garage_integration.py` | `boto3` absent |
+| `hop3-cli/tests/a_unit/core/test_app_scope_matches_server.py` | `hop3-server` not installed |
+| `hop3-cli/tests/a_unit/commands/test_fallback_commands.py` | the RPC module absent |
+| `hop3-rootd/tests/a_unit/test_exec.py` (×2) | `systemctl` absent |
+
+`lewaf` is the `waf` extra. `make develop` already syncs `--all-packages --all-extras --all-groups`; the `test*` targets do not sync at all, so a venv synced any other way skips silently and reports green.
+
+**Change:** the `make test*` targets sync every extra they test; `importorskip` and tool-absence skips become hard failures behind an explicit `--allow-missing=lewaf,systemctl` the Makefile never passes; a summary check fails the target when anything in the selected layer skipped for a missing dependency.
+
+**Done when** `make test-fast` fails on a venv without `lewaf` with a one-line reason, and the opt-out works and prints what it disabled. **Size:** under a day.
+
+### 3. A dependency cooldown
+
+`uv lock --upgrade` will take a version published minutes ago, and a freshly-published compromised release is the common shape of a supply-chain attack. There is no `exclude-newer` anywhere in the workspace, so the only defence is that someone notices before the next sync.
+
+**Change:** `[tool.uv] exclude-newer` at a week, refreshed by the lock workflow when it runs, and the same setting in the installer's bundled pins.
+
+**Done when** a lock refresh cannot select a version younger than seven days, documented in the developer guide with the reason. **Size:** under a day.
+
+### 4. Secret scanning before commit
+
+`.pre-commit-config.yaml` runs `detect-private-key`, which catches PEM blocks and nothing else. An API token, a cloud credential or a webhook secret pasted into a test fixture, a note or a recipe passes through untouched, and the recipes this project publishes are public the moment they are pushed.
+
+**Change:** a pinned `gitleaks` hook with a repo-local allowlist for the deliberate fixtures, plus one scan over the full history.
+
+**Done when** a commit containing a fabricated but well-formed token is refused locally and in CI, and the historical scan is clean or its findings are rotated. **Size:** under a day.
+
+### 5. The Emperor capability experiment
+
+Every native app runs as `hop3`, which is [plan-0.8](plans/plan-0.8.md) headline 1's subject and the platform's largest correctness gap. Before any of it can be built, one open question in [ADR 055](adrs/055-app-runtime-uid-separation.md) needs an answer, and it needs a box rather than a keyboard.
+
+Switching a process to a *different* unprivileged UID requires `CAP_SETUID` and `CAP_SETGID`, which the `hop3` user does not hold. ADR 055 §4.1 selects a capability-scoped Emperor: `AmbientCapabilities=CAP_SETUID CAP_SETGID` on the unit, plus `CAP_CHOWN` and `CAP_DAC_OVERRIDE` **only if** uWSGI's socket and log chowning need them. Nobody has measured whether that minimal set covers what uWSGI actually does.
+
+**Why it gates everything above it:** if the minimal set is not enough, the fallback is §4.2's root Emperor, which is a step back from [ADR 010](adrs/010-security-and-resilience.md)'s "no root control-plane process" and changes the shape of every increment built on top. The result belongs in the ADR either way.
+
+**Size:** small, and it unblocks the shared `hop3-apps` user: ADR 055's own named first increment, which closes the rootd escalation path and the control-plane secret exposure without solving inter-app interference. That increment is what 0.8 should carry; per-app UIDs come behind it.
 
 ## Dependency management
 
@@ -14,11 +82,11 @@ Engineering tasks captured during day-to-day work live here. Move items out to p
 
 - **Add `hop3 validate`.** A local, client-side lint of a project's `hop3.toml`: run the server's schema validation (`ContextSection`, the committed-credential tripwire, field/host-safety checks) on the file at/above the CWD and exit 0/non-zero with no server required, so it can gate CI. Top-level and project-rooted, the dry sibling of `hop3 deploy` (no `--app`; the app comes from `[metadata].id`). Renamed from the obsolete `hop3 config validate` idea, which clashed with the `config`→`env` alias (ADR 036 D17). Original intent: ADR 001 §Consequences, ADR 027 §Developer Experience. (ADR 027 also lists a stale `hop3 config show` / `config export` from the same wishlist. Revisit if those are still wanted.)
 
-  Note what already exists: `hop3check` (shipped from the `letscode-plugins` repo, not this one) is the checker the packaging skill tells people to run, and it is a hand-written implementation of the same rules: it reports clean on recipes the server then refuses at deploy time. Whatever ships here should validate against the published `schema/hop3.toml.schema.json`, so the file holds one implementation.
+  Note what already exists: `hop3check` (shipped from the `letscode-plugins` repo, not this one) is the checker the packaging skill tells people to run, and it is a hand-written implementation of the same rules: it reports clean on recipes the server then refuses at deploy time, and since the php-fpm migration it also reports `nothing-to-run` on every PHP recipe, which is now the correct shape for one. The drift runs both ways, so whichever side is right on a given rule, two hand-written implementations of one contract will keep disagreeing. Whatever ships here should validate against the published `schema/hop3.toml.schema.json`, so the file holds one implementation.
 
-- **`--` does not survive flag parsing.** `parse_flags` consumes the POSIX end-of-options marker (`commands/flags.py:211`) and records nothing about where it was, so a later pass cannot tell an escaped flag from one of ours: `hop3 apps -- --help` still reads as a request for hop3's own help. The `run` boundary has the same shape and is handled (`app_scope.RunBoundary`, fed by both passes); `--` needs a change to what `parse_flags` returns, which is why it was not folded in with it.
+- **`--` does not survive flag parsing.** `parse_flags` consumes the POSIX end-of-options marker (`_END_OF_FLAGS` in `commands/flags.py`) and records nothing about where it was, so a later pass cannot tell an escaped flag from one of ours: `hop3 apps -- --help` still reads as a request for hop3's own help. The `run` boundary has the same shape and is handled (`app_scope.RunBoundary`, fed by both passes); `--` needs a change to what `parse_flags` returns, which is why it was not folded in with it.
 
-- **`hop3 login --token <token>` puts a secret on argv**, where `ps` can read it for the length of the call. ADR 036 gives `user add`, `user set-password` and `auth get-token` the `KEY=-` / `KEY=@file` / hidden-prompt treatment; the `--token` path never got it, and the deployer is a caller (`deployer/deploy.py:1616`, whose own comment notes there is no stdin form to use). Small, and the rewriting machinery already exists in `commands/arguments.py`.
+- **`hop3 login --token <token>` puts a secret on argv**, where `ps` can read it for the length of the call. ADR 036 gives `user add`, `user set-password` and `auth get-token` the `KEY=-` / `KEY=@file` / hidden-prompt treatment; the `--token` path never got it, and the deployer is a caller (`deployer/deploy.py`, whose own comment at the call notes there is no stdin form to use). Small, and the rewriting machinery already exists in `commands/arguments.py`.
 
 ## Testing
 
@@ -28,7 +96,7 @@ Engineering tasks captured during day-to-day work live here. Move items out to p
 
   `notes/lessons-learned/deployment-diagnostics.md` already says one e2e session per machine and that a failure seen while another session was active is not evidence. The harness does not enforce it. **Fix shape:** the Docker target should detect that the container is already owned by a live session (a lock file carrying the owning PID, or a label written at start and checked before teardown) and abort loudly instead of seizing it. A session that steals a running container breaks the "no silent fallback" rule, and here it is the test harness doing so.
 
-- **`--clean` does not clean the named volumes, so a poisoned download cache survives a blank-slate rebuild.** mediawiki failed nine times with `tar: Unexpected EOF`, identically across runs that were supposed to share no state, because `hop3-download-cache` held a 45 MB entry for a 116 MB tarball dating from 2026-08-24. `--clean` replaces the container and leaves the volumes, which is usually what you want and is exactly wrong for a cache: a truncated entry there is indistinguishable from an upstream fault, and it is the one piece of state that makes a failure look reproducible when it is not. **Fix shape:** validate a cache entry on read (size against the recorded `Content-Length`, or a checksum when the recipe gives one) and evict rather than serve a short file; separately, say in `--clean`'s own output which state it is not clearing.
+- **`--clean` does not clean the named volumes, so a poisoned download cache survives a blank-slate rebuild.** mediawiki failed nine times with `tar: Unexpected EOF`, identically across runs that were supposed to share no state, because `hop3-download-cache` held a 45 MB entry for a 116 MB tarball dating from 2026-08-24. `--clean` replaces the container and leaves the volumes, which is usually what you want and is exactly wrong for a cache: a truncated entry there is indistinguishable from an upstream fault, and it is the one piece of state that makes a failure look reproducible when it is not — mediawiki passes on a remote target, which is what finally separated the two. **Fix shape:** validate a cache entry on read (size against the recorded `Content-Length`, or a checksum when the recipe gives one) and evict rather than serve a short file; separately, say in `--clean`'s own output which state it is not clearing.
 
 - **The e2e image build fails intermittently on apt.** `E: Sub-process /usr/bin/dpkg returned an error code (1)` while installing the 25-package catalogue baseline, and `.NET SDK 9 installation failed` alongside it; the run dies in fixture setup before any test. Not disk (host and Docker VM both had >17 GiB free). Seen 2026-09-11, under the same two-session conditions as above, so re-confirm on a quiet machine before chasing it.
 
@@ -41,6 +109,8 @@ Engineering tasks captured during day-to-day work live here. Move items out to p
 - **A recipe can pin its Node version but not its package manager.** `[build].node-version` installs an exact Node into the app's venv; pnpm was whatever the host happened to have. Etherpad's `download.sh` carries three separate workarounds for successive pnpm behaviour changes (`auto-install-peers` moving out of `.npmrc`, dependency build scripts needing `dangerouslyAllowAllBuilds`, and `pnpm ls --no-production` being removed — the last one fatal at *startup*, not build, because upstream's plugin migration calls it). Each was written blind against whatever pnpm was current that week.
 
   **The server-wide half is done (2026-09-14):** the installer pins an exact pnpm and reconciles it on every run, so the version stops moving under deployed apps and two servers of the same Hop3 version agree. What is left is the *per-app* pin — an app needing a pnpm other than the server's still has no way to ask — and the package-manager *selection* question (dispatch from the lockfile), which is distinct. Both scheduled as sub-items under [`plans/plan-0.8.md`](plans/plan-0.8.md) headline 4; neither is urgent now that the drift is stopped.
+
+  **A third axis, found on 2026-09-21: the Nix path uses neither.** `node-pnpm-install` runs whatever pnpm the recipe's pinned nixpkgs carries — 9.15.9 for the one recipe on that template — so the installer's server-wide pin does not reach it and `[build].node-version` says nothing about it. The versions differ in behaviour that matters: pnpm 9's `fetch` compiles native addons while populating the store, 11's does not. Whatever answers the per-app question has to answer it for the Nix builder too, or the two builders will keep resolving the same recipe differently.
 
 ## Release tooling
 
