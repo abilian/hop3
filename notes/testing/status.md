@@ -1,6 +1,6 @@
 # Hop3 Test Status
 
-**Last updated:** 2026-09-18.
+**Last updated:** 2026-09-22.
 
 The *structure* is [ADR 043](../adrs/043-unified-testing-architecture.md) and [`strategy.md`](strategy.md); the *commands* are [`cheat-sheet.md`](cheat-sheet.md) and the quick reference in `CLAUDE.md`. This file records where the suites stand today, and nothing more. Every number on it is reproducible by the command beside it. If you are reading it more than a few weeks after the date above, re-run the commands before trusting the numbers.
 
@@ -21,7 +21,7 @@ Three, decided by what a test *needs* (Docker, root, host mutation). Complexity 
 | Fast tier, all packages | 5983 passed, 1 skipped | ~55 s | `make test-fast` |
 | Integration, hop3-server | 537 passed, 22 skipped | ~42 s | `uv run pytest packages/hop3-server/tests/b_integration` |
 | Docker e2e | green, no skips | ~15 min | `make test-e2e` |
-| App catalog, remote target | 161 of 161, **inputs changed mid-run** | 5 h 27 m | `hop3-test run --host <server> --with all` |
+| App catalog, remote target | **162 of 162**, over three runs | ~5 h | `hop3-test run --host <server> --with all` |
 
 The integration skips are opt-in by design and each names a resource the harness does not provision: a live Garage node (`HOP3_TEST_GARAGE_ADMIN`), and the procfs-reading tests, which are Linux-only and skip on a developer's Mac.
 
@@ -29,11 +29,26 @@ The c_e2e layer reached **no skips** during the 0.7.3 gate, which is the bar it 
 
 ## The last full catalog run
 
-**The 2026-09-16 run returned 161 of 161, and it is not a gate.** It started 18:34 and finished 00:01, and the php-fpm migration was committed into the sibling catalog checkout at 20:19 — the tree the harness scans. Ten PHP recipes were deployed after that point, from migrated recipes, against a server that did not yet carry the fixes those recipes need. They passed. Either the migrated recipes work on an unfixed server, which nothing has measured, or the run read a mixture of old and new recipes; the run cannot tell us which. A result taken while its own inputs were being edited is not evidence, the same way a failure seen alongside another session is not evidence.
+**2026-09-21, against 0.7.5's tree, in three parts.** The first run of the catalog that gates anything: one server build, one committed tree, nobody editing underneath it.
 
-What still stands from it: the six platform fixes of 2026-09-14/15 were in place for the whole run, and 153 → 159 → 161 across three runs tracks real repair. What does not stand is "the catalog passes", because nobody can say which catalog.
+| Run | Scope | Result | Time |
+|-----|-------|--------|------|
+| 1174 | alpha, **cold Nix store** (`--provider hetzner`), `--from local` | 108 / 108 | 4 h 00 m |
+| 1176 | golden + beta | 52 / 54 | 1 h 05 m |
+| 1177 | the two failures, re-checked alone | 2 / 2 | 4 m |
 
-**The gate is still owed**: one run, start to finish, against a tree that does not change under it.
+**All ten migrated PHP recipes passed** — bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, paheko, wordpress — the first run of them against the php-fpm fixes. **Thirty Nix apps built on an empty store**, which had not happened since August and is what blocker #38 exists to keep happening.
+
+Both failures in run 1176 were outside the platform, and both passed on re-run:
+
+| Failure | Cause |
+|---------|-------|
+| uptime-kuma | GitHub answered `504 Gateway Time-out` six times for the release tarball; `hop3-fetch` backed off 2/4/8/16/32s and failed with the URL and the status |
+| bugsink-nix | gunicorn bound its port, no worker booted, nothing logged; a `hop3-test` run had been interrupted on that box two minutes before |
+
+Two apps passed on a re-run rather than in the sweep. Neither is a code defect and neither reproduced, but a gate that needed a retry has a retry in it.
+
+### The run before this one, and why it was not a gate
 
 ### The run before it, and how its two failures were found
 
@@ -52,8 +67,8 @@ Five of the eight were the platform's fault. Three could only have been found by
 
 ## Known gaps
 
-- **A warm Nix store hides an app that cannot build.** `directus-nixgen` passed nine runs between 2026-08-24 and 2026-09-16 and failed on 2026-09-21 with `reused 0, downloaded 1267`: its dependency-fetch derivation was rebuilt for the first time since August, and `pnpm fetch` died compiling `isolated-vm@5.0.3`. Nix short-circuits a fixed-output derivation whose path already exists, so neither the catalog run nor `hop3-tools nix check-reproducible` re-enters that step once it has succeeded once. Every nix-gen app has the same hiding place.
-- **The catalog run is the only layer that exercises php-fpm against real applications**, and the last full run predates it. Fourteen PHP recipes moved onto the php-fpm runtime on 2026-09-16 and were each checked one at a time on Docker; they have not been through a full run together. The two platform fixtures that cover the runtime cheaply are `apps/test-apps-procfile/060-php-hello` and `070-php-public`.
+- **A warm Nix store hides an app that cannot build.** `directus-nixgen` passed nine runs between 2026-08-24 and 2026-09-16 and failed on 2026-09-21 with `reused 0, downloaded 1267`: its dependency-fetch derivation was rebuilt for the first time since August, and `pnpm fetch` died compiling `isolated-vm@5.0.3`. Nix short-circuits a fixed-output derivation whose path already exists, so neither the catalog run nor `hop3-tools nix check-reproducible` re-enters that step once it has succeeded once. Every nix-gen app has the same hiding place. `make test-nix-cold` is the answer: `--clean` removes Hop3 and leaves `/nix`, so only an OS rebuild empties the store. Run it on a schedule, because a warm store makes the cheap gates say nothing.
+- **The two php-fpm platform fixtures are the cheap check**, and the catalog run is the only layer that exercises the runtime against real applications. `apps/test-apps-procfile/060-php-hello` and `070-php-public` cover it in seconds; the fourteen migrated recipes went through a full run on 2026-09-21.
 - **A feature can ship with a green suite and never have run.** php-fpm shipped on 2026-09-11 with seven defects the suite could not see, because every recipe's own `[run].start` overrode the new worker and the tests asserted the shape of a command string rather than that a pool came up. Any new code path behind a precedence rule has zero users on the day it ships; its fixture has to exist before it does.
 
 - **Two e2e sessions on one machine silently share a container.** The Docker target has a fixed name and fixed ports, so a second session tears the first's container down and re-installs under it, and neither is told. Recorded in [`../todo.md`](../todo.md) with a fix shape. Until it is fixed: one e2e session per machine. A failure seen while another session was running carries no weight.
