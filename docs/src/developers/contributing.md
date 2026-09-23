@@ -129,6 +129,10 @@ The lock never selects a distribution uploaded in the last seven days (`[tool.uv
 
 Servers get the same week. The installer writes it into the server venv's `pip.conf`, so every pip call on that venv resolves dependencies under it. Hop3's own packages are the exception: they are installed first with the cutoff lifted, so a release can be installed the day it ships.
 
+### Secrets
+
+The `gitleaks` pre-commit hook scans every commit's staged diff for tokens, cloud credentials and other secrets, and CI runs `make secrets-scan` over the whole history. A fixture that must look like a secret takes a `gitleaks:allow` comment on its line. `.gitleaksignore` lists historical findings that were triaged and accepted. A new finding never goes there to make a scan pass: rotate the secret first.
+
 ### Writing Tests
 
 Follow these guidelines when writing tests:
@@ -208,6 +212,7 @@ Before submitting a PR, you can run the same checks locally:
 
 ```bash
 make lint                # Linting and type checks
+make secrets-scan        # Committed secrets, whole history (needs gitleaks)
 make test                # Check tier: unit + integration, all packages, no Docker
 make test-e2e            # Docker e2e layer (real deploys, slow)
 make test-cov  # Coverage on the in-process layers (what coverage.py sees)

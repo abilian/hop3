@@ -51,6 +51,12 @@ tasks:
       cd hop3
       uv run make lint
 
+  - secrets: |
+      cd hop3
+      # Pinned to the pre-commit hook's rev; Go fetches its own toolchain.
+      go install github.com/zricethezav/gitleaks/v8@v8.30.1
+      PATH="$HOME/go/bin:$PATH" make secrets-scan
+
   - test: |
       cd hop3
       # check tier: in-process across all packages (no Docker)
