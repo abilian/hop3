@@ -62,6 +62,10 @@ Status terms: **Accepted** (approved, partially implemented) · **Final** (imple
 | 056 | App Admin Credentials: Bootstrap, Storage, and Retrieval | Accepted |
 | 057 | A `hop3-tooling` Package for Maintainer & Operator Tooling | Accepted |
 | 058 | Build Reproducibility Model | Accepted |
+| 059 | Catalog Maturity Status | Accepted |
+| 060 | Object Storage Backend | Accepted |
+| 061 | Standard Roles and Control-Plane Authorization | Proposed |
+| 062 | Authenticated Access Gate | Proposed |
 
 ## Summaries
 
@@ -238,3 +242,15 @@ Creates a `hop3-tooling` package for automation scripts that don't belong to the
 
 ### 058. Build Reproducibility Model (`Accepted`)
 Defines the precise claim of reproducibility for Hop3 builds: a third party with the same inputs (source, `hop3.toml`, and build environment) can rebuild a deployment and verify it produces bit-identical artifacts. Constrains every build path (three Nix tiers, native toolchain, Docker) and defines what "same inputs" means for each. The property is stated precisely enough to be falsified.
+
+### 059. Catalog Maturity Status (`Accepted`)
+A catalog recipe carries a maturity status (`golden`, `beta`, `alpha`, `broken`, `retired`), each defined by the evidence that admits a recipe to it, so promotion is a check. The status is the directory the recipe lives in and nothing else records it; the publish step derives a `status` field into the signed index, publishes only `golden` and `beta`, and keeps the artefact's flat per-app layout.
+
+### 060. Object Storage Backend (`Accepted`)
+Garage replaces MinIO as the object store Hop3 installs and the default `S3Backend`, after MinIO withdrew its public server binaries and left `--with s3` installs unbuildable. Garage is a single static binary that can be fetched and pinned. `MinIOBackend` remains selectable for an operator who runs their own MinIO.
+
+### 061. Standard Roles and Control-Plane Authorization (`Proposed`)
+Replaces "any account can run any command" with four fixed roles, `admin > deployer > viewer > member`, one per account. Each RPC command declares a minimum role, the dispatcher enforces it before the command runs, and the default is admin-only, so an undeclared command fails closed. The role is read from the database on every request. The dashboard follows the same rule. Per-app grants are designed in (a user's role for an app is the higher of their server role and their grant for it) and left to a later ADR; custom roles are a last resort.
+
+### 062. Authenticated Access Gate (`Proposed`)
+Lets a recipe put a login-less app behind a Hop3 sign-in with `[access] require = "auth"`, a minimum role and anonymous `public-paths`. nginx, Caddy and Traefik each consult one hop3-server check endpoint through their native forward-auth. A per-app redirect handshake sets a host-only gate cookie scoped to that app, so the admin credential never reaches an app. The proxy overwrites `X-Hop3-User` and `X-Hop3-Role`, and the gate fails closed. Replaces ADR 050's deferred `require = "auth"` gate condition.
