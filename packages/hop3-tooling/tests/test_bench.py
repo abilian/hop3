@@ -110,7 +110,6 @@ def test_parse_cgroup_bytes_rejects_non_numeric():
 RUN = Path(__file__).parents[3] / "notes" / "benchmarks" / "2026-07-19-preliminary.json"
 
 
-@pytest.mark.skipif(not RUN.exists(), reason="raw measurement run not present")
 def test_paper_figures_regenerate_from_the_raw_run():
     """Guards the claim that no figure in the paper is hand-transcribed."""
     rendered = render_all(json.loads(RUN.read_text()))

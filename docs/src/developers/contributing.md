@@ -121,6 +121,8 @@ make test
 
 pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_DEV_HOST` / `HOP3_TEST_HOST` (ADR 043), so an ambient value can't redirect a run at a real box. Pass `--ssh-host` to target a remote server explicitly.
 
+Nothing in the workspace is optional to its test suite. The dev group installs every extra the tests exercise (the WAF engine among them), and in a workspace run `pytest.importorskip` fails instead of skipping: a skipped import used to drop a whole test file from a green run. A skip is kept only for a resource the harness cannot provision, such as `systemctl` on macOS or a MySQL server, and `-ra` prints each one's reason. If a run fails with "missing from the workspace venv", run `make develop`.
+
 ### Writing Tests
 
 Follow these guidelines when writing tests:
