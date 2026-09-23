@@ -99,6 +99,11 @@ doc = [
 
 [tool.uv]
 package = false
+# Supply-chain cooldown: a lock never selects a distribution uploaded in the
+# last week. A compromised release is usually caught and yanked within days;
+# `uv lock --upgrade` would otherwise take it the hour it lands. The server
+# installer applies the same week to its venv (hop3_installer's pip.conf).
+exclude-newer = "7 days"
 
 [tool.uv.workspace]
 members = ["packages/*"]
