@@ -77,6 +77,11 @@ dev = [
     "sbom4python>=0.11.3",
     "spdx-tools>=0.8.3",
     "pytest-xdist>=3.8.0",
+    # Nothing in the workspace is optional to its test suite: the root conftest
+    # fails an importorskip rather than skip it. The WAF suites need the extra.
+    "hop3-server[waf]",
+    # Drives the S3 side of the opt-in Garage integration test.
+    "boto3>=1.35",
     "twine>=6.2.0",
     # 3.12+ only; conditional so the workspace can sync under 3.10 / 3.11.
     "dead-code-detector>=0.5.0; python_version >= '3.12'",

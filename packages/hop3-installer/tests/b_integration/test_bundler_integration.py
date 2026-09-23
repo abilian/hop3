@@ -8,12 +8,10 @@ These tests actually generate bundled installers and verify they work.
 
 from __future__ import annotations
 
-import shutil
 import subprocess
 import sys
 from typing import TYPE_CHECKING
 
-import pytest
 from hop3_installer.bundler import bundle_installer, validate_bundle
 
 if TYPE_CHECKING:
@@ -179,8 +177,6 @@ class TestBundleExecution:
         becomes an *undefined name* — a runtime ``NameError`` that ``py_compile``
         and ``ast.parse`` both pass. Ruff's F821 is the guard that catches it.
         """
-        if shutil.which("ruff") is None:
-            pytest.skip("ruff not available for the undefined-name check")
         for kind in ("cli", "server"):
             script = tmp_path / f"install-{kind}.py"
             script.write_text(bundle_installer(kind))

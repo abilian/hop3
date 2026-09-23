@@ -5,7 +5,7 @@
 """
 Root pytest conftest.
 
-Two responsibilities, both cross-package:
+Three responsibilities, all cross-package:
 
 1. **Tier markers from the directory layer (ADR 043).** The fast / integration
    / e2e split is encoded by where a test lives, not by hand-applied decorators
@@ -19,6 +19,12 @@ Two responsibilities, both cross-package:
    ``hop3-deploy-server`` / ``hop3-test``) used to silently redirect e2e tests
    at a real box, colliding with live ``hop3-test`` runs. Those vars are now
    taboo for pytest — stripped for the whole session so nothing can read them.
+
+3. **Nothing in the workspace is optional.** ``pytest.importorskip`` fails
+   instead of skipping, because a skipped import here is a test file that
+   silently left a green run (``_import_or_fail``). Skips for a resource the
+   harness cannot provision (``systemctl`` on macOS, a MySQL server) stay
+   skips, and ``-ra`` prints each one's reason.
 """
 
 from __future__ import annotations
@@ -31,6 +37,7 @@ import pytest
 
 if TYPE_CHECKING:
     from collections.abc import Callable
+    from types import ModuleType
 
 # Env vars that name a REMOTE deploy/test target. They must never select or
 # point a pytest target (see module docstring). Stripped session-wide so no
@@ -70,10 +77,44 @@ def pytest_addoption(parser: pytest.Parser) -> None:
     )
 
 
+_real_importorskip = pytest.importorskip
+_session_patch = pytest.MonkeyPatch()
+
+
 def pytest_configure(config: pytest.Config) -> None:
-    """Make the remote-target env vars taboo for the whole pytest session."""
+    """Make the remote-target env vars taboo; make every import mandatory."""
     for var in _TABOO_REMOTE_TARGET_VARS:
         os.environ.pop(var, None)
+    _session_patch.setattr(pytest, "importorskip", _import_or_fail)
+
+
+def pytest_unconfigure(config: pytest.Config) -> None:
+    """Hand pytest its own ``importorskip`` back."""
+    _session_patch.undo()
+
+
+def _import_or_fail(
+    modname: str, minversion: str | None = None, reason: str | None = None
+) -> ModuleType:
+    """
+    ``pytest.importorskip`` for workspace runs: a missing module fails.
+
+    Inside the workspace every package and every extra is installed (the dev
+    group pulls in ``hop3-server[waf]``), so a module-level ``importorskip``
+    that fires is a venv synced some other way, and a whole test file vanished
+    from a green run. That happened to the WAF suites. A package tested on its
+    own has its own pytest rootdir and never loads this file, so the CLI's
+    tests can still skip where hop3-server legitimately is not installed.
+    """
+    try:
+        return _real_importorskip(modname, minversion, reason)
+    except pytest.skip.Exception as exc:
+        why = str(exc)
+    pytest.fail(
+        f"{modname} is missing from the workspace venv ({why}). "
+        "Run `make develop`; plain `uv sync --no-dev` drops it.",
+        pytrace=False,
+    )
 
 
 @pytest.fixture
