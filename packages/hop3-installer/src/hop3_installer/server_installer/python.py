@@ -42,6 +42,12 @@ from .user import run_as_hop3
 #: Where app build hooks find the download helper (see publish_fetch_helper).
 FETCH_HELPER_LINK = Path("/usr/local/bin/hop3-fetch")
 
+#: Supply-chain cooldown for the server venv: pip there takes no distribution
+#: uploaded in the last seven days. A compromised release is usually caught and
+#: yanked within days; an install resolving "latest" takes it the hour it lands.
+#: The workspace lock carries the same week (``[tool.uv] exclude-newer``).
+DEPENDENCY_COOLDOWN = "P7D"
+
 
 def _get_python_executable() -> str:
     """
@@ -83,9 +89,11 @@ def install_package(config: ServerInstallerConfig) -> None:
     """Install the hop3-server package."""
     pip = f"{VENV_DIR}/bin/pip"
 
-    # Upgrade pip
+    # Upgrade pip first: the cooldown option is recent, and a venv's bundled
+    # pip may predate it.
     with Spinner("Upgrading pip..."):
-        run_as_hop3([pip, "install", "--upgrade", "pip"])
+        run_as_hop3([pip, "install", "--upgrade", "pip"], check=True)
+    write_pip_cooldown()
 
     # Determine what to install. Values interpolated into package_spec are
     # user-controlled; run_as_hop3 quotes every argv element at the seam.
@@ -98,7 +106,7 @@ def install_package(config: ServerInstallerConfig) -> None:
         source_desc = f"local path ({config.local_path})"
     elif config.use_git:
         with Spinner("Installing build tools..."):
-            run_as_hop3([pip, "install", "uv"])
+            run_as_hop3([pip, "install", "uv"], check=True)
         package_spec = (
             f"{SERVER_PACKAGE_NAME}[waf] @ "
             f"git+{GIT_REPO}@{config.branch}#subdirectory={SERVER_PACKAGE_SUBDIR}"
@@ -116,7 +124,7 @@ def install_package(config: ServerInstallerConfig) -> None:
             source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-server from {source_desc}..."):
-        run_as_hop3([pip, "install", *pre_flag, package_spec])
+        _pip_install_own(pip, package_spec, *pre_flag)
 
     print_success("hop3-server installed successfully")
 
@@ -212,6 +220,35 @@ def write_build_info(config: ServerInstallerConfig) -> None:
         print_warning(f"Could not write build info: {e}")
 
 
+def write_pip_cooldown() -> None:
+    """
+    Write the cooldown into the venv's own ``pip.conf``.
+
+    Per-venv, so it reaches every pip call on this venv (the installer's and
+    the developer deployer's) and none of the apps' builds, which have venvs
+    of their own. Rewritten on every install: a server installed before the
+    cooldown existed gets it on its next upgrade.
+    """
+    conf = VENV_DIR / "pip.conf"
+    conf.write_text(f"[install]\nuploaded-prior-to = {DEPENDENCY_COOLDOWN}\n")
+    _chown_hop3(conf)
+
+
+def _pip_install_own(pip: str, spec: str, *flags: str) -> None:
+    """
+    Install one of Hop3's own packages, with its dependencies under the cooldown.
+
+    The cooldown would refuse a Hop3 release younger than a week. So the package
+    goes in first on its own (``--no-deps``) with the cutoff lifted (``P0D``:
+    uploaded at least zero days ago); the second call finds it installed and
+    resolves only its dependencies, under the venv's cutoff. Both calls fail
+    loudly: a swallowed pip failure used to end in "installed successfully".
+    """
+    lifted = [*flags, "--no-deps", "--uploaded-prior-to=P0D", spec]
+    run_as_hop3([pip, "install", *lifted], check=True)
+    run_as_hop3([pip, "install", *flags, spec], check=True)
+
+
 def _installed_version() -> str | None:
     """Return the hop3-server version as installed in the venv."""
     code = "import importlib.metadata as m; print(m.version('hop3_server'))"
@@ -281,7 +318,7 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
         source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-rootd from {source_desc}..."):
-        run_as_hop3([pip, "install", package_spec])
+        _pip_install_own(pip, package_spec)
 
     print_success("hop3-rootd installed successfully")
 
@@ -323,7 +360,7 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
         source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-cli from {source_desc}..."):
-        run_as_hop3([pip, "install", package_spec])
+        _pip_install_own(pip, package_spec)
 
     print_success("hop3-cli installed successfully")
 

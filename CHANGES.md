@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Security
+
+- **A server installs no dependency released in the last seven days.** A compromised package is usually caught and yanked within days, and an install resolving the latest version would take it the hour it appears. The installer writes the cutoff into the server venv's `pip.conf`, so upgrades and developer deploys resolve under it too. Hop3's own packages are exempt, so a release can be installed the day it ships. Apps' own builds are unaffected.
+
+### Fixed
+
+- **`hop3-install server` fails when pip fails.** A failed `pip install` of hop3-server, hop3-rootd or hop3-cli was ignored, and the installer printed "installed successfully" over it. It now stops at that step and shows pip's output.
+
 ## [0.7.5] - 2026-09-21
 
 ### Added

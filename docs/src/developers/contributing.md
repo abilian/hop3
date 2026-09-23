@@ -123,6 +123,12 @@ pytest e2e runs against Docker by default; the root `conftest.py` strips `HOP3_D
 
 Nothing in the workspace is optional to its test suite. The dev group installs every extra the tests exercise (the WAF engine among them), and in a workspace run `pytest.importorskip` fails instead of skipping: a skipped import used to drop a whole test file from a green run. A skip is kept only for a resource the harness cannot provision, such as `systemctl` on macOS or a MySQL server, and `-ra` prints each one's reason. If a run fails with "missing from the workspace venv", run `make develop`.
 
+### Dependencies and the cooldown
+
+The lock never selects a distribution uploaded in the last seven days (`[tool.uv] exclude-newer = "7 days"` in `pyproject.toml`). A compromised release is usually caught and yanked within days, and `uv lock --upgrade` would otherwise take it the hour it lands. The setting is relative, so there is no date to refresh. A fix you need sooner than a week is a deliberate exception: override it for that one package with `exclude-newer-package`, and say why in the commit.
+
+Servers get the same week. The installer writes it into the server venv's `pip.conf`, so every pip call on that venv resolves dependencies under it. Hop3's own packages are the exception: they are installed first with the cutoff lifted, so a release can be installed the day it ships.
+
 ### Writing Tests
 
 Follow these guidelines when writing tests:
