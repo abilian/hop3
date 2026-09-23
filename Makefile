@@ -1,4 +1,4 @@
-.PHONY: all develop test test-fast lint clean doc format build serve
+.PHONY: all develop test test-fast lint secrets-scan clean doc format build serve
 .PHONY: testlab-serve testlab-prune testlab-schedule testlab-run
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
 .PHONY: test-e2e test-cov test-demos test-tutorials
@@ -110,6 +110,12 @@ lint:
 
 ## Alias for lint (used by CI)
 check: lint
+
+## Scan the whole git history for committed secrets (the pre-commit hook sees
+## only the staged diff). Accepted historical findings: .gitleaksignore.
+secrets-scan:
+	@echo "--> Scanning history for secrets"
+	gitleaks git --no-banner --redact .
 
 ## Format code
 format:

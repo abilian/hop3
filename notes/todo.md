@@ -2,9 +2,9 @@
 
 Engineering tasks captured during day-to-day work live here. Move items out to plans / weeklies / commit messages as they are picked up. The first section runs the other way: work that plans and ADRs have already decided, written out in full because a reference by number tells a reader nothing.
 
-## Next up: five tasks, decided and unstarted
+## Next up: two tasks, decided and unstarted
 
-Three of them come from an internal safe-defaults review. Two come from [ADR 050](adrs/050-waf-l7-lewaf.md) and [ADR 055](adrs/055-app-runtime-uid-separation.md). They are written out here because referring to them by number names nothing to anyone outside the review. Checked against the tree on 2026-09-22: none of the five has started.
+One comes from an internal safe-defaults review, extended by [ADR 061](adrs/061-standard-roles-and-rpc-authorization.md) and [ADR 062](adrs/062-authenticated-access-gate.md); the other from [ADR 055](adrs/055-app-runtime-uid-separation.md). They are written out here because referring to them by number names nothing to anyone outside the review. Three more from the same review shipped on 2026-09-23: no silent skips in the test suites, a seven-day dependency cooldown, and secret scanning (see `docs/src/developers/contributing.md`).
 
 ### 1. An authenticated gate in front of apps
 
@@ -20,42 +20,7 @@ Scoped on 2026-09-22 into two proposed ADRs and three pieces of work, in this or
 
 **Size:** L. It unblocks fourteen login-less applications identified in a migration study and three catalog candidates with no sign-in of their own (synapse-admin, Outline, Woodpecker), closes ADR 050's own deferral, and is the largest single unblock in the backlog. Displaced three weeks running.
 
-### 2. No silent skips in the test suites
-
-A skipped test in a standard target is a silent skip, which this project's own rules forbid. Every run of `make test-fast` reports `1 skipped` today. Seven sites:
-
-| Where | Skips on |
-|---|---|
-| `hop3-server/tests/a_unit/waf/test_compiler_lewaf.py` | `lewaf` absent |
-| `hop3-server/tests/b_integration/waf/test_proxy_integration.py` | `lewaf` absent |
-| `hop3-server/tests/b_integration/plugins/test_s3_garage_integration.py` | `boto3` absent |
-| `hop3-cli/tests/a_unit/core/test_app_scope_matches_server.py` | `hop3-server` not installed |
-| `hop3-cli/tests/a_unit/commands/test_fallback_commands.py` | the RPC module absent |
-| `hop3-rootd/tests/a_unit/test_exec.py` (×2) | `systemctl` absent |
-
-`lewaf` is the `waf` extra. `make develop` already syncs `--all-packages --all-extras --all-groups`; the `test*` targets do not sync at all, so a venv synced any other way skips silently and reports green.
-
-**Change:** the `make test*` targets sync every extra they test; `importorskip` and tool-absence skips become hard failures behind an explicit `--allow-missing=lewaf,systemctl` the Makefile never passes; a summary check fails the target when anything in the selected layer skipped for a missing dependency.
-
-**Done when** `make test-fast` fails on a venv without `lewaf` with a one-line reason. The opt-out works and prints what it disabled. **Size:** under a day.
-
-### 3. A dependency cooldown
-
-`uv lock --upgrade` will take a version published minutes ago. A freshly-published compromised release is the common shape of a supply-chain attack. There is no `exclude-newer` anywhere in the workspace, so the only defence is that someone notices before the next sync.
-
-**Change:** `[tool.uv] exclude-newer` at a week, refreshed by the lock workflow when it runs, and the same setting in the installer's bundled pins.
-
-**Done when** a lock refresh cannot select a version younger than seven days, documented in the developer guide with the reason. **Size:** under a day.
-
-### 4. Secret scanning before commit
-
-`.pre-commit-config.yaml` runs `detect-private-key`, which catches PEM blocks and nothing else. An API token, a cloud credential or a webhook secret pasted into a test fixture, a note or a recipe passes through untouched. The recipes this project publishes are public the moment they are pushed.
-
-**Change:** a pinned `gitleaks` hook with a repo-local allowlist for the deliberate fixtures, plus one scan over the full history.
-
-**Done when** a commit containing a fabricated but well-formed token is refused locally and in CI. The historical scan comes back clean, or its findings are rotated. **Size:** under a day.
-
-### 5. The Emperor capability experiment
+### 2. The Emperor capability experiment
 
 Every native app runs as `hop3`, which is [plan-0.8](plans/plan-0.8.md) headline 1's subject and the platform's largest correctness gap. Before any of it can be built, one open question in [ADR 055](adrs/055-app-runtime-uid-separation.md) needs an answer that only a real box can give.
 
@@ -70,6 +35,8 @@ Switching a process to a *different* unprivileged UID requires `CAP_SETUID` and 
 - **Pin runtime dependencies.** `hop3-server` (and the other workspace packages) still use loose floors like `litestar[standard]>=2.22.0`. Hop3 is an application. Applications pin their runtime deps to exact versions, with controlled bumps. This avoids two failure modes seen in production: (1) pip's `only-if-needed` upgrade strategy leaving stale transitive deps on the server (e.g. litestar 2.18 satisfying `>=2.18.0` while local code uses 2.22-only APIs), and (2) silent drift between developer machines and the production server.
 
   Likely shape: `requirements.lock`-style file generated by `uv pip compile` (or `uv lock` with `package = true` flipped), used by the installer's pip step and pinned at PR time.
+
+  The seven-day cooldown (2026-09-23) bounds how new an unpinned dependency can be on a server. It is not a pin, and two installs a month apart still resolve differently.
 
   Scoped to 0.5 release prep originally and never done; carried as an open box in [`plans/plan-0.7.x.md`](plans/plan-0.7.x.md).
 
