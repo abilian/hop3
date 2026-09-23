@@ -6,11 +6,11 @@ This process is inspired by [Python's PEP process](https://www.python.org/dev/pe
 
 ## ADR Index
 
-The authoritative, always-current index (every ADR with its type and status, plus a grouping by status) is generated from the ADR preambles and published at [/developers/adrs/](https://hop3.cloud/developers/adrs/). The published page is the single source of truth.
+The authoritative, always-current index (every ADR with its type and status, plus a grouping by status) is generated from the ADR preambles and published at [/developers/adrs/](https://hop3.cloud/developers/adrs/). The published page is the single source of truth. [000-index.md](000-index.md) is the in-repo table with a one-paragraph summary of each ADR; add a row and a summary with every new ADR.
 
 ## ADR Types
 
-An ADR can describe one of three types:
+An ADR can describe one of five types:
 
 | Type | Description | Final Status |
 |------|-------------|--------------|
@@ -27,6 +27,10 @@ An ADR can describe one of three types:
 ```
                     ┌─────────────┐
                     │    Draft    │
+                    └──────┬──────┘
+                           ▼
+                    ┌─────────────┐
+                    │  Proposed   │
                     └──────┬──────┘
                            │
               ┌────────────┼────────────┐
@@ -53,6 +57,7 @@ An ADR can describe one of three types:
 | Status | Description |
 |--------|-------------|
 | **Draft** | Initial proposal, not yet reviewed or discussed |
+| **Proposed** | Complete and under review; the decision is pending |
 | **Accepted** | Approved after discussion, ready for implementation |
 | **Rejected** | Explicitly decided against after discussion |
 | **Deferred** | Parked for later consideration. The proposal has merit but the timing is not right. |
@@ -72,13 +77,13 @@ Every ADR should start with a structured metadata block:
 ```markdown
 # ADR NNN: Title
 
-**Status**: Draft | Accepted | Rejected | Deferred | Final | Active | Inactive | Superseded
-**Type**: Feature | Process | Guideline
-**Created**: YYYY-MM-DD
-**Authors**: Name <email> (optional)
-**Implemented-In**: vX.Y.Z (for Final status)
-**Superseded-By**: ADR NNN (if superseded)
-**Related-ADRs**: NNN, NNN, NNN
+- **Status**: Draft | Proposed | Accepted | Rejected | Deferred | Final | Active | Inactive | Superseded
+- **Type**: Feature | Architecture | Design | Process | Guideline
+- **Created**: YYYY-MM-DD
+- **Authors**: Name <email> (optional)
+- **Implemented-In**: vX.Y.Z (for Final status)
+- **Superseded-By**: ADR NNN (if superseded)
+- **Related-ADRs**: NNN, NNN, NNN
 ```
 
 ### Required Sections
@@ -124,11 +129,11 @@ Each ADR is an architectural specification: it records decisions with enough det
 ```markdown
 # ADR NNN: Title
 
-**Status**: Draft
-**Type**: Feature
-**Created**: YYYY-MM-DD
-**Authors**: Name <email>
-**Related-ADRs**: NNN, NNN
+- **Status**: Draft
+- **Type**: Feature
+- **Created**: YYYY-MM-DD
+- **Authors**: Name <email>
+- **Related-ADRs**: NNN, NNN
 
 ## Context
 
@@ -241,10 +246,10 @@ For smaller decisions, a minimal template may suffice:
 ```markdown
 # ADR NNN: Title
 
-**Status**: Draft
-**Type**: Feature
-**Created**: YYYY-MM-DD
-**Authors**: Name <email>
+- **Status**: Draft
+- **Type**: Feature
+- **Created**: YYYY-MM-DD
+- **Authors**: Name <email>
 
 ## Context
 
