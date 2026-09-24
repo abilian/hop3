@@ -29,13 +29,16 @@ A fourth property belongs on that list and is absent on purpose: nothing watches
 - `app_name` is caller-asserted with no ownership binding, so app A can `cgroup.remove(app_name="victim")`, OOM-strangle a sibling, close its ports, unmount its volume, or repoint its outbound mail.
 - `/home/hop3/hop3.db`, every app's `[env]`, and all addon credentials are readable by any app.
 
-**The shape** (from ADR 055, Proposed 2026-07-08): per-app `hop3-app-<name>` users, a capability-scoped uWSGI Emperor (`AmbientCapabilities=CAP_SETUID CAP_SETGID`), per-app filesystem ownership, user deletion on destroy, and a migration for existing apps.
+**The shape** (from ADR 055, Proposed 2026-07-08): per-app `hop3-app-<name>` users, a capability-scoped uWSGI Emperor (`AmbientCapabilities=CAP_SETUID CAP_SETGID`) whose vassals start through a `setpriv` wrapper that does the drop, per-app filesystem ownership, user deletion on destroy, and a migration for existing apps.
 
 **Do the smaller increment first.** ADR 055 names a **shared `hop3-apps` user** as an acceptable first step: it closes the rootd hole and the control-plane secret exposure without solving inter-app interference. That is a much smaller change with most of the security value, and it can ship while the per-app work is still in design. Recommended sequencing: the shared app user ships in 0.8; per-app UIDs come behind it.
 
-**Open questions to settle first** (seven in the ADR; these three gate implementation): UID/GID allocation and reuse safety after destroy; whether the minimal capability set actually covers what uWSGI needs, which wants a small experiment and has a root-Emperor fallback; and POSIX groups versus ACLs for read-down access and addon Unix sockets. Replacing the Emperor (ADR 023) changes the mechanism this rests on.
+**The capability experiment ran on 2026-09-24** (`scripts/emperor-caps-probe.py`, results in ADR 055 §4). The Emperor needs `CAP_SETUID` and `CAP_SETGID`, but uWSGI cannot be trusted with the drop: it ignores `uid`/`gid` unless it runs as root, silently, and passes the Emperor's capabilities to every app, which could then `setuid(0)`. A `setpriv` wrapper does the drop instead and leaves apps with no capabilities; reload and removal still work. The same probe settled the log layout and showed that every app's `[env]` is readable by any local user today, because it travels as `export`s on the `attach-daemon` command line (ADR 055 §6).
 
-- [ ] Run the capability experiment; record the result in the ADR.
+**Still gating implementation:** UID/GID allocation and reuse safety after destroy; and builds, which run recipe code (hooks, install scripts) as `hop3` and would keep the rootd hole open at build time (ADR 055 open question 6). Replacing the Emperor (ADR 023) changes the mechanism this rests on; the wrapper carries over to any runner that starts a command.
+
+- [x] Run the capability experiment; record the result in the ADR. Done 2026-09-24: a `setpriv` wrapper, not uWSGI, performs the drop.
+- [ ] Stop delivering `[env]` on the `attach-daemon` command line (ADR 055 §6). Independent of the rest, and a leak on every install today.
 - [ ] Ship the shared `hop3-apps` user with a migration.
 - [ ] Move ADR 055 from Proposed to Accepted with the increment recorded.
 
