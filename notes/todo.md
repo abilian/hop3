@@ -2,9 +2,9 @@
 
 Engineering tasks captured during day-to-day work live here. Move items out to plans / weeklies / commit messages as they are picked up. The first section runs the other way: work that plans and ADRs have already decided, written out in full because a reference by number tells a reader nothing.
 
-## Next up: two tasks, decided and unstarted
+## Next up: one task, decided and unstarted
 
-One comes from an internal safe-defaults review, extended by [ADR 061](adrs/061-standard-roles-and-rpc-authorization.md) and [ADR 062](adrs/062-authenticated-access-gate.md); the other from [ADR 055](adrs/055-app-runtime-uid-separation.md). They are written out here because referring to them by number names nothing to anyone outside the review. Three more from the same review shipped on 2026-09-23: no silent skips in the test suites, a seven-day dependency cooldown, and secret scanning (see `docs/src/developers/contributing.md`).
+It comes from an internal safe-defaults review, extended by [ADR 061](adrs/061-standard-roles-and-rpc-authorization.md) and [ADR 062](adrs/062-authenticated-access-gate.md), and is written out here because referring to it by number names nothing to anyone outside the review. Four more tasks from the same list are done: no silent skips in the test suites, a seven-day dependency cooldown, secret scanning (see `docs/src/developers/contributing.md`), and the Emperor capability experiment, whose results are in [ADR 055](adrs/055-app-runtime-uid-separation.md) §4 and §6.
 
 ### 1. An authenticated gate in front of apps
 
@@ -19,16 +19,6 @@ Scoped on 2026-09-22 into two proposed ADRs and three pieces of work, in this or
 **Acceptance bar** is ADR 062's eleven-point list, one e2e per proxy. It includes the case that motivates ADR 061: a `member` who passes the gate is refused by every mutating RPC command.
 
 **Size:** L. It unblocks fourteen login-less applications identified in a migration study and three catalog candidates with no sign-in of their own (synapse-admin, Outline, Woodpecker), closes ADR 050's own deferral, and is the largest single unblock in the backlog. Displaced three weeks running.
-
-### 2. The Emperor capability experiment
-
-Every native app runs as `hop3`, which is [plan-0.8](plans/plan-0.8.md) headline 1's subject and the platform's largest correctness gap. Before any of it can be built, one open question in [ADR 055](adrs/055-app-runtime-uid-separation.md) needs an answer that only a real box can give.
-
-Switching a process to a *different* unprivileged UID requires `CAP_SETUID` and `CAP_SETGID`, which the `hop3` user does not hold. ADR 055 §4.1 selects a capability-scoped Emperor: `AmbientCapabilities=CAP_SETUID CAP_SETGID` on the unit, plus `CAP_CHOWN` and `CAP_DAC_OVERRIDE` **only if** uWSGI's socket and log chowning need them. Nobody has measured whether that minimal set covers what uWSGI actually does.
-
-**Why it gates everything above it:** if the minimal set is not enough, the fallback is §4.2's root Emperor, which is a step back from [ADR 010](adrs/010-security-and-resilience.md)'s "no root control-plane process" and changes the shape of every increment built on top. The result belongs in the ADR either way.
-
-**Size:** small. It unblocks the shared `hop3-apps` user: ADR 055's own named first increment, which closes the rootd escalation path and the control-plane secret exposure without solving inter-app interference. That increment is what 0.8 should carry; per-app UIDs come behind it.
 
 ## Dependency management
 
