@@ -8,6 +8,7 @@ Developer-facing notes for Hop3. The entries below cover what lives where.
 - [`nix-runtime-dispositions.md`](./nix-runtime-dispositions.md): how each Nix template disposes of its runtime.
 - [`questions.md`](./questions.md): open architectural questions (pointer to relevant ADRs).
 - [`readiness-and-non-http-backends.md`](./readiness-and-non-http-backends.md): why the readiness gate speaks FastCGI at php-fpm, and what replaces that.
+- [`process-runner-alternatives.md`](./process-runner-alternatives.md): pre-ADR survey of existing process runners that could replace uWSGI (ADR 023), against what uWSGI does for Hop3 today.
 - [`todo.md`](./todo.md): engineering tasks captured day to day, before they graduate to a plan.
 
 ## `security/`: Trust model, audits, backlog
