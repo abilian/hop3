@@ -13,7 +13,7 @@ The NGI 0.5 deliverable commits to two distinct security layers: network-level f
 
 The two layers are orthogonal and compose: the firewall decides *whether a packet may reach a port*; the WAF decides *whether an HTTP request that reached the app's port is acceptable*. An app can use either, both, or neither.
 
-**Engine: LeWAF.** [LeWAF](https://pypi.org/project/lewaf/) (v0.7.6, Apache-2.0, Python ≥3.12; on **PyPI**) is Abilian's pure-Python, ModSecurity-compatible WAF engine: a SecLang parser, the OWASP Core Rule Set (681 rules), per-framework integrations (Flask / FastAPI / Starlette / Django), **and a standalone reverse-proxy mode** (`lewaf-proxy`). Choosing it over the NGI-named Coraza is deliberate:
+**Engine: LeWAF.** [LeWAF](https://pypi.org/project/lewaf/) (v0.7.6, Apache-2.0, Python ≥3.12; on **PyPI**) is Abilian's pure-Python, ModSecurity-compatible WAF engine. It ships a SecLang parser, the OWASP Core Rule Set (681 rules), per-framework integrations (Flask / FastAPI / Starlette / Django), **and a standalone reverse-proxy mode** (`lewaf-proxy`). Choosing it over the NGI-named Coraza is deliberate:
 
 - **Pure Python, no CGo / no binary.** Coraza is Go; libmodsecurity is C. LeWAF drops into Hop3's existing Python toolchain and process model with no extra build/runtime story.
 - **Sovereignty.** Hop3's ethos is owning the stack; LeWAF is a project we control, so rule-engine bugs and gaps are fixable in-house.
@@ -94,7 +94,7 @@ Positive-security WAFs are most often bypassed on the two things this model lean
 
 ### 3. CRS baseline and tuning
 
-`ruleset` selects the managed attack ruleset (OWASP CRS); `mode` is `block` or `detect` (log-only, for safe rollout); paranoia is the CRS aggressiveness dial. False positives are silenced with **scoped, verb-named tuning**: never an ambiguous "exclusions" key (which reads as *deny* while meaning *allow through*):
+`ruleset` selects the managed attack ruleset (OWASP CRS). The `mode` key takes `block` or `detect` (log-only, for safe rollout). Paranoia is the CRS aggressiveness dial. False positives are silenced with **scoped, verb-named tuning**: never an ambiguous "exclusions" key (which reads as *deny* while meaning *allow through*):
 
 ```toml
 [[waf.tuning]]
@@ -124,7 +124,7 @@ window    = "10m"
 duration  = "1h"
 ```
 
-**v1 enforces bans at L7.** This needs no new privilege and no rootd change. The **proven-later upgrade** is an L3/L4 drop via rootd: an `nft` set `banned` with per-element `timeout` (kernel-level drop on *all* ports, self-expiring: `nft add element inet hop3 banned { 1.2.3.4 timeout 1h }`). That is strictly better but requires teaching rootd a **deny capability** it does not have today ([ADR 041](./041-privileged-operations-agent.md) §5: rootd's `Firewall` protocol only grants/revokes port rules and has no source-drop capability), so it is deferred until bans earn it (§v1 scope).
+**v1 enforces bans at L7.** This needs no new privilege and no rootd change. The **proven-later upgrade** is an L3/L4 drop via rootd: an `nft` set `banned` with per-element `timeout` (kernel-level drop on *all* ports, self-expiring: `nft add element inet hop3 banned { 1.2.3.4 timeout 1h }`). That is strictly better, but it requires teaching rootd a **deny capability** it does not have today ([ADR 041](./041-privileged-operations-agent.md) §5: rootd's `Firewall` protocol only grants/revokes port rules and has no source-drop capability). It is deferred until bans earn it (§v1 scope).
 
 > **As built (2026-06-25).** LeWAF has no in-memory denylist API, so the three steps are concrete Hop3 pieces: (1) **detect**: the LeWAF middleware (fixed locally, bug-report C/D) appends one JSON line per blocked request (`client_ip`, `rule_id`, `action`, path) to a per-app audit stream under `WAF_LOG`; (2) **score**: the server reconciles in-process on a timer (the `waf_bans_service` background thread, ~60s; `hop3 waf reconcile-bans` forces a pass, pure scorer in `hop3/waf/bans.py`), tallying per-source blocks over the window, exempting named networks (invariant 5), and recording/expiring `Ban` rows in the DB; (3) **enforce**: the active bans compile to a separate `<app>.bans.conf` (`SecRule REMOTE_ADDR @ipMatch … deny`) loaded *before* the CRS/overlay so a banned source is rejected first, and the proxy vassal is reloaded (file-touch) only when the denylist actually changed. `hop3 waf bans list|clear` manage the runtime state.
 

@@ -14,7 +14,7 @@ This decision supersedes the client-side app-scoped injection mechanism (`hop3_c
 
 ### The stopgap and why it drifts
 
-The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app ([ADR 036](./036-cli-ergonomics.md) §D7, [ADR 042](./042-cli-context-model.md) §Resolution) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, and on a match injects the resolved app as the first positional argument. The module is a stopgap pending a future command-manifest ADR.
+The CLI must decide *before* the RPC round-trip whether a command operates on a single app, so it can resolve an implicit app ([ADR 036](./036-cli-ergonomics.md) §D7, [ADR 042](./042-cli-context-model.md) §Resolution) and inject it. It makes that decision from a hardcoded `set[tuple[str, ...]]` in `core/app_scope.py`, a stopgap module pending a future command-manifest ADR, and on a match injects the resolved app as the first positional argument.
 
 The drift it causes is a recurring class of bug: the hardcoded set falls out of sync with the server's command registry, so a renamed or added command silently stops resolving its implicit app. A representative case is `hop3 app status` demanding an explicit `<app_name>` while its siblings (`app ping`, `app logs`, …) resolve one, because the set still lists the renamed `app show` and is missing `app status`.
 

@@ -1,0 +1,13 @@
+{#
+  The mark in the header.
+
+  The stock partial emits a single <img>, which cannot be right in both colour
+  schemes: this variant's header is white in `default` and dark in `slate`, and
+  the mark's hull is navy. So both files are emitted and the scheme hides one,
+  using the .only-light / .only-dark rules in stylesheets/theme.css.
+
+  Keep in step with the theme's own partials/logo.html; it falls back to
+  theme.icon.logo, which we do not set.
+#}
+<img src="{{ 'img/hop3-mark.svg' | url }}" class="only-light" alt="{{ config.site_name }}">
+<img src="{{ 'img/hop3-mark-reverse.svg' | url }}" class="only-dark" alt="{{ config.site_name }}">

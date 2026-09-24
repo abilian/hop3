@@ -11,9 +11,9 @@ Running Nix-built applications under Hop3's own runtime (uWSGI emperor + nginx) 
 
 The further step of letting Nix manage the runtime *itself* (the host OS and backing services):
 
-- **NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module rather than as a Python-installed daemon.
+- **NixOS module generation.** Emit `configuration.nix` fragments so an operator can deploy Hop3 as a NixOS module, as an alternative to the Python-installed daemon.
 - **Nix-managed backing services.** Provision PostgreSQL / MySQL / Redis / MinIO via nixpkgs services rather than via the OS-package-plus-config approach. This opens a path to per-app NixOS containers.
-- **NixOS-native systemd integration.** Use NixOS's systemd module system to express worker lifetimes rather than writing uWSGI vassal `.ini` files.
+- **NixOS-native systemd integration.** Express worker lifetimes through NixOS's systemd module system, replacing uWSGI vassal `.ini` files.
 
 This is deferred. It delivers additional reproducibility guarantees (the OS itself becomes Nix-managed) at the cost of narrowing the installation target from "any Debian/Red-Hat host" to "NixOS host". That trade-off should wait until a quantitative evaluation (§5.5 of TR-01) has demonstrated the reproducibility benefits of the in-scope `RuntimeConfig` integration.
 

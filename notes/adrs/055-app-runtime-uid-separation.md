@@ -7,7 +7,7 @@
 
 ## Context
 
-Hop3 runs its control plane (`hop3-server`, the uWSGI Emperor, the git-push hooks) as the unprivileged `hop3` system user. [ADR 010](./010-security-and-resilience.md) establishes this: `hop3-server` holds no elevated privileges, with every kernel-boundary action routed through `hop3-rootd` ([ADR 041](./041-privileged-operations-agent.md)), whose entire authentication model is `SO_PEERCRED`: the daemon reads the connecting peer's UID from the socket and admits only `hop3` (and `root` for diagnostics). [ADR 041](./041-privileged-operations-agent.md) states its trust model in one line: *"hop3-server compromise = total compromise"*. It drops per-operation authorization on the grounds that the sole caller is the trusted orchestrator.
+Hop3 runs its control plane (`hop3-server`, the uWSGI Emperor, the git-push hooks) as the unprivileged `hop3` system user. [ADR 010](./010-security-and-resilience.md) establishes this: `hop3-server` holds no elevated privileges, with every kernel-boundary action routed through `hop3-rootd` ([ADR 041](./041-privileged-operations-agent.md)). The daemon's entire authentication model is `SO_PEERCRED`: it reads the connecting peer's UID from the socket and admits only `hop3` (and `root` for diagnostics). [ADR 041](./041-privileged-operations-agent.md) states its trust model in one line: *"hop3-server compromise = total compromise"*. It drops per-operation authorization on the grounds that the sole caller is the trusted orchestrator.
 
 That reasoning holds only if `hop3-server` is the *only* thing running as the `hop3` user. It is not.
 
@@ -40,7 +40,7 @@ The boundary between them is a real UID/GID boundary enforced by the kernel. An 
 
 ### 2. Per-app users
 
-Each app gets its own user and primary group, `hop3-app-<name>` (name derived from the validated app id; the same identifier rootd already validates). Per-app (rather than one shared app user) because the finding above is squarely about *inter-app* interference: a single shared `hop3-apps` user would fix the rootd hole and the control-plane secret exposure, but would leave every app able to read and kill every other app. The platform's premise is several real apps on one box; isolation between them is the point.
+Each app gets its own user and primary group, `hop3-app-<name>` (name derived from the validated app id; the same identifier rootd already validates). Each app gets its own user because the finding above is squarely about *inter-app* interference. A single shared `hop3-apps` user would fix the rootd hole and the control-plane secret exposure, but would leave every app able to read and kill every other app. The platform's premise is several real apps on one box; isolation between them is the point.
 
 Lifecycle:
 

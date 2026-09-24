@@ -8,7 +8,7 @@
 
 ## Superseding Context
 
-This guideline relied on a four-layer test pyramid (`a_unit`/`b_integration`/`c_system`/`d_e2e`) and classified tests by whether their dependencies were real or mocked. [ADR 043](043-unified-testing-architecture.md) replaces that pyramid with three layers (`a_unit`/`b_integration`/`c_e2e`) and dissolves `c_system`. [ADR 043](./043-unified-testing-architecture.md) classifies tests by whether they need Docker, root, or host-mutation rather than by real-vs-mocked dependencies. Under that rule the dashboard file-system tests are hermetic (they run a real `App.create()` in `tmp_path` with no root and no Docker) and therefore belong in `b_integration`, reversing that placement decision.
+This guideline relied on a four-layer test pyramid (`a_unit`/`b_integration`/`c_system`/`d_e2e`) and classified tests by whether their dependencies were real or mocked. [ADR 043](043-unified-testing-architecture.md) replaces that pyramid with three layers (`a_unit`/`b_integration`/`c_e2e`) and dissolves `c_system`. [ADR 043](./043-unified-testing-architecture.md) classifies tests by whether they need Docker, root, or host-mutation; whether a dependency is real or mocked plays no part. Under that rule the dashboard file-system tests are hermetic (they run a real `App.create()` in `tmp_path` with no root and no Docker) and therefore belong in `b_integration`, reversing that placement decision.
 
 ## Introduction
 
@@ -524,7 +524,7 @@ packages/hop3-server/tests/
     └── test_app_lifecycle.py          ← Complete workflows
 ```
 
-Removing the `App.create()` mock simplifies the fixture rather than complicating it.
+Removing the `App.create()` mock simplifies the fixture.
  complicating it.
 g it.
 han complicating it.

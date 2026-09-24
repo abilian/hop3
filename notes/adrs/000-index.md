@@ -76,7 +76,7 @@ Adopts `hop3.toml` as the primary configuration file format for Hop3 application
 Specifies the complete `hop3.toml` schema: metadata, build configuration (builder selection, toolchain hints), runtime settings, addon declarations, health checks, backup policy, environment variables, and domain/proxy configuration. This is the canonical reference for what an app's config file can express.
 
 ### 003: Config Parsing and Validation (`Accepted`)
-Commits to using an existing syntax (TOML) rather than creating a new DSL for `hop3.toml`. Establishes that validation happens at parse time with clear error messages, that unknown keys are rejected, and that the parsed config becomes a frozen dataclass passed through the deployment pipeline.
+Commits to an existing syntax, TOML, for `hop3.toml`, with no new DSL. Establishes that validation happens at parse time with clear error messages, that unknown keys are rejected, and that the parsed config becomes a frozen dataclass passed through the deployment pipeline.
 
 ### 004: Development Tooling (`Active`)
 Documents the core development tooling: `uv` for package management, Ruff for linting/formatting, pytest for testing, and task automation via Makefile. This is a living ADR that evolves as the toolchain does.
@@ -103,7 +103,7 @@ Landing page for Hop3's security design. Enumerates sub-concerns (encryption, MF
 Establishes that Hop3 must protect data at rest and in transit through encryption. Covers encrypted credential storage in the database (per-value AES-256-GCM with a server key), TLS termination for all HTTP traffic, and secure key storage under `/etc/hop3/`.
 
 ### 012: Multi-Factor Authentication (MFA) (`Deferred`)
-Proposes adding TOTP-based MFA to the authentication flow. Deferred because the current threat model's primary path (CLI → SSH tunnel → RPC) already provides an SSH-backed second factor for operators, and the web dashboard is not yet the primary administration surface.
+Proposes adding TOTP-based MFA to the authentication flow. Deferred because the current threat model's primary path (CLI → SSH tunnel → RPC) already provides an SSH-backed second factor for operators. The web dashboard is not yet the primary administration surface either.
 
 ### 013. Software Supply Chain Security and SBOMs (`Accepted`)
 Commits to generating Software Bill of Materials (SBOMs) for every deployed application and for the Hop3 platform itself. Covers CycloneDX format, integration into the build pipeline, and the `hop3 app sbom` command for retrieval.
@@ -148,7 +148,7 @@ Defines CLI syntax conventions (space form `hop3 backup destroy` over colon form
 Originally classified dashboard UI tests into tiers. Superseded by ADR 043's unified testing architecture, which subsumes UI test classification into the broader three-tier (unit/integration/e2e) model.
 
 ### 027: Configuration System Refactoring for Testability (`Final`)
-Refactors the configuration system to support dependency injection: config values flow through Dishka providers rather than being imported as module-level constants. Makes the system testable by allowing test code to inject configuration without monkeypatching.
+Refactors the configuration system to support dependency injection: config values flow through Dishka providers, which replace module-level constants. Makes the system testable by allowing test code to inject configuration without monkeypatching.
 
 ### 028. Pluggy + Dishka Integration for Plugin-Contributed Services (`Final`)
 Bridges Pluggy (plugin discovery) and Dishka (dependency injection) so that plugins can contribute services to the DI container. Introduces the `get_di_providers` hook: plugins return Dishka provider instances, and the container aggregates them at startup. Unblocks addon, proxy, and deployer plugins from needing global registries.
@@ -232,7 +232,7 @@ Nix-packaged apps exec hardcoded store paths (`${pkg}/bin/<name>`). A garbage co
 Treats email as a backing service, symmetrical to databases and caches: provisioned as an addon, attached to apps, consumed through injected connection variables (`SMTP_HOST`, `SMTP_PORT`, etc.). Supports a swappable backend (SMTP relay, local postfix via rootd) and adds a notification framework for password resets, invitations, and system alerts.
 
 ### 055. App-Runtime UID Separation (`Proposed`)
-Proposes running each deployed application under its own system UID rather than all apps sharing the `hop3` user. This would prevent a compromised app from reading another app's source, environment, or addon credentials. Currently at the proposal stage; the implementation requires rootd-mediated UID allocation and per-app filesystem ownership.
+Proposes running each deployed application under its own system UID. Today every app shares the `hop3` user. This would prevent a compromised app from reading another app's source, environment, or addon credentials. Currently at the proposal stage; the implementation requires rootd-mediated UID allocation and per-app filesystem ownership.
 
 ### 056: App Admin Credentials: Bootstrap, Storage, and Retrieval (`Accepted`)
 Installing an app is more than starting its process; most real apps gate everything behind a login. This ADR defines the admin-credential bootstrap flow: the platform generates a random admin password during install, stores it encrypted in the credential store, and exposes it via `hop3 app credentials <name>` and the dashboard. Makes the install experience complete rather than leaving the operator at a login wall.
@@ -250,7 +250,7 @@ A catalog recipe carries a maturity status (`golden`, `beta`, `alpha`, `broken`,
 Garage replaces MinIO as the object store Hop3 installs and the default `S3Backend`, after MinIO withdrew its public server binaries and left `--with s3` installs unbuildable. Garage is a single static binary that can be fetched and pinned. `MinIOBackend` remains selectable for an operator who runs their own MinIO.
 
 ### 061. Standard Roles and Control-Plane Authorization (`Proposed`)
-Replaces "any account can run any command" with four fixed roles, `admin > deployer > viewer > member`, one per account. Each RPC command declares a minimum role, the dispatcher enforces it before the command runs, and the default is admin-only, so an undeclared command fails closed. The role is read from the database on every request. The dashboard follows the same rule. Per-app grants are designed in (a user's role for an app is the higher of their server role and their grant for it) and left to a later ADR; custom roles are a last resort.
+Replaces "any account can run any command" with four fixed roles, `admin > deployer > viewer > member`, one per account. Each RPC command declares a minimum role, which the dispatcher enforces before the command runs. The default is admin-only, so an undeclared command fails closed. The role is read from the database on every request. The dashboard follows the same rule. Per-app grants are designed in (a user's role for an app is the higher of their server role and their grant for it) and left to a later ADR; custom roles are a last resort.
 
 ### 062. Authenticated Access Gate (`Proposed`)
 Lets a recipe put a login-less app behind a Hop3 sign-in with `[access] require = "auth"`, a minimum role and anonymous `public-paths`. nginx, Caddy and Traefik each consult one hop3-server check endpoint through their native forward-auth. A per-app redirect handshake sets a host-only gate cookie scoped to that app, so the admin credential never reaches an app. The proxy overwrites `X-Hop3-User` and `X-Hop3-Role`, and the gate fails closed. Replaces ADR 050's deferred `require = "auth"` gate condition.

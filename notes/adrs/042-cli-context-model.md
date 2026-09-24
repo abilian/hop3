@@ -135,7 +135,7 @@ Project-less commands (`hop3 apps`, `hop3 status`) have no project context, so t
 
 The server stays a **pure app-config processor**: context resolution does not move server-side. A committed `hop3.toml` now *contains* `[contexts.*]`. The server parses uploaded files (notably on git-push deploys), so the schema **accepts** `[contexts.*]` via a validation-only `ContextSection`; the deployer ignores it (the CLI already applied the chosen environment).
 
-`hop3.toml` is secret-free *by convention* (secrets belong server-side) and the schema backs that with a **committed-credential tripwire** that fails the upload loud on an obvious secret: a `server` address with embedded credentials, or an env value matching a known secret shape (`sk_live_…`, `ghp_…`, `AKIA…`, a connection string, high-entropy material). The tripwire is best-effort; it turns "a Stripe key got committed" into a refused deploy. Per-context `domains` run the same host-safety checks (the wildcard/catch-all ban) as top-level domains.
+`hop3.toml` is secret-free *by convention* (secrets belong server-side). The schema backs that with a **committed-credential tripwire** that fails the upload loud on an obvious secret: a `server` address with embedded credentials, or an env value matching a known secret shape (`sk_live_…`, `ghp_…`, `AKIA…`, a connection string, high-entropy material). The tripwire is best-effort; it turns "a Stripe key got committed" into a refused deploy. Per-context `domains` run the same host-safety checks (the wildcard/catch-all ban) as top-level domains.
 
 ## CLI verbs
 
