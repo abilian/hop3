@@ -34,8 +34,10 @@ def _exported_path(kind: str, command: str, env: dict[str, str]) -> str:
     )
     worker.update_settings()
 
-    daemon = dict(worker.settings.values)["attach-daemon"]
-    return re.search(r"export PATH=([^;\"]+)", daemon).group(1)
+    # The environment is sourced from a file, not exported on the command line.
+    return re.search(r"^export PATH=(\S+)$", worker.env_file_text, re.MULTILINE).group(
+        1
+    )
 
 
 def test_worker_path_keeps_the_artifacts_directories() -> None:

@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **An app's environment is no longer visible to other users on the server.** Background workers, php-fpm pools and every app started with a start command received their `[env]` as `export` statements on a command line that stayed visible to `ps` for as long as the app ran. Any local account could read every app's secrets that way, including the web server's and the database's. The environment now goes to a file readable only by the app's owner. The fix takes effect when an app is next deployed; `hop3 app restart` reuses the old configuration, so redeploy each native app, or stop and start it.
+
 - **A server installs no dependency released in the last seven days.** A compromised package is usually caught and yanked within days, and an install resolving the latest version would take it the hour it appears. The installer writes the cutoff into the server venv's `pip.conf`, so upgrades and developer deploys resolve under it too. Hop3's own packages are exempt, so a release can be installed the day it ships. Apps' own builds are unaffected.
 
 ### Fixed

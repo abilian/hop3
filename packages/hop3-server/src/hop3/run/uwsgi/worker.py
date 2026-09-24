@@ -72,33 +72,6 @@ def spawn_uwsgi_worker(
     worker.spawn()
 
 
-def _quote_env_value(value: object) -> str:
-    """
-    An env value, safe to sit inside ``'...'`` inside ``sh -c "..."``.
-
-    Two layers of quoting apply to every exported value, and the second one is
-    easy to miss. The value is wrapped in single quotes, so an apostrophe has to
-    be closed and reopened (``'\\''``) — but that whole ``export K='v'`` string
-    is then embedded in the double-quoted argument of ``sh -c "…"``, and inside
-    double quotes the shell still interprets ``$``, a backtick, a backslash and
-    a double quote. Single quotes do not protect it there.
-
-    Handling only the apostrophe silently corrupted any value containing those
-    characters. A JSON-valued setting lost its quotes outright — paperless-ngx's
-    ``PAPERLESS_PROXY_SSL_HEADER='["HTTP_X_FORWARDED_PROTO","https"]'`` reached
-    Django as ``[HTTP_X_FORWARDED_PROTO,https]`` and crashed every worker on
-    ``json.loads`` — and a generated password containing ``$`` would have been
-    mangled into a credential nobody could reproduce.
-
-    The command itself is deliberately NOT escaped this way: a start command is
-    written to use ``$PORT``, and that expansion is the point.
-    """
-    text = str(value)
-    for char in ("\\", "`", '"', "$"):
-        text = text.replace(char, "\\" + char)
-    return text.replace("'", "'\\''")
-
-
 #: Shell operators that make a command more than one program. `exec` applies to
 #: the first word, so everything after one of these is silently dropped.
 _CHAINING_OPERATORS = frozenset({"&&", "||", ";", "|", "&"})
@@ -154,6 +127,15 @@ def _refuse_compound_command(command: str, app_name: str, kind: str) -> None:
     )
 
 
+def _write_private(path: Path, text: str) -> None:
+    """Write ``text`` to ``path``, readable by its owner only, from the start."""
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd = os.open(path, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+    with os.fdopen(fd, "w") as f:
+        os.fchmod(f.fileno(), 0o600)
+        f.write(text)
+
+
 @dataclass
 class UwsgiWorker:
     app_name: str
@@ -164,6 +146,9 @@ class UwsgiWorker:
     settings: UwsgiSettings = field(default_factory=UwsgiSettings)
 
     log_format: str = ""
+    #: An ``attach-daemon``'s environment, as ``export`` lines. Written to
+    #: ``env_file`` by :meth:`write_settings`, never onto the command line.
+    env_file_text: str = ""
 
     def spawn(self) -> None:
         """
@@ -348,17 +333,21 @@ class UwsgiWorker:
         # repeat would only make the exported PATH harder to read.
         path_value = ":".join(dict.fromkeys(path_dirs))
 
-        # Build exports for ALL environment variables
-        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit
-        # env vars from the uWSGI config, so we must export them explicitly
-        exports = [f"export PATH={path_value}"]
+        # uWSGI's attach-daemon spawns a subprocess that doesn't inherit the
+        # vassal's `env`, so the environment is exported by the daemon's shell.
+        # It is sourced from a file, never written on the command line: any
+        # local user reads any process's /proc/<pid>/cmdline, and uWSGI keeps
+        # the `sh -c` alive as the daemon's parent, so an `export` there
+        # published every secret the app has (ADR 055 §6).
+        exports = [f"export PATH={shlex.quote(path_value)}"]
         for key, value in self.env.items():
             # PATH is folded into path_value above; NGINX_ACL is not the app's.
             if key in {"NGINX_ACL", "PATH"}:
                 continue
-            exports.append(f"export {key}='{_quote_env_value(value)}'")
+            exports.append(f"export {key}={shlex.quote(value)}")
+        self.env_file_text = "\n".join(exports) + "\n"
 
-        # Wrap command in shell with all exports and explicit cd to src/
+        # Wrap command in shell that sources the env file and cds to src/
         # Note: uWSGI's chdir directive may not apply to attach-daemon processes,
         # so we explicitly cd to the source directory.
         #
@@ -370,9 +359,11 @@ class UwsgiWorker:
         # them; `>>file 2>&1` captures both.
         log_path = app.log_path
         daemon_log = f"{log_path}/{self.kind}.{self.ordinal}.log"
-        exports_str = "; ".join(exports)
         _refuse_compound_command(self.command, app.name, self.kind)
-        shell_cmd = f'sh -c "cd {app.src_path} && {exports_str}; exec {self.command} >>{daemon_log} 2>&1"'
+        shell_cmd = (
+            f'sh -c "cd {app.src_path} && . {self.env_file} && '
+            f'exec {self.command} >>{daemon_log} 2>&1"'
+        )
         self.settings.add("attach-daemon", shell_cmd)
 
     def update_env(self) -> None:
@@ -413,11 +404,26 @@ class UwsgiWorker:
         'UWSGI_AVAILABLE' directory, and then copies this file to the
         'UWSGI_ENABLED' directory to make the settings active.
         """
+        # The environment first: the vassal starts the moment its .ini lands in
+        # UWSGI_ENABLED, and its daemon sources this file.
+        if self.env_file_text:
+            _write_private(self.env_file, self.env_file_text)
+
         name = vassal_name(self.app_name, self.kind, self.ordinal)
         uwsgi_available_path = c.UWSGI_AVAILABLE / name
         uwsgi_enabled_path = c.UWSGI_ENABLED / name
         self.settings.write(uwsgi_available_path)
         shutil.copyfile(uwsgi_available_path, uwsgi_enabled_path)
+
+    @property
+    def env_file(self) -> Path:
+        """Where this worker's ``attach-daemon`` environment is written."""
+        from hop3.orm import (  # ruff:ignore[import-outside-top-level]
+            App,
+        )
+
+        app_path = App(name=self.app_name).app_path
+        return app_path / "worker-env" / f"{self.kind}.{self.ordinal}.env"
 
     def log(self, message: str) -> None:
         """

@@ -70,12 +70,14 @@ Both fixes treat the missing WSGI worker as the condition to repair, since witho
 
 uWSGI's `attach-daemon` processes do NOT inherit environment variables from the uWSGI config. The `env = KEY=VALUE` directives only apply to WSGI workers.
 
-**Fix:** Explicitly export all env vars in the daemon's shell command:
+**Fix:** write the environment to a file only its owner can read, and have the daemon's shell source it by path:
 
 ```python
-exports = [f"export {key}='{value}'" for key, value in env.items()]
-shell_cmd = f'sh -c "{"; ".join(exports)}; {command}"'
+env_file.write_text("".join(f"export {k}={shlex.quote(v)}\n" for k, v in env.items()))  # mode 0600
+shell_cmd = f'sh -c "cd {src} && . {env_file} && exec {command}"'
 ```
+
+**Never put the environment on the command line.** The first fix exported every variable on the daemon's shell line. uWSGI keeps that `sh -c` alive as the daemon's parent, and `/proc/<pid>/cmdline` is readable by every local user, so `ps` showed every app's database password and secret key to `www-data`, `postgres` and every other app, for as long as the app ran. `/proc/<pid>/environ` is readable only by the process's owner, which is where secrets belong. Found by `scripts/emperor-caps-probe.py`, which plants a secret and reads it back as `nobody`.
 
 ## Health Check Timing
 
@@ -147,4 +149,4 @@ The uWSGI configuration inherited from piku carried a `project` directive that u
 
 ## Two Quoting Layers on the attach-daemon Line
 
-Every exported value on the daemon line sits inside `'…'`, which sits inside the double-quoted argument of `sh -c "…"`. Escaping the apostrophe (`'\''`) handles the inner layer only; inside double quotes the shell still interprets `$`, a backtick, a backslash and a double quote. A JSON-valued setting lost its quotes outright, paperless-ngx received `[HTTP_X_FORWARDED_PROTO,https]` for `["HTTP_X_FORWARDED_PROTO","https"]` and crashed every worker on `json.loads`. A generated password containing `$` would have been mangled into an unreproducible credential. Escape all four for the outer layer, then the apostrophe for the inner one. Leave the command itself alone: a start command is written to use `$PORT` and must keep expanding it.
+Every exported value used to sit inside `'…'`, which sat inside the double-quoted argument of `sh -c "…"`. Escaping the apostrophe handled the inner layer only; inside double quotes the shell still interprets `$`, a backtick, a backslash and a double quote. A JSON-valued setting lost its quotes outright, paperless-ngx received `[HTTP_X_FORWARDED_PROTO,https]` for `["HTTP_X_FORWARDED_PROTO","https"]` and crashed every worker on `json.loads`. A generated password containing `$` would have been mangled into an unreproducible credential. Moving the environment into a sourced file (above) removed the outer layer: each value is one `shlex.quote` in a file, and `test_env_quoting.py` round-trips the hard cases through a real `/bin/sh`. Leave the command itself alone: a start command is written to use `$PORT` and must keep expanding it.
