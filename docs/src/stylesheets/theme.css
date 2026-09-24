@@ -1,6 +1,52 @@
 :root > * {
-    /* theme */
-    --md-primary-fg-color: #254789;
+    /* Brand navy, the hull colour of the mark in the header.
+       See the brand guidelines: navy #16305C, ochre #DFA23F, paper #F3F0E6. */
+    --md-primary-fg-color: #16305C;
+}
+
+/* Home page mark. Two files rather than one, because the lockup's type is ink
+   on paper in light and paper on ink in dark; CSS cannot recolour an <img>. */
+.hop3-hero {
+    text-align: center;
+    margin: 2rem 0;
+}
+
+.hop3-hero img {
+    width: 420px;
+    max-width: 100%;
+    height: auto;
+}
+
+.only-dark {
+    display: none;
+}
+
+[data-md-color-scheme="slate"] .only-light {
+    display: none;
+}
+
+[data-md-color-scheme="slate"] .only-dark {
+    display: inline;
+}
+
+/* The header mark. The theme sets `display` on this img with higher
+   specificity than the bare .only-light/.only-dark rules above, so the
+   scheme swap has to be restated here to win. */
+.md-header__button.md-logo img {
+    height: 1.5rem;
+    width: auto;
+}
+
+.md-header__button.md-logo img.only-dark {
+    display: none;
+}
+
+[data-md-color-scheme="slate"] .md-header__button.md-logo img.only-light {
+    display: none;
+}
+
+[data-md-color-scheme="slate"] .md-header__button.md-logo img.only-dark {
+    display: block;
 }
 
 .md-typeset h1, .md-typeset h2 {

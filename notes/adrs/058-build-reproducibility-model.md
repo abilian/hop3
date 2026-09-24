@@ -7,7 +7,7 @@
 
 ## Context
 
-Reproducibility is the platform's headline quality claim: the property that lets a third party rebuild a deployment from the same inputs and check they got what we say they get. A claim of that weight has to be stated exactly enough to be falsified, and stated in one place, because it constrains every path by which Hop3 builds an application (the three Nix tiers, the native toolchain, and Docker), including the paths that never touch the expression generator.
+Reproducibility is the platform's headline quality claim: the property that lets a third party rebuild a deployment from the same inputs and check they got what we say they get. A claim of that weight has to be stated exactly enough to be falsified, and stated in one place. It constrains every path by which Hop3 builds an application (the three Nix tiers, the native toolchain, and Docker), including the paths that never touch the expression generator.
 
 It is therefore specified here, at one remove from any single builder. [ADR 008](./008-nix-builders-2.md) describes how Nix expressions are generated and defers to this document for what their output must guarantee; [ADR 013](./013-supply-chain.md) builds its supply-chain argument on the tiers below; [ADR 044](./044-nightly-test-lab.md) owns running the checks on a schedule.
 

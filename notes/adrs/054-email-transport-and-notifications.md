@@ -19,7 +19,7 @@ The forces the model must answer are unchanged by this framing; they make email 
 - **Some apps read no SMTP environment** (stock WordPress, PHP `mail()`, cron) and must be pointed at a submission endpoint through their own configuration rather than through injected variables.
 - **The platform must be able to tell the operator when its own maintenance** (a certificate that stops renewing) is about to cause an outage, on whatever backend is configured.
 
-Getting the injected variables *into* an app that reads its configuration from a file or its own database is a separate mechanism ([ADR 051](./051-config-injection.md)); this ADR is about the backing-service model, the backends behind it, and the operator-facing surface around it.
+Getting the injected variables *into* an app that reads its configuration from a file or its own database is a separate mechanism ([ADR 051](./051-config-injection.md)). This ADR is about the backing-service model, the backends behind it, and the operator-facing surface around it.
 
 ## Decision
 

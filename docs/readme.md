@@ -17,6 +17,20 @@ docs/
 └── README.md          # This file
 ```
 
+## Brand assets
+
+`src/img/hop3-*.svg` and `src/img/favicon.svg` are generated artwork, not hand-drawn files. They come from the identity repository (`marketing/branding/hop3`), where `build.py` holds the geometry and `make` rebuilds them; the brand guidelines are `bible/hop3-brand-guidelines.pdf` there. Copy a new version across rather than editing these, or the next rebuild will discard the change.
+
+| File | Where it is used |
+|---|---|
+| `hop3-lockup.svg` | Home page hero, light scheme. Also the README hero. |
+| `hop3-lockup-dark.svg` | The same on a dark surface (navy replaced by its tint). |
+| `hop3-mark.svg` | Header logo, light scheme. |
+| `hop3-mark-reverse.svg` | Header logo, dark scheme (`overrides/partials/logo.html` swaps the two). |
+| `favicon.svg` | Browser tab. Carries its own disc, so it reads on light and dark chrome. |
+
+The tagline in the lockups is outlined, so nothing here depends on Manrope being installed.
+
 ## Building
 
 ```bash

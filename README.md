@@ -1,7 +1,9 @@
 # Hop3 - Open source platform as a service
 
-<img src="https://abilian.com/static/images/ext/hop3-logo.png"
-style="width: 500px; height: auto;" alt="logo hop3"/>
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="docs/src/img/hop3-lockup-dark.svg">
+  <img src="docs/src/img/hop3-lockup.svg" width="460" alt="Hop3 — The cloud is yours">
+</picture>
 <img
 referrerpolicy="no-referrer-when-downgrade"
 src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />

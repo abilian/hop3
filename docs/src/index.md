@@ -4,8 +4,9 @@ icon: lucide/cloud
 
 # Hop3 - Open Source Platform as a Service
 
-<div style="text-align: center; margin: 2rem 0;">
-<img src="https://abilian.com/static/images/ext/hop3-logo.png" style="width: 400px; height: auto;" alt="Hop3 Logo"/>
+<div class="hop3-hero">
+<img src="img/hop3-lockup.svg" class="only-light" alt="Hop3 — The cloud is yours"/>
+<img src="img/hop3-lockup-dark.svg" class="only-dark" alt="Hop3 — The cloud is yours"/>
 </div>
 
 **Hop3** is an open-source Platform as a Service (PaaS) for deploying and managing your applications. It is designed to be **simple**, **secure**, and **sovereignty-focused**.

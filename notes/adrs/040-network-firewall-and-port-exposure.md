@@ -6,7 +6,7 @@
 - **Created**: 2026-04-25
 - **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [016](./016-backups.md) (backups), [033](./033-docker-integration.md) (docker integration), [038](./038-multi-service-apps.md) (multi-service apps), [041](./041-privileged-operations-agent.md) (privileged operations agent (supersedes the sudo/wrapper privilege-handling sketched here), [045](./045-fixed-port-registry.md) (fixed-port registry, the per-app declaration mechanism that actually shipped))
 
-The per-app port-exposure design shipped as `[[ports]]` ([ADR 045](./045-fixed-port-registry.md)); the L7 WAF half is [ADR 050](./050-waf-l7-lewaf.md); the installer platform-firewall baseline and the Docker port-publishing rework remain open follow-ups (tracked in the release plan).
+The per-app port-exposure design shipped as `[[ports]]` ([ADR 045](./045-fixed-port-registry.md)). The L7 WAF half is [ADR 050](./050-waf-l7-lewaf.md). The installer platform-firewall baseline and the Docker port-publishing rework remain open follow-ups (tracked in the release plan).
 
 ## Context
 
@@ -55,7 +55,7 @@ This ADR addresses only the L3/L4 piece. The WAF piece is referenced as a future
 Docker writes its own iptables rules in the `DOCKER` chain ahead of any rules ufw inserts. A docker-compose `ports:` declaration like `"1935:1935"` makes the port reachable from the public Internet *regardless of the host firewall*, which means:
 
 - A "deny by default" host firewall is undermined by any container that publishes a port: the port is reachable from the Internet but ufw does not show it, so operators cannot audit it through `ufw status`.
-- For app-declared exposures to be the single source of truth, Hop3 must not let docker-compose publish ports unilaterally. Either rewrite generated compose files to bind container ports to `127.0.0.1` and let ufw forward inbound traffic, or require operators to use Hop3's `[[expose]]` mechanism instead of compose-level `ports:`.
+- For app-declared exposures to be the single source of truth, Hop3 must not let docker-compose publish ports unilaterally. Either rewrite generated compose files to bind container ports to `127.0.0.1` and let ufw forward inbound traffic, or require operators to declare ports through Hop3's `[[expose]]` mechanism, leaving compose-level `ports:` empty.
 
 This is an open question (see "Open questions").
 
@@ -135,7 +135,7 @@ The deployer reconciles ufw rules against the app's `[[expose]]` declarations:
 
 ### 5. Docker interaction
 
-Generated compose files will bind container ports to `127.0.0.1` instead of `0.0.0.0`, e.g.:
+Generated compose files will bind container ports to `127.0.0.1` (compose's default is `0.0.0.0`), e.g.:
 
 ```yaml
 ports:
@@ -165,7 +165,7 @@ For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer 
 
 ### Negative
 
-- New schema in `hop3.toml`. Documentation, tutorials, and the schema validator all need updates. Existing apps need no change: the default behaviour is no extra ports.
+- New schema in `hop3.toml`. Documentation and tutorials need updates, as does the schema validator. Existing apps need no change: the default behaviour is no extra ports.
 - We've been letting compose handle inbound traffic for a year; reverting to "ufw forwards to loopback-bound containers" requires careful testing across docker-compose versions.
 - Firewall reconciliation introduces a new failure mode: deploy succeeds at the app level but the firewall step fails (e.g., sudo timeout, ufw rule conflict). Need clear rollback and operator-facing diagnostics.
 - Per-app `--reconfigure-firewall` invitations on upgrades will catch some operators who manually adjusted rules outside Hop3's view.
@@ -180,7 +180,7 @@ For user-supplied compose files (where Hop3 doesn't own the YAML), the deployer 
 
 ### A. Platform-level firewall only; no per-app declarations
 
-The simplest model: ufw allow 22/80/443, deny rest, done. This is the original Wave 5 proposal, word for word.
+The simplest model allows 22/80/443 in ufw and denies the rest. This is the original Wave 5 proposal, word for word.
 
 Rejected because it silently breaks Owncast, Gitea SSH, Matrix federation, Jenkins, and most of the future catalog Hop3 wants to support.
 
@@ -208,7 +208,7 @@ Plausible but adds a third backend (ufw, firewalld, nftables) and operator famil
 
 "Open everything by default; explicitly close known-dangerous ports." Reverses the default.
 
-Rejected: modern security practice is firmly allow-list, and the deliverable framing ("network-level firewalls") points the same way.
+Rejected: modern security practice is firmly allow-list. The deliverable framing ("network-level firewalls") points the same way.
 
 ## Open questions
 

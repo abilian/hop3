@@ -29,9 +29,9 @@ A template must vendor its ecosystem's dependency set into a fixed-output deriva
 
 ### Fetched Software and Your Own
 
-A template either fetches the application or builds what is already there, and almost all of them fetch: a release tarball, an npm package, a nixpkgs attribute, an upstream binary. That is the right default for the corpus, which is third-party software, but it leaves an operator pushing their own code, the case a PaaS exists for, with no route through the generator at all. Such an app can reach Nix only by hand-writing `hop3.nix`, the barrier this ADR set out to remove.
+A template either fetches the application or builds what is already there. Almost all of them fetch: a release tarball, an npm package, a nixpkgs attribute, an upstream binary. That is the right default for the corpus, which is third-party software, but it leaves an operator pushing their own code, the case a PaaS exists for, with no route through the generator at all. Such an app can reach Nix only by hand-writing `hop3.nix`, the barrier this ADR set out to remove.
 
-The fix is a **local-source mode**: with no `[nix].url`, the recipe directory *is* the application (`src = ./.`), and the template's dependency-pinning machinery applies unchanged. `ruby-bundler` has always worked this way, and `go-source` now does too. Extending it to `php-app`, `python-venv` and `node-pnpm-install` is the remaining work; each needs the same shape, plus a way to express "install this tree" in place of "install this published package".
+The fix is a **local-source mode**: with no `[nix].url`, the recipe directory *is* the application (`src = ./.`). The template's dependency-pinning machinery applies unchanged. `ruby-bundler` has always worked this way; `go-source` now does too. Extending it to `php-app`, `python-venv` and `node-pnpm-install` is the remaining work; each needs the same shape, plus a way to express "install this tree" in place of "install this published package".
 
 A dependency-free module is the one case where an absent hash is correct, so it is spelled explicitly: `go-vendor-hash = "none"` emits `vendorHash = null`. Omitting the key is still refused.
 
@@ -91,11 +91,11 @@ Tier 3 is a floor for an app that could be built from source; the templates that
 
 The two now-unused templates stay, for reasons that outlive their current consumer count:
 
-- **Quick-and-dirty packaging.** Getting an app running should not require producing a lockfile first. Pointing `prebuilt-archive` at a release tarball is the shortest path from "I want this app" to a deployment, and it is a reasonable place to stop for an internal tool no one audits.
-- **Proprietary software.** An app distributed only as a binary cannot be source-built by anyone, at any tier. Tier 3 is the ceiling, and a PaaS that refused to express it would simply be unable to deploy that class of software.
+- **Quick-and-dirty packaging.** Getting an app running should not require producing a lockfile first. Pointing `prebuilt-archive` at a release tarball is the shortest path from "I want this app" to a deployment. For an internal tool no one audits, it is a reasonable place to stop.
+- **Proprietary software.** An app distributed only as a binary cannot be source-built by anyone, at any tier. Tier 3 is the ceiling. A PaaS that refused to express it would simply be unable to deploy that class of software.
 - **The upstream ships no buildable source for the packaged version**, which is why jenkins and wiki-js remain Tier 3; nixpkgs packages both from the upstream artefact too.
 
-The tier exists to make that trade-off legible. It must never stay implicit: a Tier-3 app is deployed on trust in its publisher, and the operator is entitled to know that before deciding.
+The tier exists to make that trade-off legible. It must never stay implicit: a Tier-3 app is deployed on trust in its publisher. The operator is entitled to know that before deciding.
 
 ## Design Overview
 
@@ -146,7 +146,7 @@ Inside a Nix `''...''` multi-line string, only `${VAR}` needs escaping (becomes 
 ### Drawbacks
 
 - **Per-template maintenance.** Each template has to be kept in sync with nixpkgs conventions and upstream app changes. This is mitigated by keeping each template small and by the stability of the patterns: there is no moving target like poetry2nix releases to chase.
-- **Edge cases escape through `nix:eject`.** Apps that don't fit any template still require hand-crafted files. This is manageable: the template set covers the bulk of the fleet, and ejection handles the rest.
+- **Edge cases escape through `nix:eject`.** Apps that don't fit any template still require hand-crafted files. This is manageable: the template set covers the bulk of the fleet, with ejection for the rest.
 - **Duplication during migration.** While migrating, an app can have both a hand-crafted `hop3.nix` *and* a `[nix]` section in `hop3.toml`; they are migrated one at a time, verifying each step.
 
 ## Design Findings

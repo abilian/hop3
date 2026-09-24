@@ -271,6 +271,16 @@ variant = "modern"
 language = "en"
 custom_dir = "overrides"
 
+# The header mark comes from overrides/partials/logo.html, which emits a
+# light-scheme and a dark-scheme file: this variant's header is white in
+# `default` and dark in `slate`, and one navy mark cannot serve both. `logo` is
+# still set, because the stock partial only reaches our override's branch when
+# it is truthy, and it is the value any template that bypasses the override
+# will use. The favicon carries its own disc, because browser chrome is light
+# on some systems and dark on others.
+logo = "img/hop3-mark.svg"
+favicon = "img/favicon.svg"
+
 features = [
     "announce.dismiss",
     "content.action.edit",
@@ -319,7 +329,7 @@ code = "Roboto Mono"
 
 # Icons
 [project.theme.icon]
-logo = "lucide/cloud"
+# No `logo` here: theme.logo above supplies the real mark and takes precedence.
 # Lucide dropped brand icons, so "lucide/github" doesn't exist in the bundled
 # icon set and the repo-link include (partials/source.html) fails the build.
 # Use the FontAwesome GitHub mark (also used for the social link below).

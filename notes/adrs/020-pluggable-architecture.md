@@ -51,7 +51,7 @@ The new architecture is composed of several key concepts:
     *   **`Deployer`**: Defines a `deploy()` method that takes a `BuildArtifact` and returns `DeploymentInfo` (e.g., the host/port or socket path of the running application). Core deployers are `UWSGIDeployer` (the default for dynamic apps), `StaticDeployer` (for static sites), and `DockerDeployer`, with auto-detection through `accept()`.
     *   **`ProxyStrategy`**: Defines a `configure()` method that takes `DeploymentInfo` to set up the reverse proxy. Core proxies are `NginxProxyPlugin` (the default), `CaddyProxyPlugin`, and `TraefikProxyPlugin`.
 
-    The Build stage is itself decomposed along two axes (see [030-two-level-build-architecture.md](030-two-level-build-architecture.md)): the Builder (Level 1) determines *how* to build (local, Docker, or Nix) and the LanguageToolchain (Level 2) determines *what* to build (Python, Node, Go, …).
+    The Build stage is itself decomposed along two axes (see [030-two-level-build-architecture.md](030-two-level-build-architecture.md)): the Builder (Level 1) determines *how* to build (local, Docker, or Nix). The LanguageToolchain (Level 2) determines *what* to build (Python, Node, Go, …).
 
 3.  **Plugin Management (`pluggy`):**
     *   A central `PluginManager` is initialized at application startup.

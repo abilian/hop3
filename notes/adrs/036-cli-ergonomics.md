@@ -111,7 +111,7 @@ Flags may appear before or after the subcommand. Environment-variable equivalent
 
 #### D7: Implicit app resolution
 
-> **Superseded by [ADR 042](./042-cli-context-model.md).** The resolution chain is defined in [ADR 042 §Resolution](042-cli-context-model.md#resolution). Notable deltas: the app now resolves **CWD-rooted**: sources 6 (`default_app`) and 7 (git remote) below are **dropped**, and `hop3 use <app>` writes a `.hop3-app` pin (source 3) instead of a context default. Project-scoped `[contexts.*]` in the committed `hop3.toml` is the source of truth; the r1 global `config.toml [contexts.*]` was retired ([ADR 042](./042-cli-context-model.md) r2, 2026-06-24). The selected context's app is a *conditionally-trusted* source ([ADR 042](./042-cli-context-model.md) §Resolution). The body below is retained for the record; see [ADR 042](./042-cli-context-model.md) for the authoritative chain.
+> **Superseded by [ADR 042](./042-cli-context-model.md).** The resolution chain is defined in [ADR 042 §Resolution](042-cli-context-model.md#resolution). Notable deltas: the app now resolves **CWD-rooted**: sources 6 (`default_app`) and 7 (git remote) below are **dropped**, and `hop3 use <app>` writes a `.hop3-app` pin (source 3); a context default no longer holds the app. Project-scoped `[contexts.*]` in the committed `hop3.toml` is the source of truth; the r1 global `config.toml [contexts.*]` was retired ([ADR 042](./042-cli-context-model.md) r2, 2026-06-24). The selected context's app is a *conditionally-trusted* source ([ADR 042](./042-cli-context-model.md) §Resolution). The body below is retained for the record; see [ADR 042](./042-cli-context-model.md) for the authoritative chain.
 
 When a command requires `--app` and none is given, resolve in order:
 
@@ -257,7 +257,7 @@ Scripts can distinguish user error (2, 10), resolution (3), auth (4, 5), server 
 - **`env`** for environment variables. Canonical commands are `env show/get/set/unset/live`. `config` is a full back-compat alias, registered server-side on each command, so `hop3 config set …` keeps working: no breakage for existing scripts or docs. Procfile→`hop3.toml` conversion belongs under `app migrate`; it operates on app configuration alone.
 - **`addon`** for backing services. "Service" is overloaded across modern PaaS (means app components in Railway/Render).
 
-`env` is canonical rather than `config` (the Heroku/Piku lineage) because `config` collides with `hop3.toml`, the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
+`env` is canonical. `config`, the Heroku/Piku name, collides with `hop3.toml`, the app's *configuration file*. `hop3 config show` listing environment variables while "the config" means the TOML file is a naming clash. `env` names exactly what the commands manage (environment variables), and the `config`/`settings` vocabulary is then freed for future app-level settings. `config` is retained as a full alias purely for compatibility.
 
 ### Extensibility
 
@@ -275,7 +275,7 @@ Plugins register commands, sub-namespaces, top-level namespaces, and aliases. Fu
 
 #### D19: Stdout/stderr discipline, `-` for files, state-change summaries
 
-Three cross-cutting rules for well-behaved Unix-citizen output.
+D19 sets three cross-cutting rules for well-behaved Unix-citizen output.
 
 **(a) Primary output to stdout; messaging to stderr.** Every command splits its output:
 
