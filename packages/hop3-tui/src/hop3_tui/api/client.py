@@ -168,8 +168,7 @@ class Hop3Client:
                 )
                 response.raise_for_status()
             except httpx.HTTPStatusError as e:
-                msg = f"HTTP error: {e.response.status_code}"
-                raise Hop3ClientError(msg) from e
+                raise Hop3ClientError(http_error_message(e.response)) from e
             except httpx.RequestError as e:
                 msg = f"Request failed: {e} {self.transport_hint}".rstrip()
                 raise Hop3ClientError(msg) from e
@@ -421,3 +420,17 @@ class Hop3Client:
         """Get system logs."""
         result = await self._rpc_call(["system", "logs", "--lines", str(lines)])
         return _text(result).split("\n")
+
+
+def http_error_message(response: httpx.Response) -> str:
+    """
+    The server's own words for a refused call, or the bare status.
+
+    A 401 or 403 from ``/rpc`` carries a JSON-RPC error that says why: an
+    account deleted or disabled, or a role below the command's, with the
+    command that fixes it (ADR 061). "HTTP error: 403" says none of that.
+    """
+    try:
+        return str(response.json()["error"]["message"])
+    except (ValueError, KeyError, TypeError):
+        return f"HTTP error: {response.status_code}"

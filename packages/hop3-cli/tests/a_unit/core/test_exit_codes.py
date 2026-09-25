@@ -51,6 +51,8 @@ def test_d16_numbering() -> None:
         (-32601, ExitCode.RESOLUTION_ERROR),  # method not found
         (-32602, ExitCode.USAGE_ERROR),  # invalid params
         (-32603, ExitCode.NETWORK_ERROR),  # internal error
+        (-32001, ExitCode.AUTH_ERROR),  # unauthenticated
+        (-32003, ExitCode.AUTHZ_ERROR),  # role too low (ADR 061)
     ],
 )
 def test_rpc_code_mapping(code: int, expected: int) -> None:
@@ -118,3 +120,24 @@ def test_413_replaces_raw_http_error_with_actionable_diagnostic(capsys) -> None:
     assert "[build].ignore" in combined
     # The raw HTTP noise is not what the user sees.
     assert "Client Error: Payload Too Large for url" not in combined
+
+
+def test_a_refused_role_exits_5_with_the_servers_hint(capsys) -> None:
+    """ADR 061: "ask an admin" is exit 5, and the fix is in the message."""
+    message = (
+        "'hop3 env show' needs the deployer role; account 'vera' is viewer. "
+        "An admin can grant it: hop3 user set-role vera deployer"
+    )
+    data = {
+        "kind": "forbidden",
+        "command": "env show",
+        "required_role": "deployer",
+        "role": "viewer",
+        "hint": "An admin can grant it: hop3 user set-role vera deployer",
+    }
+    with pytest.raises(SystemExit) as exc:
+        handle_error_response(-32003, message, data=data)
+    assert exc.value.code == ExitCode.AUTHZ_ERROR
+
+    out = capsys.readouterr()
+    assert "hop3 user set-role vera deployer" in out.out + out.err
