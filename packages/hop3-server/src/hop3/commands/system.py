@@ -35,6 +35,7 @@ import subprocess
 import sys
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta, timezone
+from itertools import starmap
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import HOP3_ROOT, config
@@ -43,6 +44,7 @@ from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
+from hop3.lib.rootd import RootdError, RootdUnavailableError, service_state
 from hop3.plugins.redis.redis import REDIS_PASS_FILE
 from hop3.plugins.s3.backend import HOP3_S3_ENV_FILE
 from hop3.server.health import get_all_health_checks, run_health_check
@@ -57,6 +59,7 @@ if TYPE_CHECKING:
 #
 # -- Helpers ------------------------------------------------------------------
 #
+
 
 _SEVERITY_ICON: dict[Severity, str] = {"ok": "✓", "warn": "⚠", "fail": "✗"}
 _SEVERITY_RANK: dict[Severity, int] = {"ok": 0, "warn": 1, "fail": 2}
@@ -84,6 +87,19 @@ class CheckSection:
 
     title: str
     items: list[CheckItem] = field(default_factory=list)
+
+
+def _service_item(unit: str, label: str) -> CheckItem:
+    """One service's line in the report, as its process manager states it."""
+    try:
+        active, state = service_state(unit)
+    except (RootdError, RootdUnavailableError) as e:
+        return CheckItem(name=label, severity="fail", detail=f"state unknown: {e}")
+    return CheckItem(
+        name=label,
+        severity="ok" if active else "fail",
+        detail="running" if active else state,
+    )
 
 
 def _resolved_ips() -> list[str]:
@@ -385,28 +401,18 @@ class StatusCmd(Command):
         }
 
     def _check_services(self) -> CheckSection:
+        # The proxy this server runs, not always nginx: on a Caddy server an
+        # absent nginx is correct, and reporting it down is a false alarm.
+        proxy = config.HOP3_PROXY_TYPE
         services = [
             ("hop3-server", "Hop3 Server"),
-            ("nginx", "Nginx"),
+            (proxy, proxy.capitalize()),
             ("uwsgi-hop3", "uWSGI Emperor"),
         ]
-        items: list[CheckItem] = []
-        for unit, label in services:
-            result = subprocess.run(
-                ["systemctl", "is-active", unit],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            active = result.stdout.strip() == "active"
-            items.append(
-                CheckItem(
-                    name=label,
-                    severity="ok" if active else "fail",
-                    detail="running" if active else "not running",
-                )
-            )
-        return CheckSection(title="Services", items=items)
+        return CheckSection(
+            title="Services",
+            items=list(starmap(_service_item, services)),
+        )
 
     def _check_addons(self) -> CheckSection:
         items: list[CheckItem] = []

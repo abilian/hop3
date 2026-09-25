@@ -18,6 +18,7 @@ The pre-0.5 commands ``check`` / ``uptime`` / ``ps`` were removed and
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
 import pytest
 
@@ -365,3 +366,48 @@ def test_removed_commands_are_gone():
     assert not hasattr(sysmod, "UptimeCmd")
     assert not hasattr(sysmod, "PSCmd")
     assert not hasattr(sysmod, "CheckCmd")
+
+
+# --- services, as the process manager reports them ---------------------------
+
+
+def _states(states: dict[str, tuple[bool, str]]):
+    def service_state(service: str) -> tuple[bool, str]:
+        return states[service]
+
+    return service_state
+
+
+def test_services_are_the_ones_this_server_runs(monkeypatch):
+    """The active proxy, not always nginx: a Caddy server has no nginx to run."""
+    monkeypatch.setattr(sysmod, "config", SimpleNamespace(HOP3_PROXY_TYPE="caddy"))
+    monkeypatch.setattr(
+        sysmod,
+        "service_state",
+        _states({
+            "hop3-server": (True, "RUNNING"),
+            "caddy": (True, "RUNNING"),
+            "uwsgi-hop3": (False, "FATAL"),
+        }),
+    )
+
+    section = StatusCmd()._check_services()
+
+    assert [(i.name, i.severity, i.detail) for i in section.items] == [
+        ("Hop3 Server", "ok", "running"),
+        ("Caddy", "ok", "running"),
+        ("uWSGI Emperor", "fail", "FATAL"),
+    ]
+
+
+def test_a_state_rootd_cannot_give_is_reported_not_raised(monkeypatch):
+    def unavailable(service: str) -> tuple[bool, str]:
+        msg = "hop3-rootd socket not found"
+        raise sysmod.RootdUnavailableError(msg)
+
+    monkeypatch.setattr(sysmod, "service_state", unavailable)
+
+    section = StatusCmd()._check_services()
+
+    assert {i.severity for i in section.items} == {"fail"}
+    assert all("hop3-rootd socket not found" in i.detail for i in section.items)

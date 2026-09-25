@@ -96,7 +96,7 @@ autorestart=true
 stdout_logfile=/var/log/supervisor/nginx.log
 stderr_logfile=/var/log/supervisor/nginx_err.log
 
-[program:uwsgi]
+[program:uwsgi-hop3]
 command=/home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled --uid hop3 --gid hop3
 directory=/home/hop3
 autostart=true
@@ -750,7 +750,7 @@ class DockerDeployBackend(DeployBackend):
         This replaces systemd in Docker environments. Supervisor manages:
         - sshd: SSH server
         - nginx: Reverse proxy
-        - uwsgi: Application processes (emperor mode)
+        - uwsgi-hop3: Application processes (emperor mode)
         - hop3-server: Hop3 API server
 
         Raises:

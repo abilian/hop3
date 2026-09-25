@@ -81,7 +81,7 @@ autorestart=true
 stdout_logfile=/var/log/supervisor/sshd.log
 stderr_logfile=/var/log/supervisor/sshd_err.log
 
-[program:uwsgi]
+[program:uwsgi-hop3]
 command=/usr/bin/uwsgi-core --emperor /home/hop3/uwsgi-enabled
 directory=/home/hop3
 user=hop3
