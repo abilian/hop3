@@ -14,13 +14,14 @@ from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3.core.backup import BackupManager
+from hop3.core.roles import Role
 from hop3.lib.logging import server_log
 from hop3.orm.repositories import (
     AddonCredentialRepository,
     AppRepository,
     BackupRepository,
 )
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 from .helpers import format_size
@@ -55,7 +56,7 @@ class BackupsController(Controller):
     """Controller for backup management routes."""
 
     path = "/dashboard/backups"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
+    guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def dashboard_backups(self) -> Template | Redirect:
@@ -137,7 +138,12 @@ class BackupsController(Controller):
     # worker, so they are offloaded to a thread — on the loop they would freeze
     # every other request (see the note in dashboard/apps.py).
 
-    @post("/{backup_id:str}/restore", status_code=303, sync_to_thread=True)
+    @post(
+        "/{backup_id:str}/restore",
+        status_code=303,
+        sync_to_thread=True,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def backup_restore(self, backup_id: FromPath[str]) -> Redirect:
         """Restore a backup."""
 
@@ -148,7 +154,12 @@ class BackupsController(Controller):
 
         return self._run_backup_action(backup_id, "restore", _restore)
 
-    @post("/{backup_id:str}/delete", status_code=303, sync_to_thread=True)
+    @post(
+        "/{backup_id:str}/delete",
+        status_code=303,
+        sync_to_thread=True,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def backup_delete(self, backup_id: FromPath[str]) -> Redirect:
         """Delete a backup."""
 

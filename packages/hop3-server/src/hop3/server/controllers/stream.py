@@ -24,7 +24,8 @@ from litestar import Controller, get
 from litestar.exceptions import NotFoundException
 from litestar.response import Stream
 
-from hop3.server.guards import auth_guard
+from hop3.core.roles import Role
+from hop3.server.guards import RoleGuard
 from hop3.server.streaming import get_stream
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ class StreamController(Controller):
     """
 
     path = "/api/stream"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default] - base class defines as instance var
+    guards = [RoleGuard(Role.DEPLOYER)]  # ruff:ignore[mutable-class-default] - base class defines as instance var
 
     @get("/{stream_id:str}")
     async def stream_logs(self, stream_id: FromPath[str]) -> Stream:

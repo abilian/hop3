@@ -3,84 +3,59 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Authentication guards for Litestar routes.
+The role guard for Litestar routes (ADR 061 §4).
 
-Guards are used to protect routes that require authentication.
-They check if the user is authenticated before allowing access to the route.
+Every dashboard route names the lowest role that may open it; the guard reads
+the caller's account and admits it only when active and in that role or above.
 """
 
 from __future__ import annotations
 
+from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from litestar.exceptions import NotAuthorizedException
+from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
 
 from hop3 import config
+from hop3.server.security.authorization import lookup_account
 from hop3.server.security.web_auth import current_identity
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
     from litestar.handlers import BaseRouteHandler
 
+    from hop3.core.roles import Role
 
-def auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
+
+@dataclass(frozen=True)
+class RoleGuard:
     """
-    Guard that requires user authentication.
+    Admit an active account whose role includes ``required`` (ADR 061 §4).
 
-    Accepts the single signed credential the platform issues, over either
-    transport (``hop3.server.security.web_auth.current_identity``):
-
-    1. The ``hop3_auth`` cookie, set by the browser dashboard after login.
-    2. An ``Authorization: Bearer <token>`` header, used by the CLI and
-       other API clients — the same JWT ``/rpc`` accepts.
-
-    Honouring the Bearer token here matters: without it, a token-only
-    client (e.g. the CLI streaming deploy logs from ``/api/stream/<id>``)
-    failed the guard, the app-wide ``handle_401`` redirected it to
-    ``/auth/login`` (302), and the client — which cannot follow a login
-    redirect — saw the deploy fail with an opaque stream error instead
-    of the real server-side cause.
-
-    The credential is stateless: a signed JWT, validated with the persistent
-    server secret. No server-side session is consulted.
-
-    If HOP3_UNSAFE is true (testing mode), authentication is skipped.
-
-    Args:
-        connection: The ASGI connection
-        _: The route handler (unused)
-
-    Raises:
-        NotAuthorizedException: If the request carries no valid credential.
+    The dashboard's counterpart of the RPC dispatcher's check, on the same
+    account lookup: the role is read from the database on every request.
+    ``required`` stays readable, so a test can map every route to its role.
     """
-    # Skip authentication in unsafe mode (testing)
-    if config.HOP3_UNSAFE:
-        return
 
-    if current_identity(connection):
-        return
+    required: Role
 
-    raise NotAuthorizedException(detail="Authentication required")
+    def __call__(self, connection: ASGIConnection, _: BaseRouteHandler) -> None:
+        # As in the RPC dispatcher: the bypass is refused outside development.
+        if config.HOP3_UNSAFE:
+            return
 
+        identity = current_identity(connection)
+        if not identity:
+            raise NotAuthorizedException(detail="Authentication required")
 
-def optional_auth_guard(connection: ASGIConnection, _: BaseRouteHandler) -> None:
-    """
-    Guard that allows both authenticated and unauthenticated access.
+        account = lookup_account(str(identity.get("username", "")))
+        if account is None or not account.active:
+            raise NotAuthorizedException(detail="Account unknown or disabled")
 
-    This guard doesn't raise an exception but can be used to populate
-    user context when available. Useful for routes that behave differently
-    based on authentication status.
-
-    Args:
-        connection: The ASGI connection
-        _: The route handler (unused)
-
-    Example:
-        @get("/maybe-protected", guards=[optional_auth_guard])
-        def mixed_route(request: Request) -> dict:
-            if current_identity(request):
-                return {"message": "Hello authenticated user"}
-            return {"message": "Hello guest"}
-    """
-    # This guard does nothing - the actual auth check is done in the handler
-    # (e.g. via current_identity).
+        if not account.role.includes(self.required):
+            msg = (
+                f"This page needs the {self.required} role; account "
+                f"'{account.username}' is {account.role}. An admin can grant "
+                f"it: hop3 user set-role {account.username} {self.required}"
+            )
+            raise PermissionDeniedException(detail=msg)

@@ -22,10 +22,11 @@ from litestar.params import Body, FromPath
 from litestar.response import File, Redirect, Template
 
 from hop3.commands._deploy import deploy_app_streaming
+from hop3.core.roles import Role
 from hop3.server.catalog import CatalogService
 from hop3.server.catalog.install import CatalogInstallError, stage_catalog_app
 from hop3.server.catalog.loader import find_icon, find_screenshots
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 if TYPE_CHECKING:
@@ -45,7 +46,7 @@ class CatalogController(Controller):
     """
 
     path = "/dashboard/catalog"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default] - base class defines as instance var
+    guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default] - base class defines as instance var
 
     # -------------------------------------------------------------------------
     # Catalog Home
@@ -231,7 +232,12 @@ class CatalogController(Controller):
     # App Installation
     # -------------------------------------------------------------------------
 
-    @post("/apps/{app_id:str}/install", status_code=303, sync_to_thread=True)
+    @post(
+        "/apps/{app_id:str}/install",
+        status_code=303,
+        sync_to_thread=True,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def catalog_install(
         self,
         app_id: FromPath[str],

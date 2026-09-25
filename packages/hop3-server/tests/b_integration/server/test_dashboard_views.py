@@ -320,7 +320,7 @@ def test_env_vars_requires_authentication(client: TestClient):
 
 def test_logs_stream_unauthorized(client: TestClient):
     """Test logs stream requires authentication."""
-    # follow_redirects=False so we see the auth_guard's 302 -> /auth/login,
+    # follow_redirects=False so we see the role guard's 302 -> /auth/login,
     # not the 200 login page it redirects to (the sibling tests do the same).
     response = client.get("/dashboard/apps/testapp/logs/stream", follow_redirects=False)
     # Without authentication, should return 401 or redirect to login
