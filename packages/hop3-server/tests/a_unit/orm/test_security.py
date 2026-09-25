@@ -2,18 +2,19 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""Tests for User and Role models."""
+"""Tests for the User model and its role."""
 
 from __future__ import annotations
 
 from datetime import datetime, timezone
 
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, sessionmaker
 
-from hop3.orm.security import AuditBase, Role, User
+from hop3.core.roles import Role
+from hop3.orm.security import AuditBase, User
 
 
 @pytest.fixture
@@ -80,76 +81,35 @@ def test_user_login_tracking(db_session: Session):
     assert user.current_login_ip == "192.168.1.1"
 
 
-def test_role_creation(db_session: Session):
-    """Test creating a role."""
-    role = Role(name="admin", description="Administrator role")
-
-    db_session.add(role)
-    db_session.commit()
-
-    assert role.id is not None
-    assert role.name == "admin"
-    assert role.description == "Administrator role"
-
-
-def test_user_roles_relationship(db_session: Session):
-    """Test many-to-many relationship between users and roles."""
-    # Create user and roles
+def test_a_new_user_is_a_member(db_session: Session):
+    """ADR 061 §2: no "no role" state; ``member`` is the floor."""
     user = User(username="testuser", email="test@example.com", password_hash="")
-    admin_role = Role(name="admin", description="Admin")
-    user_role = Role(name="user", description="Regular user")
-
-    db_session.add(user)
-    db_session.add(admin_role)
-    db_session.add(user_role)
-    db_session.commit()
-
-    # Assign roles to user
-    user.roles.append(admin_role)
-    user.roles.append(user_role)
-    db_session.commit()
-
-    # Check roles are assigned
-    assert len(user.roles) == 2
-    role_names = {role.name for role in user.roles}
-    assert "admin" in role_names
-    assert "user" in role_names
-
-
-def test_user_has_role(db_session: Session):
-    """Test has_role method."""
-    user = User(username="testuser", email="test@example.com", password_hash="")
-    admin_role = Role(name="admin", description="Admin")
-    user_role = Role(name="user", description="User")
-
-    user.roles.append(admin_role)
-    user.roles.append(user_role)
-
     db_session.add(user)
     db_session.commit()
+    db_session.refresh(user)
 
-    assert user.has_role("admin")
-    assert user.has_role("user")
-    assert not user.has_role("moderator")
-
-
-def test_user_is_admin(db_session: Session):
-    """Test is_admin property."""
-    user = User(username="testuser", email="test@example.com", password_hash="")
-    admin_role = Role(name="admin", description="Admin")
-
-    db_session.add(user)
-    db_session.add(admin_role)
-    db_session.commit()
-
-    # User without admin role
+    assert user.role is Role.MEMBER
     assert not user.is_admin
 
-    # User with admin role
-    user.roles.append(admin_role)
+
+def test_user_is_admin_follows_the_role(db_session: Session):
+    user = User(username="testuser", email="test@example.com", password_hash="")
+    user.role = Role.ADMIN
+    db_session.add(user)
     db_session.commit()
 
     assert user.is_admin
+
+
+def test_the_role_is_stored_by_value(db_session: Session):
+    """The column reads "deployer", not the enum member's name "DEPLOYER"."""
+    user = User(username="testuser", email="test@example.com", password_hash="")
+    user.role = Role.DEPLOYER
+    db_session.add(user)
+    db_session.commit()
+
+    stored = db_session.execute(text("SELECT role FROM sec_user")).scalar_one()
+    assert stored == "deployer"
 
 
 def test_user_unique_username(db_session: Session):
@@ -180,28 +140,8 @@ def test_user_unique_email(db_session: Session):
         db_session.commit()
 
 
-def test_role_unique_name(db_session: Session):
-    """Test that role name must be unique."""
-    role1 = Role(name="admin", description="Admin 1")
-    role2 = Role(name="admin", description="Admin 2")
-
-    db_session.add(role1)
-    db_session.commit()
-
-    db_session.add(role2)
-
-    with pytest.raises(IntegrityError):
-        db_session.commit()
-
-
 def test_user_repr(db_session: Session):
     """Test user string representation."""
     user = User(username="testuser", email="test@example.com", password_hash="")
     assert "testuser" in repr(user)
     assert "test@example.com" in repr(user)
-
-
-def test_role_repr(db_session: Session):
-    """Test role string representation."""
-    role = Role(name="admin", description="Administrator")
-    assert "admin" in repr(role)

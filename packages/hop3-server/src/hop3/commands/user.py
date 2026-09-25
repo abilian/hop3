@@ -10,15 +10,14 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 from hop3.orm import User
 
 # Repositories are runtime imports for Dishka DI (not just type hints)
 from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-import]
-    RoleRepository,
     UserRepository,
 )
-from hop3.orm.security import Role
 from hop3.server.security.tokens import create_token
 
 from ._base import Command, NamespaceCommand
@@ -48,6 +47,64 @@ def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None
     return None
 
 
+def _requested_role(args: tuple[str, ...]) -> Role:
+    """
+    The role a ``user add`` asks for: ``--role NAME``, ``--admin``, or ``member``.
+
+    Raises ValueError, with a message for the user, on an unknown or missing name.
+    """
+    if "--admin" in args:
+        return Role.ADMIN
+    if "--role" not in args:
+        return Role.MEMBER
+    index = args.index("--role")
+    if index + 1 >= len(args):
+        msg = "--role needs a value: " + ", ".join(role.value for role in Role)
+        raise ValueError(msg)
+    return Role.parse(args[index + 1])
+
+
+def _set_role(
+    user_repo: UserRepository,
+    authenticated_username: str,
+    username: str,
+    role: Role,
+) -> list[dict]:
+    """
+    Give ``username`` the server role ``role``, on behalf of an admin.
+
+    An admin cannot change their own role. Every other change is made by an
+    active admin who keeps that role, so the server can never be left without
+    an admin through this path (ADR 061 §2).
+    """
+    if admin_error := require_admin(authenticated_username, user_repo):
+        return admin_error
+
+    user = user_repo.get_by_username(username)
+    if not user:
+        return [error(f"User '{username}' not found")]
+
+    if user.role is role:
+        return [text(f"User '{username}' is already {role}")]
+
+    if username == authenticated_username:
+        return [
+            error(
+                "Cannot change your own role: another admin must, so the server "
+                "is never left without one"
+            )
+        ]
+
+    previous = user.role
+    user.role = role
+    user_repo.update(user, auto_commit=True)
+
+    return [
+        text(f"User '{username}' is now {role} (was {previous})"),
+        summary(f"set '{username}' to {role}."),
+    ]
+
+
 @register
 @dataclass(frozen=True)
 class UserCmd(NamespaceCommand):
@@ -69,25 +126,26 @@ class UserAddCmd(Command):
     """
     Register a new user account.
 
-    Usage: hop3 user add <username> <email> [password] [--admin]
+    Usage: hop3 user add <username> <email> [password] [--role ROLE | --admin]
                                             (--password-file <path> | --stdin)
 
     Options:
-        --admin               Grant admin privileges to the new user
+        --role ROLE           The account's role: member (the default), viewer,
+                              deployer or admin
+        --admin               Same as --role admin
         --password-file PATH  Read password from PATH (use '-' for stdin)
         --stdin               Read password from stdin
 
     Examples:
         # Recommended (password not in shell history / ps output)
         hop3 user add admin admin@example.com --password-file ./pw.txt --admin
-        echo "$PW" | hop3 user add john john@example.com --stdin
+        echo "$PW" | hop3 user add john john@example.com --stdin --role deployer
 
         # Direct positional (discouraged: leaks via shell history and ps)
         hop3 user add john john@example.com secret123
     """
 
     user_repo: UserRepository
-    role_repo: RoleRepository
     name: ClassVar[tuple[str, ...]] = ("user", "add")
     # `auth register` was a duplicate of this command (ADR 036 P2.1) — kept as a
     # back-compat alias so `hop3 auth register u e p` still works.
@@ -113,7 +171,7 @@ class UserAddCmd(Command):
             username: Username for the new user
             email: Email for the new user
             password: Password for the new user
-            *args: Additional arguments (--admin flag)
+            *args: Additional arguments (--role ROLE, --admin)
 
         Returns:
             Success message or error
@@ -124,8 +182,16 @@ class UserAddCmd(Command):
 
         if not username or not email or not password:
             return [
-                error("Usage: hop3 user add <username> <email> <password> [--admin]")
+                error(
+                    "Usage: hop3 user add <username> <email> <password> "
+                    "[--role ROLE | --admin]"
+                )
             ]
+
+        try:
+            role = _requested_role(args)
+        except ValueError as e:
+            return [error(str(e))]
 
         # Check if username already exists
         if self.user_repo.username_exists(username):
@@ -135,23 +201,11 @@ class UserAddCmd(Command):
         if self.user_repo.email_exists(email):
             return [error(f"Email '{email}' already registered")]
 
-        # Check for --admin flag
-        is_admin = "--admin" in args
-
         # Create new user
-        user = User(username=username, email=email, password_hash="")
+        user = User(username=username, email=email, password_hash="", role=role)
         user.set_password(password)
         user.active = True
         user.confirmed_at = datetime.now(timezone.utc)
-
-        # Grant admin role if requested
-        if is_admin:
-            admin_role = self.role_repo.get_admin_role()
-            if not admin_role:
-                # Create admin role if it doesn't exist
-                admin_role = Role(name="admin", description="Administrator role")
-                self.role_repo.add(admin_role)
-            user.roles.append(admin_role)
 
         self.user_repo.add(user, auto_commit=True)
 
@@ -159,10 +213,8 @@ class UserAddCmd(Command):
             text(f"User '{username}' created successfully!"),
             text(f"Email: {email}"),
             text(f"Active: {user.active}"),
+            text(f"Role: {role}"),
         ]
-
-        if is_admin:
-            response.append(text("Admin: Yes"))
 
         # The control plane is single-tenant: there is no per-app ownership, so
         # any account reaches every app and addon on the host. Say so where the
@@ -177,8 +229,7 @@ class UserAddCmd(Command):
             )
         )
 
-        role = "admin user" if is_admin else "user"
-        response.append(summary(f"added {role} '{username}'."))
+        response.append(summary(f"added user '{username}' ({role})."))
         return response
 
 
@@ -287,17 +338,16 @@ class UserListCmd(Command):
             text("Users"),
             text("=" * 80),
             text(
-                f"{'Username':<20} {'Email':<30} {'Active':<8} {'Admin':<8} {'Logins':<8}"
+                f"{'Username':<20} {'Email':<30} {'Active':<8} {'Role':<10} {'Logins':<8}"
             ),
             text("-" * 80),
         ]
 
         for user in users:
-            is_admin = "Yes" if user.is_admin else "No"
             active = "Yes" if user.active else "No"
             response.append(
                 text(
-                    f"{user.username:<20} {user.email:<30} {active:<8} {is_admin:<8} {user.login_count:<8}"
+                    f"{user.username:<20} {user.email:<30} {active:<8} {user.role:<10} {user.login_count:<8}"
                 )
             )
 
@@ -433,9 +483,49 @@ class UserDisableCmd(Command):
 
 @register
 @dataclass(frozen=True)
+class UserSetRoleCmd(Command):
+    """
+    Set a user's role.
+
+    Usage: hop3 user set-role <username> <role>
+
+    The roles, lowest first: member (signs in, no control-plane access), viewer
+    (reads app state), deployer (runs apps), admin (everything, users included).
+    An admin cannot change their own role.
+
+    Examples:
+        hop3 user set-role john deployer
+    """
+
+    user_repo: UserRepository
+    name: ClassVar[tuple[str, ...]] = ("user", "set-role")
+    # Needs authenticated username for permission checks
+    pass_username: ClassVar[bool] = True
+
+    def call(
+        self,
+        authenticated_username: str = "",
+        username: str = "",
+        role: str = "",
+        /,
+        *args: str,
+        **kwargs: object,
+    ) -> list[dict]:
+        """Give ``username`` the role ``role``."""
+        if not username or not role:
+            return [error("Usage: hop3 user set-role <username> <role>")]
+        try:
+            parsed = Role.parse(role)
+        except ValueError as e:
+            return [error(str(e))]
+        return _set_role(self.user_repo, authenticated_username, username, parsed)
+
+
+@register
+@dataclass(frozen=True)
 class UserGrantAdminCmd(Command):
     """
-    Grant admin privileges to a user.
+    Make a user an admin. Same as ``hop3 user set-role <username> admin``.
 
     Usage: hop3 user grant-admin <username>
 
@@ -444,7 +534,6 @@ class UserGrantAdminCmd(Command):
     """
 
     user_repo: UserRepository
-    role_repo: RoleRepository
     name: ClassVar[tuple[str, ...]] = ("user", "grant-admin")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -457,52 +546,21 @@ class UserGrantAdminCmd(Command):
         *args: str,
         **kwargs: object,
     ) -> list[dict]:
-        """
-        Grant admin privileges to a user.
-
-        Args:
-            authenticated_username: The authenticated user
-            username: Username to grant admin privileges to
-
-        Returns:
-            Success message or error
-        """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
+        """Give ``username`` the ``admin`` role."""
         if not username:
             return [error("Usage: hop3 user grant-admin <username>")]
-
-        # Find the user
-        user = self.user_repo.get_by_username(username)
-        if not user:
-            return [error(f"User '{username}' not found")]
-
-        if user.is_admin:
-            return [text(f"User '{username}' already has admin privileges")]
-
-        # Get or create admin role
-        admin_role = self.role_repo.get_admin_role()
-        if not admin_role:
-            admin_role = Role(name="admin", description="Administrator role")
-            self.role_repo.add(admin_role)
-
-        # Grant admin role
-        user.roles.append(admin_role)
-        self.user_repo.update(user, auto_commit=True)
-
-        return [
-            text(f"Admin privileges granted to user '{username}' successfully"),
-            summary(f"granted admin to '{username}'."),
-        ]
+        return _set_role(self.user_repo, authenticated_username, username, Role.ADMIN)
 
 
 @register
 @dataclass(frozen=True)
 class UserRevokeAdminCmd(Command):
     """
-    Revoke admin privileges from a user.
+    Take the admin role from a user, leaving them a deployer.
+
+    A deployer keeps what every non-admin account could do before roles
+    existed: run and configure every app, without managing users. Use
+    ``hop3 user set-role`` for any other role.
 
     Usage: hop3 user revoke-admin <username>
 
@@ -511,7 +569,6 @@ class UserRevokeAdminCmd(Command):
     """
 
     user_repo: UserRepository
-    role_repo: RoleRepository
     name: ClassVar[tuple[str, ...]] = ("user", "revoke-admin")
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
@@ -524,45 +581,15 @@ class UserRevokeAdminCmd(Command):
         *args: str,
         **kwargs: object,
     ) -> list[dict]:
-        """
-        Revoke admin privileges from a user.
-
-        Args:
-            authenticated_username: The authenticated user
-            username: Username to revoke admin privileges from
-
-        Returns:
-            Success message or error
-        """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
+        """Move ``username`` from ``admin`` to ``deployer``."""
         if not username:
             return [error("Usage: hop3 user revoke-admin <username>")]
-
-        # Prevent self-revocation
-        if username == authenticated_username:
-            return [error("Cannot revoke admin privileges from yourself")]
-
-        # Find the user
         user = self.user_repo.get_by_username(username)
-        if not user:
-            return [error(f"User '{username}' not found")]
-
-        if not user.is_admin:
-            return [text(f"User '{username}' does not have admin privileges")]
-
-        # Get admin role
-        admin_role = self.role_repo.get_admin_role()
-        if admin_role and admin_role in user.roles:
-            user.roles.remove(admin_role)
-            self.user_repo.update(user, auto_commit=True)
-
-        return [
-            text(f"Admin privileges revoked from user '{username}' successfully"),
-            summary(f"revoked admin from '{username}'."),
-        ]
+        if user and not user.is_admin:
+            return [text(f"User '{username}' is not an admin (role: {user.role})")]
+        return _set_role(
+            self.user_repo, authenticated_username, username, Role.DEPLOYER
+        )
 
 
 @register
@@ -681,16 +708,13 @@ class UserShowCmd(Command):
         if not user:
             return [error(f"User '{username}' not found")]
 
-        roles = ", ".join(role.name for role in user.roles) if user.roles else "None"
-
         return [
             text("User Information"),
             text("=" * 40),
             text(f"Username: {user.username}"),
             text(f"Email: {user.email}"),
             text(f"Active: {user.active}"),
-            text(f"Admin: {user.is_admin}"),
-            text(f"Roles: {roles}"),
+            text(f"Role: {user.role}"),
             text(f"Login count: {user.login_count}"),
             text(f"Current login: {user.current_login_at or 'Never'}"),
             text(f"Last login: {user.last_login_at or 'Never'}"),

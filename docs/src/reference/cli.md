@@ -562,25 +562,26 @@ So `hop3 app list --context devel` targets the named server with no project; a b
 
 ### `hop3 user add`
 
-Register a new user account.
+Register a new user account. Only an admin can.
 
 **Usage:**
 ```bash
-hop3 user add <username> <email> <password>
+hop3 user add <username> <email> [password] [--role ROLE | --admin]
 ```
 
 **Arguments:**
 - `username` - Desired username (alphanumeric, underscores, hyphens)
 - `email` - Valid email address
-- `password` - Password (minimum 8 characters recommended)
+- `password` - Password (minimum 8 characters recommended); prefer `--stdin` or `--password-file`, which keep it out of shell history
+- `--role ROLE` - `member` (the default), `viewer`, `deployer` or `admin`; `--admin` is short for `--role admin`
 
 **Example:**
 ```bash
-hop3 user add alice alice@example.com mypassword123
+echo "$PW" | hop3 user add alice alice@example.com --stdin --role deployer
 ```
 
 **Notes:**
-- First registered user automatically becomes admin
+- The first account is created by the installer, or by `hop3 login --ssh` on a server that has none, and it is an admin
 - Passwords are hashed with bcrypt (work factor 12)
 - Email must be unique
 
@@ -644,8 +645,8 @@ hop3 auth whoami
 ```
 Username: alice
 Email: alice@example.com
-Roles: admin, user
-Active: Yes
+Active: True
+Role: admin
 ```
 
 ### `hop3 auth logout`
@@ -1816,7 +1817,7 @@ hop3 network rm office
 
 ## Admin Commands
 
-Admin commands require admin role. First user registered automatically gets admin role.
+Admin commands require the `admin` role. The server's first account, created by the installer or by `hop3 login --ssh` on a server that has none, is an admin.
 
 ### `hop3 user list`
 
@@ -1829,24 +1830,24 @@ hop3 user list
 
 **Example Output:**
 ```
-┌───────────────────────────────────────────────────────────┐
-│ Users                                                     │
-├──────────┬───────────────────────┬────────────┬───────────┤
-│ Username │ Email                 │ Roles      │ Status    │
-├──────────┼───────────────────────┼────────────┼───────────┤
-│ alice    │ alice@example.com     │ admin,user │ Active    │
-│ bob      │ bob@example.com       │ user       │ Active    │
-│ charlie  │ charlie@example.com   │ user       │ Disabled  │
-└──────────┴───────────────────────┴────────────┴───────────┘
+Users
+================================================================================
+Username             Email                          Active   Role       Logins
+--------------------------------------------------------------------------------
+alice                alice@example.com              Yes      admin      12
+bob                  bob@example.com                Yes      deployer   3
+charlie              charlie@example.com            No       viewer     0
+
+Total users: 3
 ```
 
 ### `hop3 user add`
 
-Create a new user account.
+Create a new user account. See [`hop3 user add`](#hop3-user-add) above for the options.
 
 **Usage:**
 ```bash
-hop3 user add <username> <email> <password>
+hop3 user add <username> <email> [password] [--role ROLE | --admin]
 ```
 
 ### `hop3 user show`
@@ -1894,9 +1895,18 @@ Remove a user account.
 hop3 user remove <username>
 ```
 
+### `hop3 user set-role`
+
+Set a user's role: `member`, `viewer`, `deployer` or `admin`. An admin cannot change their own role; another admin must, so the server always keeps one.
+
+**Usage:**
+```bash
+hop3 user set-role <username> <role>
+```
+
 ### `hop3 user grant-admin`
 
-Grant admin privileges to a user.
+Make a user an admin. Same as `hop3 user set-role <username> admin`.
 
 **Usage:**
 ```bash
@@ -1905,7 +1915,7 @@ hop3 user grant-admin <username>
 
 ### `hop3 user revoke-admin`
 
-Revoke admin privileges from a user.
+Take the admin role from a user, leaving them a `deployer`. Use `hop3 user set-role` for any other role.
 
 **Usage:**
 ```bash

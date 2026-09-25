@@ -10,8 +10,10 @@ from datetime import datetime
 
 import bcrypt as bcrypt_lib
 from advanced_alchemy.base import BigIntAuditBase
-from sqlalchemy import Column, ForeignKey, String, Table
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Enum, String
+from sqlalchemy.orm import Mapped, mapped_column
+
+from hop3.core.roles import Role
 
 AuditBase = BigIntAuditBase
 
@@ -39,32 +41,6 @@ def burn_password_check(password: str) -> None:
     bcrypt_lib.checkpw(password.encode("utf-8"), _DUMMY_PASSWORD_HASH)
 
 
-# Association table for many-to-many relationship between users and roles
-users_roles = Table(
-    "sec_users_roles",
-    AuditBase.metadata,
-    Column("user_id", ForeignKey("sec_user.id"), primary_key=True),
-    Column("role_id", ForeignKey("sec_role.id"), primary_key=True),
-)
-
-
-class Role(AuditBase):
-    """Security role for user access control."""
-
-    __tablename__ = "sec_role"
-
-    name: Mapped[str] = mapped_column(String(80), unique=True, nullable=False)
-    description: Mapped[str] = mapped_column(String(255), default="")
-
-    # Relationships
-    users: Mapped[list[User]] = relationship(
-        "User", secondary=users_roles, back_populates="roles"
-    )
-
-    def __repr__(self) -> str:
-        return f"<Role(name='{self.name}')>"
-
-
 class User(AuditBase):
     """User entity for authentication and authorization."""
 
@@ -85,9 +61,17 @@ class User(AuditBase):
     active: Mapped[bool] = mapped_column(default=True)
     confirmed_at: Mapped[datetime | None] = mapped_column(nullable=True)
 
-    # Relationships
-    roles: Mapped[list[Role]] = relationship(
-        "Role", secondary=users_roles, back_populates="users"
+    # The account's one server role (ADR 061 §2). Stored as its value, so the
+    # column reads "admin" rather than an enum member name.
+    role: Mapped[Role] = mapped_column(
+        Enum(
+            Role,
+            native_enum=False,
+            length=16,
+            values_callable=lambda roles: [role.value for role in roles],
+        ),
+        default=Role.MEMBER,
+        server_default=Role.MEMBER.value,
     )
 
     def __repr__(self) -> str:
@@ -119,24 +103,7 @@ class User(AuditBase):
         hash_bytes = self.password_hash.encode("utf-8")
         return bcrypt_lib.checkpw(password_bytes, hash_bytes)
 
-    def has_role(self, role_name: str) -> bool:
-        """
-        Check if the user has a specific role.
-
-        Args:
-            role_name: The name of the role to check
-
-        Returns:
-            True if the user has the role, False otherwise
-        """
-        return any(role.name == role_name for role in self.roles)
-
     @property
     def is_admin(self) -> bool:
-        """
-        Check if the user is an administrator.
-
-        Returns:
-            True if the user has the 'admin' role, False otherwise
-        """
-        return self.has_role("admin")
+        """True when the account holds the ``admin`` role."""
+        return self.role is Role.ADMIN

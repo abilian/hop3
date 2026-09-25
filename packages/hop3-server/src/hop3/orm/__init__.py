@@ -23,11 +23,10 @@ from .repositories import (
     NetworkRepository,
     PortClaimRepository,
     RevokedTokenRepository,
-    RoleRepository,
     UserRepository,
 )
 from .revoked_token import RevokedToken
-from .security import Role, User
+from .security import User
 from .session import get_session_factory, reset_session_factory_cache
 
 __all__ = [
@@ -51,8 +50,6 @@ __all__ = [
     "PortClaimRepository",
     "RevokedToken",
     "RevokedTokenRepository",
-    "Role",
-    "RoleRepository",
     "User",
     "UserRepository",
     "get_session_factory",

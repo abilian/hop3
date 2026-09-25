@@ -19,8 +19,9 @@ from hop3.commands.auth import (
     AuthMagicLinkCmd,
     AuthWhoamiCmd,
 )
+from hop3.core.roles import Role
 from hop3.orm.repositories import UserRepository
-from hop3.orm.security import AuditBase, Role, User
+from hop3.orm.security import AuditBase, User
 from hop3.server.controllers.rpc import command_needs_username
 
 
@@ -73,12 +74,9 @@ def admin_user(db_session: Session):
     user = User(username="admin", email="admin@example.com", password_hash="")
     user.set_password("adminpass")
     user.active = True
-
-    admin_role = Role(name="admin", description="Administrator")
-    user.roles.append(admin_role)
+    user.role = Role.ADMIN
 
     db_session.add(user)
-    db_session.add(admin_role)
     db_session.commit()
 
     return user

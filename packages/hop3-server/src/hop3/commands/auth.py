@@ -155,15 +155,13 @@ class AuthWhoamiCmd(Command):
         if not user:
             return [error("User not found")]
 
-        roles = ", ".join(role.name for role in user.roles) if user.roles else "None"
-
         return [
             text("Authenticated User Information"),
             text("=" * 40),
             text(f"Username: {user.username}"),
             text(f"Email: {user.email}"),
             text(f"Active: {user.active}"),
-            text(f"Roles: {roles}"),
+            text(f"Role: {user.role}"),
             text(f"Login count: {user.login_count}"),
             text(f"Last login: {user.last_login_at or 'Never'}"),
         ]

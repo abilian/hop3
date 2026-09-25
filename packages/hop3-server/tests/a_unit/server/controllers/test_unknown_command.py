@@ -41,4 +41,5 @@ def test_suggestion_points_at_the_real_command() -> None:
 def test_registry_still_matches_a_real_command() -> None:
     known = [format_command_name(name) for name in commands]
     assert "user set-password" in known
-    assert closest_matches("user set-passwrd", known) == ["user set-password"]
+    # `user set-role` is close too; the real command must still rank first.
+    assert closest_matches("user set-passwrd", known)[0] == "user set-password"

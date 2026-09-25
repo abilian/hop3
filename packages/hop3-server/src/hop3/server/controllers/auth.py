@@ -240,6 +240,7 @@ class AuthController(Controller):
                     "display_name": user.username,  # Use username as display name
                     "email": user.email or "Not set",
                     "is_admin": user.is_admin,
+                    "role": user.role.value,
                     "active": user.active,
                     "created_at": user.created_at,
                     "last_login_at": user.last_login_at,

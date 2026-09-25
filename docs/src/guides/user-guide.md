@@ -394,6 +394,7 @@ hop3 user show alice
 hop3 user set-password alice newpassword
 hop3 user enable alice
 hop3 user disable alice
+hop3 user set-role alice deployer             # member, viewer, deployer or admin
 hop3 user grant-admin alice
 hop3 user revoke-admin alice
 hop3 user remove alice
