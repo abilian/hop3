@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Accounts have roles: `admin`, `deployer`, `viewer` and `member`.** `hop3 user set-role alice viewer` grants one; `hop3 user add --role` sets it at creation. A viewer reads apps, addons, backups and certificates but no secret. A deployer deploys and operates apps and addons. An admin also manages accounts and the server. A member signs in to the web interface and sees its own profile. A deployer's builds run with the control plane's own privileges, so treat that role as an administrator credential. (ADR 061)
+
+### Changed
+
+- **The server checks the account's role on every command and every dashboard page.** Until now any account could run everything but user management. A command above the account's role is refused with the role it needs and the `hop3 user set-role` that would grant it, and `hop3` exits with code 5. The dashboard refuses a page the same way and sends a member to its profile.
+
+- **A new account is a `member` until an admin grants it more.** Upgrading keeps admins as admins and makes every other account a deployer, which is what it could already do. A member gets no API token.
+
+- **A token for a deleted or disabled account stops working on its next call.** `hop3` and `hop3-tui` now show the server's reason, where they used to print a bare "authentication required" or HTTP status.
+
 ### Security
 
 - **An app's environment is no longer visible to other users on the server.** Background workers, php-fpm pools and every app started with a start command received their `[env]` as `export` statements on a command line that stayed visible to `ps` for as long as the app ran. Any local account could read every app's secrets that way, including the web server's and the database's. The environment now goes to a file readable only by the app's owner. The fix takes effect when an app is next deployed; `hop3 app restart` reuses the old configuration, so redeploy each native app, or stop and start it.

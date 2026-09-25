@@ -41,6 +41,8 @@ A plugin returns its providers from `get_di_providers()`; the container discover
 
 Use the `di_container` fixture and let it build the real graph against SQLite in memory. A mocked session tests the mock. Fixtures own setup and teardown; a `try/finally` around a container in a test body means a fixture is missing, and so does touching `os.environ` outside one.
 
+An in-memory SQLite database belongs to the connection that opened it. Litestar's `TestClient` serves the app on another thread, so a test that writes an account in memory and then calls the app over HTTP meets an empty database: the RPC authorization tests of September 2026 failed with `no such table: sec_user`. A test that crosses the HTTP boundary uses a file under `tmp_path` (the `file_db` fixture in `tests/b_integration/server/conftest.py`).
+
 ## Decision tree
 
 ```

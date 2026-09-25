@@ -7,19 +7,25 @@ Two companion documents:
 - [Security Policy](../reference/policies/security-policy.md): how to report a vulnerability, and what we commit to in return.
 - [Security Model](../developers/security-model.md): the developer-facing view: trust boundaries, reviewed code patterns, and how to run a security review. Read that one when auditing the code; this page covers operation.
 
-## The account model: accounts are operator-equivalent
+## The account model: four roles
 
-**Any Hop3 account can act on any application on the server.** There is no per-application ownership. An account you create to let a colleague deploy one app can also stop, reconfigure, back up, or destroy every other app on that server, and can read every addon's credentials.
+Every account holds one role, and each role includes everything the roles below it grant:
 
-This is the current design. Hop3 targets a single server run by a single team, and the control plane is single-tenant.
+| Role | What it can do |
+|---|---|
+| `admin` | Everything, including users, roles and server-wide settings: email, certificates, named networks, WAF state. |
+| `deployer` | Deploy, configure and destroy every application; manage their addons, domains and backups; read their logs. No user or server administration. |
+| `viewer` | See which applications exist, their status, processes and domains. Nothing that can show a secret: no environment values, logs, credentials or backups. |
+| `member` | Sign in to the web interface and see their own profile. They get neither a CLI token nor a dashboard page, and run no command. |
 
-What follows from it:
+A new account is a `member` unless you give it a role, at creation (`hop3 user add alice alice@example.com --stdin --role deployer`) or later (`hop3 user set-role alice deployer`). Hop3 reads the role on every request, so a change takes effect on the next one, with no token to revoke.
 
-- **Treat every account as an administrator account**, whatever its scope. Hand them out on that basis.
-- **Do not use one Hop3 server to host applications for parties who should not see each other's data.** Give them separate servers.
-- Application *runtimes* are isolated from each other: separate Unix users, separate process supervision, resource limits, separate proxy routing. The shared surface is the control plane; the running applications stay separate.
+What the roles do not cover yet:
 
-Per-application ownership is planned for a future release. Until it ships, the rule above is the one to provision by.
+- **Treat a `deployer` as an administrator.** A deployment runs the application's build steps (its `before-build` hook, its package manager's install scripts) with the control plane's own privileges, so a deployer can reach everything an admin can. This changes when builds run as the application's own user.
+- **Roles apply to the whole server.** A deployer can act on every application; there is no per-application ownership yet. Do not host applications for parties who should not see each other's data on the same server.
+- **`git push` deploys with an SSH key, not an account.** A key in the `hop3` user's `authorized_keys` can deploy any application, whatever role its holder has.
+- **Application runtimes share a Unix account.** Applications are separated by process supervision, resource limits and proxy routing, but every native application runs as the `hop3` user, so one application's code can read another's files. Per-application users are planned.
 
 ## What Hop3 protects for you
 

@@ -14,7 +14,7 @@ Hop3 is a single-host Platform as a Service. An operator installs it on a server
 |-------|-------|--------------|
 | `HOP3_SECRET_KEY` | Decrypts every stored addon credential and signs every JWT | Operator custody; file mode on `/etc/default/hop3` |
 | Addon credentials (PG/MySQL/Redis passwords) | Access to all tenant databases | Fernet AEAD at rest; env-variable-only subprocess passing. **Not** isolated between apps at runtime; see §Runtime isolation |
-| Admin JWT tokens | Full control-plane access (operator-equivalent) | bcrypt password hashing; rate-limited login on **every** transport that verifies a password, drawing on one shared budget; uniform failure responses so accounts cannot be enumerated; revocable tokens; httponly cookie |
+| JWT tokens | Control-plane access up to the account's role; an admin's token is full access | bcrypt password hashing; rate-limited login on **every** transport that verifies a password, drawing on one shared budget; uniform failure responses so accounts cannot be enumerated; revocable tokens; httponly cookie |
 | Control-plane database | App names, hostnames, addon bindings, user list | SQLAlchemy parameterisation; filesystem permissions |
 | App source code and runtime data | Tenant intellectual property and user data | uWSGI vassal supervision; cgroup limits; filesystem layout. **Not** a security boundary between apps; see §Runtime isolation |
 | Server uptime | Availability of all hosted apps | Rate limiting; resource limits; single-worker invariant for rate limiter |
@@ -32,7 +32,8 @@ The separation that exists today is real but narrower: cgroup resource limits ([
 | Adversary | Capabilities | Primary target |
 |-----------|-------------|----------------|
 | **Unauthenticated network attacker** | Can send HTTP requests to the server's listening port. Cannot authenticate. | Bypass auth; brute-force credentials; exploit injection in pre-auth handlers |
-| **Authenticated app deployer (other tenant)** | Has a valid Hop3 account and can push apps, create addons, run RPC commands. In the current model this is operator-equivalent: see Invariants. | Escalate to host-level execution; read another app's addon credentials; DoS the server |
+| **Authenticated app deployer (other tenant)** | Holds a Hop3 account with the `deployer` role: can push apps, create addons, run app-scoped RPC commands on every app. See Invariants. | Escalate to host-level execution; read another app's addon credentials; DoS the server |
+| **Low-role account** | Holds a `viewer` or `member` account. | Reach a command or page above its role; read a secret; obtain a token as a member |
 | **Dependency attacker** | Controls a package Hop3 pulls at build or runtime. | Inject code into the server process or into built app artifacts |
 | **Network-adjacent attacker on the host** | Has a shell account on the same machine (not root, not `hop3`). Can read `/proc`, scan ports. | Read secrets from process argv; connect to unprotected addon ports |
 | **Malicious `hop3.toml` author** | Publishes a repo with a crafted `hop3.toml` that a developer clones and deploys. | Exploit CLI-side parsing; inject proxy directives; abuse extension allow-lists |
@@ -55,7 +56,7 @@ The separation that exists today is real but narrower: cgroup resource limits ([
 | `POST /auth/login` | Unauthenticated network attacker | Rate-limited: 5/min/IP (shared budget with `auth get-token`); bcrypt verify |
 | `GET /auth/magic/{token}` | Unauthenticated network attacker (token-bearing) | Rate-limited; token validated separately from bearer path |
 | `POST /auth/logout` | **Unauthenticated** (no guard on the handler) | Reached from a form in `base.html`. Was a `GET` until 2026-08-01, which `samesite=lax` made CSRF-able (forced logout) and which was the one exception to the every-mutation-is-a-POST invariant below |
-| `GET /dashboard/*` | Authenticated user (cookie or bearer) | Reads; no ownership check (single-tenant model) |
+| `GET /dashboard/*` | Account with the route's role (cookie or bearer); `viewer` for state, `deployer` for secrets and mutations | Reads and mutations; no ownership check (roles are server-wide) |
 | `POST /dashboard/apps/*`, `/dashboard/backups/*` | Authenticated user (cookie or bearer) | Mutations; samesite=lax blocks cross-site POSTs |
 | `GET /api/stream/{id}` | Authenticated user (cookie or bearer) | SSE streaming; timeout-bounded |
 | `GET /api/stream/{id}/status` | Authenticated user | Stream status polling |
@@ -112,9 +113,9 @@ Opt-in, so absent from a default install, but present on any host where the oper
 
    The boundary is *raw rows / a backup → plaintext*, and it holds. It does not cover a reader with the `hop3` uid, and encrypting the files would not change that: `/etc/hop3/secret-key` is 0640 `root:hop3`, so anything running as `hop3` holds the decryption key. That exposure is invariant 9's runtime half, since apps share the account, and [ADR 055](../adrs/055-app-runtime-uid-separation.md) is what closes it. See security-model.md §3.4.5 and §3.4.7.
 
-9. **The control plane is single-tenant.** An authenticated account is operator-equivalent and can act on any app. This is a design decision for 0.7; the platform does not enforce it. Treat cross-tenant access *over the RPC and dashboard surfaces* as the model rather than a vulnerability.
+9. **Roles bound accounts; they do not separate apps.** Every account holds one standard role, and the dispatcher and the dashboard refuse anything above it ([ADR 061](../adrs/061-standard-roles-and-rpc-authorization.md)). A role applies to every app on the server, and a deployer's builds run as the control plane's own user. Treat one deployer reaching another's app *over the RPC and dashboard surfaces* as the model; treat any account reaching a command or page above its role as a vulnerability.
 
-   Do not extend this to the runtime. That two accounts share the control plane is decided; that two *apps* share a Unix account is an unfinished migration ([ADR 055](../adrs/055-app-runtime-uid-separation.md), Proposed) with a scheduled fix. A finding that one app's code can read another's data is a live exposure against the intended design, separate from invariant 9. See §Runtime isolation.
+   Do not extend this to the runtime. That two deployers share every app on the control plane is decided; that two *apps* share a Unix account is an unfinished migration ([ADR 055](../adrs/055-app-runtime-uid-separation.md), Proposed) with a scheduled fix. A finding that one app's code can read another's data is a live exposure against the intended design, separate from invariant 9. See §Runtime isolation.
 
 ## Out of scope
 
@@ -126,7 +127,7 @@ Opt-in, so absent from a default install, but present on any host where the oper
 | **Automated key rotation** | Manual procedure documented; rotation is `hop3 admin reencrypt-credentials` |
 | **Database file encryption** | Secrets are encrypted inside rows; file-level confidentiality is the operator's job |
 | **Multi-node tenancy isolation** | Hop3 is single-host; tenants who don't trust each other get separate servers |
-| **Control-plane separation between accounts** | Single-tenant by design for 0.7; multi-tenant ownership is planned |
+| **Control-plane separation between accounts of the same role** | Roles are server-wide; per-app roles are designed in ADR 061 and not built |
 | **Control-plane audit log** | rootd audits privileged operations; RPC-layer audit is planned for 0.8 |
 | **CSRF token on dashboard** | `samesite=lax` blocks cross-site POSTs and every mutation is a POST; a route-map test now fails on any state-changing GET, so the property this rests on is enforced, not periodically re-checked |
 | **Multi-factor authentication** | Designed (ADR 012), still unimplemented; SSH key via tunnel pattern acts as a second factor in practice |
