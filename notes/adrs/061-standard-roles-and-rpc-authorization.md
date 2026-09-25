@@ -1,6 +1,6 @@
 # ADR 061: Standard Roles and Control-Plane Authorization
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Type**: Architecture
 - **Created**: 2026-09-22
 - **Related-ADRs**: [010](./010-security-and-resilience.md) (security umbrella), [014](./014-authentication-bootstrap.md) (authentication bootstrap), [050](./050-waf-l7-lewaf.md) (WAF; its deferred `auth` gate), [062](./062-authenticated-access-gate.md) (the access gate, which names these roles)
