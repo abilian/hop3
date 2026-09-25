@@ -19,6 +19,12 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+from hop3_cli.commands.local.ssh_ops import (
+    SSH_TOKEN_COMMAND,
+    as_hop3_user,
+    extract_token,
+)
+
 from hop3_testing.exceptions import ConfigurationError, ServiceStartError
 from hop3_testing.util.streaming import run_streaming
 
@@ -714,74 +720,61 @@ class DockerServiceManager:
             raise ServiceStartError(msg)
 
 
-def read_server_secret_key(
+def fetch_api_token(
     backend: CommandRunner,
     diagnostics: DiagnosticCollector | None = None,
 ) -> str:
     """
-    Read the deployed server's JWT signing key.
+    A token for an admin account on the deployed server.
 
-    The harness authenticates for real — it mints a token signed with the
-    server's own key (``create_test_token(secret_key=...)``) instead of
-    disabling authentication with ``HOP3_UNSAFE``. We therefore need the key the
-    server actually validates with.
-
-    Mirrors the server's ``get_secret_key`` precedence (ADR 048): the canonical
-    ``/etc/hop3/secret-key`` file first, then ``HOP3_SECRET_KEY`` in
-    ``/etc/default/hop3``. Reads as the SSH user (root), so the 0600 file is
-    readable.
+    The harness authenticates for real, the way ``hop3 login --ssh`` does: as
+    root on the target it runs ``hop3-server admin:ssh-token``, which returns a
+    token for an active admin and creates the default one on a fresh server.
+    The token therefore names an account that exists, which the server checks
+    once authorization reads roles (ADR 061). The harness used to read the
+    server's signing key and mint a token for an account nobody had created.
 
     Raises:
-        ConfigurationError: if no key can be read — we fail loud rather than
-            fall back to a key the server would reject (which would surface
-            later as an opaque "Authentication required").
+        ConfigurationError: if the command fails or prints no token.
     """
-    print("Reading the server's signing key (for real-auth test tokens)...")
-
+    print("Fetching an admin token from the server...")
+    command = as_hop3_user(SSH_TOKEN_COMMAND)
     try:
-        result = backend.run(
-            "cat /etc/hop3/secret-key 2>/dev/null "
-            "|| grep -h '^HOP3_SECRET_KEY=' /etc/default/hop3 2>/dev/null "
-            "| head -n1 | cut -d= -f2-",
-            check=False,
-        )
-        key = (result.stdout or "").strip().strip('"').strip("'")
-        if not key:
-            msg = (
-                "Could not read the server's JWT signing key from "
-                "/etc/hop3/secret-key or /etc/default/hop3. The harness needs it "
-                "to mint tokens the server accepts; aborting rather than using a "
-                "key the server would reject."
-            )
-            if diagnostics:
-                diagnostics.add_failure(
-                    layer="server",
-                    operation="read_secret_key",
-                    message=msg,
-                    stdout=result.stdout,
-                )
-            raise ConfigurationError(msg)
-
-        if diagnostics:
-            diagnostics.add_success(
-                layer="server",
-                operation="read_secret_key",
-                message="Read server signing key for real-auth test tokens",
-            )
-        print("  ✓ Server signing key read")
-        return key
-
-    except ConfigurationError:
-        raise
+        result = backend.run(command, check=False)
     except Exception as e:
+        msg = f"Could not run `{command}` on the target: {e}"
+        if diagnostics:
+            diagnostics.add_failure(
+                layer="server", operation="fetch_api_token", message=msg
+            )
+        raise ConfigurationError(msg) from e
+
+    token = extract_token(result.stdout or "")
+    if not token:
+        msg = (
+            f"`{command}` printed no token (exit {result.returncode}). The "
+            "harness needs one to call the server's API; aborting rather than "
+            "running unauthenticated."
+        )
         if diagnostics:
             diagnostics.add_failure(
                 layer="server",
-                operation="read_secret_key",
-                message=f"Exception reading server signing key: {e}",
+                operation="fetch_api_token",
+                message=msg,
+                stdout=result.stdout,
+                stderr=result.stderr,
             )
-        msg = f"Exception reading server signing key: {e}"
-        raise ConfigurationError(msg) from e
+        detail = f"{msg}\n{result.stderr or result.stdout}"
+        raise ConfigurationError(detail)
+
+    if diagnostics:
+        diagnostics.add_success(
+            layer="server",
+            operation="fetch_api_token",
+            message="Fetched an admin token (admin:ssh-token)",
+        )
+    print("  ✓ Admin token fetched")
+    return token
 
 
 _LEGACY_SOURCE_FLAG = {"local": "--local", "git": "--git", "pypi": "--pypi"}

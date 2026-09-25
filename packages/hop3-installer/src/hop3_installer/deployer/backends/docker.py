@@ -14,10 +14,10 @@ for the entry-point split.
 The hardcoded ``E2E_TEST_SECRET_KEY`` below is the supervisor's
 *fallback* JWT signing key, used only when the installer hasn't written
 ``/etc/hop3/secret-key`` (which the server reads first, and which the
-installer normally generates). The harness doesn't assume this key: it
-reads whichever key the container actually validates with
-(``DockerTarget._read_server_secret_key``) and mints tokens with that.
-Keeping a known fallback is still safe — the container is ephemeral and
+installer normally generates). The harness never signs with it: it
+fetches a token from the container with ``hop3-server admin:ssh-token``
+(``DockerTarget._fetch_api_token``), which signs with whatever key the
+server validates with. Keeping a known fallback is still safe — the container is ephemeral and
 bound to localhost ports. If this module is ever loaded in a context
 where ``MODE=production``, that is a bug; we abort at backend
 construction time rather than risk shipping the test key into a

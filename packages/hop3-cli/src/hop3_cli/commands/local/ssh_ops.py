@@ -47,6 +47,10 @@ if TYPE_CHECKING:
 # Path to hop3-server on the remote server
 HOP_SERVER_PATH = "/home/hop3/venv/bin/hop3-server"
 
+#: Prints a token for an active admin, creating the default one on a server
+#: that has none. SSH access as root is the authentication.
+SSH_TOKEN_COMMAND = f"{HOP_SERVER_PATH} admin:ssh-token"
+
 # Default HTTP port the hop3-server ASGI app binds to. Used to build the
 # magic-link URL when the server has no public admin domain (so the dashboard
 # is reachable only on the app port, not via nginx/TLS on 443).
@@ -166,6 +170,17 @@ def refuse_hop3_ssh_user(ssh_target: str) -> None:
     raise BootstrapError(msg)
 
 
+def as_hop3_user(hop3_cmd: str) -> str:
+    """
+    The root shell line that runs ``hop3_cmd`` as the server's ``hop3`` user.
+
+    Shared with the test harness, which fetches its token the way
+    ``hop3 login --ssh`` does: two callers of one server command keep one
+    invocation, or they drift.
+    """
+    return f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+
+
 def _run_hop3_server(
     ssh_target: str, hop3_cmd: str, action: str, *, input: str | None = None
 ) -> str:
@@ -179,7 +194,7 @@ def _run_hop3_server(
     operator to work out that root is the requirement.
     """
     refuse_hop3_ssh_user(ssh_target)
-    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+    remote_cmd = as_hop3_user(hop3_cmd)
     result = _run_ssh(ssh_target, remote_cmd, input=input)
     if result.returncode != 0:
         raise BootstrapError(_bootstrap_failure(ssh_target, remote_cmd, result, action))
@@ -288,8 +303,7 @@ def get_ssh_token(ssh_target: str) -> str:
     Raises:
         BootstrapError: If the command fails
     """
-    hop3_cmd = f"{HOP_SERVER_PATH} admin:ssh-token"
-    stdout = _run_hop3_server(ssh_target, hop3_cmd, "sign in")
+    stdout = _run_hop3_server(ssh_target, SSH_TOKEN_COMMAND, "sign in")
     return _require_token(stdout)
 
 
@@ -307,7 +321,7 @@ def server_url_and_reason(ssh_target: str) -> tuple[str | None, FallbackReason |
     """
     refuse_hop3_ssh_user(ssh_target)
     hop3_cmd = f"{HOP_SERVER_PATH} admin:server-url"
-    remote_cmd = f"su - hop3 -c {shlex.quote(hop3_cmd)}"
+    remote_cmd = as_hop3_user(hop3_cmd)
     result = _run_ssh(ssh_target, remote_cmd)
 
     if result.returncode != 0:

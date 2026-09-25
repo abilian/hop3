@@ -33,7 +33,7 @@ from .helpers import (
     DiagnosticsHelper,
     HealthChecker,
     SSHCommandRunner,
-    read_server_secret_key,
+    fetch_api_token,
     run_hop3_deploy,
 )
 
@@ -127,7 +127,7 @@ class RemoteTarget(DeploymentTarget):
         self._started = False
         # The deployed server's JWT signing key, read in start() so the harness
         # can mint tokens the server accepts (real auth, no HOP3_UNSAFE bypass).
-        self._secret_key: str | None = None
+        self._api_token: str | None = None
 
     def start(self) -> TargetInfo:
         """
@@ -180,8 +180,8 @@ class RemoteTarget(DeploymentTarget):
             msg = "Remote server is not ready (hop3-server not responding)"
             raise RuntimeError(msg)
 
-        # Read the signing key for real-auth test tokens (same as the deploy path).
-        self._secret_key = read_server_secret_key(self._command_runner)
+        # A real admin token for the harness's API calls (same as the deploy path).
+        self._api_token = fetch_api_token(self._command_runner)
 
         # Build target info
         self._info = self._build_target_info()
@@ -287,17 +287,14 @@ class RemoteTarget(DeploymentTarget):
             command_runner = SSHCommandRunner(self._ssh_client)
             self._command_runner = command_runner
 
-            # Read the server's signing key so the harness can authenticate for
-            # real (real-auth test tokens), instead of disabling auth with
-            # HOP3_UNSAFE.
-            self.diagnostics.set_phase("read_secret_key")
+            # A real admin token, so the harness authenticates the way
+            # `hop3 login --ssh` does instead of disabling auth with HOP3_UNSAFE.
+            self.diagnostics.set_phase("fetch_api_token")
             try:
-                self._secret_key = read_server_secret_key(
-                    command_runner, self.diagnostics
-                )
+                self._api_token = fetch_api_token(command_runner, self.diagnostics)
             except Exception as e:
                 self._save_diagnostics_on_error()
-                msg = f"Failed to read server signing key: {e}"
+                msg = f"Failed to fetch an admin token from the server: {e}"
                 raise RuntimeError(msg) from e
 
             # Wait for server to be ready
@@ -492,7 +489,7 @@ class RemoteTarget(DeploymentTarget):
             ssh_password=config.password,
             http_base=config.http_base or f"http://{config.host}",
             api_url=config.api_url or f"http://{config.host}:8000",
-            secret_key=self._secret_key,
+            api_token=self._api_token,
             metadata={
                 "host": config.host,
                 "user": config.user,
