@@ -29,6 +29,8 @@ import re
 from collections.abc import Mapping
 from typing import TYPE_CHECKING
 
+import tomllib
+
 from hop3.toolchains.python import unpinned_requirements
 
 if TYPE_CHECKING:
@@ -55,6 +57,86 @@ PUBLISHABLE_STATUSES = frozenset(s for s, ship in CATALOG_STATUSES.items() if sh
 
 class CatalogSpecError(Exception):
     """Raised when a catalog spec violates platform coexistence policy."""
+
+
+#: A minimum server version a recipe may declare: a plain release, up to
+#: three components. No ranges and no pre-release tags, because the only
+#: question it answers is "is this server new enough".
+_REQUIRED_VERSION_RE = re.compile(r"^\d+(\.\d+){0,2}$")
+_RELEASE_RE = re.compile(r"^\d+(\.\d+)*")
+
+
+def load_catalog_overlay(app_dir: Path) -> dict:
+    """
+    Read the ``[catalog]`` table from the app's optional ``catalog.toml``.
+
+    The overlay carries everything that is presentation rather than deployment:
+    category, tags, memory, featured, screenshots, license_note, plus the
+    server version the recipe needs. It is optional, and an app without one
+    still loads from its recipe alone.
+
+    A *malformed* one is a different matter and raises. Rendering an app with
+    silently missing metadata is how the dashboard came to show 55 identical
+    cards in a single category, and the publish-time gate is where a broken
+    overlay should be caught — not in the reader, by degrading quietly.
+    """
+    overlay_path = app_dir / "catalog.toml"
+    if not overlay_path.exists():
+        return {}
+
+    try:
+        with overlay_path.open("rb") as f:
+            data = tomllib.load(f)
+    except tomllib.TOMLDecodeError as e:
+        msg = f"{overlay_path}: malformed catalog.toml: {e}"
+        raise CatalogSpecError(msg) from e
+
+    return data.get("catalog", {})
+
+
+def required_hop3(overlay: Mapping, app_id: str) -> str:
+    """
+    The minimum Hop3 server version a recipe declares, or ``""`` for any.
+
+    A recipe that uses a newer platform feature (a ``[nix]`` key, a template
+    capability) says so with ``requires_hop3 = "0.8"`` in its overlay, and an
+    older server refuses to install it instead of failing at build.
+
+    Raises:
+        CatalogSpecError: if the value is not a plain release number.
+    """
+    value = overlay.get("requires_hop3", "")
+    if value == "":
+        return ""
+    if not isinstance(value, str) or not _REQUIRED_VERSION_RE.match(value):
+        msg = (
+            f"Catalog app {app_id!r} declares requires_hop3 = {value!r}; "
+            f'expected a release number such as "0.8" or "0.8.1".'
+        )
+        raise CatalogSpecError(msg)
+    return value
+
+
+def server_satisfies(required: str, running: str) -> bool:
+    """
+    Whether a server at version ``running`` meets a recipe's ``required``.
+
+    Compares release numbers only, so a development build of 0.8
+    (``0.8.0.dev3``) satisfies a recipe that needs 0.8: it has the features
+    the recipe is waiting for.
+    """
+    return _release(running) >= _release(required)
+
+
+def _release(version: str) -> tuple[int, int, int]:
+    """The first three release components of ``version``, zero-padded."""
+    match = _RELEASE_RE.match(version)
+    if match is None:
+        msg = f"Not a release number: {version!r}"
+        raise ValueError(msg)
+    parts = [int(part) for part in match.group().split(".")[:3]]
+    major, minor, patch = parts + [0] * (3 - len(parts))
+    return major, minor, patch
 
 
 def validate_catalog_status(status: str, app_id: str) -> None:
@@ -154,7 +236,8 @@ def validate_catalog_app_files(
     release team one message instead of every user one broken install.
 
     Currently: an unpinned ``requirements.txt``, which the Python toolchain
-    refuses as unreproducible. The rule is imported from the toolchain rather
+    refuses as unreproducible, and an overlay a node could not read (malformed
+    TOML, a ``requires_hop3`` that is not a release number). The rule is imported from the toolchain rather
     than restated, so the gate cannot drift from what a node enforces.
 
     ``published`` distinguishes the two audiences a recipe can have. The build
@@ -178,6 +261,8 @@ def validate_catalog_app_files(
     # requiring a sign-in test of an app we already say does not work would only
     # push it back out of the repository — losing the record of why it is hard,
     # which is the thing keeping it is for.
+    required_hop3(load_catalog_overlay(app_dir), app_id)
+
     if published and not (app_dir / "check.py").exists():
         msg = (
             f"Catalog app {app_id!r} ships no check.py, so installing it could "

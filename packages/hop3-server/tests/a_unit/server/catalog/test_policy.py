@@ -12,6 +12,7 @@ from hop3.server.catalog import loader
 from hop3.server.catalog.loader import load_apps
 from hop3.server.catalog.policy import (
     CatalogSpecError,
+    server_satisfies,
     validate_catalog_app_files,
     validate_catalog_spec,
 )
@@ -163,3 +164,47 @@ def test_build_script_without_requirements_heredoc_is_ignored(tmp_path):
     )
 
     validate_catalog_app_files(app_dir, "app")  # must not raise
+
+
+@pytest.mark.parametrize(
+    ("required", "running", "ok"),
+    [
+        ("0.8", "0.8.0", True),
+        ("0.8", "0.8.2", True),
+        ("0.8", "0.7.5", False),
+        ("0.8.1", "0.8.0", False),
+        ("0.8.0", "0.8", True),
+        ("1", "0.9.9", False),
+        # A development build of 0.8 has the features a 0.8 recipe waits for.
+        ("0.8", "0.8.0.dev3", True),
+        ("0.8", "0.8.0rc1", True),
+    ],
+)
+def test_server_satisfies_compares_release_numbers(required, running, ok):
+    assert server_satisfies(required, running) is ok
+
+
+@pytest.mark.parametrize("value", ['">=0.8"', '"0.8-beta"', '"0.8.1.2"', "8"])
+def test_a_malformed_requires_hop3_is_refused_at_publish(tmp_path, value):
+    """
+    A node would exclude the app over it, so the publisher refuses it first.
+
+    ``">=0.8"`` is the likeliest mistake: the key is a minimum by definition.
+    """
+    app_dir = tmp_path / "gitea-nixgen"
+    app_dir.mkdir()
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "catalog.toml").write_text(f"[catalog]\nrequires_hop3 = {value}\n")
+
+    with pytest.raises(CatalogSpecError, match="requires_hop3"):
+        validate_catalog_app_files(app_dir, "gitea-nixgen")
+
+
+def test_a_malformed_overlay_is_refused_at_publish(tmp_path):
+    app_dir = tmp_path / "gitea"
+    app_dir.mkdir()
+    (app_dir / "check.py").write_text("# smoke test\n")
+    (app_dir / "catalog.toml").write_text("this is not = valid toml [[[")
+
+    with pytest.raises(CatalogSpecError, match=r"malformed catalog\.toml"):
+        validate_catalog_app_files(app_dir, "gitea")

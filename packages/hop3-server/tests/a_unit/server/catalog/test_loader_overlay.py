@@ -96,6 +96,23 @@ def test_malformed_overlay_is_refused_not_ignored(tmp_path):
         load_app(app_dir)
 
 
+def test_overlay_declares_the_server_a_recipe_needs(tmp_path):
+    app_dir = tmp_path / "gitea"
+    _write(app_dir, RECIPE, '[catalog]\nrequires_hop3 = "0.8"\n')
+
+    app = load_app(app_dir)
+
+    assert app.requires_hop3 == "0.8"
+    assert app.to_dict()["requires_hop3"] == "0.8"
+
+
+def test_a_recipe_without_requires_hop3_installs_anywhere(tmp_path):
+    app_dir = tmp_path / "gitea"
+    _write(app_dir, RECIPE)
+
+    assert load_app(app_dir).requires_hop3 == ""
+
+
 def test_addons_are_read_as_services(tmp_path):
     """
     Services come from `[[addons]]`, the spelling recipes actually use.

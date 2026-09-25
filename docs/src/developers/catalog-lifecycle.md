@@ -31,7 +31,7 @@ The published tree stays **flat**. Publish walks the hierarchy and emits the sam
 ```
 apps/golden/gitea/
 ├── hop3.toml        # the deployable recipe, plus [test], [admin], [probe], [healthcheck]
-├── catalog.toml     # presentation metadata: category, tags, memory, licence note
+├── catalog.toml     # presentation metadata, plus the server version it needs
 ├── check.py         # the sign-in smoke test
 ├── readme.md
 ├── icon.webp
@@ -112,6 +112,19 @@ make validate && make publish CONTEXT=<ctx>
 ```
 
 A status can also go **backwards**. A `golden` recipe whose next verification fails is demoted. Demotion is the normal outcome of a failing run.
+
+## Recipes that need a newer server
+
+One catalog serves every server that refreshes from it, and servers upgrade on their own schedule. A recipe that depends on a platform feature an older server lacks (a new `[nix]` key, a template capability, a nixpkgs pin its recorded hashes were taken against) says so in its overlay:
+
+```toml
+[catalog]
+requires_hop3 = "0.8"
+```
+
+A server older than that refuses `hop3 catalog install` by name ("needs Hop3 0.8 or newer, and this server runs 0.7.5") before it creates anything, instead of staging the recipe and failing in the middle of the build. The value is a plain release number; the publish step refuses anything else. A development build counts as its release, so a `0.8.0.dev` server installs a recipe that needs 0.8.
+
+Servers released before the key existed ignore it. They still fail on such a recipe, at build time, so a recipe that needs a new server is published only once that server is released.
 
 ## The ordering trap
 

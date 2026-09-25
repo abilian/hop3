@@ -114,6 +114,41 @@ def test_stage_refuses_to_overwrite_a_deployed_app(rooted) -> None:
         stage_catalog_app("nextcloud", "mycloud", "", session)
 
 
+def _require_hop3(rooted, required: str) -> None:
+    """Make the nextcloud blueprint declare the server version it needs."""
+    cat = rooted / "catalog"
+    (cat / "nextcloud" / "catalog.toml").write_text(
+        f'[catalog]\nrequires_hop3 = "{required}"\n'
+    )
+    CatalogService.get_instance().load(cat)
+
+
+def test_stage_refuses_a_recipe_that_needs_a_newer_server(rooted) -> None:
+    """
+    Refused by name before anything is created.
+
+    Without the check, an older server stages the recipe and the build fails on
+    a key it has never heard of, leaving a half-installed app behind.
+    """
+    _require_hop3(rooted, "99.0")
+    session = get_session_factory()()
+
+    with pytest.raises(CatalogInstallError, match=r"needs Hop3 99\.0 or newer"):
+        stage_catalog_app("nextcloud", "mycloud", "", session)
+
+    assert session.query(App).filter_by(name="mycloud").first() is None
+    assert not (rooted / "apps" / "mycloud").exists()
+
+
+def test_stage_installs_a_recipe_this_server_satisfies(rooted) -> None:
+    _require_hop3(rooted, "0.1")
+    session = get_session_factory()()
+
+    app = stage_catalog_app("nextcloud", "mycloud", "", session)
+
+    assert app.name == "mycloud"
+
+
 # --- hostname auto-assignment (streamlined, one-command reachable install) ---
 
 

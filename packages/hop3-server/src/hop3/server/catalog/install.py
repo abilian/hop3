@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import re
 import shutil
+from importlib.metadata import version
 from pathlib import Path
 from typing import TYPE_CHECKING
 
@@ -28,6 +29,7 @@ from hop3.config import config
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.lib import log
 from hop3.orm import App, AppRepository, EnvVar
+from hop3.server.catalog.policy import server_satisfies
 from hop3.server.catalog.service import CatalogService
 
 if TYPE_CHECKING:
@@ -71,7 +73,7 @@ def stage_catalog_app(
     (``.id`` assigned), ready to deploy.
 
     Raises ``CatalogInstallError`` (never silent) when the catalog is
-    unavailable, the blueprint is unknown, its recipe is missing on disk, the
+    unavailable, the blueprint is unknown or needs a newer server, its recipe is missing on disk, the
     name is invalid, an app of that name already exists, or the hostname is
     invalid / already in use.
     """
@@ -86,6 +88,16 @@ def stage_catalog_app(
     catalog_app = service.get_app(app_id)
     if catalog_app is None:
         raise CatalogInstallError([f"Unknown catalog app '{app_id}'"])
+
+    running = version("hop3-server")
+    required = catalog_app.requires_hop3
+    if required and not server_satisfies(required, running):
+        msg = (
+            f"Catalog app '{app_id}' needs Hop3 {required} or newer, and this "
+            f"server runs {running}. Upgrade the server (hop3-install server), "
+            f"then install again."
+        )
+        raise CatalogInstallError([msg])
 
     # Fail loud rather than staging an empty app: the recipe dir must exist.
     # (The old _copy_catalog_source silently returned when it did not.)
