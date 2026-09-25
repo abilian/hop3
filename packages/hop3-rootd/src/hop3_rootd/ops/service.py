@@ -3,7 +3,8 @@
 
 
 """
-Reload a Hop3-managed system service (``service.reload``).
+Reload a Hop3-managed system service (``service.reload``), or report
+whether one runs (``service.status``).
 
 The privileged half of "apply a config change I just wrote". Three call sites
 did this with ``sudo -n systemctl reload <svc>`` from the deployer, which is
@@ -123,3 +124,92 @@ def reload_service(req: Request, ctx: OpContext) -> dict[str, Any]:
 
     msg = f"could not reload {service!r}; last error: {last_error}"
     raise ServiceReloadFailedError(msg)
+
+
+#: Services whose state ``hop3 system status`` reports: the control plane, the
+#: app server and whichever proxy the box runs. Read-only, but the name still
+#: reaches argv, so it is an allow-list like the one above.
+STATUS_SERVICES: Final[frozenset[str]] = frozenset({
+    "hop3-server",
+    "uwsgi-hop3",
+    "nginx",
+    "caddy",
+    "traefik",
+})
+
+_STATUS_TIMEOUT_SECONDS: Final[float] = 10.0
+
+
+class ServiceStatusUnknownError(Exception):
+    """No process manager on this host could say whether the service runs."""
+
+
+@register("service.status")
+def service_status(req: Request, ctx: OpContext) -> dict[str, Any]:
+    """
+    Whether one allow-listed service is running, as its process manager says.
+
+    Through the daemon because a container's supervisor socket is root's, and
+    shelling out to ``systemctl`` there answers for a PID 1 that manages
+    nothing. supervisorctl is asked first, for the reason given in
+    :func:`_reload_methods`; a service it does not manage falls through to
+    systemctl, so a systemd host that also has supervisor installed is still
+    answered correctly.
+
+    Args (in ``req.args``):
+        service: the service name; must be in :data:`STATUS_SERVICES`.
+
+    Returns:
+        ``{"service": ..., "active": bool, "state": <the manager's word>,
+        "method": "supervisorctl" | "systemctl"}``
+
+    Raises:
+        ServiceNotAllowedError: the service is not on the allow-list.
+        ServiceStatusUnknownError: neither manager knows the service.
+    """
+    service = req.args.get("service")
+    if not isinstance(service, str) or service not in STATUS_SERVICES:
+        allowed = ", ".join(sorted(STATUS_SERVICES))
+        msg = f"service {service!r} has no status in hop3-rootd (allowed: {allowed})"
+        raise ServiceNotAllowedError(msg)
+
+    answers: list[str] = []
+    supervisorctl = ctx.exec.resolve("supervisorctl")
+    if supervisorctl is not None:
+        result = ctx.exec.run(
+            [supervisorctl, "status", service], timeout=_STATUS_TIMEOUT_SECONDS
+        )
+        # `<name>  RUNNING  pid 42, uptime …`; rc 3 when stopped, and
+        # "no such process" for a program supervisor does not manage.
+        fields = result.stdout.split()
+        if len(fields) >= 2 and fields[0] == service:
+            state = fields[1]
+            return {
+                "service": service,
+                "active": state == "RUNNING",
+                "state": state,
+                "method": "supervisorctl",
+            }
+        answers.append(f"supervisorctl: {(result.stdout or result.stderr).strip()}")
+
+    systemctl = ctx.exec.resolve("systemctl")
+    if systemctl is not None:
+        result = ctx.exec.run(
+            [systemctl, "is-active", service], timeout=_STATUS_TIMEOUT_SECONDS
+        )
+        # Prints the state (active, inactive, failed, activating…) and exits
+        # non-zero for every state but active; "unknown" means no such unit.
+        state = result.stdout.strip()
+        if state and state != "unknown":
+            return {
+                "service": service,
+                "active": state == "active",
+                "state": state,
+                "method": "systemctl",
+            }
+        answers.append(f"systemctl: {(state or result.stderr).strip()}")
+
+    msg = f"no process manager on this host manages {service!r}" + (
+        f" ({'; '.join(answers)})" if answers else ""
+    )
+    raise ServiceStatusUnknownError(msg)

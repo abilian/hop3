@@ -279,6 +279,20 @@ def _client_version() -> str:
         return "unknown"
 
 
+def service_state(service: str) -> tuple[bool, str]:
+    """
+    Whether a Hop3-managed service runs, and its process manager's word for it.
+
+    Asked through hop3-rootd because a container runs these services under
+    supervisor, whose socket only root may use, and ``systemctl`` there answers
+    for a PID 1 that manages nothing. Raises ``RootdError`` or
+    ``RootdUnavailableError``; the caller reports the state as unknown.
+    """
+    with LocalRootdClient() as client:
+        result = client.call("service.status", {"service": service})
+    return bool(result["active"]), str(result["state"])
+
+
 def reload_service(service: str) -> str:
     """
     Reload a Hop3-managed system service through hop3-rootd.

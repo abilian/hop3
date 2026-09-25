@@ -76,17 +76,6 @@ async def test_list_backups_is_accepted_and_parses(api: Hop3Client):
     assert all(isinstance(backup, Backup) for backup in backups)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    reason=(
-        "Not a TUI bug and not command drift — the server dispatches `system "
-        "status` fine, then it fails inside: `_check_services` shells out to "
-        "`systemctl is-active` unconditionally, and the e2e container is "
-        "supervisor-managed, so there is no systemctl. Service checks have to be "
-        "process-manager-aware the way the deployer's `service_restart_command` "
-        "already is. Reported, not fixed here; this turns green on its own."
-    ),
-)
 async def test_get_system_status_is_accepted(api: Hop3Client):
     """Still a stub client-side, but the call must reach a real command."""
     await api.get_system_status()

@@ -35,10 +35,7 @@ if TYPE_CHECKING:
 
 SIZE = Size(96, 28)
 
-#: `system` is excluded: it draws no server data of its own, and the one call behind
-#: it (`system status`) fails on a supervisor-managed box — see the xfail in
-#: `test_client_against_server.py`.
-LIVE_SCREENS = [s for s in Screen if s is not Screen.SYSTEM]
+LIVE_SCREENS = list(Screen)
 
 
 @pytest.fixture
