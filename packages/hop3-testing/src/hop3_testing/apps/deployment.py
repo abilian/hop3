@@ -22,8 +22,6 @@ from hop3_testing.exceptions import (
     DeployTimeoutError,
 )
 from hop3_testing.targets.constants import (
-    E2E_TEST_SECRET_KEY,
-    create_test_token,
     hermetic_cli_cwd,
     hermetic_cli_env,
 )
@@ -196,19 +194,15 @@ class DeploymentSession:
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP authenticates with a real JWT — signed with the key the
-            # target server actually validates with (read from the server for a
-            # real install; the E2E default for a Docker server started with it).
-            # This is why the harness no longer needs the HOP3_UNSAFE auth bypass.
-            env["HOP3_API_TOKEN"] = create_test_token(
-                secret_key=target_info.secret_key or E2E_TEST_SECRET_KEY
-            )
+            # Direct HTTP authenticates with a real admin token, fetched from the
+            # target the way `hop3 login --ssh` does. This is why the harness no
+            # longer needs the HOP3_UNSAFE auth bypass.
+            env["HOP3_API_TOKEN"] = target_info.require_api_token()
         else:
             # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
 
-        env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
         # The harness deploys non-interactively. Without this, the ADR-042
         # deploy confirm prompt refuses to run without a tty (exit 10).
         # Mirrors util/subprocess.build_env (the tutorial/demo path).

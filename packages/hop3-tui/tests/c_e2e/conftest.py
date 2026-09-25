@@ -24,7 +24,6 @@ import pytest
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.targets.config import DockerConfig
-from hop3_testing.targets.constants import create_test_token
 from hop3_testing.targets.docker import DockerTarget
 from hop3_tui.api.client import Hop3Client
 
@@ -91,9 +90,7 @@ def deployed_app(hop3_target: DockerTarget, tmp_path_factory) -> str:
 def _client(info: TargetInfo) -> Hop3Client:
     return Hop3Client(
         base_url=info.api_url,
-        token=create_test_token(secret_key=info.secret_key)
-        if info.secret_key
-        else create_test_token(),
+        token=info.require_api_token(),
     )
 
 

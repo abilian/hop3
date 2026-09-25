@@ -21,7 +21,6 @@ import asyncio
 from typing import TYPE_CHECKING
 
 import pytest
-from hop3_testing.targets.constants import create_test_token
 from hop3_tui.api.client import Hop3Client
 from hop3_tui.app import Hop3TUI, app
 from hop3_tui.config import TUIConfig
@@ -48,9 +47,7 @@ def tui(hop3_server: TargetInfo) -> Hop3TUI:
     handle = Hop3TUI(TUIConfig(server_url=hop3_server.api_url))
     handle.api_client = Hop3Client(
         base_url=hop3_server.api_url,
-        token=create_test_token(secret_key=hop3_server.secret_key)
-        if hop3_server.secret_key
-        else create_test_token(),
+        token=hop3_server.require_api_token(),
     )
     return handle
 

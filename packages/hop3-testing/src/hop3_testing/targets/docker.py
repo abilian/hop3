@@ -38,6 +38,7 @@ from .helpers import (
     DockerContainerHelper,
     DockerServiceManager,
     HealthChecker,
+    fetch_api_token,
     find_project_root,
     run_hop3_deploy,
 )
@@ -568,32 +569,16 @@ class DockerTarget(DeploymentTarget):
             ssh_key=str(ssh_key_path) if ssh_key_path else None,
             http_base=http_base,
             api_url=api_url,
-            secret_key=self._read_server_secret_key(),
+            api_token=self._fetch_api_token() if api_url else None,
             metadata={
                 "container_id": self._container_helper.container_id,
                 "container_name": self._container_helper.name,
             },
         )
 
-    def _read_server_secret_key(self) -> str | None:
-        """
-        The key the deployed server validates JWTs with, so the harness mints
-        tokens it accepts (real auth, no HOP3_UNSAFE bypass).
-
-        Mirrors the server's ``get_secret_key`` precedence: the installer
-        generates and writes ``/etc/hop3/secret-key``, which the server reads
-        ahead of the supervisor's ``HOP3_SECRET_KEY`` env — so we must read the
-        file. When it's absent (a container running only on the env key), None
-        lets ``create_test_token`` fall back to the E2E default the supervisor
-        set. Unlike the remote path this does not fail loud: the E2E env key is a
-        legitimate fallback for the throwaway container.
-        """
-        _code, stdout, _stderr = self.exec_run(
-            "cat /etc/hop3/secret-key 2>/dev/null "
-            "|| grep -h '^HOP3_SECRET_KEY=' /etc/default/hop3 2>/dev/null "
-            "| head -n1 | cut -d= -f2-"
-        )
-        return stdout.strip().strip('"').strip("'") or None
+    def _fetch_api_token(self) -> str:
+        """An admin token from the container, as ``hop3 login --ssh`` gets one."""
+        return fetch_api_token(DockerCommandRunner(self._container))
 
     def _get_container_ip(self) -> str | None:
         """Get the container's internal IP address."""

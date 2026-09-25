@@ -18,11 +18,13 @@ from typing import TYPE_CHECKING, Any, Self
 
 import httpx
 
-from hop3_testing.exceptions import DeploymentError, TargetOutOfDiskError
+from hop3_testing.exceptions import (
+    ConfigurationError,
+    DeploymentError,
+    TargetOutOfDiskError,
+)
 
 from .constants import (
-    E2E_TEST_SECRET_KEY,
-    create_test_token,
     hermetic_cli_cwd,
     hermetic_cli_env,
 )
@@ -75,11 +77,20 @@ class TargetInfo:
     ssh_password: str | None = None
     http_base: str = ""
     api_url: str = ""
-    # The server's JWT signing key, so the harness can mint tokens the server
-    # accepts (real auth, no HOP3_UNSAFE bypass). None → the E2E default key,
-    # correct for a server the harness started with that key (Docker).
-    secret_key: str | None = None
+    # A token for an admin account on the server (``admin:ssh-token``), so the
+    # harness authenticates for real (no HOP3_UNSAFE bypass).
+    api_token: str | None = None
     metadata: dict[str, Any] | None = None
+
+    def require_api_token(self) -> str:
+        """The admin token; a target that serves an API without one is broken."""
+        if not self.api_token:
+            msg = (
+                f"Target {self.api_url or self.ssh_host} has no API token: its "
+                "setup did not fetch one with `hop3-server admin:ssh-token`."
+            )
+            raise ConfigurationError(msg)
+        return self.api_token
 
 
 class DeploymentTarget(ABC):
@@ -192,17 +203,13 @@ class DeploymentTarget(ABC):
         # Fall back to SSH tunnel for remote targets
         if target_info.api_url:
             env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP authenticates with a real JWT signed with the key the
-            # server validates with (no HOP3_UNSAFE bypass). See
-            # apps.deployment.DeploymentSession._build_cli_env for the rationale.
-            env["HOP3_API_TOKEN"] = create_test_token(
-                secret_key=target_info.secret_key or E2E_TEST_SECRET_KEY
-            )
+            # Direct HTTP authenticates with a real admin token (no HOP3_UNSAFE
+            # bypass). See apps.deployment.DeploymentSession._build_cli_env.
+            env["HOP3_API_TOKEN"] = target_info.require_api_token()
         else:
             # SSH tunnel provides implicit authentication via SSH keys
             env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
             env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-        env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
 
         # Always add -y flag to skip confirmations in E2E tests
         cmd_args = ["hop3", *args, "-y"]

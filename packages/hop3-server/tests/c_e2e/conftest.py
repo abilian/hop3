@@ -19,11 +19,8 @@ import pytest
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.results import ResultStore
 from hop3_testing.targets.adapter import ContainerTarget
-from hop3_testing.targets.constants import (
-    E2E_TEST_SECRET_KEY,
-    create_test_token,
-    hermetic_cli_cwd,
-)
+from hop3_testing.targets.constants import hermetic_cli_cwd
+from hop3_testing.targets.helpers import DockerCommandRunner, fetch_api_token
 
 FLASK_APP_CODE = """
 from flask import Flask
@@ -227,6 +224,8 @@ def _start_hop3_container(
         "ssh_key_path": ssh_key_path,
         "http_base": f"http://localhost:{http_port}",
         "api_url": f"http://localhost:{api_port}",
+        # A real admin account's token, fetched the way `hop3 login --ssh` does.
+        "api_token": fetch_api_token(DockerCommandRunner(container)),
     }
 
     print(f"\n[{label}] Container ready:")
@@ -504,8 +503,7 @@ def cli_env(hop3_container: dict[str, Any]) -> dict[str, str]:
     """
     env = os.environ.copy()
     env["HOP3_API_URL"] = hop3_container["api_url"]
-    env["HOP3_API_TOKEN"] = create_test_token(secret_key=E2E_TEST_SECRET_KEY)
-    env["HOP3_SECRET_KEY"] = E2E_TEST_SECRET_KEY
+    env["HOP3_API_TOKEN"] = hop3_container["api_token"]
     env["HOP3_NO_INPUT"] = "1"  # skip the ADR-042 confirm prompt (non-tty run)
     return env
 

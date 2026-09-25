@@ -3,29 +3,30 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Real-auth test tokens — the harness authenticates instead of bypassing.
+Real-auth test tokens: the harness authenticates instead of bypassing.
 
-The harness no longer sets ``HOP3_UNSAFE`` to disable authentication; it mints a
-JWT signed with the key the target server actually validates with. These tests
-cover the two essential pieces: signing with a chosen key, and reading the
-server's key (fail-loud, no silent fallback to a key the server would reject).
+The harness never sets ``HOP3_UNSAFE`` to disable authentication. It fetches a
+token for a real admin account from the target, running ``hop3-server
+admin:ssh-token`` as ``hop3 login --ssh`` does. It used to mint a token for an
+account that did not exist, which role checks (ADR 061) refuse.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 
-import jwt
 import pytest
+from hop3_cli.commands.local.ssh_ops import SSH_TOKEN_COMMAND, as_hop3_user
 from hop3_testing.exceptions import ConfigurationError
-from hop3_testing.targets.constants import (
-    E2E_TEST_SECRET_KEY,
-    create_test_token,
-    hermetic_cli_cwd,
-    hermetic_cli_env,
+from hop3_testing.targets.base import TargetInfo
+from hop3_testing.targets.constants import hermetic_cli_cwd, hermetic_cli_env
+from hop3_testing.targets.helpers import CommandResult, fetch_api_token
+
+TOKEN = (
+    "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9"
+    ".eyJzdWIiOiJhZG1pbiIsInNjb3BlcyI6WyJhZG1pbiJdfQ"
+    ".c2lnbmF0dXJlLWJ5dGVzLW9mLWEtcmVhbC10b2tlbg"
 )
-from hop3_testing.targets.helpers import read_server_secret_key
 
 
 def test_hermetic_cli_env_strips_steering_vars(monkeypatch):
@@ -56,48 +57,40 @@ def test_hermetic_cli_env_strips_steering_vars(monkeypatch):
     assert env.get("PATH") == "/usr/bin"
 
 
-def test_token_is_signed_with_the_given_key():
-    """
-    A token signed with a server's key validates with that key — and a
-    default-key token does NOT (which is exactly why the remote path needs the
-    server's real key, not the E2E default).
-    """
-    token = create_test_token(secret_key="server-real-key")
-    decoded = jwt.decode(token, "server-real-key", algorithms=["HS256"])
-    assert decoded["sub"]
-    assert "admin" in decoded["scopes"]
+class _Target:
+    """A CommandRunner stand-in that records what it was asked to run."""
 
-    with pytest.raises(jwt.InvalidSignatureError):
-        jwt.decode(token, E2E_TEST_SECRET_KEY, algorithms=["HS256"])
+    def __init__(self, stdout: str, returncode: int = 0, stderr: str = "") -> None:
+        self.result = CommandResult(stdout=stdout, stderr=stderr, returncode=returncode)
+        self.commands: list[str] = []
+
+    def run(self, command: str, *, check: bool = False) -> CommandResult:
+        self.commands.append(command)
+        return self.result
 
 
-def test_default_key_is_the_e2e_key():
-    """Docker keeps the E2E default (its server runs with that key)."""
-    token = create_test_token()
-    jwt.decode(token, E2E_TEST_SECRET_KEY, algorithms=["HS256"])  # no raise
+def test_the_token_comes_from_admin_ssh_token_run_as_hop3():
+    """The same invocation `hop3 login --ssh` uses, not a copy of it."""
+    target = _Target(stdout=f"{TOKEN}\n")
+
+    assert fetch_api_token(target) == TOKEN
+    assert target.commands == [as_hop3_user(SSH_TOKEN_COMMAND)]
 
 
-def _backend(stdout: str):
-    """
-    A minimal stand-in for a CommandRunner: .run() returns an object with
-    the captured stdout.
-    """
-    return SimpleNamespace(run=lambda cmd, check=False: SimpleNamespace(stdout=stdout))
+def test_no_token_is_a_loud_failure():
+    """Never fall back to calling the API unauthenticated."""
+    target = _Target(stdout="", returncode=1, stderr="su: user hop3 does not exist")
+
+    with pytest.raises(ConfigurationError, match="printed no token") as excinfo:
+        fetch_api_token(target)
+    assert "su: user hop3 does not exist" in str(excinfo.value)
 
 
-def test_read_server_secret_key_returns_trimmed_key():
-    key = read_server_secret_key(_backend('  "the-key"  \n'))
-    assert key == "the-key"
+def test_a_target_with_an_api_but_no_token_refuses():
+    info = TargetInfo(ssh_host="localhost", ssh_port=22, api_url="http://x:8000")
 
-
-def test_read_server_secret_key_fails_loud_when_absent():
-    """
-    No key on the box → abort, rather than fall back to a key the server
-    would reject (which would surface later as an opaque 'Authentication
-    required').
-    """
-    with pytest.raises(ConfigurationError, match="signing key"):
-        read_server_secret_key(_backend(""))
+    with pytest.raises(ConfigurationError, match="no API token"):
+        info.require_api_token()
 
 
 def test_hermetic_cli_cwd_is_empty_and_cached():
