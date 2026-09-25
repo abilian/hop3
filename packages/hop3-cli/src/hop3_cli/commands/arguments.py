@@ -72,6 +72,16 @@ _DEFAULT_IGNORE_PATTERNS = [
     ".ruff_cache/",
 ]
 
+#: Commands whose answer has a structured form. `--json` is a client flag,
+#: stripped before dispatch, so these are told about it separately: with it,
+#: they answer with data instead of prose. Sent only to them because an older
+#: server hands every extra argument to the command, and some commands accept
+#: none.
+_ANSWERS_WITH_DATA: frozenset[tuple[str, ...]] = frozenset({
+    ("help",),  # `help --all`: the command tree (ADR 036 M9.4)
+    ("system", "status"),  # the health report, for monitors and dashboards
+})
+
 # Deprecated Hop3-specific sidecar, superseded by hop3.toml [build].ignore.
 # Honored for one transition release with a loud warning, then removed (ADR 046).
 _DEPRECATED_IGNORE_FILE = ".hop3ignore"
@@ -114,6 +124,11 @@ def get_extra_args(
 
     command = args[0]
 
+    if json_output and (
+        tuple(args[:1]) in _ANSWERS_WITH_DATA or tuple(args[:2]) in _ANSWERS_WITH_DATA
+    ):
+        extra_args["json_output"] = True
+
     match command:
         case "deploy":
             # The app is the `--app` flag (ADR 036 D5), stripped by
@@ -132,13 +147,6 @@ def get_extra_args(
 
             # Enable streaming by default for real-time log output
             extra_args["streaming"] = streaming
-
-        case "help":
-            # `--json` is a client flag, stripped before dispatch, so the server
-            # is told separately: with it, `help --all` answers with the command
-            # tree as data instead of a page of prose (ADR 036 M9.4).
-            if json_output:
-                extra_args["json_output"] = True
 
         case "addon":
             # `addon <type> import <name> < dump.sql`: ship the piped dump to
