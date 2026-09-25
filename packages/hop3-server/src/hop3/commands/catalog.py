@@ -205,6 +205,5 @@ class CatalogInstallCmd(Command):
             return [error("Cannot install: " + "; ".join(e.errors))]
 
         # Build + run in the background, streaming logs to the CLI (identical to
-        # `hop3 deploy`). The app row is committed by stage_catalog_app, so the
-        # deploy thread's own session can see it.
-        return [deploy_app_streaming(app_name, app.id)]
+        # `hop3 deploy`).
+        return [deploy_app_streaming(app, self.db_session)]

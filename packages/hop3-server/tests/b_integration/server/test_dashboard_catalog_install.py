@@ -42,7 +42,9 @@ def deploy_calls(monkeypatch) -> list[tuple[str, int]]:
     calls: list[tuple[str, int]] = []
     monkeypatch.setattr(
         "hop3.server.controllers.catalog.deploy_app_streaming",
-        lambda name, pk: calls.append((name, pk)) or {"t": "stream", "stream_id": "x"},
+        lambda app, _session: (
+            calls.append((app.name, app.id)) or {"t": "stream", "stream_id": "x"}
+        ),
     )
     return calls
 

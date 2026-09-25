@@ -135,3 +135,13 @@ on a deploy that was working. The fix is one word: `for entry in list(self.logs)
 The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs a real deploy through a real SSE connection, and it was not run before the change was called done. A streaming path has no meaningful in-process coverage of its own concurrency: the layer that exercises it is the one with a container in it.
 
 **Run the e2e layer for any change to the streaming path, the process model, or a shared mutable structure.** Its slowness is the reason it gets skipped and the reason it is the only thing that would have caught this.
+
+## A third boundary: two sessions writing one row
+
+**September 2026.** After a deploy failed in proxy setup, the next deploy of the same app failed once with `Cannot transition app 'x' from STOPPED to RUNNING`, then worked: an outcome that depended on the run before it. Reading the state machine found nothing; instrumenting `transition_state`, `mark_stopped` and SQLAlchemy's `refresh` event on `App` found it in one run.
+
+The deploy request stopped the previous instance in its own session (STARTING → STOPPED) and handed the app's id to the build thread, which opened a second session. The request committed only when it returned, after `build_queue.submit()`. The build thread had already loaded STARTING. It moved the app to STOPPED and back to STARTING, and since the value ended where it was loaded, SQLAlchemy wrote no UPDATE for it. The request's STOPPED, committed in between, survived, and the thread's next reload of the expired object read it back.
+
+- **Commit before a hand-off.** The build helper's docstring already required the app to be committed before the call; nothing enforced it. `deploy_app_streaming` now takes the request session and commits it before submitting, so the contract is kept by the code that relies on it.
+- **An ORM write is a diff against what was loaded.** A value that returns to its loaded value is not written, so a concurrent writer's change stands. Two sessions updating the same row is a lost update whichever order they commit in.
+- **A failure path records the failure.** The readiness gate set FAILED in memory and raised, and the caller's rollback discarded it, leaving STARTING. A failed deploy now records FAILED, with the underlying error, after the rollback.

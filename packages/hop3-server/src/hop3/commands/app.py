@@ -52,7 +52,7 @@ from hop3.project.config import AppConfig
 from hop3.server.checks.runner import run_app_check
 
 from ._base import Command, NamespaceCommand
-from ._deploy import deploy_app_streaming
+from ._deploy import deploy_app_streaming, record_deploy_failure
 from ._errors import command_context
 from ._helpers import get_app, redact_sensitive_value
 from ._response import (
@@ -326,7 +326,7 @@ class DeployCmd(Command):
         ``hop3 catalog install`` and the dashboard install form), which runs the
         deploy in a daemon thread with its own session and returns the stream id.
         """
-        return [deploy_app_streaming(app_name, app.id)]
+        return [deploy_app_streaming(app, self.db_session)]
 
     def _deploy_sync(self, app: App, app_name: str) -> list[dict]:
         """Deploy synchronously, collecting logs for response."""
@@ -344,10 +344,8 @@ class DeployCmd(Command):
                     app.last_deployed_at = datetime.now(UTC)
                     self.db_session.commit()
             except Exception as e:
-                # Rollback any uncommitted changes on error
-                with contextlib.suppress(Exception):
-                    self.db_session.rollback()
                 deploy_error = str(e)
+                record_deploy_failure(self.db_session, app.id, e)
 
         # Build response with logs (always include logs, even on error)
         response = logs_to_response(captured.get_logs())

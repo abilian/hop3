@@ -4,7 +4,7 @@
 Integration test for `hop3 catalog install` — the on-disk happy path.
 
 Creates a real App under a tmp HOP3 root and asserts the recipe is staged, then
-that the deploy is triggered with (app_name, app.id). ``deploy_app_streaming`` is
+that the deploy is triggered for that app. ``deploy_app_streaming`` is
 stubbed so no real build/run (or background thread) is started.
 """
 
@@ -50,8 +50,8 @@ def rooted(tmp_path, monkeypatch):
 def test_install_stages_recipe_and_triggers_deploy(rooted, monkeypatch) -> None:
     calls: list[tuple[str, int]] = []
 
-    def _fake_deploy(app_name: str, app_id: int) -> dict:
-        calls.append((app_name, app_id))
+    def _fake_deploy(app: App, _request_session: object) -> dict:
+        calls.append((app.name, app.id))
         return {"t": "stream", "stream_id": "test-stream"}
 
     monkeypatch.setattr("hop3.commands.catalog.deploy_app_streaming", _fake_deploy)
@@ -79,8 +79,8 @@ def test_install_defaults_app_name_to_blueprint_id(rooted, monkeypatch) -> None:
     calls: list[tuple[str, int]] = []
     monkeypatch.setattr(
         "hop3.commands.catalog.deploy_app_streaming",
-        lambda app_name, app_id: (
-            calls.append((app_name, app_id)) or {"t": "stream", "stream_id": "s"}
+        lambda app, _session: (
+            calls.append((app.name, app.id)) or {"t": "stream", "stream_id": "s"}
         ),
     )
 

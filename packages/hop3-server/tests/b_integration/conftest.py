@@ -96,6 +96,22 @@ def sample_user(db_session: Session) -> User:
     return user
 
 
+@pytest.fixture
+def file_db(tmp_path, monkeypatch) -> Iterator[Session]:
+    """
+    A file database that every session and thread in the test opens.
+
+    An in-memory SQLite database exists per connection, so a second session, or
+    an app answering on another thread (Litestar's TestClient), sees an empty one.
+    """
+    reset_session_factory_cache()
+    monkeypatch.setenv("HOP3_DATABASE_URI", f"sqlite:///{tmp_path / 'hop3.db'}")
+    session = get_session_factory()()
+    yield session
+    session.close()
+    reset_session_factory_cache()
+
+
 @contextmanager
 def get_session():
     """

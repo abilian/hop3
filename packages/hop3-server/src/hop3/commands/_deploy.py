@@ -12,38 +12,46 @@ The queue (``deployers/build_queue.py``) is what bounds concurrent builds; this
 module's job is to say, in the stream, when a deploy is waiting for a slot or
 was refused a place in line.
 
-Cross-thread contract (why this takes an id, not an ORM object): the RPC request
-session is committed and CLOSED the moment the command returns the stream item
-(server/controllers/rpc.py). Sessions are not thread-safe, so the background
-thread must open its OWN session and re-fetch the app by primary key — hence the
-signature is ``(app_name, app_id)`` and never a Session or an attached App.
+Cross-thread contract: sessions are not thread-safe, so the background thread
+opens its OWN session and re-fetches the app by primary key; it never receives
+the request's Session or an attached App. Before handing over, the request
+session is committed here. The request has usually just stopped the previous
+instance, and the thread must start from that state: committed later, when the
+request ends, it raced the build and could overwrite the state the deploy wrote.
 """
 
 from __future__ import annotations
 
-import contextlib
 from datetime import UTC, datetime
+from typing import TYPE_CHECKING
 
 from hop3.deployers import do_deploy
 from hop3.deployers.build_queue import BuildQueueFullError, get_build_queue
-from hop3.orm import AppRepository, get_session_factory
+from hop3.lib import server_log
+from hop3.orm import AppRepository, AppStateEnum, get_session_factory
 from hop3.server.streaming import create_stream, stream_context
 
 from ._errors import command_context
 from ._response import stream
 
+if TYPE_CHECKING:
+    from sqlalchemy.orm import Session
 
-def deploy_app_streaming(app_name: str, app_id: int) -> dict:
-    """
-    Deploy ``app_id`` in a background thread with real-time SSE log streaming.
+    from hop3.orm import App
 
-    Returns the single ``stream`` response item immediately; the caller wraps it
-    in a list for the RPC result. The deploy's outcome (success or failure) is
-    surfaced via the stream's terminal ``complete`` event — a failed deploy is
-    never reported as success, and the operator alert in ``do_deploy`` (ADR 054)
-    still fires. The ``app`` row MUST already be committed before this is called,
-    or the thread's fresh session will not see it.
+
+def deploy_app_streaming(app: App, request_session: Session) -> dict:
     """
+    Deploy ``app`` in a background thread with real-time SSE log streaming.
+
+    Commits ``request_session``, then returns the single ``stream`` response item
+    immediately; the caller wraps it in a list for the RPC result. The deploy's
+    outcome (success or failure) is surfaced via the stream's terminal
+    ``complete`` event — a failed deploy is never reported as success, and the
+    operator alert in ``do_deploy`` (ADR 054) still fires.
+    """
+    app_name, app_id = app.name, app.id
+    request_session.commit()
     log_stream = create_stream(app_name)
 
     def run_deployment() -> None:
@@ -68,8 +76,7 @@ def deploy_app_streaming(app_name: str, app_id: int) -> dict:
                     thread_session.commit()
                 log_stream.finish(success=True)
             except Exception as e:
-                with contextlib.suppress(Exception):
-                    thread_session.rollback()
+                record_deploy_failure(thread_session, app_id, e)
                 log_stream.finish(success=False, error_message=str(e))
 
     build_queue = get_build_queue()
@@ -91,3 +98,30 @@ def deploy_app_streaming(app_name: str, app_id: int) -> dict:
 
     # Return the stream_id immediately so the CLI can connect to the SSE endpoint.
     return stream(log_stream.stream_id)
+
+
+def record_deploy_failure(
+    db_session: Session, app_id: int, error: BaseException
+) -> None:
+    """
+    Leave an app whose deploy raised in FAILED, with the reason, in the database.
+
+    The reason is the underlying error: the one `command_context` wraps says
+    only "deploying app failed" when the detail was already streamed.
+
+    The deploy's own changes are rolled back, and with them any FAILED it set in
+    memory, so without this the app kept whatever state was last committed:
+    usually STARTING, which the next deploy then tripped over. By the time a
+    deploy fails the previous instance has been stopped, so FAILED is the truth.
+    Recording it must not mask the deploy's own error, which the caller reports.
+    """
+    try:
+        db_session.rollback()
+        app = AppRepository(session=db_session).get_one_or_none(id=app_id)
+        if app is None or app.run_state == AppStateEnum.FAILED:
+            return
+        reason = str(error.__cause__ or error)
+        app.transition_state(AppStateEnum.FAILED, reason[:1024])
+        db_session.commit()
+    except Exception:
+        server_log.exception("could not record a failed deploy", app_id=app_id)
