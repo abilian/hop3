@@ -3,11 +3,13 @@
 
 This script:
 1. Checks that all package versions are aligned with the top-level version
-2. Builds all packages using uv build
-3. Uploads all packages to PyPI using twine
+2. Checks that CHANGES.md has a dated section for that version
+3. Builds all packages using uv build
+4. Uploads all packages to PyPI using twine
 """
 
 import argparse
+import re
 import shutil
 import subprocess
 import sys
@@ -31,6 +33,7 @@ PACKAGES = [
 ]
 
 ROOT_DIR = Path(__file__).parent.parent
+CHANGELOG = ROOT_DIR / "CHANGES.md"
 PACKAGES_DIR = ROOT_DIR / "packages"
 DIST_DIR = ROOT_DIR / "dist"
 
@@ -47,6 +50,7 @@ def main():
 
         if not args.skip_version_check:
             ensure_versions_aligned(root_version, package_versions)
+        ensure_changelog_closed(root_version)
 
         if not args.skip_build:
             clean_dist()
@@ -143,6 +147,27 @@ def ensure_versions_aligned(root_version: str, package_versions: dict[str, str])
 
     print("All versions aligned!")
     print()
+
+
+def ensure_changelog_closed(version: str, changelog: Path = CHANGELOG) -> None:
+    """
+    Refuse to release a version whose changelog section is not closed.
+
+    0.7.5 went to PyPI with its changes still under `[Unreleased]`, and 0.7.2
+    to 0.7.4 had been released with no section at all. A release is closed in
+    CHANGES.md as `## [<version>] - <YYYY-MM-DD>` before it is uploaded.
+    """
+    heading = re.compile(
+        rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", re.MULTILINE
+    )
+    if not heading.search(changelog.read_text()):
+        msg = (
+            f"{changelog.name} has no section for {version}. Rename "
+            f"'## [Unreleased]' to '## [{version}] - <today>' (and start a new "
+            f"'## [Unreleased]' above it), commit, then release."
+        )
+        raise ReleaseError(msg)
+    print(f"{changelog.name} has a section for {version}.")
 
 
 def clean_dist():
