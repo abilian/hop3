@@ -12,7 +12,8 @@ proxy now gets the same requests, sent to its own ports by hostname:
 
 * plain HTTP when the app allows it, and `.git` refused;
 * the redirect to HTTPS by default, and the app over HTTPS;
-* a PHP app on its php-fpm pool, where the proxy speaks FastCGI;
+* a PHP app on its php-fpm pool, where the proxy speaks FastCGI, and the
+  paths under its tree the proxy must never answer;
 * a WAF-enabled app, where the proxy can front the WAF.
 
 Where a proxy cannot do something, the deploy must be refused before anything
@@ -53,6 +54,9 @@ FRONTS_WAF = {"nginx": True, "caddy": False, "traefik": False}
 
 ALLOW_PLAIN_HTTP = "[deploy]\nallow-http = true\n"
 
+#: Written into files the proxy must never serve; absent from every answer.
+SECRET = "hop3-must-not-serve-this"
+
 
 @pytest.fixture(scope="module", params=["nginx", "caddy", "traefik"])
 def proxied(
@@ -80,10 +84,15 @@ def http_get(info: dict[str, Any], host: str, path: str = "/") -> httpx.Response
 
 
 def https_get(info: dict[str, Any], host: str, path: str = "/") -> tuple[int, str]:
-    """GET over the proxy's TLS listener, by SNI, from inside the container."""
+    """
+    GET over the proxy's TLS listener, by SNI, from inside the container.
+
+    The path is sent as written (``--path-as-is``), so a test can send the
+    spellings a client would use to slip past a path rule.
+    """
     result = info["container"].exec_run(
-        f"curl -sk --resolve {host}:443:127.0.0.1 -w '\\n%{{http_code}}' "
-        f"https://{host}{path}"
+        f"curl -sk --path-as-is --resolve {host}:443:127.0.0.1 "
+        f"-w '\\n%{{http_code}}' https://{host}{path}"
     )
     body, _, status = result.output.decode(errors="replace").rpartition("\n")
     return int(status), body
@@ -178,6 +187,16 @@ class TestProxies:
         app_dir = tmp_path / "php"
         shutil.copytree(PHP_FIXTURE, app_dir)
         (app_dir / "ENV").write_text(f"HOST_NAME={host}\n")
+        # What PHP apps keep in the tree they serve, behind an .htaccess
+        # that nginx and Caddy never read.
+        (app_dir / "hop3.toml").write_text('[proxy]\ndeny = ["/data"]\n')
+        (app_dir / "data").mkdir()
+        (app_dir / "data" / "secret.txt").write_text(SECRET)
+        (app_dir / "data" / "run.php").write_text(f"<?php echo '{SECRET}';\n")
+        (app_dir / "datasheet.txt").write_text("a public sheet\n")
+        (app_dir / ".env").write_text(f"APP_KEY={SECRET}\n")
+        (app_dir / ".hidden").mkdir()
+        (app_dir / ".hidden" / "run.php").write_text(f"<?php echo '{SECRET}';\n")
         init_git_repo(app_dir)
 
         result = deploy_app_dir(proxied, app_dir, "php")
@@ -198,6 +217,29 @@ class TestProxies:
         )
         status, body = https_get(proxied, host, "/assets/style.css")
         assert (status, "font-family" in body) == (200, True)
+
+        for path in (
+            "/data",
+            "/data/secret.txt",
+            "/data/run.php",
+            "//data/secret.txt",
+            "/d%61ta/secret.txt",
+            "/assets/../data/secret.txt",
+            "/.env",
+            "/.hidden/run.php",
+        ):
+            status, body = https_get(proxied, host, path)
+            assert (status, SECRET in body) == (404, False), (path, body)
+        # The rule is the path and what is beneath it, not every name that
+        # starts with the same letters; and discovery under /.well-known
+        # still reaches the app.
+        status, body = https_get(proxied, host, "/datasheet.txt")
+        assert (status, body.strip()) == (200, "a public sheet")
+        status, body = https_get(proxied, host, "/.well-known/caldav")
+        assert (status, "front controller handled: /.well-known/caldav" in body) == (
+            200,
+            True,
+        )
 
     def test_a_waf_enabled_app(self, proxied, test_app_dir, request):
         proxy = proxied["proxy"]

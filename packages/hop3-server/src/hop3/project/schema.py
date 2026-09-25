@@ -829,6 +829,9 @@ class LimitsSection(BaseModel):
 # shape every proxy accepts, and the same spelling as [limits] memory so a
 # packager learns it once. "0" means no limit.
 _BODY_SIZE_RE = re.compile(r"^\d+[KMGkmg]?$")
+# One segment of a [proxy] deny path: the unreserved URL characters, so an
+# entry cannot smuggle a regex, a space or a quote into the proxy's config.
+_DENY_SEGMENT_RE = re.compile(r"^[A-Za-z0-9._~-]+$")
 
 
 class ProxySection(BaseModel):
@@ -836,10 +839,10 @@ class ProxySection(BaseModel):
     [proxy] section — what the reverse proxy will carry for this app.
 
     The proxy is platform-owned and stays that way: this is not a passthrough
-    for proxy config. It declares the two limits that are properties of the
-    *app* rather than of the platform — how large a request body it accepts,
-    and whether that body may stream through instead of being spooled to the
-    proxy's disk first. An app that receives file uploads has to be able to
+    for proxy config. It declares what is a property of the *app* rather than
+    of the platform: how large a request body it accepts, whether that body
+    may stream through instead of being spooled to the proxy's disk first, and
+    which paths must never be answered at all. An app that receives file uploads has to be able to
     say so; before this section existed, a 50 MB ceiling applied to every app
     on the box and nothing could lift it.
 
@@ -876,6 +879,21 @@ class ProxySection(BaseModel):
         ),
     )
 
+    deny: tuple[str, ...] = Field(
+        default=(),
+        description=(
+            "URL paths the proxy answers with 404, each with everything "
+            "beneath it, e.g. ['/data', '/storage']. For data an app keeps "
+            "inside the tree it serves, which upstream protects with an "
+            ".htaccess that only Apache reads."
+        ),
+    )
+
+    @field_validator("deny")
+    @classmethod
+    def _check_deny(cls, v: tuple[str, ...]) -> tuple[str, ...]:
+        return tuple(_deny_path(path) for path in v)
+
     @field_validator("max_body_size")
     @classmethod
     def _check_max_body_size(cls, v: str | None) -> str | None:
@@ -886,6 +904,23 @@ class ProxySection(BaseModel):
             )
             raise ValueError(msg)
         return v
+
+
+def _deny_path(path: str) -> str:
+    """A [proxy] deny entry in its one spelling: ``/data``, no trailing slash."""
+    segments = path.removeprefix("/").removesuffix("/").split("/")
+    valid = path.startswith("/") and all(
+        _DENY_SEGMENT_RE.match(segment) and segment not in {".", ".."}
+        for segment in segments
+    )
+    if not valid:
+        msg = (
+            f"[proxy] deny entry {path!r} must be a URL path below the root, "
+            "such as '/data' or '/app/storage': a leading '/', then segments "
+            "of letters, digits, '.', '_', '~' or '-'."
+        )
+        raise ValueError(msg)
+    return "/" + "/".join(segments)
 
 
 # WAF (ADR 050) — Layer-7 Web Application Firewall config. Engine-independent

@@ -91,7 +91,7 @@ class NginxVirtualHost(BaseProxy):
             },
         )
 
-        limits = self.transfer_limits
+        limits = self.proxy_settings
         self.env["HOP3_INTERNAL_NGINX_MAX_BODY_SIZE"] = limits.max_body_size
         # `uwsgi_` here, not `proxy_`: get_proxy_conf() rewrites the uwsgi
         # directives to their proxy equivalents for every non-wsgi app, so
@@ -99,6 +99,13 @@ class NginxVirtualHost(BaseProxy):
         # backend kinds. nginx buffers by default, so "on" renders nothing.
         self.env["HOP3_INTERNAL_NGINX_REQUEST_BUFFERING"] = (
             "" if limits.request_buffering else "uwsgi_request_buffering off;"
+        )
+        # `^~` makes the prefix win over every regex location, the `.php` one
+        # included, so a script under a denied path is refused rather than run.
+        self.env["HOP3_INTERNAL_NGINX_DENY"] = "\n  ".join(
+            f"location = {path} {{ return 404; }}\n"
+            f"  location ^~ {path}/ {{ return 404; }}"
+            for path in limits.deny
         )
 
     def _is_static_only(self) -> bool:

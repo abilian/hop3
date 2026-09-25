@@ -166,6 +166,8 @@ The document root is resolved in this order (first match wins):
 
 Getting this wrong publishes the application's own source over HTTP — a framework's `.env`, its `composer.json`, its whole `vendor/` tree — so a `document-root` naming something that is not a directory is refused at build time, and only the resolved document root is made readable by the web server. Everything above it stays unreadable.
 
+Inside the document root, the proxy never serves a hidden file or anything under a hidden directory (`.env`, `.htaccess`, `.git/`), except `/.well-known/`, which stays open for discovery endpoints. An app that keeps its own data under the document root (a SQLite file, compiled templates, uploads) protects it upstream with an `.htaccess`, which only Apache reads: list those paths in [`[proxy] deny`](#proxy-transfer-limits-and-denied-paths) and the proxy answers them with 404.
+
 Declaring `[run].start` overrides all of this and runs your command instead, which is how you would use a long-running application server (Laravel Octane, FrankenPHP, RoadRunner). `php -S` and `php artisan serve` are **development** servers: single-threaded, so an app that makes an HTTP request to itself deadlocks against its own only worker.
 
 ### `[run]` - Runtime Configuration
@@ -671,7 +673,7 @@ processes = 256     # max processes/threads
 - A declared limit is a **safety guarantee**: if it can't be enforced, the deploy fails loudly rather than running an app that only *looks* capped.
 - Enforcement is implemented for the **Docker builder** (compose `mem_limit` / `cpus` / `pids_limit`). Native/Nix enforcement needs cgroups via `hop3-rootd` and isn't available yet, so declaring `[limits]` on a non-Docker app **aborts the deploy** with a clear message until then.
 
-### `[proxy]` - Transfer Limits
+### `[proxy]` - Transfer Limits and Denied Paths
 
 What the reverse proxy will carry for this app:
 
@@ -679,6 +681,7 @@ What the reverse proxy will carry for this app:
 [proxy]
 max-body-size = "2G"        # largest request body; default "50m", "0" = no limit
 request-buffering = false   # stream the body through instead of spooling it first
+deny = ["/data", "/storage"]  # answered with 404, with everything beneath them
 ```
 
 **Fields:**
@@ -687,6 +690,7 @@ request-buffering = false   # stream the body through instead of spooling it fir
 |-------|------|-------------|
 | `max-body-size` | string | Largest request body the proxy accepts: a number with an optional `K`/`M`/`G` suffix (e.g. `2G`), or plain bytes. Default `50m`. `0` means no limit. |
 | `request-buffering` | boolean | Whether the proxy reads the whole request body before the app sees any of it. Default `true`. |
+| `deny` | list of strings | URL paths the proxy answers with 404, each with everything beneath it: `/data` covers `/data` and `/data/…`, and not `/datasheet.txt`. Each entry starts with `/` and holds letters, digits, `.`, `_`, `~` and `-`. Default: none. |
 
 **Notes:**
 
@@ -694,6 +698,7 @@ request-buffering = false   # stream the body through instead of spooling it fir
 - `request-buffering = false` matters for large uploads in its own right: with buffering on, the proxy writes the whole body to its own disk first, so a 2 GB upload needs 2 GB of proxy scratch space and the app's first byte arrives only after the client's last one.
 - This is not a proxy passthrough. Each key renders to the active proxy's own directive — nginx `client_max_body_size` / `proxy_request_buffering`, Caddy `request_body max_size`, Traefik a `buffering` middleware — so the declaration survives a proxy swap.
 - Two proxy-specific caveats: **Caddy** streams request bodies by default and has no buffering switch, so `request-buffering` changes nothing there. **Traefik** can only enforce a body limit *through* its buffering middleware, so an app that asks for both a limit and streaming gets the limit, and the deploy says so.
+- `deny` is for data an app keeps inside the tree it serves, which upstream protects with an `.htaccess` that nginx and Caddy never read. A denied path reaches neither the app nor the disk, and a PHP script under it is refused rather than run. nginx and Caddy honour it; **Traefik** cannot refuse a path, so the deploy of an app that declares one is refused before anything is built.
 
 ### `[healthcheck]` - Health Check Configuration
 

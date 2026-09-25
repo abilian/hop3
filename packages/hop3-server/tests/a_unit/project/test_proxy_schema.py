@@ -25,6 +25,17 @@ def test_no_proxy_section_leaves_platform_defaults():
     cfg = Hop3Config.from_str('[metadata]\nid = "x"\n')
     assert cfg.proxy_max_body_size == ""
     assert cfg.proxy_request_buffering is True
+    assert cfg.proxy_deny == ()
+
+
+def test_deny_is_read_normalized():
+    cfg = Hop3Config.from_str('[proxy]\ndeny = ["/data/", "/storage"]\n')
+    assert cfg.proxy_deny == ("/data", "/storage")
+
+
+def test_a_deny_entry_without_a_leading_slash_is_refused():
+    with pytest.raises(Hop3TomlValidationError, match="deny entry"):
+        validate_hop3_toml(tomllib.loads('[proxy]\ndeny = ["data"]\n'))
 
 
 def test_buffering_declared_on_stays_on():

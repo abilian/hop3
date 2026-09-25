@@ -34,6 +34,7 @@ from ._templates import (
     CADDY_ACME_CHALLENGE,
     CADDY_BLOCK_GIT,
     CADDY_COMPRESSION,
+    CADDY_DENY,
     CADDY_FASTCGI_FRAGMENT,
     CADDY_GATE,
     CADDY_HTTPS_ONLY_TEMPLATE,
@@ -176,7 +177,13 @@ class CaddyVirtualHost(BaseProxy):
         # what Caddy does.
         self.env["HOP3_INTERNAL_CADDY_REQUEST_BODY"] = expand_vars(
             CADDY_REQUEST_BODY,
-            {"max_body_size": self.transfer_limits.max_body_size},
+            {"max_body_size": self.proxy_settings.max_body_size},
+        )
+        deny = self.proxy_settings.deny
+        self.env["HOP3_INTERNAL_CADDY_DENY"] = (
+            expand_vars(CADDY_DENY, {"paths": " ".join(f"{p} {p}/*" for p in deny)})
+            if deny
+            else ""
         )
 
         # Enable compression by default
