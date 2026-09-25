@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, Mock, patch
 
 import pytest
 
+from hop3.core.roles import Role
 from hop3.orm import User
 from hop3.server.cli.admin import AdminCreate, AdminList, AdminResetPassword, AdminToken
 
@@ -24,7 +25,7 @@ def mock_user():
     user.active = True
     user.is_admin = True
     user.login_count = 5
-    user.roles = []
+    user.role = Role.ADMIN
     return user
 
 
@@ -46,7 +47,6 @@ class TestAdminCreate:
         with (
             patch("hop3.server.cli.admin.get_session", return_value=mock_session),
             patch("hop3.server.cli.admin.UserRepository") as mock_user_repo_class,
-            patch("hop3.server.cli.admin.RoleRepository"),
             patch(
                 "hop3.server.cli.admin.getpass.getpass",
                 side_effect=["password123", "password123"],

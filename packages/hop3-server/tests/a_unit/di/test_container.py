@@ -27,14 +27,12 @@ from hop3.orm.repositories import (
     BackupRepository,
     EnvVarRepository,
     RevokedTokenRepository,
-    RoleRepository,
     UserRepository,
 )
 from hop3.platform.certificates import CertificatesManager
 
 REQUEST_SCOPED_REPOSITORIES = [
     UserRepository,
-    RoleRepository,
     AppRepository,
     AddonCredentialRepository,
     BackupRepository,

@@ -18,9 +18,10 @@ import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
-from hop3.orm import Role, User
-from hop3.orm.repositories import RoleRepository, UserRepository
+from hop3.orm import User
+from hop3.orm.repositories import UserRepository
 from hop3.server.lib.database import get_session
 from hop3.server.security.tokens import create_magic_token, create_token
 
@@ -106,7 +107,6 @@ class AdminCreate(Command):
 
         with get_session() as db_session:
             user_repo = UserRepository(session=db_session)
-            role_repo = RoleRepository(session=db_session)
 
             # Check if username already exists
             if user_repo.username_exists(username):
@@ -117,13 +117,6 @@ class AdminCreate(Command):
             if user_repo.email_exists(email):
                 print(f"Error: Email '{email}' already registered", file=sys.stderr)
                 sys.exit(1)
-
-            # Get or create admin role
-            admin_role = role_repo.get_admin_role()
-            if not admin_role:
-                admin_role = Role(name="admin", description="Administrator role")
-                role_repo.add(admin_role)
-                db_session.flush()
 
             # Generate token BEFORE creating user - if this fails, we don't want
             # to leave a user in the database without being able to return a token
@@ -136,9 +129,9 @@ class AdminCreate(Command):
                 password_hash="",
                 active=True,
                 confirmed_at=datetime.now(timezone.utc),
+                role=Role.ADMIN,
             )
             user.set_password(password)
-            user.roles.append(admin_role)
 
             user_repo.add(user, auto_commit=True)
 
@@ -242,15 +235,14 @@ class AdminList(Command):
 
             # Print header
             print(
-                f"{'Username':<20} {'Email':<30} {'Active':<8} {'Admin':<8} {'Logins':<8}"
+                f"{'Username':<20} {'Email':<30} {'Active':<8} {'Role':<10} {'Logins':<8}"
             )
             print("-" * 80)
 
             for user in users:
-                is_admin = "Yes" if user.is_admin else "No"
                 active = "Yes" if user.active else "No"
                 print(
-                    f"{user.username:<20} {user.email:<30} {active:<8} {is_admin:<8} {user.login_count:<8}"
+                    f"{user.username:<20} {user.email:<30} {active:<8} {user.role:<10} {user.login_count:<8}"
                 )
 
             print()
@@ -312,10 +304,9 @@ class AdminSshToken(Command):
 
         with get_session() as db_session:
             user_repo = UserRepository(session=db_session)
-            role_repo = RoleRepository(session=db_session)
 
             # Try to find an existing admin user
-            admin_user = self._find_admin_user(user_repo, role_repo)
+            admin_user = self._find_admin_user(user_repo)
 
             if admin_user:
                 # Generate token for existing admin
@@ -326,42 +317,25 @@ class AdminSshToken(Command):
 
             # No admin exists - create default admin
             admin_user = self._create_default_admin(
-                user_repo, role_repo, secrets.token_urlsafe(32)
+                user_repo, secrets.token_urlsafe(32)
             )
             token = create_token(admin_user.username, scopes=["authenticated", "admin"])
             print(token)
 
-    def _find_admin_user(
-        self, user_repo: UserRepository, role_repo: RoleRepository
-    ) -> User | None:
-        """Find an admin user, preferring one named 'admin'."""
-        # First try to find user named "admin"
+    def _find_admin_user(self, user_repo: UserRepository) -> User | None:
+        """Find an active admin, preferring one named 'admin'."""
         admin_by_name = user_repo.get_by_username("admin")
         if admin_by_name and admin_by_name.active and admin_by_name.is_admin:
             return admin_by_name
 
-        # Otherwise find any active admin
-        admin_role = role_repo.get_admin_role()
-        if not admin_role:
-            return None
-
-        # Get all users and find one with admin role
         for user in user_repo.list_all_ordered():
-            if user.active and admin_role in user.roles:
+            if user.active and user.is_admin:
                 return user
 
         return None
 
-    def _create_default_admin(
-        self, user_repo: UserRepository, role_repo: RoleRepository, password: str
-    ) -> User:
+    def _create_default_admin(self, user_repo: UserRepository, password: str) -> User:
         """Create a default admin user."""
-        # Get or create admin role
-        admin_role = role_repo.get_admin_role()
-        if not admin_role:
-            admin_role = Role(name="admin", description="Administrator role")
-            role_repo.add(admin_role)
-
         # Create default admin user
         user = User(
             username="admin",
@@ -369,9 +343,9 @@ class AdminSshToken(Command):
             password_hash="",
             active=True,
             confirmed_at=datetime.now(timezone.utc),
+            role=Role.ADMIN,
         )
         user.set_password(password)
-        user.roles.append(admin_role)
 
         user_repo.add(user, auto_commit=True)
 

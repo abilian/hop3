@@ -29,15 +29,15 @@ from hop3.commands.user import (
     UserRemoveCmd,
     UserRevokeAdminCmd,
     UserSetPasswordCmd,
+    UserSetRoleCmd,
     UserShowCmd,
 )
+from hop3.core.roles import Role
 from hop3.orm import User
-from hop3.orm.repositories import RoleRepository, UserRepository
+from hop3.orm.repositories import UserRepository
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
-
-    from hop3.orm.security import Role
 
 
 @pytest.fixture
@@ -46,18 +46,12 @@ def user_repo(db_session: Session) -> UserRepository:
     return UserRepository(session=db_session)
 
 
-@pytest.fixture
-def role_repo(db_session: Session) -> RoleRepository:
-    """Create a role repository for testing."""
-    return RoleRepository(session=db_session)
-
-
 @pytest.mark.integration
 class TestAdminUserAddCmdIntegration:
     """Integration tests for UserAddCmd using state-based testing."""
 
     def test_add_user_requires_authentication(
-        self, db_session: Session, user_repo: UserRepository, role_repo: RoleRepository
+        self, db_session: Session, user_repo: UserRepository
     ):
         """
         Test that admin:user:add requires authentication.
@@ -72,7 +66,7 @@ class TestAdminUserAddCmdIntegration:
             - Verify error message about authentication required
             - Verify no user was created in database
         """
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call("", "newuser", "new@example.com", "password123")
 
@@ -90,7 +84,6 @@ class TestAdminUserAddCmdIntegration:
         db_session: Session,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test that admin:user:add requires admin privileges.
@@ -105,7 +98,7 @@ class TestAdminUserAddCmdIntegration:
             - Verify error message about admin privileges required
             - Verify no new user was created
         """
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call(
             sample_user.username, "newuser", "new@example.com", "password123"
@@ -123,10 +116,8 @@ class TestAdminUserAddCmdIntegration:
     def test_add_user_requires_all_arguments(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test that admin:user:add requires username, email, and password.
@@ -141,10 +132,10 @@ class TestAdminUserAddCmdIntegration:
             - Verify usage error message
             - Verify no new user was created
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username)
 
@@ -160,10 +151,8 @@ class TestAdminUserAddCmdIntegration:
     def test_add_user_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test successful user creation.
@@ -180,10 +169,10 @@ class TestAdminUserAddCmdIntegration:
             - Verify password was set correctly
             - Verify success message
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call(
             sample_user.username, "newuser", "new@example.com", "password123"
@@ -212,10 +201,8 @@ class TestAdminUserAddCmdIntegration:
     def test_add_user_with_admin_flag(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test user creation with admin flag.
@@ -230,13 +217,13 @@ class TestAdminUserAddCmdIntegration:
         ASSERT:
             - Verify user was created with admin role
             - Verify user.is_admin returns True
-            - Verify admin role is in user.roles
+            - Verify the new user holds the admin role
             - Verify success message mentions admin
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call(
             sample_user.username,
@@ -256,21 +243,17 @@ class TestAdminUserAddCmdIntegration:
         assert new_user.is_admin is True, "User should have admin privileges"
 
         # Verify admin role was assigned
-        assert len(new_user.roles) > 0, "User should have roles"
-        role_names = [role.name for role in new_user.roles]
-        assert "admin" in role_names, "User should have admin role"
+        assert new_user.role is Role.ADMIN, "User should have admin role"
 
         # Verify output
         result_text = " ".join(r["text"] for r in result)
-        assert "Admin: Yes" in result_text
+        assert "Role: admin" in result_text
 
     def test_add_user_username_exists(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test error when username already exists.
@@ -286,10 +269,10 @@ class TestAdminUserAddCmdIntegration:
             - Verify error message about duplicate username
             - Verify no new user was created
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call(
             sample_user.username,
@@ -310,10 +293,8 @@ class TestAdminUserAddCmdIntegration:
     def test_add_user_email_exists(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test error when email already exists.
@@ -329,10 +310,10 @@ class TestAdminUserAddCmdIntegration:
             - Verify error message about duplicate email
             - Verify no new user was created
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
-        cmd = UserAddCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserAddCmd(user_repo=user_repo)
 
         result = cmd.call(
             sample_user.username,
@@ -358,7 +339,6 @@ class TestAdminUserRemoveCmdIntegration:
     def test_remove_user_prevents_self_deletion(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -375,7 +355,7 @@ class TestAdminUserRemoveCmdIntegration:
             - Verify error message
             - Verify user still exists in database
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         cmd = UserRemoveCmd(user_repo=user_repo)
@@ -394,7 +374,6 @@ class TestAdminUserRemoveCmdIntegration:
     def test_remove_user_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -415,7 +394,7 @@ class TestAdminUserRemoveCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("adminpass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
@@ -440,7 +419,6 @@ class TestAdminUserRemoveCmdIntegration:
     def test_remove_user_not_found(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -456,7 +434,7 @@ class TestAdminUserRemoveCmdIntegration:
         ASSERT:
             - Verify error message about user not found
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         cmd = UserRemoveCmd(user_repo=user_repo)
@@ -475,7 +453,6 @@ class TestAdminUserListCmdIntegration:
     def test_list_users_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -494,7 +471,7 @@ class TestAdminUserListCmdIntegration:
             - Verify user details in output
             - Verify total count
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         sample_user.login_count = 5
         db_session.commit()
 
@@ -515,7 +492,7 @@ class TestAdminUserListCmdIntegration:
         assert "Total users: 2" in result_text
 
     def test_list_users_empty_database(
-        self, db_session: Session, admin_role: Role, user_repo: UserRepository
+        self, db_session: Session, user_repo: UserRepository
     ):
         """
         Test listing when no users exist.
@@ -533,7 +510,7 @@ class TestAdminUserListCmdIntegration:
         # (This is a bit of a hack since we need an admin to run the command)
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
@@ -545,7 +522,7 @@ class TestAdminUserListCmdIntegration:
         # So let's test with just the user
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
@@ -564,7 +541,6 @@ class TestAdminUserEnableCmdIntegration:
     def test_enable_disabled_user(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -584,7 +560,7 @@ class TestAdminUserEnableCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # Create disabled user
@@ -609,7 +585,6 @@ class TestAdminUserEnableCmdIntegration:
     def test_enable_already_enabled_user(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -627,7 +602,7 @@ class TestAdminUserEnableCmdIntegration:
             - Verify message about already enabled
             - Verify user.active is still True
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         sample_user.active = True
         db_session.commit()
 
@@ -654,7 +629,6 @@ class TestAdminUserDisableCmdIntegration:
     def test_disable_user_prevents_self_disable(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -671,7 +645,7 @@ class TestAdminUserDisableCmdIntegration:
             - Verify error message
             - Verify user.active is still True
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         cmd = UserDisableCmd(user_repo=user_repo)
@@ -689,7 +663,6 @@ class TestAdminUserDisableCmdIntegration:
     def test_disable_user_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -709,7 +682,7 @@ class TestAdminUserDisableCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # sample_user is the target
@@ -729,7 +702,6 @@ class TestAdminUserDisableCmdIntegration:
     def test_disable_already_disabled_user(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -749,7 +721,7 @@ class TestAdminUserDisableCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # Create disabled user
@@ -775,11 +747,8 @@ class TestAdminUserGrantAdminCmdIntegration:
     def test_grant_admin_privileges(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
-        user_role: Role,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test granting admin privileges to a user.
@@ -799,14 +768,14 @@ class TestAdminUserGrantAdminCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
         # sample_user is regular user
         assert sample_user.is_admin is False, "User should not be admin initially"
 
-        cmd = UserGrantAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserGrantAdminCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
@@ -814,17 +783,14 @@ class TestAdminUserGrantAdminCmdIntegration:
         db_session.refresh(sample_user)
 
         assert sample_user.is_admin is True, "User should now be admin"
-        role_names = [role.name for role in sample_user.roles]
-        assert "admin" in role_names, "User should have admin role"
-        assert "granted" in result[0]["text"]
+        assert sample_user.role is Role.ADMIN, "User should have admin role"
+        assert "is now admin" in result[0]["text"]
 
     def test_grant_admin_already_admin(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test granting admin to user who already has admin.
@@ -842,20 +808,20 @@ class TestAdminUserGrantAdminCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # Make sample_user an admin too
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         assert sample_user.is_admin is True
 
-        cmd = UserGrantAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserGrantAdminCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
-        assert "already has admin privileges" in result[0]["text"]
+        assert "is already admin" in result[0]["text"]
         db_session.refresh(sample_user)
         assert sample_user.is_admin is True
 
@@ -867,10 +833,8 @@ class TestAdminUserRevokeAdminCmdIntegration:
     def test_revoke_admin_prevents_self_revocation(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test that admin cannot revoke their own admin privileges.
@@ -885,16 +849,16 @@ class TestAdminUserRevokeAdminCmdIntegration:
             - Verify error message
             - Verify user still has admin role
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
-        cmd = UserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserRevokeAdminCmd(user_repo=user_repo)
 
         result = cmd.call(sample_user.username, sample_user.username)
 
         assert len(result) == 1
         assert result[0]["t"] == "error"
-        assert "Cannot revoke admin privileges from yourself" in result[0]["text"]
+        assert "Cannot change your own role" in result[0]["text"]
 
         # Verify user still has admin role
         db_session.refresh(sample_user)
@@ -903,10 +867,8 @@ class TestAdminUserRevokeAdminCmdIntegration:
     def test_revoke_admin_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test successful admin revocation.
@@ -924,34 +886,31 @@ class TestAdminUserRevokeAdminCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # Make sample_user an admin too
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         assert sample_user.is_admin is True
 
-        cmd = UserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserRevokeAdminCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
         db_session.expire_all()
         db_session.refresh(sample_user)
 
-        assert sample_user.is_admin is False, "User should no longer be admin"
-        role_names = [role.name for role in sample_user.roles]
-        assert "admin" not in role_names, "User should not have admin role"
-        assert "revoked" in result[0]["text"]
+        # Revoking admin leaves what a non-admin account could always do.
+        assert sample_user.role is Role.DEPLOYER
+        assert "is now deployer (was admin)" in result[0]["text"]
 
     def test_revoke_admin_not_admin(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
-        role_repo: RoleRepository,
     ):
         """
         Test revoking admin from user who doesn't have it.
@@ -969,18 +928,18 @@ class TestAdminUserRevokeAdminCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
         # sample_user is regular user
         assert sample_user.is_admin is False
 
-        cmd = UserRevokeAdminCmd(user_repo=user_repo, role_repo=role_repo)
+        cmd = UserRevokeAdminCmd(user_repo=user_repo)
 
         result = cmd.call(admin_user.username, sample_user.username)
 
-        assert "does not have admin privileges" in result[0]["text"]
+        assert "is not an admin" in result[0]["text"]
         db_session.refresh(sample_user)
         assert sample_user.is_admin is False
 
@@ -992,7 +951,6 @@ class TestAdminUserSetPasswordCmdIntegration:
     def test_set_password_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -1013,7 +971,7 @@ class TestAdminUserSetPasswordCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("adminpass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
@@ -1040,7 +998,6 @@ class TestAdminUserSetPasswordCmdIntegration:
     def test_set_password_user_not_found(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -1056,7 +1013,7 @@ class TestAdminUserSetPasswordCmdIntegration:
         ASSERT:
             - Verify error message about user not found
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         cmd = UserSetPasswordCmd(user_repo=user_repo)
@@ -1075,9 +1032,7 @@ class TestAdminUserInfoCmdIntegration:
     def test_user_info_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
-        user_role: Role,
         user_repo: UserRepository,
     ):
         """
@@ -1096,7 +1051,7 @@ class TestAdminUserInfoCmdIntegration:
         """
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # Set up sample_user with various attributes
@@ -1120,7 +1075,6 @@ class TestAdminUserInfoCmdIntegration:
     def test_user_info_not_found(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
     ):
@@ -1136,7 +1090,7 @@ class TestAdminUserInfoCmdIntegration:
         ASSERT:
             - Verify error message about user not found
         """
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         cmd = UserShowCmd(user_repo=user_repo)
@@ -1155,7 +1109,6 @@ class TestAdminUserGenerateTokenCmdIntegration:
     def test_generate_token_success(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
         monkeypatch,
@@ -1181,7 +1134,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
 
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
         db_session.commit()
 
@@ -1196,7 +1149,6 @@ class TestAdminUserGenerateTokenCmdIntegration:
     def test_generate_token_disabled_user(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
         monkeypatch,
@@ -1219,7 +1171,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
 
         admin_user = User(username="admin", email="admin@example.com")
         admin_user.set_password("pass")
-        admin_user.roles.append(admin_role)
+        admin_user.role = Role.ADMIN
         db_session.add(admin_user)
 
         # Disable sample_user
@@ -1237,7 +1189,6 @@ class TestAdminUserGenerateTokenCmdIntegration:
     def test_generate_token_user_not_found(
         self,
         db_session: Session,
-        admin_role: Role,
         sample_user: User,
         user_repo: UserRepository,
         monkeypatch,
@@ -1257,7 +1208,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         """
         monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
 
-        sample_user.roles.append(admin_role)
+        sample_user.role = Role.ADMIN
         db_session.commit()
 
         cmd = UserGenerateTokenCmd(user_repo=user_repo)
@@ -1267,3 +1218,68 @@ class TestAdminUserGenerateTokenCmdIntegration:
         assert len(result) == 1
         assert result[0]["t"] == "error"
         assert "not found" in result[0]["text"]
+
+
+@pytest.mark.integration
+class TestUserRolesIntegration:
+    """Standard roles (ADR 061): chosen at creation, changed with set-role."""
+
+    @pytest.fixture
+    def admin(self, db_session: Session, sample_user: User) -> User:
+        sample_user.role = Role.ADMIN
+        db_session.commit()
+        return sample_user
+
+    def _add(self, user_repo: UserRepository, admin: User, *args: str) -> list[dict]:
+        return UserAddCmd(user_repo=user_repo).call(
+            admin.username, "bob", "bob@example.com", "password123", *args
+        )
+
+    def test_a_new_account_is_a_member(self, user_repo, admin):
+        result = self._add(user_repo, admin)
+
+        assert user_repo.get_by_username("bob").role is Role.MEMBER
+        assert "Role: member" in " ".join(r["text"] for r in result)
+
+    def test_add_with_a_role(self, user_repo, admin):
+        self._add(user_repo, admin, "--role", "viewer")
+
+        assert user_repo.get_by_username("bob").role is Role.VIEWER
+
+    def test_add_with_an_unknown_role_creates_nothing(self, user_repo, admin):
+        result = self._add(user_repo, admin, "--role", "editor")
+
+        assert result[0]["t"] == "error"
+        assert "member, viewer, deployer, admin" in result[0]["text"]
+        assert user_repo.get_by_username("bob") is None
+
+    def test_set_role(self, db_session, user_repo, admin):
+        self._add(user_repo, admin)
+
+        result = UserSetRoleCmd(user_repo=user_repo).call(
+            admin.username, "bob", "deployer"
+        )
+
+        db_session.expire_all()
+        assert user_repo.get_by_username("bob").role is Role.DEPLOYER
+        assert "is now deployer (was member)" in result[0]["text"]
+
+    def test_an_admin_cannot_change_their_own_role(self, db_session, user_repo, admin):
+        """What keeps the server from ever losing its last admin (ADR 061 §2)."""
+        result = UserSetRoleCmd(user_repo=user_repo).call(
+            admin.username, admin.username, "member"
+        )
+
+        db_session.expire_all()
+        assert result[0]["t"] == "error"
+        assert "Cannot change your own role" in result[0]["text"]
+        assert user_repo.get_by_username(admin.username).role is Role.ADMIN
+
+    def test_set_role_refuses_an_unknown_role(self, user_repo, admin):
+        self._add(user_repo, admin)
+
+        result = UserSetRoleCmd(user_repo=user_repo).call(admin.username, "bob", "root")
+
+        assert result[0]["t"] == "error"
+        assert "Unknown role 'root'" in result[0]["text"]
+        assert user_repo.get_by_username("bob").role is Role.MEMBER

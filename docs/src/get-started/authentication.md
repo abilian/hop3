@@ -126,8 +126,8 @@ hop3 logout          # revoke this machine's token, then clear it
 ## Adding people
 
 ```bash
-hop3 user add alice alice@example.com --stdin   # password from stdin
-hop3 user grant-admin alice
+hop3 user add alice alice@example.com --stdin --role deployer   # password from stdin
+hop3 user set-role alice admin
 hop3 user list
 ```
 

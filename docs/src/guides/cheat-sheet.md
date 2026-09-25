@@ -235,6 +235,7 @@ hop3 user add <username> <email> --password-file ./pw.txt
 hop3 user set-password <username> --stdin   # pipe new password in
 hop3 user disable <username>
 hop3 user enable <username>
+hop3 user set-role <username> <role>   # member, viewer, deployer, admin
 hop3 user grant-admin <username>
 hop3 user remove <username> --confirm=<username>
 ```

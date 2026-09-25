@@ -21,11 +21,13 @@ from unittest.mock import PropertyMock, patch
 import pytest
 
 from hop3.config import HopConfig
-from hop3.orm import Role, User
+from hop3.core.roles import Role
+from hop3.orm import User
 from hop3.server.cli.admin import (
     AdminCreate,
     AdminList,
     AdminResetPassword,
+    AdminSshToken,
     AdminToken,
     AuthMagicLink,
 )
@@ -100,14 +102,7 @@ class TestAdminCreateIntegration:
             "Wrong password should not authenticate"
         )
 
-        # Verify roles were assigned
-        assert len(user.roles) == 1, "User should have exactly one role"
-        assert user.roles[0].name == "admin", "User should have admin role"
-
-        # Verify admin role exists in database
-        admin_role = db_session.query(Role).filter_by(name="admin").first()
-        assert admin_role is not None, "Admin role should exist"
-        assert admin_role.description == "Administrator role"
+        assert user.role is Role.ADMIN, "User should have the admin role"
 
         # Also verify output (secondary concern)
         output = captured_output.getvalue()
@@ -503,3 +498,50 @@ class TestAuthMagicLinkIntegration:
         out = captured.getvalue().strip()
         assert "://" not in out  # a bare token, not a URL
         assert out.count(".") == 2  # JWT
+
+
+@pytest.mark.integration
+class TestAdminSshTokenIntegration:
+    """
+    ``admin:ssh-token`` is the bootstrap behind ``hop3 login --ssh`` and every
+    test harness: it must hand out a token for a real ``admin`` account.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _secret_key(self, monkeypatch):
+        monkeypatch.setenv(
+            "HOP3_SECRET_KEY", "test-secret-key-for-unit-testing-for-token-generation"
+        )
+
+    def _run(self) -> str:
+        captured = io.StringIO()
+        with patch("sys.stdout", captured):
+            AdminSshToken().run()
+        return captured.getvalue().strip()
+
+    def test_a_server_with_no_admin_gets_one(self, db_session: Session):
+        member = User(username="bob", email="bob@example.com", password_hash="")
+        member.set_password("secret123")
+        db_session.add(member)
+        db_session.commit()
+
+        token = self._run()
+
+        db_session.expire_all()
+        admin = db_session.query(User).filter_by(username="admin").one()
+        assert admin.role is Role.ADMIN
+        assert admin.active
+        assert token.count(".") == 2
+
+    def test_an_existing_admin_is_reused(self, db_session: Session):
+        alice = User(
+            username="alice", email="a@example.com", password_hash="", role=Role.ADMIN
+        )
+        alice.set_password("secret123")
+        db_session.add(alice)
+        db_session.commit()
+
+        self._run()
+
+        db_session.expire_all()
+        assert db_session.query(User).count() == 1

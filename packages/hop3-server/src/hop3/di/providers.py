@@ -21,7 +21,6 @@ from hop3.orm.repositories import (
     BackupRepository,
     EnvVarRepository,
     RevokedTokenRepository,
-    RoleRepository,
     UserRepository,
 )
 from hop3.orm.session import get_session_factory
@@ -135,11 +134,6 @@ class RepositoryProvider(Provider):
     def user_repo(self, db_session: Session) -> UserRepository:
         """Provide UserRepository instance."""
         return UserRepository(session=db_session)
-
-    @provide
-    def role_repo(self, db_session: Session) -> RoleRepository:
-        """Provide RoleRepository instance."""
-        return RoleRepository(session=db_session)
 
     @provide
     def app_repo(self, db_session: Session) -> AppRepository:

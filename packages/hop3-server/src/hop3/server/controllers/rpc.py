@@ -42,7 +42,6 @@ from hop3.orm.repositories import (
     EnvVarRepository,
     PortClaimRepository,
     RevokedTokenRepository,
-    RoleRepository,
     UserRepository,
 )
 from hop3.server.security.proxy_headers import client_ip
@@ -65,7 +64,6 @@ RPC_ERROR_INTERNAL = -32603
 # Mapping of repository types to their classes for dependency injection
 REPOSITORY_TYPES: dict[str, type] = {
     "user_repo": UserRepository,
-    "role_repo": RoleRepository,
     "app_repo": AppRepository,
     "addon_credential_repo": AddonCredentialRepository,
     "backup_repo": BackupRepository,

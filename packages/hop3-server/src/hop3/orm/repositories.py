@@ -41,7 +41,7 @@ from .env import EnvVar
 from .network import Network
 from .port_claim import PortClaim
 from .revoked_token import RevokedToken
-from .security import Role, User
+from .security import User
 
 if TYPE_CHECKING:
     from datetime import datetime
@@ -52,7 +52,7 @@ class BaseRepository(SQLAlchemySyncRepository[ModelT]):
 
 
 # =============================================================================
-# User and Role Repositories
+# User Repository
 # =============================================================================
 
 
@@ -127,33 +127,6 @@ class UserRepository(BaseRepository[User]):
             True if email exists, False otherwise
         """
         return self.exists(email=email)
-
-
-class RoleRepository(BaseRepository[Role]):
-    """Repository for managing Role entities."""
-
-    model_type = Role
-
-    def get_by_name(self, name: str) -> Role | None:
-        """
-        Get role by name.
-
-        Args:
-            name: The role name to search for
-
-        Returns:
-            Role if found, None otherwise
-        """
-        return self.get_one_or_none(name=name)
-
-    def get_admin_role(self) -> Role | None:
-        """
-        Get the admin role.
-
-        Returns:
-            The admin Role if it exists, None otherwise
-        """
-        return self.get_one_or_none(name="admin")
 
 
 # =============================================================================

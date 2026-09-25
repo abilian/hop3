@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING
 import pytest
 from sqlalchemy import create_engine
 
-from hop3.orm import Role, User, get_session_factory, reset_session_factory_cache
+from hop3.orm import User, get_session_factory, reset_session_factory_cache
 from hop3.orm.session import BigIntAuditBase
 
 if TYPE_CHECKING:
@@ -78,56 +78,18 @@ def db_session(db_engine: Engine) -> Iterator[Session]:
 
 
 @pytest.fixture
-def admin_role(db_session: Session) -> Role:
-    """
-    Create admin role for tests.
-
-    Args:
-        db_session: Database session
-
-    Returns:
-        Role instance with name 'admin'
-    """
-    role = Role(name="admin", description="Administrator role")
-    db_session.add(role)
-    db_session.flush()
-    db_session.refresh(role)
-    return role
-
-
-@pytest.fixture
-def user_role(db_session: Session) -> Role:
-    """
-    Create user role for tests.
-
-    Args:
-        db_session: Database session
-
-    Returns:
-        Role instance with name 'user'
-    """
-    role = Role(name="user", description="Regular user role")
-    db_session.add(role)
-    db_session.flush()
-    db_session.refresh(role)
-    return role
-
-
-@pytest.fixture
-def sample_user(db_session: Session, user_role: Role) -> User:
+def sample_user(db_session: Session) -> User:
     """
     Create sample user for tests.
 
     Args:
         db_session: Database session
-        user_role: User role to assign
 
     Returns:
-        User instance with username 'testuser'
+        User instance with username 'testuser', role ``member`` (the default)
     """
     user = User(username="testuser", email="test@example.com")
     user.set_password("testpass123")
-    user.roles.append(user_role)
     db_session.add(user)
     db_session.flush()
     db_session.refresh(user)

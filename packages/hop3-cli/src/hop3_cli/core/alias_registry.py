@@ -338,6 +338,7 @@ def cached_subcommand_index() -> dict[str, set[str]]:
             "grant-admin",
             "revoke-admin",
             "set-password",
+            "set-role",
             "generate-token",
         },
         "system": {
