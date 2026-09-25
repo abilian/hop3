@@ -12,6 +12,12 @@ the gate cookie the redemption sets. The cookie names the app it was minted
 for and the admin session behind it, so it is refused by every other app and
 dies with that session.
 
+The code is also bound to the browser that started the sign-in. When the gate
+sends a browser to sign in, it sets a random state in a host-only cookie on the
+app's host and passes the same value through the sign-in; the code redeems only
+where that cookie comes back. Without it, a page could make a victim's browser
+redeem a code minted for the attacker's account (login CSRF).
+
 Which paths are public:
 
 A public path is reachable without signing in, so the path the gate matches
@@ -45,7 +51,10 @@ if TYPE_CHECKING:
 
 #: Host-only, Secure and Path=/, by the browser's `__Host-` rules.
 GATE_COOKIE = "__Host-hop3_gate"
+STATE_COOKIE = "__Host-hop3_state"
 CODE_LIFETIME_SECONDS = 60
+#: Long enough to sign in with a password, or to fetch a magic link.
+STATE_LIFETIME_SECONDS = 600
 
 # After one decode, any of these means the app and the gate could read the
 # path differently: a second encoding layer, an encoded or doubled separator,
@@ -89,6 +98,8 @@ class Grant:
     session_id: str
     #: The admin session's expiry (epoch seconds); the gate cookie shares it.
     expires_at: int
+    #: The state the browser that started the sign-in holds in STATE_COOKIE.
+    state: str
 
 
 @dataclass(frozen=True, slots=True)
@@ -117,12 +128,14 @@ class _CodeStore:
             self._pending[code] = _Pending(grant, now + CODE_LIFETIME_SECONDS)
         return code
 
-    def redeem(self, code: str, app_name: str) -> Grant | None:
+    def redeem(self, code: str, app_name: str, state: str) -> Grant | None:
         with self._lock:
             pending = self._pending.pop(code, None)
         if pending is None or pending.deadline <= time.monotonic():
             return None
         if pending.grant.app_name != app_name:
+            return None
+        if not state or not secrets.compare_digest(pending.grant.state, state):
             return None
         return pending.grant
 
@@ -135,9 +148,17 @@ def mint_code(grant: Grant) -> str:
     return _codes.mint(grant)
 
 
-def redeem_code(code: str, app_name: str) -> Grant | None:
-    """The grant behind ``code`` if it is live and was minted for ``app_name``."""
-    return _codes.redeem(code, app_name)
+def redeem_code(code: str, app_name: str, state: str) -> Grant | None:
+    """
+    The grant behind ``code``, if it is live, was minted for ``app_name``, and
+    the browser redeeming it holds the ``state`` its sign-in started with.
+    """
+    return _codes.redeem(code, app_name, state)
+
+
+def new_state() -> str:
+    """A state for one sign-in, held by the browser that starts it."""
+    return secrets.token_urlsafe(24)
 
 
 def _audience(app_name: str) -> str:
@@ -268,10 +289,10 @@ def split_gate_cookie(cookie_header: str) -> tuple[str, str]:
     return gate, "; ".join(others)
 
 
-def sign_in_url(host: str, request_uri: str) -> str:
+def sign_in_url(host: str, request_uri: str, state: str) -> str:
     """The admin-domain sign-in that comes back to ``request_uri`` on ``host``."""
     next_url = quote(f"https://{host}{request_uri}", safe="")
-    return f"https://{config.ADMIN_DOMAIN}/auth/login?next={next_url}"
+    return f"https://{config.ADMIN_DOMAIN}/auth/login?next={next_url}&state={state}"
 
 
 def same_host_path(next_path: str) -> str:
@@ -285,15 +306,22 @@ def same_host_path(next_path: str) -> str:
 
 
 def continue_to(
-    next_url: str, username: str, session_id: str | None, expires_at: int
+    next_url: str,
+    username: str,
+    session_id: str | None,
+    expires_at: int,
+    state: str = "",
 ) -> str | None:
     """
     Where a sign-in continues when the login page was given ``next_url``.
 
     A path on the admin domain is followed as is. A gated app's URL becomes
-    that app's callback, carrying a one-time code for this session: that is
-    how the sign-in crosses to a host the admin cookie never reaches. Anything
-    else, a foreign host above all, is dropped (None: the landing page).
+    that app's callback, carrying a one-time code for this session and the
+    browser's ``state``: that is how the sign-in crosses to a host the admin
+    cookie never reaches. Without a state, the sign-in did not start at the
+    gate, so the browser goes to the app, whose gate starts one that did.
+    Anything else, a foreign host above all, is dropped (None: the landing
+    page).
     """
     target = urlsplit(next_url)
     if not target.netloc:
@@ -306,6 +334,8 @@ def continue_to(
     app_name = gated_app_for_host(target.hostname)
     if app_name is None or not session_id:
         return None
-    code = mint_code(Grant(app_name, username, session_id, expires_at))
     host = target.hostname + (f":{target.port}" if target.port else "")
+    if not state:
+        return f"https://{host}{path}"
+    code = mint_code(Grant(app_name, username, session_id, expires_at, state))
     return f"https://{host}/_hop3/auth/callback?code={code}&next={quote(path, safe='')}"

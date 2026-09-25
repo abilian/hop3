@@ -206,6 +206,7 @@ NGINX_GATE_FRAGMENT = """
   auth_request_set $hop3_role $upstream_http_x_hop3_role;
   auth_request_set $hop3_cookie $upstream_http_cookie;
   auth_request_set $hop3_login $upstream_http_x_hop3_login;
+  auth_request_set $hop3_state $upstream_http_x_hop3_state;
   error_page 401 = @hop3_sign_in;
   # auth_request discards the check's answer; fetch its 403 page again, which
   # names the role the account lacks. Only nginx's own 403s come here: an
@@ -234,6 +235,8 @@ NGINX_GATE_FRAGMENT = """
 
   location @hop3_sign_in {
     auth_request off;
+    # The state cookie binding this sign-in to this browser (login CSRF).
+    add_header Set-Cookie $hop3_state always;
     return 302 $hop3_login;
   }
 

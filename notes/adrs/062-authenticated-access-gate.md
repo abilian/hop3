@@ -51,10 +51,12 @@ The role is read from the database on every check, as ADR 061 §3 requires for t
 
 The gate cannot use the admin cookie (§Context), so each gated app gets its own session through a redirect handshake:
 
-1. An anonymous request to `https://app.example.org/page` gets a 302 to `https://<admin-domain>/auth/login?next=https://app.example.org/page`.
+1. An anonymous request to `https://app.example.org/page` gets a 302 to `https://<admin-domain>/auth/login?next=https://app.example.org/page&state=…`, and a **state cookie** on the app's host carrying the same random `state`.
 2. The user signs in to Hop3 as usual (password or magic link). If they already hold an admin-domain session, this step is invisible.
-3. hop3-server mints a **one-time code**, bound to the app and the user, valid for a minute, and redirects to `https://app.example.org/_hop3/auth/callback?code=…&next=/page`.
-4. The proxy routes `/_hop3/auth/*` on every gated vhost to hop3-server, never to the app. The callback redeems the code and sets the **gate cookie** on the app's host, then redirects to `next`.
+3. hop3-server mints a **one-time code**, bound to the app, the user and the `state`, valid for a minute, and redirects to `https://app.example.org/_hop3/auth/callback?code=…&next=/page`.
+4. The proxy routes `/_hop3/auth/*` on every gated vhost to hop3-server, never to the app. The callback redeems the code against the state cookie the browser sends, sets the **gate cookie** on the app's host, clears the state cookie, and redirects to `next`.
+
+**The state binds the code to the browser that started the sign-in.** Without it, a code is bound to an app and an account only, and a page that makes a victim's browser fetch the callback with the attacker's code signs the victim in to the app as the attacker (login CSRF). The state cookie is `__Host-hop3_state`, lives ten minutes, and is set on the app's host, which the attacker's page cannot write to. nginx sets it from the check's 401, whose headers `auth_request` would otherwise discard; Caddy and Traefik from the check's 302. A sign-in reaching the admin domain without a state is sent back to the app, which starts a bound one.
 
 The gate cookie is `__Host-hop3_gate`: host-only, `Secure`, `HttpOnly`, `SameSite=Lax`, `Path=/`. It is a signed token whose audience is the app, so a cookie minted for one app is rejected by every other. It carries the identifier of the admin-domain session that minted it. Once that session is revoked, the check rejects the cookie. Signing out of Hop3 therefore signs the user out of every app.
 
@@ -103,7 +105,8 @@ Each proxy gets one e2e test. It deploys a login-less app with `[access] require
 8. after signing out of Hop3, the app's gate cookie no longer passes;
 9. a `next` pointing at a foreign host is not followed;
 10. with hop3-server stopped, the app is not served;
-11. a `member` who passes the gate is refused by every mutating RPC command.
+11. a `member` who passes the gate is refused by every mutating RPC command;
+12. a sign-in link is refused in a browser other than the one that started it.
 
 ## Consequences
 
@@ -133,4 +136,3 @@ Each proxy gets one e2e test. It deploys a login-less app with `[access] require
 1. **Bearer tokens.** Scripts calling a gated API cannot follow a browser redirect. Accepting `Authorization: Bearer` at the gate collides with apps that use that header for their own tokens. A dedicated header, or a per-app gate token, are the candidates.
 2. **Caching the check.** A short-lived cache in the proxy, keyed on the gate cookie, would remove most round trips at the cost of delaying a revocation by the cache lifetime. Measure first.
 3. **External identity providers.** Signing in through OIDC upstream of Hop3's own accounts is a separate decision.
-4. **Login CSRF.** A one-time code is bound to an app and an account, not to the browser that started the sign-in. A page that makes a victim's browser fetch the callback with the attacker's code signs the victim in to the app as the attacker. Binding the code to a short-lived cookie set on the app's host when the sign-in starts would close this; nginx sets that cookie from the check's 401, Caddy and Traefik from its 302.

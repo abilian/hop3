@@ -50,9 +50,11 @@ INSECURE_TRANSPORT_ERROR = (
 )
 
 
-def login_page_url(error: str, username: str = "", next_url: str = "") -> str:
+def login_page_url(
+    error: str, username: str = "", next_url: str = "", state: str = ""
+) -> str:
     """The login page again, with an error, keeping what the user had typed."""
-    params = {"error": error, "username": username, "next": next_url}
+    params = {"error": error, "username": username, "next": next_url, "state": state}
     return "/auth/login?" + urlencode({k: v for k, v in params.items() if v})
 
 
@@ -75,7 +77,9 @@ class AuthController(Controller):
 
     path = "/auth"
 
-    def _signed_in(self, username: str, role: Role, next_url: str) -> Redirect:
+    def _signed_in(
+        self, username: str, role: Role, next_url: str, state: str
+    ) -> Redirect:
         """
         End a sign-in: set the session cookie, then go where ``next`` leads.
 
@@ -85,18 +89,21 @@ class AuthController(Controller):
         """
         token = issue_web_token(username)
         return Redirect(
-            path=self._destination(validate_token(token), role, next_url),
+            path=self._destination(validate_token(token), role, next_url, state),
             cookies=[auth_cookie(token)],
         )
 
     @staticmethod
-    def _destination(session: dict | None, role: Role, next_url: str) -> str:
+    def _destination(
+        session: dict | None, role: Role, next_url: str, state: str
+    ) -> str:
         if session and next_url:
             onward = continue_to(
                 next_url,
                 session["username"],
                 session["token_id"],
                 int(session["expires_at"]),
+                state,
             )
             if onward:
                 return onward
@@ -139,11 +146,12 @@ class AuthController(Controller):
         # works: a cookie naming a deleted or disabled account would otherwise
         # bounce between here and a guard that refuses it, forever.
         next_url = request.query_params.get("next", "")
+        state = request.query_params.get("state", "")
         if identity := current_identity(request):
             account = lookup_account(str(identity.get("username", "")))
             if account and account.active:
                 return Redirect(
-                    path=self._destination(identity, account.role, next_url)
+                    path=self._destination(identity, account.role, next_url, state)
                 )
 
         ctx = {
@@ -157,6 +165,7 @@ class AuthController(Controller):
             # and this string is a command we are telling someone to run.
             "admin_domain": config.ADMIN_DOMAIN,
             "next": next_url,
+            "state": state,
         }
         return Template(template_name="auth/login.html", context=ctx)
 
@@ -185,11 +194,15 @@ class AuthController(Controller):
         username = form_data.get("username", "")
         password = form_data.get("password", "")
         next_url = form_data.get("next", "")
+        state = form_data.get("state", "")
 
         if not username or not password:
             return Redirect(
                 path=login_page_url(
-                    "Please enter both username and password", username, next_url
+                    "Please enter both username and password",
+                    username,
+                    next_url,
+                    state,
                 )
             )
 
@@ -207,7 +220,9 @@ class AuthController(Controller):
             # equivalent bcrypt round on the paths that skip the real one.
             # `hop3 auth login` (commands/auth.py) does the same; keep in step.
             invalid = Redirect(
-                path=login_page_url("Invalid username or password", username, next_url)
+                path=login_page_url(
+                    "Invalid username or password", username, next_url, state
+                )
             )
             if not user:
                 burn_password_check(password)
@@ -227,7 +242,7 @@ class AuthController(Controller):
             role = user.role
 
         # Issue the signed auth cookie (stateless — survives restarts).
-        return self._signed_in(username, role, next_url)
+        return self._signed_in(username, role, next_url, state)
 
     @post("/logout")
     async def logout(self, request: Request) -> Redirect:
@@ -332,6 +347,7 @@ class AuthController(Controller):
         if refusal := self._refuse_login(request):
             return refusal
         next_url = request.query_params.get("next", "")
+        state = request.query_params.get("state", "")
 
         # Validate the magic token (also marks it as used)
         token_info = validate_magic_token(token)
@@ -369,4 +385,4 @@ class AuthController(Controller):
             role = user.role
 
         # Issue the signed auth cookie (stateless — survives restarts).
-        return self._signed_in(username, role, next_url)
+        return self._signed_in(username, role, next_url, state)
