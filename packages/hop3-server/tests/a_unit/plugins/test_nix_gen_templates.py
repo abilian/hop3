@@ -834,6 +834,27 @@ class TestNodePnpmInstallTemplate:
         defaults.update(kwargs)
         return spec_for(NodePnpmInstallPayload, **defaults)
 
+    def test_a_failed_install_says_why(self):
+        """
+        `--reporter=silent` hid pnpm's error: the build log said only "builder
+        failed with exit code 243". Every pnpm call keeps its errors.
+        """
+        output = generate(self._base_spec())
+        assert "--reporter=silent" not in output
+        assert "--reporter=append-only" in output
+
+    def test_the_install_reads_a_writable_copy_of_the_store(self):
+        """
+        pnpm 10 writes into its store even offline; the fetched store is a
+        read-only store path (EACCES, exit code 243). nixpkgs' pnpmConfigHook
+        copies it first, and so does this.
+        """
+        output = generate(self._base_spec())
+        assert "cp -Tr ${pnpmStore} $PNPM_STORE" in output
+        assert "chmod -R +w $PNPM_STORE" in output
+        assert "--store-dir $PNPM_STORE" in output
+        assert "--store-dir ${pnpmStore}" not in output
+
     def test_requires_a_committed_lockfile(self):
         """A build-time-synthesized manifest cannot be locked."""
         with pytest.raises(ValueError, match="committed manifest and lockfile"):
@@ -890,10 +911,10 @@ class TestNodePnpmInstallTemplate:
             generate(spec)
 
     def test_uses_pnpm_inside_the_sandbox(self):
-        """pnpm_9 must be on nativeBuildInputs, and the install stays offline."""
+        """The default pnpm is on nativeBuildInputs, and the install stays offline."""
         spec = self._base_spec()
         output = generate(spec)
-        assert "pkgs.pnpm_9" in output
+        assert "pkgs.pnpm_10" in output
         assert "pnpm install" in output
         assert "--prod" in output
         # `--package-import-method=copy` is the EPERM workaround.
@@ -953,13 +974,22 @@ class TestNodePnpmInstallTemplate:
         assert "pkgs.python3 pkgs.gnumake pkgs.gcc" in output
         # node headers + offline rebuild of exactly the declared package
         assert "npm_config_nodedir=${nodejs}" in output
-        assert "pnpm rebuild --store-dir ${pnpmStore} isolated-vm" in output
+        assert "--store-dir $PNPM_STORE isolated-vm" in output
         # still fetched from the pinned store, never the network
         assert "--offline" in output
 
+    def test_the_native_rebuild_is_approved_to_run(self):
+        """
+        pnpm 10 skips an unapproved package's build without a word, and the
+        app then fails at start (directus: `Cannot find module
+        './out/isolated_vm'`). The rebuild that names the package approves it.
+        """
+        output = generate(self._base_spec(native_packages=["isolated-vm"]))
+        assert "pnpm rebuild --config.dangerouslyAllowAllBuilds=true" in output
+
     def test_multiple_native_packages_rebuilt_together(self):
         output = generate(self._base_spec(native_packages=["isolated-vm", "sharp"]))
-        assert "pnpm rebuild --store-dir ${pnpmStore} isolated-vm sharp" in output
+        assert "--store-dir $PNPM_STORE isolated-vm sharp" in output
 
     def test_default_node_version_is_22(self):
         """
@@ -1365,10 +1395,44 @@ def test_go_source_pnpm_frontend():
             pnpm_deps_hash="sha256-BBBB",
         )
     )
-    assert "pnpm_9.fetchDeps" in out
+    assert "pnpm_10.fetchDeps" in out
     assert "configHook" in out
     assert 'hash = "sha256-BBBB"' in out
     assert "buildNpmPackage" not in out
+
+
+def test_a_frontend_subdirectory_is_found_under_any_unpack_directory():
+    """
+    Named in the repository, found under whatever the fetcher unpacks to:
+    `vikunja-0.24.6/` from a release tarball, `source/` from fetchFromGitHub.
+    The key used to name the unpack directory, and moving vikunja to
+    fetchFromGitHub broke its build on a path that no longer existed.
+    """
+    out = generate(
+        _go_spec(
+            frontend_build="pnpm run build",
+            frontend_pnpm=True,
+            pnpm_deps_hash="sha256-BBBB",
+            frontend_source_root="frontend",
+        )
+    )
+    assert 'setSourceRoot = "sourceRoot=$(echo */frontend)";' in out
+    # The dependency fetch reads the same lockfile, so it gets the same root.
+    assert "inherit (finalAttrs) pname version src setSourceRoot;" in out
+    assert "sourceRoot = " not in out
+
+
+@pytest.mark.parametrize("root", ["vikunja-${version}/frontend", "../x", "/abs", "a b"])
+def test_a_frontend_subdirectory_must_be_a_plain_repository_path(root):
+    with pytest.raises(ValueError, match="must be a directory in the repository"):
+        generate(
+            _go_spec(
+                frontend_build="pnpm run build",
+                frontend_pnpm=True,
+                pnpm_deps_hash="sha256-BBBB",
+                frontend_source_root=root,
+            )
+        )
 
 
 def test_go_source_pnpm_requires_pnpm_hash():
@@ -1458,7 +1522,7 @@ def test_committed_lockfiles_match_their_pinned_pnpm(catalog_apps):
         pin_match = re.search(
             r'^\s*node-pnpm-package\s*=\s*"([^"]+)"', text, re.MULTILINE
         )
-        pin = pin_match.group(1) if pin_match else "pnpm_9"
+        pin = pin_match.group(1) if pin_match else NodePnpmInstallPayload.pnpm_package
         want = lockfile_version_for(pin)
         got = parse_lockfile_version(lock.read_text())
         if want != got:
@@ -1668,13 +1732,31 @@ class TestRubyBundler:
         """There the recipe dir is the app, so the pair is already the same."""
         assert "cp ${./Gemfile}" not in generate(self._spec())
 
+    def test_a_rust_extension_gem_gets_its_crates_vendored(self):
+        """
+        commonmarker 2 runs `cargo build` as it compiles, with no network in
+        the sandbox: its crates are fetched ahead, pinned by the hash.
+        """
+        digest = "sha256-rUNsf7DUVueD9revOR6Mab36XnVEmjL4bVv6TIMMqjM="
+        output = generate(self._spec(gem_cargo_hashes={"commonmarker": digest}))
+        assert "gemConfig = pkgs.defaultGemConfig // {" in output
+        assert "commonmarker = attrs: {" in output
+        assert "cargoDeps = pkgs.rustPlatform.fetchCargoVendor {" in output
+        assert f'hash = "{digest}";' in output
+        assert "pkgs.rustPlatform.cargoSetupHook" in output
+
+    def test_no_gem_config_without_rust_extension_gems(self):
+        """The default gem config applies untouched, as bundlerEnv's default."""
+        assert "gemConfig" not in generate(self._spec())
+
     def test_the_real_redmine_recipe_generates(self, catalog_recipe):
         config = tomllib.loads(
             (catalog_recipe("redmine-nixgen") / "hop3.toml").read_text()
         )
         spec = app_spec_from_config(config["nix"], config["metadata"], "redmine")
         output = generate(spec)
-        assert "pkgs.ruby_3_2" in output  # redmine 5.1 needs < 3.3
+        assert "pkgs.ruby_3_3" in output  # the template default, in 6.1's range
+        assert "commonmarker = attrs: {" in output  # its Rust extension
         assert 'cd "$HOME_DIR"' in output  # writable home
         assert "config/database.yml" in output  # generated from PG*
         assert "rake db:migrate" in output

@@ -86,6 +86,53 @@ class Source:
 
 
 @dataclass(frozen=True)
+class GitHubSource:
+    """
+    A GitHub repository at a revision, fetched with ``pkgs.fetchFromGitHub``.
+
+    GitHub generates its ``/archive/`` tarballs on request, so their bytes are
+    not a fixed thing to pin: within two weeks a five-year-old tag's tarball was
+    regenerated under a new hash, one download truncated, and one answered 504
+    six times. ``fetchFromGitHub`` hashes the unpacked tree, which a regenerated
+    archive cannot change. The result is a directory with the archive's top
+    level already stripped, so it unpacks by copying.
+    """
+
+    owner: str
+    repo: str
+    rev: str
+    hash: str
+    executable: bool = False
+    archive: str = "directory"
+
+    @property
+    def url(self) -> str:
+        """The archive this is fetched from, for messages and presence checks."""
+        return f"https://github.com/{self.owner}/{self.repo}/archive/{self.rev}.tar.gz"
+
+    def as_nix(self, binding_name: str) -> str:
+        """Emit the Nix ``let`` binding for this source."""
+        return f"""  {binding_name} = pkgs.fetchFromGitHub {{
+    owner = "{self.owner}";
+    repo = "{self.repo}";
+    rev = "{self.rev}";
+    hash = "{self.hash}";
+  }};"""
+
+    @property
+    def needs_unzip(self) -> bool:
+        return False
+
+    @property
+    def is_archive(self) -> bool:
+        return True
+
+    def unpack_command(self, _strip_components: int = 1) -> str:
+        """Copy the fetched tree into the build directory, writable (already stripped)."""
+        return "cp -r $src/. . && chmod -R u+w ."
+
+
+@dataclass(frozen=True)
 class FileMapping:
     """
     Copy instruction from the unpacked source to the output.
@@ -191,14 +238,19 @@ class JavaWarPayload(TemplatePayload):
 @dataclass(frozen=True)
 class RubyBundlerPayload(TemplatePayload):
     """
-    ruby-bundler needs nothing beyond the shared core.
-
     The gem set comes from the committed ``Gemfile`` / ``Gemfile.lock`` /
     ``gemset.nix`` triple next to the recipe, which the template references by
     relative path rather than through a spec field.
     """
 
     template_name: ClassVar[str] = "ruby-bundler"
+
+    # Gems with a Rust extension (commonmarker 2, for Redmine 6), each mapped
+    # to the hash of its vendored crates. Such a gem runs `cargo build` when it
+    # compiles, and the sandbox has no network, so its crates are fetched
+    # ahead by `rustPlatform.fetchCargoVendor`, which is what the hash pins. It
+    # is the value a failed build prints as `got:`.
+    gem_cargo_hashes: dict[str, str] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -292,14 +344,19 @@ class NodePnpmInstallPayload(TemplatePayload):
     deps_hash: str | None = None
     # Which nixpkgs pnpm to build with. The committed lockfile's format must be
     # one this major can read (see PNPM_LOCKFILE_VERSIONS in the template).
-    pnpm_package: str = "pnpm_9"
+    # The default follows the default pin: nixos-26.05 marks pnpm_9 insecure and
+    # refuses to evaluate it. pnpm 10 reads most lockfiles pnpm 9 wrote, but not
+    # one with `patchedDependencies`, whose hashes it computes differently
+    # (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH); a recipe with such a lockfile, on its
+    # own older pin, names pnpm_9.
+    pnpm_package: str = "pnpm_10"
     # nixpkgs' own reproducibility knob for `pnpm.fetchDeps`. Left unset, the
     # fetcher normalises JSON key order and timestamps and nothing else, so the
     # file permissions pnpm happened to create survive into the output: the same
     # lockfile then yields different bytes on different machines, and the pinned
     # hash matches only where it was recorded. Version 2 normalises permissions,
-    # 3 packs a reproducible tarball. The 24.11 default pin's fetcher does not
-    # accept the argument, so a recipe setting this pins `nixpkgs-rev` too.
+    # 3 packs a reproducible tarball. A pin that predates the argument rejects
+    # it; a recipe on such a pin moves to a newer `nixpkgs-rev` too.
     pnpm_fetcher_version: int | None = None
     # npm packages with node-gyp native addons to compile from source, offline,
     # in the sandbox (e.g. ["isolated-vm"]). The default `--ignore-scripts`
@@ -438,19 +495,27 @@ class GoSourcePayload(TemplatePayload):
     frontend_build: str | None = None
     npm_deps_hash: str | None = None
     frontend_output: str = "public"
+    # The frontend's directory within the repository (e.g. "frontend"), not
+    # within the unpacked archive: the template finds it under whichever
+    # directory the fetcher unpacks to.
     frontend_source_root: str | None = None
     # Frontend built with pnpm (vikunja) instead of npm (gitea): uses
     # pnpm.fetchDeps + the pnpm configHook rather than buildNpmPackage.
     frontend_pnpm: bool = False
     pnpm_deps_hash: str | None = None
-    pnpm_package: str = "pnpm_9"
+    # The default follows the default pin: nixos-26.05 marks pnpm_9 insecure and
+    # refuses to evaluate it. pnpm 10 reads most lockfiles pnpm 9 wrote, but not
+    # one with `patchedDependencies`, whose hashes it computes differently
+    # (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH); a recipe with such a lockfile, on its
+    # own older pin, names pnpm_9.
+    pnpm_package: str = "pnpm_10"
     # nixpkgs' own reproducibility knob for `pnpm.fetchDeps`. Left unset, the
     # fetcher normalises JSON key order and timestamps and nothing else, so the
     # file permissions pnpm happened to create survive into the output: the same
     # lockfile then yields different bytes on different machines, and the pinned
     # hash matches only where it was recorded. Version 2 normalises permissions,
-    # 3 packs a reproducible tarball. The 24.11 default pin's fetcher does not
-    # accept the argument, so a recipe setting this pins `nixpkgs-rev` too.
+    # 3 packs a reproducible tarball. A pin that predates the argument rejects
+    # it; a recipe on such a pin moves to a newer `nixpkgs-rev` too.
     pnpm_fetcher_version: int | None = None
     frontend_node_package: str = "nodejs"
     # Embed the built frontend into the source at this path before the Go build
@@ -474,7 +539,7 @@ class AppSpec:
     pname: str
     version: str
     description: str
-    source: Source
+    source: Source | GitHubSource
     payload: TemplatePayload
 
     # --- source extraction (any template fetching an archive) ---
@@ -490,7 +555,7 @@ class AppSpec:
     # --- per-app nixpkgs pin ---
     # Absent → the generator's default pin (see templates/base.py NIXPKGS_REV).
     # Set BOTH together when an app needs a package the default pin predates
-    # (e.g. etherpad-lite, in nixos-25.05 while the default is nixos-24.11).
+    # (e.g. a package newer than the default pin's release).
     # Only some templates honour it; toml_adapter rejects it on the others
     # rather than silently ignoring it.
     nixpkgs_rev: str | None = None

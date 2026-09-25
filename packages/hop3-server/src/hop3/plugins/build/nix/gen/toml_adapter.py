@@ -22,13 +22,14 @@ built with a default the author never intended.
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 from hop3.plugins.build.nix.gen.spec import (
     AppSpec,
     ConditionalEnvVar,
     ConfigFile,
     FileMapping,
+    GitHubSource,
     GoSourcePayload,
     JavaGradlePayload,
     JavaWarPayload,
@@ -44,7 +45,19 @@ from hop3.plugins.build.nix.gen.spec import (
     TemplatePayload,
 )
 
+if TYPE_CHECKING:
+    from collections.abc import Callable
+
 _NIXPKGS_REV_RE = re.compile(r"\A[0-9a-f]{40}\Z")
+# A tarball GitHub generates on request: its bytes, and so a hash of them, can
+# change under a ref that has not moved.
+_GITHUB_ARCHIVE_RE = re.compile(r"\Ahttps://github\.com/[^/]+/[^/]+/archive/")
+_GITHUB_REPO_RE = re.compile(r"\A[A-Za-z0-9_.-]+/[A-Za-z0-9_.-]+\Z")
+# A ref goes into a Nix string, where `${version}` may interpolate.
+_GITHUB_REV_RE = re.compile(r'\A[^"\\\s]+\Z')
+_SRI_SHA256_RE = re.compile(r"\Asha256-[A-Za-z0-9+/]{43}=\Z")
+# A RubyGems name, which the template writes unquoted as a Nix attribute.
+_GEM_NAME_RE = re.compile(r"\A[A-Za-z][A-Za-z0-9_-]*\Z")
 # Nix's own base32 alphabet (no e/o/u/t), 52 chars — or an SRI `sha256-<base64>`.
 _NIXPKGS_SHA256_RE = re.compile(
     r"\A(?:[0-9abcdfghijklmnpqrsvwxyz]{52}|sha256-[A-Za-z0-9+/]{43}=)\Z"
@@ -60,6 +73,9 @@ _CORE_KEYS = {
     "sha256",
     "executable",
     "archive",
+    "github",
+    "rev",
+    "hash",
     "version",
     "config-files",
     "conditional-env",
@@ -99,7 +115,7 @@ _PAYLOAD_FIELDS: dict[str, tuple[type[TemplatePayload], dict[str, str]]] = {
         JavaWarPayload,
         {"war-file": "war_file", "jvm-default-opts": "jvm_default_opts"},
     ),
-    "ruby-bundler": (RubyBundlerPayload, {}),
+    "ruby-bundler": (RubyBundlerPayload, {"gem-cargo-hashes": "gem_cargo_hashes"}),
     "python-venv": (
         PythonVenvPayload,
         {
@@ -310,12 +326,7 @@ def app_spec_from_config(
     _reject_unclaimed_keys(nix_config, template)
     _check_nixpkgs_pin(nix_config)
 
-    source = Source(
-        url=nix_config.get("url", ""),
-        sha256=nix_config.get("sha256", ""),
-        executable=nix_config.get("executable", False),
-        archive=nix_config.get("archive"),
-    )
+    source = _parse_source(nix_config)
 
     payload_cls, payload_keys = _PAYLOAD_FIELDS[template]
     payload = payload_cls(**{
@@ -391,6 +402,82 @@ def _parse_conditional_env(raw: list[dict[str, Any]]) -> list[ConditionalEnvVar]
     return result
 
 
-# Payload keys arriving as an array of tables, parsed rather than passed
-# through. Keyed by TOML name, so ownership works exactly as for scalar keys.
-_NESTED_PARSERS = {"file-mappings": _parse_file_mappings}
+def _parse_gem_cargo_hashes(raw: dict[str, Any]) -> dict[str, str]:
+    """Parse [nix.gem-cargo-hashes]: gem name -> SRI hash of its crates."""
+    for gem, digest in raw.items():
+        if not _GEM_NAME_RE.match(gem):
+            msg = f"[nix.gem-cargo-hashes] {gem!r} is not a gem name"
+            raise ValueError(msg)
+        if not isinstance(digest, str) or not _SRI_SHA256_RE.match(digest):
+            msg = (
+                f"[nix.gem-cargo-hashes] {gem} must be the SRI sha256 of its "
+                f'vendored crates ("sha256-..."), got {digest!r}'
+            )
+            raise ValueError(msg)
+    return dict(raw)
+
+
+# Payload keys arriving as a table or an array of tables, parsed rather than
+# passed through. Keyed by TOML name, so ownership works exactly as for scalar
+# keys.
+_NESTED_PARSERS: dict[str, Callable[[Any], object]] = {
+    "file-mappings": _parse_file_mappings,
+    "gem-cargo-hashes": _parse_gem_cargo_hashes,
+}
+
+
+def _parse_source(nix_config: dict[str, Any]) -> Source | GitHubSource:
+    """The app's source: a URL, a GitHub repository at a ref, or none (local)."""
+    if "github" in nix_config:
+        return _github_source(nix_config)
+    stray = sorted({"rev", "hash"} & set(nix_config))
+    if stray:
+        msg = f'[nix] {" and ".join(stray)} belong with github = "OWNER/REPO"'
+        raise ValueError(msg)
+    url = nix_config.get("url", "")
+    if _GITHUB_ARCHIVE_RE.match(url):
+        msg = (
+            f"[nix].url {url!r} is an archive GitHub generates on request: its "
+            f"bytes, and so its hash, can change under a tag that has not moved "
+            f"(owncast-nixgen, 2026-09). Name the repository instead, and pin "
+            f'the unpacked tree: github = "OWNER/REPO", rev = "<tag or commit>", '
+            f'hash = "sha256-...". nix-prefetch-url --unpack {url} prints the '
+            f"hash (nix hash to-sri --type sha256 <it> gives the SRI form)."
+        )
+        raise ValueError(msg)
+    return Source(
+        url=url,
+        sha256=nix_config.get("sha256", ""),
+        executable=nix_config.get("executable", False),
+        archive=nix_config.get("archive"),
+    )
+
+
+def _github_source(nix_config: dict[str, Any]) -> GitHubSource:
+    stray = sorted({"url", "sha256", "archive"} & set(nix_config))
+    if stray:
+        msg = f"[nix].github replaces {', '.join(stray)}: remove them"
+        raise ValueError(msg)
+    repo = nix_config["github"]
+    rev = nix_config.get("rev", "")
+    digest = nix_config.get("hash", "")
+    if not isinstance(repo, str) or not _GITHUB_REPO_RE.match(repo):
+        msg = f'[nix].github must be "OWNER/REPO", got {repo!r}'
+        raise ValueError(msg)
+    if not isinstance(rev, str) or not _GITHUB_REV_RE.match(rev):
+        msg = f"[nix].rev must name a tag or a commit of {repo}, got {rev!r}"
+        raise ValueError(msg)
+    if not isinstance(digest, str) or not _SRI_SHA256_RE.match(digest):
+        msg = (
+            f"[nix].hash must be the SRI sha256 of the unpacked tree "
+            f'("sha256-..."), got {digest!r}'
+        )
+        raise ValueError(msg)
+    owner, name = repo.split("/")
+    return GitHubSource(
+        owner=owner,
+        repo=name,
+        rev=rev,
+        hash=digest,
+        executable=nix_config.get("executable", False),
+    )
