@@ -78,6 +78,12 @@ class CatalogApp:
     #: anything weaker would demote 55 verified apps on an upgrade.
     status: str = "golden"
 
+    #: The oldest Hop3 server that can install this recipe, as a release number
+    #: ("0.8"), or empty for any. A recipe states it when it uses a platform
+    #: feature an older server lacks; an older server then refuses the install
+    #: by name instead of failing in the middle of a build.
+    requires_hop3: str = ""
+
     # Computed fields
     category: str = ""
     resource_tier: str = "medium"
@@ -154,6 +160,7 @@ class CatalogApp:
             "category": self.category,
             "featured": self.featured,
             "status": self.status,
+            "requires_hop3": self.requires_hop3,
             "memory": self.memory,
             "screenshots": self.screenshots,
             "resource_tier": self.resource_tier,

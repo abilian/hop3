@@ -13,7 +13,12 @@ import nh3
 import tomllib
 
 from .models import CatalogApp
-from .policy import CatalogSpecError, validate_catalog_spec
+from .policy import (
+    CatalogSpecError,
+    load_catalog_overlay,
+    required_hop3,
+    validate_catalog_spec,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -93,9 +98,10 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         return None
 
     metadata = data.get("metadata", {})
+    app_id = metadata.get("id", app_dir.name)
     # Coexistence gate (ADR 049 F7): refuse a spec that would hijack shared proxy
     # routing. Raised here, handled (excluded + logged loudly) by the callers.
-    validate_catalog_spec(data, metadata.get("id", app_dir.name))
+    validate_catalog_spec(data, app_id)
 
     resources = data.get("resources", {})
     port_config = data.get("port", {})
@@ -110,10 +116,10 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         provider["name"] for provider in data.get("provider", []) if "name" in provider
     ]
 
-    overlay = _load_catalog_overlay(app_dir)
+    overlay = load_catalog_overlay(app_dir)
 
     app = CatalogApp(
-        id=metadata.get("id", app_dir.name),
+        id=app_id,
         title=metadata.get("title", app_dir.name.title()),
         description=metadata.get("description", ""),
         version=metadata.get("version", ""),
@@ -138,6 +144,7 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         variant_of=overlay.get("variant_of", ""),
         build_path=overlay.get("build_path", "native"),
         category=overlay.get("category", ""),
+        requires_hop3=required_hop3(overlay, app_id),
         source_path=str(app_dir),
     )
 
@@ -166,33 +173,6 @@ def load_app(app_dir: Path) -> CatalogApp | None:
         app.readme_html = nh3.clean(html)
 
     return app
-
-
-def _load_catalog_overlay(app_dir: Path) -> dict:
-    """
-    Read the ``[catalog]`` table from the app's optional ``catalog.toml``.
-
-    The overlay carries everything that is presentation rather than deployment:
-    category, tags, memory, featured, screenshots, license_note. It is optional,
-    and an app without one still loads from its recipe alone.
-
-    A *malformed* one is a different matter and raises. Rendering an app with
-    silently missing metadata is how the dashboard came to show 55 identical
-    cards in a single category, and the publish-time gate is where a broken
-    overlay should be caught — not in the reader, by degrading quietly.
-    """
-    overlay_path = app_dir / "catalog.toml"
-    if not overlay_path.exists():
-        return {}
-
-    try:
-        with overlay_path.open("rb") as f:
-            data = tomllib.load(f)
-    except tomllib.TOMLDecodeError as e:
-        msg = f"{overlay_path}: malformed catalog.toml: {e}"
-        raise CatalogSpecError(msg) from e
-
-    return data.get("catalog", {})
 
 
 def _attach_icon(app: CatalogApp, app_dir: Path) -> None:
