@@ -33,7 +33,7 @@ from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from hop3 import config as c
-from hop3.core.plugins import get_waf_engine
+from hop3.core.plugins import get_proxy_class, get_waf_engine
 from hop3.lib import Diagnosis, abort_with_diagnosis, get_free_port, log
 from hop3.orm import Ban, BanRepository, NetworkRepository
 from hop3.project.schema import validate_hop3_toml
@@ -90,6 +90,7 @@ def configure_waf_preflight(
             log(f"WAF disabled for '{app.name}' — proxy torn down", level=2, fg="blue")
         return
 
+    _refuse_unless_proxy_fronts_waf(app)
     engine = get_waf_engine()
     networks = _resolve_networks(db_session)
     try:
@@ -129,6 +130,30 @@ def configure_waf_preflight(
         f"{app.waf_port})",
         level=1,
         fg="green",
+    )
+
+
+def _refuse_unless_proxy_fronts_waf(app: App) -> None:
+    """
+    Abort before the build when the server's proxy would route around the WAF.
+
+    Only the proxy points an app at its LeWAF port, and the WAF decides gates
+    and bans on the client IP that proxy forwards (invariant 1). A proxy that
+    has not proven both would publish the app unprotected under a green deploy.
+    """
+    proxy = get_proxy_class()
+    if proxy.fronts_waf:
+        return
+    abort_with_diagnosis(
+        Diagnosis(
+            component="WAF",
+            action=f"put '{app.name}' behind its WAF",
+            reason=(
+                f"this server's proxy ({c.HOP3_PROXY_TYPE}) cannot route an app "
+                f"through the WAF; only nginx can"
+            ),
+            hint="remove [waf] from hop3.toml, or deploy on a server that runs nginx",
+        )
     )
 
 

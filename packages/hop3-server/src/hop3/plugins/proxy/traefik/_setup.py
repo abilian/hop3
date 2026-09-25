@@ -6,12 +6,11 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import yaml
 
-from hop3.config import ACME_EMAIL, ACME_WWW, TRAEFIK_ROOT
+from hop3.config import TRAEFIK_ROOT
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
@@ -19,7 +18,6 @@ from hop3.lib import (
     Diagnosis,
     abort_with_diagnosis,
     command_output,
-    expand_vars,
     log,
 )
 from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
@@ -30,24 +28,18 @@ from hop3.platform.certificates import (
 )
 from hop3.plugins.proxy._policy import should_redirect_to_https
 
-from ._templates import (
-    HOP3_INTERNAL_TRAEFIK_BODY_LIMIT_MIDDLEWARE,
-    HOP3_INTERNAL_TRAEFIK_CACHE_MIDDLEWARE,
-    HOP3_INTERNAL_TRAEFIK_STATIC_ROUTER,
-    HOP3_INTERNAL_TRAEFIK_STATIC_SERVICE,
-    TRAEFIK_BLOCK_GIT_MIDDLEWARE,
-    TRAEFIK_HEADERS_MIDDLEWARE,
-    TRAEFIK_HTTPS_ONLY_TEMPLATE,
-    TRAEFIK_TEMPLATE,
-    TRAEFIK_TLS_MANUAL,
-)
-
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3.core.env import Env
     from hop3.orm import App
 
 
 _SIZE_UNITS = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3}
+
+#: No client comes from the broadcast address, so an allow-list naming only it
+#: refuses everyone with a 403: Traefik has no plain "respond 403".
+_NOBODY = ["255.255.255.255/32"]
 
 
 def parse_size_to_bytes(size: str) -> int:
@@ -64,6 +56,17 @@ def parse_size_to_bytes(size: str) -> int:
 
 @dataclass(frozen=True)
 class TraefikVirtualHost(BaseProxy):
+    """
+    One app's routes, as a Traefik dynamic-configuration file.
+
+    Traefik reads every file in ``TRAEFIK_ROOT`` through its file provider.
+    The config is built as data and dumped as YAML, so no hostname or value
+    can change its structure. Traefik proxies and serves no files: the ACME
+    webroot and static paths are beyond it, and ``BaseProxy`` refuses them.
+    """
+
+    serves_files: ClassVar[bool] = False
+
     app: App
     env: Env
     workers: dict[str, str]
@@ -73,31 +76,25 @@ class TraefikVirtualHost(BaseProxy):
         return "traefik"
 
     def __post_init__(self) -> None:
-        # SECURITY: validate every host before any of them lands in the
-        # Traefik config. The template uses HOST_NAME directly; an
-        # un-validated value with a backtick or newline would inject
-        # arbitrary Traefik router/middleware definitions. Same shape
-        # as the nginx and caddy plugins — see notes/security.md §3.5.
-        server_name_list = validate_hostname_list(self.env["HOST_NAME"])
-        # For Traefik, we'll use the first domain as primary
-        self.env["HOST_NAME"] = server_name_list[0]
+        # SECURITY: validate every host before it reaches a router rule, where
+        # a backtick would end the Host() matcher. See notes/security.md §3.5.
+        hosts = validate_hostname_list(self.env["HOST_NAME"])
+        self.env["HOST_NAME"] = " ".join(hosts)
 
-        # Check Traefik version
         traefik_version = command_output("traefik version") or "???"
         log(f"Using Traefik version: {traefik_version}", level=2)
 
-        self.env.update(
-            {
-                "TRAEFIK_ROOT": str(TRAEFIK_ROOT),
-                "ACME_WWW": str(ACME_WWW),
-                "TRAEFIK_ACME_EMAIL": ACME_EMAIL,
-            },
-        )
+    @property
+    def hosts(self) -> list[str]:
+        return self.env["HOST_NAME"].split()
+
+    @property
+    def conf_path(self) -> Path:
+        """Path to the Traefik configuration file for this app."""
+        return TRAEFIK_ROOT / f"{self.app_name}.yml"
 
     def setup_backend(self) -> None:
-        """Configure the backend connection (always HTTP for all workers)."""
-        # Always use HTTP proxy for all workers (including WSGI)
-        # This allows direct HTTP access for development, debugging, and health checks
+        """Point the service at the app's HTTP port."""
         bind_address = self.env.get("BIND_ADDRESS", "127.0.0.1")
         port = self.env.get("PORT", "8000")
         self.update_env("TRAEFIK_BACKEND", f"http://{bind_address}:{port}")
@@ -107,191 +104,139 @@ class TraefikVirtualHost(BaseProxy):
         )
 
     def setup_certificates(self) -> None:
-        """Setup SSL certificates for the application."""
-        domain_name = self.env["HOST_NAME"].split()[0]
+        """Install the app's certificate, issued by Hop3's certificate engine."""
+        domain_name = self.hosts[0]
+        container = create_container()
+        try:
+            certificate = container.get(CertificatesManager).get_certificate(
+                domain_name
+            )
+            write_private_key(self._key_path, certificate.get_key())
+            self._crt_path.write_text(certificate.get_crt())
+            # Same post-condition as nginx: never serve an untrusted/expired
+            # cert for a public domain under a green deploy (the edrix bug).
+            verify_cert(domain_name)
+        finally:
+            container.close()
 
-        # Check if we should use automatic HTTPS or manual certificates
-        use_auto_https = self.env.get_bool("TRAEFIK_AUTO_HTTPS", default=True)
+    @property
+    def _crt_path(self) -> Path:
+        return TRAEFIK_ROOT / f"{self.app_name}.crt"
 
-        if use_auto_https:
-            # Use Traefik's automatic HTTPS with Let's Encrypt
-            # This is configured in the main Traefik config, not per-app
-            self.env["HOP3_INTERNAL_TRAEFIK_TLS"] = ""
-            log(
-                f"traefik will use automatic HTTPS for '{domain_name}' via Let's Encrypt",
-                level=2,
-            )
-        else:
-            # Use manual certificates managed by hop3
-            container = create_container()
-            try:
-                certificate_manager = container.get(CertificatesManager)
-                certificate = certificate_manager.get_certificate(domain_name)
-                write_private_key(
-                    TRAEFIK_ROOT / f"{self.app_name}.key", certificate.get_key()
-                )
-                (TRAEFIK_ROOT / f"{self.app_name}.crt").write_text(
-                    certificate.get_crt()
-                )
-                # Same post-condition as nginx: never serve an untrusted/expired
-                # cert for a public domain under a green deploy (the edrix bug).
-                verify_cert(domain_name)
-            finally:
-                container.close()
-            self.env["HOP3_INTERNAL_TRAEFIK_TLS"] = expand_vars(
-                TRAEFIK_TLS_MANUAL, self.env
-            )
-            log(
-                f"traefik will use manual certificates for '{domain_name}'",
-                level=2,
-            )
+    @property
+    def _key_path(self) -> Path:
+        return TRAEFIK_ROOT / f"{self.app_name}.key"
+
+    def setup_cache(self) -> None:
+        """Cache headers are a middleware; see :meth:`_middlewares`."""
+
+    def setup_static(self) -> None:
+        """Nothing to do: an app with static paths was refused before setup."""
 
     def extra_setup(self) -> None:
-        """Additional configuration setup."""
-        middlewares = []
-
-        # Conditionally block .git folders from being served
-        if not self.env.get("TRAEFIK_ALLOW_GIT_FOLDERS"):
-            self.env["HOP3_INTERNAL_TRAEFIK_BLOCK_GIT"] = expand_vars(
-                TRAEFIK_BLOCK_GIT_MIDDLEWARE, self.env
-            )
-            middlewares.append(f"- {self.app_name}-block-git")
-        else:
-            self.env["HOP3_INTERNAL_TRAEFIK_BLOCK_GIT"] = ""
-
-        # Add custom headers middleware
-        self.env["HOP3_INTERNAL_TRAEFIK_HEADERS"] = expand_vars(
-            TRAEFIK_HEADERS_MIDDLEWARE, self.env
-        )
-        middlewares.append(f"- {self.app_name}-headers")
-
-        # Largest request body this app accepts. Traefik has no plain size
-        # limit: `buffering` is what enforces one, and buffering is what it
-        # does — so an app asking for streaming uploads cannot also have a
-        # limit enforced here. Say so rather than silently picking one.
-        limits = self.transfer_limits
-        if not limits.request_buffering:
+        if not self.transfer_limits.request_buffering:
             log(
                 f"traefik cannot stream request bodies and enforce a size limit at "
                 f"the same time; '{self.app_name}' gets the limit "
-                f"({limits.max_body_size}) and buffering.",
+                f"({self.transfer_limits.max_body_size}) and buffering.",
                 level=4,
                 fg="yellow",
             )
-        body_limit_middleware = expand_vars(
-            HOP3_INTERNAL_TRAEFIK_BODY_LIMIT_MIDDLEWARE,
-            {
-                "APP": self.app_name,
-                "max_body_bytes": str(parse_size_to_bytes(limits.max_body_size)),
-            },
-        )
-        middlewares.append(f"- {self.app_name}-body-limit")
-
-        # Set middlewares list
-        self.env["HOP3_INTERNAL_TRAEFIK_MIDDLEWARES"] = "\n        ".join(middlewares)
-
-        # Initialize custom middlewares
-        self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"] = body_limit_middleware
-
-        self.env["TRAEFIK_ACL"] = ""
 
     def generate_config(self) -> None:
-        """Generate the Traefik YAML configuration."""
-        buffer = self.get_proxy_conf()
-        self.conf_path.write_text(buffer)
+        """Write this app's Traefik dynamic configuration."""
+        self.conf_path.write_text(self.get_proxy_conf())
         log(f"Generated Traefik config at {self.conf_path}", level=2)
 
-    @property
-    def conf_path(self) -> Path:
-        """Path to the Traefik configuration file for this app."""
-        return TRAEFIK_ROOT / f"{self.app_name}.yml"
-
     def get_proxy_conf(self) -> str:
-        """
-        Returns the traefik configuration buffer based on
-        specified workers and environment variables.
+        """The app's dynamic configuration, as YAML."""
+        return yaml.safe_dump(self.dynamic_config(), sort_keys=False)
 
-        Sets up traefik proxy configurations by expanding certain template
-        variables using environment settings and adjusts the buffer
-        based on conditions like HTTPS-only redirection.
+    def dynamic_config(self) -> dict[str, Any]:
         """
-        log(
-            f"traefik will serve app '{self.app_name}' on hostname(s)"
-            f" '{self.env['HOST_NAME']}'",
-            level=2,
-        )
+        Routers, service, middlewares and certificate for this app.
 
-        # Choose template based on HTTPS-only setting
+        Each scheme gets a router of its own: a router with ``tls`` matches
+        only HTTPS requests, so one router on both entry points left plain
+        HTTP unrouted.
+        """
+        app = self.app_name
+        rule = " || ".join(f"Host(`{host}`)" for host in self.hosts)
+        middlewares = self._middlewares()
+        chain = list(middlewares)
+        service = f"{app}-service"
+
+        https: dict[str, Any] = {
+            "rule": rule,
+            "entryPoints": ["websecure"],
+            "service": service,
+            "tls": {},
+            "middlewares": chain,
+        }
+        http: dict[str, Any] = {
+            "rule": rule,
+            "entryPoints": ["web"],
+            "service": service,
+        }
         if should_redirect_to_https(self.env, "TRAEFIK_HTTPS_ONLY"):
-            buffer = expand_vars(TRAEFIK_HTTPS_ONLY_TEMPLATE, self.env)
-            log(
-                f"traefik will redirect all HTTP requests to HTTPS for"
-                f" '{self.env['HOST_NAME']}'",
-                level=2,
-            )
+            middlewares[f"{app}-https-redirect"] = {
+                "redirectScheme": {"scheme": "https", "permanent": True}
+            }
+            http["middlewares"] = [f"{app}-https-redirect"]
         else:
-            buffer = expand_vars(TRAEFIK_TEMPLATE, self.env)
+            http["middlewares"] = chain
+        routers: dict[str, Any] = {f"{app}-http": http, f"{app}-https": https}
 
-        # Add TLS configuration if using manual certificates
-        if self.env.get("HOP3_INTERNAL_TRAEFIK_TLS"):
-            buffer += "\n" + self.env["HOP3_INTERNAL_TRAEFIK_TLS"]
+        if not self.env.get("TRAEFIK_ALLOW_GIT_FOLDERS"):
+            # A longer rule outranks the app's router: Traefik's default
+            # priority is the rule's length.
+            middlewares[f"{app}-deny"] = {"ipAllowList": {"sourceRange": _NOBODY}}
+            for name, router in list(routers.items()):
+                routers[f"{name}-git"] = {
+                    **router,
+                    "rule": f"({rule}) && PathPrefix(`/.git`)",
+                    "middlewares": [f"{app}-deny"],
+                }
 
-        return buffer
-
-    def setup_static(self) -> None:
-        """
-        Configures static path mappings for a Traefik server in the
-        environment configuration.
-        """
-        static_routers = []
-        static_services = []
-
-        static_paths = self.get_static_paths()
-
-        for idx, (static_url, static_path_) in enumerate(static_paths):
-            static_path = str(static_path_)
-            # str: expand_vars feeds substitution values straight into re.sub,
-            # which rejects non-str values with a TypeError.
-            static_index = str(idx)
-            log(
-                f"traefik will serve static files from {static_url} -> {static_path}",
-                level=2,
-            )
-
-            # Create router and service for each static path
-            router = expand_vars(
-                HOP3_INTERNAL_TRAEFIK_STATIC_ROUTER,
-                {
-                    **self.env,
-                    "static_url": static_url,
-                    "static_path": static_path,
-                    "static_index": static_index,
-                    "APP": self.app_name,
-                    "HOST_NAME": self.env["HOST_NAME"],
+        return {
+            "http": {
+                "routers": routers,
+                "services": {
+                    service: {
+                        "loadBalancer": {
+                            "servers": [{"url": self.env["TRAEFIK_BACKEND"]}]
+                        }
+                    }
                 },
-            )
-            service = expand_vars(
-                HOP3_INTERNAL_TRAEFIK_STATIC_SERVICE,
-                {
-                    **self.env,
-                    "static_path": static_path,
-                    "static_index": static_index,
-                    "APP": self.app_name,
-                },
-            )
+                "middlewares": middlewares,
+            },
+            "tls": {
+                "certificates": [
+                    {"certFile": str(self._crt_path), "keyFile": str(self._key_path)}
+                ]
+            },
+        }
 
-            static_routers.append(router)
-            static_services.append(service)
-
-        self.env["HOP3_INTERNAL_TRAEFIK_STATIC_ROUTERS"] = "".join(static_routers)
-        self.env["HOP3_INTERNAL_TRAEFIK_STATIC_SERVICES"] = "".join(static_services)
-
-        # Include custom Traefik configuration if specified
-        if traefik_include_file := self.env.get("TRAEFIK_INCLUDE_FILE"):
-            tpl = Path(self.app_path, traefik_include_file).read_text()
-            self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_CONFIG"] = expand_vars(tpl, self.env)
-        else:
-            self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_CONFIG"] = ""
+    def _middlewares(self) -> dict[str, Any]:
+        """The middlewares every request to the app passes through, in order."""
+        app = self.app_name
+        max_body = parse_size_to_bytes(self.transfer_limits.max_body_size)
+        middlewares: dict[str, Any] = {
+            f"{app}-compression": {"compress": {}},
+            # Traefik enforces a body limit only through buffering, so the
+            # limit and the buffering are one decision here, unlike nginx.
+            f"{app}-body-limit": {"buffering": {"maxRequestBodyBytes": max_body}},
+        }
+        cache_time_control = self.env.get_int("TRAEFIK_CACHE_CONTROL", 0)
+        if cache_time_control > 0:
+            middlewares[f"{app}-cache-headers"] = {
+                "headers": {
+                    "customResponseHeaders": {
+                        "Cache-Control": f"public, max-age={cache_time_control}"
+                    }
+                }
+            }
+        return middlewares
 
     def check_config(self) -> None:
         """Check that the generated config parses as YAML.
@@ -350,41 +295,3 @@ class TraefikVirtualHost(BaseProxy):
                 level=1,
                 fg="yellow",
             )
-
-    def setup_cache(self) -> None:
-        """
-        Configure Traefik caching for the application.
-
-        Note: Traefik doesn't have built-in caching like Nginx.
-        This method sets up cache headers via middleware.
-        For actual caching, you'd need a Traefik plugin or external cache.
-        """
-        # Check if caching headers are requested
-        cache_time_control = self.env.get_int("TRAEFIK_CACHE_CONTROL", 0)
-
-        if cache_time_control > 0:
-            log(
-                f"traefik will set cache headers with max-age={cache_time_control}",
-                level=2,
-            )
-
-            # Add cache middleware to custom middlewares
-            cache_middleware = expand_vars(
-                HOP3_INTERNAL_TRAEFIK_CACHE_MIDDLEWARE,
-                # str(): expand_vars feeds substitution values into re.sub,
-                # which rejects the raw int with a TypeError.
-                {"cache_time_control": str(cache_time_control), "APP": self.app_name},
-            )
-
-            if self.env.get("HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"):
-                self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"] += cache_middleware
-            else:
-                self.env["HOP3_INTERNAL_TRAEFIK_CUSTOM_MIDDLEWARES"] = cache_middleware
-
-            # Add to middlewares list
-            middlewares = self.env.get("HOP3_INTERNAL_TRAEFIK_MIDDLEWARES", "")
-            if middlewares:
-                middlewares += f"\n        - {self.app_name}-cache-headers"
-            else:
-                middlewares = f"- {self.app_name}-cache-headers"
-            self.env["HOP3_INTERNAL_TRAEFIK_MIDDLEWARES"] = middlewares
