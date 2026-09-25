@@ -262,7 +262,8 @@ class Hop3Client:
         overall severity), this should hand back real data. Until then the
         TUI dashboard's system pane is intentionally a placeholder.
         """
-        # TODO(tui): pass --json to the RPC call and parse into SystemStatus.
+        # TODO(tui): pass json_output=True in the extra args and parse the data
+        # element into SystemStatus.
         _ = await self._rpc_call(["system", "status"])
         return SystemStatus()
 

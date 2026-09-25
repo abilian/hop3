@@ -365,7 +365,9 @@ class StatusCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         quiet = "--quiet" in args or "-q" in args
-        json_mode = "--json" in args
+        # The CLI's `--json` is its own flag and never reaches `args`; it
+        # arrives as this keyword instead.
+        json_mode = bool(kwargs.get("json_output"))
 
         identity = self._gather_identity()
         sections = [
