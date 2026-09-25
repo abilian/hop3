@@ -74,6 +74,7 @@ NGINX_COMMON_FRAGMENT = r"""
   # set a custom header for requests
   add_header X-Deployed-By Hop3;
 
+  $HOP3_INTERNAL_NGINX_GATE
   $HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES
   $HOP3_INTERNAL_NGINX_STATIC_MAPPINGS
   $HOP3_INTERNAL_NGINX_CACHE_MAPPINGS
@@ -93,6 +94,7 @@ NGINX_PORTMAP_FRAGMENT = """
     proxy_set_header X-Remote-Address $remote_addr;
     proxy_set_header X-Forwarded-Port $server_port;
     proxy_set_header X-Request-Start $msec;
+    $HOP3_INTERNAL_NGINX_GATE_HEADERS
     $NGINX_ACL
   }
 """
@@ -124,6 +126,7 @@ NGINX_FASTCGI_FRAGMENT = """
     fastcgi_param PATH_INFO $fastcgi_path_info;
     fastcgi_param HTTPS $https if_not_empty;
     fastcgi_read_timeout 300;
+    $HOP3_INTERNAL_NGINX_GATE_PARAMS
     $NGINX_ACL
   }
 """
@@ -169,6 +172,7 @@ HOP3_INTERNAL_NGINX_CACHE_MAPPING = """
         uwsgi_hide_header Cache-Control;
         add_header Cache-Control "public, max-age=$cache_time_control";
         add_header X-Cache $upstream_cache_status;
+        $HOP3_INTERNAL_NGINX_GATE_HEADERS
         $HOP3_INTERNAL_NGINX_UWSGI_SETTINGS
     }
 """
@@ -189,4 +193,74 @@ HOP3_INTERNAL_NGINX_UWSGI_SETTINGS = """
     uwsgi_param SERVER_ADDR $server_addr;
     uwsgi_param SERVER_PORT $server_port;
     uwsgi_param SERVER_NAME $server_name;
+"""
+
+#: The access gate (ADR 062), for the whole HTTPS server: nginx asks
+#: hop3-server about every request before serving it. The check answers 2xx,
+#: 401 (nginx sends the browser to sign in) or 403, with who is asking and the
+#: request's cookies minus the gate's own. `/_hop3/auth/` is hop3-server's, on
+#: the app's host, so the sign-in can set the gate cookie there.
+NGINX_GATE_FRAGMENT = """
+  auth_request /_hop3/gate-check;
+  auth_request_set $hop3_user $upstream_http_x_hop3_user;
+  auth_request_set $hop3_role $upstream_http_x_hop3_role;
+  auth_request_set $hop3_cookie $upstream_http_cookie;
+  auth_request_set $hop3_login $upstream_http_x_hop3_login;
+  error_page 401 = @hop3_sign_in;
+  # auth_request discards the check's answer; fetch its 403 page again, which
+  # names the role the account lacks. Only nginx's own 403s come here: an
+  # app's 403 passes through untouched.
+  error_page 403 @hop3_forbidden;
+
+  location = /_hop3/gate-check {
+    internal;
+    auth_request off;
+    proxy_pass http://$HOP3_INTERNAL_GATE_UPSTREAM/auth/check;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Hop3-App $APP;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Uri $request_uri;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location ^~ /_hop3/auth/ {
+    auth_request off;
+    proxy_pass http://$HOP3_INTERNAL_GATE_UPSTREAM;
+    proxy_set_header Host $host;
+    proxy_set_header X-Hop3-App $APP;
+    proxy_set_header X-Forwarded-Proto $scheme;
+  }
+
+  location @hop3_sign_in {
+    auth_request off;
+    return 302 $hop3_login;
+  }
+
+  location @hop3_forbidden {
+    auth_request off;
+    rewrite ^ /auth/check? break;
+    proxy_pass http://$HOP3_INTERNAL_GATE_UPSTREAM;
+    proxy_pass_request_body off;
+    proxy_set_header Content-Length "";
+    proxy_set_header X-Hop3-App $APP;
+    proxy_set_header X-Forwarded-Host $host;
+    proxy_set_header X-Forwarded-Uri $request_uri;
+  }
+"""
+
+#: What a proxied request carries past the gate: the check's answers, never
+#: the client's. An empty value drops the header.
+NGINX_GATE_HEADERS = """
+    proxy_set_header X-Hop3-User $hop3_user;
+    proxy_set_header X-Hop3-Role $hop3_role;
+    proxy_set_header Cookie $hop3_cookie;
+"""
+
+#: The same for a php-fpm pool: a parameter set here replaces the header nginx
+#: would otherwise pass from the request.
+NGINX_GATE_PARAMS = """
+    fastcgi_param HTTP_X_HOP3_USER $hop3_user;
+    fastcgi_param HTTP_X_HOP3_ROLE $hop3_role;
+    fastcgi_param HTTP_COOKIE $hop3_cookie;
 """

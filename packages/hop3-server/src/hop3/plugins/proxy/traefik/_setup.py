@@ -12,7 +12,7 @@ import yaml
 
 from hop3.config import TRAEFIK_ROOT
 from hop3.core.identifiers import validate_hostname_list
-from hop3.core.protocols import BaseProxy
+from hop3.core.protocols import GATE_CHECK_UPSTREAM, GATE_REQUEST_HEADERS, BaseProxy
 from hop3.di import create_container
 from hop3.lib import (
     Diagnosis,
@@ -66,6 +66,7 @@ class TraefikVirtualHost(BaseProxy):
     """
 
     serves_files: ClassVar[bool] = False
+    gates_access: ClassVar[bool] = True
 
     app: App
     env: Env
@@ -186,6 +187,11 @@ class TraefikVirtualHost(BaseProxy):
         else:
             http["middlewares"] = chain
         routers: dict[str, Any] = {f"{app}-http": http, f"{app}-https": https}
+        services: dict[str, Any] = {
+            service: {
+                "loadBalancer": {"servers": [{"url": self.env["TRAEFIK_BACKEND"]}]}
+            }
+        }
 
         if not self.env.get("TRAEFIK_ALLOW_GIT_FOLDERS"):
             # A longer rule outranks the app's router: Traefik's default
@@ -198,16 +204,13 @@ class TraefikVirtualHost(BaseProxy):
                     "middlewares": [f"{app}-deny"],
                 }
 
+        if self.app.access_role is not None:
+            self._add_gate(rule, routers, services, middlewares)
+
         return {
             "http": {
                 "routers": routers,
-                "services": {
-                    service: {
-                        "loadBalancer": {
-                            "servers": [{"url": self.env["TRAEFIK_BACKEND"]}]
-                        }
-                    }
-                },
+                "services": services,
                 "middlewares": middlewares,
             },
             "tls": {
@@ -215,6 +218,48 @@ class TraefikVirtualHost(BaseProxy):
                     {"certFile": str(self._crt_path), "keyFile": str(self._key_path)}
                 ]
             },
+        }
+
+    def _add_gate(
+        self,
+        rule: str,
+        routers: dict[str, Any],
+        services: dict[str, Any],
+        middlewares: dict[str, Any],
+    ) -> None:
+        """
+        The access gate (ADR 062): every HTTPS request is checked first.
+
+        ``forwardAuth`` deletes each listed request header, then sets those
+        the check returned; a non-2xx answer (the sign-in redirect, a 403)
+        goes to the client as is. ``/_hop3/auth/`` goes to hop3-server, on
+        the app's host, so the sign-in can set the gate cookie there.
+        """
+        app = self.app_name
+        middlewares[f"{app}-gate-app"] = {
+            "headers": {"customRequestHeaders": {"X-Hop3-App": app}}
+        }
+        middlewares[f"{app}-gate"] = {
+            "forwardAuth": {
+                "address": f"http://{GATE_CHECK_UPSTREAM}/auth/check?redirect=1",
+                "authResponseHeaders": list(GATE_REQUEST_HEADERS),
+                # Traefik sets the X-Forwarded-* the check reads; none from
+                # the client. The check's answers are a few hundred bytes.
+                "trustForwardHeader": False,
+                "maxResponseBodySize": 65536,
+            }
+        }
+        https = routers[f"{app}-https"]
+        https["middlewares"] = [f"{app}-gate-app", f"{app}-gate", *https["middlewares"]]
+        routers[f"{app}-https-hop3"] = {
+            "rule": f"({rule}) && PathPrefix(`/_hop3/auth/`)",
+            "entryPoints": ["websecure"],
+            "service": f"{app}-hop3",
+            "tls": {},
+            "middlewares": [f"{app}-gate-app"],
+        }
+        services[f"{app}-hop3"] = {
+            "loadBalancer": {"servers": [{"url": f"http://{GATE_CHECK_UPSTREAM}"}]}
         }
 
     def _middlewares(self) -> dict[str, Any]:

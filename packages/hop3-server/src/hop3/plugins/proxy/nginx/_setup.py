@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.core.artifacts import load_backend_protocol
 from hop3.core.identifiers import validate_hostname_list
-from hop3.core.protocols import BaseProxy
+from hop3.core.protocols import GATE_CHECK_UPSTREAM, BaseProxy
 from hop3.di import create_container
 from hop3.lib import (
     Diagnosis,
@@ -42,6 +42,9 @@ from ._templates import (
     HOP3_INTERNAL_PROXY_CACHE_PATH,
     NGINX_COMMON_FRAGMENT,
     NGINX_FASTCGI_FRAGMENT,
+    NGINX_GATE_FRAGMENT,
+    NGINX_GATE_HEADERS,
+    NGINX_GATE_PARAMS,
     NGINX_HTTPS_ONLY_TEMPLATE,
     NGINX_PORTMAP_FRAGMENT,
     NGINX_TEMPLATE,
@@ -57,6 +60,7 @@ class NginxVirtualHost(BaseProxy):
     backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
     fronts_waf: ClassVar[bool] = True
     hosts_certbot: ClassVar[bool] = True
+    gates_access: ClassVar[bool] = True
 
     app: App
     env: Env
@@ -195,6 +199,23 @@ class NginxVirtualHost(BaseProxy):
             else r"location ~ /\.git { deny all; }"
         )
         self.env["NGINX_ACL"] = ""
+        self._setup_gate()
+
+    def _setup_gate(self) -> None:
+        """The access gate's fragments, for an app with one (ADR 062)."""
+        gated = self.app.access_role is not None
+        self.env["HOP3_INTERNAL_NGINX_GATE"] = (
+            expand_vars(
+                NGINX_GATE_FRAGMENT,
+                {**self.env, "HOP3_INTERNAL_GATE_UPSTREAM": GATE_CHECK_UPSTREAM},
+            )
+            if gated
+            else ""
+        )
+        self.env["HOP3_INTERNAL_NGINX_GATE_HEADERS"] = (
+            NGINX_GATE_HEADERS if gated else ""
+        )
+        self.env["HOP3_INTERNAL_NGINX_GATE_PARAMS"] = NGINX_GATE_PARAMS if gated else ""
 
     def generate_config(self) -> None:
         buffer = self.get_proxy_conf()
