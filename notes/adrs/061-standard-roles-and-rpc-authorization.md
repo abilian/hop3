@@ -42,7 +42,9 @@ Each command class declares `min_role`, beside the `requires_auth` and `destruct
 
 The base-class default is `admin`. A command added without a declaration is therefore admin-only, which fails safe. Review sees it too. A test compares each registered command's effective minimum role with a checked-in table. Any change to who can run what then shows up in a diff.
 
-The dispatcher reads the caller's role from the database on every request. The token never supplies it. A demotion or a disabled account takes effect on the next call, without revoking outstanding tokens. The existing token scopes (`authenticated`, `admin`) carry no authorization meaning.
+The dispatcher reads the caller's role from the database on every request. The token never supplies it. A demotion or a disabled account takes effect on the next call, without revoking outstanding tokens. A token whose subject names no account is refused, however it was signed. Test harnesses obtain their tokens the way `hop3 login --ssh` does, for an account that exists. The existing token scopes (`authenticated`, `admin`) carry no authorization meaning.
+
+`auth get-token` refuses a `member`. The account can run no command, so a token for it could do nothing, and would look like a broken one. Once per-app grants exist (§5), a `member` who holds one can obtain a token.
 
 A denied call returns an ordinary structured RPC error naming the command, the role it needs and the caller's role. It is distinct from the unauthenticated error, so a client can tell "sign in" from "ask an admin".
 
@@ -61,7 +63,15 @@ Per-app roles are the next step. The design above is chosen so they extend it:
 
 Per-app roles still need a grant table and a migration deciding who holds which apps on an existing server. This ADR provides neither.
 
-### 6. Migration
+### 6. What the roles do not cover
+
+Three paths reach the control plane without passing through the dispatcher's check, and the roles say nothing about them:
+
+- **Build steps run recipe code as `hop3`.** A `before-build` hook or a package-manager install script executes with the control plane's identity, which reaches rootd and can read the key that signs tokens. A `deployer` can therefore mint an `admin` token through a recipe, and the two roles are equivalent until builds drop to the app user ([ADR 055](./055-app-runtime-uid-separation.md), open question 6). `viewer` and `member` hold either way: neither can start a build.
+- **`git push` is authorized by SSH key.** The post-receive hook runs `hop3-server git-hook` under the `hop3` user's forced command, with no token and no account. Holding a key in `hop3`'s `authorized_keys` is permission to deploy any app. Mapping keys to accounts belongs with per-app grants.
+- **Commands run on the host through `hop3-server`** call command classes directly. They need a shell on the server, which is outside this model.
+
+### 7. Migration
 
 Existing users with the `admin` role become `admin`. Every other existing user becomes `deployer`, which preserves the access they have today. The migration drops the `Role` and association tables.
 
@@ -90,4 +100,3 @@ Existing users with the `admin` role become `admin`. Every other existing user b
 ## Open questions
 
 1. **Which read commands belong to `viewer`.** The line is "no output that can carry a secret". Logs are the hard case: most are harmless and some print connection strings. This ADR puts logs at `deployer`; the per-command table is where that is decided and reviewed.
-2. **CLI tokens for a `member`.** A `member` has no RPC surface, so minting a CLI token for one is pointless. Refuse it, or allow it for the day per-app grants give it one.

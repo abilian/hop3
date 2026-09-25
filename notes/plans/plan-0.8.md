@@ -1,6 +1,6 @@
 # Plan: 0.8: the platform underneath the apps
 
-**Created:** 2026-08-01. **Owner:** SF. **Target:** September 2026.
+**Created:** 2026-08-01. **Owner:** SF. **Target:** the week of 2026-09-28 (set 2026-09-24; was September 2026).
 **Predecessor:** [`plan-0.7.x.md`](plan-0.7.x.md): fixes and polish on what 0.7 ships. Anything that repairs 0.7 belongs there; this file is for what 0.8 *adds*.
 **Successor:** [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind this release) and [`parked.md`](parked.md) (directions not scheduled).
 **Sources:** the "After 0.7" list in [`../todo.md`](../todo.md), TR-03 §9 (Future Work), the draft and deferred ADRs, the per-app experience reports and their deferral records, the team's internal roadmap notes.
@@ -38,7 +38,7 @@ A fourth property belongs on that list and is absent on purpose: nothing watches
 **Still gating implementation:** UID/GID allocation and reuse safety after destroy; and builds, which run recipe code (hooks, install scripts) as `hop3` and would keep the rootd hole open at build time (ADR 055 open question 6). Replacing the Emperor (ADR 023) changes the mechanism this rests on; the wrapper carries over to any runner that starts a command.
 
 - [x] Run the capability experiment; record the result in the ADR. Done 2026-09-24: a `setpriv` wrapper, not uWSGI, performs the drop.
-- [ ] Stop delivering `[env]` on the `attach-daemon` command line (ADR 055 §6). Independent of the rest, and a leak on every install today.
+- [x] Stop delivering `[env]` on the `attach-daemon` command line (ADR 055 §6). Done 2026-09-24: workers source a `0600` file; an app picks it up on its next deploy.
 - [ ] Ship the shared `hop3-apps` user with a migration.
 - [ ] Move ADR 055 from Proposed to Accepted with the increment recorded.
 
