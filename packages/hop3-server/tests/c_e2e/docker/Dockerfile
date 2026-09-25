@@ -100,13 +100,30 @@ RUN apt-get update && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/*
 
-# Install Traefik (for proxy plugin testing)
-# Download static binary from official releases
-RUN wget -q https://github.com/traefik/traefik/releases/download/v2.11.0/traefik_v2.11.0_linux_amd64.tar.gz -O /tmp/traefik.tar.gz && \
-    tar -xzf /tmp/traefik.tar.gz -C /usr/local/bin/ && \
+# Install Traefik (for proxy plugin testing): the static binary for this
+# image's architecture, pinned and checked against the release's digests. The
+# amd64 build this used to fetch on every host ran under emulation on arm64.
+ARG TRAEFIK_VERSION=v3.7.13
+RUN arch="$(dpkg --print-architecture)" && \
+    case "$arch" in \
+      amd64) sum=52cd039a34258dd61c617a95d69252bc6bcae27c520f338186c31c7fef8f6394 ;; \
+      arm64) sum=9155048abd64c59000d2f3c07dc6d6919bc6be9b618e6a554bc3808338aaf8b8 ;; \
+      *) echo "no Traefik digest for $arch" >&2; exit 1 ;; \
+    esac && \
+    wget -q "https://github.com/traefik/traefik/releases/download/${TRAEFIK_VERSION}/traefik_${TRAEFIK_VERSION}_linux_${arch}.tar.gz" -O /tmp/traefik.tar.gz && \
+    echo "$sum  /tmp/traefik.tar.gz" | sha256sum -c - && \
+    tar -xzf /tmp/traefik.tar.gz -C /usr/local/bin/ traefik && \
     chmod +x /usr/local/bin/traefik && \
     rm /tmp/traefik.tar.gz && \
-    mkdir -p /etc/traefik /etc/traefik/dynamic
+    mkdir -p /etc/traefik
+
+# php-fpm, which an install carries (the installer's Debian dependencies): a
+# PHP app's pool is what the proxies' FastCGI path speaks to. Not the `php`
+# metapackage, which may satisfy itself with Apache.
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends php-fpm php-cli && \
+    apt-get clean && \
+    rm -rf /var/lib/apt/lists/*
 
 # =============================================================================
 # LAYER 2: User and SSH setup (rarely change)
@@ -125,7 +142,7 @@ RUN mkdir -p /var/run/sshd && \
     ssh-keygen -t rsa -b 2048 -f /home/hop3/.ssh/id_rsa -N "" && \
     chmod 700 /home/hop3/.ssh && \
     chown -R hop3:hop3 /home/hop3/.ssh && \
-    mkdir -m 0700 /root/.ssh && \
+    install -d -m 0700 /root/.ssh && \
     cp /home/hop3/.ssh/id_rsa.pub /root/.ssh/authorized_keys && \
     chmod 0600 /root/.ssh/authorized_keys
 # The same key is authorised for root, plain (no forced command): that is the

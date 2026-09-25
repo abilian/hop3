@@ -128,7 +128,10 @@ def _persist_pytest_bundle(app: str, bundle: Any) -> None:
 
 
 def _start_hop3_container(
-    docker_client: docker.DockerClient, image: str, label: str = "hop3"
+    docker_client: docker.DockerClient,
+    image: str,
+    label: str = "hop3",
+    proxy: str = "nginx",
 ) -> dict[str, Any]:
     """
     Start a single hop3 container and wait for it to be ready.
@@ -139,15 +142,19 @@ def _start_hop3_container(
     `_stop_hop3_container`.
 
     `label` is used only in print output to distinguish concurrent
-    containers (e.g. "A" / "B" for the migration-test pair).
+    containers (e.g. "A" / "B" for the migration-test pair). `proxy` is the
+    reverse proxy the entrypoint runs and hop3-server configures
+    (``HOP3_PROXY_TYPE``).
     """
-    print(f"\n--- Starting hop3 container [{label}] ---")
+    print(f"\n--- Starting hop3 container [{label}, {proxy}] ---")
     container = docker_client.containers.run(
         image,
         detach=True,
+        environment={"HOP3_PROXY_TYPE": proxy},
         ports={
             "22/tcp": None,  # SSH - random port
             "80/tcp": None,  # HTTP - random port
+            "443/tcp": None,  # HTTPS - random port
             "8000/tcp": None,  # Hop3 server - random port
         },
     )
@@ -205,6 +212,7 @@ def _start_hop3_container(
     ports = container.attrs["NetworkSettings"]["Ports"]
     ssh_port = ports["22/tcp"][0]["HostPort"]
     http_port = ports["80/tcp"][0]["HostPort"]
+    https_port = ports["443/tcp"][0]["HostPort"]
     api_port = ports["8000/tcp"][0]["HostPort"]
 
     # Get SSH key for passwordless access. The path includes container.short_id
@@ -223,6 +231,8 @@ def _start_hop3_container(
         "ssh_key": str(ssh_key_path),
         "ssh_key_path": ssh_key_path,
         "http_base": f"http://localhost:{http_port}",
+        "https_port": int(https_port),
+        "proxy": proxy,
         "api_url": f"http://localhost:{api_port}",
         # A real admin account's token, fetched the way `hop3 login --ssh` does.
         "api_token": fetch_api_token(DockerCommandRunner(container)),
