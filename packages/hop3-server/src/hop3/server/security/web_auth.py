@@ -94,11 +94,11 @@ def cookie_would_be_dropped(connection: ASGIConnection) -> bool:
     return not HOP3_DEBUG and not request_is_secure(connection)
 
 
-def auth_cookie(username: str) -> Cookie:
-    """The ``Set-Cookie`` carrying a fresh web token for ``username`` (login)."""
+def auth_cookie(token: str) -> Cookie:
+    """The ``Set-Cookie`` carrying a web token from ``issue_web_token`` (login)."""
     return Cookie(
         key=AUTH_COOKIE,
-        value=issue_web_token(username),
+        value=token,
         max_age=_MAX_AGE_SECONDS,
         httponly=True,
         secure=not HOP3_DEBUG,

@@ -18,11 +18,14 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Any
+from typing import TYPE_CHECKING, Any
 
 import tomllib  # Python 3.11+
 
 from hop3.lib import log
+
+if TYPE_CHECKING:
+    from hop3.project.schema import AccessSection
 
 
 def _validation_skip_requested() -> bool:
@@ -690,6 +693,20 @@ class Hop3Config:
         if not isinstance(raw, dict):
             return {}
         return raw
+
+    @property
+    def access(self) -> AccessSection:
+        """
+        The [access] section: who may reach the app (ADR 062).
+
+        The section's defaults when it is absent, which is an app anyone may
+        reach. The file was validated at load, so this cannot fail here.
+        """
+        from hop3.project.schema import (  # ruff:ignore[import-outside-top-level]
+            AccessSection,
+        )
+
+        return AccessSection.model_validate(self._data.get("access", {}))
 
     # =========================================================================
     # [port] section

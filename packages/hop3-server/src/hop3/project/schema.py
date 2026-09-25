@@ -31,6 +31,8 @@ from pydantic import (
     model_validator,
 )
 
+from hop3.core.roles import Role
+
 
 class MetadataSection(BaseModel):
     """[metadata] section - Application identity and catalog info."""
@@ -896,7 +898,7 @@ _WAF_MODES: frozenset[str] = frozenset({"block", "detect"})
 _WAF_DURATION_RE = re.compile(r"^[1-9]\d*[smhd]$")
 
 
-def _check_path_regex(pattern: str) -> str:
+def _check_path_regex(pattern: str, section: str = "[waf]") -> str:
     """
     Validate one access-path pattern: a non-empty, compilable regex.
 
@@ -906,19 +908,19 @@ def _check_path_regex(pattern: str) -> str:
     (invariant 8) is a runtime concern, not enforced here.
     """
     if not pattern or pattern != pattern.strip():
-        msg = "[waf] path pattern must be a non-empty regex without surrounding whitespace"
+        msg = f"{section} path pattern must be a non-empty regex without surrounding whitespace"
         raise ValueError(msg)
     if '"' in pattern:
         # Patterns are embedded in a double-quoted SecLang operator argument; a
         # literal quote could terminate it and inject directives/actions
         # (Security invariant 6). A URL-path regex never needs one — reject at
         # the trust boundary so the compiler needs no fragile escaping.
-        msg = f'[waf] path pattern {pattern!r} must not contain a double quote (")'
+        msg = f'{section} path pattern {pattern!r} must not contain a double quote (")'
         raise ValueError(msg)
     try:
         re.compile(pattern)
     except re.error as e:
-        msg = f"[waf] path pattern {pattern!r} is not a valid regex: {e}"
+        msg = f"{section} path pattern {pattern!r} is not a valid regex: {e}"
         raise ValueError(msg) from None
     return pattern
 
@@ -927,10 +929,10 @@ class WafGate(BaseModel):
     """
     A ``[[waf.gate]]`` entry — conditional access (ADR 050 §2, use case 2).
 
-    Matching paths are reachable only when ``require`` holds. v1 supports a
-    named network (operator-defined, resolved at deploy from the DB); ``auth``
-    is reserved but rejected here until Hop3 forward-auth exists (ADR 050 §5 /
-    Security invariant — fail loud, never a silent allow).
+    Matching paths are reachable only when ``require`` holds: a named network
+    (operator-defined, resolved at deploy from the DB). Authentication is not a
+    gate condition: ``[access]`` expresses it (ADR 062), and ``auth`` here is
+    refused with a message pointing there.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -939,7 +941,7 @@ class WafGate(BaseModel):
         description="URL-path regexes (full-matched) this gate covers."
     )
     require: str = Field(
-        description="Condition: a named network (v1), or 'auth' (deferred — rejected).",
+        description="Condition: a named network.",
     )
 
     @field_validator("paths")
@@ -955,8 +957,8 @@ class WafGate(BaseModel):
     def _check_require(cls, v: str) -> str:
         if v == "auth":
             msg = (
-                "[[waf.gate]] require = 'auth' needs Hop3 forward-auth, which is "
-                "not available yet (ADR 050 §v1 scope). Use a named network."
+                "[[waf.gate]] requires a named network. To put the app behind a "
+                'Hop3 sign-in, use [access] require = "auth" (ADR 062).'
             )
             raise ValueError(msg)
         if not v or v != v.strip():
@@ -1114,6 +1116,43 @@ class WafSection(BaseModel):
             )
             raise ValueError(msg)
         return [_check_path_regex(p) for p in v]
+
+
+class AccessSection(BaseModel):
+    """
+    The ``[access]`` section: who may reach the app at all (ADR 062).
+
+    ``require = "auth"`` puts the whole app behind a Hop3 sign-in, checked by
+    the proxy before each request. ``role`` is the lowest standard role
+    admitted (ADR 061). ``public-paths`` are reachable anonymously: regexes
+    full-matched against the normalized path, the grammar of ADR 050 §2.
+    """
+
+    model_config = ConfigDict(extra="forbid", populate_by_name=True)
+
+    require: Literal["auth", "none"] = Field(
+        default="none",
+        description='"auth": only signed-in Hop3 accounts reach the app.',
+    )
+    role: str = Field(
+        default="member",
+        description="Lowest standard role admitted: member, viewer, deployer, admin.",
+    )
+    public_paths: list[str] = Field(
+        default_factory=list,
+        alias="public-paths",
+        description="Path regexes reachable without signing in (webhooks, health).",
+    )
+
+    @field_validator("role")
+    @classmethod
+    def _check_role(cls, v: str) -> str:
+        return Role.parse(v).value
+
+    @field_validator("public_paths")
+    @classmethod
+    def _check_public_paths(cls, v: list[str]) -> list[str]:
+        return [_check_path_regex(p, "[access]") for p in v]
 
 
 # Context names appear unquoted on the CLI and as TOML keys; keep them
@@ -1718,6 +1757,13 @@ class Hop3TomlSchema(BaseModel):
             "Per-app resource caps (ADR 046 §3): memory / cpu / processes. "
             "Enforced for Docker apps; declaring them on a non-Docker app fails "
             "loud until cgroup enforcement lands."
+        ),
+    )
+    access: AccessSection | None = Field(
+        default=None,
+        description=(
+            'Who may reach the app (ADR 062): require = "auth" puts it behind '
+            "a Hop3 sign-in, with a minimum role and anonymous public paths."
         ),
     )
     waf: WafSection | None = Field(

@@ -79,7 +79,7 @@ def test_garbage_token_is_rejected():
 
 
 def test_auth_cookie_is_httponly_and_long_lived():
-    cookie = auth_cookie("admin")
+    cookie = auth_cookie(issue_web_token("admin"))
     assert cookie.key == AUTH_COOKIE
     assert cookie.httponly is True
     assert cookie.samesite == "lax"

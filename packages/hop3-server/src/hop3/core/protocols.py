@@ -298,6 +298,7 @@ class Proxy(Protocol):
     serves_files: ClassVar[bool]
     fronts_waf: ClassVar[bool]
     hosts_certbot: ClassVar[bool]
+    gates_access: ClassVar[bool]
 
     app: App
     env: Env
@@ -315,6 +316,28 @@ class Proxy(Protocol):
         ...
 
     def setup(self) -> None: ...
+
+
+#: Where a proxy reaches hop3-server's access-gate check (ADR 062): the
+#: server's own port on loopback, Granian's default and the installer's
+#: HOP3_SERVER_BIND.
+GATE_CHECK_UPSTREAM = "127.0.0.1:8000"
+
+#: The request headers a gated app receives from the check's answer, never
+#: from the client: the proxy deletes each, then sets those the check returned.
+#: The underscore spellings are listed because a WSGI server maps them to the
+#: same variable as the real header (nginx drops them on its own).
+GATE_REQUEST_HEADERS = (
+    "X-Hop3-User",
+    "X-Hop3-Role",
+    "Cookie",
+    "X_Hop3_User",
+    "X-Hop3_User",
+    "X_Hop3-User",
+    "X_Hop3_Role",
+    "X-Hop3_Role",
+    "X_Hop3-Role",
+)
 
 
 @dataclass(frozen=True)
@@ -341,6 +364,10 @@ class BaseProxy(ABC):
     #: behind it: a temporary vhost answers the first challenge, and renewal
     #: installs the certificate and reloads the proxy. Wired for nginx only.
     hosts_certbot: ClassVar[bool] = False
+    #: Puts an app behind the access gate (ADR 062): forward-auth to
+    #: hop3-server's check, the ``/_hop3/auth/`` route, and the identity
+    #: headers and cookies the check returns, in place of the client's.
+    gates_access: ClassVar[bool] = False
 
     app: App
     env: Env
