@@ -52,32 +52,35 @@ def test_install_node_toolchain_uses_nodesource():
     assert ["apt-get", "install", "-y", *deps_common.APT_LOCK_FLAGS, "nodejs"] in calls
 
 
-def test_install_node_toolchain_falls_back_when_setup_unfetchable():
-    # Offline/mirrored host: the setup script can't be fetched. Still install
-    # *some* Node so the build path exists (loudly, since it may be too old).
+def test_an_unreachable_nodesource_stops_the_install():
+    """
+    No fallback to the distro's Node 18 (blocker #32): a server with it looks
+    installed and cannot build the catalogue's Node apps.
+    """
     with (
         patch.object(deps_debian, "Spinner"),
         patch.object(deps_debian, "run_cmd") as run_cmd,
-        patch.object(deps_debian, "print_warning") as warn,
     ):
-        run_cmd.side_effect = [
-            MagicMock(returncode=1, stdout="", stderr="curl: (6)"),  # fetch fails
-            _ok("v18.19.1\n"),  # apt-get install nodejs npm (fallback)
-            _ok("v18.19.1\n"),  # node --version
-        ]
-        deps_debian._install_node_toolchain()
+        run_cmd.side_effect = [MagicMock(returncode=6, stdout="", stderr="curl: (6)")]
+        with pytest.raises(CommandError) as refused:
+            deps_debian._install_node_toolchain()
+
+    assert "Can't reach NodeSource" in refused.value.stderr
 
     calls = [c.args[0] for c in run_cmd.call_args_list]
-    expected = [
-        "apt-get",
-        "install",
-        "-y",
-        *deps_common.APT_LOCK_FLAGS,
-        "nodejs",
-        "npm",
-    ]
-    assert expected in calls
-    assert warn.called  # the fallback (old Node) is surfaced, not silent
+    assert not [call for call in calls if "apt-get" in call]
+
+
+def test_an_older_node_first_on_path_stops_the_install():
+    with (
+        patch.object(deps_debian, "Spinner"),
+        patch.object(deps_debian, "run_cmd") as run_cmd,
+    ):
+        run_cmd.side_effect = [_ok(), _ok(), _ok(), _ok("v18.19.1\n")]
+        with pytest.raises(CommandError) as refused:
+            deps_debian._install_node_toolchain()
+
+    assert "Node v18.19.1 is first on PATH" in refused.value.stderr
 
 
 def test_catalogue_baseline_filters_nodesource_packages(monkeypatch):

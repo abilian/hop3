@@ -15,6 +15,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
     DistroInfo,
     Spinner,
     detect_distro_info,
@@ -298,9 +299,15 @@ def _install_go_toolchain(distro_info: DistroInfo) -> None:
         print_success("Go toolchain installed")
 
 
+#: NodeSource's setup script for the Node release the catalogue builds with.
+NODESOURCE_SETUP_URL = "https://deb.nodesource.com/setup_22.x"
+#: Astro needs >=22.12, Etherpad and pnpm >=22.13.
+REQUIRED_NODE_MAJOR = 22
+
+
 def _install_node_toolchain() -> None:
     """
-    Install Node.js 22 LTS from the NodeSource apt repository.
+    Install Node.js 22 LTS from the NodeSource apt repository, or fail.
 
     Debian/Ubuntu ship Node 18, which is EOL and rejected by modern JS
     frameworks (Astro needs >=22.12, Etherpad/pnpm >=22.13). Installing a
@@ -310,53 +317,41 @@ def _install_node_toolchain() -> None:
     instead of relying on per-app `node-version` pins that only cover the
     toolchain phase.
 
-    NodeSource's setup script auto-detects the distro and configures the
-    apt repo; `nodejs` then pulls Node 22 (npm bundled). If the script
-    can't be fetched (offline/mirrored host), fall back to the distro's
-    Node so the install still completes -- loudly, since that Node is too
-    old for modern apps.
+    There is no fallback to the distribution's Node: a server with Node 18
+    looks installed and cannot build the catalogue's Node apps, which fail
+    later and elsewhere (blocker #32). An unreachable NodeSource, a failed
+    install, or an older Node still first on PATH stops the install here.
+
+    Raises:
+        CommandError: Node 22 could not be installed.
     """
     setup_script = Path("/tmp/nodesource_setup.sh")
     apt_env = APT_NONINTERACTIVE_ENV
-
     with Spinner("Installing Node.js 22 LTS (NodeSource)..."):
         fetched = run_cmd(
-            [
-                "curl",
-                "-fsSL",
-                "https://deb.nodesource.com/setup_22.x",
-                "-o",
-                str(setup_script),
-            ],
+            ["curl", "-fsSL", NODESOURCE_SETUP_URL, "-o", str(setup_script)],
             check=False,
         )
-        if fetched.returncode == 0:
-            run_cmd(["bash", str(setup_script)], env=apt_env, check=False)
-            result = run_cmd(
-                ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "nodejs"],
-                env=apt_env,
-                check=False,
+        if fetched.returncode != 0:
+            raise CommandError(
+                ["curl", NODESOURCE_SETUP_URL],
+                fetched.returncode,
+                f"Can't reach NodeSource ({fetched.stderr.strip()}). The distro's "
+                f"Node 18 is EOL and too old for Node apps, so the install stops. "
+                f"Make deb.nodesource.com reachable and re-run.",
             )
-        else:
-            result = run_cmd(
-                ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "nodejs", "npm"],
-                env=apt_env,
-                check=False,
-            )
+        run_cmd(["bash", str(setup_script)], env=apt_env)
+        run_cmd(["apt-get", "install", "-y", *APT_LOCK_FLAGS, "nodejs"], env=apt_env)
 
-    if fetched.returncode != 0:
-        print_warning(
-            "Couldn't fetch the NodeSource setup script; fell back to the "
-            "distro's Node, which may be too old for modern JS apps."
+    version = run_cmd(["node", "--version"]).stdout.strip()
+    if int(version.lstrip("v").split(".")[0]) < REQUIRED_NODE_MAJOR:
+        raise CommandError(
+            ["node", "--version"],
+            0,
+            f"Node {version} is first on PATH after installing Node "
+            f"{REQUIRED_NODE_MAJOR} from NodeSource; remove the older Node.",
         )
-
-    version = run_cmd(["node", "--version"], check=False)
-    if version.returncode == 0:
-        print_success(f"Node.js installed: {version.stdout.strip()}")
-    elif result.returncode != 0:
-        print_warning("Node.js installation failed - Node apps may not work")
-        if result.stderr:
-            print_detail(result.stderr.strip().split("\n")[-1])
+    print_success(f"Node.js installed: {version}")
 
 
 # =============================================================================
