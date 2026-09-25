@@ -38,10 +38,20 @@ FRAMEWORK_PREFIXES = ("/static", "/schema")
 # your browser fetch a magic link already holds the token, so nothing is gained
 # by the forgery. See report-2026-07-29.md F6 for the consumption-order
 # question, which is separate and still open.
+#
+# `/_hop3/auth/callback` (ADR 062) is the gate's twin of the magic link: it
+# redeems a one-time code on the app's host and sets the gate cookie there. It
+# is a GET because it is the end of a redirect. The magic-link argument covers
+# only half of it: a forged fetch cannot sign the victim in as themselves
+# without their session, but it can sign them in to the app as the account
+# whose code the attacker holds (login CSRF). Binding the code to the browser
+# that started the sign-in closes that; it is ADR 062's open question 4.
 READ_ONLY_GET_ROUTES = frozenset({
     "/",
+    "/_hop3/auth/callback",
     "/api/stream/{stream_id:str}",
     "/api/stream/{stream_id:str}/status",
+    "/auth/check",
     "/auth/login",
     "/auth/magic/{token:str}",
     "/auth/profile",

@@ -31,6 +31,9 @@ EXPECTED = {
     ("POST", "/auth/logout"): "public",
     ("GET", "/auth/magic/{token:str}"): "public",
     ("GET", "/auth/profile"): "member",
+    # The access gate decides per request, from the gate cookie (ADR 062).
+    ("GET", "/auth/check"): "public",
+    ("GET", "/_hop3/auth/callback"): "public",
     ("GET", "/api/stream/{stream_id:str}"): "deployer",
     ("GET", "/api/stream/{stream_id:str}/status"): "deployer",
     ("GET", "/dashboard"): "viewer",

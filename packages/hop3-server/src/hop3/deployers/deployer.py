@@ -21,6 +21,7 @@ from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.manifest import RuntimeManifestBuilder
 from hop3.core.plugins import get_builder, get_deployer
 from hop3.core.protocols import DeploymentContext
+from hop3.deployers.access import configure_access_preflight
 from hop3.deployers.addon_provisioning import (
     provision_addons,
     reinject_attached_addons,
@@ -1521,6 +1522,9 @@ def _prepare_source_for_build(
     # nginx config generated during deploy points at the WAF proxy (ADR 050 §7).
     # Aborts the deploy loudly on an invalid policy (compile-before-commit, §5).
     configure_waf_preflight(app, app_config, db_session)
+    # Refuse a gate the server cannot enforce, and record the app's [access]
+    # policy where the proxy's check reads it (ADR 062).
+    configure_access_preflight(app, app_config, db_session)
     stop_previous_instance(app)
     realize_volumes(app, app_config.hop3_config.volumes)
 

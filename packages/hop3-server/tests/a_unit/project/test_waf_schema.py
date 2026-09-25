@@ -8,8 +8,8 @@ Schema + parsing for the [waf] section (ADR 050, Layer-7 WAF).
 The [waf] block is the engine-independent declarative surface; this guards that
 valid policy parses and malformed policy is rejected at hop3.toml load — before
 anything is compiled to the engine or deployed. Two security-critical behaviours
-are asserted explicitly: `require = "auth"` fails loud (forward-auth not yet
-available), and bad path regexes are caught at deploy, not at request time.
+are asserted explicitly: `require = "auth"` fails loud (authentication is
+`[access]`, ADR 062), and bad path regexes are caught at deploy, not at request time.
 """
 
 from __future__ import annotations
@@ -57,9 +57,9 @@ def test_gate_with_named_network_parses():
     assert schema.waf.gate[0].paths == ["/admin/.*"]
 
 
-def test_gate_require_auth_is_rejected():
-    # Security: forward-auth doesn't exist yet — must fail loud, never silently allow.
-    with pytest.raises(Hop3TomlValidationError, match="forward-auth"):
+def test_gate_require_auth_points_at_access():
+    # A gate admits by network only; a sign-in is [access] (ADR 062).
+    with pytest.raises(Hop3TomlValidationError, match=r"use \[access\] require"):
         validate_hop3_toml({
             "waf": {"gate": [{"paths": ["/admin/.*"], "require": "auth"}]}
         })

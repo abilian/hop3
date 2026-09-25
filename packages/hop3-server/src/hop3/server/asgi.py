@@ -25,6 +25,7 @@ from .cert_renewal_service import (
     stop_cert_renewal_service,
 )
 from .controllers import (
+    AccessGateController,
     AddonsController,
     AppsController,
     AuthController,
@@ -174,6 +175,7 @@ def create_app() -> Litestar:
         RPCController,  # JSON-RPC endpoint (/rpc)
         StreamController,  # SSE streaming (/api/stream/*)
         AuthController,  # Web authentication (/auth/*)
+        AccessGateController,  # Access gate (/auth/check, /_hop3/auth/*)
         DashboardIndexController,  # Dashboard index (/dashboard/)
         AppsController,  # App management (/dashboard/apps/*)
         LogsController,  # Log viewing (/dashboard/apps/*/logs/*)

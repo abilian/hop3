@@ -1,5 +1,37 @@
 {
   "$defs": {
+    "AccessSection": {
+      "additionalProperties": false,
+      "description": "The ``[access]`` section: who may reach the app at all (ADR 062).\n\n``require = \"auth\"`` puts the whole app behind a Hop3 sign-in, checked by\nthe proxy before each request. ``role`` is the lowest standard role\nadmitted (ADR 061). ``public-paths`` are reachable anonymously: regexes\nfull-matched against the normalized path, the grammar of ADR 050 \u00a72.",
+      "properties": {
+        "public-paths": {
+          "description": "Path regexes reachable without signing in (webhooks, health).",
+          "items": {
+            "type": "string"
+          },
+          "title": "Public-Paths",
+          "type": "array"
+        },
+        "require": {
+          "default": "none",
+          "description": "\"auth\": only signed-in Hop3 accounts reach the app.",
+          "enum": [
+            "auth",
+            "none"
+          ],
+          "title": "Require",
+          "type": "string"
+        },
+        "role": {
+          "default": "member",
+          "description": "Lowest standard role admitted: member, viewer, deployer, admin.",
+          "title": "Role",
+          "type": "string"
+        }
+      },
+      "title": "AccessSection",
+      "type": "object"
+    },
     "AddonConfig": {
       "additionalProperties": true,
       "description": "Single addon/provider configuration.",
@@ -1380,7 +1412,7 @@
     },
     "WafGate": {
       "additionalProperties": false,
-      "description": "A ``[[waf.gate]]`` entry \u2014 conditional access (ADR 050 \u00a72, use case 2).\n\nMatching paths are reachable only when ``require`` holds. v1 supports a\nnamed network (operator-defined, resolved at deploy from the DB); ``auth``\nis reserved but rejected here until Hop3 forward-auth exists (ADR 050 \u00a75 /\nSecurity invariant \u2014 fail loud, never a silent allow).",
+      "description": "A ``[[waf.gate]]`` entry \u2014 conditional access (ADR 050 \u00a72, use case 2).\n\nMatching paths are reachable only when ``require`` holds: a named network\n(operator-defined, resolved at deploy from the DB). Authentication is not a\ngate condition: ``[access]`` expresses it (ADR 062), and ``auth`` here is\nrefused with a message pointing there.",
       "properties": {
         "paths": {
           "description": "URL-path regexes (full-matched) this gate covers.",
@@ -1391,7 +1423,7 @@
           "type": "array"
         },
         "require": {
-          "description": "Condition: a named network (v1), or 'auth' (deferred \u2014 rejected).",
+          "description": "Condition: a named network.",
           "title": "Require",
           "type": "string"
         }
@@ -1559,6 +1591,18 @@
   "additionalProperties": false,
   "description": "Configuration for a Hop3 application. Generated from the server's own validation models; cross-field rules are enforced at deploy time.",
   "properties": {
+    "access": {
+      "anyOf": [
+        {
+          "$ref": "#/$defs/AccessSection"
+        },
+        {
+          "type": "null"
+        }
+      ],
+      "default": null,
+      "description": "Who may reach the app (ADR 062): require = \"auth\" puts it behind a Hop3 sign-in, with a minimum role and anonymous public paths."
+    },
     "addons": {
       "anyOf": [
         {

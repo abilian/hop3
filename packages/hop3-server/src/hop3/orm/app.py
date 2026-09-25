@@ -13,13 +13,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
-from sqlalchemy import DateTime, String, TypeDecorator
+from sqlalchemy import JSON, DateTime, Enum as SQLEnum, String, TypeDecorator
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from sqlalchemy.types import Integer as SQLInteger
 
 from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.core.plugins import get_deployer_by_name
+from hop3.core.roles import Role
 from hop3.lib import Abort, log, robust_rmtree
 from hop3.lib.path import REJECTED_SUFFIX
 from hop3.run.spawn import spawn_app, verify_nix_closure
@@ -139,6 +140,20 @@ class App(BigIntAuditBase):
     # app's web socket when [waf].enabled. 0 = no WAF proxy. When set, nginx
     # points here instead of `port`, and the proxy upstreams to `port`.
     waf_port: Mapped[int] = mapped_column(default=0)
+    # The access gate (ADR 062), recorded at deploy from [access]: the lowest
+    # role it admits, or None for an app anyone may reach, and the paths it
+    # leaves open. The proxy's check reads these on every request.
+    access_role: Mapped[Role | None] = mapped_column(
+        SQLEnum(
+            Role,
+            native_enum=False,
+            length=16,
+            values_callable=lambda roles: [role.value for role in roles],
+        ),
+        default=None,
+        nullable=True,
+    )
+    access_public_paths: Mapped[list[str]] = mapped_column(JSON, default=list)
     hostname: Mapped[str] = mapped_column(default="")
     error_message: Mapped[str] = mapped_column(String(1024), default="")
     state_changed_at: Mapped[datetime | None] = mapped_column(

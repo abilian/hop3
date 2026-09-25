@@ -36,7 +36,7 @@ from hop3.server.cli.db import (
 if TYPE_CHECKING:
     from pathlib import Path
 
-HEAD_REVISION = "b9caf947fe56"  # user_role
+HEAD_REVISION = "a7c3e9d51f20"  # app_access_gate
 BASE_REVISION = "d20dd80dafca"
 # A revision no branch in this tree ships — what a feature-branch DB looks like
 # once that branch is gone (incident: hop3-dev was stamped at one of these

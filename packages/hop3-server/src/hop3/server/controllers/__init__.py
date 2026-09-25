@@ -19,11 +19,13 @@ from .dashboard import (
     EnvVarsController,
     LogsController,
 )
+from .gate import AccessGateController
 from .root import RootController
 from .rpc import RPCController
 from .stream import StreamController
 
 __all__ = [
+    "AccessGateController",
     "AddonsController",
     "AppsController",
     "AuthController",
