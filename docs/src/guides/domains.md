@@ -217,6 +217,7 @@ All three serve every hostname of an app, over HTTPS with a certificate from Hop
 | Files from disk (static sites, static paths) | yes | yes | no |
 | Let's Encrypt certificates (`ACME_ENGINE = "certbot"`) | yes | no | no |
 | Web application firewall (`[waf]`) | yes | no | no |
+| Sign-in gate (`[access]`) | yes | yes | yes |
 
 Hop3 obtains and renews Let's Encrypt certificates through nginx; on Caddy and Traefik, use `ACME_ENGINE = "self-signed"` for now. A deploy that needs something the server's proxy cannot do is refused, and the error names what is missing.
 

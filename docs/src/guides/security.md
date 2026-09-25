@@ -39,6 +39,7 @@ What the roles do not cover yet:
 | **Uploaded archives** | Deploy tarballs are validated member by member before extraction: path traversal, symlink and hardlink entries, and decompression bombs are all rejected. |
 | **Privileged operations** | Firewall changes, proxy reloads and mounts run through `hop3-rootd`, a small root daemon reachable only over a local socket with a kernel-enforced caller check, restricted to an allow-list of binaries, with an append-only audit log. |
 | **Network exposure** | An L3/L4 firewall plus an optional L7 web application firewall (OWASP Core Rule Set) in front of applications that enable it. |
+| **Apps with no login of their own** | `[access] require = "auth"` puts an app behind a Hop3 sign-in, with a minimum role and anonymous public paths ([reference](../reference/config.md#access-sign-in-gate)). The app is told who is asking in headers a client cannot forge. |
 
 ## What stays your responsibility
 
