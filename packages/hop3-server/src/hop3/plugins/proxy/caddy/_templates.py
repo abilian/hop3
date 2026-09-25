@@ -6,6 +6,7 @@ from __future__ import annotations
 
 # What an app's site serves, on whichever scheme it is reached.
 CADDY_SITE_BODY = """
+    $HOP3_INTERNAL_CADDY_GATE
     $HOP3_INTERNAL_CADDY_ACME
     $HOP3_INTERNAL_CADDY_REQUEST_BODY
     $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
@@ -123,4 +124,23 @@ CADDY_TLS_AUTO = """
 # Compression configuration
 CADDY_COMPRESSION = """
     encode gzip zstd
+"""
+
+# The access gate (ADR 062). `forward_auth` runs before every `handle` in
+# Caddy's directive order, so static paths are checked too. On a 2xx it deletes
+# each copied header from the request and sets the ones the check returned;
+# otherwise the check's own answer (the sign-in redirect, a 403) goes to the
+# client. `/_hop3/auth/` is hop3-server's, on the app's host.
+CADDY_GATE = """
+    @hop3_gated not path /_hop3/auth/*
+    forward_auth @hop3_gated $upstream {
+        uri /auth/check?redirect=1
+        header_up X-Hop3-App $APP
+        copy_headers $headers
+    }
+    handle /_hop3/auth/* {
+        reverse_proxy $upstream {
+            header_up X-Hop3-App $APP
+        }
+    }
 """

@@ -13,7 +13,7 @@ from typing import TYPE_CHECKING, ClassVar, NoReturn
 from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
 from hop3.core.artifacts import load_backend_protocol
 from hop3.core.identifiers import validate_hostname_list
-from hop3.core.protocols import BaseProxy
+from hop3.core.protocols import GATE_CHECK_UPSTREAM, GATE_REQUEST_HEADERS, BaseProxy
 from hop3.di import create_container
 from hop3.lib import (
     Diagnosis,
@@ -35,6 +35,7 @@ from ._templates import (
     CADDY_BLOCK_GIT,
     CADDY_COMPRESSION,
     CADDY_FASTCGI_FRAGMENT,
+    CADDY_GATE,
     CADDY_HTTPS_ONLY_TEMPLATE,
     CADDY_PORTMAP_FRAGMENT,
     CADDY_REQUEST_BODY,
@@ -58,6 +59,7 @@ VALIDATE_TIMEOUT = 5
 @dataclass(frozen=True)
 class CaddyVirtualHost(BaseProxy):
     backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
+    gates_access: ClassVar[bool] = True
 
     app: App
     env: Env
@@ -153,6 +155,18 @@ class CaddyVirtualHost(BaseProxy):
         self.env["CADDY_ACL"] = ""
         self.env["HOP3_INTERNAL_CADDY_ACME"] = expand_vars(
             CADDY_ACME_CHALLENGE, self.env
+        )
+        self.env["HOP3_INTERNAL_CADDY_GATE"] = (
+            expand_vars(
+                CADDY_GATE,
+                {
+                    "APP": self.app_name,
+                    "upstream": GATE_CHECK_UPSTREAM,
+                    "headers": " ".join(GATE_REQUEST_HEADERS),
+                },
+            )
+            if self.app.access_role is not None
+            else ""
         )
 
         # Largest request body this app accepts. Caddy has no equivalent of
