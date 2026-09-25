@@ -29,19 +29,21 @@ public-paths = ["/webhook", "/api/public/.*"]
 
 - `require = "auth"` puts the whole app behind a Hop3 sign-in. `"none"` is the default today and the explicit opt-out once a server-level default exists (§8).
 - `role` is the minimum standard role ([ADR 061](./061-standard-roles-and-rpc-authorization.md) §1) the gate admits. The default, `member`, admits any active account.
-- `public-paths` are Python regexes full-matched against the normalized path, the same grammar and normalization as ADR 050 §2. They are reachable anonymously. A health check path an external monitor calls belongs here.
+- `public-paths` are Python regexes full-matched against the path, the same grammar as ADR 050 §2. They are reachable anonymously. A health check path an external monitor calls belongs here. The gate only ever grants. The path is decoded once; a path it cannot read unambiguously (a dot segment, `//`, an encoded separator, a second layer of encoding, a control character) is not public. The path the gate matches is therefore the path the app routes.
 
 `[access]` is the only way to express authentication-based access. ADR 050's gate keeps its one condition, a named network, and `[[waf.gate]] require = "auth"` is refused with a message pointing at `[access]`. The two are different mechanisms and compose: a network gate is a per-path source-address rule evaluated by the WAF; the access gate is an app-wide identity check evaluated by the proxy before the WAF sees the request.
 
 ### 2. One check endpoint, three proxies
 
-hop3-server serves `GET /auth/check` on loopback. The proxy calls it for every request to a gated app outside `public-paths`, passing the original host, path and cookies. The endpoint answers:
+hop3-server serves `GET /auth/check` on loopback. The proxy calls it for every request to a gated app, public paths included, passing the app's name (`X-Hop3-App`, set by the proxy), the original host and path, and the cookies. The endpoint answers:
 
-- **200** with `X-Hop3-User` and `X-Hop3-Role` when the gate cookie is valid for this app and the user's current role meets the app's minimum;
-- **401** when there is no valid gate cookie;
+- **200** when the gate cookie is valid for this app and the user's current role meets the app's minimum, or when the path is public. It carries `X-Hop3-User` and `X-Hop3-Role` when the user is signed in with enough role, and `Cookie`, the request's cookies without the gate cookie;
+- **401** when there is no valid gate cookie, with the sign-in URL in `X-Hop3-Login`, or a **302** to it when the proxy asks (`?redirect=1`);
 - **403** when the user is signed in and their role is too low.
 
-The proxy passes 200 through to the app, turns 401 into a redirect to the Hop3 sign-in (§3), and returns 403 as a page. WebSocket upgrades go through the same check, because each proxy runs forward-auth before the upgrade.
+The proxy passes 200 through to the app. On 401, nginx redirects to the Hop3 sign-in (§3) itself, since `auth_request` understands only 2xx, 401 and 403; Caddy and Traefik ask for the 302 and pass it on. A 403 goes to the client as a page. WebSocket upgrades go through the same check, because each proxy runs forward-auth before the upgrade.
+
+Public paths go through the check too. Deciding them in the proxy would take ADR 050's path reading in three regex dialects, and a difference between two copies is how a public-path bypass happens. Checking every request also lets one mechanism, the check's answer, supply the identity headers and the cookies on every path.
 
 The role is read from the database on every check, as ADR 061 §3 requires for the control plane. A demoted or disabled account loses access on its next request.
 
@@ -60,15 +62,16 @@ The gate cookie is `__Host-hop3_gate`: host-only, `Secure`, `HttpOnly`, `SameSit
 
 ### 4. What reaches the app
 
-- The proxy sets `X-Hop3-User` and `X-Hop3-Role` from the check response, **overwriting** whatever the client sent, on every request including public paths (where they are empty). An app behind the gate can trust them.
-- The gate cookie is removed from the `Cookie` header before the request is forwarded. The app never sees a Hop3 credential.
+- The proxy sets `X-Hop3-User` and `X-Hop3-Role` from the check's answer, **replacing** whatever the client sent, on every request. They are empty on a public path unless the visitor is signed in with enough role. Each proxy deletes the listed headers and sets those the check returned; for Caddy and Traefik the list includes the underscore spellings (`X_Hop3_User`), which a WSGI server reads as the same header, and nginx drops those on its own. Traefik's entry points also delete such aliases (`aliasHeadersStrategy: delete`). An app behind the gate can trust the headers.
+- The `Cookie` header is replaced the same way, by the request's cookies without the gate cookie. The app never sees a Hop3 credential. The check returns the cookies because Traefik can replace a request header from the check's answer, where it has no way to rewrite one cookie inside a header.
 - `/_hop3/auth/*` never reaches the app, so the handshake cannot be intercepted by it.
 
 ### 5. Preconditions, refused at deploy
 
 A deploy with `require = "auth"` aborts with a diagnosis when:
 
-- the app has no TLS certificate (the `__Host-` cookie needs HTTPS, as does any gate credential);
+- the app has no hostname, and so no TLS certificate (the `__Host-` cookie needs HTTPS, as does any gate credential);
+- the app sets `[deploy].allow-http`, which would serve it where the gate's `Secure` cookie is never sent;
 - no admin domain is configured (there is nowhere to sign in);
 - `role` is not a standard role;
 - a `public-paths` entry fails to compile;
@@ -114,7 +117,7 @@ Each proxy gets one e2e test. It deploys a login-less app with `[access] require
 ### Negative
 
 - Every request to a gated app costs a round trip to hop3-server, including static assets. The gate's latency and hop3-server's availability become part of every gated app's.
-- hop3-server is in the request path of gated apps: if it is down, they are down (§6).
+- hop3-server is in the request path of gated apps: if it is down, they are down (§6), public paths included.
 - The handshake adds a reserved path, `/_hop3/`, to every gated vhost. An app that serves that path cannot be gated.
 
 ## Alternatives considered
@@ -130,3 +133,4 @@ Each proxy gets one e2e test. It deploys a login-less app with `[access] require
 1. **Bearer tokens.** Scripts calling a gated API cannot follow a browser redirect. Accepting `Authorization: Bearer` at the gate collides with apps that use that header for their own tokens. A dedicated header, or a per-app gate token, are the candidates.
 2. **Caching the check.** A short-lived cache in the proxy, keyed on the gate cookie, would remove most round trips at the cost of delaying a revocation by the cache lifetime. Measure first.
 3. **External identity providers.** Signing in through OIDC upstream of Hop3's own accounts is a separate decision.
+4. **Login CSRF.** A one-time code is bound to an app and an account, not to the browser that started the sign-in. A page that makes a victim's browser fetch the callback with the attacker's code signs the victim in to the app as the attacker. Binding the code to a short-lived cookie set on the app's host when the sign-in starts would close this; nginx sets that cookie from the check's 401, Caddy and Traefik from its 302.

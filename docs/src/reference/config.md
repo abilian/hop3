@@ -529,6 +529,27 @@ source = "10.0.0.0/8"   # restrict to a private network instead of the whole int
 - **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
 - Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
 
+### `[access]` - Sign-In Gate
+
+An app is public the moment it deploys. `[access]` puts it behind a Hop3 sign-in: before the proxy passes a request on, Hop3 checks the visitor's account. Use it for apps with no accounts of their own, such as notebooks, admin tools, dashboards and staging copies.
+
+```toml
+[access]
+require = "auth"                 # "auth", or "none" (the default)
+role = "member"                  # lowest role admitted: member, viewer, deployer, admin
+public-paths = ["/webhook", "/api/public/.*"]
+```
+
+- A visitor without a session is sent to the Hop3 sign-in on the server's admin domain, then back to the page they asked for. One sign-in covers every gated app on the server, and signing out of Hop3 signs out of all of them.
+- `role` is checked on every request, so a demoted or disabled account loses access at once. An account below the role gets a 403 page naming the role it needs and the command that grants it.
+- `public-paths` are reachable without signing in: a webhook, or a health check an external monitor calls. They are regexes full-matched against the path, as in `[waf]`. A path Hop3 cannot read unambiguously (dot segments, `//`, encoded slashes, double encoding) is never treated as public.
+- The app receives `X-Hop3-User` and `X-Hop3-Role`, the signed-in account's name and role. The proxy sets them on every request and never takes them from the client, so the app can trust them. The app never receives the gate's own cookie.
+- `/_hop3/` is reserved on a gated app's hostname: the sign-in hands the session over there.
+
+A deploy with `require = "auth"` is refused when the server has no admin domain, when the app has no hostname, when it sets `[deploy].allow-http` (the gate's cookie only travels over HTTPS), or when the server's proxy cannot enforce the gate. Every request to a gated app asks hop3-server first, so while hop3-server is down, the app is down too.
+
+`[access]` and `[waf]` combine: the gate decides who may reach the app, and the WAF inspects what they send.
+
 ### `[waf]` - Web Application Firewall (Layer 7)
 
 Where `[[ports]]` is the L3/L4 firewall (which *packets* may reach a port), `[waf]` is the L7 firewall (which *HTTP requests* are acceptable). When enabled, Hop3 runs a per-app reverse proxy (LeWAF, the OWASP Core Rule Set) in front of the app: `nginx → WAF proxy → app`. It inspects every request for SQLi / XSS / RCE / path-traversal and applies your access policy *before* the request reaches the app. Apps that don't declare `[waf]` are unchanged.

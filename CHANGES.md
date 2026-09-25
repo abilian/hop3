@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **`[access]` puts an app behind a Hop3 sign-in.** With `require = "auth"`, a visitor without a session is sent to the sign-in on the admin domain and back to the page they asked for. `role` sets the lowest role admitted, and `public-paths` leaves webhooks and health checks open. The app learns who is asking from `X-Hop3-User` and `X-Hop3-Role`, which a client cannot forge, and never receives the gate's cookie. One sign-in covers every gated app, and signing out of Hop3 signs out of all of them. Works on nginx, Caddy and Traefik. (ADR 062)
+
 - **Accounts have roles: `admin`, `deployer`, `viewer` and `member`.** `hop3 user set-role alice viewer` grants one; `hop3 user add --role` sets it at creation. A viewer reads apps, addons, backups and certificates but no secret. A deployer deploys and operates apps and addons. An admin also manages accounts and the server. A member signs in to the web interface and sees its own profile. A deployer's builds run with the control plane's own privileges, so treat that role as an administrator credential. (ADR 061)
 
 ### Changed
