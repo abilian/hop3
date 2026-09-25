@@ -10,45 +10,48 @@ If you operate a Hop3 server, read [Security](../guides/security.md). To report 
 
 ## Actors
 
-Hop3 separates five actors with real privilege boundaries between them. Most security findings resolve to a single question: across which of these boundaries does the tainted data flow? When the answer is "none", the finding is misaligned with the model however alarming the surface code looks.
+Hop3 separates six actors with real privilege boundaries between them. Most security findings resolve to a single question: across which of these boundaries does the tainted data flow? When the answer is "none", the finding is misaligned with the model however alarming the surface code looks.
 
 | Actor | Trust posture |
 |-------|---------------|
 | **Operator** | The sysadmin who installed Hop3; root on the host. Fully trusted. Operator compromise is host compromise and the model does not cover it. |
-| **App deployer** | An authenticated user pushing apps over the CLI or RPC. Trusted inside the application runtime: they choose its entrypoint, env and dependencies. Cannot escalate to operator. |
+| **App deployer** | An account with the `deployer` role, pushing apps over the CLI or RPC. Trusted inside the application runtime: they choose its entrypoint, env and dependencies. Cannot escalate to operator. |
+| **Viewer / member** | An account with a read-only role (`viewer`) or none (`member`). Trusted with nothing it can change. |
 | **hop3-server** | The ASGI daemon, running as the unprivileged `hop3` user. Confidant of both actors above; not internet-trusted. Everything it exposes on its listening port is public attack surface. |
 | **hop3-cli / hop3-tui** | Workstation tools. Trusted by the user invoking them, since that user owns the shell. Their threats are a hostile *remote server*, a malicious `hop3.toml` in a cloned repo, and on-disk permissions of the token file. |
 | **hop3-rootd** | A small root daemon on a Unix socket, performing what `hop3-server` cannot. Caller identity is enforced by the kernel (`SO_PEERCRED`); execution is restricted to an allow-list of absolute binary paths. |
 
 ## Boundaries
 
-Three boundaries carry the security weight:
+Four boundaries carry the security weight:
 
 1. **Unauthenticated HTTP → authenticated session.** Login, magic-link redemption, JWT validation, rate limiting. Anything reachable before the token check is internet-exposed.
-2. **App deployer → host.** A deployer supplies a `hop3.toml` and a tarball; Hop3 turns those into a process supervisor entry, a proxy configuration and an addon-secrets record. Sinks that interpolate deployer-controlled strings into shell, SQL, config files or filesystem paths are where to look.
-3. **hop3 user → root.** `hop3-server` asks `hop3-rootd` to perform a privileged operation over a local socket. Every operation revalidates its arguments inside rootd.
+2. **Account → a higher role.** Every command and dashboard route names the lowest role that may use it, and the server checks the account's role on every request.
+3. **App deployer → host.** A deployer supplies a `hop3.toml` and a tarball; Hop3 turns those into a process supervisor entry, a proxy configuration and an addon-secrets record. Sinks that interpolate deployer-controlled strings into shell, SQL, config files or filesystem paths are where to look.
+4. **hop3 user → root.** `hop3-server` asks `hop3-rootd` to perform a privileged operation over a local socket. Every operation revalidates its arguments inside rootd.
 
 The model defines **no boundary between two app deployers** (see below).
 
-## The control plane is single-tenant
+## Roles on the control plane
 
-An authenticated account is an operator-equivalent credential: it can act on any application and any addon on the host. This is by design for the current release.
+Every account holds one of four standard roles, totally ordered: `admin` > `deployer` > `viewer` > `member` ([ADR 061](adrs/061-standard-roles-and-rpc-authorization.md)). Each command class declares `min_role`, defaulting to `admin`; each dashboard route carries a `RoleGuard`. The server reads the account's role from the database on every request, so a token carries identity and never authority. Two tables in the test suite pin the whole policy, one for commands and one for routes, and a new command or route fails the suite until its role is written down.
 
-Structurally, `App` has no owner column, addon credentials bind to an application, and commands do not receive the caller's identity unless they opt in; only the user-management surface opts in. The RPC dispatcher authenticates and checks scope; it has nothing to check ownership against.
+Roles bound what an account may do. They do not separate apps: a role applies to every app and addon on the server, and a deployer's builds run as the control plane's own user.
 
 Consequences when reviewing:
 
-- "User X can reach user Y's application" is **the model**. It belongs against the ownership work.
+- "Deployer X can reach deployer Y's application" is **the model**. It belongs against per-app roles.
+- "An account reaches a command or page above its role" **is** a vulnerability.
 - "An *unauthenticated* caller reaches an app-scoped command" **is** a vulnerability, and a serious one.
-- Leaking one account's credentials to another is still in scope. Operator-equivalence constrains authorization only; it does not license leaking secrets across the RPC boundary.
+- Leaking one account's credentials to another is still in scope. Roles constrain authorization only; they grant no licence to leak secrets across the RPC boundary.
 
-Note that single-tenant and single-server are separate claims. Hop3 targets one server per deployment today and one tenant per deployment today; per-application ownership (multi-tenancy on one host) is the planned next step.
+Note that single-tenant and single-server are separate claims. Hop3 targets one server per deployment today and one tenant per deployment today; per-app roles (multi-tenancy on one host) are the planned next step.
 
 ## In and out of scope
 
 **In scope:** crossing the unauthenticated boundary; escaping "deploy an app" into "execute as operator" or "modify state outside the application"; leaking tokens, passwords or keys through argv, logs, error messages or world-readable files; replay or fixation of tokens and magic links; denial of service that bricks the server or starves another application; supply-chain integrity of pinned dependencies.
 
-**Out of scope:** post-host-compromise scenarios ("an attacker who is already root could…"); self-injection on a developer's own workstation; key custody beyond the process environment (no HSM/TPM/KMS) and automated key rotation; encryption of the database *file* itself, distinct from the secrets inside it; separation between accounts on the control plane; a control-plane audit log; multi-node isolation; compliance certification; multi-factor authentication.
+**Out of scope:** post-host-compromise scenarios ("an attacker who is already root could…"); self-injection on a developer's own workstation; key custody beyond the process environment (no HSM/TPM/KMS) and automated key rotation; encryption of the database *file* itself, distinct from the secrets inside it; separation between two accounts of the same role; a control-plane audit log; multi-node isolation; compliance certification; multi-factor authentication.
 
 Several of those are planned work; the repository note tracks which ones.
 

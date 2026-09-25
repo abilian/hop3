@@ -131,7 +131,7 @@ hop3 user set-role alice admin
 hop3 user list
 ```
 
-Every Hop3 account is operator-equivalent today: there is no per-app ownership and no MFA. Read [Security](../guides/security.md) before you hand one out.
+Every account holds one role: `admin`, `deployer`, `viewer` or `member` (the default). A deployer's builds run with the control plane's own privileges, so treat it as an administrator, and there is no MFA yet. Read [Security](../guides/security.md#the-account-model-four-roles) before you hand one out.
 
 ## When something is wrong
 

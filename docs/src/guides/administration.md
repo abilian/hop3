@@ -174,14 +174,14 @@ sudo nginx -t && sudo systemctl reload nginx
 
 ## User Management
 
-!!! warning "Every account can manage every application"
+!!! warning "A deployer is an administrator in all but name"
 
-    Hop3 has no per-application ownership: any account you create can stop,
-    reconfigure, back up or destroy **every** app on the server, and can read
-    every addon's credentials. The `--admin` flag governs user-management
-    rights. Provision accounts on that basis, and do not host applications
-    for parties who should not see each other's data on the same server.
-    See [Security](security.md#the-account-model-accounts-are-operator-equivalent).
+    Every account holds one role: `admin`, `deployer`, `viewer` or `member`
+    (the default). A deployer's builds run with the control plane's own
+    privileges, so treat it as an administrator credential, and remember that
+    a role applies to every app on the server. Do not host applications for
+    parties who should not see each other's data on the same server.
+    See [Security](security.md#the-account-model-four-roles).
 
 ### Creating Admin Users
 
