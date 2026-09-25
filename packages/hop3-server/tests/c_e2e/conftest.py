@@ -132,6 +132,7 @@ def _start_hop3_container(
     image: str,
     label: str = "hop3",
     proxy: str = "nginx",
+    admin_domain: str = "",
 ) -> dict[str, Any]:
     """
     Start a single hop3 container and wait for it to be ready.
@@ -144,13 +145,17 @@ def _start_hop3_container(
     `label` is used only in print output to distinguish concurrent
     containers (e.g. "A" / "B" for the migration-test pair). `proxy` is the
     reverse proxy the entrypoint runs and hop3-server configures
-    (``HOP3_PROXY_TYPE``).
+    (``HOP3_PROXY_TYPE``). ``admin_domain`` gives the server one, routed to
+    hop3-server over TLS on that proxy, for tests that sign in through it.
     """
     print(f"\n--- Starting hop3 container [{label}, {proxy}] ---")
     container = docker_client.containers.run(
         image,
         detach=True,
-        environment={"HOP3_PROXY_TYPE": proxy},
+        environment={
+            "HOP3_PROXY_TYPE": proxy,
+            **({"HOP3_E2E_ADMIN_DOMAIN": admin_domain} if admin_domain else {}),
+        },
         ports={
             "22/tcp": None,  # SSH - random port
             "80/tcp": None,  # HTTP - random port
@@ -215,6 +220,12 @@ def _start_hop3_container(
     https_port = ports["443/tcp"][0]["HostPort"]
     api_port = ports["8000/tcp"][0]["HostPort"]
 
+    # Ready where the tests talk to it: through the host's port mapping. The
+    # loop above ran inside the container, which says nothing about a forward
+    # that is not up yet; a deploy through it once died with RemoteDisconnected
+    # right after a container on the same machine was removed.
+    _wait_for_host_port(f"http://localhost:{api_port}/", label)
+
     # Get SSH key for passwordless access. The path includes container.short_id
     # so concurrent containers don't collide on the same /tmp file.
     ssh_key_result = container.exec_run("cat /home/hop3/.ssh/id_rsa")
@@ -244,6 +255,23 @@ def _start_hop3_container(
     print(f"  API:  {info['api_url']}")
 
     return info
+
+
+def _wait_for_host_port(url: str, label: str, timeout: float = 30) -> None:
+    """Fail unless hop3-server answers ``url`` from the host within ``timeout``."""
+    deadline = time.monotonic() + timeout
+    last_error = ""
+    while time.monotonic() < deadline:
+        try:
+            if httpx.get(url, timeout=2).status_code < 500:
+                return
+        except httpx.HTTPError as e:
+            last_error = str(e)
+        time.sleep(1)
+    pytest.fail(
+        f"[{label}] hop3-server answers inside the container but not at {url} "
+        f"from the host: {last_error}"
+    )
 
 
 def _dump_supervisor_logs(container: Any, label: str) -> None:
