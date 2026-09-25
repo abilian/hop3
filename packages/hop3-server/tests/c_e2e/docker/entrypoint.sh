@@ -26,6 +26,22 @@ echo "========================================"
 PG_VER=$(ls /etc/postgresql | head -1)
 mkdir -p /var/run/postgresql && chown postgres:postgres /var/run/postgresql
 
+# An admin domain, when a test asks for one: the access gate signs users in
+# there (ADR 062). A certificate for it, ADMIN_DOMAIN for hop3-server, and a
+# route to hop3-server on whichever proxy runs, as the installer sets one up
+# for nginx on a real server.
+ADMIN_DOMAIN="${HOP3_E2E_ADMIN_DOMAIN:-}"
+ADMIN_ENV=""
+if [ -n "$ADMIN_DOMAIN" ]; then
+    mkdir -p /home/hop3/admin-tls
+    openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$ADMIN_DOMAIN" \
+        -addext "subjectAltName=DNS:$ADMIN_DOMAIN" \
+        -keyout /home/hop3/admin-tls/admin.key \
+        -out /home/hop3/admin-tls/admin.crt 2>/dev/null
+    chown -R hop3:hop3 /home/hop3/admin-tls
+    ADMIN_ENV=",ADMIN_DOMAIN=\"$ADMIN_DOMAIN\""
+fi
+
 cat > /etc/supervisor/supervisord.conf <<EOF
 [supervisord]
 nodaemon=true
@@ -80,7 +96,7 @@ directory=/home/hop3
 user=hop3
 autostart=true
 autorestart=true
-environment=HOME="/home/hop3",HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production",HOP3_UNSAFE="true",HOP3_UNSAFE_ACK="yes-I-understand",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_PROXY_TYPE="$PROXY_TYPE",HOP3_E2E_TEST="true"
+environment=HOME="/home/hop3",HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production",HOP3_UNSAFE="true",HOP3_UNSAFE_ACK="yes-I-understand",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_PROXY_TYPE="$PROXY_TYPE",HOP3_E2E_TEST="true"$ADMIN_ENV
 stdout_logfile=/var/log/supervisor/hop3-server.log
 stderr_logfile=/var/log/supervisor/hop3-server_err.log
 
@@ -147,11 +163,17 @@ EOF
         chown hop3:hop3 /home/hop3/traefik
         cat > /etc/traefik/traefik.yml <<'TRAEFIK_EOF'
 # Traefik static configuration
+# aliasHeadersStrategy: a WSGI or PHP backend reads X_Hop3_User as the
+# X-Hop3-User header the access gate sets; delete such aliases on the way in.
 entryPoints:
   web:
     address: ":80"
+    http:
+      aliasHeadersStrategy: delete
   websecure:
     address: ":443"
+    http:
+      aliasHeadersStrategy: delete
 
 providers:
   file:
@@ -174,6 +196,58 @@ TRAEFIK_EOF
         exit 1
         ;;
 esac
+
+if [ -n "$ADMIN_DOMAIN" ]; then
+    echo "Routing admin domain $ADMIN_DOMAIN to hop3-server..."
+    case "$PROXY_TYPE" in
+        nginx)
+            cat > /etc/nginx/sites-enabled/hop3-admin <<ADMIN_EOF
+server {
+  listen 443 ssl;
+  server_name $ADMIN_DOMAIN;
+  ssl_certificate /home/hop3/admin-tls/admin.crt;
+  ssl_certificate_key /home/hop3/admin-tls/admin.key;
+  location / {
+    proxy_pass http://127.0.0.1:8000;
+    proxy_set_header Host \$host;
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+  }
+}
+ADMIN_EOF
+            ;;
+        caddy)
+            cat >> /home/hop3/caddy/Caddyfile <<ADMIN_EOF
+
+https://$ADMIN_DOMAIN {
+    tls /home/hop3/admin-tls/admin.crt /home/hop3/admin-tls/admin.key
+    reverse_proxy 127.0.0.1:8000
+}
+ADMIN_EOF
+            ;;
+        traefik)
+            cat > /home/hop3/traefik/_admin.yml <<ADMIN_EOF
+http:
+  routers:
+    hop3-admin:
+      rule: "Host(\`$ADMIN_DOMAIN\`)"
+      entryPoints: [websecure]
+      service: hop3-admin
+      tls: {}
+  services:
+    hop3-admin:
+      loadBalancer:
+        servers:
+          - url: "http://127.0.0.1:8000"
+tls:
+  certificates:
+    - certFile: /home/hop3/admin-tls/admin.crt
+      keyFile: /home/hop3/admin-tls/admin.key
+ADMIN_EOF
+            chown hop3:hop3 /home/hop3/traefik/_admin.yml
+            ;;
+    esac
+fi
 
 echo "Starting supervisord..."
 exec /usr/bin/supervisord -c /etc/supervisor/supervisord.conf
