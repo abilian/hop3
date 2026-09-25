@@ -1,6 +1,6 @@
 # ADR 062: Authenticated Access Gate
 
-- **Status**: Proposed
+- **Status**: Accepted
 - **Type**: Feature
 - **Created**: 2026-09-22
 - **Related-ADRs**: [050](./050-waf-l7-lewaf.md) (WAF; this ADR replaces its deferred `auth` gate condition), [061](./061-standard-roles-and-rpc-authorization.md) (the roles a gate admits), [021](./021-proxy-plugin-system.md) (proxy plugins), [014](./014-authentication-bootstrap.md) (authentication bootstrap)
