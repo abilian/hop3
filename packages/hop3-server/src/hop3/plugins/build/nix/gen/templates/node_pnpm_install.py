@@ -126,9 +126,17 @@ def _native_addon_build(payload: NodePnpmInstallPayload) -> tuple[str, str]:
       # Build exactly the declared ones here — offline, from source, against the
       # pinned Node's headers. Packages that ship a prebuilt `.node` need no
       # entry; only those that must be compiled do.
+      #
+      # pnpm 10 runs no dependency's build script it has not been told to
+      # approve, and `rebuild` then skips the package without a word: the build
+      # succeeded and the app died at start on `Cannot find module
+      # './out/isolated_vm'`. The approval that would live in the lockfile
+      # cannot be written under a frozen install, so this one command allows
+      # builds; it rebuilds only the packages named here. pnpm 9 ignores the key.
       export npm_config_nodedir=${{nodejs}}
       export CI=true
-      ${{pnpm}}/bin/pnpm rebuild --store-dir ${{pnpmStore}} {targets}
+      ${{pnpm}}/bin/pnpm rebuild --config.dangerouslyAllowAllBuilds=true \\
+        --store-dir $PNPM_STORE {targets}
 """
     return build_inputs, rebuild
 
@@ -329,6 +337,14 @@ let
       cp ${{manifest}} package.json
       cp ${{lockfile}} pnpm-lock.yaml
 
+      # pnpm 10 writes into its store even when installing offline, and the
+      # fetched store is a read-only store path: installing from it directly
+      # fails with EACCES (exit code 243). Install from a writable copy, as
+      # nixpkgs' own pnpmConfigHook does.
+      export PNPM_STORE=$TMPDIR/pnpm-store
+      cp -Tr ${{pnpmStore}} $PNPM_STORE
+      chmod -R +w $PNPM_STORE
+
       # --offline: every package must come from pnpmStore, so a dependency
       #   missing from the lockfile fails the build instead of being fetched.
       # --ignore-scripts: postinstall hooks routinely download prebuilt
@@ -337,15 +353,18 @@ let
       # --package-import-method=copy forces copies instead of hardlinks from
       #   the store: hardlinks inherit pnpm's content-addressed readonly bit,
       #   which trips EPERM when pnpm chmods the bin shims under $out.
+      # --reporter=append-only: no progress bars in a build log, and unlike
+      #   `silent` it keeps the errors. `silent` turned a failed install into
+      #   "builder failed with exit code 243" and nothing else.
       ${{pnpm}}/bin/pnpm install \\
         --offline \\
         --frozen-lockfile \\
         --ignore-scripts \\
-        --store-dir ${{pnpmStore}} \\
+        --store-dir $PNPM_STORE \\
         --config.confirmModulesPurge=false \\
         --config.package-import-method=copy \\
         --prod \\
-        --reporter=silent
+        --reporter=append-only
 {native_rebuild}
       # Reproducibility: pnpm stamps a `prunedAt` wall-clock timestamp into
       # node_modules/.modules.yaml, so two installs of the identical store

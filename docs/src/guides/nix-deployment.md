@@ -120,7 +120,7 @@ The nixpkgs-wrapper template builds from source via nixpkgs. The `prebuilt-*` an
 - Multi-arch (x86_64-linux, aarch64-linux, armv7l-linux, riscv64-linux,
   and more)
 - Source hash and dependency closure tracked by Nix
-- Reproducible via a pinned nixpkgs commit (nixos-24.11); no per-app version maintenance
+- Reproducible via a pinned nixpkgs commit (nixos-26.05); no per-app version maintenance
 
 **The rule:** if `pkgs.<your-app>` exists in nixpkgs, use
 `nixpkgs-wrapper`. Only fall back to a `prebuilt-*` template when there

@@ -19,6 +19,7 @@ from pathlib import Path
 
 import click
 
+from hop3.plugins.build.nix.gen.templates.base import NIXPKGS_REV
 from hop3_tooling.bench.matrix import (
     SERVER_ID_ENVVAR,
     VARIANTS,
@@ -40,8 +41,8 @@ from hop3_tooling.bench.probes import (
 from hop3_tooling.bench.report import render_all, render_matrix
 from hop3_tooling.bench.runner import local_runner, ssh_runner
 
-# nixos-24.11 — the Hop3 nix-gen generator pin (plugins/build/nix/gen/templates/base.py)
-DEFAULT_NIXPKGS_REV = "50ab793786d9de88ee30ec4e4c24fb4236fc2674"
+# The Hop3 nix-gen generator's pin, so a bench measures what a deploy builds.
+DEFAULT_NIXPKGS_REV = NIXPKGS_REV
 
 
 def _runner(ssh: str | None):

@@ -30,6 +30,8 @@ Example apps: Gitea, Forgejo, Miniflux, Vikunja, Gatus.
 
 from __future__ import annotations
 
+import re
+
 from hop3.plugins.build.nix.gen.spec import AppSpec, GoSourcePayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
@@ -61,6 +63,12 @@ _NO_NPM_HASH = (
     "hash Nix reports."
 )
 
+# A directory inside the repository. It is written into a shell glob inside a
+# Nix string, so nothing but plain path segments gets in.
+_REPO_SUBDIR_RE = re.compile(
+    r"[A-Za-z0-9_-][A-Za-z0-9._-]*(/[A-Za-z0-9_-][A-Za-z0-9._-]*)*"
+)
+
 _NO_PNPM_HASH = (
     "{pname}: go-source with `go-frontend-pnpm` needs `go-pnpm-deps-hash` in "
     "[nix] — the pnpm.fetchDeps hash pinning the frontend's pnpm set. Build once "
@@ -90,8 +98,21 @@ def _frontend_block(
     if not p.frontend_build:
         return "", "", "", wrapper_body
 
+    # The frontend's directory in the repository (`frontend`), found beneath
+    # whatever single directory the source unpacks to: `vikunja-0.24.6/` for a
+    # release tarball, `source/` for fetchFromGitHub. Naming the unpack
+    # directory in the recipe tied the key to the fetcher, and moving vikunja
+    # to fetchFromGitHub broke its build on a path that no longer existed.
+    root = p.frontend_source_root
+    if root is not None and not _REPO_SUBDIR_RE.fullmatch(root):
+        msg = (
+            f"{spec.pname}: go-frontend-source-root {root!r} must be a directory "
+            'in the repository, such as "frontend" (no leading "/", no "..", '
+            "not the archive's top-level directory)"
+        )
+        raise ValueError(msg)
     fe_root = (
-        f'\n    sourceRoot = "{p.frontend_source_root}";'
+        f'\n    setSourceRoot = "sourceRoot=$(echo */{p.frontend_source_root})";'
         if p.frontend_source_root
         else ""
     )
@@ -117,7 +138,7 @@ def _frontend_block(
     if p.frontend_pnpm:
         if not p.pnpm_deps_hash:
             raise ValueError(_NO_PNPM_HASH.format(pname=spec.pname))
-        sr_inherit = " sourceRoot" if p.frontend_source_root else ""
+        sr_inherit = " setSourceRoot" if p.frontend_source_root else ""
         # Emitted only when the recipe asks for it: the default nixpkgs pin's
         # fetcher rejects the argument outright.
         fetcher_version = (

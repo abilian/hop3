@@ -244,7 +244,7 @@ hop3-test run --docker --clean --with nix --covers nix --status alpha
 - First builds can be slow as the Nix store is populated. Subsequent
   builds and re-deploys are fast (Nix caches everything).
 - No flake support yet. nixpkgs is pinned to a specific commit
-  (nixos-24.11) via fetchTarball, not resolved through a channel /
+  (nixos-26.05) via fetchTarball, not resolved through a channel /
   NIX_PATH.
 - The `prebuilt-*` templates are x86_64-linux only and not
   reproducible from source. Use `nixpkgs-wrapper` when possible.

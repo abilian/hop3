@@ -1,6 +1,6 @@
 # Tutorial: Deploy a Flask App with Nix
 
-This tutorial walks you through deploying a Flask application on Hop3 using Nix. Hop3 pins nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates. By the end, you'll have a working web app where every dependency — from Python to Gunicorn — comes from that pinned nixpkgs. Because this example sources Flask and Gunicorn from nixpkgs (via `python3.withPackages`), those packages are pinned too; templates that instead run pip / npm or fetch upstream binaries at build time are not bit-for-bit reproducible.
+This tutorial walks you through deploying a Flask application on Hop3 using Nix. The expression below pins nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates. By the end, you'll have a working web app where every dependency — from Python to Gunicorn — comes from that pinned nixpkgs. Because this example sources Flask and Gunicorn from nixpkgs (via `python3.withPackages`), those packages are pinned too; templates that instead run pip / npm or fetch upstream binaries at build time are not bit-for-bit reproducible.
 
 ## Prerequisites
 

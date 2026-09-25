@@ -5,13 +5,14 @@
 
 from __future__ import annotations
 
+from datetime import UTC, date, datetime
 from pathlib import Path
 
 import pytest
 
 from hop3.plugins.build.nix.gen.registry import get_template, list_templates
 from hop3.plugins.build.nix.gen.templates import base as templates_base
-from hop3.plugins.build.nix.gen.templates.base import ReproTier
+from hop3.plugins.build.nix.gen.templates.base import NIXPKGS_RELEASE, ReproTier
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 
@@ -105,3 +106,35 @@ def test_no_template_hardcodes_the_default_nixpkgs_pin():
         if path.name != "base.py" and "PINNED_NIXPKGS_HEADER" in path.read_text()
     ]
     assert not offenders, f"these bake in the default pin: {offenders}"
+
+
+def releases_since(release: str, today: date) -> int:
+    """NixOS releases published after ``release`` by ``today`` (end of May, end of November)."""
+    year, month = (int(part) for part in release.split("."))
+    count = 0
+    while True:
+        year, month = (year, 11) if month == 5 else (year + 1, 5)
+        published = date(2000 + year, month, 31 if month == 5 else 30)
+        if published > today:
+            return count
+        count += 1
+
+
+def test_the_default_nixpkgs_pin_is_at_most_two_releases_old():
+    """
+    nixos-24.11 was pinned for 21 months and expired silently: a Rust edition
+    parse error inside pip, a pnpm hash two machines disagreed on. Past two
+    releases, bump the pin and re-record every dependency hash in one pass.
+    """
+    behind = releases_since(NIXPKGS_RELEASE, datetime.now(tz=UTC).date())
+
+    assert behind <= 2, (
+        f"The default nixpkgs pin (nixos-{NIXPKGS_RELEASE}) is {behind} releases "
+        f"behind. Bump it in templates/base.py, then re-record the recipes' hashes."
+    )
+
+
+def test_the_age_counts_releases_not_months():
+    assert releases_since("24.11", date(2026, 9, 25)) == 3
+    assert releases_since("26.05", date(2026, 9, 25)) == 0
+    assert releases_since("26.05", date(2026, 11, 30)) == 1

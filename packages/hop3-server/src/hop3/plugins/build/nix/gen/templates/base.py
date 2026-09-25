@@ -57,10 +57,16 @@ class ReproTier(IntEnum):
 # A specific nixpkgs commit, so generated expressions are reproducible across
 # hosts and dates instead of resolving the moving `<nixpkgs>` channel through
 # NIX_PATH. The sha256 pins the exact bytes — a wrong one fails every build.
-# To update: pick a commit and recompute the hash, e.g.
+# To update: take the head of a `nixos-YY.MM` branch (Hydra-tested), recompute
+# the hash, and re-record every dependency hash in one pass (each is a function
+# of the toolchain that produced it):
 #   nix-prefetch-url --unpack https://github.com/NixOS/nixpkgs/archive/<REV>.tar.gz
-NIXPKGS_REV = "50ab793786d9de88ee30ec4e4c24fb4236fc2674"  # nixos-24.11
-NIXPKGS_SHA256 = "1s2gr5rcyqvpr58vxdcb095mdhblij9bfzaximrva2243aal3dgx"
+# NIXPKGS_RELEASE names the release, and a test fails once it falls more than
+# two releases behind: the last pin expired silently, as unrelated-looking
+# failures in whichever app touched the stale part next.
+NIXPKGS_RELEASE = "26.05"
+NIXPKGS_REV = "c508844df6c28fa6dabc1b6af70f3ccbd65c5201"  # nixos-26.05, 2026-09-24
+NIXPKGS_SHA256 = "1qna2ba5v8vg2hbw1kvylgajfwmiv83mx3jwfplwblzlgimhvvp9"
 
 
 def pinned_nixpkgs_header(rev: str | None = None, sha256: str | None = None) -> str:
@@ -71,7 +77,7 @@ def pinned_nixpkgs_header(rev: str | None = None, sha256: str | None = None) -> 
     Defaults to the global pin (``NIXPKGS_REV``/``NIXPKGS_SHA256``). Pass a
     per-app ``rev``/``sha256`` (both together) to override it for an app that
     needs a package the global pin predates — e.g. ``etherpad-lite`` exists in
-    nixos-25.05 but not the default nixos-24.11. A caller may still override
+    one release but not in the default. A caller may still override
     ``pkgs`` at eval time.
     """
     rev = rev or NIXPKGS_REV

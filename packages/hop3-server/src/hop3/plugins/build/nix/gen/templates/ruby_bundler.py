@@ -58,7 +58,7 @@ class RubyBundlerTemplate:
     tier = ReproTier.SOURCE
 
     def generate(self, spec: AppSpec) -> str:
-        spec.payload_as(RubyBundlerPayload)
+        payload = spec.payload_as(RubyBundlerPayload)
         if spec.exec_target is None:
             raise ValueError("ruby-bundler requires exec_target")
 
@@ -132,7 +132,7 @@ let
   gems = pkgs.bundlerEnv {{
     name = "{spec.pname}-gems";
     inherit ruby;
-    gemdir = ./.;
+    gemdir = ./.;{_gem_config(payload.gem_cargo_hashes)}
   }};
 
   app = pkgs.stdenv.mkDerivation {{
@@ -181,3 +181,43 @@ in
   env = {{{nix_env_attrs}}};
 }}
 """
+
+
+def _gem_config(cargo_hashes: dict[str, str]) -> str:
+    """
+    The ``gemConfig`` that builds each Rust-extension gem offline, or nothing.
+
+    nixpkgs' own recipe for commonmarker in its redmine package: the crates
+    come from ``fetchCargoVendor`` over the gem's unpacked source, and
+    ``cargoSetupHook`` points cargo at them instead of at crates.io.
+    """
+    if not cargo_hashes:
+        return ""
+    entries = "".join(
+        f"""
+      {gem} = attrs: {{
+        cargoDeps = pkgs.rustPlatform.fetchCargoVendor {{
+          inherit (pkgs.buildRubyGem {{ inherit (attrs) gemName version source; }})
+            name src unpackPhase nativeBuildInputs;
+          hash = "{digest}";
+        }};
+        dontBuild = false;
+        nativeBuildInputs = [
+          pkgs.cargo
+          pkgs.rustc
+          pkgs.rustPlatform.cargoSetupHook
+          pkgs.rustPlatform.bindgenHook
+        ];
+        disallowedReferences = [ pkgs.rustc.unwrapped ];
+        preInstall = ''
+          export CARGO_HOME="$PWD/../.cargo/"
+        '';
+        postInstall = ''
+          find $out -type f -name .rustc_info.json -delete
+        '';
+      }};"""
+        for gem, digest in sorted(cargo_hashes.items())
+    )
+    return f"""
+    gemConfig = pkgs.defaultGemConfig // {{{entries}
+    }};"""

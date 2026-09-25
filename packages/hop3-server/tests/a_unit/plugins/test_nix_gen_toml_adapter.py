@@ -394,3 +394,113 @@ def test_specs_do_not_share_mutable_defaults():
     assert a.exec_args == b.exec_args == []
     a.exec_args.append("--mutated")
     assert app_spec_from_config(_minimal("ruby-bundler"), {}, "c").exec_args == []
+
+
+# --- GitHub sources: pin the unpacked tree, never a generated archive ---
+
+TREE_HASH = "sha256-" + "A" * 43 + "="
+GITHUB = {"github": "owncast/owncast", "rev": "v${version}", "hash": TREE_HASH}
+
+
+def _github(template: str, **extra) -> dict:
+    return {"template": template, **GITHUB, **extra}
+
+
+def test_a_github_source_is_fetched_by_its_tree():
+    nix_text = generate(
+        app_spec_from_config(
+            _github(
+                "go-source",
+                **{"go-vendor-hash": TREE_HASH, "exec-target": "owncast"},
+            ),
+            {"id": "owncast", "version": "0.2.0"},
+            "owncast",
+        )
+    )
+
+    assert "pkgs.fetchFromGitHub {" in nix_text
+    assert 'owner = "owncast";' in nix_text
+    assert 'rev = "v${version}";' in nix_text
+    assert f'hash = "{TREE_HASH}";' in nix_text
+    assert "fetchurl" not in nix_text
+
+
+def test_php_app_copies_a_github_tree_instead_of_untarring_it():
+    nix_text = generate(
+        app_spec_from_config(
+            _github("php-app", **{"php-version": "php83"}),
+            {"id": "kanboard", "version": "1.2.0"},
+            "kanboard",
+        )
+    )
+
+    assert "cp -r $src/. . && chmod -R u+w ." in nix_text
+    assert "tar xzf" not in nix_text
+
+
+def test_a_generated_github_archive_url_is_refused_with_the_fix():
+    """owncast-nixgen's tag tarball was regenerated under a new hash, 2026-09."""
+    config = _minimal(
+        "go-source",
+        url="https://github.com/owncast/owncast/archive/refs/tags/v1.tar.gz",
+    )
+
+    with pytest.raises(ValueError, match=r'github = "OWNER/REPO".*nix-prefetch-url'):
+        app_spec_from_config(config, {}, "t")
+
+
+def test_a_release_asset_url_is_still_a_url():
+    """An uploaded release asset does not change; only /archive/ is generated."""
+    config = _minimal(
+        "prebuilt-binary",
+        url="https://github.com/o/r/releases/download/v1/r-linux-amd64",
+        executable=True,
+        **{"binary-name": "r"},
+    )
+
+    assert app_spec_from_config(config, {}, "t").source.url.endswith("r-linux-amd64")
+
+
+@pytest.mark.parametrize(
+    ("extra", "match"),
+    [
+        ({"url": "https://x/a.tar.gz"}, "github replaces url"),
+        ({"hash": "sha256-short"}, "SRI sha256 of the unpacked tree"),
+        ({"rev": 'v1"; evil = "'}, "must name a tag or a commit"),
+        ({"github": "owncast"}, 'must be "OWNER/REPO"'),
+    ],
+)
+def test_a_malformed_github_source_is_refused(extra, match):
+    with pytest.raises(ValueError, match=match):
+        app_spec_from_config({**_github("go-source"), **extra}, {}, "t")
+
+
+def test_rev_and_hash_need_a_github_repository():
+    with pytest.raises(ValueError, match="belong with github"):
+        app_spec_from_config(_minimal("go-source", rev="v1"), {}, "t")
+
+
+def test_gem_cargo_hashes_reach_the_ruby_payload():
+    digest = "sha256-rUNsf7DUVueD9revOR6Mab36XnVEmjL4bVv6TIMMqjM="
+    spec = app_spec_from_config(
+        _minimal("ruby-bundler", **{"gem-cargo-hashes": {"commonmarker": digest}}),
+        {},
+        "t",
+    )
+
+    assert spec.payload.gem_cargo_hashes == {"commonmarker": digest}
+
+
+@pytest.mark.parametrize(
+    ("entry", "match"),
+    [
+        ({"commonmarker": "sha256-short"}, "SRI sha256 of its vendored crates"),
+        ({'x" = 1; y': "sha256-" + "A" * 43 + "="}, "is not a gem name"),
+    ],
+)
+def test_a_malformed_gem_cargo_hash_is_refused(entry, match):
+    """Each entry is written into the expression, so nothing else gets in."""
+    with pytest.raises(ValueError, match=match):
+        app_spec_from_config(
+            _minimal("ruby-bundler", **{"gem-cargo-hashes": entry}), {}, "t"
+        )
