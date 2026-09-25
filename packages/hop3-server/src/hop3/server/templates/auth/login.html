@@ -68,6 +68,7 @@
 
         <form class="space-y-6" action="/auth/login" method="POST">
             {% if next %}<input type="hidden" name="next" value="{{ next }}">{% endif %}
+            {% if state %}<input type="hidden" name="state" value="{{ state }}">{% endif %}
             <div>
                 <label for="username" class="block text-sm font-medium leading-6 text-gray-900">
                     Username

@@ -104,14 +104,24 @@ class Browser:
         return self
 
     def continue_to(self, next_url: str) -> tuple[int, dict[str, str], str]:
-        """What a gate's sign-in redirect does for a signed-in browser."""
+        """The login page with a ``next``, as a signed-in browser opens it."""
         return self.request(
             f"https://{ADMIN}/auth/login?next={quote(next_url, safe='')}"
         )
 
     def open(self, host: str, path: str) -> tuple[int, dict, str]:
-        """Complete the gate's handshake for ``host``, then fetch ``path``."""
-        status, headers, _ = self.continue_to(f"https://{host}{path}")
+        """
+        Fetch ``path`` on ``host`` as a browser does, signing in if the gate asks.
+
+        A browser the gate already admits gets the app at once; otherwise the
+        gate's redirect starts the handshake, which this completes.
+        """
+        status, headers, body = self.request(f"https://{host}{path}")
+        if status != 302:
+            return status, headers, body
+        sign_in = headers["location"]
+        assert urlsplit(sign_in).netloc == ADMIN, sign_in
+        status, headers, _ = self.request(sign_in)
         assert status in {302, 303}, (status, headers)
         callback = headers["location"]
         assert urlsplit(callback).path == "/_hop3/auth/callback", callback
@@ -312,6 +322,21 @@ class TestAccessGate:
 
         assert status in {302, 303}
         assert headers["location"] == "/auth/profile"
+
+    def test_a_sign_in_link_works_only_in_the_browser_that_started_it(
+        self, gated, mia, vera
+    ):
+        """Login CSRF: an attacker's sign-in link, opened in a victim's browser."""
+        attacker = Browser(gated, "attacker")
+        status, headers, _ = attacker.request(f"https://{NOTES}/trap")
+        assert status == 302  # the gate gives the attacker's browser its state
+        _, handoff, _ = vera.request(headers["location"])
+        callback = handoff["location"]  # minted for vera, bound to that state
+
+        status, _, body = mia.request(callback)
+
+        assert status == 400
+        assert "started in another browser" in body
 
     def test_a_member_gets_no_api_token(self, gated):
         """A gate account runs no command (ADR 061)."""

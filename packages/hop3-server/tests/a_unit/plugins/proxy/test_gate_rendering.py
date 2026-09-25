@@ -56,6 +56,9 @@ def test_nginx_checks_every_request_and_forwards_the_answer():
     assert "proxy_set_header X-Hop3-App notes;" in conf
     assert "location ^~ /_hop3/auth/ {" in conf
     assert "error_page 401 = @hop3_sign_in;" in conf
+    # The state cookie binding a sign-in to its browser rides the redirect.
+    assert "auth_request_set $hop3_state $upstream_http_x_hop3_state;" in conf
+    assert "add_header Set-Cookie $hop3_state always;" in conf
     app_location = conf[conf.index("location    / {") :]
     for header in (
         "X-Hop3-User $hop3_user",

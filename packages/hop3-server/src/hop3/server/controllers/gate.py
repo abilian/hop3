@@ -15,9 +15,11 @@ client sent. The answer:
   the request's cookies without the gate cookie. The proxy replaces the
   request's headers of those names with these, deleting the ones absent here,
   so the app can trust them and never sees a Hop3 credential.
-- 401, or 302 with ``?redirect=1``, sends the browser to sign in. nginx's
-  ``auth_request`` understands only 2xx, 401 and 403, and redirects on 401
-  itself; Caddy and Traefik pass the check's own response to the client.
+- 401, or 302 with ``?redirect=1``, sends the browser to sign in, and sets
+  the state cookie that binds the sign-in to this browser. nginx's
+  ``auth_request`` understands only 2xx, 401 and 403, so it redirects on 401
+  itself and sets the cookie from ``X-Hop3-State``; Caddy and Traefik pass the
+  check's own response, cookie included, to the client.
 - 403 says the account's role is too low.
 
 ``/_hop3/auth/callback`` is routed to hop3-server on the app's own host, so it
@@ -34,6 +36,8 @@ from litestar.response import Redirect, Response
 
 from hop3.server.security.access_gate import (
     GATE_COOKIE,
+    STATE_COOKIE,
+    STATE_LIFETIME_SECONDS,
     Admit,
     Forbid,
     SignIn,
@@ -41,6 +45,7 @@ from hop3.server.security.access_gate import (
     decide,
     gate_token,
     load_policy,
+    new_state,
     redeem_code,
     same_host_path,
     sign_in_url,
@@ -98,40 +103,62 @@ class AccessGateController(Controller):
                 )
             case SignIn():
                 host = request.headers.get("x-forwarded-host", "")
-                target = sign_in_url(host, request_uri)
+                state = new_state()
+                target = sign_in_url(host, request_uri, state)
+                cookie = _host_cookie(STATE_COOKIE, state, STATE_LIFETIME_SECONDS)
                 if request.query_params.get("redirect"):
-                    return Redirect(path=target, status_code=302, headers=NO_STORE)
+                    return Redirect(
+                        path=target, status_code=302, cookies=[cookie], headers=NO_STORE
+                    )
                 return Response(
                     content="",
                     status_code=401,
-                    headers={**NO_STORE, "X-Hop3-Login": target},
+                    headers={
+                        **NO_STORE,
+                        "X-Hop3-Login": target,
+                        "X-Hop3-State": cookie.to_header(header=""),
+                    },
                 )
 
     @get("/_hop3/auth/callback", sync_to_thread=False)
     def callback(self, request: Request) -> Response:
         """Redeem a one-time code on the app's host and set its gate cookie."""
         app_name = request.headers.get(APP_HEADER, "")
-        grant = redeem_code(request.query_params.get("code", ""), app_name)
+        grant = redeem_code(
+            request.query_params.get("code", ""),
+            app_name,
+            request.cookies.get(STATE_COOKIE, ""),
+        )
         if grant is None:
             return Response(
-                content="This sign-in link has expired or was already used. "
-                "Reload the page to sign in again.",
+                content="This sign-in link has expired, was already used, or was "
+                "started in another browser. Reload the page to sign in again.",
                 status_code=400,
                 media_type="text/plain",
                 headers=NO_STORE,
             )
-        cookie = Cookie(
-            key=GATE_COOKIE,
-            value=gate_token(grant),
-            max_age=max(0, grant.expires_at - int(time.time())),
-            secure=True,
-            httponly=True,
-            samesite="lax",
-            path="/",
+        gate = _host_cookie(
+            GATE_COOKIE,
+            gate_token(grant),
+            max(0, grant.expires_at - int(time.time())),
         )
+        spent_state = _host_cookie(STATE_COOKIE, "", 0)
         return Redirect(
             path=same_host_path(request.query_params.get("next", "/")),
-            cookies=[cookie],
+            cookies=[gate, spent_state],
             # The code is spent, but keep it out of the next page's Referer.
             headers={**NO_STORE, "Referrer-Policy": "no-referrer"},
         )
+
+
+def _host_cookie(name: str, value: str, max_age: int) -> Cookie:
+    """A ``__Host-`` cookie: Secure, host-only, for the whole host."""
+    return Cookie(
+        key=name,
+        value=value,
+        max_age=max_age,
+        secure=True,
+        httponly=True,
+        samesite="lax",
+        path="/",
+    )

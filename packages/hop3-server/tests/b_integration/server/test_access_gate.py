@@ -24,7 +24,12 @@ from hop3.core.roles import Role
 from hop3.orm import App
 from hop3.server.asgi import create_app
 from hop3.server.security import web_auth
-from hop3.server.security.access_gate import GATE_COOKIE, Grant, gate_token
+from hop3.server.security.access_gate import (
+    GATE_COOKIE,
+    STATE_COOKIE,
+    Grant,
+    gate_token,
+)
 from hop3.server.security.tokens import validate_token
 from hop3.server.security.web_auth import AUTH_COOKIE
 
@@ -77,25 +82,51 @@ def check(client, *, app="notes", host=HOST, uri="/page", cookie="", redirect=Fa
     return client.get(url, headers=headers, follow_redirects=False)
 
 
-def sign_in(client, username, next_url):
+def start_sign_in(client, *, app="notes", host=HOST, uri="/page") -> tuple[str, str]:
+    """What the gate does for an anonymous browser: ``(next, state)``."""
+    refused = check(client, app=app, host=host, uri=uri)
+    assert refused.status_code == 401
+    query = parse_qs(urlsplit(refused.headers["x-hop3-login"]).query)
+    state_cookie = refused.headers["x-hop3-state"]
+    assert state_cookie.startswith(f"{STATE_COOKIE}=")
+    state = state_cookie.split(";", 1)[0].split("=", 1)[1]
+    assert query["state"] == [state]
+    return query["next"][0], state
+
+
+def sign_in(client, username, next_url="", state=""):
     """Sign in on the admin domain; the redirect it answers with."""
     return client.post(
         "/auth/login",
-        data={"username": username, "password": "password123", "next": next_url},
+        data={
+            "username": username,
+            "password": "password123",
+            "next": next_url,
+            "state": state,
+        },
         follow_redirects=False,
+    )
+
+
+def redeem(client, callback_url, *, app="notes", state=""):
+    """The callback on the app's host, from a browser holding ``state``."""
+    target = urlsplit(callback_url)
+    headers = {"X-Hop3-App": app}
+    if state:
+        headers["Cookie"] = f"{STATE_COOKIE}={state}"
+    client.cookies.clear()
+    return client.get(
+        f"{target.path}?{target.query}", headers=headers, follow_redirects=False
     )
 
 
 def gate_cookie_for(client, username, app="notes", host=HOST, next_path="/page"):
-    """Run the handshake; the gate cookie the app's host ends up with."""
-    handoff = sign_in(client, username, f"https://{host}{next_path}")
+    """Run the handshake a browser runs; the gate cookie the app's host gets."""
+    next_url, state = start_sign_in(client, app=app, host=host, uri=next_path)
+    handoff = sign_in(client, username, next_url, state)
     target = urlsplit(handoff.headers["location"])
     assert (target.netloc, target.path) == (host, "/_hop3/auth/callback")
-    callback = client.get(
-        f"{target.path}?{target.query}",
-        headers={"X-Hop3-App": app},
-        follow_redirects=False,
-    )
+    callback = redeem(client, handoff.headers["location"], app=app, state=state)
     assert callback.status_code in {302, 303}
     assert callback.headers["location"] == next_path
     set_cookie = callback.headers["set-cookie"]
@@ -178,8 +209,11 @@ def test_a_cookie_minted_for_one_app_is_refused_by_another(client, gated, accoun
 def test_signing_out_of_hop3_ends_the_apps_session(client, gated, account):
     gated()
     account("mia", Role.MEMBER)
-    cookie = gate_cookie_for(client, "mia")
+    next_url, state = start_sign_in(client)
+    callback = sign_in(client, "mia", next_url, state).headers["location"]
     admin_session = client.cookies.get(AUTH_COOKIE)
+    set_cookie = redeem(client, callback, state=state).headers["set-cookie"]
+    cookie = set_cookie.split(";", 1)[0].split("=", 1)[1]
 
     client.cookies.set(AUTH_COOKIE, admin_session)
     client.post("/auth/logout", follow_redirects=False)
@@ -200,26 +234,61 @@ def test_a_code_is_single_use_and_bound_to_its_app(client, gated, account):
     gated()
     gated(name="wiki", host="wiki.example.org")
     account("mia", Role.MEMBER)
-    target = urlsplit(sign_in(client, "mia", f"https://{HOST}/").headers["location"])
-    callback = f"{target.path}?{target.query}"
+    next_url, state = start_sign_in(client, uri="/")
+    callback = sign_in(client, "mia", next_url, state).headers["location"]
 
-    elsewhere = client.get(callback, headers={"X-Hop3-App": "wiki"})
-    replayed = client.get(callback, headers={"X-Hop3-App": "notes"})
+    elsewhere = redeem(client, callback, app="wiki", state=state)
+    replayed = redeem(client, callback, app="notes", state=state)
 
     assert elsewhere.status_code == 400
     assert replayed.status_code == 400  # the wrong app's attempt spent it
 
 
+def test_a_code_is_refused_in_a_browser_that_did_not_start_the_sign_in(
+    client, gated, account
+):
+    """Login CSRF: an attacker's code, opened in the victim's browser."""
+    gated()
+    account("mallory", Role.MEMBER)
+    next_url, attacker_state = start_sign_in(client)
+    callback = sign_in(client, "mallory", next_url, attacker_state).headers["location"]
+    _, victim_state = start_sign_in(client)
+
+    without_state = redeem(client, callback)
+    with_its_own_state = redeem(client, callback, state=victim_state)
+
+    assert without_state.status_code == 400
+    assert with_its_own_state.status_code == 400
+
+
 def test_a_signed_in_session_crosses_without_a_form(client, gated, account):
     gated()
     account("mia", Role.MEMBER)
-    sign_in(client, "mia", "")
+    next_url, state = start_sign_in(client)
+    sign_in(client, "mia")
 
     response = client.get(
-        f"/auth/login?next=https://{HOST}/page", follow_redirects=False
+        "/auth/login",
+        params={"next": next_url, "state": state},
+        follow_redirects=False,
     )
 
     assert urlsplit(response.headers["location"]).path == "/_hop3/auth/callback"
+
+
+def test_a_sign_in_that_did_not_start_at_the_gate_goes_back_to_it(
+    client, gated, account
+):
+    """No state means no browser to bind a code to: let the gate start over."""
+    gated()
+    account("mia", Role.MEMBER)
+    sign_in(client, "mia")
+
+    response = client.get(
+        "/auth/login", params={"next": f"https://{HOST}/page"}, follow_redirects=False
+    )
+
+    assert response.headers["location"] == f"https://{HOST}/page"
 
 
 def test_an_app_without_a_gate_fails_closed(client):
@@ -227,7 +296,7 @@ def test_an_app_without_a_gate_fails_closed(client):
 
 
 def test_a_gate_cookie_is_not_an_api_token():
-    token = gate_token(Grant("notes", "mia", "session-id", 2_000_000_000))
+    token = gate_token(Grant("notes", "mia", "session-id", 2_000_000_000, "state"))
 
     assert validate_token(token) is None
 
