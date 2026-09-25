@@ -49,6 +49,10 @@ class ExitCode:
 RPC_METHOD_NOT_FOUND = -32601
 RPC_INVALID_PARAMS = -32602
 RPC_INTERNAL_ERROR = -32603
+# Hop3's application errors (-32000..-32099 is the range JSON-RPC reserves).
+RPC_UNAUTHENTICATED = -32001
+# Signed in, but the account's role is below the command's (ADR 061).
+RPC_FORBIDDEN = -32003
 
 # HTTP status codes
 HTTP_UNAUTHORIZED = 401
@@ -81,6 +85,8 @@ def map_rpc_code_to_exit(code: int) -> int:
         RPC_METHOD_NOT_FOUND: ExitCode.RESOLUTION_ERROR,
         RPC_INVALID_PARAMS: ExitCode.USAGE_ERROR,
         RPC_INTERNAL_ERROR: ExitCode.NETWORK_ERROR,
+        RPC_UNAUTHENTICATED: ExitCode.AUTH_ERROR,
+        RPC_FORBIDDEN: ExitCode.AUTHZ_ERROR,
     }
     return mapping.get(code, ExitCode.GENERAL_ERROR)
 

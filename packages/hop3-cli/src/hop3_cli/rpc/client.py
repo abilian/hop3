@@ -330,7 +330,7 @@ class Client:
 
         try:
             if response.status_code == 401:
-                return self._make_auth_error(request_id)
+                return self._make_auth_error(request_id, self._server_reason(response))
 
             if 300 <= response.status_code < 400:
                 return self._make_redirect_error(response, request_id)
@@ -385,11 +385,30 @@ class Client:
         )
         return Error(response.status_code, error_msg, "", request_id)
 
-    def _make_auth_error(self, request_id: int) -> Error:
-        """Create authentication required error."""
+    @staticmethod
+    def _server_reason(response: requests.Response) -> str:
+        """
+        The server's own explanation of a 401, when it says more than "sign in".
+
+        A token can be valid and still be refused: its account was deleted or
+        disabled (ADR 061). The server says which; the generic message below
+        would hide it.
+        """
+        try:
+            message = response.json()["error"]["message"]
+        except (ValueError, KeyError, TypeError):
+            return ""
+        if not isinstance(message, str) or message.startswith(
+            "Authentication required"
+        ):
+            return ""
+        return message
+
+    def _make_auth_error(self, request_id: int, reason: str = "") -> Error:
+        """Create authentication required error, keeping the server's reason."""
+        lead = f"{reason}\n\n" if reason else "Authentication required.\n\n"
         error_msg = (
-            "Authentication required.\n\n"
-            "Log in with the credentials an administrator created for you:\n"
+            lead + "Log in with the credentials an administrator created for you:\n"
             "  hop3 login\n\n"
             "This saves the token for you. For scripts, mint one explicitly:\n"
             "  hop3 auth get-token <username> --password-file -"

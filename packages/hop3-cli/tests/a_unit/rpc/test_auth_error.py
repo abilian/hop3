@@ -47,6 +47,26 @@ def test_401_error_message():
     assert "register" not in response.message
 
 
+def test_401_keeps_the_servers_reason():
+    """A valid token can name an account that is gone; the server says which."""
+    client = Client(config=_make_config())
+    reason = (
+        "Your token names account 'alice', which is disabled on this server. "
+        "Sign in again with 'hop3 login'."
+    )
+    mock_response = make_http_response(
+        401, json_body={"error": {"code": -32001, "message": reason}}
+    )
+
+    with patch("hop3_cli.rpc.client.requests.post", return_value=mock_response):
+        response = client.rpc("cli", ["app", "list"])
+
+    assert isinstance(response, Error)
+    assert response.code == 401
+    assert response.message.startswith(reason)
+    assert "hop3 login" in response.message
+
+
 def test_other_http_errors():
     """Test that other HTTP errors are handled properly."""
     config = _make_config()
