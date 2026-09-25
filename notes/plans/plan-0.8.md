@@ -57,7 +57,7 @@ The rule it produced is recorded in [`../testing/status.md`](../testing/status.m
 - [x] php-fpm pool per app, wired to the existing proxy plugins. Shipped 2026-09-11: the pool runs as a uWSGI `attach-daemon`, nginx speaks FastCGI to it, and the readiness gate learned to probe a backend in its own protocol.
 - [x] Migration for the deployed recipes; the recipes got simpler. All fourteen migrated 2026-09-16, and all fourteen passed a full catalog run against the fixed server on 2026-09-21 (the ten golden ones in run 1176, the four alpha ones in run 1174). Two recipes also shed a workaround whose reason was the development server (wordpress's `DISABLE_WP_CRON`, monica's skipped `config:cache`), and kanboard's database configuration turned out to have been dead since it was written. mediawiki's tarball truncation came from a poisoned entry in the Docker download cache; it passes on a remote target.
 - [ ] **The Nix `php_app` template still emits `php -S`** (`plugins/build/nix/gen/templates/php_app.py`), so invoice-ninja-nix, invoice-ninja-nixgen and nextcloud-nixgen keep the runtime the native path just replaced. Same defect, other builder.
-- [ ] Two hardening items the migration surfaced and did not cause, recorded in the internal blocker list: one recipe writes a config file into the served tree, and four keep application data inside the document root behind an `.htaccess` nginx ignores. The platform question under both is whether the generated PHP vhost should carry a deny list, and where a recipe would declare one. That belongs with the "a recipe cannot influence its own vhost" work.
+- [x] **Paths the proxy never answers** (2026-09-25). Four recipes keep application data inside the document root behind an `.htaccess` nginx ignores. The PHP vhost now refuses hidden files (`.env`, `.htaccess`, `.git`) on nginx and Caddy, `/.well-known/` excepted, and `[proxy] deny = ["/data"]` lets a recipe list its own data paths, answered with 404 for any backend; Traefik refuses a deploy that declares one. nextcloud and easy-appointments declare upstream's own rules, piwigo its compiled templates, logs and cache. The fifth item, matomo writing its config without the leading `<?php exit; ?>`, was a recipe line and is fixed.
 
 ### 3. Local-source builds: give the generator the git-push case
 
@@ -79,7 +79,28 @@ The server ships one Node version (18.19.1) and no pnpm, so umami (needs ≥20) 
 - [ ] `hop3-install server --with=rust|nodejs-18|nodejs-22|pnpm|headless-browsers|latex`, composing with the existing `--with` features.
 - [x] Per-app `[build].node-version` so a recipe declares what it needs. The Node toolchain installs the pinned version into the app's venv via `nodeenv --prebuilt`, and aborts naming the recipe's own value when `nodeenv` is missing.
 - [ ] **The package manager has no equivalent, and that is the live half now.** A recipe pins its Node and then gets whichever pnpm is current. Etherpad has absorbed three breaking pnpm-10 changes in its download script to compensate; the third, upstream's plugin migration calling `pnpm ls --no-production` (a flag pnpm 10 removed), is a fatal startup error, so it presents as an app that will not boot even though the build succeeds. Blocker #33 asks *which* package manager (dispatch from the lockfile); this asks *which version*, and the two want deciding together.
+
+  **Experiment before deciding** (SF, 2026-09-25). Three steps, each producing a table:
+
+  1. *Inventory.* For every Node recipe in the catalog, native, Docker and Nix, fetch upstream at the recipe's version and record: the lockfiles present and their `lockfileVersion`, the `packageManager` field of `package.json`, any `engines` entry for npm, pnpm or yarn, and what the recipe does today (an overridden install command, a workaround in a script). This says how many apps name their package manager and its version themselves, and how many ship two lockfiles.
+  2. *Native build matrix* on Docker, for the apps with a pnpm or yarn lockfile. Build each three ways: today's server-wide pnpm; the version `packageManager` names, through corepack, installed into the app's venv; and a version installed into the venv beside `[build].node-version`. Record whether it builds, starts and passes `check.py`, the build time, and which of the recipe's workarounds can be deleted (etherpad's three are the test).
+  3. *Nix.* `node-pnpm-install` takes its pnpm from the nixpkgs pin, which offers one attribute per major (`pnpm_9`, `pnpm_10`). Build directus-nixgen and etherpad-nixgen with each major and with the major `packageManager` names, and check whether the major is enough for the lockfile.
+
+  What decides: the mechanism that removes the per-recipe workarounds, gives the same answer on both builders (so at most a major on the Nix side, since the sandbox cannot download a pnpm), and fails at build naming the version it could not provide. Corepack downloads the package manager at build time: acceptable on the native builder, not in the Nix sandbox, and that asymmetry is part of what the matrix measures.
 - [ ] Set kernel sysctls the platform requires (`vm.max_map_count` for bundled Elasticsearch): PaaS-level configuration that unblocks SonarQube and anything Elasticsearch-shaped.
+
+## Who may reach what: roles and a sign-in gate
+
+Not one of the four headlines when this plan was written, and the largest thing 0.8 adds for an operator. An app was public the moment it deployed, which is right for an application with accounts of its own and wrong for the class people actually deploy: notebooks, admin tools, generated dashboards, staging copies. And any account could run any command, so an account created to let someone into one app could read every app's environment.
+
+- [x] **Standard roles on the control plane** ([ADR 061](../adrs/061-standard-roles-and-rpc-authorization.md), 2026-09-25). Four fixed roles, one per account (`admin > deployer > viewer > member`), checked by the RPC dispatcher and the dashboard on every request and read from the database each time, so a demotion takes effect at once. Default-deny: a command with no declared role is admin-only. New accounts are members and get no token; the migration made existing non-admins deployers. `hop3 user set-role`.
+- [x] **Caddy and Traefik serve apps** (2026-09-25). Both existed as plugins and neither had been selected by a test: Caddy failed validation on every deploy, Traefik routed nothing on port 80 and pointed HTTPS at a certificate resolver nothing defined. One e2e per proxy runs the same deploys now. A proxy declares what it can do, and a deploy it cannot serve is refused before the build: FastCGI and files on Traefik, the WAF on both, certbot on both.
+- [x] **The access gate** ([ADR 062](../adrs/062-authenticated-access-gate.md), 2026-09-25). `[access] require = "auth"` puts an app behind a Hop3 sign-in, with a minimum role and anonymous public paths, on nginx, Caddy and Traefik. The app is told who is asking in headers a client cannot forge and never sees the gate's cookie. The ADR's eleven acceptance checks run as an e2e on each proxy.
+- [x] Move ADR 061 and ADR 062 from Proposed to Accepted (2026-09-25).
+- [x] **Login CSRF on the gate** (2026-09-25). The one-time code is bound to a state cookie on the app's host, set when the sign-in starts, so a code works only in the browser that started it. Acceptance item 12, on all three proxies.
+- [ ] The gate's remaining open question: bearer tokens for scripts calling a gated API.
+- [ ] Caddy and Traefik in the installer: an admin-domain route for each, Traefik's `aliasHeadersStrategy: delete` (the gate relies on it), and certificates made proxy-aware. certbot issuance and renewal are wired to nginx only, so both are refused elsewhere today.
+- [ ] Per-app roles, designed into ADR 061 and not built: a deployer reaches every app on the server.
 
 ## Second tier: smaller in consequence
 
@@ -137,6 +158,6 @@ Directions *not* scheduled (the agent model, multi-component applications, the g
 
 ## What would make 0.8 a good release
 
-If the four headline items land, the platform is one an operator can be handed without a list of caveats. An app that cannot reach root or read its neighbour's secrets. PHP served properly. A generator that packages your own code. An installer that can be asked for the toolchain you need. That is the bar.
+If the four headline items land, the platform is one an operator can be handed without a list of caveats. An app that cannot reach root or read its neighbour's secrets. PHP served properly. A generator that packages your own code. An installer that can be asked for the toolchain you need. That is the bar. Roles and the sign-in gate, already in, add the other half: the operator decides who reaches each app.
 
 The second tier is where scope should be cut first if September gets tight, with one exception: **the email test-harness unblock is small and gates a whole dimension of testing**, so it should survive any cut.

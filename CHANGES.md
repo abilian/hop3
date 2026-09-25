@@ -9,7 +9,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
-- **`[access]` puts an app behind a Hop3 sign-in.** With `require = "auth"`, a visitor without a session is sent to the sign-in on the admin domain and back to the page they asked for. `role` sets the lowest role admitted, and `public-paths` leaves webhooks and health checks open. The app learns who is asking from `X-Hop3-User` and `X-Hop3-Role`, which a client cannot forge, and never receives the gate's cookie. One sign-in covers every gated app, and signing out of Hop3 signs out of all of them. Works on nginx, Caddy and Traefik. (ADR 062)
+- **`[access]` puts an app behind a Hop3 sign-in.** With `require = "auth"`, a visitor without a session is sent to the sign-in on the admin domain and back to the page they asked for. `role` sets the lowest role admitted, and `public-paths` leaves webhooks and health checks open. The app learns who is asking from `X-Hop3-User` and `X-Hop3-Role`, which a client cannot forge, and never receives the gate's cookie. A sign-in link works only in the browser that started it, so nobody can sign a visitor in to their own account. One sign-in covers every gated app, and signing out of Hop3 signs out of all of them. Works on nginx, Caddy and Traefik. (ADR 062)
+
+- **`[proxy] deny` lists paths the proxy answers with 404.** `deny = ["/data"]` refuses `/data` and everything beneath it before the app or the disk sees the request, and a PHP script there is refused rather than run. It is for data an app keeps inside the tree it serves, which upstream protects with an `.htaccess` that nginx and Caddy never read. Traefik cannot refuse a path, so a deploy that declares one is refused there.
+
+- **A generated Nix recipe can fetch its source from GitHub by repository**: `github = "OWNER/REPO"`, `rev` and `hash` in `[nix]`. The hash is of the unpacked tree, which GitHub keeps stable, where the bytes of its generated archives change without notice; a `url` pointing at a GitHub `/archive/` link is now refused with the command that prints the hash.
+
+- **`ruby-bundler` builds gems with a Rust extension.** `gem-cargo-hashes = { commonmarker = "sha256-…" }` in `[nix]` vendors the gem's crates before the offline build, which is what Redmine 6 needs.
+
+- **A catalog entry can say which server it needs.** `requires_hop3 = "0.8"` in an entry's `catalog.toml` makes an older server refuse `hop3 catalog install` by name, before it creates anything, where it used to stage the recipe and fail in the middle of the build.
 
 - **Accounts have roles: `admin`, `deployer`, `viewer` and `member`.** `hop3 user set-role alice viewer` grants one; `hop3 user add --role` sets it at creation. A viewer reads apps, addons, backups and certificates but no secret. A deployer deploys and operates apps and addons. An admin also manages accounts and the server. A member signs in to the web interface and sees its own profile. A deployer's builds run with the control plane's own privileges, so treat that role as an administrator credential. (ADR 061)
 
@@ -19,9 +27,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A new account is a `member` until an admin grants it more.** Upgrading keeps admins as admins and makes every other account a deployer, which is what it could already do. A member gets no API token.
 
+- **Generated Nix recipes build against nixos-26.05**, from nixos-24.11, with pnpm 10 as the default pnpm. Dependency hashes recorded against the old pin may need recording again, from the `got:` line of a failed build; a recipe that pins its own `nixpkgs-rev` keeps its pin.
+
+- **`go-frontend-source-root` names a directory in the repository** (`frontend`), found under whatever directory the source unpacks to. It used to include the release archive's top-level directory, which changes with the fetcher; that form is now refused with the fix in the message.
+
+- **`hop3-install server` stops when it cannot install Node 22.** When NodeSource was unreachable it installed the distribution's Node 18, which is past end of life and too old for the Node apps in the catalog; the install succeeded and those apps failed later, at build. It now stops at that step with the reason, and likewise when an older Node is still first on `PATH` after the install.
+
+- **On a Docker install, supervisor calls the uWSGI emperor `uwsgi-hop3`**, the name of its systemd unit elsewhere, instead of `uwsgi`. Use `supervisorctl restart uwsgi-hop3`. The next `hop3-deploy-server` rewrites the configuration.
+
 - **A token for a deleted or disabled account stops working on its next call.** `hop3` and `hop3-tui` now show the server's reason, where they used to print a bare "authentication required" or HTTP status.
 
 ### Security
+
+- **A PHP app's hidden files are no longer served.** nginx served `.env`, `.htaccess` and anything else under a PHP app's document root whose name starts with a dot, apart from `.git`. nginx and Caddy now answer them with 404, except `/.well-known/`. The fix takes effect when an app is next deployed.
 
 - **An app's environment is no longer visible to other users on the server.** Background workers, php-fpm pools and every app started with a start command received their `[env]` as `export` statements on a command line that stayed visible to `ps` for as long as the app ran. Any local account could read every app's secrets that way, including the web server's and the database's. The environment now goes to a file readable only by the app's owner. The fix takes effect when an app is next deployed; `hop3 app restart` reuses the old configuration, so redeploy each native app, or stop and start it.
 
@@ -36,6 +54,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Traefik serves apps.** Its routes named a certificate resolver nothing defined, sent plain HTTP nowhere, routed only an app's first hostname, and told the app every request was HTTPS. They now use the certificate Hop3 issues, route every hostname on both ports, and refuse `/.git` as the other proxies do.
 
 - **A deploy the server's proxy cannot serve is refused before the build.** Traefik proxied HTTP to php-fpm and sent static files to an address it cannot open, and Caddy and Traefik routed a `[waf]` app around its firewall; each deploy reported success. They now stop with the reason: Traefik serves no files and speaks no FastCGI, and only nginx fronts the WAF. The certbot engine is likewise refused on Caddy and Traefik, since Hop3 obtains and renews its certificates through nginx; use the self-signed engine there.
+
+- **A Nix recipe built with `node-pnpm-install` says why its install failed, and installs under pnpm 10.** The install ran with `--reporter=silent`, so a failure read "builder failed with exit code 243" and nothing else. It also installed from the read-only fetched store, which pnpm 10 writes into; it now copies the store first, as nixpkgs does. And the rebuild of the native packages a recipe declares (`node-native-packages`) now runs under pnpm 10, which skipped them without a word, so the build succeeded and the app failed at start.
+
+- **`hop3 system status` works on a server whose services run under supervisor.** It shelled out to `systemctl`, which a Docker install does not have, and failed outright. It now asks the process manager through hop3-rootd, and checks the proxy the server runs rather than always nginx, so a Caddy or Traefik server no longer reports nginx as down. `hop3 system status --json` also returns the structured report it was documented to: the client took `--json` as its own output switch and the command never saw it, so the "JSON" was the text report in a list.
+
+- **`NGINX_INCLUDE_FILE` and `CADDY_INCLUDE_FILE` name a file in the app's repository.** They were resolved one directory above it, so a file the app shipped was reported missing unless the path started with `src/`, and a missing file stopped the deploy with a traceback. A path outside the repository is now refused, and so is a missing file, each with the variable's name.
 
 - **`hop3-install server` fails when pip fails.** A failed `pip install` of hop3-server, hop3-rootd or hop3-cli was ignored, and the installer printed "installed successfully" over it. It now stops at that step and shows pip's output.
 
