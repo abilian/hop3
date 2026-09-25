@@ -7,7 +7,6 @@ from __future__ import annotations
 
 import os
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
@@ -51,6 +50,8 @@ from ._templates import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3.core.env import Env
     from hop3.orm import App
 
@@ -338,11 +339,9 @@ class NginxVirtualHost(BaseProxy):
                 locals(),
             )
 
-        if nginx_include_file := self.env.get("NGINX_INCLUDE_FILE"):
-            tpl = Path(self.app_path, nginx_include_file).read_text()
-        else:
-            tpl = ""
-        self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(tpl, self.env)
+        self.env["HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES"] = expand_vars(
+            self.include_file("NGINX_INCLUDE_FILE"), self.env
+        )
         self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = ""
 
     def _backend_fragment(self) -> str:

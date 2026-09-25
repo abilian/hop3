@@ -7,7 +7,6 @@ from __future__ import annotations
 import os
 import subprocess
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar, NoReturn
 
 from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
@@ -49,6 +48,8 @@ from ._templates import (
 )
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3.core.env import Env
     from hop3.orm import App
 
@@ -269,12 +270,9 @@ class CaddyVirtualHost(BaseProxy):
                 locals(),
             )
 
-        # Include custom Caddy configuration if specified
-        if caddy_include_file := self.env.get("CADDY_INCLUDE_FILE"):
-            tpl = Path(self.app_path, caddy_include_file).read_text()
-        else:
-            tpl = ""
-        self.env["HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES"] = expand_vars(tpl, self.env)
+        self.env["HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES"] = expand_vars(
+            self.include_file("CADDY_INCLUDE_FILE"), self.env
+        )
 
     def check_config(self) -> None:
         """Validate the generated config with ``caddy validate``.

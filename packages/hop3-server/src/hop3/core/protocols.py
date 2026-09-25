@@ -487,6 +487,34 @@ class BaseProxy(ABC):
                 ),
             )
 
+    def include_file(self, variable: str) -> str:
+        """
+        The proxy snippet an app names in ``variable``, or ``""`` if it names none.
+
+        The value is a path in the app's source tree, where a recipe ships the
+        file. It must stay inside that tree: the snippet is copied into the
+        proxy's own configuration.
+        """
+        name = self.env.get(variable)
+        if not name:
+            return ""
+        root = Path(self.src_path).resolve()
+        path = (root / name).resolve()
+        if not path.is_relative_to(root):
+            self._refuse(
+                f"{variable}={name} points outside the app's source tree",
+                hint="name a file in the app's repository, relative to its root",
+            )
+        if not path.is_file():
+            self._refuse(
+                f"{variable}={name} names no file in the app's source tree",
+                hint=(
+                    f"ship {name} in the app's repository, at that path from "
+                    f"its root, or unset {variable}"
+                ),
+            )
+        return path.read_text()
+
     def _refuse(self, reason: str, hint: str) -> NoReturn:
         abort_with_diagnosis(
             Diagnosis(
