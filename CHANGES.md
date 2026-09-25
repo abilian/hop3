@@ -27,6 +27,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Caddy serves apps.** Every deploy on a Caddy server failed validation: Hop3 named each app's config `<app>.caddy`, which Caddy reads as JSON. With that fixed, an app that allowed plain HTTP still answered only on port 443, and the client address reached the app as `ip:port`. Caddy now also serves PHP apps through their php-fpm pool.
+
+- **Traefik serves apps.** Its routes named a certificate resolver nothing defined, sent plain HTTP nowhere, routed only an app's first hostname, and told the app every request was HTTPS. They now use the certificate Hop3 issues, route every hostname on both ports, and refuse `/.git` as the other proxies do.
+
+- **A deploy the server's proxy cannot serve is refused before the build.** Traefik proxied HTTP to php-fpm and sent static files to an address it cannot open, and Caddy and Traefik routed a `[waf]` app around its firewall; each deploy reported success. They now stop with the reason: Traefik serves no files and speaks no FastCGI, and only nginx fronts the WAF. The certbot engine is likewise refused on Caddy and Traefik, since Hop3 obtains and renews its certificates through nginx; use the self-signed engine there.
+
 - **`hop3-install server` fails when pip fails.** A failed `pip install` of hop3-server, hop3-rootd or hop3-cli was ignored, and the installer printed "installed successfully" over it. It now stops at that step and shows pip's output.
 
 ## [0.7.5] - 2026-09-21

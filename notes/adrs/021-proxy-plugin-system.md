@@ -84,17 +84,28 @@ class Proxy(Protocol):
 **Configuration Files Created:**
 - Nginx: `HOP3_ROOT/nginx/{app_name}.conf`
 - Caddy: `HOP3_ROOT/caddy/{app_name}.caddyfile`
-- Traefik: `HOP3_ROOT/traefik/dynamic/{app_name}.yml`
+- Traefik: `HOP3_ROOT/traefik/{app_name}.yml`, read by Traefik's file provider
 
 **SSL/TLS Certificates:**
-- Automatic certificate requests via ACME protocol
-- Certificates stored in proxy-specific cert directory
-- Automatic renewal managed by proxy
+- Issued by Hop3's certificate engine (self-signed, or Let's Encrypt through certbot)
+- Written where each proxy reads them, beside the app's configuration
+- Renewed by Hop3, which rewrites them and reloads the proxy
 
 **Server Reload:**
 - Graceful reload (no dropped connections)
 - Configuration validation before reload
 - Rollback on validation failure
+
+### Capabilities
+
+Proxies differ in what they can serve, and an app that needs more than the server's proxy offers must not deploy to a proxy that serves it wrong. Each proxy class declares three capabilities, with defaults on `BaseProxy`:
+
+- `backend_protocols`: what the proxy can speak to an app's port: `http`, and `fastcgi` for a php-fpm pool.
+- `serves_files`: whether it serves files from disk: static sites, static paths, and the webroot that answers an ACME HTTP-01 challenge.
+- `fronts_waf`: whether it can route an app through its WAF with a client address the WAF can trust ([ADR 050](./050-waf-l7-lewaf.md)).
+- `hosts_certbot`: whether Hop3 can obtain and renew Let's Encrypt certificates through certbot behind it: answer the first challenge before the app's configuration exists, then install each renewed certificate and reload.
+
+A deploy checks the app against them and refuses, naming the missing capability. The WAF is checked at preflight, before the build. The backend protocol and static files are checked when the proxy is set up, before it writes any configuration, since the build artifact is what says what the app's port speaks. The certbot engine reports itself unavailable behind a proxy without `hosts_certbot`, so a certificate request fails with that reason.
 
 ## Plugin Registration
 
@@ -242,6 +253,8 @@ def get_proxy_strategy(app: App, env: Env, workers: dict[str, str]) -> Proxy:
 proxy = get_proxy_strategy(app, env, workers)
 proxy.setup()
 ```
+
+`get_proxy_class()` returns the configured class without instantiating it, for the checks that run before an app has a proxy.
 
 ## Rationale
 

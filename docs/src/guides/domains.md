@@ -206,20 +206,19 @@ This is appropriate for:
 
 ## Reverse Proxy Backends
 
-Hop3 supports multiple reverse proxy backends. The configuration syntax is the same regardless of which proxy you use.
+Hop3 has three reverse proxy plugins. The server runs one of them, named by `HOP3_PROXY_TYPE` in `hop3-server.toml`, and an app's configuration is the same whichever it is. The installer sets up nginx; it does not yet install Caddy or Traefik.
 
-| Proxy | Configuration File Location | Notes |
-|-------|----------------------------|-------|
-| Nginx | `/home/hop3/nginx/` | Default, most tested |
-| Caddy | `/home/hop3/caddy/` | Automatic HTTPS |
-| Traefik | `/home/hop3/traefik/` | Container-native |
+All three serve every hostname of an app, over HTTPS with a certificate from Hop3, and redirect plain HTTP to HTTPS unless the app sets `[deploy].allow-http`. They differ in what else they can do:
 
-The proxy is selected during server installation. All proxies support:
+| | nginx | Caddy | Traefik |
+|---|---|---|---|
+| Configuration directory | `/home/hop3/nginx/` | `/home/hop3/caddy/` | `/home/hop3/traefik/` |
+| PHP apps (php-fpm, FastCGI) | yes | yes | no |
+| Files from disk (static sites, static paths) | yes | yes | no |
+| Let's Encrypt certificates (`ACME_ENGINE = "certbot"`) | yes | no | no |
+| Web application firewall (`[waf]`) | yes | no | no |
 
-- Multiple hostnames per app
-- Automatic SSL via Let's Encrypt
-- HTTP to HTTPS redirection
-- WebSocket proxying
+Hop3 obtains and renews Let's Encrypt certificates through nginx; on Caddy and Traefik, use `ACME_ENGINE = "self-signed"` for now. A deploy that needs something the server's proxy cannot do is refused, and the error names what is missing.
 
 ## Troubleshooting
 

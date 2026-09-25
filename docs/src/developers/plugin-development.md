@@ -301,6 +301,14 @@ Proxies configure reverse proxies for applications.
 - `check_config() -> None`: Validate config
 - `reload_proxy() -> None`: Reload proxy to apply changes
 
+**Capabilities** (class attributes; override the `BaseProxy` defaults to match what the proxy can do):
+- `backend_protocols: frozenset[str]`: what it can speak to an app's port (default `{"http"}`; add `"fastcgi"` for php-fpm pools)
+- `serves_files: bool`: whether it serves files from disk, including the ACME challenge webroot (default `True`)
+- `fronts_waf: bool`: whether it can route an app through its WAF (default `False`)
+- `hosts_certbot: bool`: whether Hop3's certbot issuance and renewal work behind it (default `False`)
+
+A deploy refuses an app that needs a capability the proxy does not declare, so declare only what the proxy does.
+
 The `setup()` method is already implemented in `BaseProxy` and orchestrates the setup process.
 
 **Example** (simplified Nginx proxy):
