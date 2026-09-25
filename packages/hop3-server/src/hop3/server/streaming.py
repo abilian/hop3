@@ -250,9 +250,9 @@ def create_stream(app_name: str) -> DeploymentStream:
 
     # Full UUID: 122 bits of entropy, not enumerable. The previous
     # 8-hex-char slice had only 2**32 combinations, trivially brute-forced
-    # once the endpoint was publicly reachable. Combined with the
-    # auth_guard on StreamController this gives layered defense: an
-    # attacker needs a valid bearer token *and* a lucky guess.
+    # once the endpoint was publicly reachable. Combined with the deployer
+    # role guard on StreamController this gives layered defense: an attacker
+    # needs a deployer's token *and* a lucky guess.
     stream_id = str(uuid.uuid4())
     stream = DeploymentStream(stream_id=stream_id, app_name=app_name)
     _streams[stream_id] = stream

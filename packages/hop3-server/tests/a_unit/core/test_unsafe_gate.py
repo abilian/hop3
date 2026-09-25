@@ -54,7 +54,7 @@ def test_production_force_regrounds_module_snapshot(clean_env) -> None:
     enforce_unsafe_mode_policy()
 
     assert os.environ["HOP3_UNSAFE"] == "false"
-    assert cfg.HOP3_UNSAFE is False  # what auth_guard reads
+    assert cfg.HOP3_UNSAFE is False  # what the role guards read
 
 
 def test_dev_passthrough_regrounds_snapshot_true(clean_env) -> None:

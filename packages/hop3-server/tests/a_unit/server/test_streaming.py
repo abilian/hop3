@@ -6,7 +6,7 @@
 Tests for deployment-log streaming identifiers (Wave 2 security fix).
 
 Primary defense for the SSE endpoint lives at the controller: StreamController
-now requires auth_guard, so a token is needed. The stream_id change below is
+now requires the deployer role, so a token is needed. The stream_id change below is
 the secondary defense --- make the identifier unguessable even if an attacker
 already has a valid token.
 """

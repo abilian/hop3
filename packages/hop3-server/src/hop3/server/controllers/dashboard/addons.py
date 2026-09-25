@@ -12,8 +12,9 @@ from litestar import Controller, get
 from litestar.response import Redirect, Template
 
 from hop3.core.plugins import get_addon
+from hop3.core.roles import Role
 from hop3.orm import AddonCredentialRepository
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 if TYPE_CHECKING:
@@ -24,7 +25,7 @@ class AddonsController(Controller):
     """Controller for addon management routes."""
 
     path = "/dashboard/addons"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
+    guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def dashboard_addons(self) -> Template | Redirect:
@@ -48,7 +49,7 @@ class AddonsController(Controller):
         ctx = {"addons": addons}
         return Template(template_name="dashboard/addons.html", context=ctx)
 
-    @get("/{addon_name:str}", sync_to_thread=False)
+    @get("/{addon_name:str}", sync_to_thread=False, guards=[RoleGuard(Role.DEPLOYER)])
     def addon_detail(self, addon_name: FromPath[str]) -> Template:
         """Display addon detail page."""
         with get_session() as db_session:

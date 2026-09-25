@@ -9,8 +9,9 @@ from __future__ import annotations
 from litestar import Controller, get
 from litestar.response import Template
 
+from hop3.core.roles import Role
 from hop3.orm import AppRepository
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 from .helpers import get_display_state
@@ -20,7 +21,7 @@ class DashboardIndexController(Controller):
     """Main dashboard index controller."""
 
     path = "/dashboard"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
+    guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default]
 
     @get("/", status_code=200, sync_to_thread=False)
     def dashboard_index(self) -> Template:

@@ -19,6 +19,7 @@ from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
 
 from hop3.core.backup import BackupManager
+from hop3.core.roles import Role
 from hop3.deployers.admin_bootstrap import read_admin_credential
 from hop3.lib.logging import server_log
 from hop3.orm import App, AppAdminCredentialRepository, EnvVar
@@ -28,7 +29,7 @@ from hop3.orm.repositories import (
     BackupRepository,
 )
 from hop3.project.config import AppConfig
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 from .helpers import (
@@ -161,15 +162,15 @@ class AppsController(Controller):
     """Controller for app management routes."""
 
     path = "/dashboard/apps"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
+    guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default]
 
-    @get("/new", sync_to_thread=False)
+    @get("/new", sync_to_thread=False, guards=[RoleGuard(Role.DEPLOYER)])
     def app_create_form(self) -> Template:
         """Display the create app form."""
         ctx = {"builders": BUILDER_OPTIONS}
         return Template(template_name="dashboard/app_create.html", context=ctx)
 
-    @post("/new", status_code=303)
+    @post("/new", status_code=303, guards=[RoleGuard(Role.DEPLOYER)])
     async def app_create_submit(
         self,
         data: Annotated[
@@ -258,7 +259,11 @@ class AppsController(Controller):
 
         return Template(template_name="dashboard/app_detail.html", context=ctx)
 
-    @get("/{app_name:str}/credentials", sync_to_thread=False)
+    @get(
+        "/{app_name:str}/credentials",
+        sync_to_thread=False,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def app_credentials(self, app_name: FromPath[str]) -> Template | Redirect:
         """
         Reveal the app's initial admin credential (ADR 056).
@@ -325,17 +330,32 @@ class AppsController(Controller):
     # sync handlers offloaded to a thread; nothing here may become `async def`
     # without moving the blocking call off the loop first.
 
-    @post("/{app_name:str}/restart", status_code=303, sync_to_thread=True)
+    @post(
+        "/{app_name:str}/restart",
+        status_code=303,
+        sync_to_thread=True,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def app_restart(self, app_name: FromPath[str]) -> Redirect:
         """Restart an application."""
         return self._run_app_action(app_name, "restart", lambda app: app.restart())
 
-    @post("/{app_name:str}/stop", status_code=303, sync_to_thread=True)
+    @post(
+        "/{app_name:str}/stop",
+        status_code=303,
+        sync_to_thread=True,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def app_stop(self, app_name: FromPath[str]) -> Redirect:
         """Stop an application."""
         return self._run_app_action(app_name, "stop", lambda app: app.stop())
 
-    @post("/{app_name:str}/backup", status_code=303, sync_to_thread=True)
+    @post(
+        "/{app_name:str}/backup",
+        status_code=303,
+        sync_to_thread=True,
+        guards=[RoleGuard(Role.DEPLOYER)],
+    )
     def app_backup(self, app_name: FromPath[str]) -> Redirect:
         """Create a backup of an application."""
 

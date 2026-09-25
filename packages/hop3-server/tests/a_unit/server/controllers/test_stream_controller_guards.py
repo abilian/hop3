@@ -14,11 +14,12 @@ wiring so a refactor that accidentally drops the guards is caught.
 
 from __future__ import annotations
 
+from hop3.core.roles import Role
 from hop3.server.controllers.stream import StreamController
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 
 
-def test_stream_controller_registers_auth_guard() -> None:
+def test_stream_controller_requires_a_deployer() -> None:
     """
     Regression test for the Wave 2 audit fix. Dropping this guard
     makes /api/stream/{id} unauthenticated, letting anyone spy on live
@@ -28,6 +29,7 @@ def test_stream_controller_registers_auth_guard() -> None:
     assert hasattr(StreamController, "guards"), (
         "StreamController must declare guards; deploy logs leak secrets"
     )
-    assert auth_guard in StreamController.guards, (
-        "StreamController.guards must include auth_guard"
+    # Deploy logs carry secrets, so a viewer may not follow them (ADR 061).
+    assert RoleGuard(Role.DEPLOYER) in StreamController.guards, (
+        "StreamController.guards must require the deployer role"
     )

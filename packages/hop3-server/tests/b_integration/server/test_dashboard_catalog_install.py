@@ -67,7 +67,7 @@ def test_client(tmp_path: Path, monkeypatch):
     CatalogService.reset()
     CatalogService.get_instance().load(cat)
 
-    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)  # bypass auth_guard
+    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)  # bypass the role guards
     client = TestClient(create_app())
     yield client
 

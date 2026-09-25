@@ -13,10 +13,12 @@ from litestar import Controller, Request, get, post
 from litestar.response import Redirect, Template
 
 from hop3.config import config
+from hop3.core.roles import Role
 from hop3.orm.repositories import UserRepository
 from hop3.orm.security import burn_password_check
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
+from hop3.server.security.authorization import lookup_account
 from hop3.server.security.proxy_headers import client_ip
 from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.tokens import validate_magic_token
@@ -43,6 +45,16 @@ INSECURE_TRANSPORT_ERROR = (
     "(hop3-deploy-server --admin-domain ...) — or set HOP3_DEBUG=true for "
     "local development."
 )
+
+
+def landing_page(role: Role) -> str:
+    """
+    Where a signed-in account lands: the dashboard, or its profile.
+
+    A ``member`` can open no dashboard page (ADR 061 §4), so sending it to
+    ``/dashboard`` would greet every sign-in with a refusal.
+    """
+    return "/dashboard" if role.includes(Role.VIEWER) else "/auth/profile"
 
 
 class AuthController(Controller):
@@ -87,9 +99,13 @@ class AuthController(Controller):
         Returns:
             Template response with login form or redirect if already authenticated
         """
-        # Already authenticated → straight to the dashboard.
-        if current_identity(request):
-            return Redirect(path="/dashboard")
+        # Already signed in → the landing page. Only for an account that still
+        # works: a cookie naming a deleted or disabled account would otherwise
+        # bounce between here and a guard that refuses it, forever.
+        if identity := current_identity(request):
+            account = lookup_account(str(identity.get("username", "")))
+            if account and account.active:
+                return Redirect(path=landing_page(account.role))
 
         ctx = {
             "error": request.query_params.get("error"),
@@ -165,9 +181,10 @@ class AuthController(Controller):
             user.login_count += 1
             user_repo.update(user, auto_commit=True)
             username = user.username
+            role = user.role
 
         # Issue the signed auth cookie (stateless — survives restarts).
-        return Redirect(path="/dashboard", cookies=[auth_cookie(username)])
+        return Redirect(path=landing_page(role), cookies=[auth_cookie(username)])
 
     @post("/logout")
     async def logout(self, request: Request) -> Redirect:
@@ -205,7 +222,7 @@ class AuthController(Controller):
             revoke_jwt(token, reason="web_logout")
         return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
 
-    @get("/profile", guards=[auth_guard], sync_to_thread=False)
+    @get("/profile", guards=[RoleGuard(Role.MEMBER)], sync_to_thread=False)
     def profile(self, request: Request) -> Template | Redirect:
         """
         Display user profile page.
@@ -216,7 +233,7 @@ class AuthController(Controller):
         Returns:
             Template response with profile information or redirect to login
         """
-        # Identity from the verified auth cookie (auth_guard already passed).
+        # Identity from the verified auth cookie (the role guard already passed).
         identity = current_identity(request)
         username = identity.get("username") if identity else None
         if not username:
@@ -305,6 +322,7 @@ class AuthController(Controller):
             user.login_count += 1
             user_repo.update(user, auto_commit=True)
             username = user.username
+            role = user.role
 
         # Issue the signed auth cookie (stateless — survives restarts).
-        return Redirect(path="/dashboard", cookies=[auth_cookie(username)])
+        return Redirect(path=landing_page(role), cookies=[auth_cookie(username)])

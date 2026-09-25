@@ -7,10 +7,10 @@ from typing import TYPE_CHECKING
 
 from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request
-from litestar.exceptions import NotAuthorizedException
+from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
 from litestar.logging import LoggingConfig
 from litestar.plugins.jinja import JinjaTemplateEngine
-from litestar.response import Redirect
+from litestar.response import Redirect, Response, Template
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
 
@@ -76,6 +76,7 @@ class SuppressHTTPExceptionTraceback(logging.Filter):
             if exc_type and exc_type.__name__ in {
                 "NotFoundException",
                 "NotAuthorizedException",
+                "PermissionDeniedException",
             }:
                 return False
 
@@ -85,6 +86,25 @@ class SuppressHTTPExceptionTraceback(logging.Filter):
 def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect:
     """Redirect to login page on authentication failure."""
     return Redirect(path="/auth/login")
+
+
+def handle_403(request: Request, exc: PermissionDeniedException) -> Template | Response:
+    """
+    Say which role a page needs (ADR 061 §4), as a page or, for the API, JSON.
+
+    ``/api/`` clients (the CLI streaming a deploy) read the status and detail;
+    a browser gets a page naming the role and the admin command that grants it.
+    """
+    if request.url.path.startswith("/api/"):
+        return Response(
+            content={"status_code": 403, "detail": exc.detail},
+            status_code=403,
+        )
+    return Template(
+        template_name="auth/forbidden.html",
+        context={"detail": exc.detail},
+        status_code=403,
+    )
 
 
 def on_startup() -> None:
@@ -200,6 +220,7 @@ def create_app() -> Litestar:
         logging_config=logging_config,
         exception_handlers={  # type: ignore[arg-type]
             NotAuthorizedException: handle_401,
+            PermissionDeniedException: handle_403,
         },
         on_startup=[on_startup],
         on_shutdown=[on_shutdown],

@@ -9,11 +9,12 @@ from __future__ import annotations
 from litestar import Controller, get
 from litestar.response import Template
 
+from hop3.core.roles import Role
 from hop3.orm import AppRepository
 from hop3.platform.cert_health import cert_health
 from hop3.platform.domain_health import DomainHealth, all_domain_health
 from hop3.platform.health_alerts import collect_alerts
-from hop3.server.guards import auth_guard
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 
@@ -21,7 +22,7 @@ class CertificatesController(Controller):
     """Read-only TLS + domain health for every app's domain."""
 
     path = "/dashboard/certificates"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
+    guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def dashboard_certificates(self) -> Template:

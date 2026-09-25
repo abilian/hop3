@@ -1,0 +1,13 @@
+{% extends "base.html" %}
+
+{% block title %}Not allowed - Hop3{% endblock %}
+
+{% block content %}
+<div class="px-4 sm:px-0">
+    <h3 class="text-2xl font-semibold leading-7 text-gray-900">Your role does not allow this page</h3>
+    <p class="mt-4 max-w-2xl text-sm leading-6 text-gray-700">{{ detail }}</p>
+    <p class="mt-6 text-sm leading-6">
+        <a href="/auth/profile" class="font-medium text-blue-600 hover:text-blue-500">Your profile</a>
+    </p>
+</div>
+{% endblock %}

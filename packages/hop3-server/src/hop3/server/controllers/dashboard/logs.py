@@ -19,7 +19,8 @@ from litestar import Controller, get
 from litestar.params import FromPath  # ruff:ignore[typing-only-third-party-import]
 from litestar.response import Redirect, Response, Stream, Template
 
-from hop3.server.guards import auth_guard
+from hop3.core.roles import Role
+from hop3.server.guards import RoleGuard
 from hop3.server.lib.database import get_session
 
 from .helpers import get_app_or_none
@@ -99,7 +100,7 @@ class LogsController(Controller):
     """Controller for app log viewing routes."""
 
     path = "/dashboard/apps/{app_name:str}/logs"
-    guards = [auth_guard]  # ruff:ignore[mutable-class-default]
+    guards = [RoleGuard(Role.DEPLOYER)]  # ruff:ignore[mutable-class-default]
 
     @get("/", sync_to_thread=False)
     def app_logs(self, app_name: FromPath[str]) -> Template | Redirect:
