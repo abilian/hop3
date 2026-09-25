@@ -22,29 +22,7 @@ from hop3.server.security.tokens import create_token
 
 from ._base import Command, NamespaceCommand
 from ._response import error, summary, text
-
-
-def require_admin(username: str, user_repo: UserRepository) -> list[dict] | None:
-    """
-    Check if the authenticated user is an admin.
-
-    Args:
-        username: The authenticated username
-        user_repo: User repository
-
-    Returns:
-        Error response if not admin, None if admin
-    """
-    if not username:
-        return [
-            error("Authentication required. Use 'hop3 auth login' to authenticate.")
-        ]
-
-    user = user_repo.get_by_username(username)
-    if not user or not user.is_admin:
-        return [error("Admin privileges required")]
-
-    return None
+from .auth import member_token_refusal
 
 
 def _requested_role(args: tuple[str, ...]) -> Role:
@@ -77,9 +55,6 @@ def _set_role(
     active admin who keeps that role, so the server can never be left without
     an admin through this path (ADR 061 §2).
     """
-    if admin_error := require_admin(authenticated_username, user_repo):
-        return admin_error
-
     user = user_repo.get_by_username(username)
     if not user:
         return [error(f"User '{username}' not found")]
@@ -118,6 +93,7 @@ class UserCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("user",)
+    min_role: ClassVar[Role] = Role.ADMIN
 
 
 @register
@@ -147,6 +123,7 @@ class UserAddCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "add")
+    min_role: ClassVar[Role] = Role.ADMIN
     # `auth register` was a duplicate of this command (ADR 036 P2.1) — kept as a
     # back-compat alias so `hop3 auth register u e p` still works.
     aliases: ClassVar[list[tuple[str, ...]]] = [("auth", "register")]
@@ -176,10 +153,6 @@ class UserAddCmd(Command):
         Returns:
             Success message or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username or not email or not password:
             return [
                 error(
@@ -216,18 +189,19 @@ class UserAddCmd(Command):
             text(f"Role: {role}"),
         ]
 
-        # The control plane is single-tenant: there is no per-app ownership, so
-        # any account reaches every app and addon on the host. Say so where the
-        # account is created -- an operator who reads "Admin: No" would
-        # otherwise reasonably infer a confinement the platform doesn't provide.
-        # See notes/security/security-model.md §1.4.
-        response.append(
-            text(
-                "Note: this account can manage every app and addon on this "
-                "server. Hop3 has no per-app ownership, so treat it as an "
-                "administrator credential. See https://hop3.cloud/guides/security/"
+        # A deployer's builds run recipe code with the control plane's own
+        # privileges until builds drop to the app user (ADR 061 §6, ADR 055),
+        # so the role protects nothing an admin credential would not. Say so
+        # where the account is created, rather than let "deployer" imply a
+        # confinement the platform doesn't provide yet.
+        if role is Role.DEPLOYER:
+            response.append(
+                text(
+                    "Note: a deployer's builds run with the control plane's own "
+                    "privileges, so treat this account as an administrator "
+                    "credential. See https://hop3.cloud/guides/security/"
+                )
             )
-        )
 
         response.append(summary(f"added user '{username}' ({role})."))
         return response
@@ -249,6 +223,7 @@ class UserRemoveCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "remove")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -270,10 +245,6 @@ class UserRemoveCmd(Command):
         Returns:
             Success message or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username:
             return [error("Usage: hop3 user remove <username>")]
 
@@ -309,6 +280,7 @@ class UserListCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "list")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -324,10 +296,6 @@ class UserListCmd(Command):
         Returns:
             List of users or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         # Get all users
         users = self.user_repo.list_all_ordered()
 
@@ -371,6 +339,7 @@ class UserEnableCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "enable")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -392,10 +361,6 @@ class UserEnableCmd(Command):
         Returns:
             Success message or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username:
             return [error("Usage: hop3 user enable <username>")]
 
@@ -431,6 +396,7 @@ class UserDisableCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "disable")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -452,10 +418,6 @@ class UserDisableCmd(Command):
         Returns:
             Success message or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username:
             return [error("Usage: hop3 user disable <username>")]
 
@@ -499,6 +461,7 @@ class UserSetRoleCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "set-role")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -535,6 +498,7 @@ class UserGrantAdminCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "grant-admin")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -570,6 +534,7 @@ class UserRevokeAdminCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "revoke-admin")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -616,6 +581,7 @@ class UserSetPasswordCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "set-password")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -639,10 +605,6 @@ class UserSetPasswordCmd(Command):
         Returns:
             Success message or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username or not new_password:
             return [error("Usage: hop3 user set-password <username> <new_password>")]
 
@@ -675,6 +637,7 @@ class UserShowCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "show")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -696,10 +659,6 @@ class UserShowCmd(Command):
         Returns:
             User information or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username:
             return [error("Usage: hop3 user info <username>")]
 
@@ -740,6 +699,7 @@ class UserGenerateTokenCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("user", "generate-token")
+    min_role: ClassVar[Role] = Role.ADMIN
     # Needs authenticated username for permission checks
     pass_username: ClassVar[bool] = True
 
@@ -761,10 +721,6 @@ class UserGenerateTokenCmd(Command):
         Returns:
             Token or error
         """
-        # Check admin privileges
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username:
             return [error("Usage: hop3 user generate-token <username>")]
 
@@ -775,6 +731,9 @@ class UserGenerateTokenCmd(Command):
 
         if not user.active:
             return [error(f"User '{username}' is disabled. Enable the account first.")]
+
+        if user.role is Role.MEMBER:
+            return [error(member_token_refusal(username))]
 
         # Generate token
         scopes = ["authenticated"]

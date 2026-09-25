@@ -16,7 +16,7 @@ from typing import ClassVar
 
 from hop3.commands._base import Command
 from hop3.commands._response import error, summary, table, text, warning
-from hop3.commands.user import require_admin
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
@@ -51,6 +51,7 @@ class ServerEmailNotificationsCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "notifications")
+    min_role: ClassVar[Role] = Role.ADMIN
     pass_username: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "action": {"positional": True},
@@ -58,8 +59,6 @@ class ServerEmailNotificationsCmd(Command):
     }
 
     def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
 
         parsed = parse_cli_args(args, self._arg_spec)
         action = parsed.get("action", "")

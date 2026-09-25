@@ -14,6 +14,7 @@ from hop3.config import config
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon, get_plugin_manager
+from hop3.core.roles import Role
 from hop3.deployers.addon_provisioning import (
     addon_var_prefix,
     sync_addon_env_vars,
@@ -58,6 +59,7 @@ class AddonsCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 @register
@@ -84,6 +86,7 @@ class AddonListCmd(Command):
     app_repo: AppRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
     requires_auth: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},  # --app <name>
@@ -200,6 +203,7 @@ class AddonEndpointCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "endpoint")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -264,6 +268,7 @@ class AddonExistsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "exists")
+    min_role: ClassVar[Role] = Role.VIEWER
     requires_auth: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -305,6 +310,7 @@ class AddonExposeCmd(Command):
 
     port_claim_repo: PortClaimRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "expose")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -406,6 +412,7 @@ class AddonUnexposeCmd(Command):
 
     port_claim_repo: PortClaimRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "unexpose")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -460,6 +467,7 @@ class AddonPromoteCmd(Command):
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "promote")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -547,6 +555,7 @@ class AddonTypesCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "types")
+    min_role: ClassVar[Role] = Role.VIEWER
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -595,6 +604,7 @@ class AddonCreateCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "create")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -669,6 +679,7 @@ class AddonAttachCmd(Command):
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "attach")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -876,6 +887,7 @@ class AddonDetachCmd(Command):
     addon_credential_repo: AddonCredentialRepository
     env_var_repo: EnvVarRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "detach")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -1010,6 +1022,7 @@ class AddonDestroyCmd(Command):
 
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "destroy")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     destructive: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
@@ -1095,6 +1108,7 @@ class AddonShowCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", "show")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
 
     # Argument specification for declarative parsing
@@ -1154,6 +1168,7 @@ class AddonStatusCmd(Command):
 
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("addon", "status")
+    min_role: ClassVar[Role] = Role.VIEWER
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},

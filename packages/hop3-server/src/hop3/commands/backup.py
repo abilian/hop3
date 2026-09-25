@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import ClassVar
 
 from hop3.core.backup import BackupManager, format_size
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.decorators import register
 
@@ -43,6 +44,7 @@ class BackupCreateCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "create")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Create a backup of an application."""
@@ -137,6 +139,7 @@ class BackupListCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
     # The app filter is the `--app` flag (ADR 036 D5), never a positional —
     # so the CLI-injected `--app NAME` lands here instead of being dropped.
     _arg_spec: ClassVar[dict] = {
@@ -214,6 +217,7 @@ class BackupInfoCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "show")
+    min_role: ClassVar[Role] = Role.VIEWER
     aliases: ClassVar[list[tuple[str, ...]]] = [("backup", "info")]
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -309,6 +313,7 @@ class BackupRestoreCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "restore")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "backup_id": {"positional": True},
@@ -396,6 +401,7 @@ class BackupRegisterCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "register")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     _arg_spec: ClassVar[dict] = {
         "backup_dir": {"positional": True},
     }
@@ -454,6 +460,7 @@ class BackupDestroyCmd(Command):
     backup_repo: BackupRepository
     addon_credential_repo: AddonCredentialRepository
     name: ClassVar[tuple[str, ...]] = ("backup", "destroy")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     destructive: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -513,3 +520,4 @@ class BackupCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("backup",)
+    min_role: ClassVar[Role] = Role.VIEWER

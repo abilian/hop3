@@ -61,6 +61,8 @@ def test_user(db_session: Session):
     user = User(username="testuser", email="test@example.com", password_hash="")
     user.set_password("testpass123")
     user.active = True
+    # A member gets no token (ADR 061); a viewer is the lowest role that does.
+    user.role = Role.VIEWER
 
     db_session.add(user)
     db_session.commit()
@@ -328,24 +330,6 @@ def test_auth_magic_link_token_has_correct_scope(
 
     assert payload["sub"] == "admin"
     assert "magic_link" in payload["scopes"]
-
-
-def test_auth_magic_link_rejects_anonymous(user_repo: UserRepository, admin_user: User):
-    """Anonymous caller cannot mint a magic link (security review C-001)."""
-    cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("", "admin")
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
-
-
-def test_auth_magic_link_rejects_non_admin(user_repo: UserRepository, test_user: User):
-    """Authenticated non-admin caller cannot mint a magic link."""
-    cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("testuser", "testuser")
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
 
 
 def test_auth_magic_link_pass_username_blocks_spoofed_admin(

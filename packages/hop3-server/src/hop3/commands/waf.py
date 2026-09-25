@@ -21,6 +21,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
 from hop3.core.plugins import get_waf_engine
+from hop3.core.roles import Role
 from hop3.deployers.waf import _read_audit, reconcile_bans, reload_proxy
 from hop3.lib.registry import register
 from hop3.orm import AppRepository, BanRepository
@@ -49,6 +50,7 @@ class WafStatusCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "status")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:
@@ -85,6 +87,7 @@ class WafLogsCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "logs")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
@@ -141,6 +144,7 @@ class WafBansListCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "bans", "list")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
@@ -178,6 +182,7 @@ class WafBansClearCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "bans", "clear")
+    min_role: ClassVar[Role] = Role.ADMIN
     destructive: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -227,6 +232,7 @@ class WafReconcileBansCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("waf", "reconcile-bans")
+    min_role: ClassVar[Role] = Role.ADMIN
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         from hop3.project.config import (  # ruff:ignore[import-outside-top-level]

@@ -59,32 +59,6 @@ def mock_regular_user():
     return user
 
 
-def test_admin_user_add_requires_admin(mock_user_repo):
-    """Test that admin:user:add requires admin privileges."""
-    # Mock to return None (no authenticated user)
-    mock_user_repo.get_by_username.return_value = None
-
-    cmd = UserAddCmd(user_repo=mock_user_repo)
-    result = cmd.call("", "newuser", "new@example.com", "password123")
-
-    assert len(result) == 1
-    assert result[0]["t"] == "error"
-    assert "Authentication required" in result[0]["text"]
-
-
-def test_admin_user_add_requires_admin_role(mock_user_repo, mock_regular_user):
-    """Test that admin:user:add requires admin role."""
-    # Mock to return a regular user (not admin)
-    mock_user_repo.get_by_username.return_value = mock_regular_user
-
-    cmd = UserAddCmd(user_repo=mock_user_repo)
-    result = cmd.call("user", "newuser", "new@example.com", "password123")
-
-    assert len(result) == 1
-    assert result[0]["t"] == "error"
-    assert "Admin privileges required" in result[0]["text"]
-
-
 def test_admin_user_add_missing_arguments(mock_user_repo, mock_admin_user):
     """Test that admin:user:add requires username, email, and password."""
     # Mock to return user
@@ -116,26 +90,28 @@ def test_admin_user_add_success(mock_user_repo, mock_admin_user):
     assert "created successfully" in result[0]["text"]
 
 
-def test_user_add_states_the_account_is_operator_equivalent(
-    mock_user_repo, mock_admin_user
+@pytest.mark.parametrize(("role", "noted"), [("deployer", True), ("viewer", False)])
+def test_user_add_says_a_deployer_is_an_admin_credential(
+    mock_user_repo, mock_admin_user, role, noted
 ):
     """
-    Creating a non-admin account must say it still reaches every app.
+    A deployer's builds run with the control plane's privileges (ADR 061 §6).
 
-    The control plane is single-tenant (no per-app ownership), so "Admin: No"
-    would otherwise imply a confinement Hop3 does not provide. See
-    notes/security/security-model.md §1.4 and report-2026-07.md finding 1.
+    Until builds drop to the app user, "deployer" must not read as a
+    confinement: the account is created with a note saying so. A viewer runs
+    no build, so its role means what it says.
     """
     mock_user_repo.get_by_username.return_value = mock_admin_user
     mock_user_repo.username_exists.return_value = False
     mock_user_repo.email_exists.return_value = False
 
     cmd = UserAddCmd(user_repo=mock_user_repo)
-    result = cmd.call("admin", "newuser", "new@example.com", "password123")
+    result = cmd.call(
+        "admin", "newuser", "new@example.com", "password123", "--role", role
+    )
 
     notice = " ".join(item.get("text", "") for item in result)
-    assert "every app and addon" in notice
-    assert "no per-app ownership" in notice.lower()
+    assert ("treat this account as an administrator credential" in notice) is noted
 
 
 # user:add with --admin is covered by
@@ -181,8 +157,7 @@ def test_admin_user_enable(mock_user_repo, mock_admin_user):
     disabled_user.username = "disabled"
     disabled_user.active = False
 
-    # First call returns admin, second call returns the disabled user
-    mock_user_repo.get_by_username.side_effect = [mock_admin_user, disabled_user]
+    mock_user_repo.get_by_username.return_value = disabled_user
 
     cmd = UserEnableCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "disabled")
@@ -206,7 +181,7 @@ def test_admin_user_disable_prevents_self_disable(mock_user_repo, mock_admin_use
 
 def test_admin_user_grant_admin(mock_user_repo, mock_admin_user, mock_regular_user):
     """Granting admin sets the role; nothing else is created."""
-    mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
+    mock_user_repo.get_by_username.return_value = mock_regular_user
 
     cmd = UserGrantAdminCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user")
@@ -232,8 +207,7 @@ def test_admin_user_revoke_admin_prevents_self_revocation(
 
 def test_admin_user_set_password(mock_user_repo, mock_admin_user, mock_regular_user):
     """Test resetting a user's password."""
-    # First call returns admin, second call returns the target user
-    mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
+    mock_user_repo.get_by_username.return_value = mock_regular_user
 
     cmd = UserSetPasswordCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user", "newpassword123")
@@ -252,8 +226,7 @@ def test_admin_user_info(mock_user_repo, mock_admin_user, mock_regular_user):
     mock_regular_user.created_at = datetime.now(timezone.utc)
     mock_regular_user.updated_at = datetime.now(timezone.utc)
 
-    # First call returns admin, second call returns the target user
-    mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
+    mock_user_repo.get_by_username.return_value = mock_regular_user
 
     cmd = UserShowCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user")
@@ -271,8 +244,8 @@ def test_admin_user_generate_token(
     # Set the secret key environment variable
     monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-testing-only")
 
-    # First call returns admin, second call returns the target user
-    mock_user_repo.get_by_username.side_effect = [mock_admin_user, mock_regular_user]
+    mock_regular_user.role = Role.VIEWER
+    mock_user_repo.get_by_username.return_value = mock_regular_user
 
     cmd = UserGenerateTokenCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "user")
@@ -289,8 +262,7 @@ def test_admin_user_generate_token_disabled_user(mock_user_repo, mock_admin_user
     disabled_user.username = "disabled"
     disabled_user.active = False
 
-    # First call returns admin, second call returns the disabled user
-    mock_user_repo.get_by_username.side_effect = [mock_admin_user, disabled_user]
+    mock_user_repo.get_by_username.return_value = disabled_user
 
     cmd = UserGenerateTokenCmd(user_repo=mock_user_repo)
     result = cmd.call("admin", "disabled")
@@ -298,3 +270,13 @@ def test_admin_user_generate_token_disabled_user(mock_user_repo, mock_admin_user
     assert len(result) == 1
     assert result[0]["t"] == "error"
     assert "disabled" in result[0]["text"]
+
+
+def test_no_token_is_generated_for_a_member(mock_user_repo, mock_regular_user):
+    """A member runs no command, so a token for it could do nothing (ADR 061)."""
+    mock_user_repo.get_by_username.return_value = mock_regular_user
+
+    result = UserGenerateTokenCmd(user_repo=mock_user_repo).call("admin", "user")
+
+    assert result[0]["t"] == "error"
+    assert "is a member" in result[0]["text"]

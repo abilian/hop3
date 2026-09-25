@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
+from hop3.core.roles import Role
 from hop3.deployers import do_deploy
 from hop3.lib.args import pop_app_flag, reject_extra_args
 from hop3.lib.logging import server_log
@@ -76,6 +77,7 @@ class PluginCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("plugin",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 @register
@@ -92,6 +94,7 @@ class PluginsCmd(Command):
     # Canonical name is `plugin list` per ADR 036 D9 (plural `plugins` is the
     # alias, resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
     name: ClassVar[tuple[str, ...]] = ("plugin", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         # This implementation introspects the command registry
@@ -131,6 +134,7 @@ class PSCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
@@ -168,6 +172,7 @@ class PsScaleCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("ps", "scale")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
@@ -232,6 +237,7 @@ class RunCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "run")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("run",)]
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -378,6 +384,7 @@ class AppShellCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("app", "shell")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         # The CLI runs this command itself, over SSH; only a client that does
@@ -407,6 +414,7 @@ class SbomCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "sbom")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)

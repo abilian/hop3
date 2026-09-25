@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import HopConfig
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname_list
+from hop3.core.roles import Role
 from hop3.deployers.addon_provisioning import addon_var_names
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
@@ -49,6 +50,7 @@ class EnvCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("env",)
+    min_role: ClassVar[Role] = Role.VIEWER
     aliases: ClassVar[list[tuple[str, ...]]] = [("config",)]
 
 
@@ -75,6 +77,7 @@ class ShowCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("env", "show")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("config", "show")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -188,6 +191,7 @@ class GetCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("env", "get")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("config", "get")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -239,6 +243,7 @@ class LiveCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("env", "live")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("config", "live")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -373,6 +378,7 @@ class SetCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("env", "set")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("config", "set")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -471,6 +477,7 @@ class UnsetCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("env", "unset")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("config", "unset")]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -548,6 +555,7 @@ class MigrateCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("app", "migrate")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [
         ("env", "migrate"),
         ("config", "migrate"),

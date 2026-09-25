@@ -32,6 +32,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import lookup
 
 from ._response import text
@@ -56,6 +57,12 @@ class Command:
 
     # Authentication metadata (default: requires auth, doesn't need username)
     requires_auth: ClassVar[bool] = True
+    # The lowest standard role that may run this command (ADR 061 §3). The
+    # dispatcher enforces it; no command body checks roles for itself. Admin by
+    # default, so a command added without a declaration fails closed, and
+    # `tests/a_unit/commands/command_roles.toml` puts every command's value in
+    # front of a reviewer.
+    min_role: ClassVar[Role] = Role.ADMIN
     pass_username: ClassVar[bool] = False
     # Throttle this command per client IP before dispatch. Required on any
     # command that both skips authentication and verifies a credential —

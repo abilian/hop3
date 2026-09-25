@@ -39,6 +39,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import HOP3_ROOT, config
 from hop3.core.plugins import get_plugin_manager
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
@@ -315,6 +316,7 @@ class SystemCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("system",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 #
@@ -343,6 +345,7 @@ class StatusCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "status")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         quiet = "--quiet" in args or "-q" in args
@@ -638,6 +641,7 @@ class InfoCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "info")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         verbose = "--verbose" in args or "-v" in args
@@ -734,6 +738,7 @@ class SystemLogsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "logs")
+    min_role: ClassVar[Role] = Role.ADMIN
     _arg_spec: ClassVar[dict] = {
         "lines": {"short": "-n", "type": int, "default": 100},
         "since": {"type": str, "default": ""},
@@ -837,6 +842,7 @@ class CleanupCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("system", "cleanup")
+    min_role: ClassVar[Role] = Role.ADMIN
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         dry_run = "--dry-run" in args

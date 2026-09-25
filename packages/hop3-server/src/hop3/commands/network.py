@@ -18,6 +18,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 from hop3.orm import Network, NetworkRepository
 
@@ -59,6 +60,7 @@ class NetworkListCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("network", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:
@@ -87,6 +89,7 @@ class NetworkAddCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("network", "add")
+    min_role: ClassVar[Role] = Role.ADMIN
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) < 2:
@@ -143,6 +146,7 @@ class NetworkRmCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("network", "rm")
+    min_role: ClassVar[Role] = Role.ADMIN
     destructive: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:

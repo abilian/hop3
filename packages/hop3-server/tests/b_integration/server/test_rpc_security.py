@@ -26,6 +26,7 @@ import jwt
 import pytest
 from litestar.testing import TestClient
 
+from hop3.core.roles import Role
 from hop3.server.asgi import create_app
 from hop3.server.security.tokens import create_token
 
@@ -46,9 +47,9 @@ def client():
 
 
 @pytest.fixture
-def valid_token():
-    """Create a valid authentication token."""
-    return create_token("testuser", scopes=["authenticated"])
+def valid_token(account):
+    """A token for a real deployer account (ADR 061 reads it on every call)."""
+    return account("testuser", Role.DEPLOYER)
 
 
 @pytest.fixture

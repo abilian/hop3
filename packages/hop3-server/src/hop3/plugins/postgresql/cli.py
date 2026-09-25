@@ -19,6 +19,7 @@ from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import summary, table, text
 from hop3.core.plugins import get_addon
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.plugins.addons.generic_cli import (
@@ -97,6 +98,7 @@ class AddonPostgresExtensionsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "extensions")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str) -> list[dict]:
         if len(args) < 2:
@@ -143,6 +145,7 @@ class AddonPostgresQueryCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "query")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "command": {"type": str},
@@ -223,6 +226,7 @@ class AddonPostgresPsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "activity")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
     def call(self, *args: str) -> list[dict]:
@@ -242,6 +246,7 @@ class AddonPostgresLocksCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "locks")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _LOCKS_SQL, "listing locks", "locks")
@@ -260,6 +265,7 @@ class AddonPostgresSettingsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "settings")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
@@ -283,6 +289,7 @@ class AddonPostgresCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 COMMANDS: list[type[Command]] = [

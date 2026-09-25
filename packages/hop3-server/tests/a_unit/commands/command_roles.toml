@@ -1,0 +1,188 @@
+# The minimum role for every registered RPC command (ADR 061 §3).
+#
+# The dispatcher enforces each command's `min_role`; a test compares every
+# registered command against this file, so a change to who can run what shows
+# up here, in review. Every command appears in exactly one list. Roles are
+# ordered admin > deployer > viewer > member, and each includes the ones below.
+#
+# The rule for `viewer`: read-only, and no output that can carry a secret
+# (environment values, credentials, connection URLs, logs, query results).
+# Where that could not be established from the code, the command sits one role
+# higher until someone shows it is safe. Namespace commands (`app`, `addon`,
+# ...) print their subcommands and take the lowest role that can use any of
+# them.
+
+# No token needed.
+public = [
+    "auth",
+    "auth get-token",  # refused for a `member` account (ADR 061 §3)
+    "help",
+    "help commands",
+    "version",
+]
+
+# Signed in, no control-plane authority.
+member = [
+    "auth logout",
+    "auth whoami",
+]
+
+viewer = [
+    "addon",
+    "addon email",
+    "addon email status",
+    "addon exists",
+    "addon list",
+    "addon mysql",
+    "addon mysql settings",  # server variables, no credentials
+    "addon postgres",
+    "addon postgres settings",  # server settings, no credentials
+    "addon redis",
+    "addon redis info",  # INFO: counters and configuration
+    "addon s3",
+    "addon status",
+    "addon types",
+    "app",
+    "app list",
+    "app ping",
+    "app sbom",
+    "app status",
+    "backup",
+    "backup list",
+    "backup show",  # metadata, not contents
+    "catalog",
+    "catalog list",
+    "cert",
+    "cert status",
+    "domain",
+    "domain list",
+    "env",
+    "network list",
+    "plugin",
+    "plugin list",
+    "port list",
+    "ps",
+    "system",
+    "system info",
+    "system status",
+    "waf status",
+]
+
+deployer = [
+    # App lifecycle
+    "app create",
+    "app destroy",
+    "app migrate",
+    "app restart",
+    "app rollback",
+    "app start",
+    "app stop",
+    "app upgrade",
+    "deploy",
+    "git setup",
+    "git-hook",
+    "nix eject",
+    "ps scale",
+    # Executes code as the control plane (ADR 055)
+    "app check",  # runs the app's smoke test
+    "app run",
+    "app shell",
+    # Output can carry secrets
+    "app build-logs",
+    "app credentials",
+    "app debug",  # includes recent logs
+    "app logs",
+    "env get",
+    "env live",
+    "env show",
+    "waf logs",
+    # Configuration
+    "domain add",
+    "domain clear",
+    "domain remove",
+    "domain set",
+    "env set",
+    "env unset",
+    # Addons
+    "addon attach",
+    "addon create",
+    "addon destroy",
+    "addon detach",
+    "addon email create",
+    "addon endpoint",  # prints the connection URL, password included
+    "addon expose",
+    "addon promote",
+    "addon show",  # the backend reads the stored password; viewer once shown safe
+    "addon unexpose",
+    "addon mysql activity",
+    "addon mysql clone",
+    "addon mysql credentials",
+    "addon mysql dump",
+    "addon mysql export",
+    "addon mysql import",
+    "addon mysql query",
+    "addon mysql restore",
+    "addon postgres activity",  # live queries carry data
+    "addon postgres clone",
+    "addon postgres credentials",
+    "addon postgres dump",
+    "addon postgres export",
+    "addon postgres extensions",  # installs extensions
+    "addon postgres import",
+    "addon postgres locks",
+    "addon postgres query",
+    "addon postgres restore",
+    "addon redis clone",
+    "addon redis credentials",
+    "addon redis dump",
+    "addon redis export",
+    "addon redis flush",
+    "addon redis import",
+    "addon redis query",
+    "addon redis restore",
+    "addon s3 clone",
+    "addon s3 credentials",
+    "addon s3 dump",
+    "addon s3 export",
+    "addon s3 import",
+    "addon s3 restore",
+    # Backups and the catalog
+    "backup create",
+    "backup destroy",
+    "backup register",
+    "backup restore",
+    "catalog install",
+    # WAF state of an app
+    "waf bans list",
+]
+
+admin = [
+    # Users and roles
+    "user",
+    "user add",
+    "user disable",
+    "user enable",
+    "user generate-token",
+    "user grant-admin",
+    "user list",
+    "user remove",
+    "user revoke-admin",
+    "user set-password",
+    "user set-role",
+    "user show",
+    "auth magic-link",
+    # Server-wide state
+    "admin reencrypt-credentials",
+    "catalog refresh",
+    "cert renew",  # every app's certificate
+    "network add",
+    "network rm",
+    "server email backend",
+    "server email notifications",
+    "server email set",
+    "server email status",
+    "system cleanup",
+    "system logs",  # the server's log, every app's deploy output in it
+    "waf bans clear",
+    "waf reconcile-bans",
+]

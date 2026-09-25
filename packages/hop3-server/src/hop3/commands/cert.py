@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 from hop3.orm.repositories import AppRepository
@@ -35,6 +36,7 @@ class CertCmd(NamespaceCommand):
     """Inspect and renew TLS certificates."""
 
     name: ClassVar[tuple[str, ...]] = ("cert",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 @register
@@ -49,6 +51,7 @@ class CertStatusCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("cert", "status")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         apps = AppRepository(session=self.db_session).list_all_ordered()
@@ -87,6 +90,7 @@ class CertRenewCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("cert", "renew")
+    min_role: ClassVar[Role] = Role.ADMIN
     _arg_spec: ClassVar[dict] = {
         "app": {"positional": True},
         "force": {"flag": True},

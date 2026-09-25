@@ -21,7 +21,7 @@ from typing import Any, ClassVar, cast
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
 from hop3.commands._response import error, summary, table, text, warning
-from hop3.commands.user import require_admin
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
@@ -125,6 +125,7 @@ class ServerEmailSetCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "set")
+    min_role: ClassVar[Role] = Role.ADMIN
     pass_username: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "provider": {"type": str},
@@ -139,8 +140,6 @@ class ServerEmailSetCmd(Command):
     }
 
     def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
 
         parsed = parse_cli_args(args, self._arg_spec)
         if parsed.get("list_providers"):
@@ -329,11 +328,10 @@ class ServerEmailBackendCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "backend")
+    min_role: ClassVar[Role] = Role.ADMIN
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
 
         if not args:
             return [text(_BACKEND_USAGE), error("missing: <relay|catch|direct>")]
@@ -487,11 +485,10 @@ class ServerEmailStatusCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "status")
+    min_role: ClassVar[Role] = Role.ADMIN
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", *_args: str) -> list[dict]:
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
 
         transport = load_server_transport()
         if transport is None:

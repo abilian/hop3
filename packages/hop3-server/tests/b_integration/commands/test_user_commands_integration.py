@@ -50,69 +50,6 @@ def user_repo(db_session: Session) -> UserRepository:
 class TestAdminUserAddCmdIntegration:
     """Integration tests for UserAddCmd using state-based testing."""
 
-    def test_add_user_requires_authentication(
-        self, db_session: Session, user_repo: UserRepository
-    ):
-        """
-        Test that admin:user:add requires authentication.
-
-        ARRANGE:
-            - Create command with empty authenticated_username
-
-        ACT:
-            - Call command without authentication
-
-        ASSERT:
-            - Verify error message about authentication required
-            - Verify no user was created in database
-        """
-        cmd = UserAddCmd(user_repo=user_repo)
-
-        result = cmd.call("", "newuser", "new@example.com", "password123")
-
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Authentication required" in result[0]["text"]
-
-        # Verify no user was created
-        db_session.expire_all()
-        user = db_session.query(User).filter_by(username="newuser").first()
-        assert user is None, "No user should be created without authentication"
-
-    def test_add_user_requires_admin_privileges(
-        self,
-        db_session: Session,
-        sample_user: User,
-        user_repo: UserRepository,
-    ):
-        """
-        Test that admin:user:add requires admin privileges.
-
-        ARRANGE:
-            - Create a regular (non-admin) user via fixture
-
-        ACT:
-            - Call command as non-user
-
-        ASSERT:
-            - Verify error message about admin privileges required
-            - Verify no new user was created
-        """
-        cmd = UserAddCmd(user_repo=user_repo)
-
-        result = cmd.call(
-            sample_user.username, "newuser", "new@example.com", "password123"
-        )
-
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Admin privileges required" in result[0]["text"]
-
-        # Verify no new user was created
-        db_session.expire_all()
-        users = db_session.query(User).all()
-        assert len(users) == 1, "Only the sample user should exist"
-
     def test_add_user_requires_all_arguments(
         self,
         db_session: Session,
@@ -1136,6 +1073,7 @@ class TestAdminUserGenerateTokenCmdIntegration:
         admin_user.set_password("pass")
         admin_user.role = Role.ADMIN
         db_session.add(admin_user)
+        sample_user.role = Role.VIEWER  # a member gets no token
         db_session.commit()
 
         cmd = UserGenerateTokenCmd(user_repo=user_repo)

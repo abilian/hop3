@@ -226,7 +226,9 @@ def run(ctx: DemoContext) -> None:
 
     # --- 7. Addons — all four types, each gated -----------------------------
     print_header("7. Addons — PostgreSQL")
-    addon_type_tour("postgres", query="SELECT 1", extra=("settings", "activity", "locks"))
+    addon_type_tour(
+        "postgres", query="SELECT 1", extra=("settings", "activity", "locks")
+    )
     print_header("7b. Addons — MySQL")
     addon_type_tour("mysql", query="SELECT 1", extra=("settings", "activity"))
     print_header("7c. Addons — Redis")
@@ -271,7 +273,8 @@ def run(ctx: DemoContext) -> None:
     # --- 10. User management — throwaway account (admin only) ---------------
     print_header("10. User management (throwaway account)")
     user = cli(
-        f"user add {USER_NAME} {USER_NAME}@example.com Demo60Pass123",
+        # A viewer: roles are standard (ADR 061), and a member gets no token.
+        f"user add {USER_NAME} {USER_NAME}@example.com Demo60Pass123 --role viewer",
         ok=(0, 1),
         note="admin only",
     )
@@ -307,7 +310,9 @@ def run(ctx: DemoContext) -> None:
     print_header("CLI surface coverage")
     total = len(results)
     passed = sum(1 for _, ok in results if ok)
-    print_success(f"Exercised {total} commands: {passed} ok, {total - passed} non-zero.")
+    print_success(
+        f"Exercised {total} commands: {passed} ok, {total - passed} non-zero."
+    )
     failures = [cmd for cmd, ok in results if not ok]
     if failures:
         print_warning(

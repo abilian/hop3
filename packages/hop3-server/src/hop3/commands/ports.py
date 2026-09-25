@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 from hop3.orm import PortClaimRepository
 
@@ -42,6 +43,7 @@ class PortsCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("port", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:

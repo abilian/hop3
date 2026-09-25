@@ -19,6 +19,7 @@ from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import error, summary, table, text, warning
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
@@ -119,6 +120,7 @@ class AddonEmailCreateCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "create")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     requires_auth: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
@@ -291,6 +293,7 @@ class AddonEmailStatusCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "status")
+    min_role: ClassVar[Role] = Role.VIEWER
     requires_auth: ClassVar[bool] = True
 
     def call(self, *args: str) -> list[dict]:
@@ -358,6 +361,7 @@ class AddonEmailCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 COMMANDS: list[type[Command]] = [

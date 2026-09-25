@@ -5,7 +5,7 @@
 """
 Administrative commands that act across the whole Hop3 install.
 
-These commands are admin-only (gated via ``require_admin``) and are
+These commands are admin-only (``min_role``, ADR 061) and are
 typically run once during maintenance windows rather than in everyday
 CLI flows.
 """
@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from typing import ClassVar
 
 from hop3.core.credentials import SCHEME_V2_PREFIX, get_credential_encryptor
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 
 # Repositories are runtime imports for Dishka DI (not just type hints)
@@ -26,7 +27,6 @@ from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-impor
 
 from ._base import Command
 from ._response import summary, text
-from .user import require_admin
 
 
 @register
@@ -51,13 +51,12 @@ class AdminReencryptCredentialsCmd(Command):
     addon_credential_repo: AddonCredentialRepository
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("admin", "reencrypt-credentials")
+    min_role: ClassVar[Role] = Role.ADMIN
     # ADR 036 D3: `admin` is off the user-visible surface (still runnable).
     hidden: ClassVar[bool] = True
     pass_username: ClassVar[bool] = True
 
     def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
 
         dry_run = "--dry-run" in args
         encryptor = get_credential_encryptor()

@@ -14,6 +14,7 @@ from __future__ import annotations
 from typing import ClassVar
 
 from hop3.commands._base import Command, NamespaceCommand
+from hop3.core.roles import Role
 from hop3.lib.decorators import register
 from hop3.plugins.addons.generic_cli import (
     AddonCliSpec,
@@ -65,6 +66,7 @@ class AddonS3Cmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 COMMANDS: list[type[Command]] = [

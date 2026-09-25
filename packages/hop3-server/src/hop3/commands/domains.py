@@ -19,6 +19,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
 
@@ -105,6 +106,7 @@ class DomainsCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("domain",)
+    min_role: ClassVar[Role] = Role.VIEWER
     aliases: ClassVar[list[tuple[str, ...]]] = [("domains",)]
 
 
@@ -121,6 +123,7 @@ class ListCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("domain", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
     aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "list")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
@@ -156,6 +159,7 @@ class AddCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("domain", "add")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "add")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
@@ -221,6 +225,7 @@ class RemoveCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("domain", "remove")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "remove")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
@@ -268,6 +273,7 @@ class SetCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("domain", "set")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "set")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},
@@ -324,6 +330,7 @@ class ClearCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("domain", "clear")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("domains", "clear")]
     _arg_spec: ClassVar[dict] = {
         "app": {"type": str},

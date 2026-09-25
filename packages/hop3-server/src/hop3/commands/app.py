@@ -23,6 +23,7 @@ from hop3.core.backup import BackupManager
 from hop3.core.git import clone_repository
 from hop3.core.identifiers import validate_app_name, validate_repo_url
 from hop3.core.plugins import get_addon
+from hop3.core.roles import Role
 from hop3.deployers import do_deploy, stop_previous_instance
 from hop3.deployers.admin_bootstrap import (
     format_admin_credential,
@@ -151,6 +152,7 @@ class AppCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("app",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 @register
@@ -165,6 +167,7 @@ class LaunchCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "create")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("app", "launch")]
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -222,6 +225,7 @@ class DeployCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("deploy",)
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         # allow_extra: `hop3 deploy --app X <dir>` forwards the source-dir
@@ -410,6 +414,7 @@ class StatusCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "status")
+    min_role: ClassVar[Role] = Role.VIEWER
     aliases: ClassVar[list[tuple[str, ...]]] = [("status",)]
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -484,6 +489,7 @@ class PingCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "ping")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:  # ruff:ignore[too-many-return-statements] — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
         app_name, rest = _resolve_app(args, allow_extra=True)
@@ -599,6 +605,7 @@ class LogsCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "logs")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("logs",)]
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
@@ -668,6 +675,7 @@ class BuildLogsCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "build-logs")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     hidden: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -693,6 +701,7 @@ class StartCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "start")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
@@ -735,6 +744,7 @@ class StopCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "stop")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
@@ -777,6 +787,7 @@ class RestartCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "restart")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("restart",)]
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -815,6 +826,7 @@ class DestroyCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "destroy")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("destroy",)]
     destructive: ClassVar[bool] = True
 
@@ -1018,6 +1030,7 @@ class CredentialsCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "credentials")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
@@ -1066,6 +1079,7 @@ class CheckCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "check")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
@@ -1121,6 +1135,7 @@ class DebugCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "debug")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
@@ -1353,6 +1368,7 @@ class AppUpgradeCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "upgrade")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
@@ -1439,6 +1455,7 @@ class AppRollbackCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("app", "rollback")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     destructive: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:

@@ -17,6 +17,7 @@ from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.git import GitManager
 from hop3.core.identifiers import validate_app_name
+from hop3.core.roles import Role
 from hop3.deployers import do_deploy
 from hop3.lib import log
 from hop3.lib.args import pop_app_flag
@@ -39,6 +40,7 @@ class GitHookCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("git-hook",)
+    min_role: ClassVar[Role] = Role.DEPLOYER
     hidden: ClassVar[bool] = True  # Internal command, called by git hook
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
@@ -206,6 +208,7 @@ class GitSetupCmd(Command):
     # deploy flow. Could be folded into `app git-setup` in a future revision.
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("git", "setup")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     hidden: ClassVar[bool] = True
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:

@@ -10,6 +10,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 from hop3.orm import AppRepository
 from hop3.project.procfile import parse_procfile
@@ -97,6 +98,7 @@ class AppsCmd(Command):
     # Canonical name is `app list` per ADR 036 D9 (plural `apps` is the alias,
     # resolved client-side in `hop3_cli.core.aliases.CORE_ALIASES`).
     name: ClassVar[tuple[str, ...]] = ("app", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         # Fail loud on stray args instead of silently listing everything.

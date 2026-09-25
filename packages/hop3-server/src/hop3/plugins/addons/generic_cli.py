@@ -35,6 +35,7 @@ from hop3.commands._errors import command_context
 from hop3.commands._response import blob, error, summary, table, text
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon
+from hop3.core.roles import Role
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -142,6 +143,8 @@ def _make(
         "__module__": __name__,
         "name": ("addon", spec.type_name, verb),
         "destructive": destructive,
+        # Every generic verb reads or moves an addon's data (ADR 061 table).
+        "min_role": Role.DEPLOYER,
         "call": call,
     }
     # `type()` is declared as returning bare `type`; the base is Command, so
