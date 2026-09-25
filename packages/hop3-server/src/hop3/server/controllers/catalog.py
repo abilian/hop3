@@ -268,13 +268,12 @@ class CatalogController(Controller):
                 app = stage_catalog_app(
                     app_id, app_name, env_vars, db_session, domain=domain
                 )
-                app_pk = app.id
+                deploy_app_streaming(app, db_session)
         except CatalogInstallError as exc:
             return self._render_install_errors(
                 service, catalog_app, app_id, app_name, exc.errors, domain=domain
             )
 
-        deploy_app_streaming(app_name, app_pk)
         return Redirect(
             path=f"/dashboard/apps/{app_name}?deploying=true", status_code=303
         )

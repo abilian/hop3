@@ -18,6 +18,7 @@ import pytest
 
 from hop3.commands import _deploy
 from hop3.deployers.build_queue import BuildQueueFullError
+from hop3.orm import App
 from hop3.server.streaming import get_stream
 
 if TYPE_CHECKING:
@@ -41,6 +42,18 @@ class StubQueue:
         return self.ahead
 
 
+class StubSession:
+    """The request session: the hand-off commits it (test_deploy_state.py)."""
+
+    def commit(self) -> None: ...
+
+
+def deploy() -> dict:
+    app = App(name="myapp")
+    app.id = 1
+    return _deploy.deploy_app_streaming(app, StubSession())
+
+
 @pytest.fixture
 def stub_queue(monkeypatch) -> Callable[..., StubQueue]:
     def install(**kwargs) -> StubQueue:
@@ -54,7 +67,7 @@ def stub_queue(monkeypatch) -> Callable[..., StubQueue]:
 def test_a_deploy_that_starts_at_once_says_nothing_about_queueing(stub_queue):
     queue = stub_queue(ahead=0)
 
-    result = _deploy.deploy_app_streaming("myapp", 1)
+    result = deploy()
 
     log_stream = get_stream(result["stream_id"])
     assert queue.submitted is not None
@@ -65,7 +78,7 @@ def test_a_deploy_that_starts_at_once_says_nothing_about_queueing(stub_queue):
 def test_a_queued_deploy_says_it_is_waiting(stub_queue):
     stub_queue(ahead=5)
 
-    result = _deploy.deploy_app_streaming("myapp", 1)
+    result = deploy()
 
     log_stream = get_stream(result["stream_id"])
     waiting = [
@@ -80,7 +93,7 @@ def test_a_queued_deploy_says_it_is_waiting(stub_queue):
 def test_a_refused_deploy_fails_the_stream_rather_than_hanging(stub_queue):
     queue = stub_queue(full=True)
 
-    result = _deploy.deploy_app_streaming("myapp", 1)
+    result = deploy()
 
     log_stream = get_stream(result["stream_id"])
     assert queue.submitted is None

@@ -27,6 +27,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A redeploy after a failed deploy works the first time.** After a deploy failed while setting up the proxy, the next deploy of the same app failed once with `Cannot transition app from STOPPED to RUNNING`, then succeeded. A failed deploy now leaves the app `FAILED` with the error that stopped it, where it used to leave it `STARTING`, and the request no longer races the build over the app's state.
+
 - **Caddy serves apps.** Every deploy on a Caddy server failed validation: Hop3 named each app's config `<app>.caddy`, which Caddy reads as JSON. With that fixed, an app that allowed plain HTTP still answered only on port 443, and the client address reached the app as `ip:port`. Caddy now also serves PHP apps through their php-fpm pool.
 
 - **Traefik serves apps.** Its routes named a certificate resolver nothing defined, sent plain HTTP nowhere, routed only an app's first hostname, and told the app every request was HTTPS. They now use the certificate Hop3 issues, route every hostname on both ports, and refuse `/.git` as the other proxies do.
