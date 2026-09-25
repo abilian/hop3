@@ -107,6 +107,7 @@ EOF
 command=/usr/bin/caddy run --config /home/hop3/caddy/Caddyfile --adapter caddyfile
 directory=/home/hop3
 user=hop3
+environment=HOME="/home/hop3"
 autostart=true
 autorestart=true
 stdout_logfile=/var/log/supervisor/caddy.log
@@ -140,8 +141,10 @@ stdout_logfile=/var/log/supervisor/traefik.log
 stderr_logfile=/var/log/supervisor/traefik_err.log
 
 EOF
-        # Create Traefik static config
-        mkdir -p /etc/traefik/dynamic
+        # Traefik reads each app's routes from the directory the plugin
+        # writes them to (hop3's TRAEFIK_ROOT), and applies changes on its own.
+        mkdir -p /home/hop3/traefik
+        chown hop3:hop3 /home/hop3/traefik
         cat > /etc/traefik/traefik.yml <<'TRAEFIK_EOF'
 # Traefik static configuration
 entryPoints:
@@ -152,7 +155,7 @@ entryPoints:
 
 providers:
   file:
-    directory: /etc/traefik/dynamic
+    directory: /home/hop3/traefik
     watch: true
 
 api:
