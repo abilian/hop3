@@ -18,6 +18,7 @@ import sys
 from datetime import datetime, timezone
 from typing import TYPE_CHECKING
 
+from hop3.commands.auth import member_token_refusal
 from hop3.core.roles import Role
 from hop3.lib.registry import register
 from hop3.orm import User
@@ -184,6 +185,10 @@ class AdminToken(Command):
                     f"Error: User '{username}' is disabled. Enable the account first.",
                     file=sys.stderr,
                 )
+                sys.exit(1)
+
+            if user.role is Role.MEMBER:
+                print(f"Error: {member_token_refusal(username)}", file=sys.stderr)
                 sys.exit(1)
 
             # Generate token with appropriate scopes

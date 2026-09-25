@@ -9,8 +9,8 @@ from __future__ import annotations
 import pytest
 from litestar.testing import TestClient
 
+from hop3.core.roles import Role
 from hop3.server.asgi import create_app
-from hop3.server.security.tokens import create_token
 
 
 @pytest.fixture(autouse=True)
@@ -25,10 +25,10 @@ def client():
 
 
 @pytest.fixture
-def token():
+def token(account):
     # Authentication is checked before the command is looked up, so a
     # suggestion is only ever offered to a client that is allowed to see one.
-    return create_token("testuser", scopes=["authenticated"])
+    return account("testuser", Role.DEPLOYER)
 
 
 def _call(client: TestClient, cli_args: list[str], token: str) -> dict:

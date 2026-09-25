@@ -311,14 +311,6 @@ def test_cli_unknown_action_is_loud(notif_root):
     assert "unknown action" in _joined(result)
 
 
-def test_cli_requires_admin(notif_root):
-    result = ServerEmailNotificationsCmd(user_repo=_nonadmin_repo()).call(
-        "bob", "status"
-    )
-    assert "error" in _types(result)
-    assert "Admin privileges required" in _joined(result)
-
-
 # ---- cert-renewal-failure wiring --------------------------------------------
 
 

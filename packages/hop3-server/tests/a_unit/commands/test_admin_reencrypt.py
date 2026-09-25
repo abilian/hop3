@@ -75,27 +75,6 @@ def _make_credential(cid: int, encrypted_data: str) -> Mock:
     return cred
 
 
-def test_requires_admin(mock_nonadmin_user_repo):
-    cmd = AdminReencryptCredentialsCmd(
-        addon_credential_repo=Mock(spec=AddonCredentialRepository),
-        user_repo=mock_nonadmin_user_repo,
-    )
-    result = cmd.call("regular-user")
-    assert len(result) == 1
-    assert result[0]["t"] == "error"
-    assert "Admin" in result[0]["text"]
-
-
-def test_requires_authenticated_username():
-    # Empty authenticated_username => require_admin returns auth-required error.
-    cmd = AdminReencryptCredentialsCmd(
-        addon_credential_repo=Mock(spec=AddonCredentialRepository),
-        user_repo=Mock(spec=UserRepository),
-    )
-    result = cmd.call("")
-    assert any("Authentication required" in msg.get("text", "") for msg in result)
-
-
 def test_upgrades_legacy_records(mock_user_repo):
     legacy = _make_credential(1, _v1_record(c.HOP3_SECRET_KEY, {"user": "u"}))
     repo = Mock(spec=AddonCredentialRepository)

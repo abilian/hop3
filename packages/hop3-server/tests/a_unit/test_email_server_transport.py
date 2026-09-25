@@ -146,17 +146,6 @@ def test_resolve_inherited_rejects_subdomain(email_root):
 # ---- server email set (admin-gated) -----------------------------------------
 
 
-def test_set_requires_admin(email_root, no_dns):
-    result = ServerEmailSetCmd(user_repo=_nonadmin_repo()).call(
-        "bob",
-        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
-        "--smtp-password", "pw", "--from-domain", "example.com",
-    )  # fmt: skip
-    assert "error" in _types(result)
-    assert "Admin privileges required" in _joined(result)
-    assert load_server_transport() is None  # nothing stored
-
-
 def test_set_stores_transport_for_admin(email_root, no_dns):
     result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
         "admin",
@@ -220,12 +209,6 @@ def test_status_shows_transport_never_password(email_root, no_dns):
     assert "smtp.example.com" in flat
     assert "example.com" in flat
     assert "s3cr3t" not in flat  # never the password
-
-
-def test_status_requires_admin(email_root):
-    result = ServerEmailStatusCmd(user_repo=_nonadmin_repo()).call("bob")
-    assert "error" in _types(result)
-    assert "Admin privileges required" in _joined(result)
 
 
 # ---- addon email create: inherit vs override --------------------------------
@@ -509,14 +492,6 @@ def test_list_providers_lists_the_roster(email_root):
     assert names == ["resend", "postmark", "brevo", "mailgun", "mailgun-eu", "scaleway"]
 
 
-def test_list_providers_requires_admin(email_root):
-    result = ServerEmailSetCmd(user_repo=_nonadmin_repo()).call(
-        "bob", "--list-providers"
-    )
-    assert "error" in _types(result)
-    assert "Admin privileges required" in _joined(result)
-
-
 def test_set_provider_fills_endpoint_and_shows_spf(email_root, no_dns):
     result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
         "admin",
@@ -607,17 +582,6 @@ def test_backend_relay_stores_transport(email_root, no_dns):
     assert loaded.smtp_host == "smtp.example.com"
 
 
-def test_backend_relay_requires_admin(email_root, no_dns):
-    result = ServerEmailBackendCmd(user_repo=_nonadmin_repo()).call(
-        "bob", "relay",
-        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
-        "--smtp-password", "pw", "--from-domain", "example.com",
-    )  # fmt: skip
-    assert "error" in _types(result)
-    assert "Admin privileges required" in _joined(result)
-    assert load_server_transport() is None
-
-
 def test_backend_catch_selects_dev_sink(email_root):
     result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
         "admin", "catch", "--from-domain", "example.com"
@@ -626,13 +590,6 @@ def test_backend_catch_selects_dev_sink(email_root):
     assert "captured, not sent" in _joined(result)
     assert st_module.load_server_backend_kind() == "catch"
     assert load_server_transport() is None  # a sink has no provider transport
-
-
-def test_backend_catch_requires_admin(email_root):
-    result = ServerEmailBackendCmd(user_repo=_nonadmin_repo()).call("bob", "catch")
-    assert "error" in _types(result)
-    assert "Admin privileges required" in _joined(result)
-    assert st_module.load_server_backend_kind() is None
 
 
 def test_server_sending_domain_reads_the_backend_domain(email_root):

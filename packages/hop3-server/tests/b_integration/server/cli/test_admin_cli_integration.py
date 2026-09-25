@@ -242,6 +242,8 @@ class TestAdminTokenIntegration:
         """
         # ARRANGE
         monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-unit-testing")
+        sample_user.role = Role.VIEWER  # a member gets no token
+        db_session.commit()
         captured_output = io.StringIO()
 
         # ACT

@@ -7,6 +7,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.args import pop_app_flag
 from hop3.lib.registry import register
 from hop3.server.catalog.install import CatalogInstallError, stage_catalog_app
@@ -35,6 +36,7 @@ class CatalogCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("catalog",)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 @register
@@ -51,6 +53,7 @@ class CatalogRefreshCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("catalog", "refresh")
+    min_role: ClassVar[Role] = Role.ADMIN
 
     def call(self, *args: str, **kwargs: object) -> list:
         try:
@@ -77,6 +80,7 @@ class CatalogListCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("catalog", "list")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list:
         service = CatalogService.get_instance()
@@ -177,6 +181,7 @@ class CatalogInstallCmd(Command):
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("catalog", "install")
+    min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str, **kwargs: object) -> list:
         app_name, rest = pop_app_flag(args)

@@ -44,6 +44,7 @@ from hop3.orm.repositories import (
     RevokedTokenRepository,
     UserRepository,
 )
+from hop3.server.security.authorization import lookup_account
 from hop3.server.security.proxy_headers import client_ip
 from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.web_auth import current_identity
@@ -59,6 +60,9 @@ RPC_ERROR_METHOD_NOT_FOUND = -32601
 RPC_ERROR_INVALID_PARAMS = -32602
 RPC_ERROR_UNAUTHENTICATED = -32001
 RPC_ERROR_RATE_LIMITED = -32002
+# Signed in, but the account's role is below the command's (ADR 061). Distinct
+# from -32001 so a client can tell "sign in" from "ask an admin".
+RPC_ERROR_FORBIDDEN = -32003
 RPC_ERROR_INTERNAL = -32603
 
 # Mapping of repository types to their classes for dependency injection
@@ -75,6 +79,7 @@ REPOSITORY_TYPES: dict[str, type] = {
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
+    from hop3.core.roles import Role
     from hop3.lib.types import Json, JsonDict
 
 # Scan and register all CLI commands (including aliases)
@@ -185,6 +190,11 @@ def requires_authentication(command_class: type[Command]) -> bool:
         True if authentication is required, False otherwise
     """
     return getattr(command_class, "requires_auth", True)
+
+
+def required_role(command_class: type[Command]) -> Role:
+    """The lowest role that may run ``command_class`` (ADR 061 §3)."""
+    return command_class.min_role
 
 
 def is_rate_limited(command_class: type[Command]) -> bool:
@@ -437,6 +447,12 @@ class RPCController(Controller):
                 data=unknown.data,
             )
 
+        # Authorize: the caller's account, read now, must hold the command's role
+        if refusal := self._check_authorization(
+            request, command_class, display_name, request_id
+        ):
+            return refusal
+
         # Prepare arguments and execute
         prepared_args, prepared_extra_args = self._prepare_command_args(
             request, command_class, args, extra_args
@@ -634,6 +650,72 @@ class RPCController(Controller):
             message="Authentication required. Use 'hop3 auth login' to authenticate.",
             request_id=request_id,
             status_code=401,
+        )
+
+    def _check_authorization(
+        self,
+        request: Request,
+        command_class: type[Command],
+        display_name: str,
+        request_id: object,
+    ) -> Response | None:
+        """
+        Refuse a call the caller's account may not make (ADR 061 §3).
+
+        The role comes from the database on every call, never from the token, so
+        a demotion or a disabled account takes effect on the next call. A token
+        whose subject names no account is refused however it was signed.
+        """
+        if config.HOP3_UNSAFE or not requires_authentication(command_class):
+            return None
+
+        identity = current_identity(request) or {}
+        username = str(identity.get("username", ""))
+        account = lookup_account(username)
+
+        if account is None or not account.active:
+            reason = "does not exist" if account is None else "is disabled"
+            server_log.warning(
+                "RPC call refused: account", command=display_name, username=username
+            )
+            return self._build_error_response(
+                code=RPC_ERROR_UNAUTHENTICATED,
+                message=(
+                    f"Your token names account '{username}', which {reason} on "
+                    "this server. Sign in again with 'hop3 login'."
+                ),
+                request_id=request_id,
+                status_code=401,
+            )
+
+        role = account.role
+        required = required_role(command_class)
+        if role.includes(required):
+            return None
+
+        server_log.warning(
+            "RPC call refused: role",
+            command=display_name,
+            username=username,
+            role=role.value,
+            required=required.value,
+        )
+        hint = f"An admin can grant it: hop3 user set-role {username} {required}"
+        return self._build_error_response(
+            code=RPC_ERROR_FORBIDDEN,
+            message=(
+                f"'hop3 {display_name}' needs the {required} role; account "
+                f"'{username}' is {role}. {hint}"
+            ),
+            request_id=request_id,
+            status_code=403,
+            data={
+                "kind": "forbidden",
+                "command": display_name,
+                "required_role": required.value,
+                "role": role.value,
+                "hint": hint,
+            },
         )
 
     def _check_rate_limit(

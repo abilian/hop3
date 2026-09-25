@@ -9,6 +9,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 
 from ._base import NamespaceCommand
@@ -39,6 +40,7 @@ class NixEjectCmd(NamespaceCommand):
     # Hidden per ADR 036 D3: removed from user-visible CLI surface. Still
     # invokable explicitly (`hop3 nix eject <app>`) for dev/recovery.
     name: ClassVar[tuple[str, ...]] = ("nix", "eject")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     hidden: ClassVar[bool] = True
     db_session: Session
 

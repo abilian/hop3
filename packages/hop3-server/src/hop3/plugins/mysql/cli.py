@@ -18,6 +18,7 @@ from hop3.commands._base import Command, NamespaceCommand
 from hop3.commands._errors import command_context
 from hop3.commands._response import table, text
 from hop3.core.plugins import get_addon
+from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 from hop3.plugins.addons.generic_cli import (
@@ -96,6 +97,7 @@ class AddonMysqlQueryCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "query")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "command": {"type": str},
@@ -154,6 +156,7 @@ class AddonMysqlPsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "activity")
+    min_role: ClassVar[Role] = Role.DEPLOYER
     aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
     def call(self, *args: str) -> list[dict]:
@@ -173,6 +176,7 @@ class AddonMysqlSettingsCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE, "settings")
+    min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str) -> list[dict]:
         return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
@@ -196,6 +200,7 @@ class AddonMysqlCmd(NamespaceCommand):
     """
 
     name: ClassVar[tuple[str, ...]] = ("addon", _TYPE)
+    min_role: ClassVar[Role] = Role.VIEWER
 
 
 COMMANDS: list[type[Command]] = [

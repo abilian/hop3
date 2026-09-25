@@ -10,6 +10,7 @@ from dataclasses import dataclass
 from datetime import datetime, timezone
 from typing import ClassVar
 
+from hop3.core.roles import Role
 from hop3.lib.registry import register
 
 # Runtime import for Dishka DI (not just type hint)
@@ -21,7 +22,20 @@ from hop3.server.security.tokens import create_magic_token, create_token
 
 from ._base import Command, NamespaceCommand
 from ._response import error, success, text, warning
-from .user import require_admin
+
+
+def member_token_refusal(username: str) -> str:
+    """
+    Why a ``member`` gets no token (ADR 061 §3), for every path that mints one.
+
+    A member can run no command, so a token for it could do nothing, and would
+    look like a broken one.
+    """
+    return (
+        f"Account '{username}' is a member: it can sign in to the web interface "
+        "but runs no commands, so it gets no token. An admin can change its "
+        f"role: hop3 user set-role {username} viewer"
+    )
 
 
 @register
@@ -102,6 +116,10 @@ class AuthGetTokenCmd(Command):
         if not user.check_password(password):
             return invalid
 
+        # Only past the password check: the refusal says the account exists.
+        if user.role is Role.MEMBER:
+            return [error(member_token_refusal(username))]
+
         # Update login tracking
         user.last_login_at = user.current_login_at
         user.current_login_at = datetime.now(timezone.utc)
@@ -133,6 +151,7 @@ class AuthWhoamiCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "whoami")
+    min_role: ClassVar[Role] = Role.MEMBER
     pass_username: ClassVar[bool] = True  # Needs authenticated username
 
     def call(self, username: str = "", *args: str, **kwargs: object) -> list[dict]:
@@ -189,6 +208,7 @@ class AuthLogoutCmd(Command):
     """
 
     name: ClassVar[tuple[str, ...]] = ("auth", "logout")
+    min_role: ClassVar[Role] = Role.MEMBER
     pass_username: ClassVar[bool] = True  # Request passes the username from the token
     pass_token_info: ClassVar[bool] = True  # Request passes the full token
 
@@ -261,11 +281,12 @@ class AuthMagicLinkCmd(Command):
 
     user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("auth", "magic-link")
+    min_role: ClassVar[Role] = Role.ADMIN
     requires_auth: ClassVar[bool] = True
-    # Admin-gated: the RPC layer must inject the *verified* caller identity into
-    # `authenticated_username`. Without this the attacker-supplied first
-    # positional lands there and `require_admin` checks a name of the caller's
-    # choosing (e.g. "admin") — a privilege-escalation path to mint a magic
+    # Admin-only through `min_role`, checked by the dispatcher on the verified
+    # identity. The RPC layer still injects that identity into
+    # `authenticated_username`, so the caller's first positional can never
+    # stand in for it: that was a privilege-escalation path to mint a magic
     # token for any user. (Audit 2026-06 A1.)
     pass_username: ClassVar[bool] = True
     # Internal primitive behind `hop3 login --browser`; off the user-visible surface.
@@ -288,9 +309,6 @@ class AuthMagicLinkCmd(Command):
         Returns:
             Response with magic token or error message
         """
-        if admin_error := require_admin(authenticated_username, self.user_repo):
-            return admin_error
-
         if not username:
             return [error("Usage: hop3 auth magic-link <username>")]
 

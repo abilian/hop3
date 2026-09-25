@@ -182,7 +182,10 @@ class TestSshTransport:
         login = hop3("login", f"{ssh_target.user}@{ssh_target.host}:{ssh_target.port}")
         assert login.returncode == 0, f"login failed: {login.stdout}\n{login.stderr}"
 
-        added = hop3("user", "add", _USER, "test@example.com", _PASSWORD)
+        # A viewer: a member gets no token (ADR 061).
+        added = hop3(
+            "user", "add", _USER, "test@example.com", _PASSWORD, "--role", "viewer"
+        )
         assert (
             added.returncode == 0 or "already exists" in added.stdout + added.stderr
         ), f"user add failed: {added.stdout}\n{added.stderr}"
