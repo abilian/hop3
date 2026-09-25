@@ -8,9 +8,10 @@ import os
 import subprocess
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING, NoReturn
+from typing import TYPE_CHECKING, ClassVar, NoReturn
 
 from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
+from hop3.core.artifacts import load_backend_protocol
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import BaseProxy
 from hop3.di import create_container
@@ -30,11 +31,14 @@ from hop3.platform.certificates import (
 from hop3.plugins.proxy._policy import should_redirect_to_https
 
 from ._templates import (
+    CADDY_ACME_CHALLENGE,
     CADDY_BLOCK_GIT,
     CADDY_COMPRESSION,
+    CADDY_FASTCGI_FRAGMENT,
     CADDY_HTTPS_ONLY_TEMPLATE,
     CADDY_PORTMAP_FRAGMENT,
     CADDY_REQUEST_BODY,
+    CADDY_SITE_BODY,
     CADDY_TEMPLATE,
     CADDY_TLS_AUTO,
     CADDY_TLS_MANUAL,
@@ -53,6 +57,8 @@ VALIDATE_TIMEOUT = 5
 
 @dataclass(frozen=True)
 class CaddyVirtualHost(BaseProxy):
+    backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
+
     app: App
     env: Env
     workers: dict[str, str]
@@ -68,8 +74,14 @@ class CaddyVirtualHost(BaseProxy):
         # arbitrary Caddy directives. Same shape as the nginx plugin
         # — see notes/security.md §3.5.
         server_name_list = validate_hostname_list(self.env["HOST_NAME"])
-        # Caddy uses space-separated alternative names in the server block
         self.env["HOST_NAME"] = " ".join(server_name_list)
+        # Caddy site addresses, one per scheme: a bare name is HTTPS-only.
+        self.env["HOP3_INTERNAL_CADDY_HTTP_SITES"] = ", ".join(
+            f"http://{host}" for host in server_name_list
+        )
+        self.env["HOP3_INTERNAL_CADDY_HTTPS_SITES"] = ", ".join(
+            f"https://{host}" for host in server_name_list
+        )
 
         # Check Caddy version
         caddy_version = command_output("caddy version") or "???"
@@ -139,6 +151,9 @@ class CaddyVirtualHost(BaseProxy):
             "" if self.env.get("CADDY_ALLOW_GIT_FOLDERS") else CADDY_BLOCK_GIT
         )
         self.env["CADDY_ACL"] = ""
+        self.env["HOP3_INTERNAL_CADDY_ACME"] = expand_vars(
+            CADDY_ACME_CHALLENGE, self.env
+        )
 
         # Largest request body this app accepts. Caddy has no equivalent of
         # nginx's request buffering switch — reverse_proxy streams request
@@ -164,8 +179,13 @@ class CaddyVirtualHost(BaseProxy):
 
     @property
     def conf_path(self) -> Path:
-        """Path to the Caddy configuration file for this app."""
-        return CADDY_ROOT / f"{self.app_name}.caddy"
+        """
+        Path to the Caddy configuration file for this app.
+
+        The `.caddyfile` extension is how Caddy recognises the format; the
+        platform's Caddyfile imports `*.caddyfile`.
+        """
+        return CADDY_ROOT / f"{self.app_name}.caddyfile"
 
     def get_proxy_conf(self) -> str:
         """
@@ -176,18 +196,8 @@ class CaddyVirtualHost(BaseProxy):
         variables using environment settings and adjusts the buffer
         based on conditions like HTTPS-only redirection.
         """
-        # Setup reverse proxy if we have web workers
-        if (
-            "web" in self.workers
-            or "wsgi" in self.workers
-            or "jwsgi" in self.workers
-            or "rwsgi" in self.workers
-        ):
-            self.env["HOP3_INTERNAL_CADDY_PORTMAP"] = expand_vars(
-                CADDY_PORTMAP_FRAGMENT, self.env
-            )
-        else:
-            self.env["HOP3_INTERNAL_CADDY_PORTMAP"] = ""
+        self.env["HOP3_INTERNAL_CADDY_PORTMAP"] = self._backend_fragment()
+        self.env["HOP3_INTERNAL_CADDY_SITE"] = expand_vars(CADDY_SITE_BODY, self.env)
 
         log(
             f"caddy will serve app '{self.app_name}' on hostname(s)"
@@ -207,6 +217,14 @@ class CaddyVirtualHost(BaseProxy):
             buffer = expand_vars(CADDY_TEMPLATE, self.env)
 
         return buffer
+
+    def _backend_fragment(self) -> str:
+        """How requests reach the app's port, by what the port speaks."""
+        if not any(w in self.workers for w in ("web", "wsgi", "jwsgi", "rwsgi")):
+            return ""
+        if load_backend_protocol(self.app_path) == "fastcgi":
+            return expand_vars(CADDY_FASTCGI_FRAGMENT, self.env)
+        return expand_vars(CADDY_PORTMAP_FRAGMENT, self.env)
 
     def setup_static(self) -> None:
         """
@@ -248,7 +266,14 @@ class CaddyVirtualHost(BaseProxy):
         """
         try:
             subprocess.run(
-                ["caddy", "validate", "--config", str(self.conf_path)],
+                [
+                    "caddy",
+                    "validate",
+                    "--config",
+                    str(self.conf_path),
+                    "--adapter",
+                    "caddyfile",
+                ],
                 check=True,
                 capture_output=True,
                 timeout=VALIDATE_TIMEOUT,
@@ -321,47 +346,28 @@ class CaddyVirtualHost(BaseProxy):
         external caching layer. This method sets up basic cache headers.
         """
         self.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] = ""
-
-        # Check if caching is requested
         cache_prefixes = self.env.get("CADDY_CACHE_PREFIXES", "")
-        if len(cache_prefixes):
-            prefixes = []
-            try:
-                items = cache_prefixes.split(",")
-                for item in items:
-                    if item[0] == "/":
-                        # Remove leading slash
-                        prefixes.append(item[1:])
-                    else:
-                        prefixes.append(item)
-                cache_prefixes = "|".join(prefixes)
+        if not cache_prefixes:
+            return
 
-                # Get cache timing parameters
-                cache_time_control = self._get_cache_param(
-                    "CACHE_CONTROL", "cache control", 3600
-                )
-
-                log(
-                    f"caddy will set cache headers for /({cache_prefixes}) prefixes"
-                    f" with max-age={cache_time_control}",
-                    level=2,
-                )
-
-                # Expand cache mapping template
-                self.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] = expand_vars(
-                    HOP3_INTERNAL_CADDY_CACHE_MAPPING,
-                    {
-                        "cache_prefixes": cache_prefixes,
-                        "cache_time_control": cache_time_control,
-                        "CADDY_BACKEND": self.env["CADDY_BACKEND"],
-                    },
-                )
-            except Exception as e:
-                log(
-                    f"Error {e} in cache path spec: should be /prefix1:[,/prefix2],"
-                    " ignoring.",
-                )
-                self.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] = ""
+        prefixes = [p.strip().lstrip("/") for p in cache_prefixes.split(",")]
+        prefix_pattern = "|".join(p for p in prefixes if p)
+        cache_time_control = self._get_cache_param(
+            "CACHE_CONTROL", "cache control", 3600
+        )
+        log(
+            f"caddy will set cache headers for /({prefix_pattern}) prefixes"
+            f" with max-age={cache_time_control}",
+            level=2,
+        )
+        self.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] = expand_vars(
+            HOP3_INTERNAL_CADDY_CACHE_MAPPING,
+            {
+                "cache_prefixes": prefix_pattern,
+                "cache_time_control": str(cache_time_control),
+                "CADDY_BACKEND": self.env["CADDY_BACKEND"],
+            },
+        )
 
     def _get_cache_param(self, key: str, name: str, default: int) -> int:
         """

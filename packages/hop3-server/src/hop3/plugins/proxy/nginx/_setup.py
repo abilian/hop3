@@ -8,7 +8,7 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
 from hop3.core.artifacts import load_backend_protocol
@@ -54,6 +54,10 @@ if TYPE_CHECKING:
 
 @dataclass(frozen=True)
 class NginxVirtualHost(BaseProxy):
+    backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
+    fronts_waf: ClassVar[bool] = True
+    hosts_certbot: ClassVar[bool] = True
+
     app: App
     env: Env
     workers: dict[str, str]

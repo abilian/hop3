@@ -579,18 +579,26 @@ def list_supported_os() -> list[str]:
 
 def get_proxy_strategy(app: App, env: Env, workers: dict[str, str]) -> Proxy:
     """
-    Finds and instantiates the appropriate proxy strategy based on server configuration.
-
-    The proxy type is determined by the HOP3_PROXY_TYPE environment variable,
-    which is a server-wide setting (not per-application).
+    Instantiate the server's proxy strategy for one app.
 
     Args:
         app: The App instance to configure the proxy for
         env: The environment configuration (Env instance)
         workers: Dictionary mapping worker names to their socket paths
 
-    Returns:
-        An instance of the configured Proxy strategy
+    Raises:
+        RuntimeError: If the configured proxy type is not found
+    """
+    return get_proxy_class()(app, env, workers)
+
+
+def get_proxy_class() -> type[Proxy]:
+    """
+    The proxy strategy class the server is configured with.
+
+    The proxy type is determined by the HOP3_PROXY_TYPE environment variable,
+    which is a server-wide setting (not per-application). A deploy asks the
+    class what it can do before it builds anything.
 
     Raises:
         RuntimeError: If the configured proxy type is not found
@@ -617,7 +625,7 @@ def get_proxy_strategy(app: App, env: Env, workers: dict[str, str]) -> Proxy:
             proxy_type in class_name
             or getattr(strategy_class, "name", None) == proxy_type
         ):
-            return strategy_class(app, env, workers)
+            return strategy_class
 
     available_proxies = [cls.__name__ for cls in strategy_classes]
     msg = (

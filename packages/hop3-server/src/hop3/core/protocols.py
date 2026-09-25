@@ -4,7 +4,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Literal, Protocol
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, Protocol
 
 # BuildArtifact is imported from artifacts.py - see ADR 035
 # It includes RuntimeConfig for build/run separation
@@ -12,8 +12,10 @@ from hop3.core.artifacts import (
     BuildArtifact,
     ProxyLimits,
     RuntimeConfig,
+    load_backend_protocol,
     load_proxy_limits,
 )
+from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis
 from hop3.lib.path import REJECTED_SUFFIX, restore_on_failure
 
 __all__ = ["BuildArtifact", "RuntimeConfig"]  # Re-export for backwards compatibility
@@ -291,6 +293,12 @@ class Proxy(Protocol):
         values as their respective settings.
     """
 
+    #: Capabilities a deploy checks before it relies on them; see BaseProxy.
+    backend_protocols: ClassVar[frozenset[str]]
+    serves_files: ClassVar[bool]
+    fronts_waf: ClassVar[bool]
+    hosts_certbot: ClassVar[bool]
+
     app: App
     env: Env
     workers: dict[str, str]
@@ -320,6 +328,19 @@ class BaseProxy(ABC):
     Concrete proxy classes should inherit from this and implement
     the abstract methods for proxy-specific behavior.
     """
+
+    #: What the proxy can speak to an app's port (the build artifact's
+    #: ``backend_protocol``). Proxying anything else publishes a 502.
+    backend_protocols: ClassVar[frozenset[str]] = frozenset({"http"})
+    #: Serves files from disk: a ``static`` worker, ``<PROXY>_STATIC_PATHS``.
+    serves_files: ClassVar[bool] = True
+    #: Routes an app through its LeWAF proxy (ADR 050) with a client IP the
+    #: WAF can trust (its invariant 1). Proven for nginx only.
+    fronts_waf: ClassVar[bool] = False
+    #: Hop3 obtains and renews Let's Encrypt certificates through certbot
+    #: behind it: a temporary vhost answers the first challenge, and renewal
+    #: installs the certificate and reloads the proxy. Wired for nginx only.
+    hosts_certbot: ClassVar[bool] = False
 
     app: App
     env: Env
@@ -379,6 +400,7 @@ class BaseProxy(ABC):
         This orchestrates the setup process by calling various setup methods
         in the correct order. This method is the same for all proxies.
         """
+        self.refuse_unsupported()
         self.setup_backend()
         self.setup_certificates()
         self.setup_cache()
@@ -402,6 +424,38 @@ class BaseProxy(ABC):
             self.generate_config()
             self.check_config()
         self.reload_proxy()
+
+    def refuse_unsupported(self) -> None:
+        """Abort, before writing any config, on an app this proxy would serve wrong."""
+        proxy = self.get_proxy_name()
+        protocol = load_backend_protocol(self.app_path)
+        if protocol not in self.backend_protocols:
+            self._refuse(
+                f"the app's port speaks {protocol}, which {proxy} cannot proxy",
+                hint=(
+                    f"run '{self.app_name}' on a server whose proxy speaks "
+                    f"{protocol}, or give it an HTTP server in [run].start"
+                ),
+            )
+        if not self.serves_files and (paths := self.get_static_paths()):
+            urls = ", ".join(url for url, _path in paths)
+            self._refuse(
+                f"the app serves files from disk ({urls}), and {proxy} serves no files",
+                hint=(
+                    f"run '{self.app_name}' on a server whose proxy serves "
+                    f"files (nginx or caddy), or let the app serve them itself"
+                ),
+            )
+
+    def _refuse(self, reason: str, hint: str) -> NoReturn:
+        abort_with_diagnosis(
+            Diagnosis(
+                component=self.get_proxy_name().capitalize(),
+                action=f"route '{self.app_name}'",
+                reason=reason,
+                hint=hint,
+            )
+        )
 
     @abstractmethod
     def setup_backend(self) -> None:

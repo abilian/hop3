@@ -4,44 +4,72 @@
 
 from __future__ import annotations
 
-# Basic Caddy configuration template
+# What an app's site serves, on whichever scheme it is reached.
+CADDY_SITE_BODY = """
+    $HOP3_INTERNAL_CADDY_ACME
+    $HOP3_INTERNAL_CADDY_REQUEST_BODY
+    $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
+    $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
+    $HOP3_INTERNAL_CADDY_CACHE_MAPPINGS
+    $HOP3_INTERNAL_CADDY_BLOCK_GIT
+    $HOP3_INTERNAL_CADDY_PORTMAP
+"""
+
+# Plain HTTP allowed ([deploy].allow-http). Every address names its scheme,
+# since to Caddy a bare hostname means HTTPS only, and the two schemes are
+# two blocks, since Caddy refuses `tls` in a block that listens on HTTP.
 CADDY_TEMPLATE = """
-$HOST_NAME {
+$HOP3_INTERNAL_CADDY_HTTP_SITES {
+    $HOP3_INTERNAL_CADDY_SITE
+}
+
+$HOP3_INTERNAL_CADDY_HTTPS_SITES {
     $HOP3_INTERNAL_CADDY_TLS
-    $HOP3_INTERNAL_CADDY_REQUEST_BODY
-    $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
-    $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
-    $HOP3_INTERNAL_CADDY_CACHE_MAPPINGS
-    $HOP3_INTERNAL_CADDY_BLOCK_GIT
-    $HOP3_INTERNAL_CADDY_PORTMAP
+    $HOP3_INTERNAL_CADDY_SITE
 }
 """
 
-# HTTPS-only template (HTTP to HTTPS redirect)
+# HTTPS-only template (HTTP to HTTPS redirect). The redirect sits in a
+# catch-all `handle` so the ACME challenge, a more specific `handle`, is
+# answered on plain HTTP first: `redir` alone runs before any `handle`.
 CADDY_HTTPS_ONLY_TEMPLATE = """
-http://$HOST_NAME {
-    redir https://{host}{uri} permanent
+$HOP3_INTERNAL_CADDY_HTTP_SITES {
+    $HOP3_INTERNAL_CADDY_ACME
+    handle {
+        redir https://{host}{uri} permanent
+    }
 }
 
-https://$HOST_NAME {
+$HOP3_INTERNAL_CADDY_HTTPS_SITES {
     $HOP3_INTERNAL_CADDY_TLS
-    $HOP3_INTERNAL_CADDY_REQUEST_BODY
-    $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
-    $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
-    $HOP3_INTERNAL_CADDY_CACHE_MAPPINGS
-    $HOP3_INTERNAL_CADDY_BLOCK_GIT
-    $HOP3_INTERNAL_CADDY_PORTMAP
+    $HOP3_INTERNAL_CADDY_SITE
 }
 """
 
-# Reverse proxy configuration fragment
+# Reverse proxy configuration fragment. Caddy sets X-Forwarded-For, -Proto
+# and -Host itself, replacing whatever an untrusted client sent; overriding
+# them here sent `{remote}`, which is `ip:port`, as the client address.
 CADDY_PORTMAP_FRAGMENT = """
     reverse_proxy $CADDY_BACKEND {
-        header_up X-Forwarded-Proto {scheme}
-        header_up X-Forwarded-For {remote}
-        header_up X-Real-IP {remote}
+        header_up X-Real-IP {remote_host}
         header_up X-Request-Start {time.now.unix_ms}
         $CADDY_ACL
+    }
+"""
+
+# A php-fpm pool speaks FastCGI. `php_fastcgi` serves the front controller
+# the way the nginx fragment does: an existing file, else `index.php`.
+CADDY_FASTCGI_FRAGMENT = """
+    root * $PHP_DOCUMENT_ROOT
+    php_fastcgi $CADDY_BACKEND
+    file_server
+"""
+
+# The ACME HTTP-01 webroot every proxy serves (see platform/certificates.py).
+CADDY_ACME_CHALLENGE = """
+    handle /.well-known/acme-challenge/* {
+        root * $ACME_WWW
+        file_server
     }
 """
 
@@ -76,10 +104,7 @@ HOP3_INTERNAL_CADDY_CACHE_MAPPING = """
     handle @cached {
         header Cache-Control "public, max-age=$cache_time_control"
         header X-Cache-Status "HIT"
-        reverse_proxy $CADDY_BACKEND {
-            header_up X-Forwarded-Proto {scheme}
-            header_up X-Forwarded-For {remote}
-        }
+        reverse_proxy $CADDY_BACKEND
     }
 """
 

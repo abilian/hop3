@@ -21,9 +21,11 @@ from hop3.config import (
     ACME_ENGINE,
     ACME_SERVER,
     ACME_WWW,
+    HOP3_PROXY_TYPE,
     HOP3_ROOT,
     NGINX_ROOT,
 )
+from hop3.core.plugins import get_proxy_class
 from hop3.lib import log
 from hop3.lib.rootd import LocalRootdClient, RootdError
 
@@ -471,6 +473,12 @@ class CertbotEngine(CertEngine):
             return (False, "certbot is not installed")
         if not ACME_EMAIL:
             return (False, "ACME_EMAIL is not set")
+        if not get_proxy_class().hosts_certbot:
+            reason = (
+                f"Hop3 answers certbot's challenge and installs its certificates "
+                f"through nginx only, and this server's proxy is {HOP3_PROXY_TYPE}"
+            )
+            return (False, reason)
         return (True, "")
 
     def issue(self, cert: Certificate, *, force: bool = False) -> None:

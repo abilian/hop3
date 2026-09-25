@@ -158,6 +158,7 @@ def test_traefik_renders_body_limit_middleware() -> None:
     )
     traefik.setup_backend()
     traefik.extra_setup()
-    conf = traefik.get_proxy_conf()
-    assert "traefik-big-body-limit" in conf
-    assert "maxRequestBodyBytes: 2147483648" in conf
+    middlewares = traefik.dynamic_config()["http"]["middlewares"]
+    assert middlewares["traefik-big-body-limit"] == {
+        "buffering": {"maxRequestBodyBytes": 2147483648}
+    }

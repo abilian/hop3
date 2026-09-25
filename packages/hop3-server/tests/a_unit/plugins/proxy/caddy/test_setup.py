@@ -15,6 +15,7 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
 from hop3.core.identifiers import InvalidIdentifierError
 from hop3.lib.rootd import RootdError
@@ -90,7 +91,32 @@ def test_no_web_worker_omits_reverse_proxy() -> None:
 
 def test_hostname_opens_the_site_block() -> None:
     host = make_host({}, workers={"web": "x"})
-    assert "testapp.com {" in host.get_proxy_conf()
+    assert "https://testapp.com {" in host.get_proxy_conf()
+
+
+def test_the_client_address_is_left_to_caddy() -> None:
+    """Caddy sets X-Forwarded-For; `{remote}` would have sent `ip:port`."""
+    conf = make_host({}, workers={"web": "x"}).get_proxy_conf()
+    assert "X-Forwarded-For" not in conf
+    assert "header_up X-Real-IP {remote_host}" in conf
+
+
+def test_a_fastcgi_backend_gets_php_fastcgi(tmp_path, monkeypatch) -> None:
+    monkeypatch.setattr(App, "app_path", property(lambda self: tmp_path))
+    BuildArtifact(
+        kind="php",
+        app_name="testapp",
+        runtime=RuntimeConfig(backend_protocol="fastcgi"),
+    ).save(tmp_path / ARTIFACT_FILENAME)
+
+    conf = make_host(
+        {"PHP_DOCUMENT_ROOT": "/home/hop3/apps/testapp/src/public"},
+        workers={"web": "x"},
+    ).get_proxy_conf()
+
+    assert "root * /home/hop3/apps/testapp/src/public" in conf
+    assert "php_fastcgi 127.0.0.1:8000" in conf
+    assert "reverse_proxy" not in conf
 
 
 # --- HTTPS-only redirect -------------------------------------------------
@@ -102,6 +128,21 @@ def test_https_only_emits_http_to_https_redirect() -> None:
     assert "http://testapp.com {" in conf
     assert "redir https://{host}{uri} permanent" in conf
     assert "https://testapp.com {" in conf
+
+
+def test_every_host_gets_both_schemes() -> None:
+    conf = make_host({"HOST_NAME": "a.com www.a.com"}, workers={"web": "x"})
+    rendered = conf.get_proxy_conf()
+    assert "http://a.com, http://www.a.com {" in rendered
+    assert "https://a.com, https://www.a.com {" in rendered
+
+
+def test_the_acme_challenge_is_answered_before_the_redirect() -> None:
+    """certbot's HTTP-01 challenge must not be redirected to HTTPS."""
+    conf = make_host({}, workers={"web": "x"}).get_proxy_conf()
+    http_block = conf.split("https://testapp.com {")[0]
+    assert "handle /.well-known/acme-challenge/*" in http_block
+    assert http_block.index("acme-challenge") < http_block.index("redir https://")
 
 
 def test_default_emits_https_redirect() -> None:
@@ -116,7 +157,14 @@ def test_default_emits_https_redirect() -> None:
 def test_allow_http_serves_plain_http() -> None:
     """[deploy].allow-http = true opts out of the redirect."""
     host = make_host({"HOP3_ALLOW_HTTP": "true"}, workers={"web": "x"})
-    assert "redir https://" not in host.get_proxy_conf()
+    conf = host.get_proxy_conf()
+    assert "redir https://" not in conf
+    # A bare hostname is HTTPS-only to Caddy: port 80 must be named, and in
+    # a block of its own, since Caddy refuses `tls` where it listens on HTTP.
+    http_block, https_block = conf.split("https://testapp.com {")
+    assert "http://testapp.com {" in http_block
+    assert "reverse_proxy" in http_block
+    assert "reverse_proxy" in https_block
 
 
 # --- TLS (auto-HTTPS branch; manual branch needs the cert manager) -------
@@ -159,7 +207,7 @@ def test_static_worker_serves_root_path() -> None:
 
 def test_no_static_paths_emits_no_file_server() -> None:
     host = make_host({}, workers={"web": "x"})
-    assert "file_server" not in host.get_proxy_conf()
+    assert "handle_path" not in host.get_proxy_conf()
 
 
 # --- compression ---------------------------------------------------------
@@ -198,18 +246,15 @@ def test_cache_mappings_empty_without_prefixes() -> None:
     assert host.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] == ""
 
 
-def test_cache_prefixes_currently_produce_no_mapping() -> None:
-    """
-    Locks down a known latent bug: setup_cache feeds an *int*
-    max-age into expand_vars, which raises TypeError; the broad except
-    swallows it and leaves the cache mappings empty. This test will start
-    failing (correctly) once the int->str fix lands -- flag, don't hide.
-    """
+def test_cache_prefixes_set_cache_headers() -> None:
+    """The max-age reaches the mapping (an int once crashed it, swallowed)."""
     host = make_host(
         {"CADDY_CACHE_PREFIXES": "/static,/assets", "CADDY_CACHE_CONTROL": "7200"},
         workers={"web": "x"},
     )
-    assert host.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] == ""
+    mappings = host.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"]
+    assert "path_regexp ^/(static|assets)" in mappings
+    assert "max-age=7200" in mappings
 
 
 def test_reload_proxy_raises_when_all_methods_fail(monkeypatch):
