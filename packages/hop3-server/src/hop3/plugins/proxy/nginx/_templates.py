@@ -78,6 +78,7 @@ NGINX_COMMON_FRAGMENT = r"""
   $HOP3_INTERNAL_NGINX_CUSTOM_CLAUSES
   $HOP3_INTERNAL_NGINX_STATIC_MAPPINGS
   $HOP3_INTERNAL_NGINX_CACHE_MAPPINGS
+  $HOP3_INTERNAL_NGINX_DENY
   $HOP3_INTERNAL_NGINX_BLOCK_GIT
   $HOP3_INTERNAL_NGINX_PORTMAP
 """
@@ -107,6 +108,13 @@ NGINX_PORTMAP_FRAGMENT = """
 NGINX_FASTCGI_FRAGMENT = """
   root $PHP_DOCUMENT_ROOT;
   index index.php;
+
+  # A hidden file in the tree is configuration (.env, .htaccess, .git), and
+  # the upstream .htaccess rules that would refuse it are Apache's, which
+  # nginx never reads. First among the regex locations, so a script under a
+  # hidden directory is refused rather than run. /.well-known stays open:
+  # an app's CalDAV or WebFinger discovery lives there.
+  location ~ /\\.(?!well-known/) { return 404; }
 
   location / {
     try_files $uri $uri/ /index.php?$query_string;

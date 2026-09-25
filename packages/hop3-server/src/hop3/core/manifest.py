@@ -139,11 +139,13 @@ class RuntimeManifestBuilder:
         # Get reverse-proxy transfer limits ([proxy])
         proxy_max_body_size = ""
         proxy_request_buffering = True
+        proxy_deny: list[str] = []
         if self.app_config.has_hop3_toml:
             proxy_max_body_size = self.app_config.hop3_config.proxy_max_body_size
             proxy_request_buffering = (
                 self.app_config.hop3_config.proxy_request_buffering
             )
+            proxy_deny = list(self.app_config.hop3_config.proxy_deny)
 
         return RuntimeConfig(
             env_vars=merged_env,
@@ -158,6 +160,7 @@ class RuntimeManifestBuilder:
             healthcheck_timeout=healthcheck_timeout,
             proxy_max_body_size=proxy_max_body_size,
             proxy_request_buffering=proxy_request_buffering,
+            proxy_deny=proxy_deny,
         )
 
     def _get_workers(self) -> dict[str, str]:

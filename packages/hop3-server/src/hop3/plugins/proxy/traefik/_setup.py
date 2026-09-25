@@ -67,6 +67,7 @@ class TraefikVirtualHost(BaseProxy):
 
     serves_files: ClassVar[bool] = False
     gates_access: ClassVar[bool] = True
+    refuses_paths: ClassVar[bool] = False
 
     app: App
     env: Env
@@ -135,11 +136,11 @@ class TraefikVirtualHost(BaseProxy):
         """Nothing to do: an app with static paths was refused before setup."""
 
     def extra_setup(self) -> None:
-        if not self.transfer_limits.request_buffering:
+        if not self.proxy_settings.request_buffering:
             log(
                 f"traefik cannot stream request bodies and enforce a size limit at "
                 f"the same time; '{self.app_name}' gets the limit "
-                f"({self.transfer_limits.max_body_size}) and buffering.",
+                f"({self.proxy_settings.max_body_size}) and buffering.",
                 level=4,
                 fg="yellow",
             )
@@ -265,7 +266,7 @@ class TraefikVirtualHost(BaseProxy):
     def _middlewares(self) -> dict[str, Any]:
         """The middlewares every request to the app passes through, in order."""
         app = self.app_name
-        max_body = parse_size_to_bytes(self.transfer_limits.max_body_size)
+        max_body = parse_size_to_bytes(self.proxy_settings.max_body_size)
         middlewares: dict[str, Any] = {
             f"{app}-compression": {"compress": {}},
             # Traefik enforces a body limit only through buffering, so the

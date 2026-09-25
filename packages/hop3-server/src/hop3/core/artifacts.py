@@ -103,6 +103,7 @@ class RuntimeConfig:
     # proxy plugin at setup. An empty size means "leave the platform default".
     proxy_max_body_size: str = ""
     proxy_request_buffering: bool = True
+    proxy_deny: list[str] = field(default_factory=list)
 
     # Health check configuration
     healthcheck_path: str = ""  # HTTP path, e.g., "/health"
@@ -120,16 +121,18 @@ DEFAULT_MAX_BODY_SIZE = "50m"
 
 
 @dataclass(frozen=True)
-class ProxyLimits:
+class ProxySettings:
     """What the reverse proxy will carry for one app ([proxy] in hop3.toml)."""
 
     max_body_size: str = DEFAULT_MAX_BODY_SIZE
     request_buffering: bool = True
+    #: URL paths answered with 404, each with everything beneath it.
+    deny: tuple[str, ...] = ()
 
 
-def load_proxy_limits(app_path: Path) -> ProxyLimits:
+def load_proxy_settings(app_path: Path) -> ProxySettings:
     """
-    The app's declared proxy limits, as its build artifact records them.
+    The app's declared proxy settings, as its build artifact records them.
 
     Read at proxy-setup time by every proxy plugin, from the same artifact the
     run phase reads — so a restart that regenerates the vhost without a
@@ -138,13 +141,14 @@ def load_proxy_limits(app_path: Path) -> ProxyLimits:
     """
     artifact = BuildArtifact.load(app_path / ARTIFACT_FILENAME)
     if artifact is None:
-        return ProxyLimits()
-    return ProxyLimits(
+        return ProxySettings()
+    return ProxySettings(
         # The artifact records what the app declared; "" means it declared
         # nothing, and the platform default applies. Resolved here so the
         # proxy plugins have one value to render and no policy of their own.
         max_body_size=artifact.runtime.proxy_max_body_size or DEFAULT_MAX_BODY_SIZE,
         request_buffering=artifact.runtime.proxy_request_buffering,
+        deny=tuple(artifact.runtime.proxy_deny),
     )
 
 

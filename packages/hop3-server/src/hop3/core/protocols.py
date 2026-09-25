@@ -10,10 +10,10 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, Protocol
 # It includes RuntimeConfig for build/run separation
 from hop3.core.artifacts import (
     BuildArtifact,
-    ProxyLimits,
+    ProxySettings,
     RuntimeConfig,
     load_backend_protocol,
-    load_proxy_limits,
+    load_proxy_settings,
 )
 from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis
 from hop3.lib.path import REJECTED_SUFFIX, restore_on_failure
@@ -299,6 +299,7 @@ class Proxy(Protocol):
     fronts_waf: ClassVar[bool]
     hosts_certbot: ClassVar[bool]
     gates_access: ClassVar[bool]
+    refuses_paths: ClassVar[bool]
 
     app: App
     env: Env
@@ -368,6 +369,9 @@ class BaseProxy(ABC):
     #: hop3-server's check, the ``/_hop3/auth/`` route, and the identity
     #: headers and cookies the check returns, in place of the client's.
     gates_access: ClassVar[bool] = False
+    #: Answers the paths an app lists in ``[proxy] deny`` with 404, without
+    #: reaching the app or the disk.
+    refuses_paths: ClassVar[bool] = True
 
     app: App
     env: Env
@@ -389,14 +393,14 @@ class BaseProxy(ABC):
         return self.app.src_path
 
     @property
-    def transfer_limits(self) -> ProxyLimits:
+    def proxy_settings(self) -> ProxySettings:
         """
         What this app declared the proxy may carry ([proxy] in hop3.toml).
 
         Identical across proxy implementations — only the directive each one
         renders differs.
         """
-        return load_proxy_limits(self.app_path)
+        return load_proxy_settings(self.app_path)
 
     @abstractmethod
     def get_proxy_name(self) -> str:
@@ -471,6 +475,15 @@ class BaseProxy(ABC):
                 hint=(
                     f"run '{self.app_name}' on a server whose proxy serves "
                     f"files (nginx or caddy), or let the app serve them itself"
+                ),
+            )
+        if not self.refuses_paths and (denied := self.proxy_settings.deny):
+            self._refuse(
+                f"the app declares [proxy] deny ({', '.join(denied)}), and "
+                f"{proxy} cannot refuse a path",
+                hint=(
+                    f"run '{self.app_name}' on a server whose proxy refuses "
+                    f"paths (nginx or caddy)"
                 ),
             )
 

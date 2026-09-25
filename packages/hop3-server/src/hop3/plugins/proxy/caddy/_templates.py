@@ -9,6 +9,7 @@ CADDY_SITE_BODY = """
     $HOP3_INTERNAL_CADDY_GATE
     $HOP3_INTERNAL_CADDY_ACME
     $HOP3_INTERNAL_CADDY_REQUEST_BODY
+    $HOP3_INTERNAL_CADDY_DENY
     $HOP3_INTERNAL_CADDY_CUSTOM_CLAUSES
     $HOP3_INTERNAL_CADDY_STATIC_MAPPINGS
     $HOP3_INTERNAL_CADDY_CACHE_MAPPINGS
@@ -59,8 +60,15 @@ CADDY_PORTMAP_FRAGMENT = """
 """
 
 # A php-fpm pool speaks FastCGI. `php_fastcgi` serves the front controller
-# the way the nginx fragment does: an existing file, else `index.php`.
+# the way the nginx fragment does: an existing file, else `index.php`. Hidden
+# files in the tree are refused as nginx refuses them (see its fragment); the
+# character class spells the dot without a backslash for the Caddyfile lexer.
 CADDY_FASTCGI_FRAGMENT = """
+    @hop3_hidden {
+        path_regexp /[.]
+        not path /.well-known/*
+    }
+    respond @hop3_hidden 404
     root * $PHP_DOCUMENT_ROOT
     php_fastcgi $CADDY_BACKEND
     file_server
@@ -81,6 +89,14 @@ HOP3_INTERNAL_CADDY_STATIC_MAPPING = """
         file_server
         try_files {path} {path}/index.html {path}.html
     }
+"""
+
+# Paths the app lists in [proxy] deny, each with everything beneath it.
+# Caddy's directive order runs `respond` before reverse_proxy, php_fastcgi
+# and file_server, so a denied path never reaches the app or the disk.
+CADDY_DENY = """
+    @hop3_denied path $paths
+    respond @hop3_denied 404
 """
 
 # Largest request body this app accepts ([proxy] max-body-size).

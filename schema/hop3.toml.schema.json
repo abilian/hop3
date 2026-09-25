@@ -976,8 +976,17 @@
     },
     "ProxySection": {
       "additionalProperties": false,
-      "description": "[proxy] section \u2014 what the reverse proxy will carry for this app.\n\nThe proxy is platform-owned and stays that way: this is not a passthrough\nfor proxy config. It declares the two limits that are properties of the\n*app* rather than of the platform \u2014 how large a request body it accepts,\nand whether that body may stream through instead of being spooled to the\nproxy's disk first. An app that receives file uploads has to be able to\nsay so; before this section existed, a 50 MB ceiling applied to every app\non the box and nothing could lift it.\n\nEach key renders to the active proxy's own directive (nginx\n``client_max_body_size`` / ``proxy_request_buffering``, Caddy\n``request_body max_size``, Traefik a ``buffering`` middleware), so the\ndeclaration outlives a proxy swap.",
+      "description": "[proxy] section \u2014 what the reverse proxy will carry for this app.\n\nThe proxy is platform-owned and stays that way: this is not a passthrough\nfor proxy config. It declares what is a property of the *app* rather than\nof the platform: how large a request body it accepts, whether that body\nmay stream through instead of being spooled to the proxy's disk first, and\nwhich paths must never be answered at all. An app that receives file uploads has to be able to\nsay so; before this section existed, a 50 MB ceiling applied to every app\non the box and nothing could lift it.\n\nEach key renders to the active proxy's own directive (nginx\n``client_max_body_size`` / ``proxy_request_buffering``, Caddy\n``request_body max_size``, Traefik a ``buffering`` middleware), so the\ndeclaration outlives a proxy swap.",
       "properties": {
+        "deny": {
+          "default": [],
+          "description": "URL paths the proxy answers with 404, each with everything beneath it, e.g. ['/data', '/storage']. For data an app keeps inside the tree it serves, which upstream protects with an .htaccess that only Apache reads.",
+          "items": {
+            "type": "string"
+          },
+          "title": "Deny",
+          "type": "array"
+        },
         "max-body-size": {
           "anyOf": [
             {

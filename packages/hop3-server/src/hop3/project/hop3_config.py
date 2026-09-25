@@ -319,6 +319,19 @@ class Hop3Config:
         return bool(self.proxy.get("request-buffering", True))
 
     @property
+    def proxy_deny(self) -> tuple[str, ...]:
+        """
+        URL paths the proxy refuses, each normalized to ``/data``.
+
+        The file was validated at load, so this cannot fail here.
+        """
+        from hop3.project.schema import (  # ruff:ignore[import-outside-top-level]
+            ProxySection,
+        )
+
+        return ProxySection.model_validate(self.proxy).deny
+
+    @property
     def healthcheck_path(self) -> str:
         """
         HTTP path for health checks.

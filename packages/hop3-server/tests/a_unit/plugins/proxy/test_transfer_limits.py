@@ -19,9 +19,9 @@ from hop3.core.artifacts import (
     ARTIFACT_FILENAME,
     DEFAULT_MAX_BODY_SIZE,
     BuildArtifact,
-    ProxyLimits,
+    ProxySettings,
     RuntimeConfig,
-    load_proxy_limits,
+    load_proxy_settings,
 )
 from hop3.core.env import Env
 from hop3.orm import App
@@ -57,14 +57,16 @@ def _env() -> Env:
 
 
 def test_limits_default_when_app_has_no_artifact() -> None:
-    assert load_proxy_limits(Path("/tmp/hop3/apps/does-not-exist")) == ProxyLimits()
+    assert load_proxy_settings(Path("/tmp/hop3/apps/does-not-exist")) == ProxySettings()
 
 
 def test_limits_read_from_artifact() -> None:
     app = _app(
         "limits-artifact", proxy_max_body_size="2G", proxy_request_buffering=False
     )
-    assert load_proxy_limits(app.app_path) == ProxyLimits("2G", request_buffering=False)
+    assert load_proxy_settings(app.app_path) == ProxySettings(
+        "2G", request_buffering=False
+    )
 
 
 # --- nginx -------------------------------------------------------------------
