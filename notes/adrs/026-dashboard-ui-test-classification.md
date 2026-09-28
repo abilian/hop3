@@ -70,6 +70,7 @@ These tenets come from Hop3's testing strategy (`docs/src/dev/testing-strategy.m
 4. **E2E Tests** (d_e2e/) - Complete workflows in Docker containers
 
 The documentation states one key principle:
+
 > **Integration Tests**: "Test multiple components working together within subsystems. Uses real database (in-memory SQLite). No external network dependencies."
 
 The question: is the file system an "external dependency", or part of the subsystem under test?

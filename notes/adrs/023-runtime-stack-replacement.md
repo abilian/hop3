@@ -832,7 +832,3 @@ otherapp.example.com {
 4. WebSocket connections
 5. Large request bodies
 6. Static file serving (if applicable)
-. Static file serving (if applicable)
-
-plicable)
-

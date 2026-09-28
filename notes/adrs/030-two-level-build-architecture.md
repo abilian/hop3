@@ -121,12 +121,12 @@ class DeploymentContext:
 
 ### Level 1: Builder (Orchestration)
 
-**Protocol**: `Builder` (in `hop3/core/protocols.py`)
-**Responsibility**: Orchestrate HOW to build (environment, isolation, reproducibility)
-**Examples**: `LocalBuilder`, `DockerBuilder`, `NixBuilder`, `BuildpackBuilder`
-**Selection**: Config-driven (global or per-app `hop3.toml`)
-**Hook**: `get_builders()`
-**Location**: `hop3/plugins/build/*/` (e.g., `hop3/plugins/build/local/`)
+- **Protocol**: `Builder` (in `hop3/core/protocols.py`)
+- **Responsibility**: Orchestrate HOW to build (environment, isolation, reproducibility)
+- **Examples**: `LocalBuilder`, `DockerBuilder`, `NixBuilder`, `BuildpackBuilder`
+- **Selection**: Config-driven (global or per-app `hop3.toml`)
+- **Hook**: `get_builders()`
+- **Location**: `hop3/plugins/build/*/` (e.g., `hop3/plugins/build/local/`)
 
 ```python
 class Builder(Protocol):
@@ -155,12 +155,12 @@ class Builder(Protocol):
 
 ### Level 2: LanguageToolchain (Language-Specific Logic)
 
-**Protocol**: `LanguageToolchain` (in `hop3/core/protocols.py`)
-**Responsibility**: Execute WHAT to build (dependencies, compilation, bundling)
-**Examples**: `PythonToolchain`, `NodeToolchain`, `JavaToolchain`, `RubyToolchain`
-**Selection**: Auto-detection (presence of requirements.txt, package.json, etc.)
-**Hook**: `get_language_toolchains()`
-**Location**: `hop3/plugins/build/language_toolchains/`
+- **Protocol**: `LanguageToolchain` (in `hop3/core/protocols.py`)
+- **Responsibility**: Execute WHAT to build (dependencies, compilation, bundling)
+- **Examples**: `PythonToolchain`, `NodeToolchain`, `JavaToolchain`, `RubyToolchain`
+- **Selection**: Auto-detection (presence of requirements.txt, package.json, etc.)
+- **Hook**: `get_language_toolchains()`
+- **Location**: `hop3/plugins/build/language_toolchains/`
 
 ```python
 class LanguageToolchain(Protocol):
