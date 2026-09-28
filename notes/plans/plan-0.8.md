@@ -31,7 +31,7 @@ A fourth property belongs on that list and is absent on purpose: nothing watches
 
 **The shape** (from ADR 055, Proposed 2026-07-08): per-app `hop3-app-<name>` users, a capability-scoped uWSGI Emperor (`AmbientCapabilities=CAP_SETUID CAP_SETGID`) whose vassals start through a `setpriv` wrapper that does the drop, per-app filesystem ownership, user deletion on destroy, and a migration for existing apps.
 
-**Do the smaller increment first.** ADR 055 names a **shared `hop3-apps` user** as an acceptable first step: it closes the rootd hole and the control-plane secret exposure without solving inter-app interference. That is a much smaller change with most of the security value, and it can ship while the per-app work is still in design. Recommended sequencing: the shared app user ships in 0.8; per-app UIDs come behind it.
+**The smaller increment, undecided.** ADR 055 names a **shared `hop3-apps` user** as an acceptable first step. What it buys: it closes the rootd hole and the control-plane secret exposure, with most of the security value. What it costs: every app still reads every other app's data, which is what an operator stands to lose, and its group-writable file model is the part per-app users would replace. What decides: whether per-app users fit in 0.8 once state is out of `src/` (the survey below); the shared user is the fallback if they do not.
 
 **The capability experiment ran on 2026-09-24** (`scripts/emperor-caps-probe.py`, results in ADR 055 §4). The Emperor needs `CAP_SETUID` and `CAP_SETGID`, but uWSGI cannot be trusted with the drop: it ignores `uid`/`gid` unless it runs as root, silently, and passes the Emperor's capabilities to every app, which could then `setuid(0)`. A `setpriv` wrapper does the drop instead and leaves apps with no capabilities; reload and removal still work. The same probe settled the log layout and showed that every app's `[env]` is readable by any local user today, because it travels as `export`s on the `attach-daemon` command line (ADR 055 §6).
 
@@ -39,8 +39,20 @@ A fourth property belongs on that list and is absent on purpose: nothing watches
 
 - [x] Run the capability experiment; record the result in the ADR. Done 2026-09-24: a `setpriv` wrapper, not uWSGI, performs the drop.
 - [x] Stop delivering `[env]` on the `attach-daemon` command line (ADR 055 §6). Done 2026-09-24: workers source a `0600` file; an app picks it up on its next deploy.
-- [ ] Ship the shared `hop3-apps` user with a migration.
 - [ ] Move ADR 055 from Proposed to Accepted with the increment recorded.
+
+**What running an app as another user would break (surveyed 2026-09-28).** A static read of every catalog recipe, asking where each app writes at runtime, changed the order of work:
+
+- **Most stateful apps keep their state in `src/`, which every deploy replaces.** Nine of the twenty golden recipes keep user files or configuration there with no volume (Nextcloud's user files, WordPress's uploads, Mattermost's files among them), 32 of the 34 beta Nix variants, and about 20 of the 29 native alpha apps. A redeploy deletes it. Nothing caught it, because the harness deployed each app once.
+- **The same writes are what a read-only `src/` would break.** Once state lives in volumes, what remains is regenerable caches.
+- **Per-app users cannot start with the runtime alone.** `before-run`, `[admin].create` and `[probe].create` run as `hop3` and leave files the app must then read and write (configuration written `0600`, SQLite databases, Laravel logs, Nextcloud's `occ` ownership check). They move to the app's user in the same change as the runtime.
+- **Every app runs with `HOME=/home/hop3`**, the control plane's home.
+
+The item is now three steps:
+
+- [ ] **State survives a redeploy.** Platform, 2026-09-28: `scratch` volumes; volumes linked after the build, a newly declared one seeded from the tree the deploy replaces; a harness that fails an app writing into `src/` and redeploys every app. The first measurement passed 7 of 20 golden recipes; after the fixes, all 20 pass on Docker, redeploy included. Remaining: the beta Nix variants, then the alpha recipes.
+- [ ] **Each app gets its own `HOME` and `TMPDIR`.**
+- [ ] **Per-app users**: hooks and runtime in one change, `src/` read-only to the app.
 
 ### 2. PHP-FPM: a production runtime for ten catalog apps
 

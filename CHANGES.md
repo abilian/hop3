@@ -21,7 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Accounts have roles: `admin`, `deployer`, `viewer` and `member`.** `hop3 user set-role alice viewer` grants one; `hop3 user add --role` sets it at creation. A viewer reads apps, addons, backups and certificates but no secret. A deployer deploys and operates apps and addons. An admin also manages accounts and the server. A member signs in to the web interface and sees its own profile. A deployer's builds run with the control plane's own privileges, so treat that role as an administrator credential. (ADR 061)
 
+- **`[[volumes]]` has a `scratch` type**, for directories an app writes that must not be kept: a framework's compiled templates or bootstrap cache. It lives outside `src/`, is reset to what the build leaves there whenever a deploy replaces `src/`, and is never backed up.
+
+- **`hop3-test` fails an app that writes into `src/` while running, and redeploys every app.** Each deploy replaces `src/`, so whatever an app writes there is lost at the next one, an upgrade included. The test lists the directories the app wrote to after it started, grouped for a `[[volumes]]` entry. It then deploys the unchanged source again and runs every validation a second time. `--no-redeploy` skips the second deploy.
+
 ### Changed
+
+- **The deploy that first declares a volume keeps what the app had already written there.** Declaring `[[volumes]]` for data an app kept in `src/` used to delete that data: the deploy replaced `src/` before linking the new, empty volume. The old tree is now set aside until the volumes are linked, and an empty volume is filled from it first, then from what the build produced.
+
+- **Volumes are linked after the build, before the app starts.** They used to be linked before the build, where a `before-build` that unpacks the application and moves its directories into place collided with them.
+
+- **A `git push` stops the running app before replacing its source**, as `hop3 deploy` already did. A process still holding files in `src/` could race the rebuild.
 
 - **The server checks the account's role on every command and every dashboard page.** Until now any account could run everything but user management. A command above the account's role is refused with the role it needs and the `hop3 user set-role` that would grant it, and `hop3` exits with code 5. The dashboard refuses a page the same way and sends a member to its profile.
 

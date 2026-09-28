@@ -102,6 +102,18 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
 
   **A third axis, found on 2026-09-21: the Nix path uses neither.** `node-pnpm-install` runs whatever pnpm the recipe's pinned nixpkgs carries (9.15.9 for the one recipe on that template), so the installer's server-wide pin does not reach it and `[build].node-version` says nothing about it. The versions differ in behaviour that matters: pnpm 9's `fetch` compiles native addons while populating the store, 11's does not. Whatever answers the per-app question has to answer it for the Nix builder too, or the two builders will keep resolving the same recipe differently.
 
+- **Found by the 2026-09-28 survey of where apps write, not yet checked on a running app.** Each is inferred from a recipe or from a framework's defaults; the runtime-write check and the redeploy in `hop3-test` will confirm or clear most of them.
+  - **Gitea may write into the control plane's `authorized_keys`.** The golden recipe does not set `DISABLE_SSH` (forgejo's does), and Gitea's default is to manage `~/.ssh/authorized_keys` for the user it runs as. Every app runs with `HOME=/home/hop3`, so a key a Gitea user adds would land in the file that holds Hop3's own git-push keys. Check on a Docker box; set `DISABLE_SSH` in the recipe either way, and give each app its own `HOME` (plan-0.8 headline 1).
+  - **Fixed names in `/tmp` collide between apps and deploys**: dolibarr's `/tmp/dolibarr-step{1,2,5}.out`, piwigo's `/tmp/piwigo-install.out`, sonarqube's `/tmp/sonarqube.zip`. With per-app users, the sticky `/tmp` turns a collision into a failed deploy. `mktemp`, or a per-app `TMPDIR`.
+  - **A PHP document root is made world-readable** (`run/served_tree.py`, `a+rX`) so nginx can serve its files. That includes WordPress's `wp-config.php` and its database password, readable by every local user. The web server needs the static files, not the PHP sources.
+  - **Recipe bugs:** paheko-nixgen's comment says `data/` is on a volume and none is declared; vikunja-nix reads a `.jwt-secret` nothing creates; both mattermost recipes regenerate `AtRestEncryptKey` on every start.
+  - **uv installs without bytecode.** The Python toolchain's `uv sync` has no `--compile-bytecode`, so a uv-built app compiles into its venv at runtime, which a read-only venv would silently stop.
+  - **Nextcloud apps from the app store land in `apps/`,** beside the ones Nextcloud ships, and a deploy deletes them while `config.php` still lists them. Upstream's answer is a second, writable `apps_paths` entry (`custom_apps/`) on a volume.
+  - **Mattermost's System Console settings do not survive a deploy.** `scripts/setup-config.sh` writes `config.json` from the platform's values on every deploy, by design, so what an administrator changes in the console is overwritten. Mattermost can keep its configuration in the database (`MM_CONFIG` set to the DSN).
+  - **`hop3check` reports `no-port` for a recipe whose `[run].start` is a script** that reads `$PORT` itself (keycloak, mattermost). The rule reads the start line only.
+
+- **uptime-kuma's sign-in probe failed once on Docker, 2026-09-28, then passed.** The deploy's own check signed in as `hop3probe`; in the same second the harness's check was refused ("Incorrect username or password for user hop3probe"), and its next socket.io connection got no first message within 8 s. Two credentials, or a race with `[probe].create`? A result that depends on timing is a platform bug until shown otherwise.
+
 ## Release tooling
 
 - **`release.py` uploads whatever the tree says.** 0.7.5 went to PyPI with `CHANGES.md` still headed `## [Unreleased]`. Nothing objected. The script already refuses a workspace whose nine package versions disagree, so the place to add the check exists: refuse to upload when the changelog has no section matching the version being released. While there: the tag is still manual (0.7.2 through 0.7.4 each needed remembering, and the footer link list had gone three releases without an entry), and nothing verifies the built artifact came from the commit being tagged.
@@ -110,7 +122,7 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
 
 The "After 0.7" wish-list that used to sit here is scheduled. The plans carry the reasoning. Kept as a one-line index because both plans cite this file as the source.
 
-- **Per-app UID separation (ADR 055):** [`plan-0.8.md`](plans/plan-0.8.md) headline 1, shared `hop3-apps` user first; second increment in [`plan-0.9-plus.md`](plans/plan-0.9-plus.md). (The `audit` branch the old entry named no longer exists.)
+- **Per-app UID separation (ADR 055):** [`plan-0.8.md`](plans/plan-0.8.md) headline 1, in three steps since the 2026-09-28 survey: state out of `src/`, a per-app `HOME` and `TMPDIR`, then per-app users. (The `audit` branch the old entry named no longer exists.)
 - **Alternative backends:** nix+docker, docker without compose, podman, systemd-nspawn/bubblewrap isolation, lightweight VMs: all in `plan-0.9-plus.md`, all behind the isolation ADR that has to be written first.
 - **IAM / centrally managed SSO:** `plan-0.9-plus.md`: Canaille evaluation and an OAuth2/OIDC gateway, alongside the MFA deferral in ADR 012.
 - **Web analytics for deployed apps**, and **`sslip.io` as a default hostname**: `plan-0.9-plus.md`, smaller items.
