@@ -24,28 +24,18 @@ from typing import TYPE_CHECKING
 import httpx
 import pytest
 
-from .conftest import cli_env, deploy_flask_app, wait_for_http_ready
+from .conftest import (
+    ALLOW_PLAIN_HTTP,
+    cli_env,
+    deploy_flask_app,
+    wait_for_http_ready,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
 
 WAF_HOSTNAME = "waf-demo.test.local"
 BAN_HOSTNAME = "waf-ban-demo.test.local"
-
-# The proxy redirects HTTP to HTTPS by DEFAULT, so port 80 answers
-# `301 https://<host>/` before a request reaches the WAF at all. The container
-# publishes only 22/80/8000 and the vhost name resolves nowhere off it, so that
-# redirect leads out of the test entirely. `[deploy].allow-http` is the
-# documented opt-out and keeps the chain under test real (nginx -> LeWAF ->
-# uWSGI), minus a TLS hop these tests are not about.
-#
-# It must be set HERE and not as an env var: the deployer writes
-# `HOP3_ALLOW_HTTP` from this file on every deploy (deployer.py:1144), so an
-# ENV-file value is overwritten with the recipe's default before nginx reads it.
-ALLOW_PLAIN_HTTP = """
-[deploy]
-allow-http = true
-"""
 
 # Minimal policy: ``enabled = true`` runs the OWASP CRS (blocks attacks, passes
 # clean traffic). ``mode = "block"`` is the default, spelled out for clarity.
@@ -121,10 +111,9 @@ class TestWaf:
         headers = {"Host": WAF_HOSTNAME}
 
         # Clean traffic reaches the app through the WAF proxy (200 + body).
-        ready, err = wait_for_http_ready(
+        wait_for_http_ready(
             f"{base}/", 200, "Hello from Flask!", headers=headers, timeout=90
         )
-        assert ready, f"WAF-fronted app never served clean traffic: {err}"
 
         # An SQLi in the query string is denied by the CRS before the app.
         blocked = httpx.get(
@@ -157,10 +146,9 @@ class TestWaf:
         base = hop3_container["http_base"]
         headers = {"Host": BAN_HOSTNAME}
 
-        ready, err = wait_for_http_ready(
+        wait_for_http_ready(
             f"{base}/", 200, "Hello from Flask!", headers=headers, timeout=90
         )
-        assert ready, f"ban-demo never served clean traffic: {err}"
 
         # Trip the ban threshold: several blocked attacks from this source.
         for _ in range(4):

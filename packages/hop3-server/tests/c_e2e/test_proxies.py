@@ -32,6 +32,7 @@ import httpx
 import pytest
 
 from .conftest import (
+    ALLOW_PLAIN_HTTP,
     _start_hop3_container,
     _stop_hop3_container,
     deploy_app_dir,
@@ -51,8 +52,6 @@ PHP_FIXTURE = (
 #: What each proxy declares it can do (``BaseProxy`` capabilities).
 SPEAKS_FASTCGI = {"nginx": True, "caddy": True, "traefik": False}
 FRONTS_WAF = {"nginx": True, "caddy": False, "traefik": False}
-
-ALLOW_PLAIN_HTTP = "[deploy]\nallow-http = true\n"
 
 #: Written into files the proxy must never serve; absent from every answer.
 SECRET = "hop3-must-not-serve-this"

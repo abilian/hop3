@@ -43,6 +43,20 @@ def health():
 #: still `flask>=3.0` when the rule landed, and they failed the e2e layer.
 FLASK_REQUIREMENTS = "flask==3.0.0\n"
 
+# The proxy redirects HTTP to HTTPS by DEFAULT, so port 80 answers
+# `301 https://<host>/` before a request reaches the app. The container
+# publishes only 22/80/8000 and the vhost name resolves nowhere off it, so that
+# redirect leads out of the test entirely. `[deploy].allow-http` is the
+# documented opt-out, for tests that probe an app over plain HTTP.
+#
+# It must be set in hop3.toml and not as an env var: the deployer writes
+# `HOP3_ALLOW_HTTP` from this file on every deploy, so an ENV-file value is
+# overwritten with the recipe's default before nginx reads it.
+ALLOW_PLAIN_HTTP = """
+[deploy]
+allow-http = true
+"""
+
 if TYPE_CHECKING:
     from collections.abc import Generator
 
@@ -657,23 +671,18 @@ def wait_for_http_ready(
     expected_content: str | None = None,
     timeout: int = 60,
     headers: dict[str, str] | None = None,
-) -> tuple[bool, str]:
+) -> None:
     """
-    Poll HTTP endpoint until it's ready.
+    Poll an HTTP endpoint until it answers as expected; fail the test if not.
 
-    Args:
-        url: URL to poll
-        expected_status: Expected HTTP status code (default: 200)
-        expected_content: Optional content to look for in response
-        timeout: Maximum wait time in seconds
-        headers: Optional HTTP headers (e.g., {"Host": "example.com"})
-
-    Returns:
-        Tuple of (success: bool, error_message: str)
+    Fails through `pytest.fail`, naming what the endpoint last answered. It
+    used to return `(ok, message)`, and `assert wait_for_http_ready(...)`
+    asserted a non-empty tuple, which is always true: the snapshot test waited
+    two minutes on a 301 and went on as if the app had answered.
     """
     print(f"Waiting for HTTP endpoint: {url}")
     start_time = time.time()
-    last_error = None
+    last_seen = "no answer"
 
     while time.time() - start_time < timeout:
         try:
@@ -685,29 +694,37 @@ def wait_for_http_ready(
             response = httpx.get(
                 url, headers=headers or {}, timeout=2.0, follow_redirects=False
             )
-
-            if response.status_code == expected_status:
-                if expected_content is None or expected_content in response.text:
-                    print(f"✓ HTTP endpoint ready: {url}")
-                    return True, ""
-                print("  Content check failed, retrying...")
-
-            elif response.status_code == 502:
-                # Backend not ready yet
-                print("  Backend not ready (502), retrying...")
-
-            else:
-                print(f"  Unexpected status {response.status_code}, retrying...")
-
-        except (httpx.HTTPError, httpx.ConnectError) as e:
-            last_error = str(e)
+        except httpx.HTTPError as e:
+            last_seen = f"connection error: {e}"
             print(f"  Connection error: {e}")
+        else:
+            if response.status_code == expected_status and (
+                expected_content is None or expected_content in response.text
+            ):
+                print(f"✓ HTTP endpoint ready: {url}")
+                return
+            last_seen = _describe_answer(response, expected_content)
+            print(f"  {last_seen}, retrying...")
 
         time.sleep(1)
 
-    error_msg = f"Timeout after {timeout}s. Last error: {last_error}"
-    print(f"✗ {error_msg}")
-    return False, error_msg
+    pytest.fail(
+        f"{url} (headers {headers or {}}) was not ready after {timeout}s: "
+        f"expected {expected_status}"
+        + (f" containing {expected_content!r}" if expected_content else "")
+        + f", last answer: {last_seen}"
+    )
+
+
+def _describe_answer(response: httpx.Response, expected_content: str | None) -> str:
+    """What an HTTP answer was, in the words a failure message needs."""
+    if response.status_code == 502:
+        return "502, the backend is not ready yet"
+    if response.is_redirect:
+        return f"{response.status_code} to {response.headers.get('location')}"
+    if expected_content is not None and expected_content not in response.text:
+        return f"{response.status_code} without {expected_content!r}"
+    return f"unexpected status {response.status_code}"
 
 
 # ============================================================================

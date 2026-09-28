@@ -33,7 +33,13 @@ from typing import TYPE_CHECKING, Any
 import pytest
 from hop3_testing.targets.constants import hermetic_cli_cwd
 
-from .conftest import cli_env, create_flask_app, init_git_repo, wait_for_http_ready
+from .conftest import (
+    ALLOW_PLAIN_HTTP,
+    cli_env,
+    create_flask_app,
+    init_git_repo,
+    wait_for_http_ready,
+)
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -153,6 +159,8 @@ class TestServerSnapshotRestore:
         app_dir = create_flask_app(
             tmp_path, app, response=f"snapshot {app}", requirements=_PG_REQUIREMENTS
         )
+        # The page is read over plain HTTP; without this it answers 301.
+        (app_dir / "hop3.toml").write_text(ALLOW_PLAIN_HTTP)
         init_git_repo(app_dir)  # hop3 deploy expects a git repository
         try:
             deployed = _hop3(box, "deploy", "--app", app, str(app_dir))
@@ -178,7 +186,7 @@ class TestServerSnapshotRestore:
                 )
             _sql(box, app, "CREATE TABLE marker (v text)")
             _sql(box, app, "INSERT INTO marker VALUES ('before')")
-            assert wait_for_http_ready(
+            wait_for_http_ready(
                 box.http_base,
                 expected_content=f"snapshot {app}",
                 timeout=120,
@@ -233,7 +241,7 @@ class TestServerSnapshotRestore:
             assert shown.returncode == 0, shown.stderr
             assert "SNAPSHOT_MARKER" in shown.stdout, shown.stdout
             assert "before" in _sql(box, app, "SELECT v FROM marker")
-            assert wait_for_http_ready(
+            wait_for_http_ready(
                 box.http_base,
                 expected_content=f"snapshot {app}",
                 timeout=180,
