@@ -137,7 +137,10 @@ class GitHookCmd(Command):
     def run(self, app_name: str) -> None:
         import subprocess  # ruff:ignore[import-outside-top-level]
 
-        from hop3.deployers import do_deploy  # ruff:ignore[import-outside-top-level]
+        from hop3.deployers import (  # ruff:ignore[import-outside-top-level]
+            do_deploy,
+            make_way_for_new_source,
+        )
 
         session_factory = get_session_factory()
         with session_factory() as session:
@@ -176,7 +179,9 @@ class GitHookCmd(Command):
                 fg="green",
             )
 
-            # Extract the commit to app's source directory
+            # Stop the running instance and set its tree aside, then extract
+            # the commit into a fresh src/ (see make_way_for_new_source).
+            make_way_for_new_source(app)
             echo(f"-----> Extracting commit {new_sha[:8]}...", fg="cyan")
 
             # SECURITY: route the archive through the same hardened

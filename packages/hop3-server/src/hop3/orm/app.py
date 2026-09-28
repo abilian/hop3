@@ -393,6 +393,17 @@ class App(BigIntAuditBase):
         return self.app_path / "volumes"
 
     @property
+    def scratch_path(self) -> Path:
+        """
+        Root of the app's scratch volumes (ADR 046 §2).
+
+        A ``scratch`` volume lives under ``scratch_path / <name>``: writable
+        like a persist volume, but reset on every deploy that replaces
+        ``src/``, and never backed up.
+        """
+        return self.app_path / "scratch"
+
+    @property
     def log_path(self) -> Path:
         """Path to the log directory of the app."""
         return self.app_path / "log"

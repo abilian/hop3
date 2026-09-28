@@ -113,34 +113,6 @@ def test_git_hook_successful_deployment(git_hook_cmd, mock_app, mock_db_session)
         assert "68f7abf" in result[1]["text"]  # Should show short SHA
 
 
-def test_extract_commit_to_source(git_hook_cmd, mock_app, tmp_path):
-    """Test commit extraction from git repository."""
-    # Setup temporary paths
-    mock_app.src_path = tmp_path / "src"
-    mock_app.repo_path = tmp_path / "repo"
-    mock_app.repo_path.mkdir(parents=True)
-
-    commit_sha = "68f7abf4e6f922807889f52bc043ecd31b79f814"
-
-    with patch("subprocess.run") as mock_run, patch("shutil.rmtree"):
-        # Mock successful subprocess calls
-        mock_run.return_value = Mock(returncode=0)
-
-        git_hook_cmd._extract_commit_to_source(mock_app, commit_sha)
-
-        # Verify git archive was called
-        archive_call = mock_run.call_args_list[0]
-        assert "git" in archive_call[0][0]
-        assert "archive" in archive_call[0][0]
-        assert commit_sha in archive_call[0][0]
-        assert archive_call[1]["cwd"] == mock_app.repo_path
-
-        # Verify tar extraction was called
-        tar_call = mock_run.call_args_list[1]
-        assert "tar" in tar_call[0][0]
-        assert "-xf" in tar_call[0][0]
-
-
 def test_extract_commit_handles_multiple_refs(git_hook_cmd, mock_app):
     """Test handling of multiple refs in push data (processes first ref only)."""
     push_data = """aa453216d1b3e49e7f6f98441fa56946ddcd6a20 68f7abf4e6f922807889f52bc043ecd31b79f814 refs/heads/master

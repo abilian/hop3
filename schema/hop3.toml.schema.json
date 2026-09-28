@@ -1324,7 +1324,7 @@
     },
     "VolumeSection": {
       "additionalProperties": false,
-      "description": "A `[[volumes]]` entry \u2014 a path that survives the source-replacing redeploy.\n\n``persist`` (the default, and the only implemented type) links ``target`` \u2014\na directory inside the app's source tree \u2014 to storage under the app's data\nroot (`<app>/volumes/<name>/`), so writes outlive the redeploy that wipes\n`src/`.",
+      "description": "A `[[volumes]]` entry \u2014 a path the app writes, kept outside `src/`.\n\nEvery deploy replaces `src/`. ``persist`` (the default) links ``target`` \u2014\na directory inside the app's source tree \u2014 to storage under\n`<app>/volumes/<name>/`, so writes outlive the redeploy and are backed up.\n``scratch`` links it to `<app>/scratch/<name>/`, reset from what the source\nships on every deploy and never backed up: for caches a new version of the\napp must not inherit.",
       "properties": {
         "backup": {
           "anyOf": [
@@ -1376,7 +1376,7 @@
         },
         "type": {
           "default": "persist",
-          "description": "persist (default) | tmpfs | bind.",
+          "description": "persist (default) | scratch | tmpfs | bind.",
           "title": "Type",
           "type": "string"
         }

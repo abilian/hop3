@@ -16,14 +16,16 @@ This module tests git hook commands using real database interactions:
 from __future__ import annotations
 
 import shutil
+import subprocess
 from subprocess import CalledProcessError
 from typing import TYPE_CHECKING
-from unittest.mock import Mock, patch
+from unittest.mock import patch
 
 import pytest
 
 from hop3.commands.git import GitHookCmd
 from hop3.config import HopConfig
+from hop3.deployers.volumes import previous_source_path
 from hop3.orm import App
 
 if TYPE_CHECKING:
@@ -31,6 +33,20 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     from sqlalchemy.orm import Session
+
+
+def _commit(repo: Path, files: dict[str, str]) -> str:
+    """Make ``repo`` a git repository holding one commit of ``files``."""
+    git = ["git", "-C", str(repo), "-c", "user.name=t", "-c", "user.email=t@t"]
+    subprocess.run([*git, "init", "-q"], check=True)
+    for name, text in files.items():
+        (repo / name).write_text(text)
+    subprocess.run([*git, "add", "."], check=True)
+    subprocess.run([*git, "commit", "-q", "-m", "c"], check=True)
+    out = subprocess.run(
+        [*git, "rev-parse", "HEAD"], check=True, capture_output=True, text=True
+    )
+    return out.stdout.strip()
 
 
 @pytest.fixture
@@ -218,43 +234,18 @@ class TestGitHookCmdIntegration:
     def test_git_hook_extract_commit_to_source(
         self, db_session: Session, test_git_app: App
     ):
-        """
-        Test commit extraction from git repository.
+        """The commit's tree replaces src/; the old tree is set aside, not lost."""
+        (test_git_app.src_path / "old_file.txt").write_text("old content")
+        commit_sha = _commit(test_git_app.repo_path, {"app.py": "print('v2')\n"})
 
-        ARRANGE:
-            - Create app with temporary git repository paths
-            - Mock subprocess.run for git operations
-            - Mock shutil.rmtree for cleanup
+        GitHookCmd(db_session=db_session)._extract_commit_to_source(
+            test_git_app, commit_sha
+        )
 
-        ACT:
-            - Call _extract_commit_to_source with commit SHA
-
-        ASSERT:
-            - Verify git archive command was called with correct parameters
-            - Verify tar extraction was called with correct path
-            - Verify source directory operations (cleanup and creation)
-        """
-        commit_sha = "68f7abf4e6f922807889f52bc043ecd31b79f814"
-
-        cmd = GitHookCmd(db_session=db_session)
-
-        with patch("subprocess.run") as mock_run, patch("shutil.rmtree"):
-            # Mock successful subprocess calls
-            mock_run.return_value = Mock(returncode=0)
-
-            cmd._extract_commit_to_source(test_git_app, commit_sha)
-
-            # Verify git archive was called
-            archive_call = mock_run.call_args_list[0]
-            assert "git" in archive_call[0][0]
-            assert "archive" in archive_call[0][0]
-            assert commit_sha in archive_call[0][0]
-            assert archive_call[1]["cwd"] == test_git_app.repo_path
-
-            # Verify tar extraction was called
-            tar_call = mock_run.call_args_list[1]
-            assert "tar" in tar_call[0][0]
-            assert "-xf" in tar_call[0][0]
+        assert (test_git_app.src_path / "app.py").read_text() == "print('v2')\n"
+        assert not (test_git_app.src_path / "old_file.txt").exists()
+        previous = previous_source_path(test_git_app)
+        assert (previous / "old_file.txt").read_text() == "old content"
 
     def test_git_hook_handles_multiple_refs_first_only(
         self, db_session: Session, test_git_app: App
@@ -399,49 +390,6 @@ bb563327e2c4f5af8g7g09552gb67057eecde7b25 79g8bcg5f7g033918900g63cd054fce42c80g9
 
             with pytest.raises(CalledProcessError):
                 cmd._extract_commit_to_source(test_git_app, commit_sha)
-
-    def test_git_hook_source_directory_cleanup(
-        self, db_session: Session, test_git_app: App, tmp_path: Path
-    ):
-        """
-        Test that existing source directory is cleaned before extraction.
-
-        ARRANGE:
-            - Create app with existing files in source directory
-            - Mock subprocess calls for git operations
-
-        ACT:
-            - Call _extract_commit_to_source with app that has existing files
-
-        ASSERT:
-            - Verify old source directory is removed
-            - Verify new source directory is created
-            - Verify directory cleanup is called before recreation
-        """
-        # Create some existing files in source directory
-        test_git_app.src_path.mkdir(parents=True, exist_ok=True)
-        (test_git_app.src_path / "old_file.txt").write_text("old content")
-
-        assert (test_git_app.src_path / "old_file.txt").exists()
-
-        commit_sha = "68f7abf4e6f922807889f52bc043ecd31b79f814"
-
-        cmd = GitHookCmd(db_session=db_session)
-
-        with patch("subprocess.run") as mock_run, patch("shutil.rmtree") as mock_rmtree:
-            mock_run.return_value = Mock(returncode=0)
-
-            cmd._extract_commit_to_source(test_git_app, commit_sha)
-
-            # Verify rmtree was called to clean the directory
-            # Note: rmtree is called at least once for the source directory
-            # It may also be called for temporary directory cleanup, so we check
-            # that the source directory was removed among the calls
-            rmtree_calls = mock_rmtree.call_args_list
-            src_path_removed = any(
-                call[0][0] == test_git_app.src_path for call in rmtree_calls
-            )
-            assert src_path_removed, "Source directory should have been removed"
 
     def test_git_hook_whitespace_handling_in_push_data(
         self, db_session: Session, test_git_app: App

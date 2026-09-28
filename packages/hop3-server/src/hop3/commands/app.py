@@ -24,7 +24,7 @@ from hop3.core.git import clone_repository
 from hop3.core.identifiers import validate_app_name, validate_repo_url
 from hop3.core.plugins import get_addon
 from hop3.core.roles import Role
-from hop3.deployers import do_deploy, stop_previous_instance
+from hop3.deployers import do_deploy, make_way_for_new_source
 from hop3.deployers.admin_bootstrap import (
     format_admin_credential,
     read_admin_credential,
@@ -263,12 +263,10 @@ class DeployCmd(Command):
             self.db_session.commit()
             server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)
 
-        # Stop a still-running previous instance BEFORE replacing its source:
-        # extract_archive_to_dir clears src/, and a live process holding build
-        # outputs there (target/*.jar, node_modules, dist) makes the next
-        # rebuild race it (truncated jar, ENOTEMPTY, ETXTBSY). No-op on a first
-        # deploy. See deployers.deployer.stop_previous_instance.
-        stop_previous_instance(app)
+        # Stop a still-running previous instance BEFORE replacing its source,
+        # and set the old tree aside for the volumes this deploy declares.
+        # No-op on a first deploy. See deployers.deployer.make_way_for_new_source.
+        make_way_for_new_source(app)
 
         archives_bytes = b64decode(cast("str", kwargs["repository"]))
         extract_archive_to_dir(archives_bytes, app.src_path)

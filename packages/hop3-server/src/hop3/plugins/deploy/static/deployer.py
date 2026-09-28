@@ -179,7 +179,7 @@ class StaticDeployer:
         served = Path(static_path)
         if not served.is_absolute():
             served = self.app.src_path / served
-        grant_web_server_read(served)
+        grant_web_server_read(served, (self.app.volumes_path, self.app.scratch_path))
 
     def start(self) -> None:
         """Start the static app (same as deploy)."""

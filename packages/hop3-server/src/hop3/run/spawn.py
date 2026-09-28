@@ -12,7 +12,7 @@ import subprocess
 import time
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy.orm import object_session
 
@@ -65,8 +65,50 @@ def _extract_nix_store_paths(commands: Iterable[str]) -> list[str]:
     return sorted(paths)
 
 
+def _through_volume_links(
+    src: Path, dest: Path
+) -> Callable[[str, list[str]], set[str]]:
+    """
+    A ``copytree`` ignore that never copies through a link already in ``dest``.
+
+    Those links are the app's volumes, realized before this copy. Copying
+    through one would put the store's pristine files over the app's data on
+    every redeploy. An empty volume is seeded from the store instead, the way a
+    volume is seeded from what a source tree ships at its target.
+    """
+
+    def ignore(directory: str, names: list[str]) -> set[str]:
+        here = dest / Path(directory).relative_to(src)
+        links = {name for name in names if (here / name).is_symlink()}
+        for name in links:
+            shipped = Path(directory) / name
+            storage = (here / name).resolve()
+            if shipped.is_dir() and storage.is_dir() and not any(storage.iterdir()):
+                shutil.copytree(shipped, storage, dirs_exist_ok=True)
+                _add_owner_write(storage)
+        return links
+
+    return ignore
+
+
+def _add_owner_write(root: Path) -> None:
+    """
+    Make a copied store tree writable by its owner, ``root`` included.
+
+    Store trees are read-only, and copytree preserves mode — including on the
+    destination ITSELF, which came out 0555 and left the app directory
+    impossible to write or clean up ("Permission denied: hop3.nix" on the next
+    deploy's teardown). Failures are NOT suppressed: a tree the app cannot
+    write to is the exact condition the writable tree exists to avoid, so it
+    must not be discovered later as a puzzling application error.
+    """
+    for path in [root, *root.rglob("*")]:
+        if not path.is_symlink():
+            path.chmod(path.stat().st_mode | stat.S_IWUSR)
+
+
 if TYPE_CHECKING:
-    from collections.abc import Iterable
+    from collections.abc import Callable, Iterable
 
     from hop3.orm import App
 
@@ -340,6 +382,13 @@ class AppLauncher:
     #: so a redeploy does not overwrite files the app (or its bootstrap) wrote.
     _WRITABLE_TREE_MARKER = ".hop3-writable-tree"
 
+    #: Touched in the app's directory, outside src/, just before its workers
+    #: start. A file in src/ newer than it was written by the running app or by
+    #: what runs after it starts ([admin] and [probe] creation), and the next
+    #: deploy that replaces src/ deletes it unless it lives in a volume. The
+    #: test harness reads this; so could a deploy that warns before deleting.
+    WORKERS_STARTED_MARKER: ClassVar[str] = ".hop3-workers-started"
+
     def _render_php_fpm_pool(self, env: Env) -> None:
         """
         Write the php-fpm pool's config, now that the port exists.
@@ -403,7 +452,9 @@ class AppLauncher:
         # up from `public/` depends on.
         document_root = env.get("PHP_DOCUMENT_ROOT", "")
         if document_root:
-            grant_web_server_read(Path(document_root))
+            grant_web_server_read(
+                Path(document_root), (self.app.volumes_path, self.app.scratch_path)
+            )
 
     def _materialize_writable_tree(self) -> None:
         """
@@ -446,17 +497,10 @@ class AppLauncher:
             raise RuntimeError(msg)
 
         log(f"Materializing {source} into {dest}", level=2, fg="blue")
-        shutil.copytree(src, dest, dirs_exist_ok=True)
-
-        # Store trees are read-only, and copytree preserves mode — including on
-        # `dest` ITSELF, which came out 0555 and left the app directory
-        # impossible to write or clean up ("Permission denied: hop3.nix" on the
-        # next deploy's teardown). Widen the destination first, then everything
-        # under it. Failures are NOT suppressed: a tree the app cannot write to
-        # is the exact condition this whole mechanism exists to avoid, so it
-        # must not be discovered later as a puzzling application error.
-        for path in [dest, *dest.rglob("*")]:
-            path.chmod(path.stat().st_mode | stat.S_IWUSR)
+        shutil.copytree(
+            src, dest, dirs_exist_ok=True, ignore=_through_volume_links(src, dest)
+        )
+        _add_owner_write(dest)
         marker.write_text(f"{source}\n")
         log(f"Writable tree ready for '{self.app_name}'", level=2, fg="green")
 
@@ -761,6 +805,8 @@ class AppLauncher:
 
         # Execute before-run commands from artifact
         self._run_before_run_commands(env)
+
+        (self.app.app_path / self.WORKERS_STARTED_MARKER).touch()
 
         # Create new workers and remove unnecessary ones
         self.create_new_workers(to_create, env)

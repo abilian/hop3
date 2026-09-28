@@ -806,6 +806,9 @@ class BackupManager:
         results: list[dict] = []
         for vol in self._app_volumes(app):
             name = vol["name"]
+            if vol.get("type", "persist") != "persist":
+                # A scratch volume is reset on every deploy: nothing to keep.
+                continue
             backup_cfg: dict[str, Any] = vol.get("backup") or {}
             if backup_cfg.get("include") is False:
                 log(f"Skipping volume '{name}' (backup.include = false)")

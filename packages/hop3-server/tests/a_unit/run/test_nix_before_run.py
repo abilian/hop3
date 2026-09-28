@@ -144,6 +144,19 @@ def test_materialization_runs_before_the_bootstrap() -> None:
     )
 
 
+def test_the_start_marker_separates_deploy_writes_from_the_app_s_own() -> None:
+    """
+    Files in src/ newer than the marker were written by the running app. The
+    harness fails a test on them, so the marker must come after everything the
+    deploy itself writes there (the writable tree, before-run) and before the
+    workers start.
+    """
+    spawn = inspect.getsource(AppLauncher.spawn_app)
+    marker = spawn.index("WORKERS_STARTED_MARKER")
+    assert spawn.index("_run_before_run_commands(env)") < marker
+    assert marker < spawn.index("self.create_new_workers(")
+
+
 def test_the_app_directory_itself_ends_up_writable(tmp_path) -> None:
     """
     copytree preserves mode — including on the destination.
@@ -165,6 +178,43 @@ def test_the_app_directory_itself_ends_up_writable(tmp_path) -> None:
     assert os.access(src / "sub", os.W_OK)
     assert os.access(src / "sub" / "f.php", os.W_OK)
     (src / "new.php").write_text("the bootstrap can write here")
+
+
+def test_the_copy_never_writes_through_a_volume(tmp_path) -> None:
+    """
+    The marker lives in src/, which every redeploy replaces, so every redeploy
+    copies the store tree again. Volumes are already linked by then: copying
+    through one would put the store's pristine files over the app's data.
+    """
+    store = tmp_path / "store"
+    (store / "storage").mkdir(parents=True)
+    (store / "storage" / "settings.json").write_text("pristine")
+    launcher, src = _launcher(tmp_path, str(store))
+    volume = tmp_path / "volumes" / "storage"
+    volume.mkdir(parents=True)
+    (volume / "settings.json").write_text("the app's own")
+    (src / "storage").symlink_to(volume)
+
+    launcher._materialize_writable_tree()
+
+    assert (volume / "settings.json").read_text() == "the app's own"
+
+
+def test_an_empty_volume_is_seeded_from_the_store_tree(tmp_path) -> None:
+    """A Nix app's first deploy: the skeleton the app expects must be there."""
+    store = tmp_path / "store"
+    (store / "storage" / "framework").mkdir(parents=True)
+    (store / "storage" / "framework" / ".keep").write_text("")
+    (store / "storage").chmod(0o555)
+    launcher, src = _launcher(tmp_path, str(store))
+    volume = tmp_path / "volumes" / "storage"
+    volume.mkdir(parents=True)
+    (src / "storage").symlink_to(volume)
+
+    launcher._materialize_writable_tree()
+
+    assert (volume / "framework" / ".keep").exists()
+    assert os.access(volume / "framework", os.W_OK)
 
 
 def test_php_app_names_the_application_subdirectory(tmp_path) -> None:

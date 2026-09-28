@@ -652,9 +652,9 @@ class EnvRef(BaseModel):
         return self
 
 
-# Volume types for `[[volumes]]` (ADR 046 §2). Only "persist" is implemented;
-# tmpfs/bind need privileged mounts and fail loud at deploy until then.
-VOLUME_TYPES: frozenset[str] = frozenset({"persist", "tmpfs", "bind"})
+# Volume types for `[[volumes]]` (ADR 046 §2). "persist" and "scratch" are
+# implemented; tmpfs/bind need privileged mounts and fail loud at deploy until then.
+VOLUME_TYPES: frozenset[str] = frozenset({"persist", "scratch", "tmpfs", "bind"})
 
 _VOLUME_NAME_RE = re.compile(r"^[a-zA-Z0-9][a-zA-Z0-9_-]*$")
 
@@ -678,12 +678,14 @@ class VolumeBackupSection(BaseModel):
 
 class VolumeSection(BaseModel):
     """
-    A `[[volumes]]` entry — a path that survives the source-replacing redeploy.
+    A `[[volumes]]` entry — a path the app writes, kept outside `src/`.
 
-    ``persist`` (the default, and the only implemented type) links ``target`` —
-    a directory inside the app's source tree — to storage under the app's data
-    root (`<app>/volumes/<name>/`), so writes outlive the redeploy that wipes
-    `src/`.
+    Every deploy replaces `src/`. ``persist`` (the default) links ``target`` —
+    a directory inside the app's source tree — to storage under
+    `<app>/volumes/<name>/`, so writes outlive the redeploy and are backed up.
+    ``scratch`` links it to `<app>/scratch/<name>/`, reset from what the source
+    ships on every deploy and never backed up: for caches a new version of the
+    app must not inherit.
     """
 
     model_config = ConfigDict(extra="forbid")
@@ -695,7 +697,8 @@ class VolumeSection(BaseModel):
         description="Directory inside the app tree to back with the volume (relative).",
     )
     type: str = Field(
-        default="persist", description="persist (default) | tmpfs | bind."
+        default="persist",
+        description="persist (default) | scratch | tmpfs | bind.",
     )
     size: str | None = Field(
         default=None, description="Size cap for a tmpfs volume (e.g. '256M')."
@@ -766,6 +769,19 @@ class VolumeSection(BaseModel):
             msg = (
                 f"[[volumes]] {self.name!r}: 'size' is only valid for tmpfs "
                 "volumes (which are not implemented yet)."
+            )
+            raise ValueError(msg)
+        return self
+
+    @model_validator(mode="after")
+    def _check_no_backup_for_scratch(self) -> VolumeSection:
+        # A scratch volume is emptied on every deploy; a backup policy on one
+        # promises something the platform will never do.
+        if self.backup is not None and self.type == "scratch":
+            msg = (
+                f"[[volumes]] {self.name!r}: a scratch volume is reset on every "
+                "deploy and never backed up; remove [volumes.backup], or use "
+                "type = 'persist' if its contents must be kept."
             )
             raise ValueError(msg)
         return self

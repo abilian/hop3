@@ -48,6 +48,7 @@ def test_valid_volumes_pass():
         '[[volumes]]\nname = "store"\ntarget = "storage"\n[volumes.backup]\ninclude = true\n'
         # size is valid only on a tmpfs volume:
         '[[volumes]]\nname = "scratch"\ntarget = "tmp"\ntype = "tmpfs"\nsize = "256M"\n'
+        '[[volumes]]\nname = "views"\ntarget = "cache/views"\ntype = "scratch"\n'
     )
     validate_hop3_toml(tomllib.loads(toml))  # must not raise
 
@@ -68,6 +69,8 @@ def test_valid_volumes_pass():
         '[[volumes]]\nname = "dup"\ntarget = "a"\n[[volumes]]\nname = "dup"\ntarget = "b"',
         # typo'd backup key — must not silently still back the volume up
         '[[volumes]]\nname = "x"\ntarget = "data"\n[volumes.backup]\ninclide = false',
+        # a scratch volume is never backed up; a policy on one promises otherwise
+        '[[volumes]]\nname = "x"\ntarget = "c"\ntype = "scratch"\n[volumes.backup]\ninclude = true',
     ],
 )
 def test_invalid_volumes_rejected(toml):

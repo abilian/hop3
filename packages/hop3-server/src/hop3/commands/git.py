@@ -6,20 +6,18 @@
 
 from __future__ import annotations
 
-import shutil
 import socket
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass
-from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.git import GitManager
 from hop3.core.identifiers import validate_app_name
 from hop3.core.roles import Role
-from hop3.deployers import do_deploy
+from hop3.deployers import do_deploy, make_way_for_new_source
 from hop3.lib import log
+from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.args import pop_app_flag
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
@@ -122,62 +120,24 @@ class GitHookCmd(Command):
 
     def _extract_commit_to_source(self, app: App, commit_sha: str) -> None:
         """
-        Extract a specific commit from the git repository to the source directory.
+        Replace the app's source tree with the tree of ``commit_sha``.
 
-        This uses `git archive` to safely extract a commit without checking out
-        the repository. The archive is created in a temporary location and then
-        extracted to the app's source directory.
-
-        Args:
-            app: The application instance
-            commit_sha: The git commit SHA to extract
+        `git archive` reads the commit without checking out the bare repository.
+        The archive goes through the hardened extractor an upload and the SSH
+        push hook (`server/cli/git.py`) use, so its checks live in one place.
 
         Raises:
-            subprocess.CalledProcessError: If git operations fail
+            subprocess.CalledProcessError: If `git archive` fails
         """
-        # Clean the source directory first
-        if app.src_path.exists():
-            log(f"Cleaning existing source directory: {app.src_path}", level=2)
-            shutil.rmtree(app.src_path)
-        app.src_path.mkdir(parents=True, exist_ok=True)
-
-        # Use git archive to create a tarball from the commit
-        # This is safer than git checkout as it doesn't modify the bare repo
-        with tempfile.TemporaryDirectory() as tmpdir:
-            archive_path = Path(tmpdir) / "commit.tar"
-
-            # Create archive from commit
-            log(f"Creating archive from commit {commit_sha[:8]}", level=2)
-            cmd = [
-                "git",
-                "archive",
-                "--format=tar",
-                f"--output={archive_path}",
-                commit_sha,
-            ]
-            subprocess.run(
-                cmd,
-                cwd=app.repo_path,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
-
-            # Extract archive to source directory
-            log(f"Extracting archive to {app.src_path}", level=2)
-            cmd = [
-                "tar",
-                "-xf",
-                str(archive_path),
-                "-C",
-                str(app.src_path),
-            ]
-            subprocess.run(
-                cmd,
-                check=True,
-                capture_output=True,
-                text=True,
-            )
+        make_way_for_new_source(app)
+        log(f"Extracting commit {commit_sha[:8]} to {app.src_path}", level=2)
+        archive = subprocess.run(
+            ["git", "archive", "--format=tar.gz", commit_sha],
+            cwd=app.repo_path,
+            check=True,
+            capture_output=True,
+        )
+        extract_archive_to_dir(archive.stdout, app.src_path)
 
         log(
             f"Successfully extracted commit {commit_sha[:8]} to source",

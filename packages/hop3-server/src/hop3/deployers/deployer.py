@@ -47,7 +47,11 @@ from hop3.deployers.probe_account import (
     bootstrap_probe_account,
     provision_probe_credential,
 )
-from hop3.deployers.volumes import realize_volumes
+from hop3.deployers.volumes import (
+    drop_previous_source,
+    realize_volumes,
+    retire_source_tree,
+)
 from hop3.deployers.waf import configure_waf_preflight, start_waf_proxy
 from hop3.lib import (
     Abort,
@@ -278,6 +282,17 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
         app.src_path,
         path_prepend=build_artifact.runtime.path_prepend,
     )
+
+    # --- 4.5. Link the volumes ([[volumes]], ADR 046 §2) ---
+    # After the build, before the app starts. A recipe's build usually
+    # downloads the application into src/ and moves directories into place,
+    # which a link in the way breaks (`mv` cannot rename a directory over one;
+    # a directory made to hold one receives the move instead). So the build
+    # sees the tree it always saw, and an empty volume is then seeded from
+    # the tree this deploy replaced, else from what the build left at its
+    # target. Only then does the replaced tree go.
+    realize_volumes(app, app_config.hop3_config.volumes)
+    drop_previous_source(app)
 
     # --- 5. Select and Run Deployer ---
     deployer = get_deployer(context, build_artifact)
@@ -1383,6 +1398,21 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
         return
 
 
+def make_way_for_new_source(app: App) -> None:
+    """
+    Ready an app for a deploy that replaces its source tree.
+
+    Every path that writes a new ``src/`` (an upload, a git push over RPC or
+    over SSH) calls this first, then extracts. It stops the running instance,
+    for the reasons ``stop_previous_instance`` gives, and sets the old tree
+    aside rather than deleting it: a volume the new source declares for the
+    first time is seeded from what the app wrote there, instead of that data
+    going with the tree (``realize_volumes``).
+    """
+    stop_previous_instance(app)
+    retire_source_tree(app)
+
+
 def stop_previous_instance(app: App) -> None:
     """
     Stop a still-running previous instance before its source is replaced.
@@ -1501,7 +1531,7 @@ def _prepare_source_for_build(
     """
     Ready the freshly-extracted source tree before the prebuild/build runs.
 
-    Three ordered steps, all before any build output is produced:
+    Two ordered steps, before any build output is produced:
 
     1. **Claim declared fixed ports.** Non-HTTP services (SMTP, XMPP, RTMP, …)
        bind a host port directly; only one app can own it. Claiming here fails
@@ -1512,10 +1542,10 @@ def _prepare_source_for_build(
        destructive race is — clearing src/ deletes build outputs the old process
        holds. This covers any do_deploy path that didn't already stop (e.g.
        restart); it's a no-op when the app is already stopped.
-    3. **Realize declarative volumes** ([[volumes]]). Link persistent volumes into
-       src/ before any build/run writes to them. Storage lives under
-       <app>/volumes/, outside src/, so it survives the redeploy that wipes src/
-       (ADR 046 §2). No-op when none are declared.
+
+    Volumes are linked after the build (``do_deploy``, step 4.5), not here: a
+    build that unpacks the application moves directories into place, and a
+    link where it expects nothing breaks it.
     """
     claim_fixed_ports(app, app_config, db_session)
     # Compile + validate the [waf] policy and allocate the proxy port now, so the
@@ -1526,7 +1556,6 @@ def _prepare_source_for_build(
     # policy where the proxy's check reads it (ADR 062).
     configure_access_preflight(app, app_config, db_session)
     stop_previous_instance(app)
-    realize_volumes(app, app_config.hop3_config.volumes)
 
 
 def _process_config_dependencies(

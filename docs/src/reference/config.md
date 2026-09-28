@@ -621,33 +621,46 @@ hop3 network list
 - The WAF covers the nginx-proxied HTTP path only. Services on direct host ports (`[[ports]]`) get L3/L4 firewalling, not request inspection.
 - Roll out with `mode = "detect"` first (logs, doesn't block), watch `hop3 waf logs`, then switch to `mode = "block"`.
 
-### `[[volumes]]` - Persistent Volumes
+### `[[volumes]]` - Volumes
 
-Each deploy replaces your app's source tree (`src/` is wiped and re-extracted), so anything written *inside* it is lost on the next deploy. A `[[volumes]]` declares a directory that must **survive** redeploys:
+Each deploy replaces your app's source tree (`src/` is wiped and re-extracted), so anything the app writes *inside* it is lost on the next deploy. Every directory your app writes to at runtime must be a `[[volumes]]` entry:
 
 ```toml
 [[volumes]]
 name = "uploads"
 target = "data/uploads"
+
+[[volumes]]
+name = "cache"
+target = "bootstrap/cache"
+type = "scratch"
 ```
 
-Hop3 stores the data under the app's data root (`<app>/volumes/<name>/`) — outside `src/` — and links `target` to it on every deploy, so writes persist. On the first deploy, if your source ships content at `target`, it seeds the (empty) volume once; afterwards the volume is the source of truth.
+Hop3 keeps the directory outside `src/` and links `target` to it on every deploy. Two types are implemented:
+
+- **`persist`** (the default) keeps its contents across deploys, under `<app>/volumes/<name>/`, and is included in backups. Use it for anything the app must not lose: uploads, repositories, a SQLite database, configuration the app writes itself.
+- **`scratch`** is writable and disposable, under `<app>/scratch/<name>/`. Every deploy that replaces the source resets it to what the build left at `target`, and it is never backed up. Use it for caches a new version of the app must not inherit (compiled templates, a framework's bootstrap cache).
+
+**When volumes are linked.** After the build and before the app starts, so the build (a `before-build` that downloads and unpacks the application, say) works on the source tree as it always did, and `before-run` and the app find the volumes in place.
+
+**Seeding.** An empty `persist` volume is filled once. If the app had already written into `target` before the deploy that declares the volume, that content moves into the volume, so declaring a volume for data your app already has does not lose it. Otherwise, it is filled from what the build left at `target`. After that, the volume is the source of truth: what a later build puts there is discarded.
 
 **Fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `name` | string | yes | Logical name; storage lives at `<app>/volumes/<name>/`. Letters, digits, `-`, `_` |
-| `target` | string | yes | Directory inside the app tree to persist. Relative, no `..` |
-| `type` | string | no | `persist` (default). `tmpfs` / `bind` are recognized but **not implemented yet** (they fail the deploy with a clear message) |
+| `name` | string | yes | Logical name; the storage directory is named after it. Letters, digits, `-`, `_` |
+| `target` | string | yes | Directory inside the app tree. Relative, no `..` |
+| `type` | string | no | `persist` (default) or `scratch`. `tmpfs` / `bind` are recognized but **not implemented yet** (they fail the deploy with a clear message) |
 | `size` | string | no | Size cap for a future `tmpfs` volume (e.g. `"256M"`) |
 | `mode` | string | no | Octal permissions for the volume directory |
 
 **Notes:**
 
 - `target` must be a **directory** path relative to the app's source tree; absolute paths and `..` are rejected. A file already at `target` is an error — volume targets are directories.
-- Persist volumes need no `hop3-rootd`: the link lives under the app's own directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
-- Volumes are included in `hop3 backup create` by default; set `[volumes.backup]` `include = false` to opt a volume out.
+- Volumes need no `hop3-rootd`: the link lives under the app's own directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
+- `persist` volumes are included in `hop3 backup create` by default; set `[volumes.backup]` `include = false` to opt one out. A `scratch` volume takes no `[volumes.backup]`.
+- Not available for Docker-built apps yet (the deploy refuses them).
 
 ### `[limits]` - Resource Caps
 

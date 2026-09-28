@@ -266,6 +266,25 @@ type = "redis"
 
 (`[[provider]]` with a `name` key is the deprecated spelling of the same section; new configs should use `[[addons]]` with `type`.)
 
+#### `[[volumes]]` - Where Your App Writes
+
+Every deploy replaces the app's source tree: `src/` is deleted and extracted again from the new version. Anything the running app writes inside it is lost on the next deploy, including an upgrade. So every directory the app writes to at runtime must be declared:
+
+```toml
+# Uploads, a SQLite database, configuration the app writes itself: kept
+[[volumes]]
+name = "storage"
+target = "storage/app"
+
+# A cache a new version must not inherit: reset on every deploy
+[[volumes]]
+name = "cache"
+target = "bootstrap/cache"
+type = "scratch"
+```
+
+Frameworks write in places that are easy to miss: Laravel's `storage/` and `bootstrap/cache/`, WordPress's `wp-content/uploads/`, a Django `MEDIA_ROOT`, any relative `data/` path an app resolves against its working directory (which is `src/`). `hop3-test` fails an app that writes into `src/` after it starts and lists the directories, so the test shows what to declare. See the [`[[volumes]]` reference](../reference/config.md#volumes-volumes) for seeding and the other fields.
+
 ## Complete Examples by Technology
 
 ### Python: Flask with pip
