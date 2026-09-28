@@ -51,10 +51,12 @@ from __future__ import annotations
 from hop3.plugins.build.nix.gen.spec import AppSpec, NodePnpmInstallPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
+    eject_hint,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    generated_line,
     local_source_expr,
     pinned_nixpkgs_header,
 )
@@ -230,7 +232,7 @@ class NodePnpmInstallTemplate:
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
-# GENERATED from template 'node-pnpm-install' by hop3-nix-gen.
+{generated_line("node-pnpm-install")}
 # Wraps an npm-published package ({npm_pkg}) installed via pnpm from a
 # committed lockfile: deps are fetched by a fixed-output derivation and
 # the app build itself runs offline inside the sandbox.
@@ -238,7 +240,7 @@ class NodePnpmInstallTemplate:
 # Nix store — no `cp -r` (which would break pnpm's relative
 # symlinks).
 #
-# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
+{eject_hint(spec.pname)}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

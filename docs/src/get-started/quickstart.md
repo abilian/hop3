@@ -214,7 +214,7 @@ Hop3 includes a backup system to protect your applications. Always take a backup
 hop3 backup create --app hello-hop3
 
 # List your backups
-hop3 backup list hello-hop3
+hop3 backup list --app hello-hop3
 
 # Restore if needed
 hop3 backup restore <backup-id>

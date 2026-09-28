@@ -26,10 +26,12 @@ from dataclasses import replace
 from hop3.plugins.build.nix.gen.spec import AppSpec, PhpAppPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
+    eject_hint,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    generated_line,
     local_source_expr,
     pinned_nixpkgs_header,
 )
@@ -94,8 +96,8 @@ class PhpAppTemplate:
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
-# GENERATED from template 'php-app' by hop3-nix-gen.
-# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
+{generated_line("php-app")}
+{eject_hint(spec.pname)}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

@@ -81,7 +81,7 @@ class AddonRedisFlushCmd(Command):
 
     def call(self, *args: str) -> list[dict]:
         if not args:
-            return [text("Usage: hop3 addon redis flush <name>")]
+            raise self.usage_error()
         addon_name = args[0]
         with command_context(
             "flushing addon", addon_name=addon_name, service_type=_TYPE
@@ -120,9 +120,7 @@ class AddonRedisQueryCmd(Command):
         addon_name = parsed.get("addon_name")
         command = parsed.get("command")
         if not addon_name or not command:
-            return [
-                text('Usage: hop3 addon redis query <name> --command "<redis command>"')
-            ]
+            raise self.usage_error()
         with command_context(
             "running command", addon_name=addon_name, service_type=_TYPE
         ):
@@ -147,7 +145,7 @@ class AddonRedisInfoCmd(Command):
 
     def call(self, *args: str) -> list[dict]:
         if not args:
-            return [text("Usage: hop3 addon redis info <name>")]
+            raise self.usage_error()
         addon_name = args[0]
         with command_context("reading info", addon_name=addon_name, service_type=_TYPE):
             output = _addon(addon_name).run_command("INFO")
@@ -167,7 +165,7 @@ class AddonRedisCmd(NamespaceCommand):
     Examples:
         hop3 addon redis credentials mycache            # Connection details
         hop3 addon redis dump mycache                    # Back up its keys
-        hop3 addon redis query mycache PING              # Ad-hoc redis-cli
+        hop3 addon redis query mycache --command PING    # Ad-hoc redis-cli
         hop3 addon redis info mycache                    # Server INFO
     """
 

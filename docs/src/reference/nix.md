@@ -13,7 +13,7 @@ Hop3 supports Nix-based deployments as an alternative to native buildpacks and D
    Used when the templates don't fit, or when extracted via
    `hop3 nix eject`.
 
-**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` instead of picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name>`.
+**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` instead of picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name> > hop3.nix`.
 
 ## Architecture
 
@@ -166,16 +166,14 @@ make gate-nix              # the above, AND a clean deploy of the same corpus
 ## The `nix eject` command
 
 ```bash
-hop3 nix eject --app <app-name>
+hop3 nix eject --app <app-name> > hop3.nix
 ```
 
-Materializes the auto-generated `hop3.nix` from the template into a real file in the app's source directory. After ejection:
+Prints the expression the template generates for the deployed app, with a header noting which template it came from and the date of ejection. Save it as `hop3.nix` in your project, then:
 
-- The committed `hop3.nix` is used directly by NixBuilder
-- The `[nix]` section in `hop3.toml` is ignored
-- You can edit the file freely
-
-The ejected file includes a header noting which template it came from and the date of ejection.
+- Remove the `[nix]` section from `hop3.toml`: a build refuses an app that has both
+- Edit the file freely and commit it
+- Deploy: NixBuilder uses the committed `hop3.nix` from then on
 
 Use `nix eject` when:
 

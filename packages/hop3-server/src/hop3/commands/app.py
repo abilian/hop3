@@ -161,6 +161,8 @@ class LaunchCmd(Command):
     """
     Create and configure a new application from a source code repository.
 
+    Usage: hop3 app create <repo_url> --app <name>
+
     Examples:
         hop3 app create <repo_url> --app myapp   # Create from a repo (then `hop3 deploy`)
     """
@@ -173,8 +175,7 @@ class LaunchCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = pop_app_flag(args)
         if app_name is None or len(rest) != 1:
-            msg = "Usage: hop3 launch <repo_url> --app <app_name>"
-            raise ValueError(msg)
+            raise self.usage_error()
         repo_url = validate_repo_url(rest[0])
 
         validate_app_name(app_name)
@@ -218,6 +219,8 @@ class DeployCmd(Command):
     """
     Deploy an application from its configured repository.
 
+    Usage: hop3 deploy [--app <app>] [<directory>]
+
     Examples:
         hop3 deploy                   # current app (resolved from context)
         hop3 deploy --app myapp       # explicit app
@@ -234,8 +237,7 @@ class DeployCmd(Command):
         # positional, so it must NOT be rejected like a stray arg (C9).
         app_name, _ = _resolve_app(args, allow_extra=True)
         if not app_name:
-            msg = "Usage: hop3 deploy [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
 
         validate_app_name(app_name)
 
@@ -405,6 +407,8 @@ class StatusCmd(Command):
     """
     Show detailed status of an application.
 
+    Usage: hop3 app status [--app <app>]
+
     Examples:
         hop3 app status               # current app (resolved from context)
         hop3 app status --app myapp   # explicit app
@@ -418,8 +422,7 @@ class StatusCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app status [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         app = get_app(self.db_session, app_name)
 
         # Sync state with reality for transitional states (STARTING/STOPPING)
@@ -492,8 +495,7 @@ class PingCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:  # ruff:ignore[too-many-return-statements] — each return is a distinct HTTP/network outcome (stopped, no-port, success, HTTPError, connection-refused, generic URLError, timeout) with its own formatted response; flattening would just rebuild the same shape with mutable bookkeeping.
         app_name, rest = _resolve_app(args, allow_extra=True)
         if not app_name:
-            msg = "Usage: hop3 app ping [--app <app>] [path]"
-            raise ValueError(msg)
+            raise self.usage_error()
 
         path = rest[0] if rest else "/"
         app = get_app(self.db_session, app_name)
@@ -619,8 +621,7 @@ class LogsCmd(Command):
         app_name = parsed.get("app")
 
         if not app_name:
-            msg = "Usage: hop3 app logs [--app <app>] [options]"
-            raise ValueError(msg)
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -679,8 +680,7 @@ class BuildLogsCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app build-logs [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
         return _build_log_response(app, app_name)
@@ -691,6 +691,8 @@ class BuildLogsCmd(Command):
 class StartCmd(Command):
     """
     Start a stopped application.
+
+    Usage: hop3 app start [--app <app>]
 
     Examples:
         hop3 app start                # current app (resolved from context)
@@ -704,8 +706,7 @@ class StartCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app start [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         return _run_lifecycle_action(
             self.db_session,
             app_name,
@@ -735,6 +736,8 @@ class StopCmd(Command):
     """
     Stop a running application.
 
+    Usage: hop3 app stop [--app <app>]
+
     Examples:
         hop3 app stop                 # current app (resolved from context)
         hop3 app stop --app myapp     # explicit app
@@ -747,8 +750,7 @@ class StopCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app stop [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         return _run_lifecycle_action(
             self.db_session,
             app_name,
@@ -778,6 +780,8 @@ class RestartCmd(Command):
     """
     Restart an application.
 
+    Usage: hop3 app restart [--app <app>]
+
     Examples:
         hop3 app restart              # current app (resolved from context)
         hop3 app restart --app myapp  # explicit app
@@ -791,8 +795,7 @@ class RestartCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app restart [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         return _run_lifecycle_action(
             self.db_session,
             app_name,
@@ -831,7 +834,7 @@ class DestroyCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            return [text("Usage: hop3 app destroy [--app <app>] [--force]")]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -1033,8 +1036,7 @@ class CredentialsCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app credentials [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         app = get_app(self.db_session, app_name)
         cred = read_admin_credential(app, self.db_session)
         if cred is None:
@@ -1082,8 +1084,7 @@ class CheckCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app check [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         app = get_app(self.db_session, app_name)
 
         server_log.info("running app smoke test", app_name=app_name)
@@ -1138,17 +1139,7 @@ class DebugCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            return [
-                text(
-                    "Usage: hop3 app debug [--app <app>]\n\n"
-                    "Shows comprehensive debug information including:\n"
-                    "  - App status and state\n"
-                    "  - Container info (Docker apps)\n"
-                    "  - Recent logs\n"
-                    "  - Environment variables\n"
-                    "  - Generated compose file"
-                )
-            ]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -1371,8 +1362,7 @@ class AppUpgradeCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, _ = _resolve_app(args)
         if not app_name:
-            msg = "Usage: hop3 app upgrade [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         app = get_app(self.db_session, app_name)
         if app.last_deployed_at is None:
             msg = f"App '{app_name}' has never been deployed — nothing to upgrade."
@@ -1459,8 +1449,7 @@ class AppRollbackCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         app_name, rest = _resolve_app(args, allow_extra=True)
         if not app_name:
-            msg = "Usage: hop3 app rollback [--app <app>] [--to <backup-id>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         target = parse_cli_args(rest, {"to": {"type": str}}).get("to", "")
 
         get_app(self.db_session, app_name)  # existence + name validation (raises)

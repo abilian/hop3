@@ -97,6 +97,23 @@ def test_rich_printer_does_not_wrap_long_single_line_value():
     assert token in lines, f"token was wrapped across lines: {output!r}"
 
 
+def test_summary_and_error_lines_are_not_wrapped():
+    """
+    The two items a quiet client prints stay one line each when piped.
+
+    `hop3 system status --quiet` answers with one summary line for scripts;
+    Rich wrapped it at 80 columns on stderr, as it once did the JWT on stdout.
+    """
+    line = "DEGRADED: redis unreachable — Error 111 connecting to 127.0.0.1:6379. " * 2
+    printer = RichPrinter(quiet=True)
+    stderr_capture = StringIO()
+    with patch.object(sys, "stderr", stderr_capture):
+        printer.print([{"t": "summary", "text": line}, {"t": "error", "text": line}])
+
+    lines = [ln for ln in stderr_capture.getvalue().splitlines() if ln.strip()]
+    assert len(lines) == 2, lines
+
+
 def test_rich_printer_print_blob_writes_raw_bytes_to_stdout():
     """
     A blob item (base64) is decoded and written verbatim to stdout.buffer.

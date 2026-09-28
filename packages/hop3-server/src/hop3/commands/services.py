@@ -162,28 +162,29 @@ def _resolve_addon_types(addon_name: str) -> list[str]:
     return [t for t, n in list_addon_instances() if n == addon_name]
 
 
-def _resolve_one_type(addon_name: str, explicit: str | None) -> tuple[str | None, list]:
+def _resolve_one_type(addon_name: str, parsed: dict) -> str:
     """
-    Resolve a single addon type for a type-agnostic command.
+    The type of the addon named ``addon_name``, for a type-agnostic command.
 
-    Returns ``(addon_type, error_items)``. When ``error_items`` is non-empty the
-    caller returns them as-is (unknown name, or ambiguous across types and no
-    explicit ``--type`` given).
+    ``--type`` (or ``--service-type``) wins when given; otherwise the name
+    decides. Raises ``ValueError`` for a name no addon has, and for one that
+    several types share, so the caller never guesses a type.
     """
+    explicit = parsed.get("service_type") or parsed.get("type")
     if explicit:
-        return explicit, []
+        return explicit
     types = _resolve_addon_types(addon_name)
     if not types:
-        return None, [error(f"No addon named '{addon_name}'.")]
+        msg = f"No addon named '{addon_name}'."
+        raise ValueError(msg)
     if len(types) > 1:
         joined = ", ".join(sorted(types))
-        return None, [
-            error(
-                f"Addon name '{addon_name}' is ambiguous (types: {joined}). "
-                "Pass --type <type>."
-            )
-        ]
-    return types[0], []
+        msg = (
+            f"Addon name '{addon_name}' is ambiguous (types: {joined}). "
+            "Pass --type <type>."
+        )
+        raise ValueError(msg)
+    return types[0]
 
 
 @register
@@ -208,7 +209,7 @@ class AddonEndpointCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if not args:
-            return [text("Usage: hop3 addon endpoint <name>")]
+            raise self.usage_error()
         addon_name = args[0]
         types = _resolve_addon_types(addon_name)
         if not types:
@@ -280,7 +281,7 @@ class AddonExistsCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         if not addon_name:
-            return [error("Usage: hop3 addon exists <name> [--type <type>]")]
+            raise self.usage_error()
         explicit = parsed.get("service_type") or parsed.get("type")
         types = _resolve_addon_types(addon_name)
         exists = (explicit in types) if explicit else bool(types)
@@ -324,16 +325,8 @@ class AddonExposeCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         if not addon_name:
-            return [
-                text(
-                    "Usage: hop3 addon expose <name> --source <cidr|any> [--host <fqdn>]"
-                )
-            ]
-        explicit = parsed.get("service_type") or parsed.get("type")
-        addon_type, errors = _resolve_one_type(addon_name, explicit)
-        if errors:
-            return errors
-        assert addon_type is not None
+            raise self.usage_error()
+        addon_type = _resolve_one_type(addon_name, parsed)
 
         source = parsed.get("source") or config.EXPOSE_DEFAULT_SOURCE
         if not source:
@@ -424,12 +417,8 @@ class AddonUnexposeCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         if not addon_name:
-            return [text("Usage: hop3 addon unexpose <name>")]
-        explicit = parsed.get("service_type") or parsed.get("type")
-        addon_type, errors = _resolve_one_type(addon_name, explicit)
-        if errors:
-            return errors
-        assert addon_type is not None
+            raise self.usage_error()
+        addon_type = _resolve_one_type(addon_name, parsed)
 
         with command_context(
             "unexposing addon", addon_name=addon_name, service_type=addon_type
@@ -481,15 +470,9 @@ class AddonPromoteCmd(Command):
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
         if not addon_name or not app_name:
-            return [
-                text("Usage: hop3 addon promote <name> [--app <app>] [--type <type>]")
-            ]
+            raise self.usage_error()
 
-        explicit = parsed.get("service_type") or parsed.get("type")
-        addon_type, errors = _resolve_one_type(addon_name, explicit)
-        if errors:
-            return errors
-        assert addon_type is not None
+        addon_type = _resolve_one_type(addon_name, parsed)
 
         app = self.app_repo.get_one_or_none(name=app_name)
         if not app:
@@ -612,13 +595,7 @@ class AddonCreateCmd(Command):
         server_log.info("addons create called", args=args)
 
         if len(args) < 2:
-            return [
-                text(
-                    "Usage: hop3 addon create <type> <name>\n\n"
-                    "Example:\n"
-                    "  hop3 addon create postgres my-database"
-                )
-            ]
+            raise self.usage_error()
 
         service_type = args[0]
         addon_name = args[1]
@@ -684,7 +661,7 @@ class AddonAttachCmd(Command):
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "app": {"type": str},  # --app <name>
-        "type": {"type": str, "default": "postgres"},  # --type <type>
+        "type": {"type": str},  # --type <type>, when the name is ambiguous
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
         "primary": {"flag": True, "default": False},  # attach as the primary
     }
@@ -748,16 +725,13 @@ class AddonAttachCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
-        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
 
         if not addon_name:
-            return [
-                text(
-                    "Usage: hop3 addon attach <name> [--app <app>] [--type <type>]\n\n"
-                    "Example:\n"
-                    "  hop3 addon attach my-database --app my-app --type postgres"
-                )
-            ]
+            raise self.usage_error()
+        if not app_name:
+            msg = "--app is required."
+            raise self.usage_error(msg)
+        service_type = _resolve_one_type(addon_name, parsed)
 
         server_log.info(
             "addons attach parsed args",
@@ -765,14 +739,6 @@ class AddonAttachCmd(Command):
             app_name=app_name,
             service_type=service_type,
         )
-
-        if not app_name:
-            return [
-                error(
-                    "Error: --app parameter is required\n\n"
-                    "Usage: hop3 addon attach <name> [--app <app>]"
-                )
-            ]
 
         with command_context(
             "attaching addon", addon_name=addon_name, app_name=app_name
@@ -892,7 +858,7 @@ class AddonDetachCmd(Command):
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
         "app": {"type": str},  # --app <name>
-        "type": {"type": str, "default": "postgres"},  # --type <type>
+        "type": {"type": str},  # --type <type>, when the name is ambiguous
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
@@ -925,19 +891,13 @@ class AddonDetachCmd(Command):
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
         app_name = parsed.get("app")
-        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
 
         if not addon_name:
-            return [
-                text(
-                    "Usage: hop3 addon detach <name> [--app <app>] [--type <type>]\n\n"
-                    "Example:\n"
-                    "  hop3 addon detach my-database --app my-app"
-                )
-            ]
-
+            raise self.usage_error()
         if not app_name:
-            return [error("Error: --app parameter is required")]
+            msg = "--app is required."
+            raise self.usage_error(msg)
+        service_type = _resolve_one_type(addon_name, parsed)
 
         with command_context(
             "detaching addon", addon_name=addon_name, app_name=app_name
@@ -1028,7 +988,7 @@ class AddonDestroyCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
-        "type": {"type": str, "default": "postgres"},  # --type <type>
+        "type": {"type": str},  # --type <type>, when the name is ambiguous
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
@@ -1036,17 +996,9 @@ class AddonDestroyCmd(Command):
         """Destroy an addon."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
-
         if not addon_name:
-            return [
-                text(
-                    "Usage: hop3 addon destroy <name> [--type <type>]\n\n"
-                    "WARNING: This will permanently delete all data!\n\n"
-                    "Example:\n"
-                    "  hop3 addon destroy my-database --type postgres"
-                )
-            ]
+            raise self.usage_error()
+        service_type = _resolve_one_type(addon_name, parsed)
 
         with command_context(
             "destroying addon", addon_name=addon_name, service_type=service_type
@@ -1114,7 +1066,7 @@ class AddonShowCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
-        "type": {"type": str, "default": "postgres"},  # --type <type>
+        "type": {"type": str},  # --type <type>, when the name is ambiguous
         "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
@@ -1122,16 +1074,9 @@ class AddonShowCmd(Command):
         """Get service information."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-        service_type = parsed.get("service_type") or parsed.get("type", "postgres")
-
         if not addon_name:
-            return [
-                text(
-                    "Usage: hop3 addon show <name> [--type <type>]\n\n"
-                    "Example:\n"
-                    "  hop3 addon show my-database --type postgres"
-                )
-            ]
+            raise self.usage_error()
+        service_type = _resolve_one_type(addon_name, parsed)
 
         with command_context(
             "getting addon info", addon_name=addon_name, service_type=service_type
@@ -1172,18 +1117,17 @@ class AddonStatusCmd(Command):
     # Argument specification for declarative parsing
     _arg_spec: ClassVar[dict] = {
         "addon_name": {"positional": True},
-        "service_type": {"type": str, "default": "postgres"},
+        "type": {"type": str},  # --type <type>, when the name is ambiguous
+        "service_type": {"type": str},  # --service-type <type> (preferred alias)
     }
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Get detailed addon status with health check."""
         parsed = parse_cli_args(args, self._arg_spec)
         addon_name = parsed.get("addon_name")
-
         if not addon_name:
-            return self._usage_message()
-
-        service_type = parsed["type"]
+            raise self.usage_error()
+        service_type = _resolve_one_type(addon_name, parsed)
 
         with command_context(
             "getting addon status", addon_name=addon_name, service_type=service_type
@@ -1201,16 +1145,6 @@ class AddonStatusCmd(Command):
             )
 
         return [table(headers=["Property", "Value"], rows=rows)]
-
-    def _usage_message(self) -> list[dict]:
-        """Return usage message."""
-        return [
-            text(
-                "Usage: hop3 addon status <name> [--type <type>]\n\n"
-                "Example:\n"
-                "  hop3 addon status my-database --type postgres"
-            )
-        ]
 
     def _check_addon_health(self, addon: Addon) -> tuple[str, str | None]:
         """Perform health check on addon."""

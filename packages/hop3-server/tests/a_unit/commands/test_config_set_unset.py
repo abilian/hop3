@@ -120,10 +120,8 @@ def test_config_set_mixed_valid_invalid(db_session: Session, test_app: App):
 def test_config_set_no_arguments(db_session: Session, test_app: App):
     """Test config:set with no arguments."""
     cmd = SetCmd(db_session=db_session)
-    result = cmd.call("--app", "testapp")
-
-    # Should return usage message
-    assert any("Usage:" in r.get("text", "") for r in result)
+    with pytest.raises(ValueError, match="Usage: hop3 env set"):
+        cmd.call("--app", "testapp")
 
 
 def test_config_set_nonexistent_app(db_session: Session):
@@ -206,10 +204,8 @@ def test_config_unset_mixed_existing_nonexistent(db_session: Session, test_app: 
 def test_config_unset_no_arguments(db_session: Session, test_app: App):
     """Test config:unset with no arguments."""
     cmd = UnsetCmd(db_session=db_session)
-    result = cmd.call("--app", "testapp")
-
-    # Should return usage message
-    assert any("Usage:" in r.get("text", "") for r in result)
+    with pytest.raises(ValueError, match="Usage: hop3 env unset"):
+        cmd.call("--app", "testapp")
 
 
 def test_config_unset_nonexistent_app(db_session: Session):

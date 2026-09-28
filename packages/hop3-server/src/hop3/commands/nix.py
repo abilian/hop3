@@ -6,16 +6,19 @@
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
+from datetime import datetime, timezone
 from typing import TYPE_CHECKING, ClassVar
 
 from hop3.core.roles import Role
+from hop3.lib.args import pop_app_flag, reject_extra_args
 from hop3.lib.registry import register
 
-from ._base import NamespaceCommand
+from ._base import Command
 from ._errors import command_context
 from ._helpers import get_app
-from ._response import error, text
+from ._response import blob, error, summary
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -25,33 +28,46 @@ if TYPE_CHECKING:
 
 @register
 @dataclass(frozen=True)
-class NixEjectCmd(NamespaceCommand):
+class NixEjectCmd(Command):
     """
-    Generate and save a hop3.nix file from the [nix] template config.
+    Print the hop3.nix an app's [nix] template generates, to edit by hand.
 
-    This materializes the auto-generated Nix expression as a real file
-    in the app's source directory. After ejection, the NixBuilder uses
-    the committed hop3.nix instead of regenerating from the template.
+    Usage: hop3 nix eject [--app <app>] > hop3.nix
 
-    Use this when the template can't express your app's needs and you
-    need to customize the Nix expression directly.
+    Generates the expression the NixBuilder builds at deploy time from the
+    app's [nix] section and writes it to stdout, with a header naming the
+    template and the date. Save it as hop3.nix in your project, remove the
+    [nix] section from hop3.toml (a build refuses an app that has both), and
+    deploy: the file is yours from then on.
+
+    Use this when the template can't express your app's needs.
+
+    Examples:
+        hop3 nix eject --app myapp > hop3.nix
     """
 
     # Hidden per ADR 036 D3: removed from user-visible CLI surface. Still
-    # invokable explicitly (`hop3 nix eject <app>`) for dev/recovery.
+    # invokable explicitly (`hop3 nix eject --app <app>`) for dev/recovery.
     name: ClassVar[tuple[str, ...]] = ("nix", "eject")
     min_role: ClassVar[Role] = Role.DEPLOYER
     hidden: ClassVar[bool] = True
     db_session: Session
 
-    def run(self, app_name: str) -> list:
+    def call(self, *args: str, **kwargs: object) -> list[dict]:
+        app_name, rest = pop_app_flag(args)
+        if not app_name:
+            raise self.usage_error()
+        reject_extra_args(rest)
         with command_context(" ".join(self.name), app_name=app_name):
             app = get_app(self.db_session, app_name)
             return self._eject(app)
 
-    def _eject(self, app: App) -> list:
+    def _eject(self, app: App) -> list[dict]:
         from hop3.plugins.build.nix.gen import (  # ruff:ignore[import-outside-top-level]
             generate,
+        )
+        from hop3.plugins.build.nix.gen.templates.base import (  # ruff:ignore[import-outside-top-level]
+            ejected,
         )
         from hop3.plugins.build.nix.gen.toml_adapter import (  # ruff:ignore[import-outside-top-level]
             app_spec_from_config,
@@ -60,7 +76,6 @@ class NixEjectCmd(NamespaceCommand):
             AppConfig,
         )
 
-        # Load app config
         try:
             app_config = AppConfig.from_dir(app.app_path)
         except ValueError as e:
@@ -79,44 +94,16 @@ class NixEjectCmd(NamespaceCommand):
                 )
             ]
 
-        # Check if hop3.nix already exists
-        nix_file = app.src_path / "hop3.nix"
-        if nix_file.exists():
-            return [
-                error(
-                    f"hop3.nix already exists at {nix_file}. "
-                    "Remove it first if you want to re-eject from the template."
-                )
-            ]
-
-        # Generate
-        metadata = hop3_config.get("metadata", {})
-        spec = app_spec_from_config(nix_config, metadata, app.name)
-        nix_text = generate(spec)
-
-        # Add ejection header
-        from datetime import datetime, timezone  # ruff:ignore[import-outside-top-level]
-
-        now = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        header = (
-            f"# Ejected from template '{spec.template}' on {now}.\n"
-            f"# This file is now yours to customize.\n"
-            f"# The [nix] section in hop3.toml is ignored when hop3.nix exists.\n"
+        spec = app_spec_from_config(
+            nix_config, hop3_config.get("metadata", {}), app.name
         )
-        # Replace the GENERATED header with ejected header
-        nix_text = nix_text.replace(
-            f"# GENERATED from template '{spec.template}' by hop3-nix-gen.\n"
-            f"# Run 'hop3 nix eject {spec.pname}' to materialize for customization.",
-            header.rstrip(),
-        )
-
-        # Write
-        nix_file.write_text(nix_text)
-
+        today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
+        nix_text = ejected(generate(spec), spec.template, spec.pname, today)
+        encoded = base64.b64encode(nix_text.encode()).decode("ascii")
         return [
-            text(
-                f"Ejected hop3.nix for '{app.name}' from template '{spec.template}'.\n"
-                f"File: {nix_file}\n"
-                f"The [nix] section in hop3.toml is now ignored — edit hop3.nix directly."
-            )
+            blob(encoded, filename="hop3.nix"),
+            summary(
+                f"ejected '{app.name}' from template '{spec.template}'. Save it as "
+                "hop3.nix, remove [nix] from hop3.toml, and deploy."
+            ),
         ]

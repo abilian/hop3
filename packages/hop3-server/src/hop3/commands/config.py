@@ -69,6 +69,8 @@ class ShowCmd(Command):
         --sources       Add a column showing each var's source (addon vs config)
 
 
+    Usage: hop3 env show [--app <app>] [--show-secrets] [--show-compose] [--sources]
+
     Examples:
         hop3 env show --app myapp                 # List env vars (secrets redacted)
         hop3 env show --app myapp --show-secrets  # Reveal full values
@@ -95,17 +97,7 @@ class ShowCmd(Command):
         show_secrets = parsed["show_secrets"]
 
         if not app_name:
-            return [
-                text(
-                    "Usage: hop3 env show [--app <app>] [--show-secrets] [--show-compose]\n\n"
-                    "Flags:\n"
-                    "  --show-secrets  Show full values, including secrets\n"
-                    "  --show-compose  Show the generated Docker Compose file\n\n"
-                    "Example:\n"
-                    "  hop3 env show --app myapp\n"
-                    "  hop3 env show --app myapp --show-secrets"
-                )
-            ]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -185,6 +177,8 @@ class GetCmd(Command):
     """
     Get a specific environment variable.
 
+    Usage: hop3 env get [--app <app>] <key>
+
     Examples:
         hop3 env get --app myapp KEY   # Show one env var's value
     """
@@ -207,13 +201,7 @@ class GetCmd(Command):
         setting = remaining[0] if remaining else None
 
         if not app_name or not setting:
-            return [
-                text(
-                    "Usage: hop3 env get [--app <app>] <key>\n\n"
-                    "Example:\n"
-                    "  hop3 env get --app myapp DATABASE_URL"
-                )
-            ]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
         env = app.get_runtime_env()
@@ -258,13 +246,7 @@ class LiveCmd(Command):
         show_secrets = parsed["show_secrets"]
 
         if not app_name:
-            return [
-                text(
-                    "Usage: hop3 env live [--app <app>] [--show-secrets]\n\n"
-                    "Shows the actual environment variables from the running app.\n"
-                    "Use 'env show' to see configured (pending) values."
-                )
-            ]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -394,12 +376,7 @@ class SetCmd(Command):
         settings = remaining
 
         if not app_name or not settings:
-            return [
-                text(
-                    "Usage: hop3 env set [--app <app>] KEY=VALUE [KEY2=VALUE2 ...]\n\n"
-                    "Example: hop3 env set --app myapp DEBUG=true"
-                )
-            ]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -493,12 +470,7 @@ class UnsetCmd(Command):
         keys = remaining
 
         if not app_name or not keys:
-            return [
-                text(
-                    "Usage: hop3 env unset [--app <app>] KEY [KEY2 ...]\n\n"
-                    "Example: hop3 env unset --app myapp DEBUG"
-                )
-            ]
+            raise self.usage_error()
 
         app = get_app(self.db_session, app_name)
 
@@ -547,7 +519,10 @@ class MigrateCmd(Command):
     Migrate configuration from other PaaS formats to hop3.toml.
 
     This is a one-off project-scaffolding task (Procfile → hop3.toml format
-    conversion), so it lives under `app`, not env-var management.
+    conversion), so it lives under `app`, not env-var management. Supported
+    formats: `procfile`.
+
+    Usage: hop3 app migrate <from-format> <app-dir> [--dry-run] [--backup]
 
     Examples:
         hop3 app migrate procfile /path/to/app    # Convert Procfile to hop3.toml
@@ -580,15 +555,7 @@ class MigrateCmd(Command):
             backup: If True, create backup of original file
         """
         if not from_format or not app_dir:
-            return [
-                text(
-                    "Usage: hop3 app migrate <from-format> <app-dir> [--dry-run] [--backup]\n\n"
-                    "Supported formats:\n"
-                    "  procfile    Convert Procfile to hop3.toml\n\n"
-                    "Example:\n"
-                    "  hop3 app migrate procfile /path/to/app"
-                )
-            ]
+            raise self.usage_error()
 
         if from_format.lower() != "procfile":
             return [

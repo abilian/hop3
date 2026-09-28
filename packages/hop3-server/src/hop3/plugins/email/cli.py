@@ -162,14 +162,8 @@ class AddonEmailCreateCmd(Command):
             ]
         missing = [flag for flag, val in required if not val]
         if missing:
-            return [
-                text(
-                    "Usage: hop3 addon email create <name> --from <addr> "
-                    "[--smtp-host <h> --smtp-user <u> --smtp-password <pw> "
-                    "--smtp-port 587]"
-                ),
-                error(f"missing: {', '.join(missing)}"),
-            ]
+            msg = f"Missing: {', '.join(missing)}."
+            raise self.usage_error(msg)
 
         try:
             validate_service_name(addon_name)
@@ -298,7 +292,7 @@ class AddonEmailStatusCmd(Command):
 
     def call(self, *args: str) -> list[dict]:
         if not args:
-            return [text("Usage: hop3 addon email status <name>")]
+            raise self.usage_error()
         addon_name = args[0]
         with command_context(
             "reading email addon", addon_name=addon_name, service_type=_TYPE

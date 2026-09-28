@@ -69,6 +69,8 @@ class AuthGetTokenCmd(Command):
     Pass the password without putting it on the command line:
         hop3 auth get-token alice --password-file -    # read from stdin
         hop3 auth get-token alice --password-file pw    # read from a file
+    Usage: hop3 auth get-token <username> (--password-file <path> | --stdin)
+
     """
 
     user_repo: UserRepository
@@ -94,7 +96,7 @@ class AuthGetTokenCmd(Command):
             Response with token or error message
         """
         if not username or not password:
-            return [error("Usage: hop3 auth get-token <username> <password>")]
+            raise self.usage_error()
 
         # SECURITY: every failure below returns this one string, and takes
         # bcrypt's time to do it. A distinct "account is disabled" reply, or a
@@ -275,6 +277,8 @@ class AuthMagicLinkCmd(Command):
         hop3 login --browser
 
 
+    Usage: hop3 auth magic-link <username>
+
     Examples:
         hop3 auth magic-link user@example.com
     """
@@ -310,7 +314,7 @@ class AuthMagicLinkCmd(Command):
             Response with magic token or error message
         """
         if not username:
-            return [error("Usage: hop3 auth magic-link <username>")]
+            raise self.usage_error()
 
         # Look up the user
         user = self.user_repo.get_by_username(username)

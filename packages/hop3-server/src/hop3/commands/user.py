@@ -154,12 +154,7 @@ class UserAddCmd(Command):
             Success message or error
         """
         if not username or not email or not password:
-            return [
-                error(
-                    "Usage: hop3 user add <username> <email> <password> "
-                    "[--role ROLE | --admin]"
-                )
-            ]
+            raise self.usage_error()
 
         try:
             role = _requested_role(args)
@@ -246,7 +241,7 @@ class UserRemoveCmd(Command):
             Success message or error
         """
         if not username:
-            return [error("Usage: hop3 user remove <username>")]
+            raise self.usage_error()
 
         # Prevent self-deletion
         if username == authenticated_username:
@@ -362,7 +357,7 @@ class UserEnableCmd(Command):
             Success message or error
         """
         if not username:
-            return [error("Usage: hop3 user enable <username>")]
+            raise self.usage_error()
 
         # Find the user
         user = self.user_repo.get_by_username(username)
@@ -419,7 +414,7 @@ class UserDisableCmd(Command):
             Success message or error
         """
         if not username:
-            return [error("Usage: hop3 user disable <username>")]
+            raise self.usage_error()
 
         # Prevent self-disable
         if username == authenticated_username:
@@ -476,7 +471,7 @@ class UserSetRoleCmd(Command):
     ) -> list[dict]:
         """Give ``username`` the role ``role``."""
         if not username or not role:
-            return [error("Usage: hop3 user set-role <username> <role>")]
+            raise self.usage_error()
         try:
             parsed = Role.parse(role)
         except ValueError as e:
@@ -512,7 +507,7 @@ class UserGrantAdminCmd(Command):
     ) -> list[dict]:
         """Give ``username`` the ``admin`` role."""
         if not username:
-            return [error("Usage: hop3 user grant-admin <username>")]
+            raise self.usage_error()
         return _set_role(self.user_repo, authenticated_username, username, Role.ADMIN)
 
 
@@ -548,7 +543,7 @@ class UserRevokeAdminCmd(Command):
     ) -> list[dict]:
         """Move ``username`` from ``admin`` to ``deployer``."""
         if not username:
-            return [error("Usage: hop3 user revoke-admin <username>")]
+            raise self.usage_error()
         user = self.user_repo.get_by_username(username)
         if user and not user.is_admin:
             return [text(f"User '{username}' is not an admin (role: {user.role})")]
@@ -606,7 +601,7 @@ class UserSetPasswordCmd(Command):
             Success message or error
         """
         if not username or not new_password:
-            return [error("Usage: hop3 user set-password <username> <new_password>")]
+            raise self.usage_error()
 
         # Find the user
         user = self.user_repo.get_by_username(username)
@@ -660,7 +655,7 @@ class UserShowCmd(Command):
             User information or error
         """
         if not username:
-            return [error("Usage: hop3 user info <username>")]
+            raise self.usage_error()
 
         # Find the user
         user = self.user_repo.get_by_username(username)
@@ -722,7 +717,7 @@ class UserGenerateTokenCmd(Command):
             Token or error
         """
         if not username:
-            return [error("Usage: hop3 user generate-token <username>")]
+            raise self.usage_error()
 
         # Find the user
         user = self.user_repo.get_by_username(username)

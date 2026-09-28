@@ -228,14 +228,8 @@ class ServerEmailSetCmd(Command):
             if not val
         ]
         if missing:
-            return [
-                text(
-                    "Usage: hop3 server email set (--provider <name> | "
-                    "--smtp-host <h>) --smtp-user <u> --smtp-password <pw> "
-                    "--from-domain <domain>"
-                ),
-                error(f"missing: {', '.join(missing)}"),
-            ]
+            msg = f"Missing: {', '.join(missing)}."
+            raise self.usage_error(msg)
 
         if "@" in domain or "." not in domain:
             return [
@@ -300,12 +294,6 @@ class ServerEmailSetCmd(Command):
 
 _BACKEND_KINDS = ("relay", "catch", "direct")
 
-_BACKEND_USAGE = (
-    "Usage: hop3 server email backend <relay|catch|direct> [options]\n"
-    "  relay: (--provider <name> | --smtp-host <h>) --smtp-user <u> "
-    "--smtp-password <pw> --from-domain <domain>"
-)
-
 
 @register
 @dataclass(frozen=True)
@@ -334,7 +322,8 @@ class ServerEmailBackendCmd(Command):
     def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
 
         if not args:
-            return [text(_BACKEND_USAGE), error("missing: <relay|catch|direct>")]
+            msg = "Missing: <relay|catch|direct>."
+            raise self.usage_error(msg)
 
         kind, *rest = args
         if kind == "relay":
@@ -347,10 +336,9 @@ class ServerEmailBackendCmd(Command):
             return self._configure_catch(tuple(rest))
         if kind == "direct":
             return self._configure_direct(tuple(rest))
-        return [
-            text(_BACKEND_USAGE),
-            error(f"unknown backend {kind!r}. Valid: {', '.join(_BACKEND_KINDS)}."),
-        ]
+        valid = ", ".join(_BACKEND_KINDS)
+        msg = f"Unknown backend {kind!r}. Valid: {valid}."
+        raise self.usage_error(msg)
 
     def _configure_catch(self, args: tuple[str, ...]) -> list[dict]:
         """Select the dev-catch backend: capture mail locally, never send it."""

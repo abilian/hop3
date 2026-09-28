@@ -109,19 +109,14 @@ class CatalogListCmd(Command):
         return [table(headers=["ID", "Title", "Category", "License"], rows=rows)]
 
 
-_USAGE = (
-    "Usage: hop3 catalog install <app-id> "
-    "[--app NAME] [--domain HOST] [--env KEY=VALUE]"
-)
-
-
 def _parse_install_rest(
     rest: list[str],
 ) -> tuple[str | None, list[str], list[str], str | None]:
     """
     From the tokens after ``--app`` is removed, pull the blueprint id (a lone
     positional), any ``--env`` / ``-e`` ``KEY=VALUE`` pairs, and an optional
-    ``--domain`` / ``-d`` ``<host>``.
+    ``--domain`` ``<host>``. No ``-d``: the CLI keeps it (debug output), so a
+    ``-d <host>`` never arrived here.
 
     Returns ``(app_id, env_lines, extras, domain)``; ``extras`` collects anything
     unexpected so the caller can reject it loudly rather than ignore it.
@@ -141,7 +136,7 @@ def _parse_install_rest(
             env_lines.append(tok.partition("=")[2])
             i += 1
             continue
-        if tok in {"--domain", "-d"} and i + 1 < len(rest):
+        if tok == "--domain" and i + 1 < len(rest):
             domain = rest[i + 1]
             i += 2
             continue
@@ -172,6 +167,8 @@ class CatalogInstallCmd(Command):
     ``--domain`` is given the app gets ``<name>.<admin-domain>``. Remove it later
     with ``hop3 app destroy --app <name>``.
 
+    Usage: hop3 catalog install <app-id> [--app NAME] [--domain HOST] [--env KEY=VALUE]
+
     Examples:
         hop3 catalog install bookstack
         hop3 catalog install nextcloud --app mycloud
@@ -188,10 +185,10 @@ class CatalogInstallCmd(Command):
         app_id, env_lines, extras, domain = _parse_install_rest(rest)
 
         if extras:
-            joined = " ".join(extras)
-            return [error(f"Unexpected argument(s): {joined}\n{_USAGE}")]
+            msg = f"Unexpected argument(s): {' '.join(extras)}."
+            raise self.usage_error(msg)
         if not app_id:
-            return [error(_USAGE)]
+            raise self.usage_error()
         # --app is optional: default the instance name to the blueprint id, so
         # `hop3 catalog install bookstack` installs an app named "bookstack".
         app_name = app_name or app_id

@@ -36,7 +36,11 @@ if TYPE_CHECKING:
 @register
 @dataclass(frozen=True)
 class GitHookCmd(Command):
-    """Handle git post-receive hook to trigger deployment."""
+    """
+    Handle git post-receive hook to trigger deployment.
+
+    Usage: hop3 git-hook --app <app>
+    """
 
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("git-hook",)
@@ -57,8 +61,7 @@ class GitHookCmd(Command):
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
-            msg = "Usage: hop3 git-hook <app_name>"
-            raise ValueError(msg)
+            raise self.usage_error()
 
         validate_app_name(app_name)
 
@@ -194,17 +197,17 @@ class GitSetupCmd(Command):
     deploy using `git push`.
 
     Usage:
-        hop3 git setup <app_name>
+        hop3 git setup [--app <app>]
 
     Example:
-        hop3 git setup myapp
+        hop3 git setup --app myapp
         # Then on your local machine:
         git remote add hop3 hop3@your-server:myapp
         git push hop3 main
     """
 
     # Hidden per ADR 036 D3: removed from user-visible surface. Still callable
-    # explicitly by operators (`hop3 git setup <app>`); used internally by the
+    # explicitly by operators (`hop3 git setup --app <app>`); used internally by the
     # deploy flow. Could be folded into `app git-setup` in a future revision.
     db_session: Session
     name: ClassVar[tuple[str, ...]] = ("git", "setup")
@@ -215,8 +218,7 @@ class GitSetupCmd(Command):
         app_name, _rest = pop_app_flag(args)
 
         if app_name is None:
-            msg = "Usage: hop3 git setup <app_name>"
-            raise ValueError(msg)
+            raise self.usage_error()
 
         # Get the app from database
         app = get_app(self.db_session, app_name)

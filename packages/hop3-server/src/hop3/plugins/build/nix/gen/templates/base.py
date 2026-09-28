@@ -95,6 +95,32 @@ def pinned_nixpkgs_header(rev: str | None = None, sha256: str | None = None) -> 
 PINNED_NIXPKGS_HEADER = pinned_nixpkgs_header()
 
 
+def generated_line(template: str) -> str:
+    """The header line that marks an expression as generated from ``template``."""
+    return f"# GENERATED from template '{template}' by hop3-nix-gen."
+
+
+def eject_hint(pname: str) -> str:
+    """The header line that says how to take the expression over by hand."""
+    return f"# Run 'hop3 nix eject --app {pname} > hop3.nix' to edit it by hand."
+
+
+def ejected(expression: str, template: str, pname: str, date: str) -> str:
+    """
+    A generated expression, re-headed as a file its owner now edits.
+
+    Rewrites the two header lines every template emits, wherever the template
+    puts them: prose between them once left half the templates unchanged.
+    """
+    return expression.replace(
+        generated_line(template), f"# Ejected from template '{template}' on {date}."
+    ).replace(
+        eject_hint(pname),
+        "# Yours to edit. Remove the [nix] section from hop3.toml: a build\n"
+        "# refuses an app that has both.",
+    )
+
+
 class Template(Protocol):
     """A template generates a hop3.nix expression from an AppSpec."""
 

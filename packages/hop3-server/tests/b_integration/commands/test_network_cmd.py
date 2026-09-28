@@ -90,9 +90,8 @@ def test_rm_unknown_is_an_error(db_session: Session):
 
 
 def test_add_usage_when_no_cidrs(db_session: Session):
-    out = _add(db_session, "office")
-    assert out[0]["t"] == "text"
-    assert "Usage" in out[0]["text"]
+    with pytest.raises(ValueError, match="Usage: hop3 network add"):
+        _add(db_session, "office")
 
 
 def test_list_rejects_stray_args(db_session: Session):

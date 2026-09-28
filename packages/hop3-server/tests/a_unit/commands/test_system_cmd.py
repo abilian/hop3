@@ -190,14 +190,27 @@ def test_render_rich_warn_only_uses_warning_item():
 # ---------------------------------------------------------------------------
 
 
-def test_quiet_ok_returns_single_success_item():
+def test_quiet_ok_returns_single_summary_item():
+    # A summary: a quiet client drops success and warning items.
     cmd = StatusCmd()
     out = cmd._render_quiet("ok", _all_ok_sections())
-    assert out["t"] == "success"
+    assert out["t"] == "summary"
     assert out["text"] == "OK"
 
 
-def test_quiet_warn_returns_warning_with_detail():
+def test_quiet_is_the_forwarded_verbosity(monkeypatch):
+    # `hop3 system status -q` never puts -q in args: the CLI consumes it.
+    monkeypatch.setattr(sysmod, "get_verbosity", lambda: 0)
+    monkeypatch.setattr(StatusCmd, "_gather_identity", lambda self: IDENTITY)
+    checks = ("services", "addons", "filesystem", "configuration", "certificates")
+    for check in (*checks, "disk"):
+        monkeypatch.setattr(
+            StatusCmd, f"_check_{check}", lambda self: _all_ok_sections()[0]
+        )
+    assert StatusCmd().call() == [{"t": "summary", "text": "OK"}]
+
+
+def test_quiet_warn_returns_summary_with_detail():
     cmd = StatusCmd()
     out = cmd._render_quiet("warn", _mixed_sections())
     # warn doesn't trigger fail → still warning, not error
@@ -206,7 +219,7 @@ def test_quiet_warn_returns_warning_with_detail():
         CheckSection("S", [CheckItem("Redis", "warn", "unreachable")]),
     ]
     out = cmd._render_quiet("warn", sections)
-    assert out["t"] == "warning"
+    assert out["t"] == "summary"
     assert "DEGRADED" in out["text"]
     assert "redis" in out["text"].lower()
 
@@ -300,9 +313,11 @@ def test_database_backend_reports_scheme_not_credentials(monkeypatch):
     assert sysmod._database_backend() == "sqlite"
 
 
-def test_info_verbose_lists_plugins():
+def test_info_verbose_lists_plugins(monkeypatch):
+    # `-v` is the CLI's own flag: it arrives as the verbosity, never in args.
+    monkeypatch.setattr(sysmod, "get_verbosity", lambda: 2)
     cmd = InfoCmd()
-    result = cmd.call("-v")
+    result = cmd.call()
     blob = result[0]["text"]
     assert "Loaded plugins" in blob
     # Header sections inside verbose output.

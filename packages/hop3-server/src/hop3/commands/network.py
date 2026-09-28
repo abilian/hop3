@@ -82,6 +82,8 @@ class NetworkAddCmd(Command):
 
     Re-adding an existing name replaces its CIDRs.
 
+    Usage: hop3 network add <name> <cidr> [<cidr> ...]
+
     Examples:
         hop3 network add office 203.0.113.0/24
         hop3 network add vpn 10.8.0.0/24 fd00::/8
@@ -93,7 +95,7 @@ class NetworkAddCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) < 2:
-            return [text("Usage: hop3 network add <name> <cidr> [<cidr> ...]")]
+            raise self.usage_error()
         net_name, *cidr_args = args
 
         if net_name in _RESERVED_NETWORK_NAMES:
@@ -140,6 +142,8 @@ class NetworkRmCmd(Command):
     A gate that still references it will fail to resolve at deploy time, so
     remove the reference from the app's hop3.toml too.
 
+    Usage: hop3 network rm <name>
+
     Examples:
         hop3 network rm office
     """
@@ -151,7 +155,7 @@ class NetworkRmCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) != 1:
-            return [text("Usage: hop3 network rm <name>")]
+            raise self.usage_error()
         net_name = args[0]
         repo = NetworkRepository(session=self.db_session)
         net = repo.get_by_name(net_name)

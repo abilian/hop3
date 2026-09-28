@@ -72,17 +72,12 @@ class ServerEmailNotificationsCmd(Command):
         }
         handler = handlers.get(action)
         if handler is None:
-            return [
-                text(
-                    "Usage: hop3 server email notifications "
-                    "<on|off|status|test> [--to <addr>]"
-                ),
-                error(
-                    f"unknown action {action!r}"
-                    if action
-                    else "missing action: on | off | status | test"
-                ),
-            ]
+            msg = (
+                f"Unknown action {action!r}."
+                if action
+                else "Missing action: on | off | status | test."
+            )
+            raise self.usage_error(msg)
         return handler()
 
     def _on(self, recipient: str) -> list[dict]:

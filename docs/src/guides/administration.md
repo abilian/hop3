@@ -359,7 +359,7 @@ For application-level backups, see the [Backup and Restore Guide](backup-restore
 
 ```bash
 hop3 backup create --app myapp   # Create app backup
-hop3 backup list myapp           # List backups for an app
+hop3 backup list --app myapp     # List backups for an app
 hop3 backup restore <id>         # Restore from backup
 ```
 

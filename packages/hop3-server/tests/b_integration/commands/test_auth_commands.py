@@ -169,10 +169,8 @@ def test_auth_get_token_failures_are_indistinguishable(
 def test_auth_login_missing_params(user_repo: UserRepository):
     """Test login with missing parameters."""
     cmd = AuthGetTokenCmd(user_repo=user_repo)
-    result = cmd.call("", "")
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
+    with pytest.raises(ValueError, match="Usage: hop3 auth get-token"):
+        cmd.call("", "")
 
 
 def test_auth_login_admin_user_gets_admin_scope(
@@ -264,11 +262,8 @@ def test_auth_magic_link_success(user_repo: UserRepository, admin_user: User):
 def test_auth_magic_link_requires_username(user_repo: UserRepository, admin_user: User):
     """Magic link requires an explicit username (no admin default)."""
     cmd = AuthMagicLinkCmd(user_repo=user_repo)
-    result = cmd.call("admin")  # No target username
-
-    assert isinstance(result, list)
-    assert any("error" in r.get("t", "") for r in result)
-    assert any("Usage" in str(r.get("text", "")) for r in result)
+    with pytest.raises(ValueError, match="Usage: hop3 auth magic-link"):
+        cmd.call("admin")  # No target username
 
 
 def test_auth_magic_link_nonexistent_user(user_repo: UserRepository, admin_user: User):

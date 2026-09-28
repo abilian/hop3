@@ -24,6 +24,7 @@ import pytest
 import tomllib
 
 from hop3.plugins.build.nix.gen.registry import generate, get_template
+from hop3.plugins.build.nix.gen.templates.base import ejected
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 # apps/test-apps-nix holds hand-written hop3.nix files, which this test has
@@ -72,6 +73,18 @@ def test_recipe_generates(expression):
     assert "pkgs ? import (fetchTarball" in output, (
         f"{app_dir.name}: nixpkgs not pinned"
     )
+
+
+def test_recipe_can_be_ejected(expression):
+    """`hop3 nix eject` rewrites both header lines, whatever the template."""
+    app_dir, output = expression
+    config = tomllib.loads((app_dir / "hop3.toml").read_text())
+    template = config["nix"]["template"]
+    pname = (config.get("metadata") or {}).get("id") or app_dir.name
+    result = ejected(output, template, pname, "2026-01-01")
+    assert "GENERATED" not in result, app_dir.name
+    assert "nix eject" not in result, app_dir.name
+    assert f"# Ejected from template '{template}' on 2026-01-01." in result
 
 
 def test_recipe_declares_a_reproducibility_tier(expression):

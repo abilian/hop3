@@ -215,7 +215,7 @@ hop3 backup create --app myapp
 hop3 deploy
 
 # Delete old backups (keep last 5)
-BACKUPS=$(hop3 backup list myapp | tail -n +6)
+BACKUPS=$(hop3 backup list --app myapp | tail -n +6)
 for backup in $BACKUPS; do
     hop3 backup destroy "$backup"
 done
@@ -247,7 +247,7 @@ fi
 
 # Delete old backups (keep last 5)
 echo "Cleaning up old backups..."
-OLD_BACKUPS=$(hop3 backup list myapp --json --quiet | \
+OLD_BACKUPS=$(hop3 backup list --app myapp --json --quiet | \
     jq -r '.data | sort_by(.created) | reverse | .[5:] | .[].id')
 
 for backup_id in $OLD_BACKUPS; do
@@ -371,7 +371,7 @@ hop3 app status --app myapp --json | jq .
 
 # Test your jq queries
 hop3 app status --app myapp --json | jq -r '.data.state'
-hop3 backup list myapp --json | jq -r '.data[].id'
+hop3 backup list --app myapp --json | jq -r '.data[].id'
 ```
 
 ### 3. Test Error Handling

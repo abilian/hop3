@@ -19,10 +19,12 @@ from __future__ import annotations
 from hop3.plugins.build.nix.gen.spec import AppSpec, JavaWarPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
+    eject_hint,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    generated_line,
     pinned_nixpkgs_header,
 )
 
@@ -54,8 +56,8 @@ class JavaWarTemplate:
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
-# GENERATED from template 'java-war' by hop3-nix-gen.
-# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
+{generated_line("java-war")}
+{eject_hint(spec.pname)}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

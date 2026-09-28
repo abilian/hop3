@@ -452,7 +452,7 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash skip
 hop3 addon create postgres myapp-db
-hop3 addon attach hop3-tuto-rails myapp-db
+hop3 addon attach myapp-db --app hop3-tuto-rails
 ```
 
 ### Set Environment Variables
@@ -611,7 +611,7 @@ Attach a Redis addon:
 
 ```bash skip
 hop3 addon create redis myapp-redis
-hop3 addon attach hop3-tuto-rails myapp-redis
+hop3 addon attach myapp-redis --app hop3-tuto-rails
 ```
 
 ### Active Storage with Local Storage
@@ -716,7 +716,7 @@ This backs up:
 ### Restore from Backup
 
 ```bash skip
-hop3 backup list myapp
+hop3 backup list --app myapp
 hop3 backup restore <backup-id>
 hop3 app restart --app hop3-tuto-rails
 ```
@@ -728,7 +728,7 @@ hop3 app restart --app hop3-tuto-rails
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-rails --tail
+hop3 app logs --app hop3-tuto-rails
 ```
 
 Common issues:

@@ -35,6 +35,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3.core.roles import Role
 from hop3.lib.registry import lookup
 
+from ._help_render import parse_docstring_sections
 from ._response import text
 
 if TYPE_CHECKING:
@@ -88,6 +89,23 @@ class Command:
     # signature stand without a spurious `[override]` conflict or a suppression.
     call: Callable[..., list[dict]]
 
+    def usage_error(self, reason: str = "") -> ValueError:
+        """
+        The error for a call that lacks what the command needs.
+
+        Built from the docstring's ``Usage:`` block, the text ``hop3 help``
+        shows, so the two cannot disagree. Raised, it reaches the client as
+        invalid parameters: printed on stderr, exit status 2. Answering with
+        the usage as plain text reported success, and ``hop3 addon postgres
+        export > dump.sql`` wrote "Usage: ..." into the dump.
+        """
+        usage = parse_docstring_sections(self.__doc__)["usage"]
+        name = " ".join(self.name)
+        lines = [reason] if reason else []
+        lines.append("Usage: " + "\n       ".join(usage))
+        lines.append(f"See 'hop3 help {name}' for examples.")
+        return ValueError("\n".join(lines))
+
     def get_help(self, extra: tuple[str, ...] = ()) -> list[dict]:
         """
         Default help for namespace-bare invocations (ADR 036 M4.3).
@@ -107,7 +125,6 @@ class Command:
         """
         # Lazy import to avoid an import cycle with `help.py`.
         from ._help_render import (  # ruff:ignore[import-outside-top-level]
-            parse_docstring_sections,
             render_detailed_help,
             render_subcommands,
             short_help,

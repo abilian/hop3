@@ -557,7 +557,7 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-django-db
-hop3 addon attach hop3-tuto-django hop3-tuto-django-db
+hop3 addon attach hop3-tuto-django-db --app hop3-tuto-django
 ```
 
 ### Set Environment Variables
@@ -752,7 +752,7 @@ Attach a Redis addon:
 
 ```bash skip
 hop3 addon create redis hop3-tuto-django-redis
-hop3 addon attach hop3-tuto-django hop3-tuto-django-redis
+hop3 addon attach hop3-tuto-django-redis --app hop3-tuto-django
 ```
 
 ### Django Q (Database-backed Task Queue)
@@ -943,7 +943,7 @@ This backs up:
 ### Restore from Backup
 
 ```bash skip
-hop3 backup list hop3-tuto-django
+hop3 backup list --app hop3-tuto-django
 hop3 backup restore <backup-id>
 hop3 app restart --app hop3-tuto-django
 ```
@@ -955,7 +955,7 @@ hop3 app restart --app hop3-tuto-django
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-django --tail
+hop3 app logs --app hop3-tuto-django
 ```
 
 Common issues:

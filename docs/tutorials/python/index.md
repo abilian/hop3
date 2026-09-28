@@ -57,7 +57,7 @@ These apply to every framework here:
 
   ```bash
   hop3 addon create postgres my-app-db
-  hop3 addon attach my-app my-app-db
+  hop3 addon attach my-app-db --app my-app
   ```
 - **Run setup before the web process starts.** Use `[run] before-run` (or a `prerun:` line in the `Procfile`) for database migrations and `collectstatic` — these run on every deploy before the new process takes traffic.
 - **Health checks.** Expose a cheap endpoint (the tutorials use `/up` returning `OK`) and point `[healthcheck] path` at it so Hop3 knows when your app is ready.

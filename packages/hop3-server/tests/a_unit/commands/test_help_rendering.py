@@ -91,6 +91,20 @@ def test_parse_docstring_inline_usage() -> None:
     assert "hop3 thing <arg>" in sections["usage"]
 
 
+def test_parse_docstring_prose_after_usage_is_description() -> None:
+    """A blank line ends the Usage block; what follows is not a usage line."""
+    doc = """
+    Do a thing.
+
+    Usage: hop3 thing <arg> > out.txt
+
+    Writes the thing to stdout.
+    """
+    sections = _parse_docstring_sections(doc)
+    assert sections["usage"] == ["hop3 thing <arg> > out.txt"]
+    assert sections["body"] == ["Writes the thing to stdout."]
+
+
 def test_parse_docstring_with_examples() -> None:
     doc = """
     Do a thing.

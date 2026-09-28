@@ -8,6 +8,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from hop3.commands.services import AddonEndpointCmd, AddonExistsCmd
 
 _PG_URL = "postgresql://u:secret@127.0.0.1:5432/mydb"
@@ -60,10 +62,9 @@ def test_endpoint_ambiguous_name_is_an_error(mock_list):
     assert "ambiguous" in result[0]["text"].lower()
 
 
-def test_endpoint_without_name_shows_usage():
-    result = AddonEndpointCmd().call()
-    assert result[0]["t"] == "text"
-    assert "Usage" in result[0]["text"]
+def test_endpoint_without_name_is_a_usage_error():
+    with pytest.raises(ValueError, match="Usage: hop3 addon endpoint <name>"):
+        AddonEndpointCmd().call()
 
 
 # --- addon exists (predicate) -------------------------------------------
@@ -95,5 +96,5 @@ def test_exists_respects_type_filter(mock_list):
 
 
 def test_exists_without_name_is_error():
-    result = AddonExistsCmd().call()
-    assert result[0]["t"] == "error"
+    with pytest.raises(ValueError, match="Usage: hop3 addon exists"):
+        AddonExistsCmd().call()

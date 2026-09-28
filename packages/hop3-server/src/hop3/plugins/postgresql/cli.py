@@ -102,12 +102,7 @@ class AddonPostgresExtensionsCmd(Command):
 
     def call(self, *args: str) -> list[dict]:
         if len(args) < 2:
-            return [
-                text(
-                    "Usage: hop3 addon postgres extensions <name> "
-                    "<extension> [<extension> ...]"
-                )
-            ]
+            raise self.usage_error()
         addon_name, *extensions = args
         with command_context(
             "installing extensions",
@@ -156,7 +151,7 @@ class AddonPostgresQueryCmd(Command):
         addon_name = parsed.get("addon_name")
         statement = parsed.get("command")
         if not addon_name or not statement:
-            return [text('Usage: hop3 addon postgres query <name> --command "<SQL>"')]
+            raise self.usage_error()
         with command_context(
             "running query", addon_name=addon_name, service_type=_TYPE
         ):
@@ -203,10 +198,10 @@ ORDER BY name
 """
 
 
-def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict]:
+def _diagnostic(cmd: Command, args: tuple, statement: str, label: str) -> list[dict]:
     """Shared body for the read-only diagnostic commands."""
     if not args:
-        return [text(f"Usage: hop3 addon postgres {verb} <name>")]
+        raise cmd.usage_error()
     addon_name = args[0]
     with command_context(label, addon_name=addon_name, service_type=_TYPE):
         result = _addon(addon_name).run_admin_sql(statement)
@@ -230,7 +225,7 @@ class AddonPostgresPsCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
     def call(self, *args: str) -> list[dict]:
-        return _diagnostic(args, _PS_SQL, "listing activity", "activity")
+        return _diagnostic(self, args, _PS_SQL, "listing activity")
 
 
 @register
@@ -249,7 +244,7 @@ class AddonPostgresLocksCmd(Command):
     min_role: ClassVar[Role] = Role.DEPLOYER
 
     def call(self, *args: str) -> list[dict]:
-        return _diagnostic(args, _LOCKS_SQL, "listing locks", "locks")
+        return _diagnostic(self, args, _LOCKS_SQL, "listing locks")
 
 
 @register
@@ -268,7 +263,7 @@ class AddonPostgresSettingsCmd(Command):
     min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str) -> list[dict]:
-        return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
+        return _diagnostic(self, args, _SETTINGS_SQL, "reading settings")
 
 
 # Contributed to the RPC dispatch table via PostgresqlPlugin.cli_commands().

@@ -44,10 +44,12 @@ from hop3.plugins.build.nix.gen.spec import AppSpec, RubyBundlerPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
     build_writable_home_prelude,
+    eject_hint,
     format_nix_env_attrs,
     format_paths_json,
     format_runtime_env_json,
     format_wrapper_body,
+    generated_line,
     local_source_expr,
     pinned_nixpkgs_header,
 )
@@ -114,11 +116,11 @@ class RubyBundlerTemplate:
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
-# GENERATED from template 'ruby-bundler' by hop3-nix-gen.
+{generated_line("ruby-bundler")}
 # Gems are built from a committed Gemfile.lock + gemset.nix (bundix), so the
 # dependency set is pinned and every gem is compiled from source.
 #
-# Run 'hop3 nix eject {spec.pname}' to materialize for customization.
+{eject_hint(spec.pname)}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

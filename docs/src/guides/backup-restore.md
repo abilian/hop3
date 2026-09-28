@@ -164,7 +164,7 @@ hop3 backup list <app-name>
 
 **Example:**
 ```bash
-hop3 backup list blog
+hop3 backup list --app blog
 ```
 
 Shows only backups for the specified application.
@@ -185,7 +185,7 @@ Shows the 10 most recent backups (default limit is 20).
 ### Combined Filtering
 
 ```bash
-hop3 backup list blog --limit 5
+hop3 backup list --app blog --limit 5
 ```
 
 Shows the 5 most recent backups for the "blog" application.
@@ -446,7 +446,7 @@ Error: Backup '20251108_143022_a8f3d9' not found
 hop3 backup list
 
 # Check if you have the correct app name
-hop3 backup list myapp
+hop3 backup list --app myapp
 ```
 
 ### "Checksum mismatch"

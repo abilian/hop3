@@ -13,6 +13,8 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from hop3.commands import services
 from hop3.commands.services import (
     AddonDestroyCmd,
@@ -51,12 +53,13 @@ def test_expose_requires_host_when_no_admin_domain():
 
 
 def test_expose_ambiguous_type():
-    with patch.object(
-        services, "_resolve_addon_types", return_value=["postgres", "redis"]
+    with (
+        patch.object(
+            services, "_resolve_addon_types", return_value=["postgres", "redis"]
+        ),
+        pytest.raises(ValueError, match="ambiguous"),
     ):
-        items = _expose_cmd().call("cache", "--source", "any", "--host", "h")
-    assert items[0]["t"] == "error"
-    assert "ambiguous" in items[0]["text"].lower()
+        _expose_cmd().call("cache", "--source", "any", "--host", "h")
 
 
 def test_expose_happy_path_returns_data_and_summary():

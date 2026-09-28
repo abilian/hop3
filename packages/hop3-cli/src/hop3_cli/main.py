@@ -42,7 +42,7 @@ from .core.alias_registry import (
     load_user_aliases_from_config,
     resolve_aliases,
 )
-from .core.app_scope import NEW_APP_SCOPED_COMMANDS, is_app_scoped
+from .core.app_scope import EXPLICIT_APP_COMMANDS, RUN_COMMANDS, is_app_scoped
 from .core.deploy_preview import (
     build_plan,
     domain_target_warnings,
@@ -176,7 +176,7 @@ def run_command_from_args(cli_args: list[str]) -> None:
     intercept_app_shell(cli_args, config)
     _check_project_mismatch(cli_args, flags, app_resolution)
     _check_workspace_dependency(cli_args, flags)
-    _check_stray_dry_run(cli_args, flags)
+    cli_args = _forward_dry_run(cli_args, flags)
     _handle_deploy_preview(cli_args, flags, config, app_resolution, context_resolution)
     _update_printer_scope(printer, config, cli_args)
     _check_prerequisites(cli_args, config, printer, flags)
@@ -561,11 +561,11 @@ def _inject_resolved_app(
         return cli_args
 
     # Create-style commands (e.g. `catalog install`) name a NEW app via --app, so
-    # an AMBIENT app must never be substituted as that name. When --app is omitted
-    # (flags.app is falsy), forward argv unchanged so the server's own "requires
-    # --app" guard fires loudly — rather than silently installing under whatever
-    # app the current directory / $HOP3_APP / context resolves to.
-    if not flags.app and tuple(cli_args[:n_consumed]) in NEW_APP_SCOPED_COMMANDS:
+    # an AMBIENT app must never be substituted as that name: without --app, the
+    # server's own "requires --app" guard fires loudly rather than installing
+    # under whatever app the current directory resolves to. Listings (`addon
+    # list`) take --app as a filter, and bare means "everything".
+    if not flags.app and tuple(cli_args[:n_consumed]) in EXPLICIT_APP_COMMANDS:
         return cli_args
 
     # The app is ALWAYS a flag, never a positional (ADR 036 D5). `parse_flags`
@@ -674,22 +674,27 @@ def _check_workspace_dependency(cli_args: list[str], flags: CliFlags) -> None:
         sys.exit(ExitCode.RESOLUTION_ERROR)
 
 
-def _check_stray_dry_run(cli_args: list[str], flags: CliFlags) -> None:
+def _forward_dry_run(cli_args: list[str], flags: CliFlags) -> list[str]:
     """
-    Warn (don't silently ignore) when ``--dry-run`` is given for a
-    command that doesn't yet support it. Avoids the worst-of-both-worlds
-    case where ``hop3 restart --dry-run`` parses the flag, takes no
-    notice of it, and actually restarts.
+    Hand ``--dry-run`` back to the command it was typed for.
+
+    ``parse_flags`` consumes the flag for ``deploy``, whose plan the client
+    prints itself. Every other command gets it back: one that previews
+    (``system cleanup``, ``admin reencrypt-credentials``) previews, and one
+    that cannot refuses the unknown flag. Dropping it instead, with a warning,
+    made ``hop3 system cleanup --dry-run`` prune for real.
     """
-    if not flags.dry_run:
-        return
-    if not cli_args or cli_args[0] == "deploy":
-        return
-    print(
-        f"warning: --dry-run is currently only honored for `hop3 deploy`; "
-        f"continuing with `hop3 {cli_args[0]}` as if it were absent.",
-        file=sys.stderr,
-    )
+    if not flags.dry_run or cli_args[:1] == ["deploy"]:
+        return cli_args
+    if tuple(cli_args[:1]) in RUN_COMMANDS or tuple(cli_args[:2]) in RUN_COMMANDS:
+        # Appended, it would land on the program's own command line.
+        print(
+            "Error: `hop3 run` has no --dry-run; a flag for the program goes "
+            "after the program's name.",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.USAGE_ERROR)
+    return [*cli_args, "--dry-run"]
 
 
 def _deploy_source_path(cli_args: list[str]) -> Path:

@@ -431,7 +431,7 @@ Attach a database addon:
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-express-db
-hop3 addon attach hop3-tuto-express hop3-tuto-express-db
+hop3 addon attach hop3-tuto-express-db --app hop3-tuto-express
 ```
 
 ### Adding Redis for Sessions/Caching
@@ -464,7 +464,7 @@ Attach a Redis addon:
 
 ```bash skip
 hop3 addon create redis hop3-tuto-express-redis
-hop3 addon attach hop3-tuto-express hop3-tuto-express-redis
+hop3 addon attach hop3-tuto-express-redis --app hop3-tuto-express
 ```
 
 ### Using PM2 for Process Management
@@ -559,7 +559,7 @@ app.use(morgan(process.env.NODE_ENV === 'production' ? 'combined' : 'dev'));
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-express --tail
+hop3 app logs --app hop3-tuto-express
 ```
 
 Common issues:

@@ -1241,39 +1241,34 @@ hop3 domain clear [--app <app>]
 
 ### `hop3 nix eject`
 
-Materialize the auto-generated `hop3.nix` from a `[nix]` template config into a real `hop3.nix` file in the app's source directory. After ejection, the NixBuilder uses the committed `hop3.nix` instead of regenerating from the template, and the `[nix]` section in `hop3.toml` is ignored.
+Print the `hop3.nix` a `[nix]` template generates for a deployed app, to take it over by hand. Once you commit it and remove the `[nix]` section from `hop3.toml` (a build refuses an app that has both), the NixBuilder uses the committed `hop3.nix` instead of regenerating from the template.
 
 Use `nix eject` when you've outgrown the templates and need to customise the generated Nix expression directly.
 
 **Usage:**
 ```bash
-hop3 nix eject <app-name>
+hop3 nix eject [--app <app-name>] > hop3.nix
 ```
 
 **Behavior:**
-- Reads the `[nix]` section from the app's `hop3.toml`
+- Reads the `[nix]` section from the deployed app's `hop3.toml`
 - Generates the Nix expression using the same template engine that
   the NixBuilder uses at deploy time
-- Writes the result as `hop3.nix` in the app's source directory,
-  with a header noting which template it came from and the date
-- Refuses to overwrite an existing `hop3.nix`
+- Writes it to stdout, with a header noting which template it came from
+  and the date; nothing changes on the server
 
 **Example:**
 ```bash
 # Eject the generated Nix for the "myapp" deployment
-hop3 nix eject myapp
+hop3 nix eject --app myapp > hop3.nix
 
-# Inspect the result
-cat /path/to/myapp-source/hop3.nix
-
-# Edit it freely — the [nix] section in hop3.toml is now ignored
+# Remove the [nix] section from hop3.toml, edit hop3.nix freely, commit,
+# and deploy
 ```
 
 **Errors:**
 - "App has no hop3.toml" — the app source has no `hop3.toml`
 - "No `[nix]`.template in hop3.toml" — the app isn't using template mode
-- "hop3.nix already exists" — remove the existing file first if you
-  want to re-eject
 
 **See also:**
 - [Nix deployment guide](../guides/nix-deployment.md)
@@ -1326,7 +1321,7 @@ List all backups, optionally filtered by application.
 
 **Usage:**
 ```bash
-hop3 backup list [app_name]
+hop3 backup list [--app <app>] [--limit N]
 ```
 
 **Examples:**
@@ -1335,7 +1330,7 @@ hop3 backup list [app_name]
 hop3 backup list
 
 # List backups for specific app
-hop3 backup list myapp
+hop3 backup list --app myapp
 ```
 
 **Example Output:**
@@ -1486,7 +1481,7 @@ hop3 addon attach <service_name> --app <app_name> [--service-type <type>]
 - `--app` - Name of application
 
 **Options:**
-- `--service-type` - Service type (default: postgres)
+- `--service-type` (or `--type`) - The addon's type, needed only when two addons of different types share the name; otherwise the name decides
 - `--primary` - Make this the primary addon of its type for the app (see below)
 
 **Example:**

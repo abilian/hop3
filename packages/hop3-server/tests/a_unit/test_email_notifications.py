@@ -306,9 +306,8 @@ def test_cli_test_without_transport_fails_loud(notif_root):
 
 
 def test_cli_unknown_action_is_loud(notif_root):
-    result = ServerEmailNotificationsCmd(user_repo=_admin_repo()).call("admin", "bogus")
-    assert "error" in _types(result)
-    assert "unknown action" in _joined(result)
+    with pytest.raises(ValueError, match="Unknown action 'bogus'"):
+        ServerEmailNotificationsCmd(user_repo=_admin_repo()).call("admin", "bogus")
 
 
 # ---- cert-renewal-failure wiring --------------------------------------------
