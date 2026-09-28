@@ -19,6 +19,7 @@ from hop3_testing.runners import (
     DeploymentTestRunner,
     TutorialTestRunner,
 )
+from hop3_testing.targets.constants import HOP3_SERVER_BIN
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .logging import TestLogWriter
@@ -78,6 +79,39 @@ def _filter_by_available_services(
         else:
             filtered.append(test)
     return filtered
+
+
+def _filter_by_admin_domain(
+    tests: list[TestDefinition],
+    target: DeploymentTarget,
+    console: PrintingConsole,
+) -> list[TestDefinition]:
+    """
+    Leave out, loudly, the tests whose app needs an admin domain the server lacks.
+
+    A gated app is refused at deploy on a server with no admin domain, which is
+    right; running it there would report the target, not the app. The server
+    says what it has: `admin:server-url` prints its public address, or nothing.
+    """
+    needing = [t for t in tests if t.requirements.admin_domain]
+    if not needing:
+        return tests
+    rc, out, err = target.exec_run(f"sudo -u hop3 {HOP3_SERVER_BIN} admin:server-url")
+    if rc != 0:
+        msg = (
+            "Could not ask the server for its admin domain "
+            f"(`hop3-server admin:server-url`, exit {rc}): {(err or out).strip()}"
+        )
+        raise RuntimeError(msg)
+    if out.strip():
+        return tests
+    for test in needing:
+        console.warning(
+            f"Skipping {test.name}: its app needs an admin domain and this server "
+            "has none. Target the server by its hostname, or deploy it with "
+            "--admin-domain."
+        )
+    return [t for t in tests if not t.requirements.admin_domain]
 
 
 def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
@@ -274,6 +308,11 @@ def run_tests(
     except RuntimeError as e:
         console.error(f"Failed: {e}")
         _emit_startup_diagnostics(target, console, e)
+        sys.exit(1)
+
+    tests = _filter_by_admin_domain(tests, target, console)
+    if not tests:
+        console.error("No tests remaining: every one needs an admin domain")
         sys.exit(1)
 
     # Tutorials run ON the server (controlled toolchains; `hop3 deploy` targets

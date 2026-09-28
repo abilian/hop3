@@ -14,9 +14,13 @@ answer: who it was told is asking, and which cookies it received.
 
 from __future__ import annotations
 
+import io
 import json
+import shutil
 import subprocess
+import tarfile
 import time
+from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import parse_qs, quote, urlsplit
 
@@ -27,7 +31,9 @@ from .conftest import (
     _start_hop3_container,
     _stop_hop3_container,
     cli_env,
+    deploy_app_dir,
     deploy_flask_app,
+    init_git_repo,
 )
 
 if TYPE_CHECKING:
@@ -36,6 +42,9 @@ if TYPE_CHECKING:
     import docker
 
 ADMIN = "admin.test.local"
+#: The harness fixture that carries the gate into runs on real servers.
+GATED_FIXTURE = Path(__file__).parents[4] / "apps/test-apps-procfile/180-flask-gated"
+GATED_FIXTURE_HOST = "flask-gated.test.local"
 NOTES = "notes.test.local"  # role member, /hook public
 WIKI = "wiki.test.local"  # role viewer
 PASSWORD = "gate-e2e-password"
@@ -363,6 +372,43 @@ SERVER_STATE = (
     "supervisorctl status; tail -n 30 /var/log/supervisor/supervisord.log "
     "/var/log/supervisor/hop3-server.log /var/log/supervisor/hop3-server_err.log"
 )
+
+
+@pytest.mark.e2e
+def test_the_gated_fixture_check_passes(gated, tmp_path):
+    """
+    ``180-flask-gated``'s check.py, run as hop3-test runs it on a remote server.
+
+    That fixture takes the gate into runs against servers with a real admin
+    domain; proving its check here, on each proxy, means a failure there points
+    at the server rather than at the check.
+    """
+    app_dir = tmp_path / "flask-gated"
+    shutil.copytree(GATED_FIXTURE, app_dir)
+    (app_dir / "ENV").write_text(f"HOST_NAME={GATED_FIXTURE_HOST}\n")
+    init_git_repo(app_dir)
+    deployed = deploy_app_dir(gated, app_dir, "flask-gated")
+    assert deployed.returncode == 0, f"{deployed.stdout}\n{deployed.stderr}"
+
+    container = gated["container"]
+    container.put_archive("/tmp", _tar("check.py", (app_dir / "check.py").read_bytes()))
+    result = container.exec_run([
+        "/home/hop3/venv/bin/python",
+        "/tmp/check.py",
+        GATED_FIXTURE_HOST,
+        "443",
+    ])
+    assert result.exit_code == 0, result.output.decode(errors="replace")
+
+
+def _tar(name: str, content: bytes) -> bytes:
+    """A one-file tar archive, the form ``put_archive`` takes."""
+    buffer = io.BytesIO()
+    with tarfile.open(fileobj=buffer, mode="w") as archive:
+        info = tarfile.TarInfo(name)
+        info.size = len(content)
+        archive.addfile(info, io.BytesIO(content))
+    return buffer.getvalue()
 
 
 def _server_state(info: dict[str, Any]) -> str:

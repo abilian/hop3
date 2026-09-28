@@ -83,6 +83,10 @@ class TestRequirements:
     dns: Literal["none", "static", "wildcard"] = "none"
     """DNS requirements (none, static IP, wildcard domain)."""
 
+    admin_domain: bool = False
+    """The server must have an admin domain: a gated app (`[access] require =
+    "auth"`) signs in there, and is refused at deploy without one."""
+
     def can_run_on(self, target_type: TargetType) -> bool:
         """Check if test can run on given target type."""
         return target_type in self.targets

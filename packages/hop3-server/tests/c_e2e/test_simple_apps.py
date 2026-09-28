@@ -9,6 +9,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import pytest
+import tomllib
 from hop3_testing.apps import DeploymentSession
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.exceptions import DeploymentError
@@ -43,12 +44,27 @@ def _collect_apps(app_dir: Path) -> list:
         raise RuntimeError(msg)
     apps = []
     for d in sorted(app_dir.iterdir()):
-        if d.is_dir() and not d.name.startswith("."):
+        if d.is_dir() and not d.name.startswith(".") and not _is_gated(d):
             apps.append(pytest.param(d, id=d.name))
     if not apps:
         msg = f"e2e fixture directory {app_dir} contains no app directories."
         raise RuntimeError(msg)
     return apps
+
+
+def _is_gated(app_dir: Path) -> bool:
+    """
+    Whether the app sits behind the access gate (ADR 062).
+
+    A gated app needs an admin domain, which this suite's target does not have,
+    so the deploy is refused there by design. ``test_gate.py`` deploys it on
+    each proxy, with one.
+    """
+    hop3_toml = app_dir / "hop3.toml"
+    if not hop3_toml.exists():
+        return False
+    access = tomllib.loads(hop3_toml.read_text()).get("access") or {}
+    return access.get("require") == "auth"
 
 
 TEST_APPS = _collect_apps(TEST_APPS_DIR) + _collect_apps(NIX_APPS_DIR)

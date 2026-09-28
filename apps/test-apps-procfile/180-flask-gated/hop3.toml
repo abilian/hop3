@@ -1,0 +1,20 @@
+# The access gate (ADR 062) on a real server: its admin domain, its proxy.
+
+[metadata]
+id = "flask-gated"
+description = "Flask app behind [access] require = \"auth\", with one public path"
+
+[access]
+require = "auth"
+public-paths = ["/public/.*"]
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "access-gate"]
+# No [[test.validations]]: they probe the app on its own port, which the gate
+# does not guard. check.py goes through the proxy, where the gate is. The gate
+# refuses to deploy on a server without an admin domain, so the harness leaves
+# this test out there, and says so.

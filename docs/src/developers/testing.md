@@ -173,7 +173,7 @@ docs/tutorials/            # Tutorials (discovered by their validoc fences)
 
 Test configuration lives in the app's `hop3.toml` file under a `[test]` section. Most apps keep all their test config there, with no separate `test.toml` file.
 
-Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`. The `[test]` section only declares what's test-framework-specific.
+Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`, and the need for an admin domain from `[access] require = "auth"`: a gated app is refused at deploy on a server without one, so the runner asks the server (`hop3-server admin:server-url`) and leaves such a test out, with a warning, when it has none. The `[test]` section only declares what's test-framework-specific.
 
 ```toml
 [metadata]

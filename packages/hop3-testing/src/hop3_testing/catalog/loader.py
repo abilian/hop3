@@ -647,7 +647,11 @@ def generate_test_definition_from_hop3_toml(
         name=base_name,
         tier=tier,
         priority=priority,
-        requirements=TestRequirements(targets=targets, services=services),
+        requirements=TestRequirements(
+            targets=targets,
+            services=services,
+            admin_domain=(hop3_data.get("access") or {}).get("require") == "auth",
+        ),
         validations=validations,
         deployment=DeploymentConfig(
             path=".",
