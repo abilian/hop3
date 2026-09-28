@@ -30,14 +30,36 @@ DEFAULT_HISTORY = "/tmp/hop3-history.txt"
 
 # Command groups that take a sub-command; every other first word is a leaf verb.
 GROUPS = frozenset({
-    "addon", "addons", "app", "apps", "auth", "backup", "catalog", "cert",
-    "config", "context", "domain", "env", "help", "server", "system", "user",
+    "addon",
+    "addons",
+    "app",
+    "apps",
+    "auth",
+    "backup",
+    "catalog",
+    "cert",
+    "config",
+    "context",
+    "domain",
+    "env",
+    "help",
+    "server",
+    "system",
+    "user",
 })
 
 # Flags that consume the next token, so its value is not read as a positional.
 VALUE_FLAGS = frozenset({
-    "--app", "--context", "--covers", "--host", "--port", "--server",
-    "--status", "--url", "--username", "--with",
+    "--app",
+    "--context",
+    "--covers",
+    "--host",
+    "--port",
+    "--server",
+    "--status",
+    "--url",
+    "--username",
+    "--with",
 })
 
 # Flags whose value is optional: `login --web` and `login --web root@host`.
@@ -135,8 +157,12 @@ def parse(tokens: list[str], raw: str) -> Call:
         depth = 1
     path = tuple(positionals[:depth])
     return Call(
-        path, tuple(flags), tuple(positionals[depth:]), tuple(values),
-        tuple(before_path), raw,
+        path,
+        tuple(flags),
+        tuple(positionals[depth:]),
+        tuple(values),
+        tuple(before_path),
+        raw,
     )
 
 
@@ -213,13 +239,16 @@ def section_synonyms(calls: list[Call], paths: Counter[str]) -> None:
 
     def weight(head: str) -> int:
         return sum(
-            count for name, count in paths.items()
+            count
+            for name, count in paths.items()
             if name == head or name.startswith(head + " ")
         )
 
     for head in sorted(heads):
         if head + "s" in heads:
-            print(f"  hop3 {head} ({weight(head)}) vs hop3 {head}s ({weight(head + 's')})")
+            print(
+                f"  hop3 {head} ({weight(head)}) vs hop3 {head}s ({weight(head + 's')})"
+            )
 
 
 def section_target_style(calls: list[Call]) -> None:
@@ -235,8 +264,10 @@ def section_target_style(calls: list[Call]) -> None:
         elif call.args and call.args[0] in known_apps:
             with_positional[name].add(call.args[0])
     for name in sorted(set(with_flag) & set(with_positional)):
-        print(f"  hop3 {name}: --app {min(with_flag[name])} "
-              f"| positional {', '.join(sorted(with_positional[name]))}")
+        print(
+            f"  hop3 {name}: --app {min(with_flag[name])} "
+            f"| positional {', '.join(sorted(with_positional[name]))}"
+        )
 
 
 def section_context_placement(calls: list[Call]) -> None:
@@ -258,19 +289,31 @@ def section_incomplete(calls: list[Call]) -> None:
 
 def report(calls: list[Call], secrets: list[tuple[int, str]]) -> None:
     paths = Counter(command_of(call) for call in calls)
-    print(f"# hop3 CLI history: {len(calls)} invocations, {len(paths)} distinct commands")
+    print(
+        f"# hop3 CLI history: {len(calls)} invocations, {len(paths)} distinct commands"
+    )
 
     top("Most used commands", paths, limit=25, prefix="hop3 ")
     top("Most used flags", Counter(f for c in calls for f in c.flags), limit=20)
     top("--context values", contexts_of(calls))
-    top("Group typed with no sub-command (exploring the CLI)", Counter(
-        c.path[0] for c in calls
-        if len(c.path) == 1 and c.path[0] in GROUPS and not c.args
-    ), prefix="hop3 ")
-    top("Help lookups, by command", Counter(
-        command_of(c) for c in calls
-        if "--help" in c.flags or c.path[:1] == ("help",)
-    ), limit=15)
+    top(
+        "Group typed with no sub-command (exploring the CLI)",
+        Counter(
+            c.path[0]
+            for c in calls
+            if len(c.path) == 1 and c.path[0] in GROUPS and not c.args
+        ),
+        prefix="hop3 ",
+    )
+    top(
+        "Help lookups, by command",
+        Counter(
+            command_of(c)
+            for c in calls
+            if "--help" in c.flags or c.path[:1] == ("help",)
+        ),
+        limit=15,
+    )
 
     section_synonyms(calls, paths)
     section_target_style(calls)
@@ -312,8 +355,10 @@ def self_check() -> None:
     assert "81e2715" not in redact(line), redact(line)
     assert not has_secret("hop3 env set TESTLAB_SECRET_KEY=xxx")
 
-    calls = [parse(shlex.split(c), c) for c in
-             ["catalog list", "catalog list", "catalog list", "cataloig list"]]
+    calls = [
+        parse(shlex.split(c), c)
+        for c in ["catalog list", "catalog list", "catalog list", "cataloig list"]
+    ]
     assert find_typos(calls) == [("cataloig", "catalog", "positional #0")]
     print("self-check ok")
 
