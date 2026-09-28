@@ -187,18 +187,16 @@ def write_manifest(results: list[Result], outdir: Path) -> Path:
             f"| {r.item.category} | {r.item.name} | {status} | "
             f"`{r.cast.name}` | {url} |"
         )
-        data.append(
-            {
-                "category": r.item.category,
-                "name": r.item.name,
-                "status": status,
-                "command": r.item.command,
-                "cast": r.cast.name,
-                "url": r.url,
-                "returncode": r.returncode,
-                "error": r.error,
-            }
-        )
+        data.append({
+            "category": r.item.category,
+            "name": r.item.name,
+            "status": status,
+            "command": r.item.command,
+            "cast": r.cast.name,
+            "url": r.url,
+            "returncode": r.returncode,
+            "error": r.error,
+        })
     md = outdir / "MANIFEST.md"
     header = (
         "# Hop3 screencasts (NGI M5.6)\n\n"
@@ -268,39 +266,78 @@ def parse_args() -> argparse.Namespace:
         formatter_class=argparse.RawDescriptionHelpFormatter,
         epilog=__doc__,
     )
-    parser.add_argument("--host", default="",
-                        help="server already running hop3 (e.g. hop3-dev.abilian.com); "
-                             "demos run against it with --skip-install, tutorials via "
-                             "HOP3_API_URL (ssh://root@<host>)")
-    parser.add_argument("--domain", default="",
-                        help="app domain for tutorials (HOP3_TEST_DOMAIN) and the demo "
-                             "admin UI; defaults to --host")
-    parser.add_argument("--backend", default="ssh", choices=["ssh", "docker"],
-                        help="demo backend (default: ssh against --host)")
-    parser.add_argument("--reinstall", action="store_true",
-                        help="let demos (re)install hop3 instead of --skip-install "
-                             "(default: never reinstall)")
-    parser.add_argument("--out", type=Path, default=REPO_ROOT / "screencasts",
-                        help="output directory for .cast files (default: ./screencasts)")
-    parser.add_argument("--only", default="",
-                        help="comma-separated substrings/categories to record "
-                             "(e.g. 'demo01,flask' or 'tutorial')")
+    parser.add_argument(
+        "--host",
+        default="",
+        help="server already running hop3 (e.g. hop3-dev.abilian.com); "
+        "demos run against it with --skip-install, tutorials via "
+        "HOP3_API_URL (ssh://root@<host>)",
+    )
+    parser.add_argument(
+        "--domain",
+        default="",
+        help="app domain for tutorials (HOP3_TEST_DOMAIN) and the demo "
+        "admin UI; defaults to --host",
+    )
+    parser.add_argument(
+        "--backend",
+        default="ssh",
+        choices=["ssh", "docker"],
+        help="demo backend (default: ssh against --host)",
+    )
+    parser.add_argument(
+        "--reinstall",
+        action="store_true",
+        help="let demos (re)install hop3 instead of --skip-install "
+        "(default: never reinstall)",
+    )
+    parser.add_argument(
+        "--out",
+        type=Path,
+        default=REPO_ROOT / "screencasts",
+        help="output directory for .cast files (default: ./screencasts)",
+    )
+    parser.add_argument(
+        "--only",
+        default="",
+        help="comma-separated substrings/categories to record "
+        "(e.g. 'demo01,flask' or 'tutorial')",
+    )
     parser.add_argument("--demos-only", action="store_true", help="record demos only")
-    parser.add_argument("--tutorials-only", action="store_true",
-                        help="record tutorials only")
-    parser.add_argument("--pause", type=float, default=2.0,
-                        help="seconds between demo steps — screencast pace (default: 2)")
-    parser.add_argument("--idle-time-limit", type=float, default=2.0,
-                        help="cap recorded idle gaps for watchable playback (default: 2)")
-    parser.add_argument("--upload", action="store_true",
-                        help="upload each cast to asciinema.org and capture its URL")
-    parser.add_argument("--visibility", default="",
-                        choices=["", "public", "unlisted", "private"],
-                        help="visibility for uploaded recordings")
-    parser.add_argument("--title-prefix", default="Hop3 — ",
-                        help="prefix for uploaded recording titles")
-    parser.add_argument("--list", action="store_true",
-                        help="list the items that would be recorded, then exit")
+    parser.add_argument(
+        "--tutorials-only", action="store_true", help="record tutorials only"
+    )
+    parser.add_argument(
+        "--pause",
+        type=float,
+        default=2.0,
+        help="seconds between demo steps — screencast pace (default: 2)",
+    )
+    parser.add_argument(
+        "--idle-time-limit",
+        type=float,
+        default=2.0,
+        help="cap recorded idle gaps for watchable playback (default: 2)",
+    )
+    parser.add_argument(
+        "--upload",
+        action="store_true",
+        help="upload each cast to asciinema.org and capture its URL",
+    )
+    parser.add_argument(
+        "--visibility",
+        default="",
+        choices=["", "public", "unlisted", "private"],
+        help="visibility for uploaded recordings",
+    )
+    parser.add_argument(
+        "--title-prefix", default="Hop3 — ", help="prefix for uploaded recording titles"
+    )
+    parser.add_argument(
+        "--list",
+        action="store_true",
+        help="list the items that would be recorded, then exit",
+    )
     parser.add_argument("--self-test", action="store_true", help=argparse.SUPPRESS)
     return parser.parse_args()
 
@@ -322,7 +359,9 @@ def main() -> int:
     if args.list:
         for i in items:
             envtag = " ".join(f"{k}={v}" for k, v in i.env.items())
-            print(f"{i.category:9} {i.name:24} {envtag + '  ' if envtag else ''}{i.command}")
+            print(
+                f"{i.category:9} {i.name:24} {envtag + '  ' if envtag else ''}{i.command}"
+            )
         print(f"\n{len(items)} item(s).")
         return 0
 
@@ -347,8 +386,11 @@ def run_and_report(items: list[Item], args: argparse.Namespace) -> int:
         result = record(item, args.out, args.idle_time_limit)
         if args.upload:
             upload(result, visibility=args.visibility, title_prefix=args.title_prefix)
-            print(f"    uploaded: {result.url}" if result.url
-                  else f"    upload error: {result.error}")
+            print(
+                f"    uploaded: {result.url}"
+                if result.url
+                else f"    upload error: {result.error}"
+            )
         results.append(result)
 
     manifest = write_manifest(results, args.out)
@@ -371,9 +413,12 @@ def run_and_report(items: list[Item], args: argparse.Namespace) -> int:
 
 def _self_test() -> int:
     """Tiny offline checks for the parsing/discovery logic (no recording)."""
-    assert parse_upload_url(
-        "View the recording at:\n\n    https://asciinema.org/a/abc123\n"
-    ) == "https://asciinema.org/a/abc123"
+    assert (
+        parse_upload_url(
+            "View the recording at:\n\n    https://asciinema.org/a/abc123\n"
+        )
+        == "https://asciinema.org/a/abc123"
+    )
     assert parse_upload_url("(see https://asciinema.org/a/x9.) ") == (
         "https://asciinema.org/a/x9"
     )
@@ -386,7 +431,9 @@ def _self_test() -> int:
     assert len({i.name for i in demos}) == len(demos), "demo names not unique"
     assert len({i.name for i in tuts}) == len(tuts), "tutorial names not unique"
     # No reinstall: demo commands must carry --skip-install and the host.
-    assert all("--skip-install" in i.command and "--host srv" in i.command for i in demos)
+    assert all(
+        "--skip-install" in i.command and "--host srv" in i.command for i in demos
+    )
     # Tutorials must target the server via env, not a reinstall.
     assert all(i.env.get("HOP3_API_URL") == "ssh://root@srv" for i in tuts)
     assert all(i.env.get("HOP3_TEST_DOMAIN") == "dom" for i in tuts)
