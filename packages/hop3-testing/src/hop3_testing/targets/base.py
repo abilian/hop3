@@ -181,6 +181,32 @@ class DeploymentTarget(ABC):
         msg = "upload_file not implemented for this target"
         raise NotImplementedError(msg)
 
+    def cli_env(self) -> dict[str, str]:
+        """
+        The environment for a `hop3` command acting on this target as its admin.
+
+        Hermetic: ambient HOP3_* steering vars are stripped (see
+        ``hermetic_cli_env``), so the launch environment cannot redirect the
+        call, and the explicit target URL and token are set. Non-interactive:
+        without ``HOP3_NO_INPUT`` the ADR-042 deploy confirmation refuses to run
+        without a tty (exit 10).
+        """
+        target_info = self.info
+        env = hermetic_cli_env()
+        # Prefer direct HTTP API URL when available (Docker without SSH port
+        # mapping); fall back to the SSH tunnel.
+        if target_info.api_url:
+            env["HOP3_API_URL"] = target_info.api_url
+            # A real admin token, fetched from the target the way `hop3 login
+            # --ssh` does, so the harness needs no HOP3_UNSAFE auth bypass.
+            env["HOP3_API_TOKEN"] = target_info.require_api_token()
+        else:
+            # SSH tunnel provides implicit authentication via SSH keys
+            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
+            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+        env["HOP3_NO_INPUT"] = "1"
+        return env
+
     def run_command(self, *args: str, timeout: int = 300) -> CommandResult:
         """
         Run a hop3 command on the target.
@@ -192,24 +218,8 @@ class DeploymentTarget(ABC):
         Returns:
             CommandResult with success status and output
         """
-        target_info = self.info
         start_time = time.time()
-
-        # Hermetic: strip ambient HOP3_* steering vars (see hermetic_cli_env) so
-        # the launch environment can't redirect this hop3 call; explicit target
-        # URL + token are set below.
-        env = hermetic_cli_env()
-        # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
-        # Fall back to SSH tunnel for remote targets
-        if target_info.api_url:
-            env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP authenticates with a real admin token (no HOP3_UNSAFE
-            # bypass). See apps.deployment.DeploymentSession._build_cli_env.
-            env["HOP3_API_TOKEN"] = target_info.require_api_token()
-        else:
-            # SSH tunnel provides implicit authentication via SSH keys
-            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
+        env = self.cli_env()
 
         # Always add -y flag to skip confirmations in E2E tests
         cmd_args = ["hop3", *args, "-y"]

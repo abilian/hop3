@@ -21,10 +21,7 @@ from hop3_testing.exceptions import (
     DeploymentError,
     DeployTimeoutError,
 )
-from hop3_testing.targets.constants import (
-    hermetic_cli_cwd,
-    hermetic_cli_env,
-)
+from hop3_testing.targets.constants import hermetic_cli_cwd
 from hop3_testing.util.console import PrintingConsole, Verbosity
 from hop3_testing.util.streaming import run_streaming
 
@@ -176,39 +173,6 @@ class DeploymentSession:
         """Full stdout of the last `hop3 deploy` (kept for every build)."""
         return self._last_deploy_output
 
-    def _build_cli_env(self) -> dict[str, str]:
-        """Build environment variables for hop3 CLI commands.
-
-        Returns:
-            Environment dict with HOP3_API_URL, HOP3_SSH_KEY, HOP3_SECRET_KEY,
-            and HOP3_API_TOKEN set as appropriate.
-        """
-        target_info = self.target.info
-        # Hermetic: strip ambient HOP3_* steering vars so the deploy can't be
-        # silently redirected by the (possibly polluted) launch environment —
-        # e.g. the testlab worker's app-runtime env. We then set the explicit
-        # target URL + token below.
-        env = hermetic_cli_env()
-
-        # Prefer direct HTTP API URL when available (Docker without SSH port mapping)
-        # Fall back to SSH tunnel for remote targets
-        if target_info.api_url:
-            env["HOP3_API_URL"] = target_info.api_url
-            # Direct HTTP authenticates with a real admin token, fetched from the
-            # target the way `hop3 login --ssh` does. This is why the harness no
-            # longer needs the HOP3_UNSAFE auth bypass.
-            env["HOP3_API_TOKEN"] = target_info.require_api_token()
-        else:
-            # SSH tunnel provides implicit authentication via SSH keys
-            env["HOP3_API_URL"] = f"ssh://{target_info.ssh_host}:{target_info.ssh_port}"
-            env["HOP3_SSH_KEY"] = target_info.ssh_key or ""
-
-        # The harness deploys non-interactively. Without this, the ADR-042
-        # deploy confirm prompt refuses to run without a tty (exit 10).
-        # Mirrors util/subprocess.build_env (the tutorial/demo path).
-        env["HOP3_NO_INPUT"] = "1"
-        return env
-
     def prepare(self):
         """Prepare the application for deployment.
 
@@ -276,7 +240,7 @@ class DeploymentSession:
         Raises:
             DeploymentError: If deployment fails.
         """
-        env = self._build_cli_env()
+        env = self.target.cli_env()
         cmd = [
             "hop3",
             "deploy",
@@ -383,7 +347,7 @@ class DeploymentSession:
             return False
 
         try:
-            env = self._build_cli_env()
+            env = self.target.cli_env()
 
             result = subprocess.run(
                 ["hop3", "apps"],
@@ -733,7 +697,7 @@ class DeploymentSession:
 
         result = subprocess.run(
             ["hop3", "app", "check", "--app", self.app_name],
-            env=self._build_cli_env(),
+            env=self.target.cli_env(),
             cwd=hermetic_cli_cwd(),
             capture_output=True,
             text=True,
@@ -795,7 +759,7 @@ class DeploymentSession:
             CleanupError: If destruction fails.
         """
         try:
-            env = self._build_cli_env()
+            env = self.target.cli_env()
 
             self.console.debug(f"Destroying {self.app_name}")
 
