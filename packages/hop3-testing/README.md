@@ -11,6 +11,7 @@ hop3-testing provides utilities and fixtures for testing Hop3 deployments. It su
 - **Multiple targets**: Test against Docker containers or remote SSH servers
 - **App catalog**: Pre-built test applications for various languages
 - **Deployment sessions**: Automated deploy/verify/cleanup workflow
+- **State checks**: after the validations, an app fails if it wrote into its `src/` while running (every deploy replaces `src/`, so that data is lost at the next one; the failure lists the directories to declare as `[[volumes]]`). The unchanged source is then deployed again and every validation runs a second time
 - **pytest fixtures**: Integration with pytest for E2E testing
 - **Category filtering**: Run tests by language or framework
 
@@ -86,6 +87,7 @@ hop3-test upgrade-chain --docker --chain local,local
 | `-v, --verbose` | Verbose output |
 | `--fail-fast` | Stop on first failure |
 | `--keep` | Keep apps deployed after testing |
+| `--no-redeploy` | Deploy each app once, skipping the second deploy and validation pass |
 | `--docker` | Use Docker target |
 | `--host HOST` | Remote server hostname |
 

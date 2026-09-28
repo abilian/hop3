@@ -63,6 +63,14 @@ DEFAULT_SSH_ROOT_USER = "root"
 #: The server-side CLI on a Hop3 box (the installer's VENV_DIR is /home/hop3/venv).
 HOP3_SERVER_BIN = "/home/hop3/venv/bin/hop3-server"
 
+#: Where a Hop3 box keeps its apps, and its enabled uWSGI vassals.
+HOP3_APPS_ROOT = "/home/hop3/apps"
+HOP3_UWSGI_ENABLED = "/home/hop3/uwsgi-enabled"
+
+#: Touched in an app's directory just before its workers start
+#: (``hop3.run.spawn.AppLauncher.WORKERS_STARTED_MARKER``; a test pins the two).
+WORKERS_STARTED_MARKER = ".hop3-workers-started"
+
 # Test environment secrets (NOT for production use)
 E2E_TEST_SECRET_KEY = "e2e-test-secret-key-do-not-use-in-production"
 

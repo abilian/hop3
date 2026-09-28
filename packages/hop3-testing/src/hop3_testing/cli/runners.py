@@ -210,6 +210,7 @@ def _execute_tests(
     console: PrintingConsole,
     *,
     keep: bool,
+    redeploy: bool,
     verbose: bool,
     debug: bool,
     fail_fast: bool,
@@ -236,6 +237,7 @@ def _execute_tests(
             verbose=verbose,
             console=console,
             debug=debug,
+            redeploy=redeploy,
         )
         results.append(result)
         store.save(result)
@@ -260,6 +262,7 @@ def run_tests(
     *,
     keep: bool,
     fail_fast: bool,
+    redeploy: bool = True,
     report: str = "text",
     quiet: bool = False,
     debug: bool = False,
@@ -342,6 +345,7 @@ def run_tests(
             log_writer,
             console,
             keep=keep,
+            redeploy=redeploy,
             verbose=verbose,
             debug=debug,
             fail_fast=fail_fast,
@@ -427,6 +431,7 @@ def run_single_test(
     verbose: bool,
     console: PrintingConsole | None = None,
     debug: bool = False,
+    redeploy: bool = True,
 ) -> TestResult:
     """Run a single test with the appropriate runner."""
     common_kwargs: dict[str, Any] = {"cleanup": cleanup, "verbose": verbose}
@@ -439,7 +444,7 @@ def run_single_test(
     elif test.tutorial is not None:
         runner = TutorialTestRunner(target, **common_kwargs)
     else:
-        runner = DeploymentTestRunner(target, **common_kwargs)
+        runner = DeploymentTestRunner(target, redeploy=redeploy, **common_kwargs)
 
     result = runner.run(test)
 

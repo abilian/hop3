@@ -297,6 +297,11 @@ def _run_image_sweep(
     help="Test profile (filters by tier/priority, or an explicit curated list)",
 )
 @click.option("--keep", is_flag=True, help="Keep target and apps after tests")
+@click.option(
+    "--no-redeploy",
+    is_flag=True,
+    help="Deploy each app once (by default it is redeployed and validated again)",
+)
 @click.option("-x", "--fail-fast", is_flag=True, help="Stop on first failure")
 @click.option(
     "--report",
@@ -350,6 +355,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     list_images: bool,
     mode: str,
     keep: bool,
+    no_redeploy: bool,
     fail_fast: bool,
     report: str,
     quiet: bool,
@@ -565,6 +571,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         tests,
         target_obj,
         keep=keep,
+        redeploy=not no_redeploy,
         fail_fast=fail_fast,
         report=report,
         quiet=quiet,

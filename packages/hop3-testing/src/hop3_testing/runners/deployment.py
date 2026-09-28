@@ -21,6 +21,11 @@ from hop3_testing.exceptions import (
     TargetOutOfDiskError,
 )
 from hop3_testing.runtime_diagnostics import collect_runtime_logs
+from hop3_testing.targets.constants import (
+    HOP3_APPS_ROOT,
+    HOP3_UWSGI_ENABLED,
+    WORKERS_STARTED_MARKER,
+)
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from .base import TestResult, ValidationResult
@@ -44,6 +49,57 @@ _HOP3_VENV_PYTHON = "/home/hop3/venv/bin/python3"
 #: `hop3.server.checks.runner` passes on the deploy path: one check reached two
 #: ways must reach the same door, or a green run means different things.
 _CHECK_PORT = 443
+
+
+#: What the runtime-write probe prints instead of a file list.
+_NO_WORKERS = "hop3-test: no worker runs from src/"
+_NO_MARKER = "hop3-test: no start recorded"
+
+#: How many written paths a failure lists before summarising the rest.
+_WRITES_SHOWN = 30
+
+
+def _runtime_writes_script(app_name: str) -> str:
+    """
+    The shell that lists what ``app_name`` wrote into its ``src/`` since start.
+
+    The server touches a marker just before the app's workers start, after
+    everything the deploy itself writes there. A file newer than it was
+    written by the running app (or by what runs after start: ``[admin]`` and
+    ``[probe]`` creation). ``find`` does not follow the volume links, so what
+    lands in a volume is not listed. Two things are left out because they are
+    never state: ``__pycache__``, which Python skips silently when it cannot
+    write, and sockets (gunicorn's ``gunicorn.ctl``), which the process makes
+    again each time it starts.
+    """
+    app = f"{HOP3_APPS_ROOT}/{app_name}"
+    marker = f"{app}/{WORKERS_STARTED_MARKER}"
+    return (
+        f'if [ ! -e "{marker}" ]; then '
+        f"if ls {HOP3_UWSGI_ENABLED}/{app_name}_*.ini >/dev/null 2>&1; "
+        f'then echo "{_NO_MARKER}"; else echo "{_NO_WORKERS}"; fi; exit 0; fi; '
+        f'find "{app}/src" -newer "{marker}" ! -type d ! -type s '
+        "! -path '*/__pycache__/*' -printf '%P\\n'"
+    )
+
+
+def _summarise_writes(paths: list[str]) -> str:
+    """The written paths, grouped by the directory a volume would cover."""
+    groups: dict[str, int] = {}
+    for path in paths:
+        parts = path.split("/")
+        # A file's directory, at most two levels down: what a volume would cover.
+        depth = min(len(parts) - 1, 2)
+        key = "/".join(parts[:depth]) + "/" if depth else path
+        groups[key] = groups.get(key, 0) + 1
+    lines = [
+        f"  {key} ({count} file{'s' if count > 1 else ''})"
+        for key, count in sorted(groups.items())
+    ]
+    if len(lines) > _WRITES_SHOWN:
+        rest = len(lines) - _WRITES_SHOWN
+        lines = [*lines[:_WRITES_SHOWN], f"  … and {rest} more"]
+    return "\n".join(lines)
 
 
 def _app_node_modules(app_name: str) -> str:
@@ -109,6 +165,9 @@ class DeploymentTestRunner:
 
     console: PrintingConsole = field(default_factory=PrintingConsole)
     """Console for output."""
+
+    redeploy: bool = True
+    """Deploy the unchanged source a second time and validate again."""
 
     def __post_init__(self) -> None:
         """Set verbosity after initialization."""
@@ -541,6 +600,121 @@ class DeploymentTestRunner:
 
         return deploy_logs, None, False
 
+    def _check_runtime_writes(
+        self, session: DeploymentSession, validation_results: list[ValidationResult]
+    ) -> str | None:
+        """
+        Fail when the running app wrote into ``src/``.
+
+        Every deploy replaces ``src/``, so whatever the app writes there is
+        deleted by the next one: uploads, a SQLite database, configuration the
+        app keeps. A test deploys once, so nothing else notices. Each directory
+        listed belongs in a ``[[volumes]]`` entry.
+        """
+        start = time.time()
+        exit_code, stdout, stderr = self.target.exec_run([
+            "sh",
+            "-c",
+            _runtime_writes_script(session.app_name),
+        ])
+        written = stdout.splitlines()
+        passed = False
+        if exit_code != 0:
+            message = (
+                f"Could not list what {session.app_name} wrote into src/ "
+                f"(exit {exit_code}): {(stderr or stdout).strip()}"
+            )
+        elif written == [_NO_MARKER]:
+            message = (
+                f"The server recorded no start for {session.app_name}'s workers, "
+                "so what the app wrote into src/ cannot be told from what the "
+                "deploy wrote. The server predates this harness: redeploy it "
+                "(--from local), not --reuse."
+            )
+        elif written and written != [_NO_WORKERS]:
+            message = (
+                f"{session.app_name} wrote {len(written)} file(s) into src/ while "
+                "running. The next deploy replaces src/ and deletes them. Declare "
+                "each directory as a [[volumes]] entry in hop3.toml: type "
+                "'persist' for what the app must keep, 'scratch' for caches.\n"
+                f"{_summarise_writes(written)}"
+            )
+        else:
+            passed = True
+            message = (
+                "No worker runs from src/"
+                if written
+                else "Nothing written into src/ at runtime"
+            )
+        validation_results.append(
+            ValidationResult(
+                passed=passed,
+                message=message,
+                duration=time.time() - start,
+                validation_type="runtime_writes",
+                details={"written": written} if not passed else None,
+            )
+        )
+        return None if passed else message
+
+    def _redeploy_and_revalidate(
+        self,
+        test: TestDefinition,
+        session: DeploymentSession,
+        app_source: AppSource,
+        validation_results: list[ValidationResult],
+    ) -> str | None:
+        """
+        Deploy the unchanged source again, then run every validation again.
+
+        An update is a redeploy, and a test that deploys once never takes that
+        path. It is where setup guarded by "already installed?" meets a tree
+        that no longer holds what the guard reads, and where anything kept in
+        ``src/`` is gone.
+        """
+        start = time.time()
+        try:
+            session.deploy(deploy_timeout=self._DEPLOY_TIMEOUT_SECONDS)
+        except DeploymentError as e:
+            message = (
+                "Redeploying the unchanged source failed: "
+                f"{session.last_deploy_error or e}"
+            )
+            validation_results.append(
+                ValidationResult(
+                    passed=False,
+                    message=message,
+                    duration=time.time() - start,
+                    validation_type="redeploy",
+                )
+            )
+            return message
+        validation_results.append(
+            ValidationResult(
+                passed=True,
+                message=f"Redeployed {session.app_name} ({time.time() - start:.1f}s)",
+                duration=time.time() - start,
+                validation_type="redeploy",
+            )
+        )
+        error = self._validate(test, session, app_source, validation_results)
+        return f"After a redeploy of the unchanged source: {error}" if error else None
+
+    def _validate(
+        self,
+        test: TestDefinition,
+        session: DeploymentSession,
+        app_source: AppSource,
+        validation_results: list[ValidationResult],
+    ) -> str | None:
+        """Run the HTTP validations, then the check script if the app has one."""
+        error = self._run_http_validations(
+            test, session, app_source, validation_results
+        )
+        if error is None and app_source.has_check_script:
+            error = self._run_check_script(session, validation_results)
+        return error
+
     def _handle_expects_failure(
         self,
         *,
@@ -777,14 +951,22 @@ class DeploymentTestRunner:
             if error:
                 return _fail_result(error, deploy_logs=deploy_logs)
 
-            if http_error := self._run_http_validations(
+            if validation_error := self._validate(
                 test, session, app_source, validation_results
             ):
-                return _fail_result(http_error)
+                return _fail_result(validation_error)
 
-            if app_source.has_check_script:
-                if check_error := self._run_check_script(session, validation_results):
-                    return _fail_result(check_error)
+            if write_error := self._check_runtime_writes(session, validation_results):
+                return _fail_result(write_error)
+
+            if self.redeploy and (
+                redeploy_error := self._redeploy_and_revalidate(
+                    test, session, app_source, validation_results
+                )
+            ):
+                return _fail_result(
+                    redeploy_error, deploy_logs=session.last_deploy_output
+                )
 
         except Exception as e:
             error = str(e)
