@@ -243,5 +243,3 @@ Splitting the platform baseline from the per-app declarations lets the "network-
 - [ADR 041](./041-privileged-operations-agent.md): Privileged operations agent (`hop3-rootd`): the kernel-boundary executor that v0.3 of this design routes nft mutations through.
 - NGI 0.5 project plan: `notes/ngi-2024/project-plan.md`
 - [ADR 010](./010-security-and-resilience.md) (security and resilience), [ADR 033](./033-docker-integration.md) (docker integration), [ADR 038](./038-multi-service-apps.md) (multi-service apps)
-ice apps)
-)

@@ -165,6 +165,3 @@ This architectural pattern is established in many projects:
 *   [pluggy Documentation](https://pluggy.readthedocs.io/)
 *   [Python Entry Points Specification](https://packaging.python.org/en/latest/specifications/entry-points/)
 *   [Architectural Decision Records by Michael Nygard](http://thinkrelevance.com/blog/2011/11/15/documenting-architecture-decisions)
-ns)
-)
--decisions)

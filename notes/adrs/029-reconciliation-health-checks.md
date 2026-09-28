@@ -1118,8 +1118,8 @@ def downgrade():
 
 Use Prometheus + Grafana or similar external monitoring.
 
-**Pros**: Industry-standard, feature-rich
-**Cons**: Additional infrastructure, complexity for single-server use case
+- **Pros**: Industry-standard, feature-rich
+- **Cons**: Additional infrastructure, complexity for single-server use case
 
 **Decision**: Rejected for Phase 1; may integrate in future
 
@@ -1127,8 +1127,8 @@ Use Prometheus + Grafana or similar external monitoring.
 
 Use systemd's built-in health checking and restart capabilities.
 
-**Pros**: OS-level, well-tested
-**Cons**: Tight coupling to systemd, less visibility, harder to customize
+- **Pros**: OS-level, well-tested
+- **Cons**: Tight coupling to systemd, less visibility, harder to customize
 
 **Decision**: Rejected; uWSGI emperor already handles process supervision
 
@@ -1136,8 +1136,8 @@ Use systemd's built-in health checking and restart capabilities.
 
 Run watchdog as separate systemd service instead of in-process.
 
-**Pros**: Isolation, can restart independently
-**Cons**: More operational complexity, IPC overhead
+- **Pros**: Isolation, can restart independently
+- **Cons**: More operational complexity, IPC overhead
 
 **Decision**: Deferred; start with in-process, can extract later if needed
 

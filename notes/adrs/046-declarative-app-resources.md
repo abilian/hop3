@@ -374,4 +374,3 @@ type = "postgres"
 - [ADR 002](./002-config-format.md), [ADR 003](./003-config-parsing-and-validation.md), [ADR 011](./011-encryption.md), [ADR 016](./016-backups.md), [ADR 024](./024-backup-restore-system.md), [ADR 035](./035-build-artifacts.md), [ADR 040](./040-network-firewall-and-port-exposure.md), [ADR 041](./041-privileged-operations-agent.md), [ADR 042](./042-cli-context-model.md), [ADR 045](./045-fixed-port-registry.md).
 - Nua specs: `sandbox/nua/doc/src/dev/specifications/{nua-config,configuration}.md`.
 - Python `secrets`; systemd resource control; Docker resource constraints.
- Docker resource constraints.

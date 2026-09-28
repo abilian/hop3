@@ -623,8 +623,8 @@ def with_test_config(hop3_root: Path):
         # ... restore all paths
 ```
 
-**Pros**: Minimal change, no migration needed
-**Cons**: Still uses globals, still brittle, doesn't solve root problem
+- **Pros**: Minimal change, no migration needed
+- **Cons**: Still uses globals, still brittle, doesn't solve root problem
 
 ### Alternative 2: Environment Variable Only
 
@@ -637,8 +637,8 @@ def test_env(tmp_path, monkeypatch):
     ...
 ```
 
-**Pros**: Simple, standard approach
-**Cons**: Requires module reloading, still brittle, environment pollution
+- **Pros**: Simple, standard approach
+- **Cons**: Requires module reloading, still brittle, environment pollution
 
 ### Alternative 3: Full Dependency Injection Framework
 
@@ -652,8 +652,8 @@ class Container(containers.DeclarativeContainer):
     app_service = providers.Factory(AppService, config=config)
 ```
 
-**Pros**: Industry standard, highly flexible
-**Cons**: Heavy dependency, steep learning curve, over-engineered for our needs
+- **Pros**: Industry standard, highly flexible
+- **Cons**: Heavy dependency, steep learning curve, over-engineered for our needs
 
 **Rejected**: Too complex for Hop3's needs
 
@@ -675,8 +675,8 @@ class HopConfig(BaseSettings):
         env_prefix = "HOP3_"
 ```
 
-**Pros**: Type validation, environment variable support
-**Cons**: External dependency, validation overhead
+- **Pros**: Type validation, environment variable support
+- **Cons**: External dependency, validation overhead
 
 **Consideration**: Could be used as the `ConfigLoader` implementation
 
