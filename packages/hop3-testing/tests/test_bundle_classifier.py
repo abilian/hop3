@@ -527,3 +527,16 @@ def test_bundle_captures_resources_section(tmp_path) -> None:
     )
     assert "resources" in SECTION_NAMES
     assert "100%" in bundle.sections["resources"]
+
+
+def test_a_php_fpm_pool_is_not_a_crash_because_it_speaks_no_http():
+    # nginx hands a php-fpm app to its pool over FastCGI; an HTTP probe of that
+    # port always fails, so every failing PHP app used to be reported crashed.
+    probe = _probe(speaks_http=False, curl_status=0, listen_ports=(8000,))
+    assert classify({}, probe, kind="uwsgi", http_front=None) == "ok"
+    assert "not probed (FastCGI)" in probe.render()
+
+
+def test_a_php_fpm_pool_bound_nowhere_is_still_found():
+    probe = _probe(speaks_http=False, curl_status=0, listen_ports=())
+    assert classify({}, probe, kind="uwsgi", http_front=None) == "proxy-502"

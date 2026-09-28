@@ -98,6 +98,9 @@ class ProxyProbe:
     curl_status: int  # 0 == connection refused / nothing answering
     container_state: str  # docker only ("running 0", "exited 1", ...); else ""
     verdict: str
+    #: False for a php-fpm pool: its port answers FastCGI, never HTTP, so a curl
+    #: to it says nothing about whether it is up (``curl_status`` stays 0).
+    speaks_http: bool = True
 
     def render(self) -> str:
         """Human-readable proxy_probe.txt body."""
@@ -110,7 +113,8 @@ class ProxyProbe:
             f"listen table readable: {self.listen_table_available}",
             f"127.0.0.1 LISTEN ports: {list(self.listen_ports) or '(none)'}",
             f"owner of proxy_pass port: {self.listen_owner or '(unknown)'}",
-            f"curl 127.0.0.1:{self.proxy_pass_port}: {self.curl_status}",
+            f"curl 127.0.0.1:{self.proxy_pass_port}: "
+            + (str(self.curl_status) if self.speaks_http else "not probed (FastCGI)"),
         ]
         if self.deployer_kind == "docker":
             lines.append(f"container state: {self.container_state or '(unknown)'}")
@@ -337,7 +341,12 @@ def _proxy_mismatch(probe: ProxyProbe) -> bool:
 def _app_crashed(app: str, probe: ProxyProbe | None) -> bool:
     if _CRASH_RE.search(app):
         return True
-    if probe is not None and probe.listen_table_available and probe.curl_status == 0:
+    if (
+        probe is not None
+        and probe.speaks_http
+        and probe.listen_table_available
+        and probe.curl_status == 0
+    ):
         # non-docker: bound nowhere / not answering with a readable table
         return probe.deployer_kind != "docker"
     return False
@@ -682,8 +691,9 @@ def _probe_proxy(
         )
         container_state = (cs_out or "").strip()
 
+    speaks_http = "fastcgi_pass" not in conf
     curl_status = 0
-    if proxy_pass_port is not None:
+    if proxy_pass_port is not None and speaks_http:
         _, curl_out, _ = _exec(
             target,
             "curl -s -o /dev/null -w '%{http_code}' --max-time 5 "
@@ -704,6 +714,7 @@ def _probe_proxy(
         curl_status=curl_status,
         container_state=container_state,
         uid=uid,
+        speaks_http=speaks_http,
     )
     return ProxyProbe(
         effective_uid=uid,
@@ -718,6 +729,7 @@ def _probe_proxy(
         curl_status=curl_status,
         container_state=container_state,
         verdict=verdict,
+        speaks_http=speaks_http,
     )
 
 
@@ -732,6 +744,7 @@ def _probe_verdict(  # ruff:ignore[too-many-return-statements] - one return per 
     curl_status: int,
     container_state: str,
     uid: str,
+    speaks_http: bool,
 ) -> str:
     if not vhost_found:
         return "no nginx vhost for this app (proxy never configured / HOST_NAME unset)"
@@ -751,6 +764,11 @@ def _probe_verdict(  # ruff:ignore[too-many-return-statements] - one return per 
             return f"docker app not answering on 127.0.0.1:{proxy_pass_port} (curl=000)"
     if proxy_pass_port is not None and table_ok and proxy_pass_port not in listen_ports:
         return f"nginx proxies to 127.0.0.1:{proxy_pass_port} but nothing LISTENs there"
+    if not speaks_http:
+        return (
+            f"php-fpm pool listening on 127.0.0.1:{proxy_pass_port} "
+            "(FastCGI, not probed over HTTP)"
+        )
     if curl_status and 200 <= curl_status < 500:
         return (
             f"backend reachable on 127.0.0.1:{proxy_pass_port} (curl {curl_status}); "
