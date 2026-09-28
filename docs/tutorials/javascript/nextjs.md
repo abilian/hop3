@@ -475,7 +475,7 @@ Attach a database addon:
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-nextjs-db
-hop3 addon attach hop3-tuto-nextjs hop3-tuto-nextjs-db
+hop3 addon attach hop3-tuto-nextjs-db --app hop3-tuto-nextjs
 ```
 
 ### Environment Variables for Client-Side
@@ -596,7 +596,7 @@ export async function POST(request: Request) {
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-nextjs --tail
+hop3 app logs --app hop3-tuto-nextjs
 ```
 
 Common issues:

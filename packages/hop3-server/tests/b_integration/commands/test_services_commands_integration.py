@@ -115,12 +115,8 @@ class TestAddonsCreateCmdIntegration:
         """
         cmd = AddonCreateCmd()
 
-        result = cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage:" in result[0]["text"]
-        assert "addon create" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage: hop3 addon create"):
+            cmd.call()
 
     def test_create_with_postgres_success(self):
         """
@@ -270,11 +266,8 @@ class TestAddonsAttachCmdIntegration:
             env_var_repo=env_var_repo,
         )
 
-        result = cmd.call("my-database")
-
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "--app parameter is required" in result[0]["text"]
+        with pytest.raises(ValueError, match="--app is required"):
+            cmd.call("my-database")
 
         # Verify no credentials were created
         db_session.expire_all()
@@ -309,7 +302,7 @@ class TestAddonsAttachCmdIntegration:
 
         # App not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
-            cmd.call("my-database", "--app", "nonexistent-app")
+            cmd.call("my-database", "--app", "nonexistent-app", "--type", "postgres")
 
         assert "not found" in str(exc_info.value)
 
@@ -359,7 +352,7 @@ class TestAddonsAttachCmdIntegration:
                 env_var_repo=env_var_repo,
             )
 
-            result = cmd.call("my-database", "--app", "test-app")
+            result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
 
         db_session.expire_all()
 
@@ -600,11 +593,8 @@ class TestAddonsDetachCmdIntegration:
             env_var_repo=env_var_repo,
         )
 
-        result = cmd.call("my-database")
-
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "--app parameter is required" in result[0]["text"]
+        with pytest.raises(ValueError, match="--app is required"):
+            cmd.call("my-database")
 
     def test_detach_app_not_found(
         self,
@@ -632,7 +622,7 @@ class TestAddonsDetachCmdIntegration:
 
         # App not found raises ValueError for JSON-RPC error handling
         with pytest.raises(ValueError) as exc_info:
-            cmd.call("my-database", "--app", "nonexistent-app")
+            cmd.call("my-database", "--app", "nonexistent-app", "--type", "postgres")
 
         assert "not found" in str(exc_info.value)
 
@@ -690,7 +680,7 @@ class TestAddonsDetachCmdIntegration:
             env_var_repo=env_var_repo,
         )
 
-        result = cmd.call("my-database", "--app", "test-app")
+        result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
 
         db_session.expire_all()
 
@@ -742,7 +732,7 @@ class TestAddonsDetachCmdIntegration:
                 env_var_repo=env_var_repo,
             )
 
-            result = cmd.call("my-database", "--app", "test-app")
+            result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
 
         assert len(result) == 1
         result_text = result[0]["text"]
@@ -881,13 +871,8 @@ class TestAddonsDestroyCmdIntegration:
         """
         cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
 
-        result = cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage:" in result[0]["text"]
-        assert "addon destroy" in result[0]["text"]
-        assert "WARNING" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage: hop3 addon destroy"):
+            cmd.call()
 
     def test_destroy_success_removes_all_credentials(
         self,
@@ -1067,12 +1052,8 @@ class TestAddonsInfoCmdIntegration:
         """
         cmd = AddonShowCmd()
 
-        result = cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage:" in result[0]["text"]
-        assert "addon show" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage: hop3 addon show"):
+            cmd.call()
 
     def test_info_success_displays_addon_information(self):
         """
@@ -1120,21 +1101,26 @@ class TestAddonsInfoCmdIntegration:
         assert "10" in output_text
         assert "healthy" in output_text
 
-    def test_info_with_default_service_type(self):
+    def test_info_without_type_uses_the_addons_own(self):
         """
-        Test getting info with default service type (postgres).
+        Without --type, the addon's name decides its type; postgres is not assumed.
 
         ARRANGE:
-            - Mock addon plugin for postgres
+            - A redis addon named default-db on record
 
         ACT:
             - Get addon info without specifying --type
 
         ASSERT:
-            - Verify postgres was used as default
-            - Verify addon.info() was called
+            - Verify redis was used
         """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
+        with (
+            patch("hop3.commands.services.get_addon") as mock_get_addon,
+            patch(
+                "hop3.commands.services.list_addon_instances",
+                return_value=[("redis", "default-db")],
+            ),
+        ):
             mock_addon = Mock()
             mock_addon.info.return_value = {
                 "addon_name": "default-db",
@@ -1146,8 +1132,7 @@ class TestAddonsInfoCmdIntegration:
 
             cmd.call("default-db")
 
-        # Should default to postgres
-        mock_get_addon.assert_called_once_with("postgres", "default-db")
+        mock_get_addon.assert_called_once_with("redis", "default-db")
 
     def test_info_with_custom_service_type(self):
         """
@@ -1208,6 +1193,6 @@ class TestAddonsInfoCmdIntegration:
 
             # command_context raises ValueError for JSON-RPC error handling
             with pytest.raises(ValueError) as exc_info:
-                cmd.call("nonexistent-db")
+                cmd.call("nonexistent-db", "--type", "postgres")
 
             assert "Addon not found" in str(exc_info.value)

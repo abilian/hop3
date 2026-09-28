@@ -108,7 +108,7 @@ class AddonMysqlQueryCmd(Command):
         addon_name = parsed.get("addon_name")
         statement = parsed.get("command")
         if not addon_name or not statement:
-            return [text('Usage: hop3 addon mysql query <name> --command "<SQL>"')]
+            raise self.usage_error()
         with command_context(
             "running query", addon_name=addon_name, service_type=_TYPE
         ):
@@ -133,10 +133,10 @@ SHOW GLOBAL VARIABLES WHERE Variable_name IN (
 """
 
 
-def _diagnostic(args: tuple, statement: str, label: str, verb: str) -> list[dict]:
+def _diagnostic(cmd: Command, args: tuple, statement: str, label: str) -> list[dict]:
     """Shared body for the read-only diagnostic commands."""
     if not args:
-        return [text(f"Usage: hop3 addon mysql {verb} <name>")]
+        raise cmd.usage_error()
     addon_name = args[0]
     with command_context(label, addon_name=addon_name, service_type=_TYPE):
         result = _addon(addon_name).run_admin_sql(statement)
@@ -160,7 +160,7 @@ class AddonMysqlPsCmd(Command):
     aliases: ClassVar[list[tuple[str, ...]]] = [("addon", _TYPE, "ps")]
 
     def call(self, *args: str) -> list[dict]:
-        return _diagnostic(args, _PS_SQL, "listing activity", "activity")
+        return _diagnostic(self, args, _PS_SQL, "listing activity")
 
 
 @register
@@ -179,7 +179,7 @@ class AddonMysqlSettingsCmd(Command):
     min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str) -> list[dict]:
-        return _diagnostic(args, _SETTINGS_SQL, "reading settings", "settings")
+        return _diagnostic(self, args, _SETTINGS_SQL, "reading settings")
 
 
 # Contributed to the RPC dispatch table via MySQLPlugin.cli_commands().

@@ -44,6 +44,8 @@ class WafStatusCmd(Command):
     """
     Show WAF status: per-app proxy port, supervision, and active ban count.
 
+    Usage: hop3 waf status
+
     Examples:
         hop3 waf status
     """
@@ -54,7 +56,7 @@ class WafStatusCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if args:
-            return [text("Usage: hop3 waf status")]
+            raise self.usage_error()
         apps = AppRepository(session=self.db_session).list_all_ordered()
         waf_apps = [a for a in apps if a.waf_port]
         if not waf_apps:
@@ -80,6 +82,8 @@ class WafLogsCmd(Command):
     Show recent WAF audit entries (blocked requests) — surfaced where the
     operator looks, never only in a file.
 
+    Usage: hop3 waf logs [<app>]
+
     Examples:
         hop3 waf logs            # recent entries across all WAF-enabled apps
         hop3 waf logs myapp      # just one app
@@ -91,7 +95,7 @@ class WafLogsCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
-            return [text("Usage: hop3 waf logs [<app>]")]
+            raise self.usage_error()
         app_filter = next(iter(args), None)
         apps = AppRepository(session=self.db_session).list_all_ordered()
         targets = [
@@ -137,6 +141,8 @@ class WafBansListCmd(Command):
     """
     List active WAF bans (optionally for one app).
 
+    Usage: hop3 waf bans list [<app>]
+
     Examples:
         hop3 waf bans list
         hop3 waf bans list myapp
@@ -148,7 +154,7 @@ class WafBansListCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if len(args) > 1:
-            return [text("Usage: hop3 waf bans list [<app>]")]
+            raise self.usage_error()
         app_filter = next(iter(args), None)
         bans = BanRepository(session=self.db_session).list_all_active(utcnow())
         if app_filter:
@@ -175,6 +181,8 @@ class WafBansClearCmd(Command):
 
     Rewrites the app's denylist and reloads the proxy so the change takes effect.
 
+    Usage: hop3 waf bans clear <app> [<ip>]
+
     Examples:
         hop3 waf bans clear myapp              # clear all bans for myapp
         hop3 waf bans clear myapp 198.51.100.9 # clear one source
@@ -187,7 +195,7 @@ class WafBansClearCmd(Command):
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         if not (1 <= len(args) <= 2):
-            return [text("Usage: hop3 waf bans clear <app> [<ip>]")]
+            raise self.usage_error()
         app_name = args[0]
         source = args[1] if len(args) > 1 else None
 

@@ -65,11 +65,8 @@ def test_admin_user_add_missing_arguments(mock_user_repo, mock_admin_user):
     mock_user_repo.get_by_username.return_value = mock_admin_user
 
     cmd = UserAddCmd(user_repo=mock_user_repo)
-    result = cmd.call("admin")
-
-    assert len(result) == 1
-    assert result[0]["t"] == "error"
-    assert "Usage:" in result[0]["text"]
+    with pytest.raises(ValueError, match="Usage: hop3 user add"):
+        cmd.call("admin")
 
 
 def test_admin_user_add_success(mock_user_repo, mock_admin_user):

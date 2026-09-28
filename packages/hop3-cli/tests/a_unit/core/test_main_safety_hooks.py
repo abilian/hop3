@@ -5,7 +5,7 @@
 """
 Tests for the main.py wiring of ADR 042 §D14 + §Deploy preview.
 
-Covers the integration of `_check_project_mismatch`, `_check_stray_dry_run`,
+Covers the integration of `_check_project_mismatch`, `_forward_dry_run`,
 `_handle_deploy_preview`, `_deploy_source_path`, `_matches_guarded_prefix`,
 and `_compute_resolutions` (context + app only — ADR 042).
 """
@@ -22,9 +22,9 @@ from hop3_cli.core.resolution import AppSource
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.main import (
     _check_project_mismatch,
-    _check_stray_dry_run,
     _compute_resolutions,
     _deploy_source_path,
+    _forward_dry_run,
     _handle_deploy_preview,
     _matches_guarded_prefix,
 )
@@ -186,33 +186,31 @@ def test_guard_not_fired_when_source_is_cwd_rooted(tmp_path: Path) -> None:
 
 
 # ============================================================================
-# _check_stray_dry_run — warn on misuse
+# _forward_dry_run — the command gets its flag back
 # ============================================================================
 
 
-def test_dry_run_silent_for_deploy(capsys) -> None:
-    _check_stray_dry_run(["deploy"], _flags(dry_run=True))
-    captured = capsys.readouterr()
-    assert captured.err == ""
+def test_dry_run_stays_with_the_client_for_deploy() -> None:
+    assert _forward_dry_run(["deploy"], _flags(dry_run=True)) == ["deploy"]
 
 
-def test_dry_run_warns_for_non_deploy_verb(capsys) -> None:
-    _check_stray_dry_run(["restart", "myapp"], _flags(dry_run=True))
-    captured = capsys.readouterr()
-    assert "--dry-run" in captured.err
-    assert "restart" in captured.err
+def test_dry_run_is_forwarded_to_other_commands() -> None:
+    """`system cleanup --dry-run` must preview, never prune for real."""
+    argv = ["system", "cleanup"]
+    assert _forward_dry_run(argv, _flags(dry_run=True)) == [*argv, "--dry-run"]
 
 
-def test_dry_run_warns_for_unrelated_verb(capsys) -> None:
-    _check_stray_dry_run(["logs", "myapp"], _flags(dry_run=True))
-    captured = capsys.readouterr()
-    assert "--dry-run" in captured.err
+def test_no_dry_run_forwards_nothing() -> None:
+    assert _forward_dry_run(["restart"], _flags()) == ["restart"]
 
 
-def test_no_dry_run_no_warning(capsys) -> None:
-    _check_stray_dry_run(["restart", "myapp"], _flags())
-    captured = capsys.readouterr()
-    assert captured.err == ""
+@pytest.mark.parametrize("argv", [["run", "python"], ["app", "run", "python"]])
+def test_dry_run_is_refused_for_run(argv, capsys) -> None:
+    """Appended, --dry-run would reach the program; refuse instead."""
+    with pytest.raises(SystemExit) as exc:
+        _forward_dry_run(argv, _flags(dry_run=True))
+    assert exc.value.code == ExitCode.USAGE_ERROR
+    assert "--dry-run" in capsys.readouterr().err
 
 
 # ============================================================================

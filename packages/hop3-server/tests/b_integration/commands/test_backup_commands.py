@@ -283,11 +283,8 @@ class TestBackupCreateCommand:
             addon_credential_repo=addon_credential_repo,
         )
 
-        result = cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage:"):
+            cmd.call()
 
 
 class TestBackupListCommand:
@@ -438,11 +435,8 @@ class TestBackupInfoCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        result = info_cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage:"):
+            info_cmd.call()
 
 
 class TestBackupRestoreCommand:
@@ -591,11 +585,8 @@ class TestBackupRestoreCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        result = restore_cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage:"):
+            restore_cmd.call()
 
 
 class TestBackupDeleteCommand:
@@ -655,8 +646,5 @@ class TestBackupDeleteCommand:
             backup_repo=backup_repo,
             addon_credential_repo=addon_credential_repo,
         )
-        result = delete_cmd.call()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-        assert "Usage" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage:"):
+            delete_cmd.call()

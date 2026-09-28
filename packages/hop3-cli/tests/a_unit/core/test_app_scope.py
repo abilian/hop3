@@ -70,6 +70,11 @@ def test_config_namespace_is_app_scoped() -> None:
         assert n == 2
 
 
+def test_ps_scale_gets_the_app_after_its_full_name() -> None:
+    """`ps --app x scale web=2` ran `ps` with stray arguments."""
+    assert is_app_scoped(["ps", "scale", "web=2"]) == (True, 2)
+
+
 def test_backup_create_is_app_scoped() -> None:
     scoped, n = is_app_scoped(["backup", "create"])
     assert scoped

@@ -224,7 +224,8 @@ class RichPrinter:
         # every diagnostic). Unescaped, Rich raises a MarkupError that masks the
         # real failure. Only the static prefix carries markup.
         text = rich_escape(obj.get("text", ""))
-        self.console_err.print(f"[bold red]ERROR:[/bold red] {text}")
+        # soft_wrap, as for text: a script reads this line (see print_text).
+        self.console_err.print(f"[bold red]ERROR:[/bold red] {text}", soft_wrap=True)
 
     def print_success(self, obj: dict) -> None:
         """Print success messages in green."""
@@ -368,8 +369,9 @@ class RichPrinter:
             prefix = ""
         line = f"{prefix} {text}".strip() if prefix else text
         # Escape Rich markup so the brackets in the prefix and any user
-        # text aren't reinterpreted as style tags.
-        self.console_err.print(rich_escape(line))
+        # text aren't reinterpreted as style tags. soft_wrap, as for text:
+        # `system status --quiet` is this one line, and a script reads it.
+        self.console_err.print(rich_escape(line), soft_wrap=True)
 
     def print_debug(self, message: str, min_level: int = 2) -> None:
         """

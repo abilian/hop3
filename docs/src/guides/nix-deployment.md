@@ -13,7 +13,7 @@ Hop3 supports two modes for Nix-based deployment, in order of preference:
    `hop3.nix` file. Use this when the templates can't express what you
    need.
 
-**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, run `hop3 nix eject <app>`; this writes the file and is the supported way to switch from generated to hand-crafted mode.
+**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, run `hop3 nix eject --app <app> > hop3.nix`; this prints the file and is the supported way to switch from generated to hand-crafted mode.
 
 ## When to use Nix
 
@@ -139,7 +139,7 @@ When the templates don't fit, write a `hop3.nix` directly. Two cases where this 
 1. The app needs custom build steps that no template covers
 2. You need to combine nixpkgs sources with custom wrapping
 
-When you `hop3 nix eject <app>`, Hop3 materializes the generated Nix expression as a real `hop3.nix` file you can edit (the `[nix]` section in `hop3.toml` is then ignored).
+`hop3 nix eject --app <app> > hop3.nix` prints the generated Nix expression as a `hop3.nix` file you can edit; remove the `[nix]` section from `hop3.toml` before you deploy it.
 
 ### Minimal hand-crafted example
 
@@ -295,12 +295,10 @@ Your application reads `PGHOST`, `PGPORT`, `PGUSER`, `PGPASSWORD`, `PGDATABASE`,
 When you've outgrown the templates and need to customise the generated Nix expression, run:
 
 ```bash
-hop3 nix eject <app-name>
+hop3 nix eject --app <app-name> > hop3.nix
 ```
 
-This materializes the auto-generated Nix expression as a real `hop3.nix` file in your source directory. After ejection, the NixBuilder uses the committed `hop3.nix` and the `[nix]` section in `hop3.toml` is ignored.
-
-The ejected file includes a header noting which template it came from and the date of ejection.
+This prints the auto-generated Nix expression, with a header noting which template it came from and the date of ejection. Save it in your project as `hop3.nix`, remove the `[nix]` section from `hop3.toml` (a build refuses an app that has both), and deploy: NixBuilder uses the committed `hop3.nix` from then on.
 
 ## Debugging
 
@@ -332,11 +330,11 @@ The build succeeds but Hop3 can't find the runtime config. Ensure your `installP
 Run the generator manually to see what Hop3 would produce:
 
 ```bash
-hop3 nix eject <app-name>
-cat <app-source>/hop3.nix
+hop3 nix eject --app <app-name> > generated.nix
+less generated.nix
 ```
 
-The eject command writes the generated file but does not deploy. You can review, edit, or revert.
+The eject command only prints the expression: it changes nothing on the server.
 
 ## Examples
 

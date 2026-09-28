@@ -654,7 +654,7 @@ Create and attach database:
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-fastapi-db
-hop3 addon attach hop3-tuto-fastapi hop3-tuto-fastapi-db
+hop3 addon attach hop3-tuto-fastapi-db --app hop3-tuto-fastapi
 ```
 
 ### Adding Redis for Caching
@@ -697,7 +697,7 @@ Attach Redis:
 
 ```bash skip
 hop3 addon create redis hop3-tuto-fastapi-redis
-hop3 addon attach hop3-tuto-fastapi hop3-tuto-fastapi-redis
+hop3 addon attach hop3-tuto-fastapi-redis --app hop3-tuto-fastapi
 ```
 
 ### Background Tasks with Celery
@@ -858,7 +858,7 @@ async def log_requests(request: Request, call_next):
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-fastapi --tail
+hop3 app logs --app hop3-tuto-fastapi
 ```
 
 Common issues:

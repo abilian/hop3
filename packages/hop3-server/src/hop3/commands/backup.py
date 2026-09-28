@@ -51,13 +51,7 @@ class BackupCreateCmd(Command):
         app_name, rest = pop_app_flag(args)
 
         if app_name is None:
-            return [
-                text(
-                    "Usage: hop3 backup create [--app <app>] [--no-addons]\n\n"
-                    "Example:\n"
-                    "  hop3 backup create --app my-app"
-                )
-            ]
+            raise self.usage_error()
 
         include_addons = "--no-addons" not in rest
         # Reject anything else (e.g. the `--no-addon` typo) instead of silently
@@ -223,13 +217,7 @@ class BackupInfoCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Get backup information."""
         if len(args) < 1:
-            return [
-                text(
-                    "Usage: hop3 backup show <backup-id>\n\n"
-                    "Example:\n"
-                    "  hop3 backup show 20251030_143022_a8f3d9"
-                )
-            ]
+            raise self.usage_error()
 
         backup_id = args[0]
 
@@ -327,14 +315,7 @@ class BackupRestoreCmd(Command):
         target_app_name = parsed.get("target_app")
 
         if not backup_id:
-            return [
-                text(
-                    "Usage: hop3 backup restore <backup-id> [--target-app NAME]\n\n"
-                    "Examples:\n"
-                    "  hop3 backup restore 20251030_143022_a8f3d9\n"
-                    "  hop3 backup restore 20251030_143022_a8f3d9 --target-app new-app"
-                )
-            ]
+            raise self.usage_error()
 
         with command_context("restoring backup", backup_id=backup_id):
             manager = BackupManager(
@@ -412,14 +393,7 @@ class BackupRegisterCmd(Command):
         backup_dir_str = parsed.get("backup_dir")
 
         if not backup_dir_str:
-            return [
-                text(
-                    "Usage: hop3 backup register <backup-dir>\n\n"
-                    "Example:\n"
-                    "  hop3 backup register "
-                    "/home/hop3/backups/apps/myapp/20251030_143022_a8f3d9"
-                )
-            ]
+            raise self.usage_error()
 
         backup_dir = Path(backup_dir_str).resolve()
 
@@ -466,14 +440,7 @@ class BackupDestroyCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         """Destroy a backup."""
         if len(args) < 1:
-            return [
-                text(
-                    "Usage: hop3 backup destroy <backup-id>\n\n"
-                    "WARNING: This action cannot be undone!\n\n"
-                    "Example:\n"
-                    "  hop3 backup destroy 20251030_143022_a8f3d9"
-                )
-            ]
+            raise self.usage_error()
 
         backup_id = args[0]
 
@@ -515,7 +482,7 @@ class BackupCmd(NamespaceCommand):
 
     Examples:
         hop3 backup create --app myapp   # Create a new backup
-        hop3 backup list myapp           # List backups for myapp (positional)
+        hop3 backup list --app myapp     # List backups for myapp
         hop3 backup restore <id>         # Restore a backup
     """
 

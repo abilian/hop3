@@ -59,11 +59,8 @@ def mock_app():
 def test_services_create_requires_arguments():
     """Test that services:create requires both service type and name."""
     cmd = AddonCreateCmd()
-    result = cmd.call()
-
-    assert len(result) == 1
-    assert result[0]["t"] == "text"
-    assert "Usage:" in result[0]["text"]
+    with pytest.raises(ValueError, match="Usage: hop3 addon create <type> <name>"):
+        cmd.call()
 
 
 def test_services_create_with_postgres():
@@ -129,11 +126,8 @@ def test_services_attach_requires_app_name(
         addon_credential_repo=mock_addon_credential_repo,
         env_var_repo=mock_env_var_repo,
     )
-    result = cmd.call("my-database")
-
-    assert len(result) == 1
-    assert result[0]["t"] == "error"
-    assert "--app parameter is required" in result[0]["text"]
+    with pytest.raises(ValueError, match="--app is required"):
+        cmd.call("my-database")
 
 
 def test_services_attach_app_not_found(
@@ -150,7 +144,7 @@ def test_services_attach_app_not_found(
 
     # App not found raises ValueError for JSON-RPC error handling
     with pytest.raises(ValueError) as exc_info:
-        cmd.call("my-database", "--app", "nonexistent-app")
+        cmd.call("my-database", "--app", "nonexistent-app", "--type", "postgres")
 
     assert "not found" in str(exc_info.value)
 
@@ -246,8 +240,14 @@ def test_addon_list_for_app_not_found(mock_app_repo, mock_addon_credential_repo)
 
 
 def test_services_info_success():
-    """Test successful service info retrieval."""
-    with patch("hop3.commands.services.get_addon") as mock_get_service:
+    """`addon show <name>` reads the addon's type from its name, never assumes postgres."""
+    with (
+        patch("hop3.commands.services.get_addon") as mock_get_service,
+        patch(
+            "hop3.commands.services.list_addon_instances",
+            return_value=[("redis", "my-database")],
+        ),
+    ):
         mock_service = Mock()
         mock_service.info.return_value = {
             "addon_name": "my-database",
@@ -260,6 +260,7 @@ def test_services_info_success():
         cmd = AddonShowCmd()
         result = cmd.call("my-database")
 
+        mock_get_service.assert_called_once_with("redis", "my-database")
         mock_service.info.assert_called_once()
         assert "my-database" in result[0]["text"]
         assert "42.5" in result[0]["text"]

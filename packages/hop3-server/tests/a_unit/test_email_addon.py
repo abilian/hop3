@@ -196,9 +196,8 @@ def test_cmd_create_happy_path(email_root, no_dns):
 
 
 def test_cmd_create_missing_flags_is_loud(email_root):
-    result = AddonEmailCreateCmd().call("mail", "--smtp-host", "smtp.example.com")
-    assert "error" in _types(result)
-    assert "missing" in _joined(result)
+    with pytest.raises(ValueError, match="Missing: --from"):
+        AddonEmailCreateCmd().call("mail", "--smtp-host", "smtp.example.com")
     assert EmailAddon(addon_name="mail").info()["configured"] is False
 
 

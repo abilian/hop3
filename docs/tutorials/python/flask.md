@@ -556,7 +556,7 @@ Create and attach database:
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-flask-db
-hop3 addon attach hop3-tuto-flask hop3-tuto-flask-db
+hop3 addon attach hop3-tuto-flask-db --app hop3-tuto-flask
 ```
 
 Run migrations:
@@ -614,7 +614,7 @@ Attach Redis:
 
 ```bash skip
 hop3 addon create redis hop3-tuto-flask-redis
-hop3 addon attach hop3-tuto-flask hop3-tuto-flask-redis
+hop3 addon attach hop3-tuto-flask-redis --app hop3-tuto-flask
 ```
 
 ### Background Tasks with Celery
@@ -729,7 +729,7 @@ CORS(app, origins=allowed_origins.split(','))
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-flask --tail
+hop3 app logs --app hop3-tuto-flask
 ```
 
 Common issues:

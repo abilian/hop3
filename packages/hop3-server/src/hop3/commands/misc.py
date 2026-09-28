@@ -127,6 +127,8 @@ class PSCmd(Command):
     """
     Show process count for an application.
 
+    Usage: hop3 ps [--app <app>]
+
     Examples:
         hop3 ps --app myapp            # Show processes for myapp
         hop3 ps                        # app from the current project/context
@@ -141,8 +143,7 @@ class PSCmd(Command):
         reject_extra_args(rest)  # `ps` takes no positionals (audit C9)
 
         if app_name is None:
-            msg = "Usage: hop3 ps [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         app = get_app(self.db_session, app_name)
         scaling_file = app.virtualenv_path / "SCALING"
 
@@ -165,6 +166,8 @@ class PsScaleCmd(Command):
     """
     Set the process count (e.g., hop3 ps scale --app <app> web=2 worker=1).
 
+    Usage: hop3 ps scale [--app <app>] <type>=<count> ...
+
     Examples:
         hop3 ps scale --app myapp web=2   # Run 2 web workers
         hop3 ps scale --app myapp web=2 worker=1
@@ -178,7 +181,7 @@ class PsScaleCmd(Command):
         app_name, rest = pop_app_flag(args)
 
         if app_name is None or not rest:
-            return [text("Usage: hop3 ps scale [--app <app>] <type>=<count>...")]
+            raise self.usage_error()
 
         settings = rest
         app = get_app(self.db_session, app_name)
@@ -247,13 +250,7 @@ class RunCmd(Command):
         args_list = rest
 
         if app_name is None or not args_list:
-            return [
-                text(
-                    "Usage: hop3 run [--app <app>] <command> [args...] [--input <data>]\n\n"
-                    "Options:\n"
-                    "  --input <data>  Data to send to stdin (for password prompts, etc.)"
-                )
-            ]
+            raise self.usage_error()
 
         # Parse --input option
         stdin_data = None
@@ -408,6 +405,8 @@ class SbomCmd(Command):
     """
     Generate a Software Bill of Materials (SBOM) for an application.
 
+    Usage: hop3 app sbom [--app <app>]
+
     Examples:
         hop3 app sbom --app myapp      # Generate an SBOM for myapp
     """
@@ -421,8 +420,7 @@ class SbomCmd(Command):
         reject_extra_args(rest)  # `app sbom` takes no positionals (audit C9)
 
         if app_name is None:
-            msg = "Usage: hop3 app sbom [--app <app>]"
-            raise ValueError(msg)
+            raise self.usage_error()
         app = get_app(self.db_session, app_name)
 
         # This is a Python-specific POC. A real implementation would be pluggable.

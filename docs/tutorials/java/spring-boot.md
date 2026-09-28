@@ -585,7 +585,7 @@ Create and attach database:
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-spring-boot-db
-hop3 addon attach hop3-tuto-spring-boot hop3-tuto-spring-boot-db
+hop3 addon attach hop3-tuto-spring-boot-db --app hop3-tuto-spring-boot
 ```
 
 ### Entity and Repository Example
@@ -661,7 +661,7 @@ Attach Redis:
 
 ```bash skip
 hop3 addon create redis hop3-tuto-spring-boot-redis
-hop3 addon attach hop3-tuto-spring-boot hop3-tuto-spring-boot-redis
+hop3 addon attach hop3-tuto-spring-boot-redis --app hop3-tuto-spring-boot
 ```
 
 ### Scheduled Tasks
@@ -773,7 +773,7 @@ web: ./target/hop3-tuto-spring-boot
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-spring-boot --tail
+hop3 app logs --app hop3-tuto-spring-boot
 ```
 
 Common issues:

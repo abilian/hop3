@@ -6,7 +6,7 @@
 
 ``hop3 cert status`` lists each app's certificate (type, days to expiry).
 ``hop3 cert renew`` re-issues certs due within ``--days`` (default 30) or all
-with ``--force``, reinstalls them into nginx, and reloads.
+with ``--force-renewal``, reinstalls them into nginx, and reloads.
 """
 
 from __future__ import annotations
@@ -79,12 +79,14 @@ class CertStatusCmd(Command):
 @dataclass(frozen=True)
 class CertRenewCmd(Command):
     """
-    Renew certs due within --days (default 30), or all with --force.
+    Renew certs due within --days (default 30), or all with --force-renewal.
+
+    Usage: hop3 cert renew [--app <app>] [--days N] [--force-renewal]
 
     Examples:
         hop3 cert renew
-        hop3 cert renew myapp
-        hop3 cert renew --force
+        hop3 cert renew --app myapp
+        hop3 cert renew --force-renewal
         hop3 cert renew --days 45
     """
 
@@ -92,15 +94,17 @@ class CertRenewCmd(Command):
     name: ClassVar[tuple[str, ...]] = ("cert", "renew")
     min_role: ClassVar[Role] = Role.ADMIN
     _arg_spec: ClassVar[dict] = {
-        "app": {"positional": True},
-        "force": {"flag": True},
+        "app": {"type": str},
+        # Not `--force`: the client keeps that one for itself (it skips the
+        # confirmation prompts), so the server never saw it.
+        "force_renewal": {"flag": True},
         "days": {"type": int, "default": 30},
     }
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         only_app = parsed.get("app")
-        force = bool(parsed.get("force"))
+        force = bool(parsed.get("force_renewal"))
         threshold = parsed.get("days", 30)
 
         apps = AppRepository(session=self.db_session).list_all_ordered()

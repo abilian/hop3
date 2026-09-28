@@ -74,11 +74,8 @@ class TestAdminUserAddCmdIntegration:
 
         cmd = UserAddCmd(user_repo=user_repo)
 
-        result = cmd.call(sample_user.username)
-
-        assert len(result) == 1
-        assert result[0]["t"] == "error"
-        assert "Usage:" in result[0]["text"]
+        with pytest.raises(ValueError, match="Usage: hop3 user add"):
+            cmd.call(sample_user.username)
 
         # Verify no new user was created
         db_session.expire_all()

@@ -59,16 +59,15 @@ def _is_error(result: list[dict]) -> bool:
 
 
 def test_install_requires_blueprint_id(db_session: Session, loaded_catalog) -> None:
-    result = CatalogInstallCmd(db_session=db_session).call("--app", "myapp")
-    assert _is_error(result)
+    with pytest.raises(ValueError, match="Usage: hop3 catalog install"):
+        CatalogInstallCmd(db_session=db_session).call("--app", "myapp")
 
 
 def test_install_rejects_extra_arguments(db_session: Session, loaded_catalog) -> None:
-    result = CatalogInstallCmd(db_session=db_session).call(
-        "nextcloud", "extra", "--app", "myapp"
-    )
-    assert _is_error(result)
-    assert "extra" in _texts(result)
+    with pytest.raises(ValueError, match="Unexpected argument"):
+        CatalogInstallCmd(db_session=db_session).call(
+            "nextcloud", "extra", "--app", "myapp"
+        )
 
 
 def test_install_unknown_catalog_id(db_session: Session, loaded_catalog) -> None:
@@ -139,10 +138,9 @@ def test_parse_install_rest_defaults() -> None:
     assert (app_id, env_lines, extras, domain) == ("nextcloud", [], [], None)
 
 
-def test_parse_install_rest_domain_space_and_short_and_equals() -> None:
+def test_parse_install_rest_domain_space_and_equals() -> None:
     for tokens in (
         ["nextcloud", "--domain", "cloud.example.com"],
-        ["nextcloud", "-d", "cloud.example.com"],
         ["nextcloud", "--domain=cloud.example.com"],
     ):
         app_id, _env, extras, domain = _parse_install_rest(tokens)

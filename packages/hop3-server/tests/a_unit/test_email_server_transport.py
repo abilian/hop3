@@ -183,11 +183,10 @@ def test_set_rejects_port_25(email_root):
 
 
 def test_set_missing_flags_is_loud(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin", "--smtp-host", "smtp.example.com"
-    )
-    assert "error" in _types(result)
-    assert "missing" in _joined(result)
+    with pytest.raises(ValueError, match="Missing: --smtp-user"):
+        ServerEmailSetCmd(user_repo=_admin_repo()).call(
+            "admin", "--smtp-host", "smtp.example.com"
+        )
     assert load_server_transport() is None
 
 
@@ -257,14 +256,10 @@ def test_create_inherit_rejects_off_domain(email_root, no_dns):
 def test_create_partial_smtp_is_refused(email_root, no_dns):
     save_server_transport(_server_transport())
     # host without user/password -> override path -> all three become required.
-    result = AddonEmailCreateCmd().call(
-        "mail", "--from", "team@example.com", "--smtp-host", "smtp.own.com"
-    )
-    assert "error" in _types(result)
-    joined = _joined(result)
-    assert "missing" in joined
-    assert "--smtp-user" in joined
-    assert "--smtp-password" in joined
+    with pytest.raises(ValueError, match="Missing: --smtp-user, --smtp-password"):
+        AddonEmailCreateCmd().call(
+            "mail", "--from", "team@example.com", "--smtp-host", "smtp.own.com"
+        )
     assert EmailAddon(addon_name="mail").info()["configured"] is False
 
 
@@ -322,13 +317,11 @@ def test_create_explicit_port_on_inherit_path_fails_loud(email_root, no_dns):
     # An explicit --smtp-port signals a per-app transport, so it must not be
     # silently dropped onto the inherit path (which uses the server's port).
     save_server_transport(_server_transport())  # server on 587
-    result = AddonEmailCreateCmd().call(
-        "mail", "--from", "team@example.com", "--smtp-port", "465"
-    )
-    assert "error" in _types(result)
-    joined = _joined(result)
-    assert "missing" in joined
-    assert "--smtp-host" in joined  # tells the user what a per-app transport needs
+    # The message tells the user what a per-app transport needs.
+    with pytest.raises(ValueError, match="Missing: --smtp-host"):
+        AddonEmailCreateCmd().call(
+            "mail", "--from", "team@example.com", "--smtp-port", "465"
+        )
     assert EmailAddon(addon_name="mail").info()["configured"] is False
 
 
@@ -644,12 +637,10 @@ def test_backend_direct_inherited_addon_injects_loopback(email_root, no_dns):
 
 
 def test_backend_unknown_kind_is_loud(email_root):
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "smtp")
-    assert "error" in _types(result)
-    assert "unknown backend" in _joined(result)
+    with pytest.raises(ValueError, match="Unknown backend 'smtp'"):
+        ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "smtp")
 
 
 def test_backend_missing_kind_shows_usage(email_root):
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin")
-    assert "error" in _types(result)
-    assert "backend <relay|catch|direct>" in _joined(result)
+    with pytest.raises(ValueError, match=r"backend <relay\|catch\|direct>"):
+        ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin")

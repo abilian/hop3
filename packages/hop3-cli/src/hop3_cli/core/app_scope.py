@@ -105,6 +105,9 @@ _TOP_LEVEL_APP_SCOPED: set[tuple[str, ...]] = {
     ("restart",),
     ("status",),
     ("ps",),
+    # Listed in full: matched as `ps`, the injected --app split the command
+    # (`ps --app x scale web=2`) and the server ran `ps` with stray arguments.
+    ("ps", "scale"),
     ("scale",),
     ("ssh",),
     ("open",),
@@ -135,8 +138,8 @@ _APP_NAMESPACE_SCOPED: set[tuple[str, ...]] = {
     ("app", "rollback"),
     ("app", "run"),  # canonical form of top-level `run` (alias). See run special-case.
     ("app", "shell"),  # canonical form of top-level `ssh`; run by the CLI over SSH.
-    # ("app", "launch") and ("app", "list") are NOT app-scoped: launch creates
-    # an app from a repo arg; list takes no app.
+    # `app create` / `app launch` name a NEW app, so they are in _EXPLICIT_ONLY
+    # below; `app list` takes no app.
     # ("app", "rename") — second arg is the new name, not a second app; app is positional and unambiguous
 }
 
@@ -158,21 +161,27 @@ _CONFIG_SCOPED: set[tuple[str, ...]] = {("config", *rest) for (_, *rest) in _ENV
 # target. They MUST be app-scoped: `parse_flags` strips the user's `--app` into
 # `flags.app`, and only app-scoped commands get it re-injected into the forwarded
 # argv. Without these entries the explicit `--app` is silently dropped and the
-# server rejects the call with "--app parameter is required". (`addon create` /
-# `destroy` / `show` / `list` operate on the addon, not an app — not scoped.)
+# server rejects the call with "--app parameter is required". `promote` flips
+# which addon is primary for one app, so it is the same shape. (`addon create`
+# / `destroy` / `show` operate on the addon, not an app — not scoped; `list`
+# takes --app as an optional filter, see _EXPLICIT_ONLY.)
 _ADDON_SCOPED: set[tuple[str, ...]] = {
     ("addon", "attach"),
     ("addon", "detach"),
+    ("addon", "promote"),
 }
 
 # Backup commands.
 _BACKUP_SCOPED: set[tuple[str, ...]] = {
     ("backup", "create"),
-    # Note: `backup list --app X` is app-scoped; bare `backup list` lists all.
-    # We don't auto-inject here; explicit --app is fine.
-    # Restore: `backup restore <id>` target app comes from the backup metadata or --app.
-    # Treat like backup create: injection allowed but optional.
+    # `backup list --app X` filters; bare `backup list` lists all — see
+    # _EXPLICIT_ONLY. Restore: `backup restore <id>` takes its target app from
+    # the backup metadata or --target-app.
 }
+
+# Hidden, operator-only commands on one app: `git setup` prepares its git-push
+# remote, `nix eject` prints the hop3.nix its [nix] template generates.
+_OPERATOR_SCOPED: set[tuple[str, ...]] = {("git", "setup"), ("nix", "eject")}
 
 # Domain commands (each manages a single app's hostnames). The app is the
 # `--app` flag; the positionals are hostnames. `domains` is the alias the
@@ -188,13 +197,21 @@ _DOMAINS_SCOPED: set[tuple[str, ...]] = {
     ("domains", *rest) for (_, *rest) in _DOMAIN_SCOPED
 }
 
-# `catalog install <blueprint-id> --app <name>` names the NEW app via --app; it
-# must be app-scoped so the client forwards --app (parse_flags strips it into
-# flags.app, and only app-scoped commands get it re-injected). The <blueprint-id>
-# is a catalog identifier positional, not an app. (Bare `catalog list`/`refresh`
-# are not app-scoped.)
-_CATALOG_SCOPED: set[tuple[str, ...]] = {
+# Commands that take --app but must never receive an AMBIENT one: an explicit
+# --app is forwarded (parse_flags strips it into flags.app, and only app-scoped
+# commands get it back), but when it is omitted the argv goes through unchanged.
+# Two shapes: create-style commands whose --app names a *new* app (`catalog
+# install <blueprint-id> --app <name>`: the server requires it explicitly, so
+# the directory's app must never be substituted), and listings where --app is
+# an optional filter (bare `hop3 addon list` lists every instance, even from
+# inside a project).
+_EXPLICIT_ONLY: set[tuple[str, ...]] = {
     ("catalog", "install"),
+    ("app", "create"),
+    ("app", "launch"),  # server-side alias of `app create`
+    ("addon", "list"),
+    ("backup", "list"),
+    ("cert", "renew"),
 }
 
 APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
@@ -204,18 +221,13 @@ APP_SCOPED_COMMANDS: set[tuple[str, ...]] = (
     | _CONFIG_SCOPED
     | _ADDON_SCOPED
     | _BACKUP_SCOPED
+    | _OPERATOR_SCOPED
     | _DOMAIN_SCOPED
     | _DOMAINS_SCOPED
-    | _CATALOG_SCOPED
+    | _EXPLICIT_ONLY
 )
 
-# Create-style commands whose --app names a *new* app, not an existing target.
-# They stay in APP_SCOPED_COMMANDS so an EXPLICIT --app is still forwarded to the
-# server (parse_flags strips it into flags.app), but the client must NOT resolve
-# and inject an AMBIENT app as that name when --app is omitted — the server
-# requires it explicitly. (Mirrors why `app launch` is not app-scoped at all: its
-# target is a new name, never an ambient/existing app.)
-NEW_APP_SCOPED_COMMANDS: set[tuple[str, ...]] = _CATALOG_SCOPED
+EXPLICIT_APP_COMMANDS: set[tuple[str, ...]] = _EXPLICIT_ONLY
 
 
 _MAX_DEPTH = max((len(t) for t in APP_SCOPED_COMMANDS), default=1)

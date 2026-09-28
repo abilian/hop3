@@ -486,7 +486,7 @@ hop3 init --ssh root@your-server.example.com
 
 ```bash skip
 hop3 addon create postgres hop3-tuto-laravel-db
-hop3 addon attach hop3-tuto-laravel hop3-tuto-laravel-db
+hop3 addon attach hop3-tuto-laravel-db --app hop3-tuto-laravel
 ```
 
 ### Set Environment Variables
@@ -677,7 +677,7 @@ Attach Redis addon:
 
 ```bash skip
 hop3 addon create redis hop3-tuto-laravel-redis
-hop3 addon attach hop3-tuto-laravel hop3-tuto-laravel-redis
+hop3 addon attach hop3-tuto-laravel-redis --app hop3-tuto-laravel
 hop3 env set --app hop3-tuto-laravel CACHE_DRIVER=redis
 hop3 env set --app hop3-tuto-laravel SESSION_DRIVER=redis
 ```
@@ -720,7 +720,7 @@ hop3 env set --app hop3-tuto-laravel MAIL_ENCRYPTION=tls
 Check the logs for errors:
 
 ```bash skip
-hop3 app logs --app hop3-tuto-laravel --tail
+hop3 app logs --app hop3-tuto-laravel
 ```
 
 Common issues:

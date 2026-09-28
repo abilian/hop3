@@ -47,6 +47,10 @@ def parse_docstring_sections(doc: str | None) -> dict:
     for raw in lines[first_nonempty + 1 :]:
         stripped = raw.strip()
         if not stripped:
+            # A blank line closes a Usage block: prose after it is description
+            # (`export`'s "Writes a pg_dump ..." rendered as a usage line).
+            if current == "usage" and result["usage"]:
+                current = "body"
             continue
         new_section, tail = classify_doc_line(stripped)
         if new_section is not None:

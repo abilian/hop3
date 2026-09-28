@@ -42,6 +42,7 @@ from hop3.config import HOP3_ROOT, config
 from hop3.core.plugins import get_plugin_manager
 from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
+from hop3.lib.console import get_verbosity
 from hop3.lib.logging import DEFAULT_LOG_FILE
 from hop3.lib.registry import register
 from hop3.lib.rootd import RootdError, RootdUnavailableError, service_state
@@ -50,7 +51,7 @@ from hop3.plugins.s3.backend import HOP3_S3_ENV_FILE
 from hop3.server.health import get_all_health_checks, run_health_check
 
 from ._base import Command, NamespaceCommand
-from ._response import data, error, success, text, warning
+from ._response import data, error, success, summary, text, warning
 
 if TYPE_CHECKING:
     from hop3.core.protocols import Severity
@@ -352,7 +353,7 @@ class StatusCmd(Command):
         --quiet, -q   One-line summary only (suitable for scripting).
         --json        Machine-readable JSON output.
 
-    Exit code is non-zero when there is any warning or failure.
+    Exit code is non-zero when any check fails.
 
     Examples:
         hop3 system status
@@ -364,9 +365,9 @@ class StatusCmd(Command):
     min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
-        quiet = "--quiet" in args or "-q" in args
-        # The CLI's `--json` is its own flag and never reaches `args`; it
-        # arrives as this keyword instead.
+        # `--quiet` and `--json` are the CLI's own flags and never reach
+        # `args`: the first arrives as the verbosity, the second as this keyword.
+        quiet = get_verbosity() == 0
         json_mode = bool(kwargs.get("json_output"))
 
         identity = self._gather_identity()
@@ -577,8 +578,9 @@ class StatusCmd(Command):
         return result
 
     def _render_quiet(self, overall: Severity, sections: list[CheckSection]) -> dict:
+        # A summary or an error: the two items a quiet client still prints.
         if overall == "ok":
-            return success("OK")
+            return summary("OK")
         non_ok = [
             f"{item.name.lower()} {item.detail}".strip()
             for section in sections
@@ -587,7 +589,7 @@ class StatusCmd(Command):
         ]
         label = "DEGRADED" if overall == "warn" else "FAILED"
         msg = f"{label}: " + "; ".join(non_ok) if non_ok else label
-        return error(msg) if overall == "fail" else warning(msg)
+        return error(msg) if overall == "fail" else summary(msg)
 
     def _summary_line(self, overall: Severity, sections: list[CheckSection]) -> str:
         warns = sum(1 for s in sections for i in s.items if i.severity == "warn")
@@ -652,7 +654,8 @@ class InfoCmd(Command):
     min_role: ClassVar[Role] = Role.VIEWER
 
     def call(self, *args: str, **kwargs: object) -> list[dict]:
-        verbose = "--verbose" in args or "-v" in args
+        # `-v` is the CLI's own flag: it arrives as the verbosity, not in args.
+        verbose = get_verbosity() >= 2
 
         version = importlib.metadata.version("hop3_server")
         python_version = sys.version.split()[0]

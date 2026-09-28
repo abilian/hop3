@@ -83,7 +83,7 @@ class NixBuilder:
                 f"  - Remove the [nix].template section to keep your "
                 f"hand-crafted hop3.nix.\n"
                 f"To convert a template to a hand-crafted file, "
-                f"run: hop3 nix eject {self.context.app_name}"
+                f"run: hop3 nix eject --app {self.context.app_name} > hop3.nix"
             )
             raise Abort(msg)
 

@@ -156,7 +156,7 @@ def _make(
 def _credentials_cmd(spec: AddonCliSpec) -> type[Command]:
     def call(self: Command, *args: str) -> list[dict]:
         if not args:
-            return [text(f"Usage: {spec.prefix} credentials <name>")]
+            raise self.usage_error()
         addon_name = args[0]
         with command_context(
             "reading addon credentials",
@@ -180,7 +180,7 @@ def _credentials_cmd(spec: AddonCliSpec) -> type[Command]:
 def _dump_cmd(spec: AddonCliSpec) -> type[Command]:
     def call(self: Command, *args: str) -> list[dict]:
         if not args:
-            return [text(f"Usage: {spec.prefix} dump <name>")]
+            raise self.usage_error()
         addon_name = args[0]
         with command_context(
             "dumping addon", addon_name=addon_name, service_type=spec.type_name
@@ -206,7 +206,7 @@ def _dump_cmd(spec: AddonCliSpec) -> type[Command]:
 def _restore_cmd(spec: AddonCliSpec) -> type[Command]:
     def call(self: Command, *args: str) -> list[dict]:
         if len(args) < 2:
-            return [text(f"Usage: {spec.prefix} restore <name> <path>")]
+            raise self.usage_error()
         addon_name, backup_path = args[0], args[1]
         with command_context(
             "restoring addon", addon_name=addon_name, service_type=spec.type_name
@@ -234,7 +234,7 @@ def _restore_cmd(spec: AddonCliSpec) -> type[Command]:
 def _clone_cmd(spec: AddonCliSpec) -> type[Command]:
     def call(self: Command, *args: str) -> list[dict]:
         if len(args) < 2:
-            return [text(f"Usage: {spec.prefix} clone <source> <new-name>")]
+            raise self.usage_error()
         source, target = args[0], args[1]
         try:
             validate_service_name(target)
@@ -270,7 +270,7 @@ def _clone_cmd(spec: AddonCliSpec) -> type[Command]:
 def _export_cmd(spec: AddonCliSpec) -> type[Command]:
     def call(self: Command, *args: str) -> list[dict]:
         if not args:
-            return [text(f"Usage: {spec.prefix} export <name> > {spec.dump_filename}")]
+            raise self.usage_error()
         addon_name = args[0]
         with command_context(
             "exporting addon", addon_name=addon_name, service_type=spec.type_name
@@ -309,7 +309,7 @@ def _import_cmd(spec: AddonCliSpec) -> type[Command]:
         **kwargs: object,
     ) -> list[dict]:
         if not args:
-            return [text(f"Usage: {spec.prefix} import <name> < {spec.dump_filename}")]
+            raise self.usage_error()
         addon_name = args[0]
         if not import_data:
             return [

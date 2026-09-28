@@ -333,7 +333,7 @@ hop3 domain list --app myapp
 hop3 domain add --app myapp app.example.com
 hop3 domain remove --app myapp app.example.com
 
-hop3 cert status --app myapp
+hop3 cert status
 hop3 cert renew --app myapp
 ```
 

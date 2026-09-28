@@ -242,22 +242,24 @@ def test_resolved_app_injected_for_simple_command() -> None:
 
 def test_explicit_app_on_non_app_scoped_command_aborts() -> None:
     """
-    L1: `cert renew --app X` must not silently drop --app (and renew ALL).
+    L1: `cert renew --app X` silently dropped --app (and renewed ALL).
 
-    `cert renew` is not app-scoped, so the typed --app can't be forwarded —
+    `cert status` is not app-scoped, so the typed --app can't be forwarded —
     refuse loudly rather than ignore it.
     """
     with pytest.raises(SystemExit) as exc:
         _inject_resolved_app(
-            ["cert", "renew"], CliFlags(app="myapp"), None, MagicMock()
+            ["cert", "status"], CliFlags(app="myapp"), None, MagicMock()
         )
     assert exc.value.code == ExitCode.RESOLUTION_ERROR
 
 
 def test_non_app_scoped_without_explicit_app_passes_through() -> None:
     """Without a typed --app, a non-app-scoped command is left untouched."""
-    out = _inject_resolved_app(["cert", "renew"], CliFlags(app=None), None, MagicMock())
-    assert out == ["cert", "renew"]
+    out = _inject_resolved_app(
+        ["cert", "status"], CliFlags(app=None), None, MagicMock()
+    )
+    assert out == ["cert", "status"]
 
 
 # ---- create-style commands: --app names a NEW app; never substitute ambient ----

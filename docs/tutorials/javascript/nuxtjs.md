@@ -484,7 +484,7 @@ hop3 env set --app hop3-tuto-nuxtjs NUXT_PUBLIC_API_BASE=https://api.example.com
 ### View Logs
 
 ```bash skip
-hop3 app logs --app hop3-tuto-nuxtjs --tail
+hop3 app logs --app hop3-tuto-nuxtjs
 ```
 
 ## Advanced Configuration

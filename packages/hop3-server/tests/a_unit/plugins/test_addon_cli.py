@@ -15,6 +15,8 @@ from __future__ import annotations
 import base64
 from pathlib import Path
 
+import pytest
+
 from hop3.plugins.addons import generic_cli
 from hop3.plugins.mysql import cli as mysql_cli
 from hop3.plugins.postgresql import cli as pg_cli
@@ -185,9 +187,9 @@ def test_redis_query_returns_text(monkeypatch):
     assert out[0]["text"] == "PONG"
 
 
-def test_query_without_command_returns_usage():
-    out = pg_cli.AddonPostgresQueryCmd().call("mydb")  # no --command
-    assert "Usage:" in out[0]["text"]
+def test_query_without_command_is_a_usage_error():
+    with pytest.raises(ValueError, match="Usage: hop3 addon postgres query"):
+        pg_cli.AddonPostgresQueryCmd().call("mydb")  # no --command
 
 
 def test_diagnostics_use_superuser_path_and_right_queries(monkeypatch):
@@ -207,9 +209,9 @@ def test_diagnostics_use_superuser_path_and_right_queries(monkeypatch):
     assert pg_cli.AddonPostgresPsCmd.destructive is False
 
 
-def test_diagnostic_missing_name_returns_usage():
-    out = pg_cli.AddonPostgresPsCmd().call()
-    assert "Usage:" in out[0]["text"]
+def test_diagnostic_missing_name_is_a_usage_error():
+    with pytest.raises(ValueError, match="Usage: hop3 addon postgres activity"):
+        pg_cli.AddonPostgresPsCmd().call()
 
 
 def test_mysql_diagnostics_use_admin_path(monkeypatch):
@@ -247,9 +249,9 @@ def test_clone_refuses_existing_target(monkeypatch):
     assert "already exists" in out[0]["text"]
 
 
-def test_clone_missing_args_returns_usage():
-    out = pg_cli.AddonPostgresCloneCmd().call("only-source")
-    assert "Usage:" in out[0]["text"]
+def test_clone_missing_args_is_a_usage_error():
+    with pytest.raises(ValueError, match="Usage: hop3 addon postgres clone"):
+        pg_cli.AddonPostgresCloneCmd().call("only-source")
 
 
 def test_export_streams_dump_as_blob(monkeypatch, tmp_path):
@@ -381,14 +383,19 @@ def test_s3_import_restores_decoded_dump(monkeypatch):
     assert seen["content"] == b"S3DUMP"
 
 
-def test_missing_args_returns_usage_not_crash():
+def test_missing_args_is_a_usage_error_not_a_crash():
     # No monkeypatch: must short-circuit on the arg guard before get_addon.
-    out = s3_cli.AddonS3CredentialsCmd().call()
-    assert out[0]["t"] == "text"
-    assert "Usage:" in out[0]["text"]
+    with pytest.raises(ValueError, match="Usage: hop3 addon s3 credentials"):
+        s3_cli.AddonS3CredentialsCmd().call()
 
-    out = pg_cli.AddonPostgresRestoreCmd().call("only-name")  # needs 2 args
-    assert "Usage:" in out[0]["text"]
+    with pytest.raises(ValueError, match="Usage: hop3 addon postgres restore"):
+        pg_cli.AddonPostgresRestoreCmd().call("only-name")  # needs 2 args
+
+
+def test_export_without_a_name_fails_instead_of_writing_usage():
+    """`export > dump.sql` with no name used to put "Usage: ..." in dump.sql, exit 0."""
+    with pytest.raises(ValueError, match=r"Usage: hop3 addon postgres export <name>"):
+        pg_cli.AddonPostgresExportCmd().call()
 
 
 # --- discovery (cli_commands hook -> RPC dispatch table) ---------------------
