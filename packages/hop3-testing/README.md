@@ -57,6 +57,8 @@ subcommand: `hop3-test run --docker --mode ci`.
 
 `hop3-test upgrade-chain` validates that a running server survives a *chain* of in-place upgrades. Each hop is a git ref, installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`), on a **fresh** box; every hop after the first is an in-place update, and each is asserted to come back healthy with a readable schema.
 
+The first hop also seeds the state an upgrade must carry: an app (`010-flask-pip-wsgi`), deployed once and never again, and a plain account. After every hop the app must still serve its page, the admin must still list the accounts, and the account must do exactly what it could on the first hop (get a token, read its app's environment, list the accounts), probed by doing each. That is how the chain checks a migration such as ADR 061's roles, which must turn every non-admin into a deployer. Before a release, run it from the last release: `--chain <last-tag>,local`.
+
 ```bash
 # Fresh Docker container: 0.6.2 → current tree
 hop3-test upgrade-chain --docker

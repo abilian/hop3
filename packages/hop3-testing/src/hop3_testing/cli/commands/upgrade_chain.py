@@ -14,6 +14,11 @@ redeploy that hits the deployer's in-place update path (db:upgrade -> restart ->
 verify). After each hop we assert the server answers (the deploy verified it)
 and the schema is readable.
 
+A fresh install proves nothing about the state an upgrade must carry, so hop 1
+also seeds some: an app, deployed once and never again, and a non-admin
+account. After every hop the app must still serve its page and each account
+must still do what its role allows (see ``_assert_seed``).
+
 Runs on a FRESH box only: a local Docker container (`--docker`) or a Hetzner VPS
 rebuilt for the run (`--provider hetzner`). `--host` targets an existing server
 and is accepted with a warning (not a clean slate).
@@ -21,15 +26,19 @@ and is accepted with a warning (not a clean slate).
 
 from __future__ import annotations
 
+import secrets
 import shutil
 import subprocess
 import sys
 import tempfile
+from dataclasses import dataclass, field
 from pathlib import Path
 
 import click
 import tomllib
 
+from hop3_testing.apps.catalog import AppSource
+from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.system_tests.provision import provision_server
 from hop3_testing.targets import (
     DeploymentConfig,
@@ -38,6 +47,7 @@ from hop3_testing.targets import (
     RemoteConfig,
     RemoteTarget,
 )
+from hop3_testing.targets.constants import HOP3_SERVER_BIN, hermetic_cli_cwd
 
 # 0.6.0's rootd is broken (imports __version__ that its __init__ never defines),
 # so 0.6.2 is the first viable baseline. Extend as releases land. The last hop
@@ -53,8 +63,16 @@ _CONTAINER = "hop3-upgrade-chain"
 #: dependency (psycopg-binary) with no wheel for it and the chain died before
 #: touching the target. Pin to the interpreter this process runs on.
 _PYTHON = f"{sys.version_info.major}.{sys.version_info.minor}"
-_HOP3_SERVER = "/home/hop3/venv/bin/hop3-server"
 _HOP3_PYTHON = "/home/hop3/venv/bin/python"
+
+#: Deployed on hop 1 and never redeployed: it must keep serving through every
+#: upgrade, since an operator upgrades under running apps.
+_SEED_APP = Path("apps/test-apps-procfile/010-flask-pip-wsgi")
+_SEED_APP_NAME = "chain-seed"
+_SEED_APP_CONTENT = "Hello World!"
+#: Created by an admin on hop 1, as a plain account: its rights there are
+#: recorded, and every later hop must leave them unchanged (``_assert_seed``).
+_SEED_USER = "chain-account"
 
 
 def _deployer_script(checkout: Path) -> str:
@@ -227,6 +245,7 @@ def upgrade_chain(
         )
 
     target: DockerTarget | RemoteTarget | None = None
+    seed: _Seed | None = None
     worktrees: list[Path] = []
     tmp = Path(tempfile.mkdtemp(prefix="hop3-upgrade-chain-"))
     results: list[dict[str, str]] = []
@@ -259,6 +278,7 @@ def upgrade_chain(
         )
         target.start()
         results.append(_assert_hop(target, refs[0], versions[0]))
+        seed = _seed(target, repo_root, refs[0])
 
         for i, ref in enumerate(refs[1:], start=2):
             click.echo(
@@ -273,14 +293,15 @@ def upgrade_chain(
                 )
             )
             results.append(_assert_hop(target, ref, versions[i - 1]))
+            _assert_seed(seed, ref)
     except Exception as exc:  # a failed hop -> loud summary + nonzero exit
         _print_summary(results)
         click.echo(f"\n✗ Upgrade chain FAILED: {exc}", err=True)
-        _cleanup(target, worktrees, tmp, repo_root, keep=keep)
+        _cleanup(target, seed, worktrees, tmp, repo_root, keep=keep)
         ctx.exit(1)
 
     _print_summary(results)
-    _cleanup(target, worktrees, tmp, repo_root, keep=keep)
+    _cleanup(target, seed, worktrees, tmp, repo_root, keep=keep)
     click.echo(f"\n✓ Upgrade chain passed: {' → '.join(refs)}")
 
 
@@ -328,7 +349,7 @@ def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
             f"{version}: the update path left the daemon behind"
         )
         raise RuntimeError(msg)
-    rc, rev_out, rev_err = target.exec_run(f"sudo -u hop3 {_HOP3_SERVER} db:current")
+    rc, rev_out, rev_err = target.exec_run(f"sudo -u hop3 {HOP3_SERVER_BIN} db:current")
     revision = (rev_out or "").strip()
     if rc != 0 or not revision:
         detail = (rev_err or rev_out or "").strip()
@@ -337,6 +358,144 @@ def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
 
     click.echo(f"  ✓ {ref}: version={version} rootd={rootd} schema={revision}")
     return {"hop": ref, "version": version, "rootd": rootd, "revision": revision}
+
+
+@dataclass(frozen=True)
+class _Rights:
+    """What the seeded account can do, found out by doing it."""
+
+    token: bool  # `auth get-token` issues one (a member gets none)
+    read_env: bool  # `env show` on the seed app (a deployer's right, not a viewer's)
+    list_users: bool  # `user list` (an admin's)
+    #: What the probes answered, for the failure message; not compared.
+    detail: str = field(default="", compare=False)
+
+
+@dataclass(frozen=True)
+class _Seed:
+    """State hop 1 creates for every later hop to find intact."""
+
+    session: DeploymentSession
+    password: str
+    rights: _Rights
+
+
+def _seed(target, repo_root: Path, ref: str) -> _Seed:
+    """Deploy the seed app and create the non-admin account, on hop 1."""
+    app = AppSource(name=_SEED_APP_NAME, path=repo_root / _SEED_APP)
+    session = DeploymentSession(app, target, app_name=_SEED_APP_NAME)
+    session.deploy()
+    password = secrets.token_urlsafe(24)
+    _hop3(
+        target.cli_env(),
+        "user",
+        "add",
+        _SEED_USER,
+        f"{_SEED_USER}@example.com",
+        "--password-file",
+        "-",
+        stdin=password,
+    )
+    rights = _state(session, password, ref)
+    click.echo(f"  ✓ {ref}: seeded; {_SEED_USER} can {_describe(rights)}")
+    return _Seed(session=session, password=password, rights=rights)
+
+
+def _assert_seed(seed: _Seed, ref: str) -> None:
+    """
+    The seed app still serves, and no account's rights changed.
+
+    Rights are probed by effect, so one probe works before roles exist and
+    after their migration. The admin must still list the accounts, and the
+    seeded account must do exactly what it could on hop 1. Created before roles
+    (ADR 061), it is a plain non-admin: it gets a token and reads its app's
+    environment, and cannot list the accounts. The migration must make it a
+    deployer, which keeps all three; a member would lose the first two, an
+    admin would gain the third.
+    """
+    rights = _state(seed.session, seed.password, ref)
+    if rights != seed.rights:
+        msg = (
+            f"after {ref}, {_SEED_USER} can {_describe(rights)}; on hop 1 it could "
+            f"{_describe(seed.rights)}.\n{rights.detail}"
+        )
+        raise RuntimeError(msg)
+    click.echo(f"  ✓ {ref}: seed app serves; admin and {_SEED_USER} keep their rights")
+
+
+def _state(session: DeploymentSession, password: str, ref: str) -> _Rights:
+    """Check the seed app and the admin, then probe the seeded account's rights."""
+    http = session.test_http_detailed(path="/", max_retries=10)
+    body = http["details"].get("body_preview", "")
+    if not http["passed"] or _SEED_APP_CONTENT not in body:
+        msg = (
+            f"after {ref}, the app deployed on hop 1 no longer serves "
+            f"{_SEED_APP_CONTENT!r}: {http['message']} {body[:200]!r}"
+        )
+        raise RuntimeError(msg)
+
+    admin_env = session.target.cli_env()
+    accounts = _hop3(admin_env, "user", "list").stdout
+    if _SEED_USER not in accounts:
+        msg = f"after {ref}, the account list has no {_SEED_USER}:\n{accounts}"
+        raise RuntimeError(msg)
+
+    got = _hop3(
+        admin_env,
+        "auth",
+        "get-token",
+        _SEED_USER,
+        "--password-file",
+        "-",
+        stdin=password,
+        check=False,
+    )
+    if got.returncode != 0:
+        return _Rights(False, False, False, detail=_answer("auth get-token", got))
+    user_env = {**admin_env, "HOP3_API_TOKEN": got.stdout.strip()}
+    read = _hop3(user_env, "env", "show", "--app", _SEED_APP_NAME, check=False)
+    listed = _hop3(user_env, "user", "list", check=False)
+    return _Rights(
+        True,
+        read.returncode == 0,
+        listed.returncode == 0,
+        detail=f"{_answer('env show', read)}\n{_answer('user list', listed)}",
+    )
+
+
+def _describe(rights: _Rights) -> str:
+    return (
+        f"get a token: {rights.token}, read its app's environment: "
+        f"{rights.read_env}, list the accounts: {rights.list_users}"
+    )
+
+
+def _answer(what: str, result: subprocess.CompletedProcess) -> str:
+    output = (result.stderr or result.stdout).strip()
+    return f"{what}: exit {result.returncode} {output[:300]}"
+
+
+def _hop3(
+    env: dict[str, str], *args: str, stdin: str | None = None, check: bool = True
+) -> subprocess.CompletedProcess:
+    """Run the workspace's `hop3` on the target; fail loud unless ``check=False``."""
+    result = subprocess.run(
+        ["hop3", *args],
+        env=env,
+        cwd=hermetic_cli_cwd(),
+        input=stdin,
+        capture_output=True,
+        text=True,
+        check=False,
+        timeout=300,
+    )
+    if check and result.returncode != 0:
+        msg = (
+            f"`hop3 {' '.join(args)}` failed (exit {result.returncode}): "
+            f"{(result.stderr or result.stdout).strip()}"
+        )
+        raise RuntimeError(msg)
+    return result
 
 
 def _exec(target, command: str) -> str:
@@ -349,11 +508,36 @@ def _exec(target, command: str) -> str:
 
 
 def _cleanup(
-    target, worktrees: list[Path], tmp: Path, repo_root: Path, *, keep: bool
+    target,
+    seed: _Seed | None,
+    worktrees: list[Path],
+    tmp: Path,
+    repo_root: Path,
+    *,
+    keep: bool,
 ) -> None:
     if keep:
         click.echo(f"\n--keep: target left running; worktrees under {tmp}")
         return
+    if seed is not None:
+        # Before stopping the target: a --host server outlives the run. Like the
+        # app's destroy, a failure here is reported and does not mask the
+        # outcome the run already printed.
+        seed.session.cleanup()
+        removed = _hop3(
+            seed.session.target.cli_env(),
+            "user",
+            "remove",
+            _SEED_USER,
+            "-y",
+            check=False,
+        )
+        if removed.returncode != 0:
+            click.echo(
+                f"⚠ could not remove {_SEED_USER}: "
+                f"{(removed.stderr or removed.stdout).strip()}",
+                err=True,
+            )
     if target is not None:
         target.stop()
     for wt in worktrees:

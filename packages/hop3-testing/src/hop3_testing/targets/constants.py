@@ -60,6 +60,9 @@ DEFAULT_SSH_PORT = 22
 DEFAULT_SSH_USER = "hop3"
 DEFAULT_SSH_ROOT_USER = "root"
 
+#: The server-side CLI on a Hop3 box (the installer's VENV_DIR is /home/hop3/venv).
+HOP3_SERVER_BIN = "/home/hop3/venv/bin/hop3-server"
+
 # Test environment secrets (NOT for production use)
 E2E_TEST_SECRET_KEY = "e2e-test-secret-key-do-not-use-in-production"
 
