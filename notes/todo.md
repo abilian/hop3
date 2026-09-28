@@ -40,6 +40,24 @@ Scoped on 2026-09-22 into two proposed ADRs and three pieces of work, in this or
 
 - **`hop3 login --token <token>` puts a secret on argv**, where `ps` can read it for the length of the call. ADR 036 gives `user add`, `user set-password` and `auth get-token` the `KEY=-` / `KEY=@file` / hidden-prompt treatment; the `--token` path never got it. The deployer is a caller (`deployer/deploy.py`, whose own comment at the call notes there is no stdin form to use). Small, and the rewriting machinery already exists in `commands/arguments.py`.
 
+The items below come out of the 2026-09-25 pass that lined the client's argument handling up with the server's (see "Two Parsers Read One argv" in [`lessons-learned/cli-ergonomics.md`](lessons-learned/cli-ergonomics.md)).
+
+- **The `waf` commands take the app as a positional.** `waf logs [<app>]`, `waf bans list [<app>]` and `waf bans clear <app> [<ip>]` break ADR 036 D5 (the app is always `--app`), so `hop3 waf logs --app x` is refused by the client and a project's ambient app is never used. Move them to `--app`: an optional filter for `logs` and `bans list` (the `_EXPLICIT_ONLY` set in `hop3_cli/core/app_scope.py`), app-scoped for `bans clear`. Keep the positional working behind a deprecation for a release. Once they read `--app`, the guard in `test_app_scope_matches_server.py` checks them like every other command.
+
+- **Delete the RPC `git-hook` command, or find its caller.** `commands/git.py` `GitHookCmd` duplicates `hop3-server git-hook` (`server/cli/git.py`), which is what the post-receive hook runs. The RPC version reads the server process's stdin, so over RPC it can only answer "No push data received". The guard test exempts it by name (`NOT_SENT_BY_THE_CLIENT`); the exemption goes with it.
+
+- **Most client messages still wrap at 80 columns when piped.** Rich word-wraps at the console width, which is 80 when the output is not a terminal. `print_text`, `print_summary` and `print_error` pass `soft_wrap=True`; warnings, info, success, progress and log lines do not, so a script reading them gets hard newlines mid-sentence. One setting on both consoles (`Console(soft_wrap=True)`) would cover them all, once tables are checked to lay out the same.
+
+- **`hop3 app logs` has no follow mode.** Nine tutorials reached for `--tail`, which it never had; they now show the last 100 lines. Following a running app's log (streamed, like `hop3 deploy`'s output) is what they wanted.
+
+- **Decide whether a no-op addon command succeeds.** `hop3 addon destroy x --type redis` for an addon that does not exist answers "does not exist" as plain text and exits 0, and `hop3 addon detach` of an addon that is not attached does the same. That can be idempotence (`rm -f`) or a silent failure; whichever it is, the help should say so and the exit code follow.
+
+- **`hop3 system status` exits 0 on warnings.** Its help said a warning exits non-zero; the client only fails on an error item, so the help now says "when any check fails". If a degraded server should fail a script's check, the server has to say so explicitly (a distinct item or exit code), not the help.
+
+- **Check the scripting examples in `docs/src/guides/cli-migration.md`.** They pipe `hop3 backup list --app myapp --json` into `jq -r '.data[].id'`, but `--json` prints the list of response elements (here one `table`), not a `{"data": [...]}` object. Unverified against a server; the docs guard checks the command line, not what a pipe does with its output.
+
+- **Some ADRs name commands that were never built.** The docs guard skips ADRs, because they record proposals: ADR 031 (`hop3 blueprints ...`), ADR 032 (`hop3 releases`, `hop3 rollback <app> [<version>]`), ADR 036 (`hop3 env set --from-file -`, `hop3 backup download <id>`). Where the design settled on other names (`app rollback --app`, `catalog install`), the ADR should describe it with those, so a reader does not take a dropped spelling for the CLI.
+
 ## Testing
 
 - **The Docker e2e target lets two sessions share one container without either knowing.** The target has a fixed container name (`hop3-server-test`) and fixed ports, so a second `pytest packages/hop3-server/tests/c_e2e/` started while one is running tears the container down and re-installs it under the first. Neither session is told. The result is a corrupt failure: each run sees the other's server restarts, addons and database rows.

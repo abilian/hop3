@@ -1,6 +1,6 @@
 # Lessons Learned: CLI Ergonomics & Surface Evolution
 
-**Updated**: 2026-09-08, adding the `app shell` round (validate before you confirm, global flags, one ssh settings object). 2026-09-01 added the September round (a corrupt cache, a hand-copied registry, scraping the peer's prose, and secrets on the command line), from measuring a maintainer's shell history against the shipped CLI.
+**Updated**: 2026-09-25, adding the two parsers that read one argv. 2026-09-08 added the `app shell` round (validate before you confirm, global flags, one ssh settings object). 2026-09-01 added the September round (a corrupt cache, a hand-copied registry, scraping the peer's prose, and secrets on the command line), from measuring a maintainer's shell history against the shipped CLI.
 
 How to evolve the CLI command surface (rename, de-duplicate, deprecate) without breaking users. The design decisions behind it are in [ADR 036](../adrs/036-cli-ergonomics.md).
 
@@ -98,3 +98,11 @@ The CLI spawns ssh in four places: the RPC tunnel, `hop3 tunnel`, `hop3 app shel
 
 Log lines containing brackets (`[database]`, `[2026-02-27]`) were parsed as Rich markup and garbled the output. Anything that came from outside (log text, filenames, app output) is escaped at the boundary before it meets a formatting library.
  library.
+
+## Two Parsers Read One argv
+
+The client parses argv before the server sees it. It keeps its own flags (`--app`, `--force`, `--dry-run`, `-d`, `-q`, `-v`), expands aliases, and hands `--app` back only to commands in its app-scope table. A server command's help and argument spec say nothing about that first pass, so the two drifted on every axis at once. On 2026-09-25 the list was: `addon list`, `backup list`, `addon promote`, `app create` and `cert renew` documented `--app` the client refused; `ps scale` matched the table as `ps`, so `--app` was injected into the middle of the command; `cert renew --force` became a confirmation skip; `system cleanup --dry-run` pruned for real; `system info -v` and `system status -q` never saw their flag; and `catalog install -d <host>` turned on debug output. Two commands never ran at all: `addon status` read a key its spec never declared, and `nix eject` inherited a namespace's `call`, so it printed help while its tests, which called `run`, passed. The guides and tutorials had drifted the same way: `addon attach <app> <addon>`, `app logs --tail`, `backup list <app>`.
+
+Each fix is small; the lesson is the missing link. `test_app_scope_matches_server.py` now reads both sides: every flag a server command reads must survive the client's parser; every command that reads `--app` must be in the client's table; every `hop3 …` line in a command's help, and in the docs' code blocks, must reach a command that accepts it. A server command whose argument name collides with a client flag renames it (`--force-renewal`) or reads what the client forwards (`get_verbosity()`, `json_output`).
+
+The usage text had the same flaw inside one side: each command wrote its usage twice, in the docstring and in a `return [text("Usage: …")]` that exited 0 (`export > dump.sql` with no name wrote the usage into the dump). `Command.usage_error()` raises the docstring's own `Usage:` line, so a missing argument fails with exit 2 and the text cannot drift from `hop3 help`.

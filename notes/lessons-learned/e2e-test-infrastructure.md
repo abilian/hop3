@@ -211,6 +211,12 @@ The tunnel accepts new host keys, so a day of container runs wrote nine `[localh
 
 In the Docker test image, a supervisor program named `redis` while systemd and the health checks looked for `redis-server` meant a service that was up and reported down. Name the program after the service (`redis-server`, `mysql`, `postgresql`), so the process-manager-aware code paths (see "Service Management Consistency" above) find it under either manager.
 
+A rename has the same failure the other way round. On 2026-09-25 the emperor's program went from `uwsgi` to `uwsgi-hop3` in the four supervisor configs, and two scripts that address it by name kept `uwsgi`: the restore script, whose supervisor branch set `UWSGI_SVC=uwsgi`, and the post-install check. The restore then stopped at "uwsgi did not start" after it had replaced the database and the apps tree. The configs were grepped; the callers were not. `test_supervisor_program_names.py` now reads the names the scripts start or check against the programs the configs define.
+
+## An assert on a tuple always passes
+
+`wait_for_http_ready` returned `(ok, message)`, and two calls in the snapshot test wrote `assert wait_for_http_ready(...)`. A non-empty tuple is true, so the test waited two minutes on a `301` to HTTPS, printed "Timeout", and went on: neither of its "the app serves its page" checks had verified anything since the proxies started redirecting plain HTTP by default. A readiness helper now fails the test itself (`pytest.fail`, naming the last answer it saw) and returns nothing, so there is no value to misread. When a helper reports failure through its return value, a truthiness check at the call site is the bug waiting.
+
 ## Test configuration differs from production defaults, explicitly
 
 System tests failed because the server defaulted to `certbot`, which a test domain cannot satisfy. Safe defaults for a test run (self-signed certificates, offline-capable options) differ from production's, so the switch is explicit and documented.
