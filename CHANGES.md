@@ -35,6 +35,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **On a Docker install, supervisor calls the uWSGI emperor `uwsgi-hop3`**, the name of its systemd unit elsewhere, instead of `uwsgi`. Use `supervisorctl restart uwsgi-hop3`. The next `hop3-deploy-server` rewrites the configuration.
 
+- **A command missing an argument fails, with its usage.** It used to print the usage and exit 0, so `hop3 addon postgres export > dump.sql` without a name wrote "Usage: ..." into the dump and reported success. It now prints the usage from the command's help on stderr and exits 2.
+
+- **`hop3 addon show`, `status`, `destroy`, `attach` and `detach` read an addon's type from its name**, like `addon expose` and `addon promote`. Without `--type` they assumed postgres, so a Redis addon was looked up as a database that did not exist. A name two types share is refused until `--type` says which.
+
+- **`hop3 cert renew` takes `--app <app>` and `--force-renewal`**, in place of a positional app name and `--force`, which the CLI keeps for itself: `--force` skipped a confirmation and the server never saw it, so a forced renewal renewed only the certificates already due.
+
+- **`hop3 nix eject --app <app> > hop3.nix` prints the generated expression.** It wrote the file into the server's copy of the source, which the next deploy replaces. Save it in your project and remove the `[nix]` section from `hop3.toml`: a build refuses an app that has both, which the command used to say it would ignore.
+
 - **A token for a deleted or disabled account stops working on its next call.** `hop3` and `hop3-tui` now show the server's reason, where they used to print a bare "authentication required" or HTTP status.
 
 ### Security
@@ -60,6 +68,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`hop3 system status` works on a server whose services run under supervisor.** It shelled out to `systemctl`, which a Docker install does not have, and failed outright. It now asks the process manager through hop3-rootd, and checks the proxy the server runs rather than always nginx, so a Caddy or Traefik server no longer reports nginx as down. `hop3 system status --json` also returns the structured report it was documented to: the client took `--json` as its own output switch and the command never saw it, so the "JSON" was the text report in a list.
 
 - **`NGINX_INCLUDE_FILE` and `CADDY_INCLUDE_FILE` name a file in the app's repository.** They were resolved one directory above it, so a file the app shipped was reported missing unless the path started with `src/`, and a missing file stopped the deploy with a traceback. A path outside the repository is now refused, and so is a missing file, each with the variable's name.
+
+- **`hop3` passes each command the flags its help documents.** The CLI refused `--app` for `addon list`, `addon promote`, `backup list`, `app create` and `cert renew`, so `addon promote` could not be run at all, and it split `ps scale` so the server ran `ps` instead. It also consumed `--dry-run` for every command but `deploy`, with a warning, so `system cleanup --dry-run`, `admin reencrypt-credentials --dry-run` and `app migrate --dry-run` ran for real; it now hands the flag on, and a command without a preview refuses it. `system info -v` lists plugins again and `system status --quiet` prints its one line. A test now checks every flag a command reads, every example in its help and every command line in the guides and tutorials against what the CLI sends.
+
+- **`hop3 addon status` works.** It failed on every call, reading a type option it did not declare.
+
+- **`hop3 nix eject` ejects.** Every invocation printed the command's help and did nothing.
+
+- **The tutorials attach addons the way the CLI takes them**, `hop3 addon attach <addon> --app <app>`: fifteen lines had the app first, as a positional, and nine told `hop3 app logs` to `--tail`, an option it does not have. `hop3 backup list` takes the app as `--app` in every guide.
 
 - **`hop3-install server` fails when pip fails.** A failed `pip install` of hop3-server, hop3-rootd or hop3-cli was ignored, and the installer printed "installed successfully" over it. It now stops at that step and shows pip's output.
 
