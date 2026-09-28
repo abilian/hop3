@@ -14,7 +14,7 @@ Every level of "it worked" we have trusted has, at some point, hidden a broken a
 | The login page renders 200 | Static files are served | Bugsink served its login page while every post-login request 500'd; its worker process and queue DB were a second, unstarted service. Invoice-ninja served an SPA shell whose frontend bundle was absent. |
 | A login attempt is accepted | Almost everything | Only if a *wrong* password is refused in the same run. |
 
-**Rule:** the strongest cheap signal is to sign in with the credential the platform generated, then confirm that a wrong password is refused. That is what `check.py` does for every catalog app, and it runs at the end of every deploy, built into the deploy itself.
+**Rule:** the strongest cheap signal is to sign in with the credential the platform generated, then confirm that a wrong password is refused. That is what `check.py` does for every catalog app. It runs at the end of every deploy, built into the deploy itself.
 
 ## A check that cannot fail proves nothing
 
@@ -26,7 +26,7 @@ Before adding an assertion, ask what would make it *fail*. If you cannot state t
 
 ## Verifying an app you cannot log into forever
 
-An operator changes the admin password on day two, and the check can never run again. Options considered and rejected: skipping the check (a silent skip, which is forbidden), storing the operator's new password (we should not have it), reporting "NO CHECK" as a status (SF: "'NO CHECK' should not be a state").
+After an operator changes the admin password on day two, the check can never run again. We considered and rejected three options: skipping the check (a silent skip, which is forbidden), storing the operator's new password (we should not have it), reporting "NO CHECK" as a status (SF: "'NO CHECK' should not be a state").
 
 **What works: a `[probe]` account.** Hop3-owned, non-privileged, password rotated by Hop3, created by the app's own user-creation CLI at deploy time. The check uses it when present and falls back to the admin credential otherwise, naming which account it used either way.
 
@@ -37,7 +37,7 @@ Two constraints learned the hard way:
 
 ## Verify the effect, not the exit code
 
-A bootstrap CLI can print an error and exit 0. Gitea's `admin user create` did exactly that (`admin` is a reserved name in gitea/forgejo), and the deploy recorded a credential for an account that never existed.
+A bootstrap CLI can print an error and exit 0. Gitea's `admin user create` did exactly that (`admin` is a reserved name in gitea/forgejo). The deploy recorded a credential for an account that never existed.
 
 - Confirm the account exists; do not trust the return code.
 - When a bootstrap command fails, **include its output in the error**. Reporting only "exit status 1" made nextcloud's failure undiagnosable for the whole campaign; the first run that echoed the command's output revealed `occ user:add` takes no `--email`.
@@ -51,10 +51,10 @@ Hop3 does not roll back a failed deploy, because the half-built state is diagnos
 
 ## Test-only conveniences that are really platform bugs
 
-Twice in this campaign the check harness could not do something, and the correct fix was in the platform:
+Twice in this campaign, the correct fix for something the check harness could not do was in the platform:
 
 - The check could not sign in over HTTP because apps set `Secure` cookies. The fix was making **HTTPS the default**, because a real browser had exactly the same problem.
-- The check deadlocked during nextcloud's install. PHP's built-in server is **single-threaded**, and Hop3 was running it with one worker, so any app that sub-requests itself hangs. Ten of the twenty catalog apps sit on that runtime.
+- The check deadlocked during nextcloud's install. PHP's built-in server is **single-threaded**. Hop3 was running it with one worker, so any app that sub-requests itself hangs. Ten of the twenty catalog apps sit on that runtime.
 
 When the harness struggles, ask whether a user would struggle identically. Usually they would.
 
@@ -72,9 +72,9 @@ Whether restoring a plain-SQL dump over a live PostgreSQL database brings a dele
 
 An app doing its first-run work (migrations against an empty database, an index build, a seed) commonly answers `202 Accepted` or a maintenance page for a minute or two, then serves normally. A validation that demands `200` on `/` fails the app for being new.
 
-Two consequences for a recipe:
+This has two consequences for a recipe:
 
-- Accept the range the app actually returns while it starts (`status-in = [200, 202]`), rather than widening the timeout until the failure becomes intermittent.
+- Accept the range the app actually returns while it starts (`status-in = [200, 202]`). Widening the timeout only makes the failure intermittent.
 - Assert against a path whose meaning does not change with boot state. `/` is the worst choice available: it is a redirect on one app, a maintenance page on another, and a login form on a third. A readiness or health path says one thing.
 
 The platform side of this is that a green deploy is not a working app; see [`verifying an app works`](#) above and the `[healthcheck].contains` rule. The recipe side is choosing a path that can carry the assertion.

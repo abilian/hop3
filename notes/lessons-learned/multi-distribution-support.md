@@ -26,9 +26,9 @@ def _get_debian_docker_packages(distro_info):
     return packages
 ```
 
-## uWSGI: Install via pip, Not Distro Packages
+## uWSGI: Install via pip
 
-Distribution-packaged uWSGI has inconsistent plugin loading, version mismatches, and the `project` directive causes failures in strict mode on some distros.
+Distribution-packaged uWSGI has inconsistent plugin loading and version mismatches. On some distros, the `project` directive also causes failures in strict mode.
 
 **Fix:** Install uWSGI via pip in Hop3's own virtualenv. This gives consistent behavior across all distributions and eliminates 70+ lines of plugin detection code.
 
@@ -105,9 +105,9 @@ Keep `has_systemd()` in one place (`hop3_installer/common.py`) so every caller u
 
 The Hop3 single-file installer concatenates module sources via `hop3-installer/bundler.py`. A sneaky failure mode: two modules define a top-level function with the same name. The second definition silently shadows the first at import time; the concatenated installer then uses whichever won, regardless of which caller intended which.
 
-Concrete incident: both `nix.py` and `s3.py` defined a top-level `_has_systemd()`. The `s3.py` version (which returned `True` for "offline" systemd) won in the bundled output and took precedence over `nix.py`'s correct version. The Nix daemon was then installed in multi-user mode inside a supervisord container without systemd, and no Nix command worked. Many hours lost.
+Concrete incident: both `nix.py` and `s3.py` defined a top-level `_has_systemd()`. The `s3.py` version (which returned `True` for "offline" systemd) won in the bundled output and took precedence over `nix.py`'s correct version. The Nix daemon was then installed in multi-user mode inside a supervisord container without systemd, so no Nix command worked. Many hours lost.
 
-**Fix:** at bundle time, AST-parse each module, track top-level function / class / assignment names across the concatenated set, and raise on collision. The only legitimate duplicates are `@typing.overload` stubs (skipped inside `_top_level_names`) and intentional alias re-exports like `_has_systemd = has_systemd` (single-underscore assignments), so except those. The check is ~30 lines; it pays for itself the first time someone renames a helper.
+**Fix:** at bundle time, AST-parse each module, track top-level function / class / assignment names across the concatenated set, and raise on collision. The only legitimate duplicates are `@typing.overload` stubs (skipped inside `_top_level_names`) and intentional alias re-exports like `_has_systemd = has_systemd` (single-underscore assignments); the check exempts both. The check is ~30 lines; it pays for itself the first time someone renames a helper.
 
 ```python
 # In bundler.py — _top_level_names() skips @overload stubs
@@ -129,14 +129,14 @@ Redis was installed and the demos failed, because `apt install` had not started 
 
 ## `--with <feature>` Is a Promise
 
-Core dependencies are mandatory. Optional services and toolchains are asked for by name (`--with mysql,redis,nix`), and each demo or app documents which it needs. A feature the operator asked for by name and did not get is a failed install. `--with nix` used to print a warning when Nix failed to install and report success, so every Nix app on that box failed to build later and the e2e suite skipped its Nix fixtures for months (see [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md)). It now aborts. Two related facts: a bare Ubuntu 24.04 ships neither `xz` nor `curl`, and the Nix installer needs `xz`, so the feature installs its prerequisite first. The single-user install for non-systemd hosts is the same code path a container gets, so it is tested.
+Core dependencies are mandatory. Optional services and toolchains are asked for by name (`--with mysql,redis,nix`). Each demo or app documents which it needs. A feature the operator asked for by name and did not get is a failed install. `--with nix` used to print a warning when Nix failed to install and report success, so every Nix app on that box failed to build later and the e2e suite skipped its Nix fixtures for months (see [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md)). It now aborts. Two related facts: a bare Ubuntu 24.04 ships neither `xz` nor `curl`, while the Nix installer needs `xz`, so the feature installs its prerequisite first. The single-user install for non-systemd hosts is the same code path a container gets, so it is tested.
 
 ## Pin the toolchain, then pin its package manager
 
-`[build].node-version` installs an exact Node into the app's venv, which was treated as pinning the Node build. It does not: the package manager is a separate program, and the installer got it with `npm install -g pnpm` — unpinned, and skipped whenever any pnpm was already present. So the version an app built with was whatever npm's `latest` tag pointed at the day that box was installed, it never moved afterwards on that box, and it differed from the next box. Two servers of the same Hop3 version built the same application differently, which is exactly what the blank-slate rebuild exists to prevent one layer up.
+`[build].node-version` installs an exact Node into the app's venv, which was treated as pinning the Node build. It does not: the package manager is a separate program. The installer got it with `npm install -g pnpm` (unpinned, and skipped whenever any pnpm was already present). So the version an app built with was whatever npm's `latest` tag pointed at the day that box was installed. It never moved afterwards on that box and differed from the next box. Two servers of the same Hop3 version built the same application differently, which is exactly what the blank-slate rebuild exists to prevent one layer up.
 
-Etherpad absorbed three breaking pnpm changes this way, two of them patched into its own download script against symptoms. The third could not be patched from the recipe: pnpm 12 removed `pnpm list --no-production`, which Etherpad's *plugin migration* runs at every boot — so the build passed and the app died four seconds into startup, and the recipe looked broken.
+Etherpad absorbed three breaking pnpm changes this way, two of them patched into its own download script against symptoms. The third could not be patched from the recipe: pnpm 12 removed `pnpm list --no-production`, which Etherpad's *plugin migration* runs at every boot. The build passed and the app died four seconds into startup, so the recipe looked broken.
 
-Three parts to the fix, and the second is the one usually forgotten. Pin an exact version in a named constant, with a comment saying what to re-run when it is bumped. **Reconcile it on every install instead of skipping when the program exists** — "already installed" is not "installed correctly", and a skip freezes whatever a box happens to carry. And verify afterwards that the version on `PATH` is the one installed, because a package manager put there by another route (corepack, a standalone script) shadows npm's global bin, and reporting the version you meant to install is the same silent drift with your name on it.
+The fix has three parts. The second is the one usually forgotten. Pin an exact version in a named constant, with a comment saying what to re-run when it is bumped. Reconcile it on every install, even when the program exists: "already installed" does not mean "installed correctly". A skip freezes whatever a box happens to carry. Finally, verify that the version on `PATH` is the one installed. A package manager put there by another route (corepack, a standalone script) shadows npm's global bin. Reporting the version you meant to install is then the same silent drift with your name on it.
 
-The version was established by running the command under each major rather than reasoning from changelogs: 9, 10 and 11 accept the flag, 12 does not. A version claim in a comment is worth what it cost to make.
+The version was established by running the command under each major, without reasoning from changelogs: 9, 10 and 11 accept the flag, 12 does not. A version claim in a comment is worth what it cost to make.

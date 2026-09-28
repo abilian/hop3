@@ -6,7 +6,7 @@ Non-obvious facts and hard-won knowledge from building 40+ Nix app packages for 
 
 ### The Core Rule
 
-In Nix `''...''` (indented) strings, `${...}` is Nix interpolation. To produce a literal `${VAR}` in the output, write `''${VAR}`.
+Nix interpolates `${...}` inside `''...''` (indented) strings. To produce a literal `${VAR}` in the output, write `''${VAR}`.
 
 ```nix
 installPhase = ''
@@ -174,7 +174,7 @@ nix-build hop3.nix -A package --no-out-link \
 
 An app whose first run writes its own config file will write the *upstream default* port, not `$PORT`. matrix-synapse's `--generate-config` emits `port: 8008` and ignores the environment entirely, so the wrapper has to rewrite the listener after generating and before exec.
 
-Rewrite it **structurally** — parse the YAML/TOML, change the field, write it back — never with `sed`. Upstream changes indentation and key order between versions, and a regex that matched last release silently matches nothing in the next one, leaving the default port in place and the app unreachable for a reason nothing reports.
+Rewrite it **structurally** (parse the YAML/TOML, change the field, write it back), never with `sed`. Upstream changes indentation and key order between versions. A regex that matched last release silently matches nothing in the next one, leaving the default port in place and the app unreachable for a reason nothing reports.
 
 ### The PORT Problem
 
@@ -232,7 +232,7 @@ dontFixup = true;
 
 This is safe **when the symlinks were produced by your own `npm install`**: the broken ones are dev dependencies pruned by `--production` and unused at runtime.
 
-It is not safe for a **pre-built release tarball whose `node_modules/` was populated by pnpm**. Those symlinks point into the pnpm virtual store as it existed on the release builder, so copying the tree anywhere breaks *runtime* dependencies, and `dontFixup` turns a build error into `Cannot find module 'express'` at first request. HedgeDoc failed exactly this way. When the upstream artefact ships a pnpm layout, re-install from source in `buildPhase` (the `node-pnpm-install` template does this) or use `pkgs.<app>` if nixpkgs has it — do not silence the check.
+It is not safe for a **pre-built release tarball whose `node_modules/` was populated by pnpm**. Those symlinks point into the pnpm virtual store as it existed on the release builder, so copying the tree anywhere breaks *runtime* dependencies. `dontFixup` then turns a build error into `Cannot find module 'express'` at first request. HedgeDoc failed exactly this way. When the upstream artefact ships a pnpm layout, re-install from source in `buildPhase` (the `node-pnpm-install` template does this) or use `pkgs.<app>` if nixpkgs has it. Do not silence the check.
 
 ## Package Manager Specifics
 
@@ -272,7 +272,7 @@ Nix builds succeed but apps crash at startup. These are the most frequent causes
 
 ### Wrong Port
 
-The app ignores `$PORT` and listens on its own default (e.g., Gitea on 3000, Grafana on 3000). The wrapper script must pass `$PORT` to the app's config or command line.
+The app ignores `$PORT` and listens on its own default (Gitea and Grafana, for example, both listen on 3000). The wrapper script must pass `$PORT` to the app's config or command line.
 
 **Symptom:** Build succeeds, "Deployment successful", then "App failed to start within 60.0s timeout". The app IS running but on the wrong port.
 
@@ -335,9 +335,9 @@ cp -rL /nix/store/.../i18n ./i18n
 exec /nix/store/.../bin/listmonk
 ```
 
-**Prefer `cp` over `ln -sf`.** A symlink looks tidier and loses whenever the upstream launcher resolves its own path: `readlink -f "$0"` lands back in the read-only store, and the app then looks for everything relative to a directory it cannot write. XWiki's Jetty start script and Keycloak's nixpkgs-compiled `kc.sh` both do this. A symlink is only safe for an asset the app reads by the literal path you gave it.
+**Prefer `cp` over `ln -sf`.** A symlink looks tidier and loses whenever the upstream launcher resolves its own path: `readlink -f "$0"` lands back in the read-only store. The app then looks for everything relative to a directory it cannot write. XWiki's Jetty start script and Keycloak's nixpkgs-compiled `kc.sh` both do this. A symlink is only safe for an asset the app reads by the literal path you gave it.
 
-**When the app writes inside its own install tree**, copying one directory is not enough — copy the whole tree once, on first run:
+**When the app writes inside its own install tree**, copying one directory is not enough; copy the whole tree once, on first run:
 
 ```bash
 #!/bin/sh
@@ -354,7 +354,7 @@ Keycloak (Quarkus augmentation), XWiki (Jetty logs), SonarQube (a shared-memory 
 
 ### nixpkgs Sometimes Ships Only the Binary
 
-Some nixpkgs derivations package only the compiled binary and omit the runtime assets the binary expects. A concrete example: **WriteFreely 0.16.0** in nixpkgs installs only `$out/bin/writefreely`; the `templates/`, `pages/`, and `static/` directories the binary needs are absent. The binary searches `$exe_dir/../share/writefreely/...` by default, finds nothing, and fails at startup with `share/writefreely/templates: no such file or directory`.
+Some nixpkgs derivations package only the compiled binary and omit the runtime assets the binary expects. **WriteFreely 0.16.0** in nixpkgs is a concrete example: it installs only `$out/bin/writefreely`; the `templates/`, `pages/`, and `static/` directories the binary needs are absent. The binary searches `$exe_dir/../share/writefreely/...` by default, finds nothing, and fails at startup with `share/writefreely/templates: no such file or directory`.
 
 Combine the nixpkgs binary with the upstream release tarball for its asset directories:
 
@@ -392,7 +392,7 @@ The `nixpkgs-wrapper` template (ADR 008) wires exactly one nixpkgs package: the 
 
 The extension for the first two has landed: `[nix].let-extra` binds extra packages into the generated `let` block (e.g. `webvault = pkgs.vaultwarden.webvault`), and `[nix].env-exports-raw` exports env vars whose values are Nix-interpolated at build time (bypassing `nix_escape`, so `${webvault}` resolves to the store path at build time). `apps/real-apps-nix-gen/keycloak` is the reference user: `let-extra` binds `jdk = "pkgs.zulu21"`, then `env-exports-raw` exports `JAVA_HOME = "${jdk}"`. Vaultwarden and GoToSocial are now expressible via the template but not yet migrated. The hand-crafted `real-apps-nix/<app>/hop3.nix` variant is still current. WriteFreely stays deferred: the template has no hook for fetching a companion archive.
 
-Future Outline, PeerTube, Funkwhale, and Chatwoot will hit the same pattern (S3 attachments, web assets, multiple worker binaries), and may need the companion-archive hook that WriteFreely still lacks.
+Future Outline, PeerTube, Funkwhale and Chatwoot will hit the same pattern (S3 attachments, web assets, multiple worker binaries). They may need the companion-archive hook that WriteFreely still lacks.
 
 ### Deprecated Commands
 
@@ -450,18 +450,18 @@ sha256 = "sha256-abc123...=";
 - **Pillow's wheels vendor their libraries under `site-packages/pillow.libs/`** with hashed names; `LD_LIBRARY_PATH` pointing at `site-packages/` alone does not find them. Matrix Synapse's bundled Pillow was the case.
 - **Vikunja 2.x refuses to start without `service.publicurl`** when CORS is on; the deprecated `frontendurl` alias no longer satisfies it. Configuration through environment variables outlasts version bumps better than a generated YAML.
 
-## Pre-Built Binaries Are a Shortcut, Not a Package
+## Pre-Built Binaries Are a Shortcut
 
-Seven of the first twenty Nix apps fetched a release binary from upstream. It was expedient, and it is neither reproducible nor portable off x86_64, and a supply-chain exposure in a project that advertises reproducible builds. Treat a `fetchurl` of a binary as the lowest reproducibility tier and a temporary state; the source builds are `buildGoModule` for Go and `buildNpmPackage` for Node, with the effort ranging from Miniflux (small) to Grafana (Go plus a webpack frontend). Apps that need several processes (a cron worker, a queue, a streaming server) are a separate problem, one the packaging model answers at the platform level (ADR 038).
+Seven of the first twenty Nix apps fetched a release binary from upstream. It was expedient. It is also neither reproducible nor portable off x86_64, and it is a supply-chain exposure in a project that advertises reproducible builds. Treat a `fetchurl` of a binary as the lowest reproducibility tier and a temporary state; the source builds are `buildGoModule` for Go and `buildNpmPackage` for Node, with the effort ranging from Miniflux (small) to Grafana (Go plus a webpack frontend). Apps that need several processes (a cron worker, a queue, a streaming server) are a separate problem, one the packaging model answers at the platform level (ADR 038).
 
 ## The Closure Guard Gated on the Wrong Field
 
-The guard that refuses to start a Nix app whose store closure was garbage-collected ran only for artifacts of `kind == "nix"`. The Nix builder emits a `static` artifact for a site served straight from the store, so for exactly that app the guard returned before looking, and a restart against a deleted closure reported success. It was found in September 2026 by an e2e test that had been skipped since it was written, because the image had no Nix. The gate is the artifact's `builder`, and the artifact's own `location` counts as a root whether or not a worker line names a store path. A guard with a "not my kind" early return needs a test per kind the builder can emit.
+The guard that refuses to start a Nix app whose store closure was garbage-collected ran only for artifacts of `kind == "nix"`. The Nix builder emits a `static` artifact for a site served straight from the store, so for exactly that app the guard returned before looking. A restart against a deleted closure reported success. It was found in September 2026 by an e2e test that had been skipped since it was written, because the image had no Nix. The gate is the artifact's `builder`, and the artifact's own `location` counts as a root whether or not a worker line names a store path. A guard with a "not my kind" early return needs a test per kind the builder can emit.
 
 ## A Path That Names the Unpack Directory Is Tied to the Fetcher
 
 Moving ten recipes from GitHub's generated archives to `fetchFromGitHub` (September 2026) changed nothing about the source trees and broke one build. vikunja's recipe located its frontend as `vikunja-${version}/frontend`: the top-level directory of the release tarball, which `fetchFromGitHub` does not produce (it unpacks to `source/`). The pnpm fetch failed on `chmod: cannot access 'vikunja-0.24.6/frontend'`. A recipe key should name a path in the repository; the template finds it under whatever single directory the fetch unpacked to, with stdenv's `setSourceRoot = "sourceRoot=$(echo */frontend)"`, which is how nixpkgs does it. The same change showed the other half of a fetcher switch: every hash of the *unpacked* tree is new, so the recipes were re-hashed and each hash proven by realising the fetch before any build ran.
 
-The bump of the default nixpkgs pin in the same pass surfaced two failures that were upstream's, not the pin's. Gitea 1.22's logger races at startup under every Go since 1.24 (`fatal error: concurrent map read and map write`, on every start), a data race that Go 1.23's maps did not detect; moving to Go 1.25 did not help, which is what located it at 1.24 rather than at the newest release; and Redmine 6's commonmarker compiles a Rust extension whose crates the sandbox cannot fetch. A pin bump is a toolchain upgrade for every recipe at once: budget a full run on a Linux build host, and read a startup crash as the new toolchain surfacing an old bug before reading it as a packaging error.
+The bump of the default nixpkgs pin in the same pass surfaced two failures that were upstream's, not the pin's. Gitea 1.22's logger races at startup under every Go since 1.24 (`fatal error: concurrent map read and map write`, on every start), a data race that Go 1.23's maps did not detect. The race persists under Go 1.25, which is what located its onset at 1.24. Redmine 6's commonmarker compiles a Rust extension whose crates the sandbox cannot fetch. A pin bump is a toolchain upgrade for every recipe at once: budget a full run on a Linux build host, and read a startup crash as the new toolchain surfacing an old bug before reading it as a packaging error.
 
-A template default that follows the default pin reaches every recipe, including the ones that pin their own nixpkgs. The pnpm default moved to pnpm_10 because nixos-26.05 refuses pnpm_9, and vikunja, on its own older pin, then built its pnpm 9 lockfile with pnpm 10, which hashes `patchedDependencies` differently and refused it. Before changing a default, list the recipes that pin their own nixpkgs and check each against it.
+A template default that follows the default pin reaches every recipe, including the ones that pin their own nixpkgs. The pnpm default moved to pnpm_10 because nixos-26.05 refuses pnpm_9. vikunja, on its own older pin, then built its pnpm 9 lockfile with pnpm 10, which hashes `patchedDependencies` differently and refused it. Before changing a default, list the recipes that pin their own nixpkgs and check each against it.

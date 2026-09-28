@@ -1,6 +1,6 @@
 # Lessons Learned: E2E Test Infrastructure
 
-Patterns and pitfalls from building Hop3's cloud-based E2E testing system.
+Building Hop3's cloud-based E2E testing system taught these patterns and pitfalls.
 
 ## Suite Filtering Must Be Consistent
 
@@ -120,7 +120,7 @@ Scaffolding a new app involves hardcoding a release URL. Upstreams *do* move:
 - **Stirling-PDF** jumped from the 0.x line to the 2.x line (`v0.49.3` does not exist; latest is `v2.9.x`). A scaffold pinned at `v0.49.3` 404s.
 - **Vaultwarden** ships no prebuilt binaries at all; only Docker images. A Dockerfile pointing at a community static-binary mirror 404'd on first run.
 
-Preflight URLs with `curl -sIL` before pushing scaffolding to CI. A 15-second check saves a 15-minute test cycle:
+Check URLs with `curl -sIL` before pushing scaffolding to CI. A 15-second check saves a 15-minute test cycle:
 
 ```bash
 for url in \
@@ -179,7 +179,7 @@ Testing that a server upgrades has two requirements, surfaced while building `ho
 - **One integrity test was an empty body** with a skip on it: a to-do disguised as a test, counted in the total.
 - **A deploy failure whose message contained ECONNREFUSED was reported as a skip**, a silent skip.
 
-The rules that came out of it:
+These rules came out of it:
 
 - A skip's reason must name a resource the run cannot provide, on a target we provisioned for real (see "Auto-Detect Infrastructure Needs"). A fixture directory of Nix apps means the target gets `--with nix`.
 - A missing prerequisite on a target the harness provisioned is a harness failure, reported under the test's name.
@@ -195,7 +195,7 @@ The Docker target uses one fixed container name and fixed host ports. It reuses 
 
 ## The image must carry what a real install carries
 
-Three things the e2e image lacked, each found by a test that had never run:
+The e2e image lacked three things, each found by a test that had never run:
 
 - **Nix.** It is baked now through the installer's own `install_nix()`, so the image gets it the way `hop3-install server --with nix` does and the build fails without `nix-build`. A bare Ubuntu image also lacks `xz`, which the Nix installer needs; the installer now provides it as the feature's prerequisite.
 - **A key for root, plain.** The `hop3` account's key carries the forced command and `no-port-forwarding`, which forbids the `ssh -L` tunnel the CLI speaks JSON-RPC through. The production shape is the operator's key in root's `authorized_keys`, which is the only shape that lets the transport be tested.
@@ -211,11 +211,11 @@ The tunnel accepts new host keys, so a day of container runs wrote nine `[localh
 
 In the Docker test image, a supervisor program named `redis` while systemd and the health checks looked for `redis-server` meant a service that was up and reported down. Name the program after the service (`redis-server`, `mysql`, `postgresql`), so the process-manager-aware code paths (see "Service Management Consistency" above) find it under either manager.
 
-A rename has the same failure the other way round. On 2026-09-25 the emperor's program went from `uwsgi` to `uwsgi-hop3` in the four supervisor configs, and two scripts that address it by name kept `uwsgi`: the restore script, whose supervisor branch set `UWSGI_SVC=uwsgi`, and the post-install check. The restore then stopped at "uwsgi did not start" after it had replaced the database and the apps tree. The configs were grepped; the callers were not. `test_supervisor_program_names.py` now reads the names the scripts start or check against the programs the configs define.
+A rename has the same failure the other way round. On 2026-09-25 the emperor's program went from `uwsgi` to `uwsgi-hop3` in the four supervisor configs. Two scripts that address it by name kept `uwsgi`: the restore script, whose supervisor branch set `UWSGI_SVC=uwsgi`, and the post-install check. The restore then stopped at "uwsgi did not start" after it had replaced the database and the apps tree. The configs were grepped; the callers were not. `test_supervisor_program_names.py` now reads the names the scripts start or check against the programs the configs define.
 
 ## An assert on a tuple always passes
 
-`wait_for_http_ready` returned `(ok, message)`, and two calls in the snapshot test wrote `assert wait_for_http_ready(...)`. A non-empty tuple is true, so the test waited two minutes on a `301` to HTTPS, printed "Timeout", and went on: neither of its "the app serves its page" checks had verified anything since the proxies started redirecting plain HTTP by default. A readiness helper now fails the test itself (`pytest.fail`, naming the last answer it saw) and returns nothing, so there is no value to misread. When a helper reports failure through its return value, a truthiness check at the call site is the bug waiting.
+`wait_for_http_ready` returned `(ok, message)`. Two calls in the snapshot test wrote `assert wait_for_http_ready(...)`. A non-empty tuple is true, so the test waited two minutes on a `301` to HTTPS, printed "Timeout", and went on: neither of its "the app serves its page" checks had verified anything since the proxies started redirecting plain HTTP by default. A readiness helper now fails the test itself (`pytest.fail`, naming the last answer it saw) and returns nothing, so there is no value to misread. When a helper reports failure through its return value, a truthiness check at the call site is the bug waiting.
 
 ## Test configuration differs from production defaults, explicitly
 
@@ -223,17 +223,17 @@ System tests failed because the server defaulted to `certbot`, which a test doma
 
 ## A harness that runs a tool by name runs whatever PATH has
 
-The upgrade-chain test installs an old release by running that release's own deployer with `uv run` inside a git worktree of its tag. The deployer was renamed at 0.7.0, from `hop3-deploy` to `hop3-deploy-server`, and the harness asked every worktree for the new name. `uv run` does not treat a script the environment lacks as an error: it falls through to `PATH`, where the developer's active virtualenv had the current deployer. The "fresh 0.6.2 install" therefore installed 0.7.3, and the "upgrade" reinstalled 0.7.3 over itself. The chain passed because it checked the schema and that a version was readable; it never checked that the version was the one the hop claimed.
+The upgrade-chain test installs an old release by running that release's own deployer with `uv run` inside a git worktree of its tag. The deployer was renamed at 0.7.0, from `hop3-deploy` to `hop3-deploy-server`. The harness asked every worktree for the new name. `uv run` does not treat a script the environment lacks as an error: it falls through to `PATH`, where the developer's active virtualenv had the current deployer. The "fresh 0.6.2 install" therefore installed 0.7.3, and the "upgrade" reinstalled 0.7.3 over itself. The chain passed because it checked the schema and that a version was readable; it never checked that the version was the one the hop claimed.
 
-Two repairs. The harness reads the script name from the checkout's own `pyproject.toml`, syncs the checkout's environment first and refuses to run when the script is not in it. Every hop also asserts that the installed version equals the version the checkout carries; that assertion would have failed on the first run. The general rule: when a test drives a tool from another version by name, resolve the name from that version's metadata and assert the version that ran, since a name lookup that can silently pick a neighbour is a no-op wearing a pass.
+Two repairs. The harness reads the script name from the checkout's own `pyproject.toml`, syncs the checkout's environment first and refuses to run when the script is not in it. Every hop also checks that the installed version equals the version the checkout carries; that assertion would have failed on the first run. As a general rule, when a test drives a tool from another version by name, resolve the name from that version's metadata and assert the version that ran. A name lookup that can silently pick a neighbour is a no-op wearing a pass.
 
 ## A unit test with ambient credentials is a live command
 
-The dev server was found wiped, twice in one morning, and the first suspect was the assistant session that had been running Docker e2e tests all day. Hetzner's action log settled it: nine `rebuild_server` actions that day, each three to nine seconds after a launch of the **unit** suite of hop3-installer, and the same pattern on every `make test-fast` back to mid-August. The test was `test_docker_and_a_provider_are_refused`: it passed `--docker --provider hetzner` to the deployer's target logic to prove the combination is refused. It is refused, but the code provisioned first and validated second: with no `--server-id`, the provisioning took the id from `HETZNER_SERVER_ID` and the token from the shell. The test then passed on the refusal, every time, over a rebuilt server.
+The dev server was found wiped, twice in one morning. The first suspect was the assistant session that had been running Docker e2e tests all day. Hetzner's action log settled it. It showed nine `rebuild_server` actions that day, each three to nine seconds after a launch of the **unit** suite of hop3-installer, and the same pattern on every `make test-fast` back to mid-August. The test was `test_docker_and_a_provider_are_refused`: it passed `--docker --provider hetzner` to the deployer's target logic to prove the combination is refused. It is refused, but the code provisioned first and validated second: with no `--server-id`, the provisioning took the id from `HETZNER_SERVER_ID` and the token from the shell. The test then passed on the rejection, every time, over a rebuilt server.
 
 Three defences went in and each would have been enough. The deployer validates every target word before it acts on any of them (a destructive step never precedes argument validation, the same rule as `app destroy` prompting for the wrong app). The root conftest strips the cloud credentials for every pytest session, as it already stripped the dev-host variables, so no test layer can hold a token that rebuilds a machine. The rebuild itself then refuses a server that does not carry a `hop3-throwaway=true` label, set once by the operator, so an id that reaches the code from a config file or the environment cannot name a box anyone uses.
 
-Two rules for the next reader: the environment a test inherits is part of its inputs, and a credential in it turns "exercise the refusal path" into "run the command"; the guard belongs in the conftest, not in each test's memory. When a machine is found reset, the first record to open is the provider's action log, which dates every rebuild to the second; the correlation with launch times found the test in minutes where reading code for a mechanism had not.
+Two rules for the next reader: the environment a test inherits is part of its inputs, since a credential in it turns "exercise the refusal path" into "run the command"; the guard belongs in the conftest, not in each test's memory. When a machine is found reset, the first record to open is the provider's action log, which dates every rebuild to the second; the correlation with launch times found the test in minutes where reading code for a mechanism had not.
 
 
 ## Two runners of one check are two implementations of one contract
@@ -241,6 +241,6 @@ Two rules for the next reader: the environment a test inherits is part of its in
 An app's `check.py` runs twice in a catalog run: at the end of the deploy, from the server, and again from hop3-testing, which uploads it and executes it on the box. Each built the check's environment its own way, and they disagreed twice.
 The first time was the port. The harness passed 80 on the reasoning that loopback is the app's nginx and the `Host` header picks the vhost. That held until the check started building `https://` URLs unconditionally, after which it sent a TLS ClientHello to a plain-HTTP port and reported `[SSL: WRONG_VERSION_NUMBER]` as *the first step of the check failing*: "the admin credential signs in", pointing at the credential, the app and the recipe, none of which were involved.
 
-The second was the credential, and it had been wrong the whole time. The harness read the encrypted credential store and exported `HOP3_ADMIN_*` alone, so `Check.has_probe` was false for every app it ever tested and every check fell back silently to the operator's credential: a weaker claim, made without saying so. Piwigo turned weaker into wrong: on an empty gallery it serves an onboarding interstitial to a guest *or an administrator* on every page, and to an ordinary user it does not. The probe is an ordinary user. The deploy's smoke test passed and the harness's run of the same file failed one minute apart, and the failure named the application.
+The second was the credential, which had been wrong the whole time. The harness read the encrypted credential store and exported `HOP3_ADMIN_*` alone, so `Check.has_probe` was false for every app it ever tested and every check fell back silently to the operator's credential: a weaker claim, made without saying so. Piwigo turned weaker into wrong: on an empty gallery it serves an onboarding interstitial to a guest *or an administrator* on every page, and to an ordinary user it does not. The probe is an ordinary user. The deploy's smoke test passed and the harness's run of the same file failed one minute apart, and the failure named the application.
 
-Which credentials a check may see is now one function on the server that both callers read. The rule: when two places invoke the same artifact, the invocation itself is the contract. Put it in one place and have the second ask for it, because the drift is not detectable from either side. The tell that it has happened is a green result and a red result from the same file in the same minute; when you see that, stop looking at the app.
+Which credentials a check may see is now one function on the server that both callers read. The rule is that when two places invoke the same artifact, the invocation itself is the contract. Put it in one place and have the second ask for it, because the drift is not detectable from either side. The tell that it has happened is a green result and a red result from the same file in the same minute; when you see that, stop looking at the app.

@@ -29,7 +29,7 @@ shell_cmd = f'sh -c "cd {app.src_path} && {exports}; {command}"'
 settings.add("attach-daemon", shell_cmd)
 ```
 
-## Throttle State Survives Redeploy
+## Throttle State Persists Across Redeploy
 
 When a daemon crashes, uWSGI increases the respawn delay exponentially: 4s → 8s → 29s → 111s → 232s. This throttle state lives in the Emperor's memory and is **per vassal config file path**.
 

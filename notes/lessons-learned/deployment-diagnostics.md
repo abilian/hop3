@@ -134,7 +134,7 @@ def run_test(test, session):
 
 The collected context travels back via `TestResult.runtime_logs` and is written to a per-test log file (`test-logs/<mode>-<timestamp>/app-logs/<test>.log`). A single test-suite run is then self-sufficient for post-mortem: no SSH-into-the-target-to-reconstruct-state step is needed.
 
-One practical pitfall: store the deployed app name on the `TestResult` when the deploy starts, and store it in preference to the test path. A test at `apps/real-apps-docker/bookstack` deploys to a timestamped `/home/hop3/apps/bookstack-<timestamp>/`; the debug output then locates it with the glob from "Finding App Directories" above.
+To avoid one practical pitfall, store the deployed app name on the `TestResult` when the deploy starts, and store it in preference to the test path. A test at `apps/real-apps-docker/bookstack` deploys to a timestamped `/home/hop3/apps/bookstack-<timestamp>/`; the debug output then locates it with the glob from "Finding App Directories" above.
 
 ## What to Show on Failure
 
@@ -160,7 +160,7 @@ The moment your own evidence contradicts a hypothesis, drop the hypothesis. Duri
 
 ## A queued user action that nothing advances is a silent failure
 
-**Updated 2026-06-25.** In hop3-testlab, the queue-drain (the dispatch poll that runs UI-triggered builds) was bundled into the **nightly scheduler**, which only starts when `[schedule].enabled`. On a server with the nightly off, a build the user explicitly clicked "Start" on sat `pending` **forever**; nothing would ever pick it up, and nothing said so.
+**Updated 2026-06-25.** In hop3-testlab, the queue-drain (the dispatch poll that runs UI-triggered builds) was bundled into the **nightly scheduler**, which only starts when `[schedule].enabled`. On a server with the nightly off, a build the user explicitly clicked "Start" on sat `pending` **forever**; nothing would ever pick it up or say so.
 
 Two rules:
 
@@ -181,7 +181,7 @@ The discriminator was already in reach: a rejected reload logs `[emerg]` to the 
 
 Rolling a rejected config out of the include directory is right: `nginx -t` refusing it is unambiguous, so the config was certainly not applied. Leaving it breaks every later validation. Extending the same rollback to a failed *reload* looks symmetrical and is wrong. nginx forks its workers asynchronously, so a reload reported as failed may already have been applied. Rolling the file back then leaves disk disagreeing with what nginx is serving. The next reload, another app's deploy or a certificate renewal, silently reverts the app's routes. The repair turns a slow reload into a lost one.
 
-The rule: a recovery action needs a signal that is certain. Ask what the signal actually proves. "Rejected" proves the config is not live. "The reload did not take within a budget" proves nothing about whether it is live, so the only safe response is to fail the deploy and change nothing. That costs nothing here, since a validated config on disk passes `nginx -t` and the next reload picks it up.
+The rule is that a recovery action needs a signal that is certain. Ask what the signal actually proves. "Rejected" proves the config is not live. "The reload did not take within a budget" proves nothing about whether it is live, so the only safe response is to fail the deploy and change nothing. That costs nothing here, since a validated config on disk passes `nginx -t` and the next reload picks it up.
 
 ## Disk exhaustion presents as a PostgreSQL PANIC
 
@@ -189,9 +189,9 @@ The rule: a recovery action needs a signal that is certain. Ask what the signal 
 
 ## A probe that does not identify itself is refused by some apps
 
-**September 2026.** Both GoToSocial variants failed a catalog run at the readiness gate: sixty seconds of polling, every request answered `418 I'm a teapot`, deploy refused. The app was fine; it served the test harness's `curl` on the same path a moment later. GoToSocial refuses any request that arrives without a `User-Agent`, a common enough bot filter, and `http.client` sends none unless asked. Every other HTTP client in the tree said who it was (`hop3-fetch`, `hop3-ping/1.0`); the one that gates every deploy did not.
+**September 2026.** Both GoToSocial variants failed a catalog run at the readiness gate: sixty seconds of polling, every request answered `418 I'm a teapot`, deploy refused. The app was fine; it served the test harness's `curl` on the same path a moment later. GoToSocial refuses any request that arrives without a `User-Agent` (a common enough bot filter). `http.client` sends none unless asked. Every other HTTP client in the tree said who it was (`hop3-fetch`, `hop3-ping/1.0`); the one that gates every deploy did not.
 
-An anonymous request is not a neutral one. A probe is a client: give it a name. Prefer a stand-in server that reproduces the app's actual refusal over asserting on a header dict, because the header has to survive the client library to matter.
+An anonymous request is not a neutral one. A probe is a client: give it a name. Prefer a stand-in server that reproduces the app's actual rejection over checking a header dict, because the header matters only if it passes through the client library intact.
 
 ## Name the port the app actually bound
 
@@ -203,12 +203,12 @@ The evidence was a procfs read away the whole time: `/proc/net/tcp{,6}` lists ev
 
 Grafana's recipe carried `GF_DATABASE_HOST = "${PGHOST}:${PGPORT}"` and `GF_SERVER_HTTP_PORT = "${PORT:-8080}"` under `[env]`, which is literal (the values were exported verbatim). The app fell back to SQLite and to its own port 3000, so the PostgreSQL addon Hop3 had provisioned sat empty and the proxy pointed at a port nothing bound. Everything up to the readiness gate reported success.
 
-Three sections, three different behaviours, and only the deploy log could tell them apart: `[env]` is literal, `[env.computed]` interpolates `${VAR}` (no `:-default` form) against the app's environment after addons, and `$PORT` exists in neither because it is allocated later; it belongs in `[run].start`, which runs through a shell. A schema validator can only police a difference that exists in the schema; the check now lives in the schema, so `hop3check` catches it before a deploy, and the error names which of the three the value actually wants.
+Three sections, three different behaviours, and only the deploy log could tell them apart: `[env]` is literal, `[env.computed]` interpolates `${VAR}` (no `:-default` form) against the app's environment after addons, and `$PORT` exists in neither because it is allocated later; it belongs in `[run].start`, which runs through a shell. A schema validator can only police a difference that exists in the schema. The check now lives in the schema, so `hop3check` catches it before a deploy with an error naming which of the three the value actually wants.
 
 ## A diagnosis is a measurement, not an inference
 
-A deploy timed out and the platform said "the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving (the worker failed to boot, or is hung)". The app had answered 173 requests in the previous 100 seconds, each logged at ~0s by its own framework. The diagnosis was drawn from one fact (the port is listening), and the writer of that branch had a specific failure in mind (gunicorn's master binds before the workers fork). He did not consider the other way to reach the same line: with `[healthcheck].contains` set, an app that answers everything still fails the gate when no page carries the marker.
+A deploy timed out and the platform said "the app's port is listening but it did not answer an HTTP request: the server bound its socket but no worker is serving (the worker failed to boot, or is hung)". The app had answered 173 requests in the previous 100 seconds, each logged at ~0s by its own framework. The diagnosis was drawn from one fact (the port is listening). The writer of that branch had a specific failure in mind (gunicorn's master binds before the workers fork). He did not consider the other way to reach the same line: with `[healthcheck].contains` set, an app that answers everything still fails the gate when no page carries the marker.
 
 The cost is not the wrong words. The message routed the reader to workers, boot order and the timeout, and offered a longer deadline, when the answer was one string in the recipe. A named cause is trusted more than a generic one, so a confidently wrong name costs more than "failed to start".
 
-The failure path now asks the app one more question before it speaks, and reports what came back: the path probed, the status, the marker that did not match, and the first 200 characters served instead. When a diagnosis has two possible causes and distinguishing them costs one request, make the request. Write the fallback so it is true when it is reached, rather than true in the case you had in mind.
+The failure path now asks the app one more question before it speaks, and reports what came back: the path probed, the status, the marker that did not match, and the first 200 characters served instead. When a diagnosis has two possible causes and distinguishing them costs one request, make the request. Write the fallback so it is true whenever it is reached, including cases outside the one you had in mind.

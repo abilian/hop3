@@ -6,7 +6,7 @@ This note records what went wrong inside containers and the build policy that ca
 
 ## Build from source, on the base the server runs
 
-A native build on the server ranks first. Next comes a Dockerfile that builds from source on `debian:bookworm-slim` (later `trixie-slim`), the same libc and packages the server has. An upstream pre-built image is the last resort. `FROM wordpress:latest` is a shortcut that hides every dependency the app has. Each hidden dependency is a native build that will fail later for an unrecorded reason. The catalog rule that followed: no upstream images, base images pinned by digest, and a builder that refuses a tag-only `FROM`.
+A native build on the server ranks first. Next comes a Dockerfile that builds from source on `debian:bookworm-slim` (later `trixie-slim`), the same libc and packages the server has. An upstream pre-built image is the last resort. `FROM wordpress:latest` is a shortcut that hides every dependency the app has. Each hidden dependency is a native build that will fail later for an unrecorded reason. The catalog rule that followed forbids upstream images, pins base images by digest, and has the builder reject a tag-only `FROM`.
 
 Building on a distribution base has four consequences:
 
