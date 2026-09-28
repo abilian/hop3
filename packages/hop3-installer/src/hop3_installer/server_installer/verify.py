@@ -255,6 +255,11 @@ def verify_mysql_config() -> bool:
     return True
 
 
+#: The services checked on a box without systemd, by supervisor program name,
+#: which is the systemd unit's name (`uwsgi-hop3`, not `uwsgi`).
+SUPERVISOR_SERVICES = ("hop3-server", "nginx", "uwsgi-hop3")
+
+
 def _verify_services() -> None:
     """Verify core services are running."""
     if process_manager_pending():
@@ -280,19 +285,14 @@ def _verify_services() -> None:
                 print_warning(f"{name} is not running")
                 print_detail(f"Check with: sudo systemctl status {service}")
     else:
-        # Non-systemd: check supervisord-managed services
-        for service, name in [
-            ("hop3-server", "hop3-server"),
-            ("nginx", "nginx"),
-            ("uwsgi", "uwsgi"),
-        ]:
+        for service in SUPERVISOR_SERVICES:
             result = run_cmd(
                 ["supervisorctl", "status", service], capture=True, check=False
             )
             if "RUNNING" in (result.stdout or ""):
-                print_success(f"{name} is running")
+                print_success(f"{service} is running")
             else:
-                print_warning(f"{name} is not running")
+                print_warning(f"{service} is not running")
                 print_detail(f"Check with: supervisorctl status {service}")
 
 

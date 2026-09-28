@@ -84,12 +84,13 @@ want() {
 for c in ${ONLY//,/ }; do want "$c" || fail "--only names '$c' but the snapshot does not hold it"; done
 
 # --- Process manager ---------------------------------------------------------
+# The emperor is `uwsgi-hop3` under both: the systemd unit, and the supervisor
+# program named after it.
+UWSGI_SVC=uwsgi-hop3
 if [ "$(cat /proc/1/comm 2>/dev/null)" = "systemd" ]; then
     PM=systemd
-    UWSGI_SVC=uwsgi-hop3
 else
     PM=supervisor
-    UWSGI_SVC=uwsgi
     command -v supervisorctl >/dev/null || fail "neither systemd nor supervisorctl found; cannot manage services"
 fi
 svc_stop() {
