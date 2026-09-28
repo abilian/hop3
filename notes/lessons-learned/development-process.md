@@ -30,11 +30,11 @@ Before claiming a cross-cutting fix, grep for the concern (the constant, the fun
 
 ## A signature change is workspace-wide
 
-Packages import each other's internals: hop3-tui uses hop3-cli's `SshTunnel` and its config; hop3-testing is a pytest plugin every package loads. Renaming `SshTunnel(key=…)` to `settings=…` was grepped only inside hop3-cli, so the TUI kept the old keyword and `make test-e2e` failed in the TUI suite. The same rename then broke the TUI's own integration test, whose stub of the tunnel still took `key=`, and left a CLI test asserting on a keyword the client no longer sent. Grep the whole tree for callers and for test stubs of the class, and run the check tier (`make test`), because the fast tier does not run the integration suites.
+Packages import each other's internals: hop3-tui uses hop3-cli's `SshTunnel` and its config; hop3-testing is a pytest plugin every package loads. Renaming `SshTunnel(key=…)` to `settings=…` was grepped only inside hop3-cli, so the TUI kept the old keyword and `make test-e2e` failed in the TUI suite. The same rename then broke the TUI's own integration test, whose stub of the tunnel still took `key=`, and left a CLI test checking a keyword the client no longer sent. Grep the whole tree for callers and for test stubs of the class, and run the check tier (`make test`), because the fast tier does not run the integration suites.
 
 ## Review your own duplication before committing
 
-The September shell branch, reviewed against the code-quality checklist, had three builders of the same `ssh` prefix and three readings of the same settings. All were written in one session, and each was reasonable alone. Consolidation was cheap the same day and would have been a migration a month later. A quick review pass for the five anti-patterns (defensive noise, soft invariants, band-aids, invented abstractions, duplication) belongs before the commit.
+The September shell branch, reviewed against the code-quality checklist, had three builders of the same `ssh` prefix and three readings of the same settings. All were written in one session. Each was reasonable alone. Consolidation was cheap the same day and would have been a migration a month later. A quick review pass for the five anti-patterns (defensive noise, soft invariants, band-aids, invented abstractions, duplication) belongs before the commit.
 
 ## Related
 

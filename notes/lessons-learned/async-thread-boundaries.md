@@ -2,7 +2,7 @@
 
 **Updated**: 2026-06-07, written after the "every deploy takes ~30s" investigation.
 
-How a background thread talking to an `asyncio` primitive made *every* deployment appear to take ~30s, how it was diagnosed (after a wrong first guess), and the rule that prevents the whole class.
+How a background thread talking to an `asyncio` primitive made *every* deployment appear to take ~30s, how it was diagnosed (after a wrong first guess), plus the rule that prevents the whole class.
 
 ## The symptom
 
@@ -22,7 +22,7 @@ event_type, data = await asyncio.wait_for(queue.get(), timeout=30.0)
 queue.put_nowait(("log", entry))   # ❌ cross-thread
 ```
 
-`asyncio.Queue` is **not thread-safe**. A `put_nowait()` from another thread appends the item, but it does **not** wake the event loop's awaiting `get()`; only operations on the loop's own thread (or `call_soon_threadsafe`) do. So the consumer stayed parked until its `wait_for(..., timeout=30.0)` keepalive fired; on the next iteration the item was finally drained. Result: logs delivered in 30s batches and the completion event ~30s late. The displayed "duration" is computed when the consumer emits completion → a near-exact 30.0s, every time.
+`asyncio.Queue` is **not thread-safe**. A `put_nowait()` from another thread appends the item, but it does **not** wake the event loop's awaiting `get()`; only operations on the loop's own thread (or `call_soon_threadsafe`) do. So the consumer stayed parked until its `wait_for(..., timeout=30.0)` keepalive fired; on the next iteration the item was finally drained. As a result, logs arrived in 30s batches and the completion event arrived ~30s late. The displayed "duration" is computed when the consumer emits completion → a near-exact 30.0s, every time.
 
 ## The fix
 
@@ -103,7 +103,7 @@ As of this writing the only `asyncio.Queue` in the codebase is the (now-fixed) `
 - `hop3_testlab` scheduler/worker: APScheduler fires jobs on a worker thread that only touch a **sync** sessionmaker (`check_same_thread=False`) and `subprocess`; no asyncio primitive is shared with the async web handlers.
 - `hop3_installer` `Spinner`: daemon thread signalled by `threading.Event`; the package has no asyncio at all.
 
-Match the primitive to the boundary. The one boundary that always needs an explicit bridge is **thread → coroutine**.
+Match the primitive to the boundary. Only the **thread → coroutine** boundary always needs an explicit bridge.
 
 ## A second boundary in the same class: iterating what a thread is appending to
 
@@ -118,21 +118,21 @@ for entry in self.logs:
     yield entry.to_sse()
 ```
 
-The generator died on its first catch-up, before emitting a single event. The operator saw:
+The generator died on its first catch-up, before emitting a single event. On a deploy that was working, the operator saw:
 
 ```
 ⚠ Stream ended unexpectedly. Check server logs.
 ```
 
-on a deploy that was working. The fix is one word: `for entry in list(self.logs)`. But the lesson is not about `deque`:
+The fix is one word: `for entry in list(self.logs)`. But the lesson is not about `deque`:
 
 - **Swapping a container type changes its concurrency contract, not just its capacity.** `list`, `deque`, `dict` and `set` each have their own answer to "what happens if this is mutated while iterated"; only `list` says "nothing visible". A change that reads as a capacity tweak is a concurrency change whenever a second thread can touch the object.
-- **Snapshot anything a thread may append to before iterating it**, whether or not today's type complains. The snapshot is also the more correct read: a replay is a statement about the past, and the live subscription covers everything after it.
+- **Snapshot anything a thread may append to before iterating it**, whether or not today's type complains. The snapshot is also the more correct read: a replay is a statement about the past; the live subscription covers everything after it.
 - **Single-threaded tests cannot see this.** Every unit test wrote to the buffer and then read it, which is the one ordering that never fails. The test that catches it writes *from inside the consuming loop*; that is what an awaited generator actually experiences.
 
 ### Why it reached the operator and not a test run
 
-The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs a real deploy through a real SSE connection, and it was not run before the change was called done. A streaming path has no meaningful in-process coverage of its own concurrency: the layer that exercises it is the one with a container in it.
+The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs a real deploy through a real SSE connection. It was not run before the change was called done. A streaming path has no meaningful in-process coverage of its own concurrency: the layer that exercises it is the one with a container in it.
 
 **Run the e2e layer for any change to the streaming path, the process model, or a shared mutable structure.** Its slowness is the reason it gets skipped and the reason it is the only thing that would have caught this.
 
@@ -140,7 +140,7 @@ The in-process layers passed: 4740 tests, nothing red. Only `tests/c_e2e/` runs 
 
 **September 2026.** After a deploy failed in proxy setup, the next deploy of the same app failed once with `Cannot transition app 'x' from STOPPED to RUNNING`, then worked: an outcome that depended on the run before it. Reading the state machine found nothing; instrumenting `transition_state`, `mark_stopped` and SQLAlchemy's `refresh` event on `App` found it in one run.
 
-The deploy request stopped the previous instance in its own session (STARTING → STOPPED) and handed the app's id to the build thread, which opened a second session. The request committed only when it returned, after `build_queue.submit()`. The build thread had already loaded STARTING. It moved the app to STOPPED and back to STARTING, and since the value ended where it was loaded, SQLAlchemy wrote no UPDATE for it. The request's STOPPED, committed in between, survived, and the thread's next reload of the expired object read it back.
+The deploy request stopped the previous instance in its own session (STARTING → STOPPED) and handed the app's id to the build thread, which opened a second session. The request committed only when it returned, after `build_queue.submit()`. The build thread had already loaded STARTING. It moved the app to STOPPED and back to STARTING, and since the value ended where it was loaded, SQLAlchemy wrote no UPDATE for it. The request's STOPPED, committed in between, persisted. The thread's next reload of the expired object read it back.
 
 - **Commit before a hand-off.** The build helper's docstring already required the app to be committed before the call; nothing enforced it. `deploy_app_streaming` now takes the request session and commits it before submitting, so the contract is kept by the code that relies on it.
 - **An ORM write is a diff against what was loaded.** A value that returns to its loaded value is not written, so a concurrent writer's change stands. Two sessions updating the same row is a lost update whichever order they commit in.

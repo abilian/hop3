@@ -1,10 +1,10 @@
 # Lessons Learned: Database Addon Portability
 
-Pitfalls when providing database services (PostgreSQL, MySQL, Redis) to applications across different platforms and runtimes.
+Database services (PostgreSQL, MySQL, Redis) hit portability pitfalls when Hop3 provides them to applications across different platforms and runtimes.
 
 ## localhost vs 127.0.0.1
 
-Never use `localhost` as the default database host. On IPv6-enabled servers, runtimes resolve `localhost` to `::1` first. If the database only listens on `127.0.0.1`, the connection fails with `ECONNREFUSED ::1:3306`.
+Never use `localhost` as the default database host. On IPv6-enabled servers, a runtime resolves `localhost` to `::1` first. If the database only listens on `127.0.0.1`, the connection fails with `ECONNREFUSED ::1:3306`.
 
 Node.js is the most common offender: its DNS resolver prefers IPv6. Python and Go typically try both.
 
@@ -131,7 +131,7 @@ Rails and Django use `DATABASE_URL`. Psycopg2 uses `PG*` variables. Some Go libr
 
 ## A Name Derived From User Input Can Hit a Reserved Prefix
 
-The PostgreSQL addon derives its database and role from the addon name, so an addon named `pg-restore` produced the role `pg_restore_…_user`. PostgreSQL reserves role names starting with `pg_`, and the server rejected it after the database had been created, naming a role the operator never typed. Validate derived identifiers up front, against the target system's reserved forms. Name the user's own input in the refusal.
+The PostgreSQL addon derives its database and role from the addon name, so an addon named `pg-restore` produced the role `pg_restore_…_user`. PostgreSQL reserves role names starting with `pg_`. The server rejected the role after the database had been created, naming a role the operator never typed. Validate derived identifiers up front, against the target system's reserved forms. Name the user's own input in the error.
 
 ## `mysqladmin ping` Needs More Privilege Than an App User Has
 

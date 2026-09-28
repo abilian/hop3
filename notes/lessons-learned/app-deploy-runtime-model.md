@@ -2,7 +2,7 @@
 
 This file describes how a Hop3 app behaves as it moves through config → build → run, and how to read its failures. These are platform lessons (originally harvested while building the demos); none are demo-specific.
 
-Related: [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) (Emperor / vassal / `attach-daemon` env propagation) and [`deployment-diagnostics.md`](./deployment-diagnostics.md) (making failures actionable).
+See also [`uwsgi-daemon-management.md`](./uwsgi-daemon-management.md) (Emperor / vassal / `attach-daemon` env propagation) and [`deployment-diagnostics.md`](./deployment-diagnostics.md) (making failures actionable).
 
 ---
 
@@ -144,7 +144,7 @@ A test that wants a real vhost must set `HOST_NAME` explicitly and redeploy. The
 Two later lessons follow from the same contract:
 
 - **One environment core.** `hop3 run` built its own environment from scratch and never read the artifact, so a Nix app's store binaries were not on its `PATH`. The workers' `make_env`, `hop3 run` and `hop3 app shell` now share one `build_app_env` (bootstrap, artifact env and `PATH`, then the persisted `[env]` under toolchain-wins precedence); a worker adds only what a worker needs.
-- **Gate on the builder.** The Nix closure guard ran only for artifacts of `kind == "nix"`. The Nix builder emits a `static` artifact for a site the proxy serves straight from the store, so the guard returned before looking, and a restart against a deleted closure succeeded: the scenario the guard was written for. The artifact's `builder` field is the fact; its `location` is a root of the closure whether or not a worker's command line mentions it.
+- **Gate on the builder.** The Nix closure guard ran only for artifacts of `kind == "nix"`. The Nix builder emits a `static` artifact for a site the proxy serves straight from the store, so the guard returned before looking. A restart against a deleted closure succeeded: the scenario the guard was written for. The artifact's `builder` field is the fact; its `location` is a root of the closure whether or not a worker's command line mentions it.
 
 ---
 
