@@ -28,8 +28,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
     eject_hint,
     format_nix_env_attrs,
-    format_paths_json,
-    format_runtime_env_json,
+    format_runtime_json,
     format_wrapper_body,
     generated_line,
     local_source_expr,
@@ -368,24 +367,12 @@ def _runtime_json_section(spec: AppSpec, p: PhpAppPayload) -> str:
     `$out` puts the app one level down from where it expects to be, and drops
     build metadata into the app's directory where the next deploy trips over it.
     """
-    # extra_paths can include "${php}/bin" etc., which Nix interpolates at
-    # build time (they are inside the installPhase string).
-    runtime_env_json = format_runtime_env_json(_runtime_env(spec, p))
-    paths_json = format_paths_json(spec.extra_paths)
-    writable_tree = '\n  "writable_tree": "$out/app",' if p.needs_writable_dir else ""
-    return f"""      cat > $out/hop3/runtime.json << EOF
-{{{writable_tree}
-  "workers": {{
-    "web": "$out/bin/{spec.pname}"
-  }},
-  "env": {{
-{runtime_env_json}
-  }},
-  "path": [
-    {paths_json}
-  ]
-}}
-EOF"""
+    return format_runtime_json(
+        spec,
+        f"$out/bin/{spec.pname}",
+        runtime_env=_runtime_env(spec, p),
+        writable_tree="$out/app" if p.needs_writable_dir else "",
+    )
 
 
 def _format_php_binding(p: PhpAppPayload) -> str:

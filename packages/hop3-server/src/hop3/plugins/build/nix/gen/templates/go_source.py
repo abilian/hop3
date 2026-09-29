@@ -37,8 +37,7 @@ from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
     eject_hint,
     format_nix_env_attrs,
-    format_paths_json,
-    format_runtime_env_json,
+    format_runtime_json,
     format_wrapper_body,
     generated_line,
     local_source_expr,
@@ -257,9 +256,8 @@ class GoSourceTemplate:
             spec, p, src_attr, wrapper_body
         )
 
-        runtime_env_json = format_runtime_env_json(spec.runtime_env)
+        runtime_json = format_runtime_json(spec, f"$out/bin/{spec.pname}")
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
-        paths_json = format_paths_json(spec.extra_paths)
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
@@ -335,19 +333,7 @@ WRAPPER
       sed -i "s|PKGBIN|${{goApp}}/bin|g" $out/bin/{spec.pname}{frontend_sed}
       chmod +x $out/bin/{spec.pname}
 
-      cat > $out/hop3/runtime.json << EOF
-{{
-  "workers": {{
-    "web": "$out/bin/{spec.pname}"
-  }},
-  "env": {{
-{runtime_env_json}
-  }},
-  "path": [
-    {paths_json}
-  ]
-}}
-EOF
+{runtime_json}
     '';
   }};
 

@@ -303,6 +303,14 @@ def format_nix_runtime_libs(paths: list[str]) -> str:
     return f'export LD_LIBRARY_PATH="{libs}:' + "''${LD_LIBRARY_PATH:-}" + '"'
 
 
+BEFORE_RUN_FLAG = "--hop3-before-run"
+
+
+def has_before_run(spec: AppSpec) -> bool:
+    """Whether the wrapper has a before-run phase: files to write, steps to run."""
+    return bool(spec.config_files or spec.pre_exec_commands)
+
+
 def format_wrapper_body(
     spec: AppSpec,
     exec_line: str,
@@ -316,9 +324,20 @@ def format_wrapper_body(
         <local vars>
         <env exports>
         <nix runtime libs — LD_LIBRARY_PATH with store-path interpolation>
+        if [ "$1" = "--hop3-before-run" ]; then
         <config files>
         <pre-exec commands>
+        exit 0
+        fi
         exec <exec_line>
+
+    The config files and pre-exec commands are the deploy's business, not the
+    process's: runtime.json names ``<wrapper> --hop3-before-run`` as a
+    before-run step, so Hop3 runs them once per deploy, with the app's full
+    environment and before the workers start. They used to run on every start,
+    which put them inside the health-check window (BookStack's migrations
+    outlasted it) and made the running app the author of files the next deploy
+    replaces.
     """
     # `set -e`: a failing prelude/config/pre-exec step aborts the wrapper instead
     # of falling through to `exec` and serving a half-installed app that only the
@@ -329,9 +348,7 @@ def format_wrapper_body(
     sections: list[str] = ["#!/bin/sh", "set -e"]
 
     # Runtime prelude is emitted raw (no nix_escape), so `${binding}`
-    # references Nix-interpolate at build time. Used by
-    # writable-home-at-runtime to lazy-cp the package tree into $PWD
-    # before anything else in the wrapper touches the environment.
+    # references Nix-interpolate at build time: JAVA_HOME="${jdk}", say.
     if spec.runtime_prelude:
         sections.append(spec.runtime_prelude)
 
@@ -350,14 +367,14 @@ def format_wrapper_body(
     if nix_libs:
         sections.append(nix_libs)
 
-    # Config files are generated BEFORE pre-exec commands because
-    # pre-exec may depend on config files (e.g., LimeSurvey's install
-    # command needs config.php to know the database connection).
-    for cf in spec.config_files:
-        sections.append(format_config_file(cf))
-
-    if spec.pre_exec_commands:
-        sections.append("\n".join(nix_escape(cmd) for cmd in spec.pre_exec_commands))
+    if has_before_run(spec):
+        sections.append(f'if [ "$1" = "{BEFORE_RUN_FLAG}" ]; then')
+        # Config files are generated BEFORE pre-exec commands because
+        # pre-exec may depend on config files (e.g., LimeSurvey's install
+        # command needs config.php to know the database connection).
+        sections.extend(format_config_file(cf) for cf in spec.config_files)
+        sections.extend(nix_escape(cmd) for cmd in spec.pre_exec_commands)
+        sections.append("exit 0\nfi")
 
     # Escape shell var references in the exec line. Templates that need Nix
     # variables in the exec line (e.g., ${php}/bin/php) must use placeholders
@@ -365,45 +382,6 @@ def format_wrapper_body(
     sections.append(f"exec {nix_escape(exec_line)}")
 
     return "\n\n".join(sections)
-
-
-def build_writable_home_prelude(
-    pname: str,
-    source: str,
-    env_var: str | None = None,
-    cd_into: bool = False,
-) -> str:
-    """
-    Emit the lazy-cp prelude for an app that writes inside its own tree.
-
-    The Nix store is read-only, but plenty of applications expect to write into
-    their install directory (Keycloak's Quarkus rebuild, Rails' generated
-    config and secret token, xwiki's Jetty logs). Copy the tree into
-    ``$PWD/.<pname>-home`` once per app instance, widen the mode, and drop a
-    marker so restarts skip the copy.
-
-    ``source`` is emitted verbatim, so it may be a Nix interpolation
-    (``${pkg}``) or a sed placeholder the template substitutes later
-    (``APPDIR``). ``cd_into`` makes the wrapper run from the writable copy,
-    which apps that resolve paths relative to the working directory need.
-    """
-    lines = [
-        f'HOME_DIR="$PWD/.{pname}-home"',
-        'if [ ! -f "$HOME_DIR/.hop3-ready" ]; then',
-        '  rm -rf "$HOME_DIR"',
-        # -rL dereferences symlinks (we need real files to chmod).
-        # --no-preserve=ownership drops the nixbld owner; mode is then
-        # widened by chmod u+w (capital W just in case).
-        f'  cp -rL --no-preserve=ownership {source}/. "$HOME_DIR"',
-        '  chmod -R u+w "$HOME_DIR"',
-        '  touch "$HOME_DIR/.hop3-ready"',
-        "fi",
-    ]
-    if env_var:
-        lines.append(f'export {env_var}="$HOME_DIR"')
-    if cd_into:
-        lines.append('cd "$HOME_DIR"')
-    return "\n".join(lines)
 
 
 def format_runtime_env_json(runtime_env: dict[str, str]) -> str:
@@ -430,3 +408,42 @@ def format_paths_json(extra_paths: list[str]) -> str:
     """Emit the ``path`` array for runtime.json."""
     entries = ['"$out/bin"'] + [f'"{p}"' for p in extra_paths]
     return ",\n    ".join(entries)
+
+
+def format_runtime_json(
+    spec: AppSpec,
+    wrapper: str,
+    *,
+    runtime_env: dict[str, str] | None = None,
+    writable_tree: str = "",
+) -> str:
+    """
+    The heredoc that writes ``$out/hop3/runtime.json``, the build's contract.
+
+    ``wrapper`` is the web worker's path under ``$out``. When the wrapper has a
+    before-run phase, the same path with ``--hop3-before-run`` is the artifact's
+    before-run step. ``runtime_env`` defaults to the spec's; ``writable_tree``
+    names the store tree Hop3 copies into the app's directory at deploy time.
+    """
+    env_json = format_runtime_env_json(
+        spec.runtime_env if runtime_env is None else runtime_env
+    )
+    tree = f'\n  "writable_tree": "{writable_tree}",' if writable_tree else ""
+    before_run = (
+        f'\n  "before_run": ["{wrapper} {BEFORE_RUN_FLAG}"],'
+        if has_before_run(spec)
+        else ""
+    )
+    return f"""      cat > $out/hop3/runtime.json << EOF
+{{{tree}{before_run}
+  "workers": {{
+    "web": "{wrapper}"
+  }},
+  "env": {{
+{env_json}
+  }},
+  "path": [
+    {format_paths_json(spec.extra_paths)}
+  ]
+}}
+EOF"""

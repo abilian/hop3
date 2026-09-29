@@ -21,7 +21,6 @@ from types import SimpleNamespace
 import pytest
 
 from hop3.plugins.build.nix import builder
-from hop3.plugins.build.nix.gen.templates import php_app
 from hop3.run.spawn import AppLauncher
 
 
@@ -215,18 +214,3 @@ def test_an_empty_volume_is_seeded_from_the_store_tree(tmp_path) -> None:
 
     assert (volume / "framework" / ".keep").exists()
     assert os.access(volume / "framework", os.W_OK)
-
-
-def test_php_app_names_the_application_subdirectory(tmp_path) -> None:
-    """
-    `$out/app`, not `$out`.
-
-    `$out` also holds the generated wrapper and hop3/runtime.json. Copying it
-    wholesale puts the application one directory down from where it expects to
-    be, and leaves build metadata in the app directory for the next deploy to
-    trip over — which is exactly what happened: `hop3.nix` reappeared and the
-    builder refused with "Both hop3.nix and a [nix].template section".
-    """
-    source = inspect.getsource(php_app)
-    assert '"writable_tree": "$out/app"' in source
-    assert '"writable_tree": "$out"' not in source

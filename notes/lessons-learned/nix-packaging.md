@@ -337,20 +337,14 @@ exec /nix/store/.../bin/listmonk
 
 **Prefer `cp` over `ln -sf`.** A symlink looks tidier and loses whenever the upstream launcher resolves its own path: `readlink -f "$0"` lands back in the read-only store. The app then looks for everything relative to a directory it cannot write. XWiki's Jetty start script and Keycloak's nixpkgs-compiled `kc.sh` both do this. A symlink is only safe for an asset the app reads by the literal path you gave it.
 
-**When the app writes inside its own install tree**, copying one directory is not enough; copy the whole tree once, on first run:
+**When the app writes inside its own install tree**, copying one directory is not enough: name the whole tree as `writable_tree` in `runtime.json`, and Hop3 copies it into `src/` at deploy time, before `before_run` and around the app's volumes. The wrapper then runs from its working directory:
 
 ```bash
 #!/bin/sh
-HOME_DIR="$PWD/.myapp-home"
-if [ ! -f "$HOME_DIR/.hop3-ready" ]; then
-  cp -rL /nix/store/.../app "$HOME_DIR"
-  chmod -R u+w "$HOME_DIR"
-  touch "$HOME_DIR/.hop3-ready"
-fi
-cd "$HOME_DIR" && exec ./bin/myapp
+exec ./bin/myapp
 ```
 
-Keycloak (Quarkus augmentation), XWiki (Jetty logs), SonarQube (a shared-memory file) and matrix-synapse (generated `homeserver.yaml`) all need this. The nix-gen templates express it as `writable-home-at-runtime` / `writable-home-env-var`; reach for those before hand-writing the wrapper.
+Keycloak (Quarkus augmentation), XWiki (Jetty logs), SonarQube (a shared-memory file) and matrix-synapse (generated `homeserver.yaml`) all need this. The nix-gen templates express it as `writable-home-at-runtime` / `writable-home-env-var`; reach for those before hand-writing the wrapper. Copying the tree from the wrapper on first start, as these recipes once did, puts the copy inside the start timeout and makes the running app the author of files the next deploy replaces. What the app then writes into the tree (Keycloak's `lib/quarkus`) goes in a `[[volumes]]` entry: `scratch` when it is regenerated, `persist` when it is not.
 
 ### nixpkgs Sometimes Ships Only the Binary
 

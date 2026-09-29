@@ -43,11 +43,9 @@ from dataclasses import replace
 from hop3.plugins.build.nix.gen.spec import AppSpec, RubyBundlerPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
-    build_writable_home_prelude,
     eject_hint,
     format_nix_env_attrs,
-    format_paths_json,
-    format_runtime_env_json,
+    format_runtime_json,
     format_wrapper_body,
     generated_line,
     local_source_expr,
@@ -87,18 +85,15 @@ class RubyBundlerTemplate:
             src_attr = local_source_expr()
             gemfile_install = ""
 
+        # Rails-class apps write inside their own tree and resolve paths
+        # relative to the working directory: Hop3 copies the tree into src/,
+        # the wrapper's working directory, at deploy time.
         prelude_parts: list[str] = []
+        writable_tree = ""
         if spec.writable_home_at_runtime:
-            # Rails-class apps write inside their own tree and resolve paths
-            # relative to the working directory, so cd into the writable copy.
-            prelude_parts.append(
-                build_writable_home_prelude(
-                    spec.pname,
-                    "APPDIR",
-                    spec.writable_home_env_var,
-                    cd_into=True,
-                )
-            )
+            writable_tree = "$out/app"
+            if spec.writable_home_env_var:
+                prelude_parts.append(f'export {spec.writable_home_env_var}="$PWD"')
         # Put the gem set's binaries on PATH so pre-exec steps can invoke
         # `rake`, `rails` etc. directly instead of knowing the store path.
         prelude_parts.append('export PATH="GEMSBIN:$PATH"')
@@ -110,9 +105,10 @@ class RubyBundlerTemplate:
         exec_line = f"GEMSBIN/{spec.exec_target}{exec_args}"
         wrapper_body = format_wrapper_body(spec, exec_line)
 
-        runtime_env_json = format_runtime_env_json(spec.runtime_env)
+        runtime_json = format_runtime_json(
+            spec, f"$out/bin/{spec.pname}", writable_tree=writable_tree
+        )
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
-        paths_json = format_paths_json(spec.extra_paths)
 
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
@@ -160,19 +156,7 @@ WRAPPER
       sed -i "s|APPDIR|$out/app|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
 
-      cat > $out/hop3/runtime.json << EOF
-{{
-  "workers": {{
-    "web": "$out/bin/{spec.pname}"
-  }},
-  "env": {{
-{runtime_env_json}
-  }},
-  "path": [
-    {paths_json}
-  ]
-}}
-EOF
+{runtime_json}
     '';
   }};
 

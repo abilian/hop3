@@ -1018,7 +1018,7 @@ value = "postgres://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}"
 
 ### Config File Generation
 
-Generate config files at startup with runtime variable substitution:
+Generate config files with the app's environment substituted. They are written once per deploy, before the workers start and before `[run] before-run`, and then `[nix] pre-exec` runs (a schema migration, a first-run install): both are the build's own before-run step, not part of the wrapper's start, so they never count against `start-timeout`. A failing step fails the deploy. The files land in `src/`, which the next deploy replaces, so they are rewritten on every deploy: anything the application must keep goes in a `[[volumes]]` entry.
 
 ```toml
 [[nix.config-files]]

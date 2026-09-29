@@ -192,6 +192,7 @@ class NixBuilder:
             working_dir=str(self.context.source_path),
             writable_tree=runtime_data.get("writable_tree", ""),
             workers=workers,
+            before_run=runtime_data.get("before_run", []),
         )
 
         # 4. Determine artifact kind based on workers

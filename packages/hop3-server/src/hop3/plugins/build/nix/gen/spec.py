@@ -446,7 +446,7 @@ class PhpAppPayload(TemplatePayload):
     # Wrapper symlinks store paths into a writable cwd before serving.
     # Required for apps needing runtime-generated config files (Laravel .env,
     # Nextcloud config.php) since the store is read-only. Distinct from the
-    # core `writable_home_at_runtime`, which copies a whole tree once.
+    # core `writable_home_at_runtime`, which names a whole package tree.
     needs_writable_dir: bool = False
     # Extra nativeBuildInputs beyond php and composer. Taken as-is into the Nix
     # attrset, so use full attribute paths like "pkgs.nodejs".
@@ -574,13 +574,14 @@ class AppSpec:
     pre_exec_commands: list[str] = field(default_factory=list)
     # Config files to generate at startup
     config_files: list[ConfigFile] = field(default_factory=list)
-    # When True, the wrapper lazy-copies the package tree into a writable home
-    # at first launch (cp -rL + chmod u+w), then execs out of the copy. Solves
-    # the "ships read-only, app writes inside its own install dir" class —
-    # Keycloak (Quarkus augmentation), Rails apps writing tmp/ and log/. The
-    # copy happens once per app instance (marked with $HOME_DIR/.hop3-ready).
+    # When True, the package tree is the app's writable tree: Hop3 copies it
+    # into src/ at deploy time (runtime.json `writable_tree`) and the wrapper
+    # execs out of the copy. Solves the "ships read-only, app writes inside
+    # its own install dir" class — Keycloak (Quarkus augmentation), Rails apps
+    # writing tmp/ and log/. What the app writes there at runtime still
+    # belongs in a [[volumes]] entry.
     writable_home_at_runtime: bool = False
-    # Optional env var exported by the wrapper, pointing at the writable home
+    # Optional env var exported by the wrapper, pointing at the writable tree
     # (e.g. "KC_HOME_DIR"). Only consulted when writable_home_at_runtime.
     writable_home_env_var: str | None = None
     # Internal: raw shell emitted at the top of the wrapper (after shebang,

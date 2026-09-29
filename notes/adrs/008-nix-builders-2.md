@@ -75,7 +75,7 @@ Each template captures one recurring packaging pattern observed in `apps/real-ap
 
 | Template | Tier | Apps covered | Key patterns |
 |----------|------|-------------|-------------|
-| `nixpkgs-wrapper` | 1 | grafana, mattermost, listmonk, keycloak, searxng, etherpad | Wraps an existing nixpkgs package (no source fetch, no build); writable-home prelude for apps that write beside themselves |
+| `nixpkgs-wrapper` | 1 | grafana, mattermost, listmonk, keycloak, searxng, etherpad | Wraps an existing nixpkgs package (no source fetch, no build); the package as a deploy-time writable tree for apps that write beside themselves |
 | `php-app` | 2 | adminer, bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, paheko, wordpress | Composer FOD from `composer.lock` + offline `dump-autoload`; single file (adminer), Laravel artisan serve, custom web root (dolibarr), zip with wrapper dir (limesurvey), tar.bz2 (nextcloud), `--ignore-platform-reqs` (invoice-ninja), extra nativeBuildInputs (nodejs for invoice-ninja) |
 | `python-venv` | 2 | isso, bugsink, radicale | Wheel-set FOD from a hash-pinned lockfile, offline `--no-index` install, runtime INI config |
 | `go-source` | 2 | miniflux, gitea, forgejo, gatus, owncast, vikunja | `buildGoModule` with a `vendorHash`; frontend derivation and `go-static-dirs` for apps resolving assets under a static root; builds the recipe directory itself when no `url` is given |

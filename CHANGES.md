@@ -31,6 +31,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Volumes are linked after the build, before the app starts.** They used to be linked before the build, where a `before-build` that unpacks the application and moves its directories into place collided with them.
 
+- **A generated Nix app writes its config files and runs its `pre-exec` once per deploy, before it starts.** They used to run in the wrapper on every start: inside the start timeout, which BookStack's migrations outlasted, and as files the running app wrote into `src/`. They now run as the build's own before-run step, ahead of `[run] before-run`, and a failure fails the deploy. A hand-written `hop3.nix` gets the same with a `before_run` list in its `runtime.json`. Likewise, `writable-home-at-runtime` now copies the package into `src/` at deploy time, as the writable tree, where the wrapper used to copy it into `src/.<name>-home` on first start; `$PWD`, not `$HOME_DIR`, is where it lives.
+
 - **A `git push` stops the running app before replacing its source**, as `hop3 deploy` already did. A process still holding files in `src/` could race the rebuild.
 
 - **The server checks the account's role on every command and every dashboard page.** Until now any account could run everything but user management. A command above the account's role is refused with the role it needs and the `hop3 user set-role` that would grant it, and `hop3` exits with code 5. The dashboard refuses a page the same way and sends a member to its profile.

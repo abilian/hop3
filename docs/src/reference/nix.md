@@ -93,6 +93,10 @@ The built package **must** generate `$out/hop3/runtime.json` containing runtime 
 | `workers` | Yes | Map of worker name to command |
 | `env` | No | Environment variables to set at runtime |
 | `path` | No | Paths to prepend to `PATH` |
+| `before_run` | No | Commands Hop3 runs once per deploy, before the workers start and before `[run] before-run`, in the app's `src/` with its full environment. A failing command fails the deploy. |
+| `writable_tree` | No | A store directory Hop3 copies into the app's `src/` at deploy time, for applications that write inside their own tree. |
+
+Anything an application needs written before it starts (its configuration, a schema migration, a first-run install) belongs in `before_run`, not in the worker's wrapper. A wrapper runs on every start, inside the start timeout, and the files it writes into `src/` are replaced by the next deploy. The generated templates follow this rule: their wrapper, called with `--hop3-before-run`, writes the `[[nix.config-files]]` and runs `[nix] pre-exec`, and `runtime.json` names that call as its `before_run`.
 
 ### Worker types
 

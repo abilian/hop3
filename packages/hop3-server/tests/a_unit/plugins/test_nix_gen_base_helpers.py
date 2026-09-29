@@ -11,10 +11,14 @@ wrapper script assembly.
 
 from __future__ import annotations
 
-from typing import Any
+import subprocess
+from typing import TYPE_CHECKING, Any
 
 import pytest
 
+from hop3.core.manifest import RuntimeManifestBuilder
+from hop3.core.protocols import BuildContext
+from hop3.plugins.build.nix.builder import NixBuilder
 from hop3.plugins.build.nix.gen.spec import (
     AppSpec,
     ConditionalEnvVar,
@@ -23,6 +27,7 @@ from hop3.plugins.build.nix.gen.spec import (
     Source,
 )
 from hop3.plugins.build.nix.gen.templates.base import (
+    BEFORE_RUN_FLAG,
     format_config_file,
     format_env_exports,
     format_local_vars,
@@ -30,10 +35,15 @@ from hop3.plugins.build.nix.gen.templates.base import (
     format_nix_runtime_libs,
     format_paths_json,
     format_runtime_env_json,
+    format_runtime_json,
     format_wrapper_body,
 )
+from hop3.project.config import AppConfig
 
 from .conftest import spec_for
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # --- format_local_vars ---
 
@@ -360,6 +370,83 @@ def test_wrapper_section_order():
     mkdir_pos = result.index("mkdir -p data")
     exec_pos = result.index("exec BINDIR/test")
     assert shebang_pos < local_pos < export_pos < config_pos < mkdir_pos < exec_pos
+
+
+def test_the_wrapper_writes_its_config_in_before_run_never_at_start(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """
+    Template to runtime.json to builder to manifest to the wrapper itself.
+
+    The config files and pre-exec run as the artifact's before-run step, ahead
+    of the recipe's own, and not when the worker starts. On every start they
+    ran inside the health-check window (BookStack's migrations outlasted it)
+    and wrote files into a src/ that the next deploy replaces.
+    """
+    spec = _make_spec(
+        config_files=[
+            ConfigFile(path="conf/app.ini", format="raw", raw_content="k = v\n")
+        ],
+        pre_exec_commands=["touch installed"],
+    )
+    store = tmp_path / "store"
+    (store / "hop3").mkdir(parents=True)
+    (store / "bin").mkdir()
+    wrapper = store / "bin" / "app"
+    wrapper.write_text(format_wrapper_body(spec, "touch started"))
+    wrapper.chmod(0o755)
+    heredoc = format_runtime_json(spec, "$out/bin/app")
+    body = heredoc.split("<< EOF\n", 1)[1].rsplit("\nEOF", 1)[0]
+    (store / "hop3" / "runtime.json").write_text(body.replace("$out", str(store)))
+
+    src = tmp_path / "src"
+    src.mkdir()
+    (src / "hop3.nix").write_text("# built by the stub below\n")
+    (src / "hop3.toml").write_text('[run]\nbefore-run = "touch recipe-ran"\n')
+    monkeypatch.setattr(NixBuilder, "_kill_stale_nix_builds", lambda self, f: None)
+    monkeypatch.setattr(NixBuilder, "_nix_build", lambda self, f: str(store))
+    context = BuildContext(app_name="app", source_path=src, app_config={})
+    artifact = NixBuilder(context).build()
+    runtime = RuntimeManifestBuilder(AppConfig.from_dir(tmp_path)).build(
+        before_run=artifact.runtime.before_run
+    )
+
+    assert runtime.before_run == [
+        f"{wrapper} {BEFORE_RUN_FLAG}",
+        "touch recipe-ran",
+    ]
+    subprocess.run(runtime.before_run[0], shell=True, cwd=src, check=True)
+    assert (src / "conf" / "app.ini").read_text() == "k = v\n"
+    assert (src / "installed").exists()
+    assert not (src / "started").exists()
+
+    (src / "conf" / "app.ini").unlink()
+    (src / "installed").unlink()
+    subprocess.run([str(wrapper)], cwd=src, check=True)
+    assert (src / "started").exists()
+    assert not (src / "conf" / "app.ini").exists()
+    assert not (src / "installed").exists()
+
+
+def test_a_failing_pre_exec_fails_the_before_run(tmp_path: Path):
+    """The deploy must stop on a failed first-run step, not start the app."""
+    spec = _make_spec(pre_exec_commands=["false", "touch after"])
+    wrapper = tmp_path / "wrapper"
+    wrapper.write_text(format_wrapper_body(spec, "touch started"))
+
+    result = subprocess.run(
+        ["sh", str(wrapper), BEFORE_RUN_FLAG], cwd=tmp_path, check=False
+    )
+
+    assert result.returncode != 0
+    assert not (tmp_path / "after").exists()
+    assert not (tmp_path / "started").exists()
+
+
+def test_a_wrapper_without_config_or_pre_exec_has_no_before_run():
+    spec = _make_spec()
+    assert BEFORE_RUN_FLAG not in format_wrapper_body(spec, "BINDIR/test")
+    assert "before_run" not in format_runtime_json(spec, "$out/bin/test")
 
 
 # --- format_runtime_env_json ---

@@ -411,6 +411,21 @@ def test_php_app_composer():
     assert "${composerProject}/share/php/bookstack/. $out/app/" in output
 
 
+def test_php_app_names_the_application_subdirectory():
+    """
+    `$out/app`, not `$out`.
+
+    `$out` also holds the generated wrapper and hop3/runtime.json. Copying it
+    wholesale puts the application one directory down from where it expects to
+    be, and leaves build metadata in the app directory for the next deploy to
+    trip over — which is exactly what happened: `hop3.nix` reappeared and the
+    builder refused with "Both hop3.nix and a [nix].template section".
+    """
+    output = generate(_composer_spec(needs_writable_dir=True))
+    assert '"writable_tree": "$out/app",' in output
+    assert '"writable_tree": "$out",' not in output
+
+
 def test_php_app_install_files_shipped_from_recipe_dir():
     """
     install-files ships recipe-local aux scripts into $out/app (e.g. WordPress's
@@ -1141,10 +1156,12 @@ def test_nixpkgs_wrapper_overrides_multiple_keys():
     assert "plugins = [];" in output
 
 
-def test_nixpkgs_wrapper_writable_home_emits_lazy_cp_prelude():
+def test_nixpkgs_wrapper_writable_home_is_the_deploy_time_writable_tree():
     """
-    writable-home-at-runtime emits a `cp -rL … $HOME_DIR` prelude
-    with a .hop3-ready marker so the copy runs once per app instance.
+    writable-home-at-runtime names the package as runtime.json's writable_tree,
+    which Hop3 copies into src/ at deploy time, around the app's volumes. The
+    wrapper used to copy it into src/.<pname>-home on first start: inside the
+    start timeout, and as files the running app wrote into src/.
     """
     spec = AppSpec(
         pname="keycloak",
@@ -1158,20 +1175,17 @@ def test_nixpkgs_wrapper_writable_home_emits_lazy_cp_prelude():
         ),
     )
     output = generate(spec)
-    assert 'HOME_DIR="$PWD/.keycloak-home"' in output
-    assert 'if [ ! -f "$HOME_DIR/.hop3-ready" ]; then' in output
-    # ${keycloak}/. must Nix-interpolate (no `''$` escape), since it
-    # resolves at build time to the read-only source the wrapper
-    # copies from.
-    assert 'cp -rL --no-preserve=ownership ${keycloak}/. "$HOME_DIR"' in output
-    assert 'chmod -R u+w "$HOME_DIR"' in output
-    assert 'touch "$HOME_DIR/.hop3-ready"' in output
+    # ${keycloak} must Nix-interpolate (no `''$` escape): runtime.json names
+    # the store path itself.
+    assert '"writable_tree": "${keycloak}",' in output
+    assert "cp -rL" not in output
+    assert ".hop3-ready" not in output
 
 
 def test_nixpkgs_wrapper_writable_home_env_var_exported():
     """
-    writable-home-env-var exports the resolved path so the app
-    (e.g., kc.sh reading KC_HOME_DIR) picks up the writable copy.
+    writable-home-env-var exports the writable tree's path, the working
+    directory, so the app (e.g., kc.sh reading KC_HOME_DIR) runs from it.
     """
     spec = AppSpec(
         pname="keycloak",
@@ -1186,16 +1200,16 @@ def test_nixpkgs_wrapper_writable_home_env_var_exported():
         ),
     )
     output = generate(spec)
-    assert 'export KC_HOME_DIR="$HOME_DIR"' in output
+    assert 'export KC_HOME_DIR="$PWD"' in output
 
 
 def test_nixpkgs_wrapper_writable_home_pkgbin_resolved_at_runtime():
     """
     With writable-home, PKGBIN in the exec line must resolve to
-    `$HOME_DIR/bin` at wrapper-run time (not at Nix-build time).
-    That means the sed command has to emit `$HOME_DIR/bin` literally
+    `$PWD/bin` at wrapper-run time (not at Nix-build time).
+    That means the sed command has to emit `$PWD/bin` literally
     into the wrapper — which in turn means the Nix `''` string must
-    carry `\\$HOME_DIR/bin` so the shell running sed sees the escape
+    carry `\\$PWD/bin` so the shell running sed sees the escape
     and preserves the `$`.
     """
     spec = AppSpec(
@@ -1210,11 +1224,11 @@ def test_nixpkgs_wrapper_writable_home_pkgbin_resolved_at_runtime():
         ),
     )
     output = generate(spec)
-    assert r'sed -i "s|PKGBIN|\$HOME_DIR/bin|g"' in output
+    assert r'sed -i "s|PKGBIN|\$PWD/bin|g"' in output
     # The exec line in the wrapper body should reference the sed
     # placeholder (not the store path binding) — the sed replaces
-    # PKGBIN → \$HOME_DIR/bin at nix-build time, and bash expands
-    # $HOME_DIR at wrapper-run time.
+    # PKGBIN → \$PWD/bin at nix-build time, and the shell expands
+    # $PWD at wrapper-run time.
     assert "exec PKGBIN/kc.sh" in output
 
 
@@ -1272,7 +1286,7 @@ def test_nixpkgs_wrapper_writable_home_respects_explicit_exec_prefix():
     """
     If the user sets exec-prefix, it wins over the writable-home
     default (e.g., for apps whose runnable sits somewhere other than
-    $HOME_DIR/bin inside the writable tree).
+    $PWD/bin inside the writable tree).
     """
     spec = AppSpec(
         pname="keycloak",
@@ -1283,11 +1297,11 @@ def test_nixpkgs_wrapper_writable_home_respects_explicit_exec_prefix():
         writable_home_at_runtime=True,
         payload=NixpkgsWrapperPayload(
             package="keycloak",
-            exec_prefix="$HOME_DIR/custom/bin",
+            exec_prefix="$PWD/custom/bin",
         ),
     )
     output = generate(spec)
-    assert "s|PKGBIN|$HOME_DIR/custom/bin|g" in output
+    assert "s|PKGBIN|$PWD/custom/bin|g" in output
 
 
 # --- go-source ---
@@ -1697,16 +1711,15 @@ class TestRubyBundler:
         assert 'export PATH="GEMSBIN:$PATH"' in output
         assert "rake db:migrate" in output
 
-    def test_writable_home_copies_and_enters_the_tree(self):
+    def test_writable_home_is_the_deploy_time_writable_tree(self):
         """Rails writes inside its own tree and resolves paths from the cwd."""
         output = generate(self._spec(writable_home_at_runtime=True))
-        assert 'HOME_DIR="$PWD/.redmine-home"' in output
-        assert 'cp -rL --no-preserve=ownership APPDIR/. "$HOME_DIR"' in output
-        assert 'cd "$HOME_DIR"' in output
+        assert '"writable_tree": "$out/app",' in output
+        assert "cp -rL" not in output
 
     def test_no_writable_home_by_default(self):
         output = generate(self._spec())
-        assert "HOME_DIR=" not in output
+        assert "writable_tree" not in output
 
     def test_gemset_drives_the_dependency_set(self):
         output = generate(self._spec())
@@ -1757,7 +1770,7 @@ class TestRubyBundler:
         output = generate(spec)
         assert "pkgs.ruby_3_3" in output  # the template default, in 6.1's range
         assert "commonmarker = attrs: {" in output  # its Rust extension
-        assert 'cd "$HOME_DIR"' in output  # writable home
+        assert '"writable_tree": "$out/app",' in output  # writable home
         assert "config/database.yml" in output  # generated from PG*
         assert "rake db:migrate" in output
         assert "exec GEMSBIN/rails server" in output

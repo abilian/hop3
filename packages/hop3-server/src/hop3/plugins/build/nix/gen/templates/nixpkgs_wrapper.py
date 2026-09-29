@@ -26,11 +26,9 @@ import dataclasses
 from hop3.plugins.build.nix.gen.spec import AppSpec, NixpkgsWrapperPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
-    build_writable_home_prelude,
     eject_hint,
     format_nix_env_attrs,
-    format_paths_json,
-    format_runtime_env_json,
+    format_runtime_json,
     format_wrapper_body,
     generated_line,
     pinned_nixpkgs_header,
@@ -64,25 +62,20 @@ class NixpkgsWrapperTemplate:
         else:
             package_expr = f"pkgs.{pkg_attr}"
 
-        # writable-home-at-runtime synthesizes a runtime prelude and
-        # flips PKGBIN to a runtime-resolved path. The prelude uses
-        # `${binding}` (Nix-interpolated to the store source path) and
-        # `$HOME_DIR` (expanded at wrapper runtime, not Nix build time).
-        # `exec-prefix` is still respected if the user set it — it
-        # overrides even the writable-home path, for apps that want a
-        # custom layout under the writable home.
+        # writable-home-at-runtime: the package tree is the app's writable
+        # tree. Hop3 copies it into src/ at deploy time, before before-run and
+        # around the app's volumes, so PKGBIN resolves under $PWD when the
+        # wrapper runs. The `\\$` produces a literal `\$` in the Nix `''`
+        # string, which the shell running sed sees as `\$` inside `"…"`, so
+        # sed writes `$PWD/bin` unexpanded into the wrapper. `exec-prefix`
+        # still overrides it.
         prelude_parts: list[str] = []
+        writable_tree = ""
         if spec.writable_home_at_runtime:
-            prelude_parts.append(
-                build_writable_home_prelude(
-                    spec.pname, f"${{{binding}}}", spec.writable_home_env_var
-                )
-            )
-            # The `\\$` produces a literal `\$` in the Nix `''` string,
-            # which the shell running sed sees as `\$` inside `"…"` →
-            # `$` literal. sed then writes `$HOME_DIR/bin` unexpanded
-            # into the wrapper, where bash expands it at exec time.
-            default_pkgbin = "\\$HOME_DIR/bin"
+            writable_tree = f"${{{binding}}}"
+            if spec.writable_home_env_var:
+                prelude_parts.append(f'export {spec.writable_home_env_var}="$PWD"')
+            default_pkgbin = "\\$PWD/bin"
         else:
             default_pkgbin = f"${{{binding}}}/bin"
 
@@ -112,9 +105,10 @@ class NixpkgsWrapperTemplate:
             else ""
         )
 
-        runtime_env_json = format_runtime_env_json(spec.runtime_env)
+        runtime_json = format_runtime_json(
+            spec, f"$out/bin/{spec.pname}", writable_tree=writable_tree
+        )
         nix_env_attrs = format_nix_env_attrs(spec.runtime_env)
-        paths_json = format_paths_json(spec.extra_paths)
 
         # Extra let-bindings (e.g., `jdk = pkgs.zulu21;`). Emitted raw
         # so Nix evaluates the RHS at build time. Indented to match
@@ -178,19 +172,7 @@ WRAPPER
       sed -i "s|PKGOUT|${{{binding}}}|g" $out/bin/{spec.pname}
       chmod +x $out/bin/{spec.pname}
 {install_extra_block}
-      cat > $out/hop3/runtime.json << EOF
-{{
-  "workers": {{
-    "web": "$out/bin/{spec.pname}"
-  }},
-  "env": {{
-{runtime_env_json}
-  }},
-  "path": [
-    {paths_json}
-  ]
-}}
-EOF
+{runtime_json}
     '';
   }};
 

@@ -38,7 +38,7 @@ An identity provider with no login form to post: its check obtains an OIDC token
 
 ## Deployment variants
 
-It is the hardest consumer of the Nix escape hatches. Quarkus rewrites `lib/quarkus` on first boot, so the store copy is lazily copied into a writable home. Nixpkgs' `kc.sh` is a compiled Go wrapper hardcoding a path back into the read-only store, so the raw upstream script is exec'd instead. That script falls back to `java` on `PATH` unless `JAVA_HOME` is interpolated at Nix build time, which is what `[nix.env-exports-raw]` exists for.
+It is the hardest consumer of the Nix escape hatches. Quarkus rewrites `lib/quarkus` on every start, so the package is the app's writable tree, copied into `src/` at deploy time, and `lib/quarkus` is a scratch volume. Nixpkgs' `kc.sh` is a compiled Go wrapper hardcoding a path back into the read-only store, so the raw upstream script is exec'd instead. That script falls back to `java` on `PATH` unless `JAVA_HOME` is interpolated at Nix build time, which is what `[nix.env-exports-raw]` exists for.
 
 ## Verification
 

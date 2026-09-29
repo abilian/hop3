@@ -230,7 +230,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     # RuntimeManifestBuilder merges Procfile and hop3.toml into RuntimeConfig.
     # The toolchain provides env_vars, path_prepend, working_dir; we add:
     # - workers (from Procfile/hop3.toml merged)
-    # - before_run (from hop3.toml [run] before-run)
+    # - before_run (the build's own, then hop3.toml [run] before-run)
     # - static_paths (from hop3.toml [run] static)
     # - healthcheck_path/timeout (from hop3.toml [run] healthcheck)
     # - proxy transfer limits (from hop3.toml [proxy])
@@ -242,6 +242,7 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
         workers=build_artifact.runtime.workers or None,
         writable_tree=build_artifact.runtime.writable_tree,
         backend_protocol=build_artifact.runtime.backend_protocol,
+        before_run=build_artifact.runtime.before_run,
     )
     build_artifact.runtime = enhanced_runtime
 

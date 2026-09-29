@@ -60,6 +60,7 @@ class RuntimeManifestBuilder:
         workers: dict[str, str] | None = None,
         writable_tree: str = "",
         backend_protocol: Literal["http", "fastcgi"] = "http",
+        before_run: list[str] | None = None,
     ) -> RuntimeConfig:
         """
         Build RuntimeConfig by merging all configuration sources.
@@ -76,6 +77,11 @@ class RuntimeManifestBuilder:
             backend_protocol: what the app's own port speaks, from the
                 toolchain. Threaded for the same reason as writable_tree: drop
                 it here and a php-fpm app is probed as if it served HTTP.
+            before_run: the build's own before-run steps (a Nix wrapper's
+                config files and pre-exec). They run BEFORE the recipe's, for
+                the reason the writable tree is materialised first: a recipe's
+                bootstrap expects the application in place, its configuration
+                included.
 
         Returns:
             Complete RuntimeConfig with all fields populated
@@ -123,8 +129,7 @@ class RuntimeManifestBuilder:
         if merged_workers.get("web") != (workers or {}).get("web"):
             backend_protocol = "http"
 
-        # Get before-run commands
-        before_run = self._get_before_run()
+        before_run = [*(before_run or []), *self._get_before_run()]
 
         # Get static paths
         static_paths = self._get_static_paths()
