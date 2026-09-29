@@ -95,16 +95,26 @@ class _Response:
     """
     Minimal stand-in for what urlopen returns.
 
-    Carries ``headers`` because every real response does, and the fetcher reads
-    Content-Length from it to notice a body that arrived short. Pass
-    ``declared`` to claim a length the body does not have.
+    Carries ``status`` and ``headers`` because every real response does, and the
+    fetcher reads Content-Length and Content-Range from them to notice a body
+    that arrived short and to resume it. Pass ``declared`` to claim a length
+    the body does not have, ``content_range`` for a 206.
     """
 
-    def __init__(self, body: bytes, declared: int | None = None) -> None:
+    def __init__(
+        self,
+        body: bytes,
+        declared: int | None = None,
+        *,
+        content_range: str | None = None,
+    ) -> None:
         self._body = body
         length = len(body) if declared is None else declared
+        self.status = 200 if content_range is None else 206
         self.headers = email.message.Message()
         self.headers["Content-Length"] = str(length)
+        if content_range is not None:
+            self.headers["Content-Range"] = content_range
 
     def read(self, size: int = -1) -> bytes:
         chunk, self._body = self._body, b""
@@ -221,6 +231,88 @@ def test_a_truncated_download_is_retried(tmp_path, monkeypatch):
         fetch_module.urllib.request,
         "urlopen",
         lambda *_a, **_kw: responses.pop(0),
+    )
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+
+
+def test_a_truncated_download_resumes_where_it_stopped(tmp_path, monkeypatch):
+    """
+    A retry asks for the rest, not for the whole body again.
+
+    releases.wikimedia.org cut mediawiki's 116 MB tarball between 47 and 80 MB
+    six times running; each retry started from zero and got no further.
+    """
+    ranges = []
+    total = len(PAYLOAD)
+    responses = [
+        _Response(PAYLOAD[:3], declared=total),
+        _Response(PAYLOAD[3:], content_range=f"bytes 3-{total - 1}/{total}"),
+    ]
+
+    def urlopen(request, **_kw):
+        ranges.append(request.get_header("Range"))
+        return responses.pop(0)
+
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+    assert ranges == [None, "bytes=3-"]
+
+
+def test_a_download_that_keeps_progressing_is_not_given_up(tmp_path, monkeypatch):
+    """
+    Only an attempt that brings nothing counts against the attempt budget.
+
+    Wikimedia drops a transfer after about 75 seconds; from a slow network each
+    resume brought a few MB of the 116 MB tarball, and six attempts ran out
+    with the download still advancing.
+    """
+    total = len(PAYLOAD)
+    pieces = [PAYLOAD[i : i + 2] for i in range(0, total, 2)]
+    assert len(pieces) > fetch_module.ATTEMPTS
+    offset = 0
+    responses = []
+    for piece in pieces:
+        declared = None if offset else total
+        range_ = None if offset == 0 else f"bytes {offset}-{total - 1}/{total}"
+        responses.append(_Response(piece, declared=declared, content_range=range_))
+        offset += len(piece)
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request, "urlopen", lambda *_a, **_kw: responses.pop(0)
+    )
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+    assert responses == []
+
+
+def test_a_resume_that_starts_elsewhere_is_not_appended(tmp_path, monkeypatch):
+    """Bytes appended at the wrong offset would corrupt the file silently."""
+    total = len(PAYLOAD)
+    responses = [
+        _Response(PAYLOAD[:3], declared=total),
+        _Response(PAYLOAD[1:], content_range=f"bytes 1-{total - 1}/{total}"),
+        _Response(PAYLOAD),
+    ]
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request, "urlopen", lambda *_a, **_kw: responses.pop(0)
+    )
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+    assert responses == []
+
+
+def test_a_connection_reset_is_retried(tmp_path, monkeypatch):
+    """A reset mid-body is as transient as a timeout, not a crash."""
+    responses = [ConnectionResetError("reset by peer"), _Response(PAYLOAD)]
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request,
+        "urlopen",
+        lambda *_a, **_kw: _raise_or_return(responses.pop(0)),
     )
 
     assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD

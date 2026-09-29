@@ -67,6 +67,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **`hop3-fetch` resumes a download cut short.** A retry used to start again from the first byte, so a server that drops long transfers failed every attempt: releases.wikimedia.org drops a transfer after about 75 seconds, and cut mediawiki's 116 MB tarball six times running, each time between 47 and 80 MB. A retry now asks for the rest with a `Range` request and checks the reassembled length against the total the server declares. Only an attempt that brings no new bytes counts against the six allowed, so a slow link that advances a few MB per attempt finishes. A connection reset mid-body is retried like a timeout, where it used to end the build with a traceback.
+
 - **A redeploy after a failed deploy works the first time.** After a deploy failed while setting up the proxy, the next deploy of the same app failed once with `Cannot transition app from STOPPED to RUNNING`, then succeeded. A failed deploy now leaves the app `FAILED` with the error that stopped it, where it used to leave it `STARTING`, and the request no longer races the build over the app's state.
 
 - **Caddy serves apps.** Every deploy on a Caddy server failed validation: Hop3 named each app's config `<app>.caddy`, which Caddy reads as JSON. With that fixed, an app that allowed plain HTTP still answered only on port 443, and the client address reached the app as `ip:port`. Caddy now also serves PHP apps through their php-fpm pool.

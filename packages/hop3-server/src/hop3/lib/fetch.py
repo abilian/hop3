@@ -29,6 +29,7 @@ from __future__ import annotations
 
 import argparse
 import hashlib
+import http.client
 import os
 import shutil
 import sys
@@ -36,6 +37,7 @@ import tempfile
 import time
 import urllib.error
 import urllib.request
+from http import HTTPStatus
 from pathlib import Path
 
 from hop3.config import CACHE_ROOT
@@ -175,21 +177,39 @@ def _cache_key(url: str, sha256: str | None) -> str:
 
 
 def _download(url: str, dest: Path) -> None:
-    """Fetch ``url`` into ``dest``, backing off on transient and rate-limit errors."""
-    for attempt in range(ATTEMPTS):
+    """
+    Fetch ``url`` into ``dest``, backing off on transient and rate-limit errors.
+
+    A body cut short is resumed where it stopped. releases.wikimedia.org drops
+    a transfer after about 75 seconds, and its 116 MB mediawiki tarball takes
+    longer than that; a retry that starts again from zero gets no further than
+    the last one did. Only an attempt that brings nothing counts against
+    ATTEMPTS: from a slow network each resume adds a few MB, and six of them
+    were not enough.
+    """
+    stalls = 0
+    while True:
+        have = dest.stat().st_size
+        headers = {"User-Agent": USER_AGENT}
+        if have:
+            headers["Range"] = f"bytes={have}-"
         # A fresh Request per attempt. The opener records redirect history on
         # the Request object it is given, so a reused one accumulates hops
         # across retries and eventually reports "would lead to an infinite
         # loop" — a wrong diagnosis for a URL that redirects exactly once
         # (github.com -> codeload.github.com does, for every catalog tarball).
-        request = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
+        request = urllib.request.Request(url, headers=headers)
         try:
-            with (
-                urllib.request.urlopen(request, timeout=TIMEOUT) as response,
-                dest.open("wb") as out,
-            ):
-                shutil.copyfileobj(response, out, CHUNK)
-                expected = _declared_length(response)
+            with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
+                start, expected = _body_range(response)
+                if start not in {0, have}:
+                    dest.write_bytes(b"")
+                    msg = f"resumed at byte {start}, not {have}"
+                    raise FetchError(msg)
+                # A server that ignores Range answers 200 with the whole body,
+                # which replaces what arrived before.
+                with dest.open("ab" if start else "wb") as out:
+                    shutil.copyfileobj(response, out, CHUNK)
             written = dest.stat().st_size
             if expected is not None and written != expected:
                 # A connection dropped mid-body leaves a short file and no
@@ -203,33 +223,43 @@ def _download(url: str, dest: Path) -> None:
                 msg = f"truncated: got {written} of {expected} bytes"
                 raise FetchError(msg)
             return
-        except (urllib.error.URLError, TimeoutError, FetchError) as e:
+        # A connection reset or a short read mid-body is the same transient
+        # failure as a timeout, and resumes the same way.
+        except (
+            urllib.error.URLError,
+            TimeoutError,
+            ConnectionError,
+            http.client.HTTPException,
+            FetchError,
+        ) as e:
             if isinstance(e, urllib.error.HTTPError) and e.code not in RETRYABLE_STATUS:
                 msg = f"{url}: HTTP {e.code} {e.reason}"
                 raise FetchError(msg) from e
-            if attempt == ATTEMPTS - 1:
-                msg = f"{url}: {e} (gave up after {ATTEMPTS} attempts)"
+            stalls = 0 if dest.stat().st_size > have else stalls + 1
+            if stalls == ATTEMPTS:
+                msg = f"{url}: {e} (gave up after {ATTEMPTS} attempts without progress)"
                 raise FetchError(msg) from e
-            delay = _retry_delay(attempt, e)
+            delay = _retry_delay(stalls, e)
             _report(f"{url}: {e} — retrying in {delay:.0f}s")
             time.sleep(delay)
 
 
-def _declared_length(response: object) -> int | None:
+def _body_range(response: http.client.HTTPResponse) -> tuple[int, int | None]:
     """
-    The body length the server promised, when it promised one.
+    Where this body starts in the file, and the file's full length when known.
 
-    Absent for a chunked or compressed-in-transit response, where the only
-    honest answer is that the size is not known in advance; those fall back to
-    the pinned `sha256`, or to nothing.
+    A 206 says both in Content-Range (``bytes 1000-1999/5000``). A 200 starts at
+    zero and promises its length in Content-Length, except for a chunked or
+    compressed-in-transit response, where the only honest answer is that the
+    size is not known in advance; those fall back to the pinned `sha256`, or to
+    nothing.
     """
-    header = response.headers.get("Content-Length")  # type: ignore[attr-defined]
-    if header is None:
-        return None
-    try:
-        return int(header)
-    except ValueError:
-        return None
+    if response.status == HTTPStatus.PARTIAL_CONTENT:
+        span, _, total = response.headers.get("Content-Range", "").partition("/")
+        start = span.removeprefix("bytes ").partition("-")[0]
+        return int(start), int(total) if total.isdigit() else None
+    length = response.headers.get("Content-Length")
+    return 0, int(length) if length and length.isdigit() else None
 
 
 def _retry_delay(attempt: int, error: Exception) -> float:
