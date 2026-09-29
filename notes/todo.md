@@ -60,6 +60,8 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
 
 ## Testing
 
+- **The redeploy check proves the app comes back, not that its data does.** listmonk's recipe ran `--install --yes` on every deploy, which wipes its tables, and passed the redeploy check: the test had created nothing, so there was nothing to lose. The same goes for a secret regenerated at deploy time (writefreely, hedgedoc, monica): the validations sign in afresh and pass. A check that writes something through the app before the redeploy and reads it back after would catch both. It needs a per-recipe action, which `check.py` could carry the way it already carries the sign-in.
+
 - **`hop3-deploy-server --docker` never configures the local CLI.** Every Docker deploy in the upgrade chain, 0.7.5's included, logs "Could not configure the local CLI for http://localhost:8000 … Authentication failed: Authentication required" and carries on. The step (`deployer/deploy.py`, `_fetch_admin_token` then `hop3 login --token`) mints a token with `hop3-server admin:token` after an `admin:create` whose result it ignores (`check=False`); a token naming an account that was never created is refused since ADR 061's prerequisite. Not yet diagnosed past that reading. The harness is unaffected (it fetches its own token), but an operator's `hop3-docker` context is left unusable behind a warning.
 
 - **A deploy whose uWSGI config is refused reports a timeout.** In the e2e image (whose uWSGI has no Python plugin) a `wsgi:` worker's vassal is refused at once, `[strict-mode] unknown config directive: virtualenv`, and the emperor curses and throttles it. The deploy waited its full 60 s, then said the app "did not respond to health checks" and suggested raising `start-timeout`. The emperor's own words were in its log the whole time; the readiness diagnosis should read them (the Lessons Checklist already says to detect crashes from the process manager's words).
@@ -111,6 +113,14 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
   - **Nextcloud apps from the app store land in `apps/`,** beside the ones Nextcloud ships, and a deploy deletes them while `config.php` still lists them. Upstream's answer is a second, writable `apps_paths` entry (`custom_apps/`) on a volume.
   - **Mattermost's System Console settings do not survive a deploy.** `scripts/setup-config.sh` writes `config.json` from the platform's values on every deploy, by design, so what an administrator changes in the console is overwritten. Mattermost can keep its configuration in the database (`MM_CONFIG` set to the DSN).
   - **`hop3check` reports `no-port` for a recipe whose `[run].start` is a script** that reads `$PORT` itself (keycloak, mattermost). The rule reads the start line only.
+
+- **Left from the native alpha pass, 2026-09-29.** State, secrets and destructive steps are fixed in 20 recipes; these remain:
+  - owncast serves its admin with upstream's default password (`abc123`), stored in its database. Setting it at start takes a password on argv; the way through is a post-start hook that changes it over the admin API when the default still works.
+  - matrix-synapse's `SERVER_NAME` is `localhost`, and it is the server's permanent identity on the federation: it has to be the public host before the first deploy, and cannot change after.
+  - writefreely has no administrator and closed registration, so nobody can sign in; `--create-admin` takes the password on argv.
+  - hedgedoc lets anyone create and edit notes (`allowAnonymous`, `defaultPermission: freely`).
+  - grafana now has a generated `secret_key`; an install made before it encrypted its datasource credentials under the published default, and they need entering again.
+  - Build caches still land in the control plane's home (`~/.cargo`, `~/go`, `~/.npm`, the pnpm store): plan-0.8 headline 1, step 2.
 
 - **The `php-app` template lets a recipe name an extension its PHP already has.** `xml` in `php-extensions` makes every PHP command print a module-already-loaded warning on stdout. nextcloud-nixgen's install check read it as the database type (2026-09); limesurvey-nix's install probe read it as "installed" and served a database with no schema (2026-09-29). Recipes now leave `xml` out and say why, and the probes refuse an answer that is neither yes nor no. By construction: the template could filter out what `enabled` already holds, so a recipe cannot name it twice.
 

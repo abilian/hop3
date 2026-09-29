@@ -50,7 +50,7 @@ A fourth property belongs on that list and is absent on purpose: nothing watches
 
 The item is now three steps:
 
-- [ ] **State survives a redeploy.** Platform, 2026-09-28: `scratch` volumes; volumes linked after the build, a newly declared one seeded from the tree the deploy replaces; a harness that fails an app writing into `src/` and redeploys every app. The first measurement passed 7 of 20 golden recipes; after the fixes, all 20 pass on Docker, redeploy included. 2026-09-29: a Nix wrapper's config files and `pre-exec` run once per deploy as the build's own before-run step, and `writable-home-at-runtime` copies the package at deploy time; all 34 beta Nix variants pass on Docker, redeploy included. Remaining: the alpha recipes.
+- [ ] **State survives a redeploy.** Platform, 2026-09-28: `scratch` volumes; volumes linked after the build, a newly declared one seeded from the tree the deploy replaces; a harness that fails an app writing into `src/` and redeploys every app. The first measurement passed 7 of 20 golden recipes; after the fixes, all 20 pass on Docker, redeploy included. 2026-09-29: a Nix wrapper's config files and `pre-exec` run once per deploy as the build's own before-run step, and `writable-home-at-runtime` copies the package at deploy time; all 34 beta Nix variants pass on Docker, redeploy included. The native and Nix alpha recipes too, 54 of 55 (directus-nixgen's dependency hash does not match on arm64). Remaining: the 52 Docker variants, whose state lives in the container, and the harness check that data survives a redeploy (`notes/todo.md`).
 - [ ] **Each app gets its own `HOME` and `TMPDIR`.**
 - [ ] **Per-app users**: hooks and runtime in one change, `src/` read-only to the app.
 
