@@ -432,10 +432,12 @@ class PhpAppPayload(TemplatePayload):
     composer_strict_validation: bool = True
     # Extra flags for composer install (e.g. "--ignore-platform-reqs").
     composer_extra_flags: list[str] = field(default_factory=list)
-    # Serving mode: "builtin" (php -S), "artisan" (php artisan serve), "custom".
-    serve_mode: str = "builtin"
-    # Web document root relative to $out/app, for `php -S -t <root>`.
-    # E.g. "htdocs" for Dolibarr, "" for most apps.
+    # Serving mode: "fpm" (a php-fpm pool behind the proxy), "builtin"
+    # (php -S), "artisan" (php artisan serve), "custom".
+    serve_mode: str = "fpm"
+    # Web document root relative to $out/app. E.g. "htdocs" for Dolibarr; ""
+    # serves the detected front-controller directory under fpm, the tree
+    # itself otherwise.
     web_root: str = ""
     # Directories to create under $out/app after copying source (e.g. "storage").
     post_install_dirs: list[str] = field(default_factory=list)

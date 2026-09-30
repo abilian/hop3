@@ -108,7 +108,7 @@ A declarative spec with fields grouped by concern:
 - **Extraction**: `source_root` (for archives with wrapper dirs), `strip_components`
 - **Runtime setup**: `runtime_package` (e.g., `jdk17`, `nodejs_22`), `php_version`, `php_extensions`, `nixpkgs_package`
 - **Build phase**: `needs_composer`, `composer_extra_flags`, `extra_native_build_inputs`, `pip_packages`
-- **Serving**: `exec_target`, `exec_args`, `serve_mode` (`builtin`/`artisan`/`custom`), `web_root`
+- **Serving**: `exec_target`, `exec_args`, `serve_mode` (`fpm`/`builtin`/`artisan`/`custom`), `web_root`
 - **Wrapper script**: `local_vars`, `env_exports`, `conditional_env_exports`, `pre_exec_commands`, `config_files`
 - **Runtime metadata**: `runtime_env`, `extra_paths`
 

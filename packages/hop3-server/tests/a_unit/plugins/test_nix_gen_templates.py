@@ -11,6 +11,7 @@ sed commands, and Nix syntax structure.
 
 from __future__ import annotations
 
+import json
 import re
 from typing import Any
 
@@ -522,11 +523,45 @@ def test_php_app_web_root():
         extra_paths=["${php}/bin"],
         payload=PhpAppPayload(
             php_extensions=[],
+            serve_mode="builtin",
             web_root="htdocs",
         ),
     )
     output = generate(spec)
     assert "APPDIR/htdocs" in output
+
+
+def _runtime_json(output: str) -> dict:
+    """The runtime.json the expression writes, as Nix leaves it before the build."""
+    body = output.split("cat > $out/hop3/runtime.json << EOF\n", 1)[1]
+    return json.loads(body.split("\nEOF", 1)[0])
+
+
+def test_php_app_is_served_by_php_fpm_by_default():
+    """
+    The Nix path gets the production runtime the native path has.
+
+    It used to emit `php -S`, PHP's single-threaded server, which the native
+    path had replaced: requests serialized, and an app fetching its own URL
+    deadlocked against its only worker.
+    """
+    output = generate(_composer_spec(web_root="htdocs", needs_writable_dir=True))
+    runtime = _runtime_json(output)
+
+    assert runtime["php_fpm"] == {
+        "binary": "${php}/bin/php-fpm",
+        "tree": "$out/app",
+        "document_root": "htdocs",
+    }
+    assert runtime["workers"] == {}, "Hop3 composes the pool's worker, not the recipe"
+    assert "php -S" not in output
+    assert "PHP_CLI_SERVER_WORKERS" not in output
+
+
+def test_php_fpm_without_a_web_root_leaves_detection_to_hop3():
+    runtime = _runtime_json(generate(_composer_spec()))
+
+    assert "document_root" not in runtime["php_fpm"]
 
 
 def test_php_app_sed_replaces_phpbin():

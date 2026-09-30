@@ -14,13 +14,7 @@ from hop3.core.events import InstallingDependencies, PreparingBuildEnv, emit
 from hop3.lib import chdir, log
 
 from ._base import LanguageToolchain
-from .php_fpm import (
-    POOL_TEMPLATE_NAME,
-    document_root,
-    php_fpm_binary,
-    pool_config,
-    web_command,
-)
+from .php_fpm import document_root, php_fpm_binary, serve_with_php_fpm
 
 if TYPE_CHECKING:
     from hop3.core.env import Env
@@ -92,22 +86,16 @@ class PHPToolchain(LanguageToolchain):
         to HTTP when it does — so the ten recipes hand-rolling ``php -S`` keep
         working until each drops that line, which is the whole migration.
         """
-        binary = php_fpm_binary()
         declared = self.build_option("document-root")
         root = document_root(
             self.src_path, declared if isinstance(declared, str) else ""
         )
-        log_path = self.app_path / "log" / "php-fpm.log"
-        log_path.parent.mkdir(parents=True, exist_ok=True)
-
-        template = self.app_path / POOL_TEMPLATE_NAME
-        template.write_text(pool_config(self.app_name, log_path))
-        log(f"php-fpm pool written to {template}", level=2, fg="cyan")
-        log(f"php-fpm document root: {root}", level=2, fg="cyan")
-
+        env_vars, workers = serve_with_php_fpm(
+            self.app_name, self.app_path, php_fpm_binary(), root
+        )
         return self._make_runtime_config(
-            env_vars={"PHP_DOCUMENT_ROOT": str(root)},
-            workers={"web": web_command(binary, self.app_path)},
+            env_vars=env_vars,
+            workers=workers,
             backend_protocol="fastcgi",
         )
 

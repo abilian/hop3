@@ -21,7 +21,7 @@ from __future__ import annotations
 import shutil
 from typing import TYPE_CHECKING
 
-from hop3.lib import Diagnosis, abort_with_diagnosis
+from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.run.fastcgi import FCGI_PING_PATH
 
 if TYPE_CHECKING:
@@ -34,6 +34,7 @@ __all__ = [
     "php_fpm_binary",
     "pool_config",
     "render_pool_config",
+    "serve_with_php_fpm",
     "web_command",
 ]
 
@@ -165,6 +166,29 @@ catch_workers_output = yes
 decorate_workers_output = no
 clear_env = no
 """
+
+
+def serve_with_php_fpm(
+    app_name: str, app_path: Path, binary: str, root: Path
+) -> tuple[dict[str, str], dict[str, str]]:
+    """
+    Write the pool template; return the runtime's env vars and workers.
+
+    One contract for every build path that serves PHP through php-fpm: the
+    PHP toolchain with the system's php-fpm, the Nix builder with the one in
+    the store. The spawn path renders the template once the port exists, and
+    the proxy serves ``root`` for everything that is not a script.
+    """
+    log_path = app_path / "log" / "php-fpm.log"
+    log_path.parent.mkdir(parents=True, exist_ok=True)
+    template = app_path / POOL_TEMPLATE_NAME
+    template.write_text(pool_config(app_name, log_path))
+    log(f"php-fpm pool written to {template}", level=2, fg="cyan")
+    log(f"php-fpm document root: {root}", level=2, fg="cyan")
+    return (
+        {"PHP_DOCUMENT_ROOT": str(root)},
+        {"web": web_command(binary, app_path)},
+    )
 
 
 def render_pool_config(template: str, port: str) -> str:

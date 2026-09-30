@@ -1058,8 +1058,9 @@ php-version = "php82"
 php-extensions = ["mysqli", "gd", "mbstring", "xml"]
 needs-composer = true
 composer-extra-flags = ["--ignore-platform-reqs"]
-serve-mode = "builtin"         # "builtin" (php -S) or "artisan"
-web-root = "htdocs"            # Subdirectory for document root
+serve-mode = "fpm"             # the default: a php-fpm pool behind the proxy;
+                               # "builtin" (php -S) and "artisan" remain
+web-root = "htdocs"            # Document root; detected when absent (fpm)
 post-install-dirs = ["storage/logs", "bootstrap/cache"]
 ```
 

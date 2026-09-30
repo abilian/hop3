@@ -46,6 +46,10 @@ if TYPE_CHECKING:
 
 __all__ = ["grant_web_server_read"]
 
+#: Read-only and world-readable: a tree served from here needs no grant, and
+#: a chmod on it fails.
+_NIX_STORE = Path("/nix/store")
+
 
 def grant_web_server_read(served: Path, storage_roots: Iterable[Path] = ()) -> None:
     """
@@ -56,13 +60,13 @@ def grant_web_server_read(served: Path, storage_roots: Iterable[Path] = ()) -> N
     resolves under one of ``storage_roots`` (the app's volume storage) is
     granted as well.
 
-    Best-effort by design: a read-only artifact (a Nix store path, already
-    world-readable) cannot be chmod'ed and does not need to be. A failure is
-    logged rather than fatal — but it is logged, because a 403 on every asset
+    A tree in the Nix store is already world-readable and cannot be chmod'ed,
+    so it is left alone. Otherwise best-effort: a failure is logged rather
+    than fatal — but it is logged, because a 403 on every asset
     of an app that otherwise deploys green is not something to discover from a
     browser.
     """
-    if not served.exists():
+    if not served.exists() or served.resolve().is_relative_to(_NIX_STORE):
         return
     for tree in [served, *_linked_storage(served, list(storage_roots))]:
         try:

@@ -8,6 +8,7 @@
 
 from __future__ import annotations
 
+import json
 import os
 from enum import IntEnum
 from typing import Protocol
@@ -416,6 +417,7 @@ def format_runtime_json(
     *,
     runtime_env: dict[str, str] | None = None,
     writable_tree: str = "",
+    php_fpm: dict[str, str] | None = None,
 ) -> str:
     """
     The heredoc that writes ``$out/hop3/runtime.json``, the build's contract.
@@ -424,6 +426,8 @@ def format_runtime_json(
     before-run phase, the same path with ``--hop3-before-run`` is the artifact's
     before-run step. ``runtime_env`` defaults to the spec's; ``writable_tree``
     names the store tree Hop3 copies into the app's directory at deploy time.
+    ``php_fpm`` asks Hop3 for a php-fpm pool as the web worker in place of the
+    wrapper; the Nix builder documents its keys.
     """
     env_json = format_runtime_env_json(
         spec.runtime_env if runtime_env is None else runtime_env
@@ -434,11 +438,12 @@ def format_runtime_json(
         if has_before_run(spec)
         else ""
     )
+    if php_fpm:
+        web = f'\n  "php_fpm": {json.dumps(php_fpm)},\n  "workers": {{}},'
+    else:
+        web = f'\n  "workers": {{\n    "web": "{wrapper}"\n  }},'
     return f"""      cat > $out/hop3/runtime.json << EOF
-{{{tree}{before_run}
-  "workers": {{
-    "web": "{wrapper}"
-  }},
+{{{tree}{before_run}{web}
   "env": {{
 {env_json}
   }},

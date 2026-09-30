@@ -12,10 +12,12 @@ import shlex
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
+from typing import Literal
 
 from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
 from hop3.lib import Abort, log
+from hop3.toolchains.php_fpm import document_root, serve_with_php_fpm
 
 # See docker/builder.py for the rationale — single generous timeout + a
 # silent-time watchdog, no per-app tier declarations.
@@ -180,8 +182,17 @@ class NixBuilder:
 
         # 4. Build RuntimeConfig
         workers = runtime_data.get("workers", {})
+        env_vars = runtime_data.get("env", {})
+        backend_protocol: Literal["http", "fastcgi"] = "http"
+        if "php_fpm" in runtime_data:
+            fpm_env, fpm_workers = self._serve_with_php_fpm(
+                runtime_data["php_fpm"], runtime_data.get("writable_tree", "")
+            )
+            env_vars = {**env_vars, **fpm_env}
+            workers = {**workers, **fpm_workers}
+            backend_protocol = "fastcgi"
         runtime = RuntimeConfig(
-            env_vars=runtime_data.get("env", {}),
+            env_vars=env_vars,
             path_prepend=runtime_data.get("path", []),
             # The app's own directory, NOT the store path. This is the cwd that
             # `before-run` commands get (run/spawn.py), and the store is
@@ -192,6 +203,7 @@ class NixBuilder:
             working_dir=str(self.context.source_path),
             writable_tree=runtime_data.get("writable_tree", ""),
             workers=workers,
+            backend_protocol=backend_protocol,
             before_run=runtime_data.get("before_run", []),
         )
 
@@ -215,6 +227,46 @@ class NixBuilder:
                 "nix_file": str(nix_file),
                 "store_path": store_path,
             },
+        )
+
+    def _serve_with_php_fpm(
+        self, php_fpm: dict[str, str], writable_tree: str
+    ) -> tuple[dict[str, str], dict[str, str]]:
+        """
+        The php-fpm pool a runtime.json's ``php_fpm`` entry asks for.
+
+        ``binary`` is the store's php-fpm, built with the app's extensions;
+        ``tree`` the application in the store; ``document_root``, optional,
+        the front-controller directory within it, detected as for a native
+        PHP app when absent. When the tree is also the writable tree, the app
+        is served from its copy in the source directory, which the deploy
+        makes after this build: the root is resolved in the store and mapped
+        there.
+        """
+        binary = php_fpm["binary"]
+        tree = Path(php_fpm["tree"]).resolve()
+        declared = php_fpm.get("document_root", "")
+        missing = [
+            path
+            for path, present in (
+                (binary, Path(binary).is_file()),
+                (str(tree / declared), (tree / declared).is_dir()),
+            )
+            if not present
+        ]
+        if missing:
+            msg = (
+                f"runtime.json asks for a php-fpm pool, but the build output "
+                f"has no {' and no '.join(missing)}. Check the `php_fpm` entry "
+                f"the expression writes: `binary` is ${{php}}/bin/php-fpm, "
+                f"`tree` the application, `document_root` a directory in it."
+            )
+            raise RuntimeError(msg)
+        root = document_root(tree, declared)
+        if writable_tree and Path(writable_tree).resolve() == tree:
+            root = self.context.source_path / root.relative_to(tree)
+        return serve_with_php_fpm(
+            self.context.app_name, APP_ROOT / self.context.app_name, binary, root
         )
 
     def _generate_nix_file(self) -> Path:

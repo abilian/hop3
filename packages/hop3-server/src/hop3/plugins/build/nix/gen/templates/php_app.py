@@ -6,10 +6,11 @@
 """
 php-app template.
 
-For PHP applications served via PHP's built-in web server (``php -S``) or
-Laravel's artisan serve. Uses ``pkgs.php82.withExtensions`` to build a
-PHP interpreter with the required extensions, then copies the app source
-to ``$out/app`` and wraps it with a startup script.
+For PHP applications, served by a php-fpm pool behind the reverse proxy, as
+a native PHP app is. Uses ``pkgs.php82.withExtensions`` to build a PHP
+interpreter with the required extensions, copies the app source to
+``$out/app``, and asks Hop3 for the pool in runtime.json. PHP's built-in
+server and Laravel's artisan serve stay available as serve modes.
 
 Supports three variations:
     - Tarball source (wordpress, nextcloud, bookstack) — default
@@ -372,7 +373,25 @@ def _runtime_json_section(spec: AppSpec, p: PhpAppPayload) -> str:
         f"$out/bin/{spec.pname}",
         runtime_env=_runtime_env(spec, p),
         writable_tree="$out/app" if p.needs_writable_dir else "",
+        php_fpm=_php_fpm_entry(p),
     )
+
+
+def _php_fpm_entry(p: PhpAppPayload) -> dict[str, str] | None:
+    """
+    runtime.json's request for a php-fpm pool, or None for another serve mode.
+
+    The pool, its port and the proxy's FastCGI location are Hop3's, as for a
+    native PHP app; the expression names only what it built. Without a
+    `web-root`, Hop3 detects the front-controller directory (`public/`,
+    `htdocs/`...) the way the PHP toolchain does.
+    """
+    if p.serve_mode != "fpm":
+        return None
+    entry = {"binary": "${php}/bin/php-fpm", "tree": "$out/app"}
+    if p.web_root:
+        entry["document_root"] = p.web_root
+    return entry
 
 
 def _format_php_binding(p: PhpAppPayload) -> str:
@@ -397,6 +416,10 @@ def _php_exec_line(spec: AppSpec, p: PhpAppPayload) -> str:
     formatter, so they reach the wrapper as ${PORT:-8080} and are
     expanded by the shell at startup.
     """
+    if p.serve_mode == "fpm":
+        # php-fpm is the web worker, so the wrapper serves nothing: it runs
+        # the before-run phase, and otherwise is the app's own PHP CLI.
+        return 'PHPBIN/php "$@"'
     # When needs_writable_dir, serve from cwd (.) instead of APPDIR (Nix store).
     # The wrapper's pre_exec commands symlink app files to cwd first.
     if p.needs_writable_dir:

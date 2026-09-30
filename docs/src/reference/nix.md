@@ -95,6 +95,7 @@ The built package **must** generate `$out/hop3/runtime.json` containing runtime 
 | `path` | No | Paths to prepend to `PATH` |
 | `before_run` | No | Commands Hop3 runs once per deploy, before the workers start and before `[run] before-run`, in the app's `src/` with its full environment. A failing command fails the deploy. |
 | `writable_tree` | No | A store directory Hop3 copies into the app's `src/` at deploy time, for applications that write inside their own tree. |
+| `php_fpm` | No | Serve the app with a php-fpm pool, as Hop3 serves a native PHP app: `binary` is the store's `php-fpm`, `tree` the application's store directory, `document_root` (optional) its front-controller directory, detected (`public/`, `web/`, `htdocs/`, `www/`) when absent. Hop3 writes the pool, adds the `web` worker and has the proxy speak FastCGI to it. When `tree` is also the `writable_tree`, the copy in `src/` is what is served. |
 
 Anything an application needs written before it starts (its configuration, a schema migration, a first-run install) belongs in `before_run`, not in the worker's wrapper. A wrapper runs on every start, inside the start timeout, and the files it writes into `src/` are replaced by the next deploy. The generated templates follow this rule: their wrapper, called with `--hop3-before-run`, writes the `[[nix.config-files]]` and runs `[nix] pre-exec`, and `runtime.json` names that call as its `before_run`.
 
