@@ -29,6 +29,27 @@ Ordered by how likely each is to be picked up first.
 
 ## Operations
 
+**Recipe upgrades for installed catalog applications.** An application installed from the catalog keeps no record of the recipe it came from: `hop3 catalog install` copies the recipe into `src/` once, and refuses to run again over an application that has deployed successfully. Nothing else reaches it. The only path to a newer recipe is `hop3 app destroy`, which deletes the application's data, followed by a fresh install. So a catalog fix reaches new installs only, security fixes included: the September 2026 passes removed `APP_KEY`s shared by every install, a Jenkins that ran with no security realm, and forges that rewrote the control plane's `authorized_keys`, and none of that reaches an application already running. Until this exists, a catalog fix that matters to running installs has to be announced, with the steps to apply it by hand.
+
+What there is to build on:
+- `_restage` (`server/catalog/install.py`) already re-stages a recipe over an existing application while keeping its identity (hostname, generated secrets, addons, environment), for installs whose first deploy failed.
+- Since 0.8, a deploy that replaces `src/` fills a newly declared volume from the tree it replaces, so a recipe that moves data into a volume takes the data with it.
+- `requires_hop3` refuses a recipe that needs a newer server, and the signed index carries a serial and a digest of every file (ADR 049).
+
+The proposal:
+- Record the origin at install: catalog id, serial, and a digest of the recipe as staged.
+- `hop3 catalog upgrade --app <name>`: check `requires_hop3`, show what changes, re-stage the current recipe the way `_restage` does, and deploy.
+- Say when an installed recipe is behind the catalog, in `hop3 app show`, `hop3 catalog list` and the dashboard.
+- A changelog entry per published recipe change, marking the ones that need the operator to act. Grafana's generated `secret_key` (September 2026) is such a case: datasource credentials stored under the old key have to be entered again.
+
+Undecided:
+- **Who triggers an upgrade.** Manual only is the least surprising, but a fixed vulnerability then waits on each operator noticing it; a notice buys attention without taking control; applying security fixes automatically closes the window and takes a change out of the operator's hands. What decides: whether the catalog can tell a security fix from any other change, which the changelog entry would have to carry.
+- **How a recipe version is named.** The digest costs nothing to maintain but cannot say which of two recipes is newer or which change broke something; a revision number orders changes and anchors the changelog, at the cost of a bump on every change, which the recipe lint could enforce. What decides: whether operators need to skip or pin versions.
+- **Local modifications.** An operator who pushed their own changes to the application no longer runs the catalog recipe, and an upgrade would overwrite those changes. The recorded digest detects it; whether that refuses the upgrade, offers a merge, or proceeds on `--force` is open.
+- **A failed upgrade.** Keeping the replaced tree aside until the new deploy succeeds (as a deploy already does until the volumes are linked) makes rolling back possible; whether 0.7's upgrade-with-automatic-rollback covers a re-staged recipe decides how much of this is new.
+
+It adds fields to the application record and a command whose failure modes reach data, so it needs a short ADR, alongside ADR 049. The naming should agree with the `upgrade`/`downgrade` vocabulary ADR 032 settles below.
+
 **Deployment strategies (ADR 032).** Blue-green and canary appear in an accepted ADR and nowhere in the source, alongside `revert`/`upgrade`/`downgrade` naming over `current`/`previous`. 0.7 shipped upgrade-with-automatic-rollback, which covers the operationally urgent part; the rest is optional for a single-server platform, which is why it sits here.
 
 **Backups, phases 2 and 3 (ADR 016).** Scheduled backups and retention policies first; then remote storage (S3, B2), encryption, and incremental backups. Phase 1 shipped in 0.7 including cross-instance restore. Phase 2 is small and pairs naturally with the control-plane audit log that 0.8 adds.
