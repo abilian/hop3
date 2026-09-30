@@ -66,6 +66,7 @@ from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY, should_redirect_to_https
 from hop3.project.config import AppConfig
+from hop3.run.app_env import build_app_env
 from hop3.run.fastcgi import fastcgi_ping
 from hop3.run.listening import listening_ports
 from hop3.run.reaper import app_pids
@@ -1810,22 +1811,14 @@ def _bootstrap_admin_account(
         )
         raise AdminBootstrapError(msg)
 
-    path_prepend = build_artifact.runtime.path_prepend
-
     def run_create(command: str) -> None:
-        # The build artifact's env comes FIRST, so the app's own values still
-        # win — this only fills what the recipe did not set. Without it a
-        # create command runs the app's code with none of the runtime its
-        # toolchain established: bugsink's probe called `bugsink-manage` and
-        # Django failed to load psycopg, because LD_LIBRARY_PATH (which carries
-        # libpq for a Nix-built venv) lives in the artifact runtime and was
-        # applied only when spawning workers.
-        artifact_env = build_artifact.runtime.env_vars if build_artifact else {}
-        env = {**os.environ, **artifact_env, **app.get_runtime_env()}
-        if path_prepend:
-            extra = ":".join(p for p in path_prepend if p)
-            if extra:
-                env["PATH"] = f"{extra}:{env.get('PATH', '')}"
+        # The environment the app's workers get (build_app_env), with the
+        # artifact's runtime, so a create command reaches the toolchain's
+        # libraries: bugsink's probe failed to load psycopg until
+        # LD_LIBRARY_PATH reached it. It used to be assembled here over the
+        # server's own environment, which handed recipe code everything the
+        # control plane runs with, and the control plane's HOME.
+        env = build_app_env(app, build_artifact, cwd=app.src_path)
         result = shell(command, cwd=app.src_path, env=env, check=False)
         if result.returncode:
             # Include what the command actually said. Reporting only the exit

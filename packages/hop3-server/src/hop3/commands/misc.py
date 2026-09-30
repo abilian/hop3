@@ -26,7 +26,7 @@ from hop3.lib.util import (
     stream_command,
 )
 from hop3.project.procfile import parse_procfile
-from hop3.run.app_env import build_app_env, load_artifact
+from hop3.run.app_env import build_app_env, load_artifact, make_runtime_dirs
 from hop3.server.streaming import create_stream
 
 from ._base import Command, NamespaceCommand
@@ -270,6 +270,7 @@ class RunCmd(Command):
         # stream item, and sessions are not thread-safe — so the worker below
         # closes over plain values, never over `app` or the session.
         cwd = app.src_path
+        make_runtime_dirs(app)
         env = build_app_env(app, load_artifact(app))
         return [run_command_streaming(app.name, cmd_to_run, cwd, env, stdin_data)]
 

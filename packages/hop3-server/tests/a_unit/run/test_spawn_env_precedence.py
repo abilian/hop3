@@ -34,6 +34,8 @@ def _launcher(*, artifact_env: dict, db_env: dict) -> AppLauncher:
     launcher.app = SimpleNamespace(
         name="myapp",
         virtualenv_path=Path("/home/hop3/apps/myapp/venv"),
+        home_path=Path("/home/hop3/apps/myapp") / "home",
+        tmp_path=Path("/home/hop3/apps/myapp") / "tmp",
         port=12345,  # set so make_env reuses it instead of get_free_port()
         get_runtime_env=lambda: Env(dict(db_env)),
     )

@@ -25,7 +25,7 @@ from hop3.core.identifiers import InvalidIdentifierError, validate_app_name
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
 from hop3.orm import AppRepository, get_session_factory
-from hop3.run.app_env import load_artifact, shell_session
+from hop3.run.app_env import load_artifact, make_runtime_dirs, shell_session
 
 from ._base import Command
 
@@ -77,6 +77,7 @@ class AppShellExecCmd(Command):
                     f"'{app_name}' has no source tree at {app.src_path}; "
                     "deploy it first."
                 )
+            make_runtime_dirs(app)
             spec = shell_session(
                 app,
                 load_artifact(app),

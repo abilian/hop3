@@ -30,6 +30,8 @@ def _app(*, env: dict | None = None, port: int = 0) -> SimpleNamespace:
         app_path=APP_PATH,
         src_path=APP_PATH / "src",
         virtualenv_path=APP_PATH / "venv",
+        home_path=APP_PATH / "home",
+        tmp_path=APP_PATH / "tmp",
         port=port,
         get_runtime_env=lambda: Env(dict(env or {})),
     )
@@ -48,6 +50,17 @@ def test_server_environment_never_leaks(monkeypatch) -> None:
     env = build_app_env(_app(), None)
     assert "HOP3_SECRET_KEY" not in env
     assert "DATABASE_URL" not in env
+
+
+def test_home_and_tmpdir_are_the_apps_own() -> None:
+    """
+    Never the control plane's home. With it, every app shared one ``~/.ssh``:
+    Gitea and Forgejo rewrote the ``authorized_keys`` holding Hop3's git-push
+    keys, and every app's caches landed beside the server's own files.
+    """
+    env = build_app_env(_app(), None)
+    assert env["HOME"] == f"{APP_PATH}/home"
+    assert env["TMPDIR"] == f"{APP_PATH}/tmp"
 
 
 def test_bootstrap_keys_and_venv_first_on_path(monkeypatch) -> None:

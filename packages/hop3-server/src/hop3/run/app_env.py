@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.config import HOP3_ROOT, HOP3_USER
+from hop3.config import HOP3_USER
 from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact
 
 if TYPE_CHECKING:
@@ -59,11 +59,16 @@ def build_app_env(
     ``PATH`` entries from the build artifact, then the persisted ``[env]``
     block, which never overrides a toolchain-owned key. What only a worker
     needs (port allocation, proxy defaults) stays in ``make_env``.
+
+    ``HOME`` and ``TMPDIR`` are the app's own. With the control plane's home,
+    every app shared one ``~/.ssh`` and one set of caches: Gitea and Forgejo
+    rewrote the ``authorized_keys`` that holds Hop3's git-push keys.
     """
     venv_bin = app.virtualenv_path / "bin"
     env = {
         "APP": app.name,
-        "HOME": str(HOP3_ROOT),
+        "HOME": str(app.home_path),
+        "TMPDIR": str(app.tmp_path),
         "USER": HOP3_USER,
         "PATH": f"{venv_bin}:{os.environ.get('PATH', '/usr/bin:/bin')}",
         "PWD": str(cwd or app.src_path),
@@ -78,6 +83,13 @@ def build_app_env(
     if app.port:
         env.setdefault("PORT", str(app.port))
     return env
+
+
+def make_runtime_dirs(app: App) -> None:
+    """Create the HOME and TMPDIR ``build_app_env`` names, before a process
+    starts in them."""
+    app.home_path.mkdir(exist_ok=True)
+    app.tmp_path.mkdir(exist_ok=True)
 
 
 def apply_artifact_runtime(

@@ -662,6 +662,8 @@ Hop3 keeps the directory outside `src/` and links `target` to it on every deploy
 - `persist` volumes are included in `hop3 backup create` by default; set `[volumes.backup]` `include = false` to opt one out. A `scratch` volume takes no `[volumes.backup]`.
 - Not available for Docker-built apps yet (the deploy refuses them).
 
+**`HOME` and `TMPDIR`.** Your app's processes (its workers, `before-run`, the `[admin]` and `[probe]` `create` commands, `hop3 run` and `hop3 app shell`) run with a `HOME` and a `TMPDIR` of their own, `<app>/home/` and `<app>/tmp/`, never the server's. Both survive a deploy and are removed with the app, but neither is backed up: something the app must keep goes in a `persist` volume, not in `~`. Build steps (`before-build`, the toolchain's install) still run with the server's `HOME`, which is where its toolchains and download caches live.
+
 ### `[limits]` - Resource Caps
 
 Cap an app's resource use so one app can't starve others on the same server:

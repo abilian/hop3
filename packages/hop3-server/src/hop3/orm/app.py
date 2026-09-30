@@ -404,6 +404,21 @@ class App(BigIntAuditBase):
         return self.app_path / "scratch"
 
     @property
+    def home_path(self) -> Path:
+        """
+        The ``HOME`` the app's processes run with: its own, not the control
+        plane's. Kept across deploys, removed with the app, never backed up:
+        what an app must keep belongs in a volume.
+        """
+        return self.app_path / "home"
+
+    @property
+    def tmp_path(self) -> Path:
+        """The ``TMPDIR`` the app's processes run with, so no fixed ``/tmp``
+        name one app picks collides with another's."""
+        return self.app_path / "tmp"
+
+    @property
     def log_path(self) -> Path:
         """Path to the log directory of the app."""
         return self.app_path / "log"

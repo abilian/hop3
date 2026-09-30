@@ -55,6 +55,8 @@ def test_nix_runtime_contract_applied_end_to_end(tmp_path) -> None:
     launcher.app = SimpleNamespace(
         name="forge",
         virtualenv_path=tmp_path / "venv",
+        home_path=tmp_path / "home",
+        tmp_path=tmp_path / "tmp",
         port=12345,  # set so make_env doesn't reach for a free port
         get_runtime_env=lambda: Env({"DATABASE_URL": "postgres://localhost/forge"}),
     )

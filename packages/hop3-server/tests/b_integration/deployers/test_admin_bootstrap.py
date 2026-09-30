@@ -251,7 +251,13 @@ def test_create_commands_get_the_artifact_runtime_env(
     so bugsink's `[probe].create` invoked `bugsink-manage` and Django could not
     load psycopg: the exact library set the recipe declared was applied when
     spawning workers and nowhere else.
+
+    It is now the workers' own environment (``build_app_env``): the same
+    precedence (a toolchain-owned key is not overridden by ``[env]``), the
+    app's own HOME, and nothing of the server's environment, which the old
+    ``os.environ`` base handed to recipe code.
     """
+    monkeypatch.setenv("HOP3_SECRET_KEY", "server-secret")
     seen: dict[str, str] = {}
 
     def fake_shell(command, cwd=None, env=None, check=True):
@@ -261,7 +267,7 @@ def test_create_commands_get_the_artifact_runtime_env(
     monkeypatch.setattr("hop3.deployers.deployer.shell", fake_shell)
 
     app = _app(db_session)
-    set_env_vars(app, {"HOST_NAME": "b.example.com", "OWN": "app-wins"}, db_session)
+    set_env_vars(app, {"HOST_NAME": "b.example.com", "OWN": "stale-env"}, db_session)
     admin = {
         "email": "operator",
         "password": {"generate": "password"},
@@ -275,7 +281,7 @@ def test_create_commands_get_the_artifact_runtime_env(
     build_artifact = SimpleNamespace(
         runtime=SimpleNamespace(
             path_prepend=[],
-            env_vars={"LD_LIBRARY_PATH": "/nix/store/pg/lib", "OWN": "artifact-loses"},
+            env_vars={"LD_LIBRARY_PATH": "/nix/store/pg/lib", "OWN": "toolchain"},
         )
     )
 
@@ -284,4 +290,6 @@ def test_create_commands_get_the_artifact_runtime_env(
     assert seen.get("LD_LIBRARY_PATH") == "/nix/store/pg/lib", (
         "the artifact's runtime env must reach create commands"
     )
-    assert seen.get("OWN") == "app-wins", "the app's own value still wins"
+    assert seen.get("OWN") == "toolchain", "a toolchain-owned key wins, as for workers"
+    assert seen.get("HOME") == str(app.home_path)
+    assert "HOP3_SECRET_KEY" not in seen, "the server's environment must not leak"

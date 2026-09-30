@@ -27,6 +27,8 @@ def _app(tmp_path: Path, *, runtime: str = "uwsgi", deployed: bool = True):
         app_path=app_path,
         src_path=app_path / "src",
         virtualenv_path=app_path / "venv",
+        home_path=app_path / "home",
+        tmp_path=app_path / "tmp",
         port=0,
         get_runtime_env=lambda: Env({}),
     )

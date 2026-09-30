@@ -34,7 +34,7 @@ from hop3.lib.logging import server_log
 from hop3.lib.settings import write_settings
 from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
-from hop3.run.app_env import build_app_env
+from hop3.run.app_env import build_app_env, make_runtime_dirs
 from hop3.run.served_tree import grant_web_server_read
 from hop3.run.uwsgi.naming import vassal_glob, vassal_name
 from hop3.toolchains.php_fpm import (
@@ -795,6 +795,9 @@ class AppLauncher:
         write_settings(scaling, worker_count, ":")
 
         self._handle_auto_restart(env)
+
+        # The HOME and TMPDIR build_app_env gives the app, before anything runs.
+        make_runtime_dirs(self.app)
 
         # BEFORE before-run: an app's bootstrap needs the application present.
         self._materialize_writable_tree()
