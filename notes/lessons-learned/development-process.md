@@ -36,6 +36,20 @@ Packages import each other's internals: hop3-tui uses hop3-cli's `SshTunnel` and
 
 The September shell branch, reviewed against the code-quality checklist, had three builders of the same `ssh` prefix and three readings of the same settings. All were written in one session. Each was reasonable alone. Consolidation was cheap the same day and would have been a migration a month later. A quick review pass for the five anti-patterns (defensive noise, soft invariants, band-aids, invented abstractions, duplication) belongs before the commit.
 
+## A check verifies exactly what it was given
+
+`hop3 login --token` verified the new token by building a throwaway config around it and calling the server. But a config's own token ranks below the per-server credential store and `HOP3_API_TOKEN`, so the check sent whatever was already stored for that server. After every `hop3-deploy-server --docker --clean`, that was the previous container's token, signed with a key that no longer existed: the new token was refused with "Authentication required" without ever leaving the machine. A test covered the verification, but it ran with an empty store, so it could not fail on this.
+
+A probe is built from its inputs, never from the general resolution chain, which answers with whatever wins it. Its test seeds decoys (a stored token, the environment variable) so it can fail.
+
+## Adding a source to a precedence chain re-reads every lower source's callers
+
+The credential store was added above the config's token (ADR 042 r2), and the one caller that built a config expecting its token to win was not re-read. It is the second time this shape has bitten: a recipe's `[run].start` overrode the php-fpm worker, so the new runtime shipped with no users and seven defects. When a source joins a precedence order, grep every place that constructs one of the sources it outranks.
+
+## A warning that the deploy carries on past is a failure nobody reads
+
+Two bugs in `hop3-deploy-server`'s CLI step, a readiness race and the token above, printed ⚠ lines and the deploy still ended with "Deployment complete!". The race failed first and hid the token bug. The .NET SDK 9 install, which no feed carries for Ubuntu 24.04, failed on every such server the same way. Every e2e run log carried five to nine such lines, for weeks, and every reader scrolled past them. A warning-and-continue is not caught by review: it has to fail something mechanically.
+
 ## Related
 
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md): the `Diagnosis` record that the entry-point rule protects.
