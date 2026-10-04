@@ -15,7 +15,14 @@ import stat
 import types
 
 import pytest
-from hop3_installer.server_installer import installer, postgres, services, verify
+from hop3_installer.common import CommandError, InstallStepError
+from hop3_installer.server_installer import (
+    installer,
+    mysql,
+    postgres,
+    services,
+    verify,
+)
 from hop3_installer.server_installer.config import ServerInstallerConfig
 
 
@@ -133,36 +140,70 @@ def test_set_postgres_password_generates_fresh_install(monkeypatch):
     assert pw != "hop3_deadbeefcafe"
 
 
-class TestMissingDbCredentialGate:
+class TestDatabaseStepsRaise:
     """
-    A requested DB left without a TCP-verified superuser credential must
-    abort the install, not silently ship a hop3-server.toml the server can't use.
+    A requested database without a verified credential stops the install.
+
+    The steps used to return None and leave a later gate to notice, which
+    printed a generic message far below the cause; they now raise at the
+    failing site, with its output.
     """
 
-    def test_postgres_without_password_aborts(self):
-        cfg = ServerInstallerConfig()  # postgres is the always-on baseline
-        err = installer._missing_db_credential_error(cfg, None, "mypw")
-        assert err is not None
-        assert "PostgreSQL" in err[0]
+    def test_postgres_password_that_does_not_authenticate_raises(self, monkeypatch):
+        def run(cmd, **_k):
+            failed = "-h" in cmd  # the TCP check; ALTER USER "succeeds"
+            return types.SimpleNamespace(returncode=int(failed), stdout="", stderr="")
 
-    def test_mysql_requested_without_password_aborts(self):
-        cfg = ServerInstallerConfig(features={"mysql"})
-        err = installer._missing_db_credential_error(cfg, "pgpw", None)
-        assert err is not None
-        assert "MySQL" in err[0]
+        monkeypatch.setattr(postgres, "run_cmd", run)
+        monkeypatch.setattr(postgres.time, "sleep", lambda _s: None)
+        with pytest.raises(InstallStepError, match="verified over TCP"):
+            postgres._set_postgres_password(existing=None)
 
-    def test_mysql_not_requested_is_not_an_error(self):
-        # No --with mysql: a None mysql password is expected, not a failure.
-        cfg = ServerInstallerConfig()
-        assert installer._missing_db_credential_error(cfg, "pgpw", None) is None
+    def test_a_failed_createuser_raises(self, monkeypatch):
+        """It used to print a detail line, then "role and database created"."""
+        monkeypatch.setattr(
+            postgres,
+            "run_cmd",
+            lambda cmd, **_k: types.SimpleNamespace(
+                returncode=1, stdout="", stderr="could not connect to server"
+            ),
+        )
+        with pytest.raises(CommandError):
+            postgres._create_postgres_role_and_db()
 
-    def test_skip_postgres_ignores_missing_pg_password(self):
-        cfg = ServerInstallerConfig(skip_postgres=True)
-        assert installer._missing_db_credential_error(cfg, None, None) is None
+    def test_an_existing_role_and_database_are_kept(self, monkeypatch):
+        monkeypatch.setattr(
+            postgres,
+            "run_cmd",
+            lambda cmd, **_k: types.SimpleNamespace(
+                returncode=1, stdout="", stderr='role "hop3" already exists'
+            ),
+        )
+        postgres._create_postgres_role_and_db()
 
-    def test_both_verified_is_not_an_error(self):
-        cfg = ServerInstallerConfig(features={"mysql"})
-        assert installer._missing_db_credential_error(cfg, "pgpw", "mypw") is None
+    def test_mysql_without_an_admin_connection_raises(self, monkeypatch):
+        monkeypatch.setattr(mysql, "_start_mysql_service", lambda: True)
+        monkeypatch.setattr(mysql, "_find_mysql_admin_connection", lambda: None)
+        with pytest.raises(InstallStepError, match="no admin connection"):
+            mysql.setup_mysql(ServerInstallerConfig(features={"mysql"}), "debian")
+
+    def test_a_failed_mysql_statement_never_prints_the_password(self, monkeypatch):
+        monkeypatch.setattr(
+            mysql,
+            "run_cmd",
+            lambda cmd, **_k: types.SimpleNamespace(
+                returncode=1, stdout="", stderr="ERROR 1396"
+            ),
+        )
+        with pytest.raises(CommandError) as raised:
+            mysql._create_mysql_hop3_user(["mysql"], {}, "hop3_secretsecret")
+        assert "hop3_secretsecret" not in str(raised.value)
+        assert "hop3_secretsecret" not in " ".join(raised.value.cmd)
+
+    def test_unrequested_or_skipped_databases_are_not_set_up(self):
+        assert mysql.setup_mysql(ServerInstallerConfig(), "debian") is None
+        skip = ServerInstallerConfig(skip_postgres=True)
+        assert postgres.setup_postgres(skip, "debian") is None
 
 
 def test_secret_key_file_roundtrip_and_mode(tmp_path, monkeypatch):

@@ -273,19 +273,11 @@ def _configure_server(distro: str, config: ServerInstallerConfig) -> None:
     Steps 6-11, then the config file, ACME and the restart that loads them.
 
     Raises:
-        CommandError, ServiceStartError, OSError: a step failed.
-        InstallStepError: a requested database has no verified credential.
+        CommandError, ServiceStartError, OSError, InstallStepError: a step
+            failed. The database steps raise rather than return no password,
+            so a requested database always arrives here with a verified one.
     """
     secret_key, pg_password, mysql_password = _run_service_setup_steps(distro, config)
-
-    # A requested database not left with a superuser credential we could
-    # verify over TCP. Shipping hop3-server.toml in that state would give the
-    # server a password the DB won't honour (postgres) or omit the password
-    # entirely (mysql → fallback to 'root'), and every app of that type would
-    # then fail provisioning with an opaque auth error.
-    db_error = _missing_db_credential_error(config, pg_password, mysql_password)
-    if db_error:
-        raise InstallStepError("\n".join(db_error))
 
     # Server config (including the secret key for CLI commands). Verification
     # keys its database checks on this file existing, so a failed write that
@@ -312,43 +304,6 @@ def _report_failure(e: Exception) -> None:
     if isinstance(e, CommandError):
         print_failure_output("stderr", e.stderr)
         print_failure_output("stdout", e.stdout)
-
-
-def _missing_db_credential_error(
-    config: ServerInstallerConfig,
-    pg_password: str | None,
-    mysql_password: str | None,
-) -> tuple[str, str] | None:
-    """
-    (error, detail) if a requested DB lacks a TCP-verified superuser credential.
-
-    A requested database that setup couldn't leave with a verified superuser
-    password must abort the install rather than write a hop3-server.toml the
-    server can't use. Postgres ships a POSTGRES_SUPERUSER_PASSWORD the role
-    won't honour; MySQL omits MYSQL_SUPERUSER_PASSWORD so the server falls back
-    to 'root' and hits "Access denied for user 'root'@'localhost'"
-    (DEFERRED-APPS.md #207). Returns None when both requested DBs are fine.
-    """
-    if not config.skip_postgres and pg_password is None:
-        return (
-            "PostgreSQL superuser password could not be configured and verified.",
-            (
-                "The postgres service must be running and accept a TCP connection "
-                "as 'postgres' on 127.0.0.1:5432. Fix that and re-run the installer."
-            ),
-        )
-    if config.with_mysql and mysql_password is None:
-        return (
-            (
-                "MySQL was requested but the hop3 MySQL user could not be "
-                "configured and verified."
-            ),
-            (
-                "MySQL must be running and accept a TCP connection as 'hop3' on "
-                "127.0.0.1:3306. Fix that and re-run the installer."
-            ),
-        )
-    return None
 
 
 def main() -> int:

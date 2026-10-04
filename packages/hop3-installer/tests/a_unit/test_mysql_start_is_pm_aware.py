@@ -28,7 +28,7 @@ from unittest.mock import patch
 
 import pytest
 from hop3_installer import common
-from hop3_installer.common import control_service
+from hop3_installer.common import InstallStepError, control_service
 from hop3_installer.server_installer import mysql, redis
 
 
@@ -97,31 +97,34 @@ def test_redis_restart_goes_through_the_helper():
     """`systemctl restart redis-server` with check=False was a no-op here."""
     with (
         patch.object(redis, "control_service", return_value=True) as controlled,
-        patch.object(redis, "_configure_redis_bind"),
+        patch.object(redis, "_write_redis_config", return_value=None),
         patch.object(redis, "has_systemd", return_value=False),
         patch.object(
             redis,
             "run_cmd",
-            return_value=type("R", (), {"returncode": 0, "stdout": "", "stderr": ""})(),
+            return_value=type(
+                "R", (), {"returncode": 0, "stdout": "PONG", "stderr": ""}
+            )(),
         ),
     ):
         redis.configure_redis()
 
-    assert ("restart", "redis-server") in [c.args for c in controlled.call_args_list]
+    assert ("restart", "redis-server", "redis") in [
+        c.args for c in controlled.call_args_list
+    ]
 
 
-def test_redis_says_so_when_it_cannot_restart(capsys):
-    """A failure here is why an app's redis addon dies later, so name it now."""
+def test_redis_that_cannot_restart_stops_the_install():
+    """A failure here is why an app's redis addon dies later, so stop now."""
     with (
         patch.object(redis, "control_service", return_value=False),
-        patch.object(redis, "_configure_redis_bind"),
+        patch.object(redis, "_write_redis_config", return_value=None),
         patch.object(redis, "has_systemd", return_value=False),
         patch.object(
             redis,
             "run_cmd",
             return_value=type("R", (), {"returncode": 1, "stdout": "", "stderr": ""})(),
         ),
+        pytest.raises(InstallStepError, match="did not restart"),
     ):
         redis.configure_redis()
-
-    assert "Redis could not be restarted" in capsys.readouterr().out

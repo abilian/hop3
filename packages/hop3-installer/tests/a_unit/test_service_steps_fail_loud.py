@@ -20,7 +20,13 @@ from unittest.mock import patch
 
 import pytest
 from hop3_installer.common import CommandError, InstallStepError
-from hop3_installer.server_installer import deps_common, installer, services, verify
+from hop3_installer.server_installer import (
+    deps_common,
+    installer,
+    redis,
+    services,
+    verify,
+)
 
 
 def _ok(stdout: str = "") -> SimpleNamespace:
@@ -115,3 +121,35 @@ def test_docker_requested_without_systemd_aborts_with_the_reason():
         pytest.raises(InstallStepError, match="no systemd to run dockerd"),
     ):
         deps_common._start_docker_daemon()
+
+
+def test_redis_replica_setting_is_removed_from_the_config(tmp_path, monkeypatch):
+    """
+    The runtime CONFIG SET / REPLICAOF this replaced ran before the restart,
+    which discarded them; only the config file survives a restart.
+    """
+    conf = tmp_path / "redis.conf"
+    conf.write_text("port 6379\nreplicaof 10.0.0.1 6379\nbind 127.0.0.1\n")
+    monkeypatch.setattr(redis, "REDIS_CONF_PATHS", [conf])
+    monkeypatch.setattr(redis, "get_docker_bridge_ip", lambda: None)
+
+    assert redis._write_redis_config() is None
+    assert "replicaof" not in conf.read_text()
+    assert "port 6379" in conf.read_text()
+
+
+def test_redis_ping_authenticates_when_a_password_is_set(monkeypatch):
+    """Without it, a Redis with requirepass answers NOAUTH and fails the check."""
+    seen: dict = {}
+
+    def run(cmd, env=None, **_kw):
+        seen["env"] = env
+        return SimpleNamespace(returncode=0, stdout="PONG", stderr="")
+
+    monkeypatch.setattr(redis, "_write_redis_config", lambda: "s3cret")
+    monkeypatch.setattr(redis, "has_systemd", lambda: False)
+    monkeypatch.setattr(redis, "control_service", lambda *_a: True)
+    monkeypatch.setattr(redis, "run_cmd", run)
+
+    redis.configure_redis()
+    assert seen["env"] == {"REDISCLI_AUTH": "s3cret"}

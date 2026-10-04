@@ -11,12 +11,13 @@ import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
+    InstallStepError,
     control_service,
     has_systemd,
     print_detail,
     print_info,
     print_success,
-    print_warning,
     run_cmd,
 )
 
@@ -27,6 +28,9 @@ REDIS_CONF_PATHS = [
     Path("/etc/redis/redis.conf"),
     Path("/etc/redis.conf"),
 ]
+
+#: Service names, in order: Debian ships `redis-server`, Fedora `redis`.
+_REDIS_SERVICE_NAMES = ("redis-server", "redis")
 
 # Persistent location for the Redis auth password. The hop3-server
 # process (running as user `hop3`) reads this file at runtime; setting
@@ -77,35 +81,44 @@ def fix_redis_pass_ownership() -> None:
     )
 
 
-def _configure_redis_bind() -> None:
+def _write_redis_config() -> str | None:
     """
-    Configure Redis to bind to localhost and Docker bridge.
+    Make this Redis a primary and, with a Docker bridge, reachable from it.
 
-    This allows Docker containers to connect to Redis via host.docker.internal
-    while keeping Redis inaccessible from external networks.
+    Edits the config file, the only change a restart keeps: the runtime
+    ``CONFIG SET replica-read-only no`` and ``REPLICAOF NO ONE`` this replaced
+    ran before the restart, which discarded them.
+
+    Returns:
+        The auth password, when one was set (Docker bridge), else None.
+
+    Raises:
+        InstallStepError: no Redis config file.
     """
-    # Find Redis config file
     redis_conf = next((p for p in REDIS_CONF_PATHS if p.exists()), None)
-    if not redis_conf:
-        print_warning("Redis config file not found, skipping bind configuration")
-        return
+    if redis_conf is None:
+        paths = ", ".join(str(p) for p in REDIS_CONF_PATHS)
+        msg = f"no Redis configuration file found ({paths})"
+        raise InstallStepError(msg)
 
-    # Get Docker bridge IP
+    original = redis_conf.read_text()
+    # A replica refuses writes ("You can't write against a read only replica").
+    content = re.sub(
+        r"^\s*(replicaof|slaveof)\s+.*\n?", "", original, flags=re.MULTILINE
+    )
+
+    password = None
     docker_ip = get_docker_bridge_ip()
-    if not docker_ip:
-        print_detail("Docker bridge not found, Redis will bind to localhost only")
-        return
+    if docker_ip:
+        password = _ensure_redis_password()
+        content, _ = _update_redis_bind(content, docker_ip)
+        content, _ = _update_redis_requirepass(content, password)
+    else:
+        print_detail("No Docker bridge: Redis binds to localhost only")
 
-    password = _ensure_redis_password()
-
-    content = redis_conf.read_text()
-    content, bind_modified = _update_redis_bind(content, docker_ip)
-    content, requirepass_modified = _update_redis_requirepass(content, password)
-    modified = bind_modified or requirepass_modified
-
-    if modified:
+    if content != original:
         redis_conf.write_text(content)
-        print_detail("Redis configured to accept connections from Docker containers")
+    return password
 
 
 def _update_redis_bind(content: str, docker_ip: str) -> tuple[str, bool]:
@@ -154,51 +167,31 @@ def _update_redis_requirepass(content: str, password: str) -> tuple[str, bool]:
 
 def configure_redis() -> None:
     """
-    Configure Redis for Hop3 use.
+    Configure Redis for Hop3: a primary, bound for Docker access, running.
 
-    Ensures Redis is:
-    - Running as a primary (not a replica)
-    - Bound to localhost and Docker bridge (for container access)
-    - Enabled and started
+    Raises:
+        CommandError, InstallStepError: Redis is not configured and answering.
     """
     print_info("Configuring Redis...")
+    password = _write_redis_config()
 
-    # Configure bind address for Docker access
-    _configure_redis_bind()
+    # Through `control_service`, so this works without systemd and finds the
+    # unit under its Debian or Fedora name.
+    if has_systemd() and not control_service("enable", *_REDIS_SERVICE_NAMES):
+        msg = f"Redis could not be enabled (tried: {', '.join(_REDIS_SERVICE_NAMES)})"
+        raise InstallStepError(msg)
+    if not control_service("restart", *_REDIS_SERVICE_NAMES):
+        msg = "Redis did not restart, so apps with a redis addon cannot connect"
+        raise InstallStepError(msg)
 
-    # Ensure Redis is not configured as a replica
-    # This fixes the "You can't write against a read only replica" error
-    result = run_cmd(
-        ["redis-cli", "CONFIG", "SET", "replica-read-only", "no"],
-        check=False,
-    )
-    if result.returncode != 0:
-        print_warning(
-            "Could not set replica-read-only=no (Redis may not be running yet)"
+    # With requirepass set, an unauthenticated PING answers NOAUTH.
+    env = {"REDISCLI_AUTH": password} if password else None
+    result = run_cmd(["redis-cli", "PING"], check=False, env=env)
+    if "PONG" not in (result.stdout or ""):
+        raise CommandError(
+            cmd=["redis-cli", "PING"],
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
         )
-
-    # Remove any replicaof configuration (make this a primary)
-    result = run_cmd(
-        ["redis-cli", "REPLICAOF", "NO", "ONE"],
-        check=False,
-    )
-    if result.returncode == 0:
-        print_detail("Redis configured as primary (not replica)")
-
-    # Enable and restart Redis service (restart to apply bind changes).
-    #
-    # Through `control_service`, so this works without systemd. Both calls were
-    # bare `systemctl` with `check=False`: on a container they did nothing, said
-    # nothing, and Redis never started — surfacing much later as a connection
-    # error in whichever app had declared a redis addon.
-    if has_systemd():
-        run_cmd(["systemctl", "enable", "redis-server"], check=False)
-    if not control_service("restart", "redis-server"):
-        print_warning("Redis could not be restarted; apps needing it will fail")
-
-    # Verify Redis is working
-    result = run_cmd(["redis-cli", "PING"], check=False)
-    if result.returncode == 0 and "PONG" in result.stdout:
-        print_success("Redis configured and running")
-    else:
-        print_warning("Redis may not be running correctly")
+    print_success("Redis configured and running")

@@ -6,15 +6,15 @@ from __future__ import annotations
 
 import re
 import secrets
-import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
+    InstallStepError,
     control_service,
     print_detail,
     print_info,
     print_success,
-    print_warning,
     run_cmd,
 )
 
@@ -45,20 +45,16 @@ def _get_debian_mysql_credentials() -> tuple[str, str] | None:
     if not debian_cnf.exists():
         return None
 
-    try:
-        content = debian_cnf.read_text()
-        user = None
-        password = None
-        for line in content.split("\n"):
-            line = line.strip()
-            if line.startswith("user"):
-                user = line.split("=")[1].strip()
-            elif line.startswith("password"):
-                password = line.split("=")[1].strip()
-            if user and password:
-                return (user, password)
-    except Exception:
-        pass
+    user = None
+    password = None
+    for raw in debian_cnf.read_text().split("\n"):
+        line = raw.strip()
+        if line.startswith("user"):
+            user = line.split("=")[1].strip()
+        elif line.startswith("password"):
+            password = line.split("=")[1].strip()
+        if user and password:
+            return (user, password)
     return None
 
 
@@ -151,280 +147,168 @@ def _validate_mysql_password(password: str) -> bool:
     return all(c in allowed_chars for c in password)
 
 
-def _create_mysql_hop3_user(
-    root_cmd: list[str],
-    root_env: dict[str, str],
-    mysql_password: str,
-) -> bool:
+def _run_admin_sql(
+    root_cmd: list[str], root_env: dict[str, str], sql: str, what: str
+) -> None:
     """
-    Create hop3 MySQL user with privileges.
+    Run one statement as the MySQL admin, or raise naming ``what`` it did.
 
-    Args:
-        root_cmd: Working MySQL admin command.
-        root_env: Env overrides to apply to every admin invocation
-            (carries MYSQL_PWD when the admin path needs a password).
-        mysql_password: Password to set for hop3 user.
-
-    Returns:
-        True if user created successfully, False otherwise.
+    The error names the statement's purpose, never its text: several carry
+    the hop3 password, and a CommandError prints its command.
     """
-    # SECURITY: the SQL below interpolates ``mysql_password`` directly into
-    # CREATE/ALTER USER statements because MySQL admin tooling here is
-    # invoked via ``mysql -e <sql>`` (no parameter binding available).
-    # Safety relies on a two-step contract:
-    #   1. The caller generates ``mysql_password`` via ``secrets.token_hex``
-    #      in the installer flow — hex-charset only.
-    #   2. We re-validate that contract here. If the generator ever changes,
-    #      this gate must stay valid: validation is the only thing standing
-    #      between callers and SQL injection.
-    # Do not relax ``_validate_mysql_password`` without auditing every
-    # f-string SQL query in this file.
+    result = run_cmd(root_cmd + ["-e", sql], check=False, env=root_env)
+    if result.returncode != 0:
+        raise CommandError(
+            cmd=["mysql", f"<{what}>"],
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+        )
+
+
+def _check_mysql_password(mysql_password: str) -> None:
+    """
+    Refuse a password that is unsafe to interpolate into SQL.
+
+    SECURITY: the statements below interpolate the password directly into
+    CREATE USER, because the admin tooling here is ``mysql -e <sql>`` (no
+    parameter binding). Generated passwords are hex; this re-validates that
+    contract, which is the only thing standing between a stored password and
+    SQL injection. Do not relax ``_validate_mysql_password`` without auditing
+    every f-string SQL query in this file.
+    """
     if not _validate_mysql_password(mysql_password):
-        print_warning("Invalid characters in MySQL password")
-        return False
-
-    def run_sql(sql: str) -> subprocess.CompletedProcess:
-        return run_cmd(root_cmd + ["-e", sql], check=False, env=root_env)
-
-    # Drop existing hop3 user if exists (clean slate)
-    # Note: MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different hosts
-    run_sql("DROP USER IF EXISTS 'hop3'@'localhost';")
-    run_sql("DROP USER IF EXISTS 'hop3'@'127.0.0.1';")
-
-    # Create hop3 user with password authentication for both localhost and 127.0.0.1
-    # Use mysql_native_password for compatibility with mysql-connector-python
-    result = run_sql(
-        f"CREATE USER 'hop3'@'localhost' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
-    )
-    if result.returncode != 0:
-        print_warning("Failed to create MySQL user 'hop3'@'localhost'")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    result = run_sql(
-        f"CREATE USER 'hop3'@'127.0.0.1' IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
-    )
-    if result.returncode != 0:
-        print_warning("Failed to create MySQL user 'hop3'@'127.0.0.1'")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    # Grant all privileges to both hosts
-    result = run_sql(
-        "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'localhost' WITH GRANT OPTION;"
-    )
-    if result.returncode != 0:
-        print_warning("Failed to grant privileges to hop3@localhost")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    result = run_sql(
-        "GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'127.0.0.1' WITH GRANT OPTION;"
-    )
-    if result.returncode != 0:
-        print_warning("Failed to grant privileges to hop3@127.0.0.1")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    run_sql("FLUSH PRIVILEGES;")
-    return True
+        msg = (
+            "the MySQL password in hop3-server.toml contains characters other "
+            "than [A-Za-z0-9_-], so it cannot be set safely"
+        )
+        raise InstallStepError(msg)
 
 
-def _verify_mysql_hop3_connection(mysql_password: str) -> bool:
+def _create_mysql_hop3_user(
+    root_cmd: list[str], root_env: dict[str, str], mysql_password: str
+) -> None:
     """
-    Verify hop3 user can connect to MySQL.
+    Create (or re-create) the hop3 MySQL user, with privileges.
 
-    SECURITY: pass the password via MYSQL_PWD instead of -p{password}.
-    The latter exposes the secret in /proc/<pid>/cmdline for the
-    duration of the verification (visible to other local users). Same
-    fix shape as the addon-plugin's mysqldump/mysql calls; see
-    notes/security.md §3.4.1.
+    MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different
+    hosts, so the user is created for both. mysql_native_password, for
+    mysql-connector-python.
     """
-    result = run_cmd(
-        [
-            "mysql",
-            "-u",
-            "hop3",
-            "-h",
-            "127.0.0.1",
-            "-e",
-            "SELECT 1;",
-        ],
-        check=False,
+    _check_mysql_password(mysql_password)
+    for host in ("localhost", "127.0.0.1"):
+        _run_admin_sql(root_cmd, root_env,
+                       f"DROP USER IF EXISTS 'hop3'@'{host}';",
+                       f"drop user hop3@{host}")  # fmt: skip
+        _run_admin_sql(
+            root_cmd,
+            root_env,
+            f"CREATE USER 'hop3'@'{host}' IDENTIFIED WITH mysql_native_password "
+            f"BY '{mysql_password}';",
+            f"create user hop3@{host}",
+        )
+        _run_admin_sql(
+            root_cmd,
+            root_env,
+            f"GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'{host}' WITH GRANT OPTION;",
+            f"grant privileges to hop3@{host}",
+        )
+    _run_admin_sql(root_cmd, root_env, "FLUSH PRIVILEGES;", "flush privileges")
+
+
+def _verify_mysql_hop3_connection(mysql_password: str) -> None:
+    """
+    Connect as hop3 over TCP, or raise with mysql's output.
+
+    SECURITY: the password goes through MYSQL_PWD, never -p{password}, which
+    would expose it in /proc/<pid>/cmdline; see notes/security.md §3.4.1.
+    """
+    run_cmd(
+        ["mysql", "-u", "hop3", "-h", "127.0.0.1", "-e", "SELECT 1;"],
         env={"MYSQL_PWD": mysql_password},
     )
-
-    if result.returncode != 0:
-        print_warning("MySQL user created but connection verification failed")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    return True
 
 
 def _configure_mysql_bind_address(docker_ip: str) -> bool:
     """
-    Configure MySQL to bind to Docker bridge address.
+    Make MySQL listen where Docker containers can reach it.
 
-    Args:
-        docker_ip: Docker bridge IP address.
+    MySQL's bind-address takes one address, so it listens on all interfaces
+    and access is limited by the user host patterns.
 
     Returns:
-        True if configuration was updated.
+        True if the configuration changed (a restart is needed).
     """
-    # Find MySQL config file
-    mysql_conf = None
-    for path in MYSQL_CONF_PATHS:
-        if path.exists():
-            mysql_conf = path
-            break
-
-    if not mysql_conf:
-        print_warning("MySQL config file not found, skipping bind configuration")
-        return False
+    mysql_conf = next((path for path in MYSQL_CONF_PATHS if path.exists()), None)
+    if mysql_conf is None:
+        paths = ", ".join(str(path) for path in MYSQL_CONF_PATHS)
+        msg = f"no MySQL configuration file found ({paths}) to set bind-address in"
+        raise InstallStepError(msg)
 
     content = mysql_conf.read_text()
-
-    # Check if already configured for Docker
-    if docker_ip in content:
-        print_detail(f"MySQL already configured for Docker bridge ({docker_ip})")
-        return False
-
-    # MySQL bind-address only accepts a single address, so we need to use 0.0.0.0
-    # to listen on all interfaces, then rely on firewall/iptables for security
-    # Alternatively, we can bind to a specific interface
-    # For simplicity, we'll bind to 0.0.0.0 but this is controlled by user permissions
     new_bind = "bind-address = 0.0.0.0"
+    if new_bind in content:
+        print_detail("MySQL already listens on all interfaces")
+        return False
 
     if re.search(r"^#?\s*bind-address\s*=", content, re.MULTILINE):
         content = re.sub(
-            r"^#?\s*bind-address\s*=.*$",
-            new_bind,
-            content,
-            flags=re.MULTILINE,
+            r"^#?\s*bind-address\s*=.*$", new_bind, content, flags=re.MULTILINE
         )
-        print_detail("Updated MySQL bind-address to 0.0.0.0 (for Docker access)")
+    elif "[mysqld]" in content:
+        content = content.replace("[mysqld]", f"[mysqld]\n{new_bind}")
     else:
-        # Add under [mysqld] section if it exists
-        if "[mysqld]" in content:
-            content = content.replace(
-                "[mysqld]",
-                f"[mysqld]\n{new_bind}",
-            )
-        else:
-            content = f"[mysqld]\n{new_bind}\n{content}"
-        print_detail("Added MySQL bind-address: 0.0.0.0 (for Docker access)")
-
+        content = f"[mysqld]\n{new_bind}\n{content}"
     mysql_conf.write_text(content)
+    print_detail("MySQL bind-address set to 0.0.0.0 (for Docker access)")
     return True
 
 
 def _create_mysql_docker_user(
-    root_cmd: list[str],
-    root_env: dict[str, str],
-    mysql_password: str,
-    docker_ip: str,
-) -> bool:
-    """
-    Create hop3 MySQL user for Docker network access.
-
-    Args:
-        root_cmd: Working MySQL admin command.
-        root_env: Env overrides for every admin call (see
-            ``_find_mysql_admin_connection`` for why this is separate
-            from argv).
-        mysql_password: Password for hop3 user.
-        docker_ip: Docker bridge IP address.
-
-    Returns:
-        True if user created successfully, False otherwise.
-    """
-    if not _validate_mysql_password(mysql_password):
-        return False
-
-    def run_sql(sql: str) -> subprocess.CompletedProcess:
-        return run_cmd(root_cmd + ["-e", sql], check=False, env=root_env)
-
-    # Docker bridge network is typically 172.17.0.0/16
-    # Extract network pattern (e.g., 172.17.%)
+    root_cmd: list[str], root_env: dict[str, str], mysql_password: str, docker_ip: str
+) -> None:
+    """Create the hop3 MySQL user for the Docker bridge network (e.g. 172.17.%)."""
+    _check_mysql_password(mysql_password)
     parts = docker_ip.split(".")
-    docker_network_pattern = f"{parts[0]}.{parts[1]}.%"
-
-    # Drop existing Docker network user if exists
-    run_sql(f"DROP USER IF EXISTS 'hop3'@'{docker_network_pattern}';")
-
-    # Create hop3 user for Docker network
-    result = run_sql(
-        f"CREATE USER 'hop3'@'{docker_network_pattern}' "
-        f"IDENTIFIED WITH mysql_native_password BY '{mysql_password}';"
+    pattern = f"{parts[0]}.{parts[1]}.%"
+    _run_admin_sql(root_cmd, root_env,
+                   f"DROP USER IF EXISTS 'hop3'@'{pattern}';",
+                   f"drop user hop3@{pattern}")  # fmt: skip
+    _run_admin_sql(
+        root_cmd,
+        root_env,
+        f"CREATE USER 'hop3'@'{pattern}' IDENTIFIED WITH mysql_native_password "
+        f"BY '{mysql_password}';",
+        f"create user hop3@{pattern}",
     )
-    if result.returncode != 0:
-        print_warning(f"Failed to create MySQL user 'hop3'@'{docker_network_pattern}'")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    # Grant privileges
-    result = run_sql(
-        f"GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'{docker_network_pattern}' "
-        "WITH GRANT OPTION;"
+    _run_admin_sql(
+        root_cmd,
+        root_env,
+        f"GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'{pattern}' WITH GRANT OPTION;",
+        f"grant privileges to hop3@{pattern}",
     )
-    if result.returncode != 0:
-        print_warning(f"Failed to grant privileges to hop3@{docker_network_pattern}")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    run_sql("FLUSH PRIVILEGES;")
-    print_detail(
-        f"MySQL user 'hop3' configured for Docker network ({docker_network_pattern})"
-    )
-    return True
+    _run_admin_sql(root_cmd, root_env, "FLUSH PRIVILEGES;", "flush privileges")
+    print_detail(f"MySQL user 'hop3' configured for Docker network ({pattern})")
 
 
 def _configure_mysql_for_docker(
-    root_cmd: list[str],
-    root_env: dict[str, str],
-    mysql_password: str,
+    root_cmd: list[str], root_env: dict[str, str], mysql_password: str
 ) -> None:
-    """
-    Configure MySQL for Docker container access.
-
-    Args:
-        root_cmd: Working MySQL admin command.
-        root_env: Env overrides for every admin call.
-        mysql_password: Password for hop3 user.
-    """
+    """Let Docker containers reach MySQL, when the Docker bridge exists."""
     docker_ip = get_docker_bridge_ip()
     if not docker_ip:
-        print_detail(
-            "Docker bridge not found, MySQL will only accept local connections"
-        )
+        print_detail("No Docker bridge: MySQL accepts local connections only")
         return
 
-    # Configure bind address
     bind_changed = _configure_mysql_bind_address(docker_ip)
-
-    # Create user for Docker network
     _create_mysql_docker_user(root_cmd, root_env, mysql_password, docker_ip)
-
-    if bind_changed:
-        # Restart MySQL to apply bind-address change. The message below used to
-        # print whichever way the restart went: on a non-systemd host both
-        # `systemctl restart` calls failed, MySQL kept its old bind address, and
-        # the installer announced that Docker containers could reach it.
-        if not _restart_mysql():
-            print_warning(
-                "MySQL bind-address was changed but the service could not be "
-                "restarted; Docker containers will not reach it until it is"
-            )
-            return
-        print_detail("MySQL configured to accept connections from Docker containers")
+    if bind_changed and not _restart_mysql():
+        msg = (
+            "MySQL's bind-address was changed but the service did not restart, "
+            "so Docker containers cannot reach it"
+        )
+        raise InstallStepError(msg)
+    print_detail("MySQL configured to accept connections from Docker containers")
 
 
 def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
@@ -432,48 +316,41 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
     Configure MySQL.
 
     Returns:
-        The generated MySQL password for hop3 user, or None if skipped/failed.
+        The verified password of the hop3 MySQL user, or None when MySQL was
+        not requested.
+
+    Raises:
+        CommandError, InstallStepError: a step failed.
     """
     if not config.with_mysql:
         return None
 
     print_info("Configuring MySQL...")
-
-    # Start MySQL service
     if not _start_mysql_service():
-        print_warning("Could not start MySQL service")
-        return None
+        msg = f"MySQL did not start (tried: {', '.join(_MYSQL_SERVICE_NAMES)})"
+        raise InstallStepError(msg)
     print_success("MySQL service started")
 
-    # Find a working admin connection
     admin = _find_mysql_admin_connection()
-
     if admin is None:
-        print_warning("Could not connect to MySQL as admin")
-        print_detail("Please check MySQL is running and has default authentication")
-        print_detail("You may need to configure MySQL manually")
-        return None
+        msg = (
+            "no admin connection to MySQL works (socket auth as root, sudo, "
+            "root without a password, the Debian maintenance user)"
+        )
+        raise InstallStepError(msg)
     mysql_root_cmd, mysql_root_env = admin
 
-    # Reuse the password from a prior install if present — never rotate the
-    # admin secret on redeploy (rotation desyncs the stored credential from the
-    # MySQL user). Only a fresh install generates a new one.
+    # Reuse the password from a prior install — never rotate it on redeploy:
+    # rotation desyncs the stored credential from the MySQL user.
     existing_pw = read_existing_server_config_value("MYSQL_SUPERUSER_PASSWORD")
     mysql_password = existing_pw or ("hop3_" + secrets.token_hex(16))
 
-    # Create-or-update the hop3 user with privileges (idempotent: re-asserts the
-    # same password on redeploy).
-    if not _create_mysql_hop3_user(mysql_root_cmd, mysql_root_env, mysql_password):
-        return None
+    # Idempotent: re-asserts the same password on redeploy.
+    _create_mysql_hop3_user(mysql_root_cmd, mysql_root_env, mysql_password)
     verb = "reused" if existing_pw else "created"
     print_success(f"MySQL user 'hop3' {verb} with privileges")
 
-    # Configure for Docker container access
     _configure_mysql_for_docker(mysql_root_cmd, mysql_root_env, mysql_password)
-
-    # Verify the connection works
-    if not _verify_mysql_hop3_connection(mysql_password):
-        return None
-
+    _verify_mysql_hop3_connection(mysql_password)
     print_success("MySQL connection verified successfully")
     return mysql_password

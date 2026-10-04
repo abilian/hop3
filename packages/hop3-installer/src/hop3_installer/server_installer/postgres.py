@@ -11,11 +11,11 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    InstallStepError,
     has_systemd,
     print_detail,
     print_info,
     print_success,
-    print_warning,
     run_cmd,
 )
 from hop3_installer.constants import HOP3_USER
@@ -57,6 +57,16 @@ def _find_postgres_conf_dir() -> Path | None:
     return None
 
 
+def _postgres_conf_dir() -> Path:
+    """The running cluster's config directory, which must exist by now."""
+    conf_dir = _find_postgres_conf_dir()
+    if conf_dir is None:
+        dirs = ", ".join(str(d) for d in POSTGRES_CONF_DIRS)
+        msg = f"no PostgreSQL configuration found under {dirs}"
+        raise InstallStepError(msg)
+    return conf_dir
+
+
 def _configure_postgres_listen_addresses(_unused: str = "") -> bool:
     """
     Configure PostgreSQL to listen on all interfaces for Docker access.
@@ -68,16 +78,7 @@ def _configure_postgres_listen_addresses(_unused: str = "") -> bool:
     Returns:
         True if configuration was updated.
     """
-    conf_dir = _find_postgres_conf_dir()
-    if not conf_dir:
-        print_warning("PostgreSQL config directory not found")
-        return False
-
-    postgresql_conf = conf_dir / "postgresql.conf"
-    if not postgresql_conf.exists():
-        print_warning(f"postgresql.conf not found at {postgresql_conf}")
-        return False
-
+    postgresql_conf = _postgres_conf_dir() / "postgresql.conf"
     content = postgresql_conf.read_text()
 
     # Check if already configured to listen on all interfaces
@@ -113,14 +114,10 @@ def _configure_postgres_hba(_unused: str = "") -> bool:
     Returns:
         True if configuration was updated.
     """
-    conf_dir = _find_postgres_conf_dir()
-    if not conf_dir:
-        return False
-
-    pg_hba = conf_dir / "pg_hba.conf"
+    pg_hba = _postgres_conf_dir() / "pg_hba.conf"
     if not pg_hba.exists():
-        print_warning(f"pg_hba.conf not found at {pg_hba}")
-        return False
+        msg = f"{pg_hba} not found: the PostgreSQL cluster is incomplete"
+        raise InstallStepError(msg)
 
     content = pg_hba.read_text()
 
@@ -170,233 +167,126 @@ def _validate_postgres_password(password: str) -> bool:
     return bool(password) and bool(_POSTGRES_PASSWORD_RE.fullmatch(password))
 
 
-def _set_hop3_postgres_password() -> str | None:
+def _configure_postgres_for_docker() -> None:
     """
-    Set a password for the hop3 PostgreSQL user (for Docker connections).
+    Let Docker containers reach PostgreSQL, when Docker is installed.
 
-    Returns:
-        The generated password, or None if failed.
+    Listen on every interface, with pg_hba.conf admitting only the RFC1918
+    ranges Docker draws its networks from (password auth). The docker0 bridge
+    may not exist yet; Compose networks are created later.
     """
-    hop3_pg_password = "hop3app_" + secrets.token_hex(12)
-    if not _validate_postgres_password(hop3_pg_password):
-        print_warning("Generated postgres password failed shape check")
-        return None
-
-    sql_cmd = f"ALTER USER {HOP3_USER} PASSWORD '{hop3_pg_password}';"
-    result = run_cmd(
-        ["su", "-", "postgres", "-c", f'psql -c "{sql_cmd}"'],
-        check=False,
-    )
-
-    if result.returncode != 0:
-        print_warning("Could not set hop3 PostgreSQL user password")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return None
-
-    print_detail("hop3 PostgreSQL user password configured for Docker access")
-    return hop3_pg_password
-
-
-def _configure_postgres_for_docker() -> str | None:
-    """
-    Configure PostgreSQL for Docker container access.
-
-    Always configures PostgreSQL for Docker networks since Hop3 supports
-    Docker deployments. The docker0 bridge may not exist yet if Docker
-    isn't running, but docker-compose networks will be created later.
-
-    Returns:
-        The hop3 user password if configured, None otherwise.
-    """
-    # Check if Docker is installed (not necessarily running)
     docker_installed = (
         Path("/usr/bin/docker").exists() or Path("/usr/local/bin/docker").exists()
     )
     if not docker_installed:
         print_detail("Docker not installed, skipping PostgreSQL Docker configuration")
-        return None
+        return
 
-    # Configure listen_addresses (always, for future Docker usage)
     listen_changed = _configure_postgres_listen_addresses("docker")
-
-    # Configure pg_hba.conf (always, for future Docker usage)
     hba_changed = _configure_postgres_hba("docker")
-
-    # Set password for hop3 user (needed for md5 auth from Docker)
-    hop3_password = None
     if listen_changed or hba_changed:
-        hop3_password = _set_hop3_postgres_password()
-
-    if listen_changed or hba_changed:
-        # Restart PostgreSQL to apply changes
         _restart_postgres()
         print_detail(
             "PostgreSQL configured to accept connections from Docker containers"
         )
 
-    return hop3_password
 
-
-def _start_postgres_service(distro: str) -> bool:
+def _start_postgres_service(distro: str) -> None:
     """
-    Start PostgreSQL service.
+    Start PostgreSQL, or raise with the reason.
 
-    Uses systemd when available (bare-metal, VMs), falls back to
-    ``pg_ctlcluster`` under supervisord (Docker test containers).
-
-    Args:
-        distro: Distribution name.
-
-    Returns:
-        True if service started successfully.
+    Uses systemd when available (bare-metal, VMs), and ``pg_ctlcluster`` or
+    ``pg_ctl`` under supervisord (Docker test containers).
     """
-    # Initialize PostgreSQL on Fedora (required before first start)
-    if distro == "fedora":
-        if not Path("/var/lib/pgsql/data/pg_hba.conf").exists():
-            result = run_cmd(["postgresql-setup", "--initdb"], check=False)
-            if result.returncode != 0:
-                print_warning("PostgreSQL initialization failed")
-                if result.stderr:
-                    print_detail(result.stderr[:200])
+    # Fedora's cluster must be initialised before its first start.
+    if distro == "fedora" and not Path("/var/lib/pgsql/data/pg_hba.conf").exists():
+        run_cmd(["postgresql-setup", "--initdb"])
 
     if has_systemd():
-        return _start_postgres_systemd()
-
-    # Non-systemd: use pg_ctlcluster (Debian) or pg_ctl (Fedora)
-    return _start_postgres_direct()
+        run_cmd(["systemctl", "enable", "postgresql"])
+        run_cmd(["systemctl", "start", "postgresql"])
+        return
+    _start_postgres_direct()
 
 
 def _restart_postgres() -> None:
     """Restart PostgreSQL using the appropriate init system."""
     if has_systemd():
-        run_cmd(["systemctl", "restart", "postgresql"], check=False)
-    else:
-        # Debian: pg_ctlcluster <version> main restart
-        pg_versions = (
-            sorted(Path("/etc/postgresql").iterdir(), reverse=True)
-            if Path("/etc/postgresql").exists()
-            else []
-        )
-        for version_dir in pg_versions:
-            if (version_dir / "main").exists():
-                run_cmd(
-                    ["pg_ctlcluster", version_dir.name, "main", "restart"],
-                    check=False,
-                )
-                return
-        # Fedora fallback
-        run_cmd(
-            ["su", "-", "postgres", "-c", "pg_ctl restart -D /var/lib/pgsql/data"],
-            check=False,
-        )
+        run_cmd(["systemctl", "restart", "postgresql"])
+        return
+    version = _debian_cluster_version()
+    if version:
+        run_cmd(["pg_ctlcluster", version, "main", "restart"])
+        return
+    run_cmd(["su", "-", "postgres", "-c", "pg_ctl restart -D /var/lib/pgsql/data"])
 
 
-def _start_postgres_systemd() -> bool:
-    """Start PostgreSQL via systemd."""
-    result = run_cmd(["systemctl", "enable", "postgresql"], check=False)
-    if result.returncode != 0:
-        print_warning("Failed to enable PostgreSQL service")
-
-    result = run_cmd(["systemctl", "start", "postgresql"], check=False)
-    if result.returncode != 0:
-        print_warning("Could not start PostgreSQL via systemd")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
-    return True
+def _debian_cluster_version() -> str | None:
+    """The newest Debian cluster's version (``/etc/postgresql/<v>/main``)."""
+    root = Path("/etc/postgresql")
+    if not root.exists():
+        return None
+    versions = sorted(
+        (d.name for d in root.iterdir() if (d / "main").exists()), reverse=True
+    )
+    return versions[0] if versions else None
 
 
-def _start_postgres_direct() -> bool:
+def _start_postgres_direct() -> None:
     """
     Start PostgreSQL without systemd (containers, non-systemd hosts).
 
-    On Debian/Ubuntu, ``pg_ctlcluster`` starts a specific cluster.
-    On Fedora/RHEL, ``pg_ctl`` starts the data directory directly.
+    On Debian/Ubuntu, ``pg_ctlcluster`` starts the newest cluster; on
+    Fedora/RHEL, ``pg_ctl`` starts the data directory. A cluster that fails to
+    start raises: falling back to an older one started the wrong version and
+    reported success.
     """
     print_detail("systemd not available, starting PostgreSQL directly")
 
-    # Debian/Ubuntu: pg_ctlcluster <version> <cluster> start
-    pg_versions = (
-        sorted(Path("/etc/postgresql").iterdir(), reverse=True)
-        if Path("/etc/postgresql").exists()
-        else []
-    )
-    for version_dir in pg_versions:
-        cluster_dir = version_dir / "main"
-        if cluster_dir.exists():
-            version = version_dir.name
-            print_detail(f"Starting PostgreSQL {version}/main via pg_ctlcluster")
-            result = run_cmd(
-                ["pg_ctlcluster", version, "main", "start"],
-                check=False,
+    version = _debian_cluster_version()
+    if version:
+        print_detail(f"Starting PostgreSQL {version}/main via pg_ctlcluster")
+        result = run_cmd(["pg_ctlcluster", version, "main", "start"], check=False)
+        # Exit code 2 means already running.
+        if result.returncode not in {0, 2}:
+            raise CommandError(
+                cmd=["pg_ctlcluster", version, "main", "start"],
+                returncode=result.returncode,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
             )
-            if result.returncode == 0:
-                print_success(f"PostgreSQL {version} started")
-                return True
-            # Exit code 2 means already running
-            if result.returncode == 2:
-                print_detail(f"PostgreSQL {version} already running")
-                return True
-            print_warning(
-                f"pg_ctlcluster {version} main start failed: "
-                f"{result.stderr[:200] if result.stderr else 'no output'}"
-            )
+        return
 
-    # Fedora/RHEL fallback: pg_ctl
     data_dir = Path("/var/lib/pgsql/data")
-    if data_dir.exists() and (data_dir / "postgresql.conf").exists():
-        result = run_cmd(
-            [
-                "su",
-                "-",
-                "postgres",
-                "-c",
-                f"pg_ctl start -D {data_dir} -l /var/log/postgresql.log",
-            ],
-            check=False,
-        )
-        if result.returncode == 0:
-            print_success("PostgreSQL started via pg_ctl")
-            return True
-        print_warning(
-            f"pg_ctl start failed: {result.stderr[:200] if result.stderr else ''}"
-        )
+    if (data_dir / "postgresql.conf").exists():
+        run_cmd(["su", "-", "postgres", "-c",
+                 f"pg_ctl start -D {data_dir} -l /var/log/postgresql.log"])  # fmt: skip
+        return
 
-    print_warning("Could not start PostgreSQL: no cluster found")
-    return False
+    msg = "no PostgreSQL cluster found (/etc/postgresql/<version>/main, /var/lib/pgsql/data)"
+    raise InstallStepError(msg)
 
 
-def _create_postgres_role_and_db() -> bool:
+def _create_postgres_role_and_db() -> None:
     """
-    Create hop3 PostgreSQL role and database.
+    Create the hop3 PostgreSQL role and database; existing ones are kept.
 
-    Returns:
-        True if created successfully (or already exists).
+    A failure used to be printed as a detail line and followed by a success
+    line, so the install went on without the role every app is created by.
     """
-    try:
-        # Create role (--createdb allows it to create databases for apps)
-        result = run_cmd(
-            ["su", "-", "postgres", "-c", f"createuser --createdb {HOP3_USER}"],
-            check=False,
-        )
+    for command in (
+        f"createuser --createdb {HOP3_USER}",
+        f"createdb -O {HOP3_USER} hop3",
+    ):
+        result = run_cmd(["su", "-", "postgres", "-c", command], check=False)
         if result.returncode != 0 and "already exists" not in (result.stderr or ""):
-            print_detail(f"createuser result: {result.stderr or result.stdout}")
-
-        # Create default database
-        result = run_cmd(
-            ["su", "-", "postgres", "-c", f"createdb -O {HOP3_USER} hop3"],
-            check=False,
-        )
-        if result.returncode != 0 and "already exists" not in (result.stderr or ""):
-            print_detail(f"createdb result: {result.stderr or result.stdout}")
-
-        print_success("PostgreSQL role and database created")
-        return True
-    except CommandError as e:
-        print_warning(f"PostgreSQL role/database creation issue: {e}")
-        return False
+            raise CommandError(
+                cmd=["su", "-", "postgres", "-c", command],
+                returncode=result.returncode,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
+            )
+    print_success("PostgreSQL role and database created")
 
 
 # Verifying the superuser password can race a cluster that is still starting
@@ -421,7 +311,7 @@ def _verify_superuser_tcp(password: str) -> bool:
     return result.returncode == 0
 
 
-def _set_postgres_password(existing: str | None = None) -> str | None:
+def _set_postgres_password(existing: str | None = None) -> str:
     """
     (Re-)assert the postgres superuser password AND verify it over TCP.
 
@@ -430,11 +320,14 @@ def _set_postgres_password(existing: str | None = None) -> str | None:
     re-asserted via ``ALTER USER`` — which reconciles a cluster that survived a
     ``rm -rf /home/hop3`` teardown — and then verified over the TCP path the
     server actually uses. Only a password that authenticates is returned; a
-    value that can't be verified yields ``None`` so the install fails loud
-    rather than shipping a hop3-server.toml the role won't honour.
+    value that can't be verified raises, rather than shipping a
+    hop3-server.toml the role won't honour.
 
     Returns:
-        The verified password, or None if it could not be set and verified.
+        The verified password.
+
+    Raises:
+        InstallStepError: it could not be set and verified.
     """
     pg_password = existing or ("hop3_" + secrets.token_hex(16))
     if not _validate_postgres_password(pg_password):
@@ -443,8 +336,12 @@ def _set_postgres_password(existing: str | None = None) -> str | None:
         if existing and _verify_superuser_tcp(existing):
             print_info("Reusing existing PostgreSQL superuser password")
             return existing
-        print_warning("PostgreSQL superuser password failed shape check")
-        return None
+        msg = (
+            "the PostgreSQL superuser password in hop3-server.toml is not "
+            "[A-Za-z0-9_]+ and does not authenticate either, so it can be "
+            "neither re-asserted nor kept"
+        )
+        raise InstallStepError(msg)
 
     sql_cmd = f"ALTER USER postgres PASSWORD '{pg_password}';"
     for attempt in range(_SUPERUSER_VERIFY_ATTEMPTS):
@@ -459,35 +356,18 @@ def _set_postgres_password(existing: str | None = None) -> str | None:
         if attempt < _SUPERUSER_VERIFY_ATTEMPTS - 1:
             time.sleep(_SUPERUSER_VERIFY_DELAY)
 
-    print_warning(
-        "PostgreSQL superuser password could not be verified over TCP "
-        "(127.0.0.1:5432 as 'postgres'). The role and hop3-server.toml would "
-        "disagree, so addon provisioning would fail — refusing to ship it."
+    msg = (
+        "the PostgreSQL superuser password could not be verified over TCP "
+        "(127.0.0.1:5432 as 'postgres'): the role and hop3-server.toml would "
+        "disagree, and every PostgreSQL addon would fail to provision"
     )
-    return None
+    raise InstallStepError(msg)
 
 
-def _verify_postgres_connection() -> bool:
-    """
-    Verify PostgreSQL connection works for hop3 user.
-
-    Returns:
-        True if connection verified successfully.
-    """
-    # Test connection as hop3 user via peer authentication
-    result = run_cmd(
-        ["su", "-", HOP3_USER, "-c", "psql -d hop3 -c 'SELECT 1;'"],
-        check=False,
-    )
-
-    if result.returncode != 0:
-        print_warning("PostgreSQL connection verification failed")
-        if result.stderr:
-            print_detail(result.stderr[:200])
-        return False
-
+def _verify_postgres_connection() -> None:
+    """Connect as hop3 by peer authentication, or raise with psql's output."""
+    run_cmd(["su", "-", HOP3_USER, "-c", "psql -d hop3 -c 'SELECT 1;'"])
     print_success("PostgreSQL connection verified")
-    return True
 
 
 def setup_postgres(config: ServerInstallerConfig, distro: str) -> str | None:
@@ -495,37 +375,24 @@ def setup_postgres(config: ServerInstallerConfig, distro: str) -> str | None:
     Configure PostgreSQL.
 
     Returns:
-        The generated postgres superuser password, or None if skipped/failed.
+        The verified postgres superuser password, or None when skipped.
+
+    Raises:
+        CommandError, InstallStepError: a step failed.
     """
     if config.skip_postgres:
         print_info("Skipping PostgreSQL setup (--skip-postgres)")
         return None
 
     print_info("Configuring PostgreSQL...")
-
-    # Start service
-    if not _start_postgres_service(distro):
-        return None
+    _start_postgres_service(distro)
     print_success("PostgreSQL service started")
-
-    # Create role and database
-    if not _create_postgres_role_and_db():
-        print_warning(
-            "PostgreSQL role/database creation had issues - continuing anyway"
-        )
+    _create_postgres_role_and_db()
 
     # Set (or, on redeploy, reuse) the superuser password — never rotate it.
     existing_pw = read_existing_server_config_value("POSTGRES_SUPERUSER_PASSWORD")
     pg_password = _set_postgres_password(existing_pw)
-    if pg_password is None:
-        return None
 
-    # Configure for Docker container access
     _configure_postgres_for_docker()
-
-    # Verify connection
-    if not _verify_postgres_connection():
-        print_warning("PostgreSQL setup completed but verification failed")
-        # Still return the password - the setup might be usable
-
+    _verify_postgres_connection()
     return pg_password
