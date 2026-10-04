@@ -3,6 +3,9 @@
 """
 Email backend pre-stage (`--with email`): install Postfix, inert.
 
+Mailpit, the catch backend's sink, is installed after the hop3 user exists
+(``mailpit.py``).
+
 Only makes the package present — it never writes ``main.cf``, sets a relayhost,
 or starts an MTA. Backend selection configures the loopback relay later via the
 hop3-rootd ``postfix.configure`` op (ADR 054). On Debian the debconf

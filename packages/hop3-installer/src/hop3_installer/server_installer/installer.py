@@ -45,6 +45,7 @@ from .deps_common import (
     install_node_global_packages,
     install_rust_toolchain,
 )
+from .mailpit import install_mailpit
 from .mysql import setup_mysql
 from .nginx import setup_nginx
 from .nix import install_nix
@@ -157,6 +158,11 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     # Fix-up files that step 1 wrote before the hop3 group existed.
     # This is a no-op if the relevant features weren't enabled.
     fix_s3_env_ownership()
+
+    # The email catch sink runs as the hop3 user, so it comes after step 2;
+    # Postfix itself was pre-staged with the system packages.
+    if config.with_email:
+        install_mailpit()
 
     # Install optional toolchains (needs hop3 user to exist)
     print_info("Installing optional toolchains...")

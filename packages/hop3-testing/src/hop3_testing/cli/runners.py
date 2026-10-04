@@ -19,6 +19,7 @@ from hop3_testing.runners import (
     DeploymentTestRunner,
     TutorialTestRunner,
 )
+from hop3_testing.targets.admin import ensure_admin_token, run_as_admin
 from hop3_testing.targets.constants import HOP3_SERVER_BIN
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
@@ -112,6 +113,43 @@ def _filter_by_admin_domain(
             "--admin-domain."
         )
     return [t for t in tests if not t.requirements.admin_domain]
+
+
+#: The sending domain the email catch backend is selected with. Any bare
+#: domain does: mail is captured, never delivered, and an inheriting app's
+#: From is placed on it.
+_CATCH_FROM_DOMAIN = "hop3.test"
+
+
+def _select_email_catch(
+    tests: list[TestDefinition],
+    target: DeploymentTarget,
+    console: PrintingConsole,
+) -> None:
+    """
+    Select the email catch backend when a selected app declares email.
+
+    Without a backend an email addon leaves its app without outbound mail,
+    which then cannot be observed; with `catch`, Mailpit (installed by
+    `--with email`) captures it. The effect is verified through `server email
+    status`, never the exit code: the CLI exits 0 on an error item.
+    """
+    if not any("email" in t.requirements.services for t in tests):
+        return
+    ensure_admin_token(target)
+    _, out, err = run_as_admin(
+        target, "server", "email", "backend", "catch",
+        "--from-domain", _CATCH_FROM_DOMAIN,
+    )  # fmt: skip
+    _, status, status_err = run_as_admin(target, "server", "email", "status")
+    if "answering" not in status:
+        msg = (
+            "Could not select the email catch backend for the apps that "
+            f"declare email: {(err or out).strip()[:300]} / status: "
+            f"{(status_err or status).strip()[:300]}"
+        )
+        raise RuntimeError(msg)
+    console.status("Email: catch backend selected; captured mail is in Mailpit")
 
 
 def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
@@ -317,6 +355,8 @@ def run_tests(
     if not tests:
         console.error("No tests remaining: every one needs an admin domain")
         sys.exit(1)
+
+    _select_email_catch(tests, target, console)
 
     # Tutorials run ON the server (controlled toolchains; `hop3 deploy` targets
     # localhost). Prepare the host once if the selection includes any tutorial.

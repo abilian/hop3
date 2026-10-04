@@ -19,6 +19,7 @@ from hop3_cli.core.auto_auth import auto_authenticate
 from hop3_cli.core.ssh_target import SSH_SCHEMES, SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
+from hop3_cli.tokens import bearer_header
 from hop3_cli.ui.upload_progress import upload_body
 
 if TYPE_CHECKING:
@@ -319,7 +320,7 @@ class Client:
         headers = {"Content-Type": "application/json"}
         api_token = self.config.get_api_token()
         if api_token:
-            headers["Authorization"] = f"Bearer {api_token}"
+            headers["Authorization"] = bearer_header(api_token)
         return headers
 
     def _parse_response(

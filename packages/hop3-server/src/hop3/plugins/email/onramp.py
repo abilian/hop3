@@ -20,6 +20,8 @@ from typing import TYPE_CHECKING
 
 from hop3.lib.rootd import LocalRootdClient, RootdError
 
+from .catcher import CatcherError, check_sink_answers
+
 if TYPE_CHECKING:
     from .email import EmailTransport
 
@@ -54,10 +56,19 @@ def configure_relay_backend(transport: EmailTransport) -> str | None:
 
 def configure_catch_backend() -> str | None:
     """
-    Point the loopback Postfix relay at a local dev sink (Mailpit).
+    Point the loopback Postfix relay at the local dev sink (Mailpit).
 
-    Returns the reload method, or ``None`` when skipped in tests.
+    The sink must answer first: selecting `catch` with nothing listening used
+    to succeed, and every message was then deferred, never captured.
+
+    Returns the reload method, or ``None`` when skipped in tests. Raises
+    :class:`OnRampError` if the sink does not answer or the op fails.
     """
+    if not _in_unit_tests():
+        try:
+            check_sink_answers()
+        except CatcherError as e:
+            raise OnRampError(str(e)) from e
     return _reloaded(_configure({"mode": "catch"}, "catch sink"))
 
 
@@ -85,9 +96,15 @@ def _reloaded(result: dict[str, object] | None) -> str | None:
     return None if result is None else str(result.get("reloaded", "rootd"))
 
 
+def _in_unit_tests() -> bool:
+    """Unit and integration tests run without a live daemon or sink; E2E does."""
+    return bool(os.environ.get("PYTEST_CURRENT_TEST")) and not os.environ.get(
+        "HOP3_E2E_TEST"
+    )
+
+
 def _configure(args: dict[str, object], what: str) -> dict[str, object] | None:
-    # Skip in unit/integration tests (no live daemon), but NOT in E2E.
-    if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get("HOP3_E2E_TEST"):
+    if _in_unit_tests():
         return None
 
     try:

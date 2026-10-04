@@ -178,6 +178,7 @@ admin = [
     "network add",
     "network rm",
     "server email backend",
+    "server email caught",  # captured mail carries reset links and tokens
     "server email notifications",
     "server email set",
     "server email status",

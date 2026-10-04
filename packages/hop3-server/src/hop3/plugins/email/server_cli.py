@@ -30,6 +30,7 @@ from hop3.orm.repositories import (
     UserRepository,  # ruff:ignore[typing-only-first-party-import]
 )
 
+from .catcher import SINK_SMTP, CatcherError, caught_messages, check_sink_answers
 from .cli import _EXPERIMENTAL_MSG, _deliverability_items
 from .email import EmailTransport
 from .onramp import (
@@ -40,11 +41,15 @@ from .onramp import (
 )
 from .providers import ProviderProfile, get_provider, list_providers, provider_names
 from .server_transport import (
+    CATCH_BACKEND,
+    DIRECT_BACKEND,
+    load_server_backend_kind,
     load_server_dkim_selector,
     load_server_transport,
     save_server_catch,
     save_server_direct,
     save_server_transport,
+    server_sending_domain,
 )
 
 _TYPE = "email"
@@ -478,6 +483,25 @@ class ServerEmailStatusCmd(Command):
 
     def call(self, authenticated_username: str = "", *_args: str) -> list[dict]:
 
+        kind = load_server_backend_kind()
+        if kind == CATCH_BACKEND:
+            return [warning(_EXPERIMENTAL_MSG), *_catch_status_items()]
+        if kind == DIRECT_BACKEND:
+            domain = server_sending_domain() or ""
+            selector = load_server_dkim_selector()
+            return [
+                warning(_EXPERIMENTAL_MSG),
+                table(
+                    headers=["Field", "Value"],
+                    rows=[
+                        ["backend", "direct"],
+                        ["sending domain", domain],
+                        ["dkim selector", selector or ""],
+                    ],
+                ),
+                *_deliverability_items(domain, selector),
+            ]
+
         transport = load_server_transport()
         if transport is None:
             return [
@@ -503,6 +527,63 @@ class ServerEmailStatusCmd(Command):
             table(headers=["Field", "Value"], rows=rows),
             *_deliverability_items(domain, selector),
         ]
+
+
+def _catch_status_items() -> list[dict]:
+    """The catch backend's state: selected, and whether its sink answers."""
+    rows = [["backend", "catch (mail is captured, never delivered)"]]
+    try:
+        check_sink_answers()
+    except CatcherError as e:
+        return [table(headers=["Field", "Value"], rows=rows), error(str(e))]
+    rows.append(["sink", f"Mailpit on {SINK_SMTP[0]}:{SINK_SMTP[1]}, answering"])
+    return [
+        table(headers=["Field", "Value"], rows=rows),
+        text("Read captured mail: hop3 server email caught"),
+    ]
+
+
+@register
+@dataclass(frozen=True)
+class ServerEmailCaughtCmd(Command):
+    """
+    List the mail the catch backend captured, newest first — EXPERIMENTAL.
+
+    Usage: hop3 server email caught [--limit N]
+
+    The catch backend delivers nothing: every message an app sends lands in
+    the local Mailpit sink, read back here. Admin-only: captured mail can
+    carry password-reset links and sign-in tokens.
+    """
+
+    user_repo: UserRepository
+    name: ClassVar[tuple[str, ...]] = ("server", "email", "caught")
+    min_role: ClassVar[Role] = Role.ADMIN
+    pass_username: ClassVar[bool] = True
+
+    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
+        parsed = parse_cli_args(args, {"limit": {"type": str, "default": "20"}})
+        limit_arg = parsed["limit"]
+        if not str(limit_arg).isdigit() or int(limit_arg) < 1:
+            return [error(f"--limit must be a positive integer (got {limit_arg!r}).")]
+        if load_server_backend_kind() != CATCH_BACKEND:
+            return [
+                error(
+                    "The server email backend is not `catch`, so no mail is "
+                    "captured. Select it: hop3 server email backend catch "
+                    "--from-domain <domain>"
+                )
+            ]
+        try:
+            messages = caught_messages(int(limit_arg))
+        except CatcherError as e:
+            return [error(str(e))]
+        if not messages:
+            return [text("No mail captured yet.")]
+        rows = [
+            [m.created, m.sender, ", ".join(m.recipients), m.subject] for m in messages
+        ]
+        return [table(headers=["Received", "From", "To", "Subject"], rows=rows)]
 
 
 def _list_providers_items() -> list[dict]:
@@ -532,4 +613,5 @@ SERVER_COMMANDS: list[type[Command]] = [
     ServerEmailSetCmd,
     ServerEmailBackendCmd,
     ServerEmailStatusCmd,
+    ServerEmailCaughtCmd,
 ]

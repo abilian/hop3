@@ -187,7 +187,7 @@ hop3-install server --with email
 **Pick a backend** (admin-only):
 
 - **`relay`**: submit to a provider or corporate smarthost (Scaleway TEM, SES, SendGrid, Mailgun, Brevo, …); the provider owns deliverability. The recommended production backend, also spelled `server email set`.
-- **`catch`**: a local dev sink; mail is captured, never sent. The safe non-production default.
+- **`catch`**: a local dev sink; mail is captured, never sent. The safe non-production default. The sink is [Mailpit](https://mailpit.axllent.org/), which `--with email` installs and runs on loopback (SMTP 1025, API 8025); selecting `catch` checks that it answers. `hop3 server email caught` lists what it captured.
 - **`direct`** *(preview)*: a Hop3-run MTA that delivers to recipients itself and signs with DKIM, no third party (the sovereign path). Hop3 generates the DKIM keypair and prints the SPF/DKIM/DMARC records to publish. Preview in 0.7: it needs a systemd host with outbound port 25 unblocked (it fails loud otherwise), and fresh-IP reputation is your responsibility; full support lands in 0.8.
 
 Name a known provider with `--provider` and Hop3 fills the SMTP host/port (`--list-providers`: Resend, Postmark, Brevo, Mailgun / Mailgun-EU, Scaleway TEM; EU-hosted ones flagged):
@@ -201,6 +201,7 @@ hop3 server email backend relay --smtp-host smtp.example.com --smtp-user u \
     --smtp-password @./pw --from-domain example.com --dkim-selector s1
 # a dev sink — nothing is sent:
 hop3 server email backend catch --from-domain example.com
+hop3 server email caught        # the mail it captured, newest first
 # a self-hosted MTA — prints the DKIM/SPF/DMARC records to publish:
 hop3 server email backend direct --from-domain example.com
 

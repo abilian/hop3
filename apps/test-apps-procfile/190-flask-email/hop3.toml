@@ -1,0 +1,29 @@
+# Hop3 configuration for the email addon round-trip (ADR 054).
+
+[metadata]
+id = "flask-email"
+description = "Flask app sending mail through the Hop3 email addon, read back from the catch sink"
+
+# Inherits the server backend. The harness selects `catch` for any run that
+# includes an app declaring email, so the message lands in Mailpit.
+[[addons]]
+type = "email"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "email", "addons"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Email addon wired"
+
+# Sends a message with a fresh token through the injected relay (Postfix on
+# 127.0.0.1:25), then finds it in the catch sink: the whole path, by content.
+[[test.validations]]
+path = "/mail-roundtrip"
+status = 200
+contains = "captured"

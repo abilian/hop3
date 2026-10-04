@@ -25,6 +25,7 @@ from typing import TYPE_CHECKING
 import requests
 
 from hop3_cli.exceptions import DeploymentError
+from hop3_cli.tokens import bearer_header
 
 if TYPE_CHECKING:
     from hop3_cli.ui.rich_printer import RichPrinter
@@ -70,7 +71,7 @@ def stream_deployment_logs(
         "Cache-Control": "no-cache",
     }
     if token:
-        headers["Authorization"] = f"Bearer {token}"
+        headers["Authorization"] = bearer_header(token)
 
     try:
         # Use streaming mode to receive SSE events.

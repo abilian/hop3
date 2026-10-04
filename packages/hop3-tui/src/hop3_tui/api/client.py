@@ -11,6 +11,8 @@ from typing import Any
 from urllib.parse import urlparse
 
 import httpx
+from hop3_cli.exceptions import CliError
+from hop3_cli.tokens import bearer_header
 
 from hop3_tui.api.models import App, AppState, Backup, EnvVar, SystemStatus
 
@@ -132,7 +134,10 @@ class Hop3Client:
     def _get_headers(self) -> dict[str, str]:
         headers = {"Content-Type": "application/json"}
         if self.token:
-            headers["Authorization"] = f"Bearer {self.token}"
+            try:
+                headers["Authorization"] = bearer_header(self.token)
+            except CliError as e:  # the TUI reports client errors as its own
+                raise Hop3ClientError(str(e)) from e
         return headers
 
     def _next_request_id(self) -> int:

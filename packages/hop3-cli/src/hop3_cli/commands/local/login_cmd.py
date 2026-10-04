@@ -18,7 +18,7 @@ from jsonrpcclient import Error, Ok
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
 from hop3_cli.core.ssh_target import is_safe_ssh_target
 from hop3_cli.exit_codes import ExitCode
-from hop3_cli.tokens import extract_jwt
+from hop3_cli.tokens import bearer_header, extract_jwt
 
 from .help_text import print_login_help
 from .ssh_ops import (
@@ -840,7 +840,7 @@ def _https_unusable_because(api_url: str, token: str) -> str:
     try:
         requests.get(
             f"{api_url.rstrip('/')}/health",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": bearer_header(token)},
             timeout=HTTPS_PROBE_TIMEOUT,
             verify=True,
         )
@@ -1036,7 +1036,7 @@ def _verify_https_connection(
         # Try to connect with system CA bundle
         response = requests.get(
             f"{api_url.rstrip('/')}/health",
-            headers={"Authorization": f"Bearer {token}"},
+            headers={"Authorization": bearer_header(token)},
             timeout=HTTPS_PROBE_TIMEOUT,
             verify=True,  # Use system CA bundle
         )

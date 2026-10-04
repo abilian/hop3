@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **The `catch` email backend has a sink: Mailpit.** `--with email` installs it, pinned by version and SHA-256, and runs it on loopback under the process manager. Selecting `catch` checks that it answers; it used to point Postfix at a port nothing listened on, report success, and leave every message deferred. `hop3 server email caught` lists the captured mail, and `server email status` now names the active backend, where it reported no transport for `catch` and `direct`. `hop3-test` selects `catch` for a run that includes an app declaring email, and the `190-flask-email` fixture checks the whole path: a message sent through the injected relay, found in the sink.
+
 - **`[access]` puts an app behind a Hop3 sign-in.** With `require = "auth"`, a visitor without a session is sent to the sign-in on the admin domain and back to the page they asked for. `role` sets the lowest role admitted, and `public-paths` leaves webhooks and health checks open. The app learns who is asking from `X-Hop3-User` and `X-Hop3-Role`, which a client cannot forge, and never receives the gate's cookie. A sign-in link works only in the browser that started it, so nobody can sign a visitor in to their own account. One sign-in covers every gated app, and signing out of Hop3 signs out of all of them. Works on nginx, Caddy and Traefik. (ADR 062)
 
 - **`[proxy] deny` lists paths the proxy answers with 404.** `deny = ["/data"]` refuses `/data` and everything beneath it before the app or the disk sees the request, and a PHP script there is refused rather than run. It is for data an app keeps inside the tree it serves, which upstream protects with an `.htaccess` that nginx and Caddy never read. Traefik cannot refuse a path, so a deploy that declares one is refused there.
@@ -66,6 +68,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A token for a deleted or disabled account stops working on its next call.** `hop3` and `hop3-tui` now show the server's reason, where they used to print a bare "authentication required" or HTTP status.
 
 ### Security
+
+- **`hop3` and `hop3-tui` refuse a malformed API token without printing it.** A token holding a line break (two tokens read from one file) made the HTTP library reject the `Authorization` header with an error that quoted it, and the client printed that error, token included.
 
 - **A PHP app's hidden files are no longer served.** nginx served `.env`, `.htaccess` and anything else under a PHP app's document root whose name starts with a dot, apart from `.git`. nginx and Caddy now answer them with 404, except `/.well-known/`. The fix takes effect when an app is next deployed.
 
