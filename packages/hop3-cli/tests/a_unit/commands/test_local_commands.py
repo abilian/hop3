@@ -180,6 +180,40 @@ class TestVerifyToken:
         assert cfg.get_api_url() == "http://localhost:18000"
         assert cfg.get_api_token() == "tok-123"
 
+    def test_verify_token_sends_the_new_token_not_a_stored_one(self, monkeypatch):
+        """
+        A stored token for the same server, or one in the environment, does not
+        stand in for the token being verified.
+
+        After `hop3-deploy-server --docker --clean`, the store still held the
+        previous container's token for http://localhost:8000, signed with a
+        key that no longer exists; the check sent it, and the new token was
+        refused with "Authentication required" without ever being sent.
+        """
+        cs.set_token("http://localhost:8000", "stale-token")
+        monkeypatch.setenv("HOP3_API_TOKEN", "env-token")
+        monkeypatch.setenv("HOP3_API_URL", "http://elsewhere:8000")
+        captured: dict = {}
+
+        class _FakeClient:
+            def __init__(self, config, **_kwargs):
+                captured["url"] = config.get_api_url()
+                captured["token"] = config.get_api_token()
+
+            def __enter__(self):
+                return self
+
+            def __exit__(self, *_a):
+                return False
+
+            def rpc(self, _method, _params):
+                return Ok(id=1, result=[{"t": "text", "text": "Logged in as: admin"}])
+
+        with patch("hop3_cli.rpc.Client", _FakeClient):
+            _verify_token("http://localhost:8000", "new-token")
+
+        assert captured == {"url": "http://localhost:8000", "token": "new-token"}
+
 
 class TestVerifyHttpsConnection:
     """

@@ -78,7 +78,7 @@ def make_deployer(backend: _Backend, **cfg) -> Deployer:
 
 
 def test_writes_through_hop3_login_into_a_named_context(spawned):
-    make_deployer(_Backend())._setup_cli()
+    assert make_deployer(_Backend())._setup_cli()
 
     assert len(spawned) == 1, "one local command, not two `settings set` calls"
     argv = spawned[0]
@@ -111,7 +111,7 @@ def test_an_ssh_deploy_leaves_the_local_cli_alone(spawned):
     The banner gives `hop3 login <target>` instead, which negotiates HTTPS
     or a tunnel and says which.
     """
-    make_deployer(_Backend(), use_docker=False)._setup_cli()
+    assert make_deployer(_Backend(), use_docker=False)._setup_cli()
 
     assert spawned == []
 
@@ -129,7 +129,7 @@ def test_docker_targets_loopback_not_the_ambient_host(spawned):
 
 
 def test_no_token_means_no_login_and_no_success_claim(spawned, capsys):
-    make_deployer(_Backend(token=None))._setup_cli()
+    assert not make_deployer(_Backend(token=None))._setup_cli()
     assert spawned == [], "must not claim to log in without a token"
     assert "CLI configured" not in capsys.readouterr().out
 
@@ -141,7 +141,7 @@ def test_a_failed_login_is_not_reported_as_success(monkeypatch, capsys):
         )
 
     monkeypatch.setattr(deploy_mod.subprocess, "run", failing)
-    make_deployer(_Backend())._setup_cli()
+    assert not make_deployer(_Backend())._setup_cli(), "the deploy must fail"
     out = capsys.readouterr().out
     assert "CLI configured" not in out
     assert "connection refused" in out
@@ -152,5 +152,5 @@ def test_a_missing_cli_is_reported_not_crashed(monkeypatch, capsys):
         raise FileNotFoundError(argv[0])
 
     monkeypatch.setattr(deploy_mod.subprocess, "run", missing)
-    make_deployer(_Backend())._setup_cli()
+    assert not make_deployer(_Backend())._setup_cli()
     assert "hop3 CLI not found" in capsys.readouterr().out

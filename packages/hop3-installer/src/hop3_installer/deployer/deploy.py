@@ -365,11 +365,21 @@ class Deployer:
         self.log_step(step, "Starting services (supervisor)")
         try:
             self.backend.start_services()
-            self.log("Services started", "success")
-            return True, step
         except ServiceStartError as e:
             self.log(f"Failed to start services: {e}", "error")
             return False, step
+        # supervisord reports RUNNING once it has forked the process, seconds
+        # before the server answers; the CLI login that follows ran in that
+        # window and failed with "Could not connect".
+        if not self._wait_until_server_healthy():
+            self.log(
+                f"hop3-server did not answer on {HOP3_SERVER_BIND} after start; "
+                "see `supervisorctl tail hop3-server stderr` in the container",
+                "error",
+            )
+            return False, step
+        self.log("Services started", "success")
+        return True, step
 
     def _configure_admin_domain(self, step: int) -> tuple[bool, int]:
         """
@@ -469,21 +479,16 @@ class Deployer:
             if not success:
                 return False
 
-            # Start services (supervisor in Docker, no-op for SSH/systemd)
-            success, step = self._start_docker_services(step)
-            if not success:
-                return False
-
-            # Configure admin domain (nginx, SSL, user)
-            success, step = self._configure_admin_domain(step)
-            if not success:
-                return False
-
-            # Setup CLI
-            if not self.config.no_cli_setup:
-                step += 1
-                self.log_step(step, "Configuring local CLI")
-                self._setup_cli()
+            # Services (supervisor in Docker, no-op for SSH/systemd), the admin
+            # domain (nginx, SSL, user), then the local CLI.
+            for run_step in (
+                self._start_docker_services,
+                self._configure_admin_domain,
+                self._configure_local_cli,
+            ):
+                success, step = run_step(step)
+                if not success:
+                    return False
 
             # Record deploy provenance (commit/branch/method) on the server so
             # `hop3 system info` can report exactly what's running.
@@ -1570,9 +1575,29 @@ class Deployer:
             self.log("Failed to create admin user", "warning")
             self.log_output(result)
 
-    def _setup_cli(self) -> None:
+    def _configure_local_cli(self, step: int) -> tuple[bool, int]:
         """
-        Point the local CLI at the server just deployed.
+        The "Configuring local CLI" step, unless --no-cli-setup.
+
+        Returns:
+            Tuple of (success, updated_step_count).
+        """
+        if self.config.no_cli_setup:
+            return True, step
+        step += 1
+        self.log_step(step, "Configuring local CLI")
+        if self._setup_cli():
+            return True, step
+        self.log(
+            "The server is deployed, but the local CLI is not pointed at it. "
+            "Pass --no-cli-setup to skip this step.",
+            "error",
+        )
+        return False, step
+
+    def _setup_cli(self) -> bool:
+        """
+        Point the local CLI at the server just deployed; False if that failed.
 
         The server just deployed — NOT whatever ``HOP3_HOST`` / ``HOP3_DEV_HOST``
         happens to hold. In Docker mode the target is the container, reached on
@@ -1602,11 +1627,11 @@ class Deployer:
         right one.
         """
         if not self.config.use_docker:
-            return
+            return True
         token = self._fetch_admin_token()
         if not token:
-            return
-        self._login_local_cli(self._deployed_api_url(), token)
+            return False
+        return self._login_local_cli(self._deployed_api_url(), token)
 
     def _deployed_api_url(self) -> str:
         """The address of the server this run deployed, never the ambient one."""
@@ -1638,7 +1663,7 @@ class Deployer:
             check=False,
         )
         if not result.success or not result.stdout.strip():
-            self.log("Could not get an auth token (check server logs)", "warning")
+            self.log("Could not get an auth token (check server logs)", "error")
             self.log_output(result)
             return None
 
@@ -1647,10 +1672,10 @@ class Deployer:
             if line.strip().startswith("eyJ"):
                 return line.strip()
 
-        self.log("Could not parse an auth token from the output", "warning")
+        self.log("Could not parse an auth token from the output", "error")
         return None
 
-    def _login_local_cli(self, api_url: str, token: str) -> None:
+    def _login_local_cli(self, api_url: str, token: str) -> bool:
         """
         Run `hop3 login` on this machine, and report what it actually did.
 
@@ -1674,22 +1699,23 @@ class Deployer:
         try:
             result = subprocess.run(argv, capture_output=True, check=False, text=True)
         except FileNotFoundError:
-            self.log("hop3 CLI not found, skipping CLI setup", "warning")
-            return
+            self.log("hop3 CLI not found on PATH", "error")
+            return False
 
         if result.returncode != 0:
-            self.log(f"Could not configure the local CLI for {api_url}", "warning")
+            self.log(f"Could not configure the local CLI for {api_url}", "error")
             # Through `log`, not `print`: it honours --quiet and, unlike a bare
             # print, reaches the deploy log file where a post-mortem looks.
             for stream in (result.stdout, result.stderr):
                 if stream.strip():
-                    self.log(stream.strip(), "warning")
-            return
+                    self.log(stream.strip(), "error")
+            return False
 
         self.cli_context_server = api_url
         self.log(
             f"CLI configured: context {CLI_CONTEXT_NAME!r} -> {api_url}", "success"
         )
+        return True
 
     def _deploy_method(self) -> str:
         """Classify the deploy source: local | git | pypi."""

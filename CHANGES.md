@@ -71,6 +71,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The server installer installs the .NET SDKs 8 and 10**, the long-term releases, each where the distribution publishes it. It installed 8 and 9, and no feed carries 9 for Ubuntu 24.04, so that install failed on every such server and was printed as a warning. An SDK that is published and fails to install now aborts the install, as does a platform that publishes neither.
+
+- **`hop3-deploy-server --docker` waits for hop3-server to answer before it reports the services started**, and a local CLI it could not configure fails the deploy. The login ran while the server was still starting, failed with "Could not connect", and the deploy still ended with "Deployment complete!". `--no-cli-setup` skips the step.
+
+- **`hop3 login --token` checks the token it was given.** The check sent whatever the CLI already had stored for that server, or `HOP3_API_TOKEN`, so a new token for a server whose old one was no longer valid was refused with "Authentication required" without ever being sent. Every `hop3-deploy-server --docker --clean` hit this, since the new container signs with a new key.
+
 - **`hop3-fetch` resumes a download cut short.** A retry used to start again from the first byte, so a server that drops long transfers failed every attempt: releases.wikimedia.org drops a transfer after about 75 seconds, and cut mediawiki's 116 MB tarball six times running, each time between 47 and 80 MB. A retry now asks for the rest with a `Range` request and checks the reassembled length against the total the server declares. Only an attempt that brings no new bytes counts against the six allowed, so a slow link that advances a few MB per attempt finishes. A connection reset mid-body is retried like a timeout, where it used to end the build with a traceback.
 
 - **A redeploy after a failed deploy works the first time.** After a deploy failed while setting up the proxy, the next deploy of the same app failed once with `Cannot transition app from STOPPED to RUNNING`, then succeeded. A failed deploy now leaves the app `FAILED` with the error that stopped it, where it used to leave it `STARTING`, and the request no longer races the build over the app's state.

@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import getpass
 import os
 import sys
@@ -14,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
 
-from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME
+from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
 from hop3_cli.core.ssh_target import is_safe_ssh_target
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import extract_jwt
@@ -35,7 +36,6 @@ from .ssh_ops import (
 if TYPE_CHECKING:
     from jsonrpcclient.responses import Response
 
-    from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
 
 #: Seconds to wait when probing a server's HTTPS endpoint, before a login
@@ -692,25 +692,9 @@ def _verify_token(server_url: str, token: str) -> str | None:
         Username if successful, None if verification failed
     """
     # Import here to avoid circular import
-    from hop3_cli.config import (  # ruff:ignore[import-outside-top-level]
-        Config as TempConfig,
-    )
     from hop3_cli.rpc import Client  # ruff:ignore[import-outside-top-level]
 
-    # Create a temporary config for verification. Must use the nested
-    # [contexts.*] shape — Config.get_api_url() no longer reads a flat
-    # top-level "api_url" key (removed in the context-model refactor), so a
-    # flat dict here yields api_url=None and Client raises CliError, which
-    # the broad except below misreports as "Could not connect". That made
-    # token-based `hop3 login "<url>?token=..."` fail even against a healthy
-    # server (e.g. the Docker demo login on localhost:18000).
-    temp_config = TempConfig(
-        data={
-            "contexts": {"default": {"api_url": server_url, "api_token": token}},
-            "current_context": "default",
-        },
-        config_file=None,
-    )
+    temp_config = _ProbeConfig(probe_url=server_url, probe_token=token)
 
     print(f"Verifying connection to {server_url}...")
 
@@ -745,6 +729,29 @@ def _verify_token(server_url: str, token: str) -> str | None:
         else:
             print(f"Could not connect to {server_url}", file=sys.stderr)
         return None
+
+
+@dataclasses.dataclass
+class _ProbeConfig(Config):
+    """
+    A config that connects to exactly the server and token under verification.
+
+    A config's own token ranks below the per-server credential store and
+    ``HOP3_API_TOKEN``, and its URL below ``HOP3_API_URL``. So a login check
+    built from an ordinary config sent whatever was already stored for that
+    server: after a `hop3-deploy-server --docker --clean`, the token from the
+    previous container, signed with a key that no longer exists. The new token
+    was refused with "Authentication required" without ever being sent.
+    """
+
+    probe_url: str = ""
+    probe_token: str = ""
+
+    def get_api_url(self) -> str | None:
+        return self.probe_url
+
+    def get_api_token(self) -> str | None:
+        return self.probe_token
 
 
 def _extract_username_from_whoami(result: list[dict]) -> str | None:
