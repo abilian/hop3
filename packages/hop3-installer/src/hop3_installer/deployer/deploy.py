@@ -407,7 +407,8 @@ class Deployer:
         # Create admin user
         step += 1
         self.log_step(step, "Creating admin user")
-        self._create_admin_user()
+        if not self._create_admin_user():
+            return False, step
 
         # Tell the server its own public domain, so it emits https://<domain>
         # magic links and `hop3 addon expose` URLs instead of http://host:8000.
@@ -443,8 +444,8 @@ class Deployer:
         )
         result = self.backend.run(script, check=False)
         if not result.success:
-            self.log("Failed to record ADMIN_DOMAIN in server config", "warning")
-            self.log_output(result)
+            self.log("Failed to record ADMIN_DOMAIN in server config", "error")
+            self.log_output(result, always=True)
             return False
         # Restart so the running server (addon-expose URLs, etc.) sees the new
         # value, and verify it comes back up: this is the LAST restart before the
@@ -746,7 +747,7 @@ class Deployer:
             True if migrations succeeded (or were skipped).
         """
         if self.config.skip_migrations:
-            self.log("Skipping migrations (--skip-migrations)", "warning")
+            self.log("Skipping migrations (--skip-migrations)", "info")
             return True
 
         self.log("Running database migrations")
@@ -1066,12 +1067,13 @@ class Deployer:
         """
         rootd_pkg = self.config.rootd_package_path
         if not rootd_pkg.exists():
+            # The installer would abort at its rootd step, after changing the box.
             self.log(
-                f"hop3-rootd package not found at {rootd_pkg}; the install will "
-                "abort at the rootd step (it's required for nginx reloads).",
-                "warning",
+                f"hop3-rootd package not found at {rootd_pkg}: the daemon is "
+                "required for deploys (nginx reloads)",
+                "error",
             )
-            return True
+            return False
         self.log(f"Uploading {rootd_pkg} to /tmp/hop3-rootd")
         if not self.backend.upload_dir(rootd_pkg, "/tmp/hop3-rootd"):
             self.log("Failed to upload hop3-rootd", "error")
@@ -1211,8 +1213,12 @@ class Deployer:
         app_config = f"/home/hop3/nginx/{domain}.conf"
         result = self.backend.run(f"test -f {shlex.quote(app_config)}", check=False)
         if result.success:
-            self.log(f"Removing conflicting app config: {app_config}", "warning")
-            self.backend.run(f"rm -f {shlex.quote(app_config)}", check=False)
+            self.log(f"Replacing the app config that claims {domain}: {app_config}")
+            removed = self.backend.run(f"rm -f {shlex.quote(app_config)}", check=False)
+            if not removed.success:
+                self.log(f"Could not remove {app_config}", "error")
+                self.log_output(removed, always=True)
+                return False
 
         config_path, use_default_server = self._platform_nginx_target()
 
@@ -1285,26 +1291,33 @@ class Deployer:
             )
 
         # Determine if we should use Let's Encrypt or self-signed
+        # Without --acme-email a self-signed certificate is the default, and
+        # said so. With one, a trusted certificate was asked for: a placeholder
+        # address, a missing acme.sh or a failed issuance fails the deploy,
+        # where it fell back to self-signed and reported success.
         skip_reason = self._letsencrypt_skip_reason()
         if skip_reason is None:
             if self._request_letsencrypt_cert(domain, cert_dir):
                 return True
             self.log(
-                "Let's Encrypt issuance failed; falling back to a self-signed "
-                f"certificate. Check that {domain}'s DNS points to this server "
-                "and ports 80/443 are open, then redeploy.",
-                "warning",
+                f"Let's Encrypt issuance failed for {domain}. Check that its "
+                "DNS points to this server and ports 80/443 are open, then "
+                "redeploy.",
+                "error",
             )
-        else:
-            # A self-signed cert is never a silent default — say why, and what
-            # to pass to get a trusted one.
+            return False
+        if self.config.acme_email:
             self.log(
-                f"Using a self-signed certificate for {domain}: {skip_reason}. "
-                "For a browser-trusted cert, redeploy with "
-                "--acme-email <you@domain> (with public DNS for "
-                f"{domain} pointing here and ports 80/443 open).",
-                "warning",
+                f"No Let's Encrypt certificate for {domain}: {skip_reason}", "error"
             )
+            return False
+        self.log(
+            f"Using a self-signed certificate for {domain}: {skip_reason}. "
+            "For a browser-trusted cert, redeploy with --acme-email "
+            f"<you@domain> (with public DNS for {domain} pointing here and "
+            "ports 80/443 open).",
+            "info",
+        )
 
         # Generate self-signed certificate
         return self._generate_self_signed_cert(domain, cert_dir)
@@ -1396,8 +1409,8 @@ class Deployer:
         )
         result = self.backend.run(issue_cmd, check=False)
         if not result.success:
-            self.log("Failed to issue Let's Encrypt certificate", "warning")
-            self.log_output(result)
+            self.log("acme.sh --issue failed", "error")
+            self.log_output(result, always=True)
             return False
 
         # Install the certificate (and activate it in nginx)
@@ -1536,8 +1549,13 @@ class Deployer:
                 return True
         return False
 
-    def _create_admin_user(self) -> None:
-        """Create the admin user if it doesn't already exist."""
+    def _create_admin_user(self) -> bool:
+        """
+        Create the admin user if it doesn't already exist; False on failure.
+
+        A failure was a warning, and the deploy went on to print login
+        instructions for a user that did not exist.
+        """
         user = self.config.admin_user
         email = self.config.admin_email
         password = self.config.admin_password
@@ -1555,7 +1573,7 @@ class Deployer:
 
         if user_exists:
             self.log(f"Admin user '{user}' already exists", "success")
-            return
+            return True
 
         # User doesn't exist - create it
         self.log(f"Creating admin user '{user}'")
@@ -1569,12 +1587,13 @@ class Deployer:
             f"admin:create {safe_user} {safe_email} --password-stdin"
         )
         result = self.backend.run(cmd, check=False, stdin=password)
-        if result.success:
-            self.admin_user_created = True
-            self.log(f"Admin user '{user}' created", "success")
-        else:
-            self.log("Failed to create admin user", "warning")
-            self.log_output(result)
+        if not result.success:
+            self.log(f"Failed to create admin user '{user}'", "error")
+            self.log_output(result, always=True)
+            return False
+        self.admin_user_created = True
+        self.log(f"Admin user '{user}' created", "success")
+        return True
 
     def _configure_local_cli(self, step: int) -> tuple[bool, int]:
         """

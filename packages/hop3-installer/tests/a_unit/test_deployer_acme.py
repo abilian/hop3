@@ -165,3 +165,41 @@ def test_install_cert_aborts_when_cert_missing():
     """No cert file on disk → genuine failure, nginx is not reconfigured."""
     cmds = _install_cert_commands(acme_ok=False, cert_present=False)
     assert not any("nginx -t" in c for c in cmds)
+
+
+class _SslBackend:
+    """No certificate on disk; acme.sh present; issuance fails."""
+
+    def run(self, cmd, check=False, **_kw):
+        failed = cmd.startswith("test -f") and "fullchain" in cmd
+        failed = failed or "--issue" in cmd
+        return SimpleNamespace(success=not failed, stdout="", stderr="", returncode=1)
+
+
+def _ssl(**cfg) -> tuple[bool, list[str]]:
+    deployer = Deployer(DeployConfig(**cfg), backend=_SslBackend())  # type: ignore[arg-type]
+    deployer._request_letsencrypt_cert = lambda *_a: False  # type: ignore[method-assign]
+    self_signed: list[str] = []
+    deployer._generate_self_signed_cert = (  # type: ignore[method-assign]
+        lambda domain, _dir: self_signed.append(domain) or True
+    )
+    return deployer._setup_admin_ssl("admin.example.org"), self_signed
+
+
+def test_a_failed_issuance_fails_the_deploy_instead_of_self_signing():
+    """A trusted certificate was asked for; a self-signed one is not that."""
+    ok, self_signed = _ssl(acme_email="ops@example.org")
+    assert ok is False
+    assert self_signed == []
+
+
+def test_a_placeholder_email_fails_the_deploy():
+    ok, self_signed = _ssl(acme_email="admin@example.com")
+    assert ok is False
+    assert self_signed == []
+
+
+def test_without_an_acme_email_self_signed_is_the_default():
+    ok, self_signed = _ssl()
+    assert ok is True
+    assert self_signed == ["admin.example.org"]

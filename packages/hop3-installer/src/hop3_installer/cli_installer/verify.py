@@ -9,8 +9,8 @@ from pathlib import Path
 from hop3_installer.common import (
     Colors,
     print_error,
+    print_failure_output,
     print_success,
-    print_warning,
     run_cmd,
 )
 from hop3_installer.constants import CLI_INSTALL_DIR, CLI_VENV_DIR
@@ -26,16 +26,16 @@ def verify_installation() -> bool:
         print_error("Command not found in virtual environment")
         return False
 
-    try:
-        result = run_cmd([str(hop3), "--help"], check=False)
-        if result.returncode == 0:
-            print_success("Installation verified")
-            return True
-    except Exception:
-        pass
-
-    print_warning("Command exists but returned an error")
-    return True  # Still consider it installed
+    # It returned True after an error, and "Installation complete!" followed
+    # for a CLI that does not run.
+    result = run_cmd([str(hop3), "--help"], check=False)
+    if result.returncode != 0:
+        print_error(f"`{hop3} --help` failed (exit {result.returncode})")
+        print_failure_output("stderr", result.stderr)
+        print_failure_output("stdout", result.stdout)
+        return False
+    print_success("Installation verified")
+    return True
 
 
 def print_final_message(bin_dir: Path, *, path_is_active: bool) -> None:

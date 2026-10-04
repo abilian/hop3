@@ -18,6 +18,7 @@ from types import SimpleNamespace
 from unittest.mock import patch
 
 import pytest
+from hop3_installer.cli_installer import verify as cli_verify
 from hop3_installer.common import CommandError, InstallStepError
 from hop3_installer.server_installer import (
     deps,
@@ -124,3 +125,16 @@ def test_garage_waits_for_a_process_manager_that_is_not_running_yet(capsys):
     ):
         s3._start_service()
     assert "when the process manager does" in capsys.readouterr().out
+
+
+def test_a_cli_that_does_not_run_fails_verification(tmp_path, monkeypatch):
+    """It returned True after an error, and "Installation complete!" followed."""
+    (tmp_path / "bin").mkdir()
+    (tmp_path / "bin" / "hop3").touch()
+    monkeypatch.setattr(cli_verify, "CLI_VENV_DIR", tmp_path)
+    monkeypatch.setattr(
+        cli_verify,
+        "run_cmd",
+        lambda *_a, **_kw: SimpleNamespace(returncode=1, stdout="", stderr="Traceback"),
+    )
+    assert cli_verify.verify_installation() is False

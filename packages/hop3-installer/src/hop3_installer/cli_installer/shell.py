@@ -64,7 +64,7 @@ def update_shell_config(bin_dir: Path, *, modify_path: bool) -> bool:
         return True
 
     if not modify_path:
-        print_warning(f"Add {bin_dir} to your PATH manually")
+        print_info(f"--no-modify-path: add {bin_dir} to your PATH")
         return False
 
     # Detect shell and update config
@@ -96,6 +96,6 @@ def update_shell_config(bin_dir: Path, *, modify_path: bool) -> bool:
         print_info("Shell config already updated")
 
     # PATH is in config but not active in current session
-    print_warning(f"To use hop3 now, run: source {config_file}")
+    print_info(f"To use hop3 now, run: source {config_file}")
     print_detail("Or start a new terminal session")
     return False

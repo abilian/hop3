@@ -22,10 +22,10 @@ from hop3_installer.common import (
     check_python_version,
     print_detail,
     print_error,
+    print_failure_output,
     print_header,
     print_info,
     print_step,
-    print_warning,
 )
 from hop3_installer.deprecation import warn_deprecated_flags
 
@@ -102,8 +102,8 @@ def main() -> int:
         install_package(config)
     except CommandError as e:
         print_error("Failed to install hop3-cli")
-        if config.verbose:
-            print_detail(e.stderr)
+        print_failure_output("stderr", e.stderr)
+        print_failure_output("stdout", e.stdout)
         if config.use_git:
             print_detail("Make sure git is installed and you have network access")
         else:
@@ -112,9 +112,9 @@ def main() -> int:
 
     # Step 4: Create symlinks
     print_step(4, TOTAL_STEPS, "Creating command symlinks...")
-    count = create_command_symlinks(config.bin_dir)
-    if count == 0:
-        print_warning("No commands found to symlink")
+    linked = create_command_symlinks(config.bin_dir)
+    if not linked:
+        print_error("The installed package provides no command to link into PATH")
 
     # Step 5: Update PATH
     print_step(5, TOTAL_STEPS, "Configuring PATH...")
@@ -124,8 +124,9 @@ def main() -> int:
 
     # Verify
     print()
-    if not verify_installation():
-        print_warning("Installation may have issues")
+    if not linked or not verify_installation():
+        print_error("Installation verification failed")
+        return 1
 
     # Success message
     print_final_message(config.bin_dir, path_is_active=path_is_active)
