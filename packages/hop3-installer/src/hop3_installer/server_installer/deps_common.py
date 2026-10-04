@@ -743,9 +743,9 @@ def install_elixir(*, required: bool = False) -> None:
     Install a modern Elixir (>= 1.15) for Phoenix and other Elixir apps.
 
     Debian/Ubuntu ship Elixir 1.14, which recent Phoenix rejects. We keep the
-    distro's Erlang/OTP (new enough on current releases) and drop in a
-    precompiled Elixir matching the installed OTP major version, symlinked into
-    /usr/local/bin so it takes precedence over any apt `elixir`.
+    distribution's Erlang/OTP, installed with the base packages, and drop in a
+    precompiled Elixir matching its OTP major version, symlinked into
+    /usr/local/bin so it takes precedence over the distribution's `elixir`.
 
     A failure leaves Elixir apps unbuildable, which their deploy reports; it
     stops the install when Elixir was requested (`--with elixir`).
@@ -757,21 +757,16 @@ def install_elixir(*, required: bool = False) -> None:
         print_info("Elixir >= 1.15 already installed")
         return
 
+    # Erlang comes from the distribution's base packages (step 1, which
+    # aborts on failure), so no `erl` means this distribution ships none: a
+    # fact about the platform, said once, unless Elixir was asked for.
     if not cmd_exists("erl"):
-        print_info("Installing Erlang/OTP (for Elixir)...")
-        with Spinner("Installing erlang-nox..."):
-            result = run_cmd(
-                ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "erlang-nox"],
-                env=APT_NONINTERACTIVE_ENV,
-                check=False,
-            )
-        if result.returncode != 0 or not cmd_exists("erl"):
-            _toolchain_failed(
-                "Elixir install failed: could not install Erlang/OTP",
-                result,
-                required=required,
-            )
-            return
+        reason = "this distribution's packages provide no Erlang/OTP"
+        if required:
+            msg = f"--with elixir: {reason}"
+            raise InstallStepError(msg)
+        print_info(f"Elixir not installed: {reason}")
+        return
 
     otp_major = _detect_otp_major()
     if not otp_major:

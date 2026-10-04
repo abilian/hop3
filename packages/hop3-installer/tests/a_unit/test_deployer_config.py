@@ -87,10 +87,9 @@ class TestDeployConfig:
         config = DeployConfig(admin_password="my_secret_password")
         assert config.admin_password == "my_secret_password"
 
-    def test_default_features_is_docker(self):
-        """DeployConfig should default to docker feature."""
-        config = DeployConfig()
-        assert config.install_features == ["docker"]
+    def test_no_feature_is_requested_by_default(self):
+        """ADR 052: Docker is installed when asked for, on any target."""
+        assert DeployConfig().install_features == []
 
     def test_the_docker_target_requests_no_docker_by_default(self):
         """

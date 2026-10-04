@@ -59,7 +59,7 @@ A failure that aborts uses the template the feature packages already follow: pri
 - **Toolchains nobody asked for** (Leiningen, Elixir) are best-effort by default and abort when requested with `--with`, as Rust already is.
 - **SSH key setup** for `git push` is part of the install contract and aborts.
 - **The `hop3` PostgreSQL role's password** is generated, set and then read by nothing: the step is deleted.
-- **Docker on the Docker target** is no longer requested by default. Running Docker-built apps there would need a privileged container, which is a separate decision.
+- **Docker** is installed only when requested (`--with docker`), on any target (ADR 052): it is a second-tier runtime. On the Docker target it cannot run at all; Docker-built apps there would need a privileged container, which is a separate decision.
 
 ## Legitimately non-fatal
 
@@ -77,7 +77,7 @@ These stay warnings and form the gate's first allowlist:
 
 All seven batches are done. A clean Docker deploy, with `--with all` as with no feature, prints no warning, and the gate holds it there. Fixing the sites turned up failures the audit had not seen: the Redis check pinged without the password it had just set, Fedora's Redis unit has another name, the SSH key step could not raise at all, and the S3 step took a `conf.d` directory for a running supervisord.
 
-Two items are left: `install_elixir` installs Erlang with `apt-get` on every distribution, and the deployer still asks for Docker by default on SSH targets, which ADR 052 decided against.
+Two follow-ups closed the list. `install_elixir` no longer installs Erlang itself, with an `apt-get` that could not work on Fedora: Erlang comes from each distribution's base packages, and where a distribution ships none, Elixir is reported as unavailable there (or the install aborts, under `--with elixir`). And `hop3-deploy-server` installs Docker only when asked, on any target, as ADR 052 decided.
 
 ## See also
 

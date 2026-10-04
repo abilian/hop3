@@ -349,18 +349,16 @@ class DeployConfig:
     @property
     def install_features(self) -> list[str]:
         """
-        The features the installer is asked for: the request, or the default.
+        The features the installer is asked for: exactly the request.
 
-        A server gets Docker by default, for Docker-built apps. The Docker
-        target cannot run dockerd (the container is not privileged and has no
-        systemd), so there nothing is requested by default, and `all` means
-        every feature but Docker. An explicit `docker` still reaches the
-        installer, which refuses it there with the reason.
+        None by default, on any target (ADR 052): Docker is a second-tier
+        runtime, installed when asked for. The Docker target cannot run dockerd
+        (the container is not privileged and has no systemd), so there `all`
+        means every feature but Docker; an explicit `docker` still reaches the
+        installer, which refuses it with the reason.
 
         Derived on each read: the CLI sets ``use_docker`` after construction.
         """
-        if not self.with_features:
-            return [] if self.use_docker else ["docker"]
         if self.use_docker and "all" in self.with_features:
             return sorted(
                 (ALL_FEATURES - {"docker"})

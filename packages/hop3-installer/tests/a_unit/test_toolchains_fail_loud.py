@@ -138,3 +138,20 @@ def test_a_cli_that_does_not_run_fails_verification(tmp_path, monkeypatch):
         lambda *_a, **_kw: SimpleNamespace(returncode=1, stdout="", stderr="Traceback"),
     )
     assert cli_verify.verify_installation() is False
+
+
+def test_elixir_without_erlang_is_a_platform_fact_unless_requested(capsys):
+    """
+    Erlang comes from the base packages; where a distribution ships none (a
+    RHEL clone without EPEL), that is said once, not warned on every install.
+    It used to `apt-get install erlang-nox`, which cannot work on Fedora.
+    """
+    with (
+        patch.object(deps_common, "_elixir_is_recent_enough", return_value=False),
+        patch.object(deps_common, "cmd_exists", return_value=False),
+        patch.object(deps_common, "run_cmd", side_effect=AssertionError("no apt")),
+    ):
+        deps_common.install_elixir(required=False)
+        assert "provide no Erlang/OTP" in capsys.readouterr().out
+        with pytest.raises(InstallStepError, match="--with elixir"):
+            deps_common.install_elixir(required=True)

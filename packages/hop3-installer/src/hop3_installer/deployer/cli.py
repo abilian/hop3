@@ -207,7 +207,10 @@ Examples:
         "--with",
         "-w",
         dest="features",
-        help="Features to install (comma-separated: docker,mysql,redis,nix,s3,rust)",
+        help=(
+            "Features to install, none by default (comma-separated: docker, "
+            "mysql, redis, nix, s3, email, rust, clojure, elixir, or all)"
+        ),
     )
 
     # Admin options
