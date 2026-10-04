@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`[[volumes]]` has a `scratch` type**, for directories an app writes that must not be kept: a framework's compiled templates or bootstrap cache. It lives outside `src/`, is reset to what the build leaves there whenever a deploy replaces `src/`, and is never backed up.
 
+- **`hop3-test` fails a server deploy that carried past a warning.** Each ⚠ line the installer or the deployer prints fails the run, unless an allowlist entry says why it is safe to continue. Every run log carried such lines for weeks, two bugs and an install that failed on every Ubuntu 24.04 server among them, and nobody read them.
+
 - **`hop3-test` fails an app that writes into `src/` while running, and redeploys every app.** Each deploy replaces `src/`, so whatever an app writes there is lost at the next one, an upgrade included. The test lists the directories the app wrote to after it started, grouped for a `[[volumes]]` entry. It then deploys the unchanged source again and runs every validation a second time. `--no-redeploy` skips the second deploy.
 
 ### Changed
@@ -72,6 +74,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **The server installer stops at a failed setup step, with the command's output.** The systemd, SSL, nginx, PostgreSQL, MySQL, config-file and ACME steps caught their own failures, printed a warning cut to 100 characters, and the install went on to report success: a failed config write gave a server without database credentials. Verification now fails on a stopped core service, a missing certificate or a missing `hop3-server.toml`, where it warned. On a host without systemd, the installer writes the environment and key files, installs no unit, and says so, where `systemctl` failed and was reported as a "Systemd setup issue" on every container install. See `notes/installer-fail-loud-audit.md`.
+
+- **`hop3-deploy-server` fails where it used to fall back.** With `--acme-email`, a failed Let's Encrypt issuance, a placeholder address or a missing acme.sh fails the deploy, where it installed a self-signed certificate and reported success; without `--acme-email`, self-signed is the default, said once. A failed admin user creation fails the deploy, where it went on to print login instructions for a user that did not exist. The CLI installer fails when the installed `hop3` does not run or provides no command, and shows a failed package install's output without `--verbose`.
 
 - **The server installer's toolchain and service steps stop at the failure.** A failed install of npm's pinned pnpm, nodeenv or Go, a pnpm shadowed on PATH, Postfix for `--with email`, acme.sh, the S3 service or its token's group, the `www-data` and `docker` group memberships, an unsupported distribution, or the removal of the legacy sudoers fragment printed a warning and the install went on. The SSH key step could not fail at all: it printed "SSH keys configured" whatever happened. Rust, Leiningen and Elixir stay best-effort on every server and abort when requested: `--with clojure` and `--with elixir` join `--with rust`.
 

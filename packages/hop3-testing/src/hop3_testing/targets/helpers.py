@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import contextlib
 import os
+import re
 import tempfile
 import time
 from dataclasses import dataclass, field
@@ -992,8 +993,77 @@ def run_hop3_deploy(
         _log_deploy_failure(diagnostics, duration, result)
         return False, duration
 
+    # An old checkout's deployer (the upgrade chain) carries warnings this
+    # tree can no longer fix; the gate is for the code under test.
+    if cwd is None and not legacy_flags:
+        warnings = untolerated_deploy_warnings(result.stdout or "")
+        if warnings:
+            _log_untolerated_warnings(diagnostics, duration, warnings)
+            return False, duration
+
     _log_deploy_success(diagnostics, duration)
     return True, duration
+
+
+#: Warnings a deploy may print and still pass, each with why continuing is
+#: safe. Everything else the installer or deployer marks with ⚠ fails the run:
+#: two bugs and an install failing on every Ubuntu 24.04 server hid for weeks
+#: behind warnings every log carried and nobody read. A new entry needs the
+#: same justification; see notes/installer-fail-loud-audit.md.
+TOLERATED_DEPLOY_WARNINGS: tuple[tuple[re.Pattern[str], str], ...] = (
+    (
+        re.compile(r"nft not found|could not create (nftables table|inet hop3)"),
+        "host property: fatal once caused an outage; fixed-port apps fail at deploy",
+    ),
+    (
+        re.compile(r"no cgroup v2 unified hierarchy"),
+        "host property: only apps with [limits] are affected, at their deploy",
+    ),
+    (
+        re.compile(r"could not run --init-state"),
+        "the fallback writes the same initial state",
+    ),
+    (
+        re.compile(r"Could not write build info"),
+        "read only by `hop3 system info`",
+    ),
+    (
+        re.compile(r"hop3-cli (source|package) not found"),
+        "the server runs without it; only on-server tutorial tests need it",
+    ),
+    (
+        re.compile(r"Could not add Microsoft's repository"),
+        "the .NET SDK check that follows aborts if no SDK is then available",
+    ),
+)
+
+_ANSI = re.compile(r"\x1b\[[0-9;]*m")
+
+
+def untolerated_deploy_warnings(transcript: str) -> list[str]:
+    """The ⚠ lines of a deploy transcript that no allowlist entry accounts for."""
+    lines = (_ANSI.sub("", line).strip() for line in transcript.splitlines())
+    return [
+        line
+        for line in lines
+        if "⚠" in line and not any(p.search(line) for p, _ in TOLERATED_DEPLOY_WARNINGS)
+    ]
+
+
+def _log_untolerated_warnings(
+    diagnostics: DiagnosticCollector | None, duration: float, warnings: list[str]
+) -> None:
+    """Fail the deploy on warnings it carried past, naming each one."""
+    message = (
+        f"hop3-deploy-server succeeded with {len(warnings)} warning(s) it "
+        f"carried past. Fix each, or justify it in TOLERATED_DEPLOY_WARNINGS "
+        f"(hop3_testing/targets/helpers.py):\n" + "\n".join(f"  {w}" for w in warnings)
+    )
+    print(message, flush=True)
+    if diagnostics:
+        diagnostics.add_failure(
+            layer="deployer", operation="deploy", message=message, duration=duration
+        )
 
 
 def _log_deploy_failure(

@@ -73,6 +73,12 @@ These stay warnings and form the gate's first allowlist:
 - Rust without `--with rust`;
 - the CLI installer's PATH hint for an unrecognised shell.
 
+## Outcome
+
+All seven batches are done. A clean Docker deploy, with `--with all` as with no feature, prints no warning, and the gate holds it there. Fixing the sites turned up failures the audit had not seen: the Redis check pinged without the password it had just set, Fedora's Redis unit has another name, the SSH key step could not raise at all, and the S3 step took a `conf.d` directory for a running supervisord.
+
+Two items are left: `install_elixir` installs Erlang with `apt-get` on every distribution, and the deployer still asks for Docker by default on SSH targets, which ADR 052 decided against.
+
 ## See also
 
 - [`lessons-learned/development-process.md`](./lessons-learned/development-process.md): the lessons from the two CLI-step bugs.
