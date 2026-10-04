@@ -82,6 +82,8 @@ Then audit the write path. A redactor is usually added for the *display* command
 
 A redactor covers the paths you pointed it at. Enumerate the paths that print the value, and test with the shape of secret that actually showed up in a real history.
 
+The third leak is an error that quotes its input. **Case (October 2026):** a token file holding two tokens on two lines made the HTTP library reject the `Authorization` header, with an error message that included the header's value, and `hop3` printed it: the bearer token reached a test run's output. The value is now refused before it becomes a header (`hop3_cli.tokens.bearer_header`), with a message that names the problem and not the token. Validate a secret before it reaches a library whose errors you do not write.
+
 ## Validate Before You Confirm
 
 A destructive command checks its arguments before it asks anything. `hop3 app destroy` with no resolvable app used to ask "Are you sure?", take a "yes" and then fail for want of a name. The September 2026 variant was worse: `hop3 app destroy ac-sciences-2` prompted "Type 'ac-sciences' to confirm", because the app was resolved from the ambient context before the stray positional was rejected. The server then rejected the positional. The order is parse, validate, confirm, execute. The September case ran the third step before the second.

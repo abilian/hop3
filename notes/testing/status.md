@@ -1,8 +1,15 @@
 # Hop3 Test Status
 
-**Last updated:** 2026-09-22.
+**Last updated:** 2026-10-05.
 
 The *structure* is [ADR 043](../adrs/043-unified-testing-architecture.md) and [`strategy.md`](strategy.md); the *commands* are [`cheat-sheet.md`](cheat-sheet.md) and the quick reference in `CLAUDE.md`. This file records where the suites stand today, and nothing more. Every number on it is reproducible by the command beside it. If you are reading it more than a few weeks after the date above, re-run the commands before trusting the numbers.
+
+**Reading a run since 2026-10-05.** Four changes in how a run decides:
+
+- A server deploy that carried past a ⚠ fails the run, unless the warning is on `TOLERATED_DEPLOY_WARNINGS` with its reason (`notes/installer-fail-loud-audit.md`).
+- The server is installed with what the selected apps declare: their addons and the runtime their builder needs (`nix`, `docker`). Nothing is installed by default.
+- On the Docker target, Docker-built apps are left out before the deploy, each named: the container cannot run Docker. Most `-docker` recipes declare no test targets, so a Docker-target run now lists them as skipped; they run against a server with `--host`.
+- A run that includes an app declaring email selects the `catch` backend, and the mail lands in Mailpit (`190-flask-email` checks the path).
 
 ## The layers
 
