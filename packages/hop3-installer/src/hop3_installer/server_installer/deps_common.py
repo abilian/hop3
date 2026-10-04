@@ -885,100 +885,108 @@ def _detect_debian_version() -> tuple[str, str]:
     return ("ubuntu", "24.04")
 
 
-def install_dotnet_sdk_debian() -> None:
-    """Install .NET SDK on Debian/Ubuntu from Microsoft repository."""
-    if cmd_exists("dotnet"):
-        print_info(".NET SDK already installed")
-        return
+#: The long-term-support SDKs. 9 was a short-term release, out of support in
+#: November 2026, and no feed carries it for Ubuntu 24.04, where its install
+#: failed on every server and was reported as a warning.
+DOTNET_SDK_VERSIONS = ("8.0", "10.0")
 
-    # Detect the actual OS version
+
+def install_dotnet_sdk_debian() -> None:
+    """Install .NET SDKs on Debian/Ubuntu, Microsoft's repository added.
+
+    Ubuntu ships its own .NET packages; Debian has none, so the repository is
+    what makes an SDK available there at all.
+    """
+    _add_microsoft_repository()
+    with Spinner("Updating package lists..."):
+        run_cmd(["apt-get", "update", "-q", *APT_LOCK_FLAGS], check=False)
+    _install_dotnet_sdks(
+        is_offered=_apt_offers,
+        install_cmd=lambda pkg: ["apt-get", "install", "-y", *APT_LOCK_FLAGS, pkg],
+        env=APT_NONINTERACTIVE_ENV,
+    )
+
+
+def install_dotnet_sdk_fedora() -> None:
+    """Install .NET SDKs on Fedora, which has them in its own repositories."""
+    _install_dotnet_sdks(
+        is_offered=lambda pkg: (
+            run_cmd(["dnf", "-q", "list", "--available", pkg], check=False).returncode
+            == 0
+        ),
+        install_cmd=lambda pkg: ["dnf", "install", "-y", pkg],
+    )
+
+
+def _install_dotnet_sdks(
+    *,
+    is_offered: Callable[[str], bool],
+    install_cmd: Callable[[str], list[str]],
+    env: dict[str, str] | None = None,
+) -> None:
+    """
+    Install every long-term SDK the platform publishes, and abort on failure.
+
+    No feed publishes both for every platform: Debian 12 on arm64 has no SDK
+    8, Ubuntu 22.04 on arm64 no SDK 10. One that is not published is named, so
+    a build targeting it fails with an explanation already on record; one that
+    is published and fails to install, or a platform with neither, aborts.
+    Installing is idempotent, so a redeploy reconciles an existing server.
+    """
+    packages = [f"dotnet-sdk-{version}" for version in DOTNET_SDK_VERSIONS]
+    offered = [pkg for pkg in packages if is_offered(pkg)]
+    for pkg in packages:
+        if pkg not in offered:
+            print_info(f"{pkg} is not published for this platform; not installed")
+    if not offered:
+        msg = (
+            f"no .NET SDK ({', '.join(packages)}) is published for this "
+            f"platform, so .NET apps cannot be built on it"
+        )
+        print_error(msg)
+        raise CommandError(cmd=["dotnet-sdk"], returncode=1, stderr=msg)
+    for pkg in offered:
+        with Spinner(f"Installing {pkg}..."):
+            result = run_cmd(install_cmd(pkg), env=env, check=False)
+        if result.returncode != 0:
+            print_error(f"{pkg} installation failed")
+            _print_failure_output("stderr", result.stderr)
+            _print_failure_output("stdout", result.stdout)
+            raise CommandError(
+                cmd=install_cmd(pkg),
+                returncode=result.returncode,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
+            )
+        print_success(f"{pkg} installed")
+
+
+def _apt_offers(pkg: str) -> bool:
+    """Whether apt has an install candidate for ``pkg``."""
+    result = run_cmd(["apt-cache", "policy", pkg], check=False)
+    candidate = re.search(r"Candidate:\s*(\S+)", result.stdout or "")
+    return candidate is not None and candidate.group(1) != "(none)"
+
+
+def _add_microsoft_repository() -> None:
+    """
+    Add Microsoft's package repository for this distribution version.
+
+    A failure is reported and not fatal by itself: what matters is whether
+    an SDK is then offered, which ``_install_dotnet_sdks`` checks and aborts
+    on. On Ubuntu the distribution's own packages are enough.
+    """
     distro, version = _detect_debian_version()
     print_detail(f"Detected {distro} {version}")
-
-    # Microsoft provides packages for specific distro/version combinations
-    # See: https://learn.microsoft.com/en-us/dotnet/core/install/linux
     repo_url = (
         f"https://packages.microsoft.com/config/{distro}/{version}/"
         "packages-microsoft-prod.deb"
     )
-
-    # Add Microsoft package repository for Debian/Ubuntu
+    deb = "/tmp/packages-microsoft-prod.deb"
     with Spinner("Adding Microsoft package repository..."):
-        # Download and install the Microsoft package signing key
-        result = run_cmd(
-            ["wget", "-q", repo_url, "-O", "/tmp/packages-microsoft-prod.deb"],
-            check=False,
-        )
-        if result.returncode != 0:
-            print_warning(
-                f"Failed to download Microsoft repo package for {distro} {version}"
-            )
-            print_detail("Trying Ubuntu 24.04 as fallback...")
-            result = run_cmd(
-                [
-                    "wget",
-                    "-q",
-                    "https://packages.microsoft.com/config/ubuntu/24.04/packages-microsoft-prod.deb",
-                    "-O",
-                    "/tmp/packages-microsoft-prod.deb",
-                ],
-                check=False,
-            )
-            if result.returncode != 0:
-                print_warning("Failed to download Microsoft repository package")
-                return
-
-        result = run_cmd(
-            ["dpkg", "-i", "/tmp/packages-microsoft-prod.deb"],
-            check=False,
-        )
-        run_cmd(["rm", "-f", "/tmp/packages-microsoft-prod.deb"], check=False)
-
-        if result.returncode != 0:
-            print_warning("Failed to add Microsoft repository")
-            return
-
-    # Update package lists
-    with Spinner("Updating package lists..."):
-        run_cmd(["apt-get", "update", "-q", *APT_LOCK_FLAGS], check=False)
-
-    # Install .NET SDKs
-    with Spinner("Installing .NET SDK 8 (LTS)..."):
-        result = run_cmd(
-            ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "dotnet-sdk-8.0"],
-            env=APT_NONINTERACTIVE_ENV,
-            check=False,
-        )
+        result = run_cmd(["wget", "-q", repo_url, "-O", deb], check=False)
         if result.returncode == 0:
-            print_success(".NET SDK 8 installed")
-        else:
-            print_warning(".NET SDK 8 installation failed")
-
-    with Spinner("Installing .NET SDK 9..."):
-        result = run_cmd(
-            ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "dotnet-sdk-9.0"],
-            env=APT_NONINTERACTIVE_ENV,
-            check=False,
-        )
-        if result.returncode == 0:
-            print_success(".NET SDK 9 installed")
-        else:
-            print_warning(".NET SDK 9 installation failed")
-
-
-def install_dotnet_sdk_fedora() -> None:
-    """Install .NET SDK on Fedora from repos."""
-    if cmd_exists("dotnet"):
-        print_info(".NET SDK already installed")
-        return
-
-    # Fedora has .NET in its repos
-    with Spinner("Installing .NET SDK..."):
-        result = run_cmd(
-            ["dnf", "install", "-y", "dotnet-sdk-8.0", "dotnet-sdk-9.0"],
-            check=False,
-        )
-        if result.returncode == 0:
-            print_success(".NET SDK installed")
-        else:
-            print_warning(".NET SDK installation failed")
+            result = run_cmd(["dpkg", "-i", deb], check=False)
+        run_cmd(["rm", "-f", deb], check=False)
+    if result.returncode != 0:
+        print_warning(f"Could not add Microsoft's repository from {repo_url}")
