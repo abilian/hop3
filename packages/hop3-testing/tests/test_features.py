@@ -24,8 +24,10 @@ from hop3_testing.catalog.features import (
     features_for_suites,
     merge_features,
     required_features_from_tests,
+    runnable_on_docker_target,
     validate_features,
 )
+from hop3_testing.catalog.loader import generate_test_definition_from_hop3_toml
 from hop3_testing.exceptions import ConfigurationError
 
 # tests/ -> hop3-testing -> packages -> repo root
@@ -33,8 +35,25 @@ REPO = Path(__file__).resolve().parents[3]
 S3_APP = "apps/test-apps-procfile/150-flask-s3"
 
 
-def _t(*services):
-    return SimpleNamespace(requirements=SimpleNamespace(services=list(services)))
+def _t(*services, builder=None):
+    return SimpleNamespace(
+        requirements=SimpleNamespace(services=list(services)),
+        metadata=SimpleNamespace(builder=builder),
+    )
+
+
+@pytest.mark.parametrize(
+    ("builder", "feature"),
+    [
+        ("docker", {"docker"}),
+        ("nix", {"nix"}),
+        ("nix-template", {"nix"}),
+        ("native", set()),
+    ],
+)
+def test_the_builder_brings_its_runtime(builder, feature):
+    """Nothing is installed by default (ADR 052), so the run asks for it."""
+    assert required_features_from_tests([_t(builder=builder)]) == feature
 
 
 def test_required_features_unions_services():
@@ -118,3 +137,20 @@ def test_every_declared_addon_is_provisionable():
     assert unprovisionable == {}, (
         f"apps declare addons with no installer feature: {unprovisionable}"
     )
+
+
+def test_docker_built_apps_are_left_out_on_the_docker_target():
+    nix, docker = _t(builder="nix"), _t(builder="docker")
+    assert runnable_on_docker_target([nix, docker]) == ([nix], [docker])
+
+
+def test_a_dockerfile_without_a_builder_is_a_docker_build(tmp_path):
+    """
+    How the server picks the Docker builder, and how most Docker recipes say
+    nothing else; tagging them as unbuilt left them on the Docker target.
+    """
+    (tmp_path / "Dockerfile").write_text("FROM debian:bookworm-slim\n")
+    data = {"metadata": {"id": "app-docker"}, "test": {"priority": "P2"}}
+    test = generate_test_definition_from_hop3_toml(tmp_path, data)
+    assert test.metadata.builder == "docker"
+    assert runnable_on_docker_target([test]) == ([], [test])

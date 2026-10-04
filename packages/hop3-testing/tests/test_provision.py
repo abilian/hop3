@@ -28,7 +28,11 @@ from rich.console import Console
 def _fake_test():
     # A resolved test needs .name (plan display) + .requirements.services (addon
     # auto-provisioning).
-    return SimpleNamespace(name="t", requirements=SimpleNamespace(services=[]))
+    return SimpleNamespace(
+        name="t",
+        requirements=SimpleNamespace(services=[]),
+        metadata=SimpleNamespace(builder=None),
+    )
 
 
 # --- provision_server pre-flight (fail loud, no cloud) ---------------------

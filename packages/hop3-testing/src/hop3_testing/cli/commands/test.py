@@ -21,6 +21,7 @@ from hop3_testing.catalog import (
 from hop3_testing.catalog.features import (
     merge_features,
     required_features_from_tests,
+    runnable_on_docker_target,
     validate_features,
 )
 from hop3_testing.catalog.loader import load_test_definition_smart
@@ -494,6 +495,22 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
             click.echo(f"Covers: {', '.join(covers)}", err=True)
         ctx.exit(1)
 
+    # The Docker target cannot run dockerd (the container is not privileged),
+    # and the installer refuses `--with docker` there. Leave Docker-built apps
+    # out before the deploy, each with the reason, rather than abort the
+    # install for everyone or fail them one by one at build.
+    if target_type == "docker":
+        tests, docker_built = runnable_on_docker_target(tests)
+        for t in docker_built:
+            click.echo(
+                f"Skipping {t.name}: it is built with Docker, which the Docker "
+                "target cannot run; test it against a server (--host)",
+                err=True,
+            )
+        if not tests:
+            click.echo("No tests remaining: every one is built with Docker", err=True)
+            ctx.exit(1)
+
     # Show plan
     click.echo(f"\n{'=' * 70}")
     if deploy_from == "none":
@@ -515,9 +532,9 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         click.echo(f"  - {t.name}")
     click.echo("")
 
-    # Auto-provision the addons the selected apps DECLARE (hop3.toml [[addons]]),
-    # so the server is installed with them. The framework installs what the apps
-    # need — no manual --with, and no silently-skipped app.
+    # Auto-provision what the selected apps DECLARE (hop3.toml [[addons]] and
+    # [build].builder), so the server is installed with it. The framework
+    # installs what the apps need — no manual --with, no silently-skipped app.
     required_addons = required_features_from_tests(tests)
 
     # Build deployment config
@@ -528,9 +545,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         deploy_features = merge_features(features, required_addons)
         newly = [f for f in deploy_features if f not in features]
         if newly:
-            click.echo(
-                f"Auto-enabling addon feature(s) the apps require: {', '.join(newly)}"
-            )
+            click.echo(f"Auto-enabling feature(s) the apps require: {', '.join(newly)}")
         deployment = DeploymentConfig(
             source=cast("Literal['local', 'git', 'pypi']", deploy_from),
             branch=branch,

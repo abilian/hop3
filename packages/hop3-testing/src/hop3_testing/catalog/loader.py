@@ -455,18 +455,22 @@ def _get_deployment_type_from_hop3_toml(data: dict[str, Any]) -> str:
     return "native" if builder == "local" else "docker"
 
 
-def _builder_from_hop3_toml(data: dict[str, Any]) -> str | None:
+def _builder_from_hop3_toml(data: dict[str, Any], app_path: Path) -> str | None:
     """
     Derive the coverage-tag builder from hop3.toml [build] + [nix].
 
     Maps ``[build].builder`` to the tag values used by coverage selection:
     - ``local`` → ``native`` (uWSGI)
-    - ``docker`` → ``docker``
+    - ``docker`` → ``docker``, as is a missing builder beside a Dockerfile:
+      that is how the server picks it (DockerBuilder.accept), and most Docker
+      recipes say nothing else
     - ``nix`` → ``nix`` or ``nix-template`` (depending on ``[nix].template``)
     - missing → ``None``
     """
     build_section: dict[str, Any] = data.get("build") or {}
     raw = build_section.get("builder", "")
+    if not raw and (app_path / "Dockerfile").is_file():
+        return "docker"
     if raw == "local":
         return "native"
     if raw == "docker":
@@ -636,7 +640,7 @@ def generate_test_definition_from_hop3_toml(
     # Derive builder / toolchain / spec from hop3.toml data (overridable via
     # explicit [test] fields for edge cases).
     metadata_kwargs["builder"] = overrides.get("builder") or _builder_from_hop3_toml(
-        hop3_data
+        hop3_data, app_path
     )
     metadata_kwargs["toolchain"] = overrides.get(
         "toolchain"

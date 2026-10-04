@@ -23,6 +23,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`[[volumes]]` has a `scratch` type**, for directories an app writes that must not be kept: a framework's compiled templates or bootstrap cache. It lives outside `src/`, is reset to what the build leaves there whenever a deploy replaces `src/`, and is never backed up.
 
+- **`hop3-test` installs the runtime the selected apps are built with.** A Nix-built app brings `--with nix` and a Docker-built one `--with docker`, as their addons already brought theirs, now that nothing is installed by default. On the Docker target, which cannot run Docker, Docker-built apps are left out before the deploy, each with the reason.
+
 - **`hop3-test` fails a server deploy that carried past a warning.** Each ⚠ line the installer or the deployer prints fails the run, unless an allowlist entry says why it is safe to continue. Every run log carried such lines for weeks, two bugs and an install that failed on every Ubuntu 24.04 server among them, and nobody read them.
 
 - **`hop3-test` fails an app that writes into `src/` while running, and redeploys every app.** Each deploy replaces `src/`, so whatever an app writes there is lost at the next one, an upgrade included. The test lists the directories the app wrote to after it started, grouped for a `[[volumes]]` entry. It then deploys the unchanged source again and runs every validation a second time. `--no-redeploy` skips the second deploy.

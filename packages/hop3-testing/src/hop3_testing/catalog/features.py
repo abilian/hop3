@@ -58,9 +58,39 @@ def feature_for_addon(addon_type: str) -> str:
     return _ADDON_FEATURE_ALIASES.get(addon_type, addon_type)
 
 
+#: The installer feature an app's builder needs. Nothing is installed by
+#: default (ADR 052), so a run of Docker- or Nix-built apps that did not ask
+#: for the runtime would fail every one of them at build time.
+_BUILDER_FEATURES = {"docker": "docker", "nix": "nix", "nix-template": "nix"}
+
+
+def builder_feature(test: TestDefinition) -> str | None:
+    """The installer feature the app's ``[build].builder`` needs, if any."""
+    return _BUILDER_FEATURES.get(test.metadata.builder or "")
+
+
+def runnable_on_docker_target(
+    tests: list[TestDefinition],
+) -> tuple[list[TestDefinition], list[TestDefinition]]:
+    """
+    Split ``tests`` into those the Docker target can run and the Docker-built.
+
+    The container is not privileged and runs no dockerd, and the installer
+    refuses `--with docker` there, so a Docker-built app is left out, with the
+    reason, rather than abort the install for every app.
+    """
+    docker_built = [t for t in tests if builder_feature(t) == "docker"]
+    return [t for t in tests if t not in docker_built], docker_built
+
+
 def required_features_from_tests(tests: Iterable[TestDefinition]) -> set[str]:
-    """Union of installer features the selected apps' declared addons require."""
-    return {feature_for_addon(svc) for t in tests for svc in t.requirements.services}
+    """Union of installer features the selected apps need: addons and builder."""
+    required: set[str] = set()
+    for test in tests:
+        required.update(feature_for_addon(svc) for svc in test.requirements.services)
+        if feature := builder_feature(test):
+            required.add(feature)
+    return required
 
 
 def merge_features(base: Iterable[str], extra: Iterable[str]) -> list[str]:

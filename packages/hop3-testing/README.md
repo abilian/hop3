@@ -91,6 +91,10 @@ hop3-test upgrade-chain --docker --chain local,local
 | `--docker` | Use Docker target |
 | `--host HOST` | Remote server hostname |
 
+### Features follow the apps
+
+The server is installed with what the selected apps declare: their addons (`[[addons]]`) and the runtime their builder needs (`nix` for a Nix-built app, `docker` for a Docker-built one). `--with` adds to that. Nothing is installed by default. The Docker target cannot run Docker, so Docker-built apps are left out there, each with the reason; test them against a server with `--host`.
+
 ### A server deploy that warns fails
 
 Every ⚠ line the installer or the deployer prints fails the server deploy, unless it matches `TOLERATED_DEPLOY_WARNINGS` in `targets/helpers.py`, where each entry says why continuing is safe. A warning-and-continue is the failure a review misses and a red run does not: two deployer bugs and an install failing on every Ubuntu 24.04 server hid behind warnings every log carried. Fix the warning, or add it with its justification. Old releases' deployers, driven by `upgrade-chain`, are not gated. See [`notes/installer-fail-loud-audit.md`](../../notes/installer-fail-loud-audit.md).
