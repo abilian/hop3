@@ -125,7 +125,7 @@ After these steps the installer writes the server config, installs acme.sh, and 
 | `--branch BRANCH` | `HOP3_BRANCH` | Git branch (default: `main`) |
 | `--path PATH` | `HOP3_LOCAL_PACKAGE` | Install from local directory |
 | `--pre` | | Allow pre-release versions when installing from PyPI |
-| `--with FEATURES` | | Comma-separated optional features: `docker`, `mysql`, `redis`, `s3`, `nix`, `all` |
+| `--with FEATURES` | | Comma-separated optional features: `docker`, `mysql`, `redis`, `s3`, `nix`, `email`, `rust`, `clojure`, `elixir`, `all` |
 | `--domain DOMAIN` | `HOP3_DOMAIN` | Domain for Let's Encrypt certificate |
 | `--acme-email EMAIL` | | Email address for Let's Encrypt registration (required for ACME) |
 | `--force` | `HOP3_FORCE=1` | Force reinstall |
@@ -137,6 +137,8 @@ After these steps the installer writes the server config, installs acme.sh, and 
 | `--verbose` | `HOP3_VERBOSE=1` | Show verbose output |
 
 PostgreSQL is always set up (unless `--skip-postgres`). The optional Docker and Nix runtimes are enabled with `--with`, as are the other backing services (MySQL, Redis, S3/MinIO object storage), for example `--with redis,s3` or `--with all`.
+
+The Rust, Clojure (Leiningen) and Elixir toolchains are installed on every server, best-effort: if one fails to install, the install goes on and an app that needs it fails at its build. Naming one in `--with` (`--with rust`) makes its failure stop the install. A failure anywhere else stops the install, with the failing command's output.
 
 ### Examples
 

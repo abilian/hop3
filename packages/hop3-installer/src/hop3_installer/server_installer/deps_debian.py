@@ -22,7 +22,6 @@ from hop3_installer.common import (
     print_detail,
     print_info,
     print_success,
-    print_warning,
     run_cmd,
 )
 
@@ -288,15 +287,10 @@ def _install_go_toolchain(distro_info: DistroInfo) -> None:
         print_info("Installing Go from main repository")
         cmd = ["apt-get", "install", "-y", *APT_LOCK_FLAGS, "golang-go"]
 
+    # Installed on every server, like Node: Go apps fail to build without it.
     with Spinner("Installing Go toolchain..."):
-        result = run_cmd(cmd, env=APT_NONINTERACTIVE_ENV, check=False)
-
-    if result.returncode != 0:
-        print_warning("Go installation failed - Go apps may not work")
-        if result.stderr:
-            print_detail(result.stderr.strip().split("\n")[-1])
-    else:
-        print_success("Go toolchain installed")
+        run_cmd(cmd, env=APT_NONINTERACTIVE_ENV)
+    print_success("Go toolchain installed")
 
 
 #: NodeSource's setup script for the Node release the catalogue builds with.

@@ -262,7 +262,7 @@ Broader app/deploy testing lives in the separate `hop3-testing` package (`hop3-t
 |----------|-------------|
 | `HOP3_DOMAIN` | Server domain name (for nginx / ACME) |
 | `HOP3_ACME_EMAIL` | Email for Let's Encrypt registration |
-| `HOP3_WITH` | Optional features (comma-separated: `mysql`, `redis`, `docker`, `nix`, `s3`, `rust`, or `all`) |
+| `HOP3_WITH` | Optional features (comma-separated: `mysql`, `redis`, `docker`, `nix`, `s3`, `email`, `rust`, `clojure`, `elixir`, or `all`) |
 | `HOP3_VERSION` | Specific PyPI version to install |
 | `HOP3_GIT` | Install from git |
 | `HOP3_BRANCH` | Git branch (implies `HOP3_GIT`) |

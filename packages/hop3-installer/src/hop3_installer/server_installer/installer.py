@@ -31,7 +31,6 @@ from hop3_installer.common import (
     print_header,
     print_info,
     print_step,
-    print_warning,
 )
 from hop3_installer.deprecation import warn_deprecated_flags
 
@@ -70,41 +69,21 @@ from .verify import print_final_message, verify_installation, write_server_confi
 
 def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
     """
-    Install optional toolchains that need hop3 user to exist.
+    Install the toolchains that need the hop3 user to exist.
 
-    By default these are non-critical — failures are warnings.
-    `--with=rust` promotes the Rust install to critical (raises), and
-    `--with=nix` is critical outright: the operator asked for it by name.
+    Node's package tooling (the pinned pnpm, nodeenv) belongs to every server,
+    like Node, and a failure aborts. Rust, Leiningen and Elixir are
+    best-effort: an app that needs one fails at its build, saying so, unless
+    it was requested by name (`--with rust|clojure|elixir`), which makes a
+    failure abort the install. Nix is requested by name or not installed.
 
     Args:
         config: Installation configuration.
     """
-    # Install Rust toolchain. `--with=rust` makes it a hard requirement
-    # (unblocks vaultwarden-native and other Rust-from-source apps).
-    try:
-        install_rust_toolchain(required=config.with_rust)
-    except CommandError as e:
-        if config.with_rust:
-            raise
-        print_warning(f"Rust toolchain installation failed: {e.stderr[:100]}")
-
-    # Install Node.js global packages (pnpm, nodeenv)
-    try:
-        install_node_global_packages()
-    except CommandError as e:
-        print_warning(f"Node global packages installation failed: {e.stderr[:100]}")
-
-    # Install Leiningen (Clojure build tool)
-    try:
-        install_leiningen()
-    except CommandError as e:
-        print_warning(f"Leiningen installation failed: {e.stderr[:100]}")
-
-    # Install a modern Elixir (Phoenix needs >= 1.15; the distro ships 1.14)
-    try:
-        install_elixir()
-    except CommandError as e:
-        print_warning(f"Elixir installation failed: {e.stderr[:100]}")
+    install_node_global_packages()
+    install_rust_toolchain(required=config.with_rust)
+    install_leiningen(required=config.with_clojure)
+    install_elixir(required=config.with_elixir)
 
     # Install Nix package manager (single-user mode needs hop3 user). Asked for
     # by name, so a failure aborts the install rather than warn and go on.
@@ -148,14 +127,16 @@ def _install_package_step(config: ServerInstallerConfig) -> bool:
 
 def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     """
-    Run critical installation steps that must succeed.
+    Steps 1-5. A failing step raises, and `main` prints its whole output: the
+    handlers here printed 200 characters of stderr, which for a command that
+    reports on stdout was nothing at all ("Failed to install dependencies: ").
 
     Args:
         distro: Detected distribution name.
         config: Installation configuration.
 
     Returns:
-        True if all critical steps succeeded, False otherwise.
+        False if the package install failed (step 4 reports its own output).
     """
     # Step 1: System dependencies, then the catalogue-derived baseline (from
     # apps/*/hop3.toml [build].packages + [run].packages). The baseline stacks
@@ -165,21 +146,13 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     # (e.g. a package conflict) leaves native-profile apps unbuildable, so it
     # aborts loudly rather than letting apps fail confusingly downstream.
     print_step(1, TOTAL_STEPS, "Installing system dependencies...")
-    try:
-        install_system_deps(distro, config)
-        if distro in {"debian", "fedora"}:
-            install_catalogue_baseline(distro)
-    except CommandError as e:
-        print_error(f"Failed to install dependencies: {e.stderr[:200]}")
-        return False
+    install_system_deps(distro, config)
+    if distro in {"debian", "fedora"}:
+        install_catalogue_baseline(distro)
 
     # Step 2: Create user
     print_step(2, TOTAL_STEPS, "Creating hop3 user and group...")
-    try:
-        create_user_and_group()
-    except CommandError as e:
-        print_error(f"Failed to create user: {e.stderr}")
-        return False
+    create_user_and_group()
 
     # Fix-up files that step 1 wrote before the hop3 group existed.
     # This is a no-op if the relevant features weren't enabled.
@@ -194,11 +167,7 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     # for re-runs (e.g. feature installs), where wiping the venv would
     # silently destroy the package install done in a prior step.
     print_step(3, TOTAL_STEPS, "Creating virtual environment...")
-    try:
-        create_virtual_environment(force=config.force)
-    except CommandError as e:
-        print_error(f"Failed to create venv: {e.stderr}")
-        return False
+    create_virtual_environment(force=config.force)
 
     # Step 4: Install package
     if not _install_package_step(config):
@@ -206,11 +175,7 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
 
     # Step 5: Run setup
     print_step(5, TOTAL_STEPS, "Running initial setup...")
-    try:
-        run_hop3_setup()
-    except CommandError as e:
-        print_error(f"Setup failed: {e.stderr[:200]}")
-        return False
+    run_hop3_setup()
 
     return True
 

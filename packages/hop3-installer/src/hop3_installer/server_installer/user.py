@@ -12,7 +12,7 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
-from hop3_installer.common import print_info, print_success, print_warning, run_cmd
+from hop3_installer.common import print_info, print_success, run_cmd
 from hop3_installer.constants import HOME_DIR, HOP3_GROUP, HOP3_USER
 
 from .redis import fix_redis_pass_ownership
@@ -148,23 +148,16 @@ def create_user_and_group() -> None:
     Path(HOME_DIR).chmod(0o755)
 
     # Add www-data to hop3 group (needed for nginx to access app sockets)
+    # Without it every app answers 502.
     if user_exists("www-data"):
-        result = run_cmd(["usermod", "-a", "-G", HOP3_GROUP, "www-data"], check=False)
-        if result.returncode == 0:
-            print_info("Added www-data to hop3 group")
-        else:
-            print_warning(
-                "Failed to add www-data to hop3 group - nginx may have permission issues"
-            )
+        run_cmd(["usermod", "-a", "-G", HOP3_GROUP, "www-data"])
+        print_info("Added www-data to hop3 group")
 
     # Add hop3 to docker group (needed for Docker builds)
     if group_exists("docker"):
-        result = run_cmd(["usermod", "-a", "-G", "docker", HOP3_USER], check=False)
-        if result.returncode == 0:
-            print_info("Added hop3 to docker group")
-        else:
-            print_warning("Failed to add hop3 to docker group - Docker builds may fail")
+        run_cmd(["usermod", "-a", "-G", "docker", HOP3_USER])
+        print_info("Added hop3 to docker group")
 
     # Re-apply ownership on /etc/hop3/redis-pass in case Redis was
     # configured before the hop3 group existed (first-run order).
-    fix_redis_pass_ownership()
+    fix_redis_pass_ownership(required=True)

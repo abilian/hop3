@@ -17,11 +17,11 @@ import tempfile
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
+    InstallStepError,
     Spinner,
     cmd_exists,
-    print_detail,
     print_success,
-    print_warning,
     run_cmd,
 )
 
@@ -40,10 +40,8 @@ def pre_stage_email() -> None:
     elif cmd_exists("dnf"):
         _pre_stage_fedora()
     else:
-        print_warning(
-            "email: unsupported package manager; install Postfix manually "
-            "before selecting the email backend"
-        )
+        msg = "--with email: no apt-get or dnf to install Postfix with"
+        raise InstallStepError(msg)
 
 
 def _pre_stage_debian() -> None:
@@ -54,7 +52,7 @@ def _pre_stage_debian() -> None:
         f.write(_DEBCONF_PRESEED)
         seed_path = f.name
     try:
-        run_cmd(["debconf-set-selections", seed_path], env=_APT_ENV, check=False)
+        run_cmd(["debconf-set-selections", seed_path], env=_APT_ENV)
         with Spinner("Installing Postfix + opendkim (email relay)..."):
             # opendkim/opendkim-tools back the direct backend's DKIM signing;
             # they stay inert until `server email backend direct` configures them.
@@ -76,14 +74,16 @@ def _pre_stage_fedora() -> None:
 
 def _report(result: subprocess.CompletedProcess) -> None:
     """
-    Report the install outcome. A failure warns here and fails loud at use
-    time (the rootd op aborts if postmap/postfix is absent).
+    Report the install outcome; a failure stops the install.
+
+    It used to warn and leave the failure to the moment an email backend was
+    selected, on a server that had reported `--with email` as installed.
     """
-    if result.returncode == 0:
-        print_success(
-            "Postfix installed (inert; configured on email-backend selection)"
+    if result.returncode != 0:
+        raise CommandError(
+            cmd=["install", "postfix", "opendkim"],
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
         )
-        return
-    print_warning("Postfix installation failed — the email backend won't work")
-    if result.stderr:
-        print_detail(result.stderr.strip()[:500])
+    print_success("Postfix installed (inert; configured on email-backend selection)")

@@ -8,7 +8,7 @@ This module dispatches to distro-specific modules for package installation.
 
 from __future__ import annotations
 
-from hop3_installer.common import print_detail, print_info, print_warning
+from hop3_installer.common import InstallStepError, print_info
 
 from .config import ServerInstallerConfig
 from .deps_debian import install_debian_deps
@@ -32,5 +32,9 @@ def install_system_deps(distro: str, config: ServerInstallerConfig) -> None:
     elif distro == "fedora":
         install_fedora_deps(config)
     else:
-        print_warning(f"Unknown distro '{distro}', skipping package installation")
-        print_detail("You may need to install dependencies manually")
+        msg = (
+            f"no package installation for distribution family {distro!r} "
+            f"(supported: debian, fedora); with the dependencies installed by "
+            f"other means, pass --skip-deps"
+        )
+        raise InstallStepError(msg)

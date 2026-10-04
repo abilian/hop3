@@ -25,6 +25,7 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    InstallStepError,
     ServiceStartError,
     cmd_exists,
     has_systemd,
@@ -450,11 +451,10 @@ def _retire_sudoers_fragment() -> None:
     except FileNotFoundError:
         return  # Fresh install — nothing to retire.
     except OSError as e:
-        print_warning(
-            f"could not remove {SUDOERS_FRAGMENT}: {e}; "
-            "operator should remove it manually after verifying rootd works"
-        )
-        return
+        # The hop3 user would keep its legacy passwordless sudo while the
+        # install reported the migration to hop3-rootd as done.
+        msg = f"could not remove the legacy sudoers fragment {SUDOERS_FRAGMENT}: {e}"
+        raise InstallStepError(msg) from e
     print_success(
         f"removed legacy sudoers fragment {SUDOERS_FRAGMENT} "
         "(nginx ops now go through hop3-rootd)"

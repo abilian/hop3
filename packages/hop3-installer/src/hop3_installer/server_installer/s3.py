@@ -35,11 +35,12 @@ from collections.abc import Iterator
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
     has_systemd,
     print_detail,
     print_info,
     print_success,
-    print_warning,
+    process_manager_pending,
     run_cmd,
 )
 
@@ -242,18 +243,27 @@ def _start_service() -> None:
     # Init detection reads /proc/1/comm (has_systemd): the systemd *package*
     # can install systemctl on a container where systemd is not PID 1, and
     # `systemctl restart` there is fake success.
-    if not has_systemd() and _has_supervisord():
-        run_cmd(["supervisorctl", "reread"], check=False)
-        run_cmd(["supervisorctl", "update"], check=False)
+    if not has_systemd():
+        # The deployer starts supervisord after this installer returns, and
+        # it starts Garage from the program file written above. The conf.d
+        # directory exists before supervisord runs, so it is no sign of one.
+        if process_manager_pending():
+            print_info("Garage will start when the process manager does")
+            return
+        run_cmd(["supervisorctl", "reread"])
+        run_cmd(["supervisorctl", "update"])
         result = run_cmd(["supervisorctl", "start", "garage"], check=False)
         if result.returncode != 0 and "already started" not in (result.stdout or ""):
-            print_warning(f"supervisorctl start garage: {result.stderr[:200]}")
+            raise CommandError(
+                cmd=["supervisorctl", "start", "garage"],
+                returncode=result.returncode,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
+            )
         return
-    run_cmd(["systemctl", "daemon-reload"], check=False)
-    run_cmd(["systemctl", "enable", "garage"], check=False)
-    result = run_cmd(["systemctl", "restart", "garage"], check=False)
-    if result.returncode != 0:
-        print_warning(f"systemctl restart garage: {result.stderr[:200]}")
+    run_cmd(["systemctl", "daemon-reload"])
+    run_cmd(["systemctl", "enable", "garage"])
+    run_cmd(["systemctl", "restart", "garage"])
 
 
 def _garage(*args: str, check: bool = False) -> subprocess.CompletedProcess:
@@ -404,15 +414,11 @@ def fix_s3_env_ownership() -> None:
     """
     if not GARAGE_ADMIN_TOKEN_FILE.exists():
         return
-    result = run_cmd(["chgrp", "hop3", str(GARAGE_ADMIN_TOKEN_FILE)], check=False)
-    if result.returncode == 0:
-        GARAGE_ADMIN_TOKEN_FILE.chmod(0o640)
-        print_detail(f"Set hop3 group ownership on {GARAGE_ADMIN_TOKEN_FILE}")
-    else:
-        print_warning(
-            f"Could not set hop3 group on {GARAGE_ADMIN_TOKEN_FILE}: "
-            f"{result.stderr[:200]}"
-        )
+    # hop3-server reads the token to create buckets: without the group, every
+    # `hop3 addon create s3` is a permission error.
+    run_cmd(["chgrp", "hop3", str(GARAGE_ADMIN_TOKEN_FILE)])
+    GARAGE_ADMIN_TOKEN_FILE.chmod(0o640)
+    print_detail(f"Set hop3 group ownership on {GARAGE_ADMIN_TOKEN_FILE}")
 
 
 def configure_s3() -> None:

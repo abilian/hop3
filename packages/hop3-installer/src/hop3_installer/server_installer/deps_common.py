@@ -159,12 +159,17 @@ def install_conditional_package(
             env=spec.env_vars or None,
             check=False,
         )
-    if result.returncode == 0:
-        print_success(f"{pkg_name} installed")
-    else:
-        print_warning(
-            f"{pkg_name} installation failed (may conflict with other packages)"
+    if result.returncode != 0:
+        print_error(f"{pkg_name} installation failed")
+        print_failure_output("stderr", result.stderr)
+        print_failure_output("stdout", result.stdout)
+        raise CommandError(
+            cmd=install_cmd,
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
         )
+    print_success(f"{pkg_name} installed")
 
 
 def install_optional_packages(
@@ -307,9 +312,12 @@ def install_node_global_packages() -> None:
     by some apps (Etherpad, HedgeDoc, etc.) that use pnpm workspaces.
     """
     # Check if npm is available
+    # Node is part of every server, so its package tooling is too: without
+    # the pinned pnpm and nodeenv, pnpm apps and [build].node-version pins
+    # fail at build time on a server that reported a good install.
     if not cmd_exists("npm"):
-        print_warning("npm not found, skipping global npm packages")
-        return
+        msg = "npm is not on PATH after the Node install, so pnpm and nodeenv cannot be installed"
+        raise InstallStepError(msg)
 
     _install_pnpm()
 
@@ -330,26 +338,24 @@ def _install_pnpm() -> None:
     else:
         print_info(f"Installing pnpm {PNPM_VERSION}...")
     with Spinner(f"Installing pnpm {PNPM_VERSION} globally..."):
-        result = run_cmd(["npm", "install", "-g", f"pnpm@{PNPM_VERSION}"], check=False)
-    if result.returncode != 0:
-        print_warning(f"pnpm {PNPM_VERSION} installation failed")
-        if result.stderr:
-            print_detail(result.stderr.strip().split("\n")[-1])
-        return
+        run_cmd(["npm", "install", "-g", f"pnpm@{PNPM_VERSION}"])
 
     # Say so when the pin did not take. A pnpm installed by some other route
     # (corepack, the standalone script) shadows npm's global bin on PATH, and
     # the silent outcome would be the drift this pin exists to end — with the
     # installer reporting the version it meant to install.
     effective = _pnpm_version()
-    if effective == PNPM_VERSION:
-        print_success(f"pnpm {PNPM_VERSION} installed")
-    else:
-        print_warning(
-            f"Installed pnpm {PNPM_VERSION}, but `pnpm --version` still reports "
-            f"{effective or 'nothing'} — another pnpm is ahead of it on PATH, "
-            f"and that is the one apps will build with."
+    if not effective:
+        msg = f"installed pnpm {PNPM_VERSION} with npm, but no pnpm is on PATH"
+        raise InstallStepError(msg)
+    if effective != PNPM_VERSION:
+        msg = (
+            f"installed pnpm {PNPM_VERSION}, but `pnpm --version` reports "
+            f"{effective}: another pnpm is ahead of it on PATH, and apps would "
+            f"build with that one"
         )
+        raise InstallStepError(msg)
+    print_success(f"pnpm {PNPM_VERSION} installed")
 
 
 def _pnpm_version() -> str:
@@ -387,31 +393,16 @@ def _install_nodeenv() -> None:
 
     print_info("Installing nodeenv (PyPI)...")
     with Spinner("Creating nodeenv venv..."):
-        venv_res = run_cmd(["python3", "-m", "venv", str(_NODEENV_VENV)], check=False)
-    if venv_res.returncode != 0:
-        print_error("nodeenv installation failed: could not create its venv")
-        if venv_res.stderr:
-            print_detail(venv_res.stderr.strip().split("\n")[-1])
-        return
-
+        run_cmd(["python3", "-m", "venv", str(_NODEENV_VENV)])
     with Spinner("Installing nodeenv into venv..."):
-        pip_res = run_cmd(
-            [str(_NODEENV_VENV / "bin" / "pip"), "install", "--upgrade", "nodeenv"],
-            check=False,
+        run_cmd([str(_NODEENV_VENV / "bin" / "pip"), "install", "--upgrade", "nodeenv"])
+    if not create_symlink(_NODEENV_VENV / "bin" / "nodeenv", _NODEENV_BIN):
+        msg = (
+            f"installed nodeenv but could not symlink it to {_NODEENV_BIN}, "
+            f"so it is not on the build PATH"
         )
-    if pip_res.returncode != 0:
-        print_error("nodeenv installation failed: pip could not install it")
-        if pip_res.stderr:
-            print_detail(pip_res.stderr.strip().split("\n")[-1])
-        return
-
-    if create_symlink(_NODEENV_VENV / "bin" / "nodeenv", _NODEENV_BIN):
-        print_success(f"nodeenv installed: {_NODEENV_BIN}")
-    else:
-        print_error(
-            f"Installed nodeenv but could not symlink it to {_NODEENV_BIN} "
-            "(it won't be on the build PATH)"
-        )
+        raise InstallStepError(msg)
+    print_success(f"nodeenv installed: {_NODEENV_BIN}")
 
 
 # =============================================================================
@@ -419,25 +410,29 @@ def _install_nodeenv() -> None:
 # =============================================================================
 
 
-def _fail_rust_install(
+def _toolchain_failed(
     msg: str,
     result: subprocess.CompletedProcess | None,
     *,
     required: bool,
 ) -> None:
-    """Report a Rust install failure; raise if it was required."""
+    """
+    Report an optional toolchain's failure; raise if it was requested.
+
+    Rust, Leiningen and Elixir are installed on every server, best-effort:
+    an app that needs one fails at its build, saying so. Requested by name
+    (`--with rust|clojure|elixir`), the toolchain is a promise, and its
+    failure stops the install.
+    """
     (print_error if required else print_warning)(msg)
-    if result is not None and result.stderr:
-        print_detail(result.stderr[:400])
+    if result is not None:
+        print_failure_output("stderr", result.stderr, lines=8)
     if required:
-        returncode = result.returncode if result is not None else 1
-        stdout = result.stdout or "" if result is not None else ""
-        stderr = result.stderr or msg if result is not None else msg
         raise CommandError(
-            cmd=["rust-install"],
-            returncode=returncode,
-            stdout=stdout,
-            stderr=stderr,
+            cmd=[msg],
+            returncode=result.returncode if result is not None else 1,
+            stdout=(result.stdout or "") if result is not None else "",
+            stderr=(result.stderr or msg) if result is not None else msg,
         )
 
 
@@ -484,17 +479,15 @@ def install_catalogue_baseline(os_family: str) -> None:
     Runs AFTER the static base packages in deps_{debian,fedora}.py —
     those provide the common stack (python, node, ruby, php, libssl-dev,
     ...); this step adds whatever else the catalogue declares on top.
-    Skipped with a warning when the OS family is unsupported.
     """
     from .baselines import BASELINE_PACKAGES  # ruff:ignore[import-outside-top-level]
 
     packages = BASELINE_PACKAGES.get(os_family)
+    # Callers pass only the supported families, so an empty list means the
+    # generated baselines.py is broken, and native-profile apps would not build.
     if not packages:
-        print_warning(
-            f"No catalogue baseline available for OS family '{os_family}'; "
-            "skipping. Native-profile apps may fail to build."
-        )
-        return
+        msg = f"baselines.py has no catalogue baseline for OS family {os_family!r}"
+        raise InstallStepError(msg)
 
     # Defence in depth against a stale baselines.py: never apt/dnf-install Node's
     # distro packages — Node comes from NodeSource (see _NODESOURCE_PROVIDED).
@@ -593,7 +586,9 @@ def install_rust_toolchain(*, required: bool = False) -> None:
         result = run_as_hop3([str(cargo_path), "--version"])
         if result.returncode == 0:
             print_info(f"Rust toolchain already installed: {result.stdout.strip()}")
-            _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
+            _create_rust_symlinks(
+                cargo_path, rustc_path, rustup_path, required=required
+            )
             return
 
     print_info("Installing Rust toolchain via rustup...")
@@ -620,13 +615,13 @@ def install_rust_toolchain(*, required: bool = False) -> None:
         )
 
     if result.returncode != 0:
-        _fail_rust_install(
+        _toolchain_failed(
             "Rust installation via rustup failed", result, required=required
         )
         return
 
     if not cargo_path.exists():
-        _fail_rust_install(
+        _toolchain_failed(
             "Rust installation reported success but cargo binary not found",
             None,
             required=required,
@@ -637,7 +632,7 @@ def install_rust_toolchain(*, required: bool = False) -> None:
     # one host where rustup dropped a stub that couldn't exec).
     verify = _verify_or_repair_cargo(cargo_path, rustup_path)
     if verify.returncode != 0:
-        _fail_rust_install(
+        _toolchain_failed(
             "Rust installed but `cargo --version` exits non-zero",
             verify,
             required=required,
@@ -646,11 +641,11 @@ def install_rust_toolchain(*, required: bool = False) -> None:
 
     print_success("Rust toolchain installed")
     print_detail(f"Version: {verify.stdout.strip()}")
-    _create_rust_symlinks(cargo_path, rustc_path, rustup_path)
+    _create_rust_symlinks(cargo_path, rustc_path, rustup_path, required=required)
 
 
 def _create_rust_symlinks(
-    cargo_path: Path, rustc_path: Path, rustup_path: Path
+    cargo_path: Path, rustc_path: Path, rustup_path: Path, *, required: bool = False
 ) -> None:
     """
     Create symlinks in /usr/local/bin for Rust tools.
@@ -668,7 +663,11 @@ def _create_rust_symlinks(
         if create_symlink(source, target):
             print_detail(f"Created symlink: {target} -> {source}")
         elif source.exists():
-            print_warning(f"Could not create symlink {target}")
+            # Builds run without the hop3 user's PATH, so without the link
+            # Rust is installed and unusable.
+            _toolchain_failed(
+                f"Could not create symlink {target}", None, required=required
+            )
 
 
 # =============================================================================
@@ -676,12 +675,15 @@ def _create_rust_symlinks(
 # =============================================================================
 
 
-def install_leiningen() -> None:
+def install_leiningen(*, required: bool = False) -> None:
     """
     Install Leiningen (Clojure build tool).
 
     Leiningen is installed system-wide in /usr/local/bin.
     The actual JAR is downloaded on first run by the hop3 user.
+
+    Args:
+        required: Raise on failure (`--with clojure`) instead of warning.
     """
     lein_path = Path("/usr/local/bin/lein")
 
@@ -703,7 +705,7 @@ def install_leiningen() -> None:
         )
 
     if result.returncode != 0:
-        print_warning("Failed to download Leiningen")
+        _toolchain_failed("Failed to download Leiningen", result, required=required)
         return
 
     # Make executable
@@ -717,9 +719,11 @@ def install_leiningen() -> None:
     if result.returncode == 0:
         print_success(f"Leiningen installed: {result.stdout.strip()}")
     else:
-        print_warning("Leiningen script installed but initialization failed")
-        if result.stderr:
-            print_detail(result.stderr[:200])
+        _toolchain_failed(
+            "Leiningen script installed but initialization failed",
+            result,
+            required=required,
+        )
 
 
 # =============================================================================
@@ -734,7 +738,7 @@ _ELIXIR_DIR = Path("/opt/elixir")
 _ELIXIR_BINS = ("elixir", "elixirc", "mix", "iex")
 
 
-def install_elixir() -> None:
+def install_elixir(*, required: bool = False) -> None:
     """
     Install a modern Elixir (>= 1.15) for Phoenix and other Elixir apps.
 
@@ -743,8 +747,11 @@ def install_elixir() -> None:
     precompiled Elixir matching the installed OTP major version, symlinked into
     /usr/local/bin so it takes precedence over any apt `elixir`.
 
-    Non-fatal but loud: a failure leaves Elixir apps unbuildable, which the
-    deploy then reports clearly, rather than silently shipping 1.14.
+    A failure leaves Elixir apps unbuildable, which their deploy reports; it
+    stops the install when Elixir was requested (`--with elixir`).
+
+    Args:
+        required: Raise on failure instead of warning.
     """
     if _elixir_is_recent_enough():
         print_info("Elixir >= 1.15 already installed")
@@ -759,14 +766,20 @@ def install_elixir() -> None:
                 check=False,
             )
         if result.returncode != 0 or not cmd_exists("erl"):
-            print_error("Elixir install failed: could not install Erlang/OTP")
-            if result.stderr:
-                print_detail(result.stderr.strip().split("\n")[-1])
+            _toolchain_failed(
+                "Elixir install failed: could not install Erlang/OTP",
+                result,
+                required=required,
+            )
             return
 
     otp_major = _detect_otp_major()
     if not otp_major:
-        print_error("Elixir install failed: could not detect the Erlang/OTP version")
+        _toolchain_failed(
+            "Elixir install failed: could not detect the Erlang/OTP version",
+            None,
+            required=required,
+        )
         return
 
     url = (
@@ -778,9 +791,11 @@ def install_elixir() -> None:
     with Spinner("Downloading Elixir..."):
         result = run_cmd(["curl", "-fsSL", "-o", str(zip_path), url], check=False)
     if result.returncode != 0:
-        print_error(
+        _toolchain_failed(
             f"Elixir install failed: download error. No prebuilt Elixir "
-            f"{ELIXIR_VERSION} for OTP {otp_major}? ({url})"
+            f"{ELIXIR_VERSION} for OTP {otp_major}? ({url})",
+            result,
+            required=required,
         )
         return
 
@@ -793,7 +808,11 @@ def install_elixir() -> None:
             check=False,
         )
     if result.returncode != 0:
-        print_error("Elixir install failed: could not extract the release archive")
+        _toolchain_failed(
+            "Elixir install failed: could not extract the release archive",
+            result,
+            required=required,
+        )
         return
 
     for name in _ELIXIR_BINS:
@@ -806,8 +825,10 @@ def install_elixir() -> None:
     if result.returncode == 0:
         print_success(f"Elixir installed: {_elixir_version_line(result.stdout)}")
     else:
-        print_error(
-            "Elixir install failed: `elixir --version` did not run after install"
+        _toolchain_failed(
+            "Elixir install failed: `elixir --version` did not run after install",
+            result,
+            required=required,
         )
 
 

@@ -127,7 +127,17 @@ UWSGI_SERVICE_UNIT = f"{UWSGI_SERVICE}.service"
 # Optional Features
 # =============================================================================
 
-ALL_FEATURES = {"mysql", "redis", "docker", "nix", "s3", "rust", "email"}
+ALL_FEATURES = {
+    "mysql",
+    "redis",
+    "docker",
+    "nix",
+    "s3",
+    "rust",
+    "clojure",
+    "elixir",
+    "email",
+}
 
 
 # =============================================================================

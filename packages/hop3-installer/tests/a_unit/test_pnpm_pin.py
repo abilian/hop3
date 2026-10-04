@@ -20,6 +20,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from hop3_installer.common import InstallStepError
 from hop3_installer.server_installer import deps_common
 
 
@@ -32,16 +33,20 @@ def pnpm_install(monkeypatch):
     """Drive `_install_pnpm` with a given `pnpm --version`, capture the calls."""
 
     def run(present: str | None, *, installs: MagicMock | None = None):
-        versions = iter([present or "", deps_common.PNPM_VERSION])
+        # `pnpm --version` runs only while pnpm is on PATH.
+        versions = iter([*([present] if present else []), deps_common.PNPM_VERSION])
+        on_path = {"pnpm": present is not None}
 
         def run_cmd(cmd, **_kwargs):
             if cmd[:2] == ["pnpm", "--version"]:
                 return _ok(next(versions) + "\n")
+            if cmd[:3] == ["npm", "install", "-g"]:
+                on_path["pnpm"] = True
             return installs or _ok()
 
         with (
             patch.object(deps_common, "Spinner"),
-            patch.object(deps_common, "cmd_exists", lambda name: present is not None),
+            patch.object(deps_common, "cmd_exists", lambda name: on_path["pnpm"]),
             patch.object(deps_common, "run_cmd", side_effect=run_cmd) as calls,
         ):
             deps_common._install_pnpm()
@@ -78,13 +83,13 @@ def test_the_pinned_version_is_left_alone(pnpm_install):
     assert not any(cmd[:1] == ["npm"] for cmd in calls)
 
 
-def test_a_shadowing_pnpm_is_reported_not_assumed_away(monkeypatch):
+def test_a_shadowing_pnpm_stops_the_install():
     """
     `npm install -g` can succeed while another pnpm stays ahead on PATH
     (corepack, the standalone script). Reporting the version we meant to
-    install would be the same silent drift, with our name on it.
+    install would be the same silent drift, with our name on it; a warning
+    that the install then carried past was not much better.
     """
-    warnings: list[str] = []
 
     def run_cmd(cmd, **_kwargs):
         if cmd[:2] == ["pnpm", "--version"]:
@@ -95,9 +100,6 @@ def test_a_shadowing_pnpm_is_reported_not_assumed_away(monkeypatch):
         patch.object(deps_common, "Spinner"),
         patch.object(deps_common, "cmd_exists", lambda _name: True),
         patch.object(deps_common, "run_cmd", side_effect=run_cmd),
-        patch.object(deps_common, "print_warning", warnings.append),
+        pytest.raises(InstallStepError, match="ahead of it on PATH"),
     ):
         deps_common._install_pnpm()
-
-    assert warnings, "a pin that did not take must be said out loud"
-    assert "ahead of it on PATH" in warnings[0]

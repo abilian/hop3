@@ -14,7 +14,7 @@ import tempfile
 from pathlib import Path
 
 from hop3_installer.common import (
-    CommandError,
+    InstallStepError,
     Spinner,
     create_symlink,
     make_build_info,
@@ -294,15 +294,14 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
         # next to /tmp/hop3-server).
         rootd_path = Path(config.local_path).parent / "hop3-rootd"
         if not rootd_path.exists():
-            # Don't soft-skip into a confusing later failure: setup_rootd
-            # (step 9b) hard-aborts when the binary is absent. Say so plainly.
-            print_warning(
-                f"hop3-rootd source not found at {rootd_path}. The install will "
-                "abort at the hop3-rootd step — the daemon is required for "
-                "deploys (nginx reloads). Upload it next to the server source "
-                "and re-run."
+            # Abort now: setup_rootd (step 9b) would, after steps 5-9 had
+            # changed the box.
+            msg = (
+                f"hop3-rootd source not found at {rootd_path}: the daemon is "
+                f"required for deploys (nginx reloads). Upload it next to the "
+                f"server source and re-run."
             )
-            return
+            raise InstallStepError(msg)
         package_spec = str(rootd_path)
         source_desc = f"local path ({rootd_path})"
     elif config.use_git:
@@ -405,11 +404,11 @@ def setup_ssh_keys() -> None:
         os.chown(temp_keys, hop3_uid, hop3_gid)
         Path(temp_keys).chmod(0o600)  # Restrict permissions
 
-        # Run setup:ssh - quote the path for safety
-        run_as_hop3([hop_server, "setup:ssh", str(temp_keys)])
+        # `git push` and `hop3 app shell` reach the server through these
+        # keys. Without check=True this call never raised, and "SSH keys
+        # configured" was printed whatever happened.
+        run_as_hop3([hop_server, "setup:ssh", str(temp_keys)], check=True)
         print_success("SSH keys configured")
-    except CommandError:
-        print_warning("Could not configure SSH keys (invalid format?)")
     finally:
         if temp_keys.exists():
             temp_keys.unlink()

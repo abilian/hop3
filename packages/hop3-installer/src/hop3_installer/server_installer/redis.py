@@ -6,8 +6,6 @@ from __future__ import annotations
 
 import re
 import secrets
-import shutil
-import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -61,24 +59,25 @@ def _ensure_redis_password() -> str:
     return password
 
 
-def fix_redis_pass_ownership() -> None:
+def fix_redis_pass_ownership(*, required: bool = False) -> None:
     """
     Re-apply root:hop3 ownership on the redis password file.
 
-    Safe to call repeatedly; called both at password generation time and
-    after the hop3 user is created (which may happen *after* Redis is
-    configured on first install).
+    Called when the password is generated, which on a first install may be
+    before the hop3 group exists, and again after the user is created. That
+    second call is ``required``: without the group, hop3-server cannot read
+    the password and every redis addon fails to authenticate.
     """
     if not REDIS_PASS_FILE.exists():
         return
-    chown = shutil.which("chown")
-    if not chown:
-        return
-    subprocess.run(
-        [chown, "root:hop3", str(REDIS_PASS_FILE)],
-        check=False,
-        capture_output=True,
-    )
+    result = run_cmd(["chown", "root:hop3", str(REDIS_PASS_FILE)], check=False)
+    if required and result.returncode != 0:
+        raise CommandError(
+            cmd=["chown", "root:hop3", str(REDIS_PASS_FILE)],
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+        )
 
 
 def _write_redis_config() -> str | None:

@@ -73,6 +73,14 @@ class ServerInstallerConfig:
     def with_email(self) -> bool:
         return "email" in self.features
 
+    @property
+    def with_clojure(self) -> bool:
+        return "clojure" in self.features
+
+    @property
+    def with_elixir(self) -> bool:
+        return "elixir" in self.features
+
     @classmethod
     def from_env(cls) -> ServerInstallerConfig:
         """Create config from environment variables."""
