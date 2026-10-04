@@ -7,6 +7,7 @@ Developer-facing notes for Hop3. The entries below cover what lives where.
 - [`app-porting-tips.md`](./app-porting-tips.md): cookbook for packaging a self-hosted application as a Hop3 app, distilled from ~30 real apps packaged between late 2025 and April 2026.
 - [`nix-runtime-dispositions.md`](./nix-runtime-dispositions.md): how each Nix template disposes of its runtime.
 - [`questions.md`](./questions.md): open architectural questions (pointer to relevant ADRs).
+- [`installer-fail-loud-audit.md`](./installer-fail-loud-audit.md): 105 warning sites in the installer and deployer, about 74 of them failures the install continued past; the patterns, the plan, and the gate that keeps it fixed.
 - [`readiness-and-non-http-backends.md`](./readiness-and-non-http-backends.md): why the readiness gate speaks FastCGI at php-fpm, and what replaces that.
 - [`process-runner-alternatives.md`](./process-runner-alternatives.md): pre-ADR survey of existing process runners that could replace uWSGI (ADR 023), against what uWSGI does for Hop3 today.
 - [`todo.md`](./todo.md): engineering tasks captured day to day, before they graduate to a plan.
