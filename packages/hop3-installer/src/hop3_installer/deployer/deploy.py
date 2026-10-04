@@ -211,7 +211,7 @@ class Deployer:
             if not self._update():
                 return False, step
             # Install any requested features not yet present
-            if self.config.with_features:
+            if self.config.install_features:
                 step += 1
                 self.log_step(step, "Installing requested features")
                 if not self._install_features():
@@ -613,8 +613,8 @@ class Deployer:
         install_cmd = f"{python_cmd} -u /tmp/install-server.py"
         install_cmd += self._build_source_args(local_path)
 
-        if self.config.with_features:
-            install_cmd += f" --with {','.join(self.config.with_features)}"
+        if self.config.install_features:
+            install_cmd += f" --with {','.join(self.config.install_features)}"
 
         if self.config.acme_email:
             install_cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
@@ -671,7 +671,8 @@ class Deployer:
         certbot on every redeploy (which would hammer Let's Encrypt limits).
         """
         cmd = f"{python_cmd} -u /tmp/install-server.py"
-        cmd += f" --with {','.join(self.config.with_features)}"
+        if self.config.install_features:
+            cmd += f" --with {','.join(self.config.install_features)}"
         cmd += " --skip-nginx --skip-acme --skip-package-install"
         if self.config.acme_email:
             cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
@@ -689,10 +690,10 @@ class Deployer:
         forwarded so the cert engine is configured; the installer is idempotent
         so already-installed features are skipped.
         """
-        if not self.config.with_features:
+        if not self.config.install_features:
             return True
 
-        self.log(f"Installing features: {', '.join(self.config.with_features)}")
+        self.log(f"Installing features: {', '.join(self.config.install_features)}")
 
         python_cmd = self._ensure_python310_plus()
 

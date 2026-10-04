@@ -21,11 +21,13 @@ import sys
 from hop3_installer.common import (
     Colors,
     CommandError,
+    InstallStepError,
     ServiceStartError,
     check_python_version,
     detect_distro,
     print_detail,
     print_error,
+    print_failure_output,
     print_header,
     print_info,
     print_step,
@@ -217,7 +219,7 @@ def _run_service_setup_steps(
     distro: str, config: ServerInstallerConfig
 ) -> tuple[str | None, str | None, str | None]:
     """
-    Run service configuration steps (non-critical).
+    Run the service configuration steps; each raises on failure.
 
     Args:
         distro: Detected distribution name.
@@ -232,25 +234,15 @@ def _run_service_setup_steps(
 
     # Step 7: Systemd
     print_step(7, TOTAL_STEPS, "Setting up systemd services...")
-    secret_key = None
-    try:
-        secret_key = setup_systemd(config)
-    except CommandError as e:
-        print_warning(f"Systemd setup issue: {e.stderr[:100]}")
+    secret_key = setup_systemd(config)
 
     # Step 8: SSL certificates
     print_step(8, TOTAL_STEPS, "Setting up SSL certificates...")
-    try:
-        setup_ssl_selfsigned()
-    except CommandError as e:
-        print_warning(f"SSL setup issue: {e.stderr[:100]}")
+    setup_ssl_selfsigned()
 
     # Step 9: Nginx
     print_step(9, TOTAL_STEPS, "Configuring nginx...")
-    try:
-        setup_nginx(config)
-    except CommandError as e:
-        print_warning(f"Nginx setup issue: {e.stderr[:100]}")
+    setup_nginx(config)
 
     # Step 9b: hop3-rootd (privileged-operations daemon, ADR 041). The deploy
     # path depends on it for nginx reloads, so on systemd hosts a failure is
@@ -267,21 +259,59 @@ def _run_service_setup_steps(
 
     # Step 10: PostgreSQL
     print_step(10, TOTAL_STEPS, "Configuring PostgreSQL...")
-    pg_password = None
-    try:
-        pg_password = setup_postgres(config, distro)
-    except CommandError as e:
-        print_warning(f"PostgreSQL setup issue: {e.stderr[:100]}")
+    pg_password = setup_postgres(config, distro)
 
     # Step 11: MySQL (if requested)
     print_step(11, TOTAL_STEPS, "Configuring MySQL...")
-    mysql_password = None
-    try:
-        mysql_password = setup_mysql(config, distro)
-    except CommandError as e:
-        print_warning(f"MySQL setup issue: {e.stderr[:100]}")
+    mysql_password = setup_mysql(config, distro)
 
     return secret_key, pg_password, mysql_password
+
+
+def _configure_server(distro: str, config: ServerInstallerConfig) -> None:
+    """
+    Steps 6-11, then the config file, ACME and the restart that loads them.
+
+    Raises:
+        CommandError, ServiceStartError, OSError: a step failed.
+        InstallStepError: a requested database has no verified credential.
+    """
+    secret_key, pg_password, mysql_password = _run_service_setup_steps(distro, config)
+
+    # A requested database not left with a superuser credential we could
+    # verify over TCP. Shipping hop3-server.toml in that state would give the
+    # server a password the DB won't honour (postgres) or omit the password
+    # entirely (mysql → fallback to 'root'), and every app of that type would
+    # then fail provisioning with an opaque auth error.
+    db_error = _missing_db_credential_error(config, pg_password, mysql_password)
+    if db_error:
+        raise InstallStepError("\n".join(db_error))
+
+    # Server config (including the secret key for CLI commands). Verification
+    # keys its database checks on this file existing, so a failed write that
+    # carried on also skipped them, and the install reported success.
+    write_server_config(
+        pg_password,
+        mysql_password,
+        config.domain,
+        secret_key,
+        operator_email=config.operator_email or config.acme_email,
+    )
+    setup_acme(config)
+
+    # hop3-server was started (step 7) BEFORE hop3-server.toml existed, and the
+    # config loader caches the file at boot. Restart now that the config is
+    # finalized so the running process sees OPERATOR_EMAIL / DB creds / domain —
+    # otherwise a fresh install serves a stale config (see restart_hop3_server).
+    restart_hop3_server()
+
+
+def _report_failure(e: Exception) -> None:
+    """Print why the install stopped, with the failing command's output."""
+    print_error(f"Installation failed: {e}")
+    if isinstance(e, CommandError):
+        print_failure_output("stderr", e.stderr)
+        print_failure_output("stdout", e.stdout)
 
 
 def _missing_db_credential_error(
@@ -361,47 +391,17 @@ def main() -> int:
     if config.features:
         print_info(f"Optional features: {', '.join(sorted(config.features))}")
 
-    # Run critical steps (steps 1-5)
-    if not _run_critical_steps(distro, config):
-        return 1
-
-    # Run service setup steps (steps 6-11)
-    secret_key, pg_password, mysql_password = _run_service_setup_steps(distro, config)
-
-    # Fail loud: a requested database was not left with a superuser credential
-    # we could verify over TCP. Shipping hop3-server.toml in that state would
-    # give the server a password the DB won't honour (postgres) or omit the
-    # password entirely (mysql → fallback to 'root'), and every app of that type
-    # would then fail provisioning with an opaque auth error.
-    db_error = _missing_db_credential_error(config, pg_password, mysql_password)
-    if db_error:
-        print_error(db_error[0])
-        print_detail(db_error[1])
-        return 1
-
-    # Write server config (including secret key for CLI commands)
+    # Steps 1-5, then 6-11 with the config file and ACME. Steps 6-11 raise on
+    # failure: they used to be caught one by one and printed as a warning
+    # (error output cut to 100 characters), so a failed nginx, SSL or config
+    # write ended in an install that reported success.
     try:
-        write_server_config(
-            pg_password,
-            mysql_password,
-            config.domain,
-            secret_key,
-            operator_email=config.operator_email or config.acme_email,
-        )
-    except Exception as e:
-        print_warning(f"Config write issue: {e}")
-
-    # ACME setup
-    try:
-        setup_acme(config)
-    except CommandError as e:
-        print_warning(f"ACME setup issue: {e.stderr[:100]}")
-
-    # hop3-server was started (step 7) BEFORE hop3-server.toml existed, and the
-    # config loader caches the file at boot. Restart now that the config is
-    # finalized so the running process sees OPERATOR_EMAIL / DB creds / domain —
-    # otherwise a fresh install serves a stale config (see restart_hop3_server).
-    restart_hop3_server()
+        if not _run_critical_steps(distro, config):
+            return 1
+        _configure_server(distro, config)
+    except (CommandError, ServiceStartError, OSError, InstallStepError) as e:
+        _report_failure(e)
+        return 1
 
     # Verify
     print()

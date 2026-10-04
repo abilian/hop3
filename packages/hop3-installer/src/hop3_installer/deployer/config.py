@@ -119,10 +119,6 @@ class DeployConfig:
         if not self.admin_password:
             self.admin_password = secrets.token_urlsafe(16)
 
-        # Default features
-        if not self.with_features:
-            self.with_features = ["docker"]
-
         # Validate SSH parameters — reject shell metacharacters early.
         # Only validate when a host is set (skip for Docker-only configs).
         if self.host:
@@ -340,7 +336,7 @@ class DeployConfig:
             pypi_pre=env_bool_with_alias("HOP3_PRE", "HOP3_PYPI_PRE"),
             clean_before=env_bool("HOP3_CLEAN"),
             skip_migrations=env_bool("HOP3_SKIP_MIGRATIONS"),
-            with_features=features or ["docker"],
+            with_features=features,
             admin_domain=env_str("HOP3_ADMIN_DOMAIN"),
             admin_user=env_str("HOP3_ADMIN_USER", DEFAULT_ADMIN_USER),
             admin_email=env_str("HOP3_ADMIN_EMAIL", DEFAULT_ADMIN_EMAIL),
@@ -349,6 +345,28 @@ class DeployConfig:
             verbose=env_bool("HOP3_VERBOSE"),
             quiet=env_bool("HOP3_QUIET"),
         )
+
+    @property
+    def install_features(self) -> list[str]:
+        """
+        The features the installer is asked for: the request, or the default.
+
+        A server gets Docker by default, for Docker-built apps. The Docker
+        target cannot run dockerd (the container is not privileged and has no
+        systemd), so there nothing is requested by default, and `all` means
+        every feature but Docker. An explicit `docker` still reaches the
+        installer, which refuses it there with the reason.
+
+        Derived on each read: the CLI sets ``use_docker`` after construction.
+        """
+        if not self.with_features:
+            return [] if self.use_docker else ["docker"]
+        if self.use_docker and "all" in self.with_features:
+            return sorted(
+                (ALL_FEATURES - {"docker"})
+                | {f for f in self.with_features if f != "all"}
+            )
+        return self.with_features
 
     def validate(self) -> list[str]:
         """

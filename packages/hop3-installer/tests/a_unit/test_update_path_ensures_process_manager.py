@@ -60,8 +60,8 @@ def _config() -> DeployConfig:
     """
     A Docker deploy with no extra features.
 
-    `DeployConfig` defaults `with_features` to `["docker"]`, which adds a step
-    after the update. This suite is about what happens *before* the update.
+    Features add a step after the update; this suite is about what happens
+    *before* it.
     """
     config = DeployConfig(use_docker=True)
     config.with_features = []

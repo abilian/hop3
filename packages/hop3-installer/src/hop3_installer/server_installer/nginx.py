@@ -10,13 +10,10 @@ import pwd
 from pathlib import Path
 
 from hop3_installer.common import (
-    CommandError,
+    InstallStepError,
     has_systemd,
-    print_detail,
-    print_error,
     print_info,
     print_success,
-    print_warning,
     run_cmd,
 )
 from hop3_installer.constants import (
@@ -122,13 +119,9 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     # Add include for app-specific configs
     _add_hop3_nginx_include()
 
-    # Test nginx config
-    try:
-        run_cmd(["nginx", "-t"])
-        print_success("Nginx configuration is valid")
-    except CommandError as e:
-        print_error(f"Nginx configuration test failed: {e.stderr[:200]}")
-        return
+    # Test nginx config: it raises with nginx's own diagnosis.
+    run_cmd(["nginx", "-t"])
+    print_success("Nginx configuration is valid")
 
     # Enable and start nginx — but only where systemd is what runs it.
     #
@@ -142,14 +135,9 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
         print_info("systemd not detected; the process manager will start nginx")
         return
 
-    run_cmd(["systemctl", "enable", "nginx"], check=False)
-    result = run_cmd(["systemctl", "restart", "nginx"], check=False)
-    if result.returncode != 0:
-        print_warning("Failed to restart nginx")
-        print_detail("Check status with: journalctl -u nginx -n 50")
-        print_detail("Check config with: nginx -t")
-    else:
-        print_success("Nginx enabled and started")
+    run_cmd(["systemctl", "enable", "nginx"])
+    run_cmd(["systemctl", "restart", "nginx"])
+    print_success("Nginx enabled and started")
 
 
 def _add_hop3_nginx_include() -> None:
@@ -157,9 +145,10 @@ def _add_hop3_nginx_include() -> None:
     nginx_conf = Path("/etc/nginx/nginx.conf")
     include_line = "include /home/hop3/nginx/*.conf;"
 
+    # Without the include, nginx ignores every app vhost the server writes.
     if not nginx_conf.exists():
-        print_warning("nginx.conf not found, skipping app include setup")
-        return
+        msg = f"{nginx_conf} not found: nginx cannot be told to load the apps' configs"
+        raise InstallStepError(msg)
 
     content = nginx_conf.read_text()
 
@@ -187,8 +176,12 @@ def _add_hop3_nginx_include() -> None:
                 new_lines.append(" " * indent + include_line)
                 include_added = True
 
-    if include_added:
-        nginx_conf.write_text("\n".join(new_lines))
-        print_success("Added hop3 app nginx include to nginx.conf")
-    else:
-        print_warning("Could not find suitable location for nginx include")
+    if not include_added:
+        msg = (
+            f"{nginx_conf} has no `include` of sites-enabled or conf.d to put "
+            f"`{include_line}` beside: this nginx layout is not one the "
+            f"installer knows, so the apps' configs would never be loaded"
+        )
+        raise InstallStepError(msg)
+    nginx_conf.write_text("\n".join(new_lines))
+    print_success("Added hop3 app nginx include to nginx.conf")

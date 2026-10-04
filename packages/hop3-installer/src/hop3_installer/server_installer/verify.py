@@ -16,7 +16,6 @@ from hop3_installer.common import (
     print_error,
     print_info,
     print_success,
-    print_warning,
     process_manager_pending,
     run_cmd,
 )
@@ -214,12 +213,12 @@ def verify_mysql_config() -> bool:
 
     # Check that config file has MySQL password
     if not config_file.exists():
-        print_warning("Config file not found")
+        print_error("Config file not found")
         return False
 
     config_content = config_file.read_text()
     if "MYSQL_SUPERUSER_PASSWORD" not in config_content:
-        print_warning("MySQL password not in config file")
+        print_error("MySQL password not in config file")
         return False
 
     # Test MySQL connection as hop3 user using the config
@@ -233,7 +232,7 @@ def verify_mysql_config() -> bool:
             break
 
     if not mysql_password:
-        print_warning("Could not extract MySQL password from config")
+        print_error("Could not extract MySQL password from config")
         return False
 
     # Test connection with the hop3 MySQL user.
@@ -247,7 +246,7 @@ def verify_mysql_config() -> bool:
     )
 
     if result.returncode != 0:
-        print_warning("MySQL connection test failed")
+        print_error("MySQL connection test failed")
         if result.stderr:
             print_detail(result.stderr.strip()[:200])
         return False
@@ -260,14 +259,21 @@ def verify_mysql_config() -> bool:
 SUPERVISOR_SERVICES = ("hop3-server", "nginx", "uwsgi-hop3")
 
 
-def _verify_services() -> None:
-    """Verify core services are running."""
+def _verify_services() -> bool:
+    """
+    Verify core services are running; False if any is not.
+
+    A stopped service used to be a warning that left the result unchanged, so
+    an install with hop3-server or nginx down ended in "Installation complete!".
+    """
     if process_manager_pending():
         print_info(
             "No process manager yet; the deployer starts and verifies "
             "hop3-server, nginx and uwsgi after this installer returns"
         )
-        return
+        return True
+
+    all_ok = True
 
     if has_systemd():
         for service, name in [
@@ -282,7 +288,8 @@ def _verify_services() -> None:
             if result.stdout.strip() == "active":
                 print_success(f"{name} is running")
             else:
-                print_warning(f"{name} is not running")
+                all_ok = False
+                print_error(f"{name} is not running")
                 print_detail(f"Check with: sudo systemctl status {service}")
     else:
         for service in SUPERVISOR_SERVICES:
@@ -292,8 +299,10 @@ def _verify_services() -> None:
             if "RUNNING" in (result.stdout or ""):
                 print_success(f"{service} is running")
             else:
-                print_warning(f"{service} is not running")
+                all_ok = False
+                print_error(f"{service} is not running")
                 print_detail(f"Check with: supervisorctl status {service}")
+    return all_ok
 
 
 def _is_postgres_running() -> bool:
@@ -356,7 +365,7 @@ def _verify_database_services(config_content: str) -> bool:
         if _is_postgres_running():
             print_success("PostgreSQL service is running")
         else:
-            print_warning("PostgreSQL service is not running")
+            print_error("PostgreSQL service is not running")
             all_ok = False
 
     if "MYSQL_SUPERUSER_PASSWORD" in config_content:
@@ -367,7 +376,7 @@ def _verify_database_services(config_content: str) -> bool:
                 print_error("MySQL configuration test FAILED")
                 all_ok = False
         else:
-            print_warning("MySQL service is not running")
+            print_error("MySQL service is not running")
             all_ok = False
 
     return all_ok
@@ -381,22 +390,22 @@ def verify_installation(config: ServerInstallerConfig) -> bool:
         print_error("hop3-server not found")
         return False
 
-    _verify_services()
+    all_ok = _verify_services()
 
-    # Check SSL
+    # nginx's TLS server block points at this pair.
     if SYSTEM_SSL_CERT.exists() and SYSTEM_SSL_KEY.exists():
         print_success("SSL certificate is configured")
     else:
-        print_warning("SSL certificate not found")
+        print_error(f"SSL certificate not found ({SYSTEM_SSL_CERT})")
+        all_ok = False
 
-    # Check databases if configured
+    # The databases are checked against the config file, so a missing file
+    # used to skip those checks and pass.
     config_file = HOME_DIR / "hop3-server.toml"
-    if config_file.exists():
-        config_content = config_file.read_text()
-        if not _verify_database_services(config_content):
-            return False
-
-    return True
+    if not config_file.exists():
+        print_error(f"{config_file} not found")
+        return False
+    return _verify_database_services(config_file.read_text()) and all_ok
 
 
 def print_final_message(config: ServerInstallerConfig) -> None:

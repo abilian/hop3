@@ -10,11 +10,10 @@ import subprocess
 from pathlib import Path
 
 from hop3_installer.common import (
+    CommandError,
     has_systemd,
-    print_detail,
     print_info,
     print_success,
-    print_warning,
     process_manager_pending,
     run_cmd,
 )
@@ -132,29 +131,38 @@ HOP3_SECRET_KEY={secret_key}
 
 def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
     """
-    Install and enable systemd services.
+    Write the environment file; on a systemd host, install and (re)start units.
+
+    Under another process manager (supervisor on the Docker target) the
+    environment and key files are all the services need: the unit files would
+    never be used, and ``systemctl`` there fails with "System has not been
+    booted with systemd". That failure used to be caught as a "Systemd setup
+    issue" warning on every Docker install, which also hid it on a real
+    systemd host, where it means hop3-server never starts.
 
     Args:
         config: Server installer config with ACME settings
 
     Returns:
         The secret key from the environment file
+
+    Raises:
+        CommandError: a systemd step failed.
     """
     # Create environment file first (with ACME configuration)
     secret_key = setup_environment_file(config)
 
-    # Hop3 server service
-    service_path = Path("/etc/systemd/system/hop3-server.service")
-    service_path.write_text(SYSTEMD_UNIT)
+    if not has_systemd():
+        print_info(
+            "No systemd on this host: its process manager runs the services, "
+            "so no unit files are installed"
+        )
+        return secret_key
 
-    # uWSGI service
-    uwsgi_path = Path("/etc/systemd/system/uwsgi-hop3.service")
-    uwsgi_path.write_text(UWSGI_UNIT)
-
-    # Reload and enable
+    Path("/etc/systemd/system/hop3-server.service").write_text(SYSTEMD_UNIT)
+    Path("/etc/systemd/system/uwsgi-hop3.service").write_text(UWSGI_UNIT)
     run_cmd(["systemctl", "daemon-reload"])
-    run_cmd(["systemctl", "enable", "hop3-server"], check=False)
-    run_cmd(["systemctl", "enable", "uwsgi-hop3"], check=False)
+    run_cmd(["systemctl", "enable", "hop3-server", "uwsgi-hop3"])
 
     # RESTART, not start: this step just (re)wrote the unit files and the
     # EnvironmentFile (/etc/default/hop3, with ACME_ENGINE/secret key). On a
@@ -162,26 +170,24 @@ def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
     # and the process keeps its STALE environment — the new ACME engine never
     # takes effect (it silently reports success while serving the old config).
     # `restart` starts a stopped service and reloads config on a running one.
-    services_ok = True
-
-    result = run_cmd(["systemctl", "restart", "hop3-server"], check=False)
-    if result.returncode != 0:
-        services_ok = False
-        print_warning("Failed to restart hop3-server service")
-        print_detail("Check status with: journalctl -u hop3-server -n 50")
-
-    result = run_cmd(["systemctl", "restart", "uwsgi-hop3"], check=False)
-    if result.returncode != 0:
-        services_ok = False
-        print_warning("Failed to restart uwsgi-hop3 service")
-        print_detail("Check status with: journalctl -u uwsgi-hop3 -n 50")
-
-    if services_ok:
-        print_success("Systemd services configured and (re)started")
-    else:
-        print_warning("Systemd services configured but some failed to start")
-
+    for unit in ("hop3-server", "uwsgi-hop3"):
+        _restart_unit(unit)
+    print_success("Systemd services configured and (re)started")
     return secret_key
+
+
+def _restart_unit(unit: str) -> None:
+    """Restart a systemd unit, or raise with its journal tail."""
+    result = run_cmd(["systemctl", "restart", unit], check=False)
+    if result.returncode == 0:
+        return
+    journal = run_cmd(["journalctl", "-u", unit, "-n", "30", "--no-pager"], check=False)
+    raise CommandError(
+        cmd=["systemctl", "restart", unit],
+        returncode=result.returncode,
+        stdout=journal.stdout or "",
+        stderr=result.stderr or "",
+    )
 
 
 def restart_hop3_server() -> None:
@@ -198,8 +204,8 @@ def restart_hop3_server() -> None:
     ``[admin].email = "operator"`` app fails to deploy with "no operator email".
 
     Package-manager-aware: systemctl on systemd hosts, supervisorctl otherwise.
-    A failed restart is surfaced by ``verify_installation`` (it checks the
-    service is active), so warn here rather than abort.
+    A failed restart aborts: verification only reports a stopped service, and
+    a server running on a stale config is the failure this restart prevents.
     """
     # Nothing to restart yet: on a Docker target the process manager is set up
     # after this installer returns, and it starts hop3-server fresh — which
@@ -217,8 +223,11 @@ def restart_hop3_server() -> None:
     else:
         result = run_cmd(["supervisorctl", "restart", "hop3-server"], check=False)
 
-    if result.returncode == 0:
-        print_success("hop3-server restarted to load final config")
-    else:
-        print_warning("Failed to restart hop3-server after writing config")
-        print_detail("The server may be serving a stale config; see logs above.")
+    if result.returncode != 0:
+        raise CommandError(
+            cmd=["restart", "hop3-server"],
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or "",
+        )
+    print_success("hop3-server restarted to load final config")

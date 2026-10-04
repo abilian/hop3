@@ -147,6 +147,15 @@ def print_detail(message: str) -> None:
     print(f"        {Colors.DIM}{message}{Colors.RESET}")
 
 
+def print_failure_output(stream: str, text: str | None, lines: int = 25) -> None:
+    """Echo the tail of a failed command's output, naming which stream it is."""
+    if not text or not text.strip():
+        return
+    print_detail(f"--- {stream} ---")
+    for line in text.strip().split("\n")[-lines:]:
+        print_detail(line)
+
+
 # =============================================================================
 # Spinner for Long Operations
 # =============================================================================
@@ -249,6 +258,10 @@ class CommandError(Exception):
 
 class ServiceStartError(Exception):
     """Raised when a service fails to start."""
+
+
+class InstallStepError(Exception):
+    """An install step that cannot complete; the message says why."""
 
 
 def run_cmd(

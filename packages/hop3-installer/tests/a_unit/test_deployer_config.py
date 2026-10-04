@@ -90,7 +90,27 @@ class TestDeployConfig:
     def test_default_features_is_docker(self):
         """DeployConfig should default to docker feature."""
         config = DeployConfig()
-        assert config.with_features == ["docker"]
+        assert config.install_features == ["docker"]
+
+    def test_the_docker_target_requests_no_docker_by_default(self):
+        """
+        The container cannot run dockerd, so asking for Docker there by
+        default made every Docker-target install print "Failed to start
+        Docker daemon" and carry on.
+        """
+        config = DeployConfig()
+        config.use_docker = True  # as the CLI sets it, after construction
+        assert config.install_features == []
+
+    def test_all_on_the_docker_target_is_every_feature_but_docker(self):
+        config = DeployConfig(use_docker=True, with_features=["all"])
+        assert "docker" not in config.install_features
+        assert {"mysql", "nix", "redis"} <= set(config.install_features)
+
+    def test_an_explicit_docker_on_the_docker_target_is_kept(self):
+        """Kept, so the installer refuses it with the reason."""
+        config = DeployConfig(use_docker=True, with_features=["all", "docker"])
+        assert "docker" in config.install_features
 
     def test_skip_migrations_default_false(self):
         """Migrations should run by default; --skip-migrations is opt-in."""

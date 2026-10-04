@@ -476,7 +476,7 @@ def _print_deployment_banner(config: DeployConfig) -> None:
         print(f"Target: {config.ssh_target}")
     print(f"Source: {config.install_source}")
     print(f"Clean install: {'yes' if config.clean_before else 'no'}")
-    print(f"Features: {', '.join(config.with_features)}")
+    print(f"Features: {', '.join(config.install_features) or '(none)'}")
     if config.admin_domain:
         print(f"Admin domain: {config.admin_domain}")
     print("=" * 60)

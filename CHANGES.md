@@ -71,6 +71,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The server installer stops at a failed setup step, with the command's output.** The systemd, SSL, nginx, PostgreSQL, MySQL, config-file and ACME steps caught their own failures, printed a warning cut to 100 characters, and the install went on to report success: a failed config write gave a server without database credentials. Verification now fails on a stopped core service, a missing certificate or a missing `hop3-server.toml`, where it warned. On a host without systemd, the installer writes the environment and key files, installs no unit, and says so, where `systemctl` failed and was reported as a "Systemd setup issue" on every container install. See `notes/installer-fail-loud-audit.md`.
+
+- **`hop3-deploy-server --docker` no longer asks for Docker inside the container**, where dockerd cannot run, and `--with all` there means every feature but Docker. An explicit `--with docker` on that target is refused with the reason, where it printed "Failed to start Docker daemon" and carried on.
+
 - **The server installer installs the .NET SDKs 8 and 10**, the long-term releases, each where the distribution publishes it. It installed 8 and 9, and no feed carries 9 for Ubuntu 24.04, so that install failed on every such server and was printed as a warning. An SDK that is published and fails to install now aborts the install, as does a platform that publishes neither.
 
 - **`hop3-deploy-server --docker` waits for hop3-server to answer before it reports the services started**, and a local CLI it could not configure fails the deploy. The login ran while the server was still starting, failed with "Could not connect", and the deploy still ended with "Deployment complete!". `--no-cli-setup` skips the step.

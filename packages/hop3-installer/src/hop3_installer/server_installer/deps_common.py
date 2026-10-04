@@ -13,11 +13,14 @@ from pathlib import Path
 
 from hop3_installer.common import (
     CommandError,
+    InstallStepError,
     Spinner,
     cmd_exists,
     create_symlink,
+    has_systemd,
     print_detail,
     print_error,
+    print_failure_output,
     print_info,
     print_success,
     print_warning,
@@ -94,15 +97,6 @@ class PackageSpec:
 # =============================================================================
 
 
-def _print_failure_output(stream: str, text: str | None, lines: int = 25) -> None:
-    """Echo the tail of a failed command's output, naming which stream it is."""
-    if not text or not text.strip():
-        return
-    print_detail(f"--- {stream} ---")
-    for line in text.strip().split("\n")[-lines:]:
-        print_detail(line)
-
-
 def install_base_packages(spec: PackageSpec) -> None:
     """Install base packages using the given spec."""
     # Update package lists if needed
@@ -129,8 +123,8 @@ def install_base_packages(spec: PackageSpec) -> None:
         # apt reports *why* on stdout and only the summary on stderr, so
         # printing stderr alone leaves "dpkg returned an error code (1)" and no
         # cause. Show both, stdout last: it holds the failing package.
-        _print_failure_output("stderr", result.stderr)
-        _print_failure_output("stdout", result.stdout)
+        print_failure_output("stderr", result.stderr)
+        print_failure_output("stdout", result.stdout)
         raise CommandError(
             [spec.pkg_manager, "install"] + spec.base_packages,
             result.returncode,
@@ -212,29 +206,31 @@ def install_optional_packages(
 
 def _start_docker_daemon() -> None:
     """
-    Start Docker daemon and wait for it to be ready.
+    Start the Docker daemon and wait for its docker0 bridge.
 
-    This ensures the docker0 bridge interface exists before configuring
-    databases to listen on it.
+    The databases are then configured to listen on the bridge, so a daemon
+    that is not running leaves Docker-built apps unable to build and to reach
+    them. Docker was requested (`--with docker`), so either outcome aborts.
     """
-    # Enable and start Docker
-    run_cmd(["systemctl", "enable", "docker"], check=False)
-    result = run_cmd(["systemctl", "start", "docker"], check=False)
+    if not has_systemd():
+        msg = (
+            "Docker was requested (--with docker), but this host has no "
+            "systemd to run dockerd: on a container target, deploy without "
+            "`docker` in --with"
+        )
+        raise InstallStepError(msg)
 
-    if result.returncode != 0:
-        print_warning("Failed to start Docker daemon")
-        return
+    run_cmd(["systemctl", "enable", "docker"])
+    run_cmd(["systemctl", "start", "docker"])
 
-    # Wait for Docker to be ready (docker0 interface to appear)
-    # This typically takes 1-3 seconds
+    # docker0 typically appears within 1-3 seconds of the daemon starting.
     for _i in range(10):
-        result = run_cmd(["ip", "addr", "show", "docker0"], check=False)
-        if result.returncode == 0:
+        if run_cmd(["ip", "addr", "show", "docker0"], check=False).returncode == 0:
             print_success("Docker daemon started")
             return
         time.sleep(1)
-
-    print_warning("Docker started but docker0 interface not found")
+    msg = "Docker started, but its docker0 bridge did not appear within 10 seconds"
+    raise InstallStepError(msg)
 
 
 def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) -> None:
@@ -547,8 +543,8 @@ def install_catalogue_baseline(os_family: str) -> None:
     # reports *why* on stdout and only the one-line verdict on stderr, so the
     # stderr tail alone gave "E: Error, pkgProblemResolver::Resolve generated
     # breaks" with no way to tell which package. Echo both, stdout last.
-    _print_failure_output("stderr", result.stderr)
-    _print_failure_output("stdout", result.stdout)
+    print_failure_output("stderr", result.stderr)
+    print_failure_output("stdout", result.stdout)
     raise CommandError(
         cmd=install_cmd,
         returncode=result.returncode,
@@ -950,8 +946,8 @@ def _install_dotnet_sdks(
             result = run_cmd(install_cmd(pkg), env=env, check=False)
         if result.returncode != 0:
             print_error(f"{pkg} installation failed")
-            _print_failure_output("stderr", result.stderr)
-            _print_failure_output("stdout", result.stdout)
+            print_failure_output("stderr", result.stderr)
+            print_failure_output("stdout", result.stdout)
             raise CommandError(
                 cmd=install_cmd(pkg),
                 returncode=result.returncode,
