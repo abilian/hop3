@@ -115,10 +115,16 @@ def _storage_dir(path: Path, name: str, mode: str | None) -> Path:
     # not by whoever ran the deploy. When the deploy runs as root, hand it back
     # to HOP3_USER so the app process isn't left with an unwritable volume.
     if os.geteuid() == 0:
+        # A failure stops the deploy: it was logged and the app started with a
+        # volume it could not write.
         try:
             shutil.chown(path, user=HOP3_USER, group=HOP3_USER)
         except (LookupError, PermissionError) as e:
-            log(f"  Volume {name!r}: could not chown to {HOP3_USER}: {e}", level=1)
+            msg = (
+                f"[[volumes]] {name!r}: cannot give {path} to {HOP3_USER}, so the "
+                f"app could not write to it: {e}"
+            )
+            raise ValueError(msg) from e
     if mode is not None:
         path.chmod(int(mode, 8))
     return path

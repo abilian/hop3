@@ -383,3 +383,20 @@ def test_volumes_are_linked_once_after_the_build() -> None:
     assert source.index('"postbuild"') < linking
     assert linking < source.index("drop_previous_source(app)")
     assert source.index("drop_previous_source(app)") < source.index("get_deployer(")
+
+
+def test_a_volume_the_app_cannot_own_stops_the_deploy(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """It was logged, and the app started with a volume it could not write."""
+
+    def chown_fails(*_a, **_kw):
+        msg = "Operation not permitted"
+        raise PermissionError(msg)
+
+    monkeypatch.setattr(os, "geteuid", lambda: 0)
+    monkeypatch.setattr(shutil, "chown", chown_fails)
+    app = _app(tmp_path)
+
+    with pytest.raises(ValueError, match="so the app could not write to it"):
+        realize_volumes(app, [_persist("uploads", "data/uploads")])

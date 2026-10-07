@@ -36,9 +36,9 @@ from __future__ import annotations
 import os
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
-from hop3.lib import log
+from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.path import is_confined_to
 
 if TYPE_CHECKING:
@@ -61,10 +61,9 @@ def grant_web_server_read(served: Path, storage_roots: Iterable[Path] = ()) -> N
     granted as well.
 
     A tree in the Nix store is already world-readable and cannot be chmod'ed,
-    so it is left alone. Otherwise best-effort: a failure is logged rather
-    than fatal — but it is logged, because a 403 on every asset
-    of an app that otherwise deploys green is not something to discover from a
-    browser.
+    so it is left alone. Any other failure stops the deploy: it was logged and
+    the deploy carried on, to an app that deployed green and answered 403 on
+    every asset. The store was the only reason the grant was best-effort.
     """
     if not served.exists() or served.resolve().is_relative_to(_NIX_STORE):
         return
@@ -77,13 +76,24 @@ def grant_web_server_read(served: Path, storage_roots: Iterable[Path] = ()) -> N
                 text=True,
             )
             log(f"Granted web server read access to {tree}", level=3)
-        except (subprocess.CalledProcessError, OSError) as e:
-            log(
-                f"Could not relax permissions on {tree} for the web server: {e}. "
-                f"Static files under it will be refused with 403.",
-                level=1,
-                fg="yellow",
-            )
+        except subprocess.CalledProcessError as e:
+            _refuse_unreadable(tree, (e.stderr or "").strip() or str(e))
+        except OSError as e:
+            _refuse_unreadable(tree, str(e))
+
+
+def _refuse_unreadable(tree: Path, reason: str) -> NoReturn:
+    abort_with_diagnosis(
+        Diagnosis(
+            component="Web server",
+            action=f"read {tree}",
+            reason=f"`chmod -R a+rX {tree}` failed: {reason}",
+            hint=(
+                "fix the ownership of that tree (the deploy runs as the hop3 "
+                "user), then deploy again"
+            ),
+        )
+    )
 
 
 def _linked_storage(served: Path, storage_roots: list[Path]) -> Iterator[Path]:

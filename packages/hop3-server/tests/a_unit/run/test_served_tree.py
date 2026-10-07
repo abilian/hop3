@@ -14,8 +14,12 @@ an app can plant a link to anything.
 from __future__ import annotations
 
 import stat
+import subprocess
 from typing import TYPE_CHECKING
 
+import pytest
+
+from hop3.lib.console import Abort
 from hop3.run.served_tree import grant_web_server_read
 
 if TYPE_CHECKING:
@@ -60,3 +64,17 @@ def test_a_link_out_of_the_volume_storage_is_not_followed(tmp_path: Path) -> Non
     grant_web_server_read(public, (tmp_path / "volumes",))
 
     assert not _world_readable(secret)
+
+
+def test_a_failed_grant_stops_the_deploy(tmp_path: Path, monkeypatch) -> None:
+    """It was logged in yellow, and the app deployed green answering 403."""
+
+    def chmod_fails(cmd, **_kw):
+        raise subprocess.CalledProcessError(1, cmd, stderr="Operation not permitted")
+
+    monkeypatch.setattr("hop3.run.served_tree.subprocess.run", chmod_fails)
+    served = tmp_path / "public"
+    served.mkdir()
+
+    with pytest.raises(Abort, match="Operation not permitted"):
+        grant_web_server_read(served)
