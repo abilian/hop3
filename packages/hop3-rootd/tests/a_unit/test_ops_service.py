@@ -240,3 +240,14 @@ def test_status_of_a_service_not_on_the_allow_list_is_refused():
     with pytest.raises(ServiceNotAllowedError, match="has no status"):
         get_handler("service.status")(_status("sshd"), ctx)
     assert fake.calls == []
+
+
+def test_a_unit_systemd_does_not_have_is_not_reported_stopped():
+    """`is-active` says "inactive" for a unit that does not exist."""
+    ctx, fake = _ctx()
+    fake.set_path("systemctl", "/usr/bin/systemctl")
+    fake.on(lambda argv: "LoadState" in argv, _out("not-found\n"))
+    fake.on(lambda argv: "is-active" in argv, _out("inactive\n", 3))
+
+    with pytest.raises(ServiceStatusUnknownError, match="no unit named 'caddy'"):
+        get_handler("service.status")(_status("caddy"), ctx)

@@ -193,7 +193,7 @@ def service_status(req: Request, ctx: OpContext) -> dict[str, Any]:
         answers.append(f"supervisorctl: {(result.stdout or result.stderr).strip()}")
 
     systemctl = ctx.exec.resolve("systemctl")
-    if systemctl is not None:
+    if systemctl is not None and _systemd_knows(ctx, systemctl, service, answers):
         result = ctx.exec.run(
             [systemctl, "is-active", service], timeout=_STATUS_TIMEOUT_SECONDS
         )
@@ -213,3 +213,23 @@ def service_status(req: Request, ctx: OpContext) -> dict[str, Any]:
         f" ({'; '.join(answers)})" if answers else ""
     )
     raise ServiceStatusUnknownError(msg)
+
+
+def _systemd_knows(
+    ctx: OpContext, systemctl: str, service: str, answers: list[str]
+) -> bool:
+    """
+    Whether systemd has a unit for ``service`` at all.
+
+    `is-active` prints "inactive", not "unknown", for a unit that does not
+    exist on current systemd: a proxy that is not installed (caddy on an nginx
+    server) read as installed and stopped.
+    """
+    result = ctx.exec.run(
+        [systemctl, "show", "-p", "LoadState", "--value", service],
+        timeout=_STATUS_TIMEOUT_SECONDS,
+    )
+    if result.stdout.strip() == "not-found":
+        answers.append(f"systemctl: no unit named {service!r}")
+        return False
+    return True
