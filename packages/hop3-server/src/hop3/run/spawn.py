@@ -36,7 +36,7 @@ from hop3.project.config import AppConfig
 from hop3.project.procfile import parse_procfile
 from hop3.run.app_env import build_app_env, make_runtime_dirs
 from hop3.run.served_tree import grant_web_server_read
-from hop3.run.uwsgi.naming import vassal_glob, vassal_name
+from hop3.run.uwsgi.naming import vassal_glob, vassal_name, worker_env_path
 from hop3.toolchains.php_fpm import (
     POOL_CONFIG_NAME,
     POOL_TEMPLATE_NAME,
@@ -990,6 +990,8 @@ class AppLauncher:
                 msg = f"terminating '{self.app_name:s}:{k:s}.{w:d}'"
                 log(msg, level=3, fg="yellow")
                 enabled.unlink()  # Remove the worker's configuration file
+                # And its copy of the app's secrets.
+                worker_env_path(self.app_path, k, w).unlink(missing_ok=True)
 
 
 # PHP's built-in server handles ONE request at a time unless told otherwise, and

@@ -18,7 +18,7 @@ from typing import TYPE_CHECKING
 from hop3 import config as c
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.settings import parse_settings
-from hop3.run.uwsgi.naming import vassal_name
+from hop3.run.uwsgi.naming import vassal_name, worker_env_path
 
 from .settings import UwsgiSettings
 
@@ -422,8 +422,9 @@ class UwsgiWorker:
             App,
         )
 
-        app_path = App(name=self.app_name).app_path
-        return app_path / "worker-env" / f"{self.kind}.{self.ordinal}.env"
+        return worker_env_path(
+            App(name=self.app_name).app_path, self.kind, self.ordinal
+        )
 
     def log(self, message: str) -> None:
         """

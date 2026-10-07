@@ -60,7 +60,9 @@ def build_app_env(
     block, which never overrides a toolchain-owned key. What only a worker
     needs (port allocation, proxy defaults) stays in ``make_env``.
 
-    ``HOME`` and ``TMPDIR`` are the app's own. With the control plane's home,
+    ``HOME`` and ``TMPDIR`` are the app's own, and pure: a caller that starts
+    a process in them creates them first (:func:`make_runtime_dirs`). With the
+    control plane's home,
     every app shared one ``~/.ssh`` and one set of caches: Gitea and Forgejo
     rewrote the ``authorized_keys`` that holds Hop3's git-push keys.
     """
@@ -88,8 +90,8 @@ def build_app_env(
 def make_runtime_dirs(app: App) -> None:
     """Create the HOME and TMPDIR ``build_app_env`` names, before a process
     starts in them."""
-    app.home_path.mkdir(exist_ok=True)
-    app.tmp_path.mkdir(exist_ok=True)
+    app.home_path.mkdir(parents=True, exist_ok=True)
+    app.tmp_path.mkdir(parents=True, exist_ok=True)
 
 
 def apply_artifact_runtime(

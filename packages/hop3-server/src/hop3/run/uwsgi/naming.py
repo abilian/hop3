@@ -19,6 +19,11 @@ here so the rule has a single representation.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from pathlib import Path
+
 __all__ = ["vassal_glob", "vassal_name"]
 
 
@@ -35,3 +40,14 @@ def vassal_glob(app_name: str) -> str:
     ``wiki-js_web.1.ini``.
     """
     return f"{app_name}_*.ini"
+
+
+def worker_env_path(app_path: Path, kind: str, ordinal: int) -> Path:
+    """
+    Where one worker's environment, every secret in it, is written (0600).
+
+    One definition for the worker that writes it and the scale-down that
+    removes it: a removed worker's file stayed on disk, a copy of the secrets
+    that a later rotation did not update.
+    """
+    return app_path / "worker-env" / f"{kind}.{ordinal}.env"

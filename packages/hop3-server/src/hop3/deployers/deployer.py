@@ -66,7 +66,7 @@ from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY, should_redirect_to_https
 from hop3.project.config import AppConfig
-from hop3.run.app_env import build_app_env
+from hop3.run.app_env import build_app_env, make_runtime_dirs
 from hop3.run.fastcgi import fastcgi_ping
 from hop3.run.listening import listening_ports
 from hop3.run.reaper import app_pids
@@ -1819,6 +1819,9 @@ def _bootstrap_admin_account(
         # server's own environment, which handed recipe code everything the
         # control plane runs with, and the control plane's HOME.
         env = build_app_env(app, build_artifact, cwd=app.src_path)
+        # The HOME and TMPDIR it names: this worked only because the workers,
+        # which create them, happened to start first.
+        make_runtime_dirs(app)
         result = shell(command, cwd=app.src_path, env=env, check=False)
         if result.returncode:
             # Include what the command actually said. Reporting only the exit

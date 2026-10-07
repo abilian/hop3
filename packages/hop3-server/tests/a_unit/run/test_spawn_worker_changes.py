@@ -14,7 +14,9 @@ so we exercise it directly without touching the filesystem or the ORM.
 
 from __future__ import annotations
 
+from hop3.run import spawn
 from hop3.run.spawn import AppLauncher
+from hop3.run.uwsgi.naming import vassal_name, worker_env_path
 
 
 def make_launcher(deltas: dict[str, int]) -> AppLauncher:
@@ -114,3 +116,25 @@ def test_zero_delta_behaves_like_no_delta() -> None:
     assert list(to_create["web"]) == [1, 2]
     assert to_destroy == {}
     assert worker_count == {"web": 2}
+
+
+def test_a_removed_worker_takes_its_secrets_file_with_it(tmp_path, monkeypatch):
+    """
+    Each worker's environment, every secret in it, is a 0600 file. A scale-down
+    removed the vassal and left the file: a copy of the secrets that a later
+    rotation never updated.
+    """
+    enabled = tmp_path / "uwsgi-enabled"
+    enabled.mkdir()
+    monkeypatch.setattr(spawn, "UWSGI_ENABLED", enabled)
+    launcher = AppLauncher.__new__(AppLauncher)
+    launcher.app_name = "app"
+    launcher.app_path = tmp_path / "app"
+    (enabled / vassal_name("app", "web", 2)).write_text("[uwsgi]\n")
+    secrets_file = worker_env_path(launcher.app_path, "web", 2)
+    secrets_file.parent.mkdir(parents=True)
+    secrets_file.write_text("export SECRET='x'\n")
+
+    launcher.remove_unnecessary_workers({"web": [2]})
+
+    assert not secrets_file.exists()
