@@ -425,6 +425,13 @@ def test_a_github_source_is_fetched_by_its_tree():
     assert "fetchurl" not in nix_text
 
 
+@pytest.mark.parametrize("template", ["java-war", "prebuilt-binary", "node-prebuilt"])
+def test_a_template_that_installs_one_file_refuses_a_github_tree(template):
+    """`cp ${src}` and `tar xzf $src` on a directory failed deep inside Nix."""
+    with pytest.raises(ValueError, match="releases/download"):
+        app_spec_from_config(_github(template), {"id": "app", "version": "1"}, "app")
+
+
 def test_php_app_copies_a_github_tree_instead_of_untarring_it():
     nix_text = generate(
         app_spec_from_config(

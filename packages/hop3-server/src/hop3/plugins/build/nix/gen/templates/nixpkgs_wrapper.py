@@ -132,7 +132,7 @@ class NixpkgsWrapperTemplate:
 # metadata. No source fetching or building needed — the package is
 # already available in nixpkgs.
 #
-{eject_hint(spec.pname)}
+{eject_hint()}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

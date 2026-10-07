@@ -326,7 +326,7 @@ def app_spec_from_config(
     _reject_unclaimed_keys(nix_config, template)
     _check_nixpkgs_pin(nix_config)
 
-    source = _parse_source(nix_config)
+    source = _parse_source(nix_config, template)
 
     payload_cls, payload_keys = _PAYLOAD_FIELDS[template]
     payload = payload_cls(**{
@@ -426,9 +426,22 @@ _NESTED_PARSERS: dict[str, Callable[[Any], object]] = {
 }
 
 
-def _parse_source(nix_config: dict[str, Any]) -> Source | GitHubSource:
+#: Templates whose source is one file, copied or untarred as such: a GitHub
+#: source is a directory, and each failed deep inside the Nix build on one.
+_FILE_SOURCE_TEMPLATES = frozenset({"java-war", "prebuilt-binary", "node-prebuilt"})
+
+
+def _parse_source(nix_config: dict[str, Any], template: str) -> Source | GitHubSource:
     """The app's source: a URL, a GitHub repository at a ref, or none (local)."""
     if "github" in nix_config:
+        if template in _FILE_SOURCE_TEMPLATES:
+            msg = (
+                f"[nix].github names a source tree, and {template} installs one "
+                f"file it fetches (a .war, a binary, a built tarball). Name that "
+                f'file: url = "https://github.com/OWNER/REPO/releases/download/'
+                f'...", sha256 = "..."'
+            )
+            raise ValueError(msg)
         return _github_source(nix_config)
     stray = sorted({"rev", "hash"} & set(nix_config))
     if stray:

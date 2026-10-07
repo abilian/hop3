@@ -116,7 +116,7 @@ class RubyBundlerTemplate:
 # Gems are built from a committed Gemfile.lock + gemset.nix (bundix), so the
 # dependency set is pinned and every gem is compiled from source.
 #
-{eject_hint(spec.pname)}
+{eject_hint()}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

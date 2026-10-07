@@ -55,7 +55,7 @@ class JavaWarTemplate:
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
 {generated_line("java-war")}
-{eject_hint(spec.pname)}
+{eject_hint()}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

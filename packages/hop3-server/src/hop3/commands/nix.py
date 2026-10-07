@@ -98,7 +98,7 @@ class NixEjectCmd(Command):
             nix_config, hop3_config.get("metadata", {}), app.name
         )
         today = datetime.now(timezone.utc).strftime("%Y-%m-%d")
-        nix_text = ejected(generate(spec), spec.template, spec.pname, today)
+        nix_text = ejected(generate(spec), spec.template, today)
         encoded = base64.b64encode(nix_text.encode()).decode("ascii")
         return [
             blob(encoded, filename="hop3.nix"),

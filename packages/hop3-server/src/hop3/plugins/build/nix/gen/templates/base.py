@@ -101,12 +101,21 @@ def generated_line(template: str) -> str:
     return f"# GENERATED from template '{template}' by hop3-nix-gen."
 
 
-def eject_hint(pname: str) -> str:
-    """The header line that says how to take the expression over by hand."""
-    return f"# Run 'hop3 nix eject --app {pname} > hop3.nix' to edit it by hand."
+def eject_hint() -> str:
+    """
+    The header line that says how to take the expression over by hand.
+
+    It names no app: `[metadata].id` is not the name an app is deployed under,
+    so a hint built from it sent a catalog app's operator to a command that
+    answered "app not found". In the app's directory the CLI resolves the app
+    as every app-scoped command does.
+    """
+    return (
+        "# Run 'hop3 nix eject > hop3.nix' in the app's directory to edit it by hand."
+    )
 
 
-def ejected(expression: str, template: str, pname: str, date: str) -> str:
+def ejected(expression: str, template: str, date: str) -> str:
     """
     A generated expression, re-headed as a file its owner now edits.
 
@@ -116,7 +125,7 @@ def ejected(expression: str, template: str, pname: str, date: str) -> str:
     return expression.replace(
         generated_line(template), f"# Ejected from template '{template}' on {date}."
     ).replace(
-        eject_hint(pname),
+        eject_hint(),
         "# Yours to edit. Remove the [nix] section from hop3.toml: a build\n"
         "# refuses an app that has both.",
     )

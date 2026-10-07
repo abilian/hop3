@@ -73,7 +73,7 @@ class JavaGradleTemplate:
 # Compiled from source with Gradle: the dependency set is pinned by a committed
 # deps.json lockfile, so the build is hermetic and offline.
 #
-{eject_hint(spec.pname)}
+{eject_hint()}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

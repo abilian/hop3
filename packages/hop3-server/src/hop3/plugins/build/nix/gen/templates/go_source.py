@@ -265,7 +265,7 @@ class GoSourceTemplate:
 # Compiled from source with buildGoModule: go.sum hashes every module and
 # vendorHash pins the resolved set, so the build is hermetic and offline.
 #
-{eject_hint(spec.pname)}
+{eject_hint()}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

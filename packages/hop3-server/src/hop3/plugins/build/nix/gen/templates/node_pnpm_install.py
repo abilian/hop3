@@ -245,7 +245,7 @@ class NodePnpmInstallTemplate:
 # Nix store — no `cp -r` (which would break pnpm's relative
 # symlinks).
 #
-{eject_hint(spec.pname)}
+{eject_hint()}
 
 {pinned_nixpkgs_header(spec.nixpkgs_rev, spec.nixpkgs_sha256)}
 

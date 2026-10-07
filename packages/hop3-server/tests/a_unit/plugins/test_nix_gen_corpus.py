@@ -80,8 +80,7 @@ def test_recipe_can_be_ejected(expression):
     app_dir, output = expression
     config = tomllib.loads((app_dir / "hop3.toml").read_text())
     template = config["nix"]["template"]
-    pname = (config.get("metadata") or {}).get("id") or app_dir.name
-    result = ejected(output, template, pname, "2026-01-01")
+    result = ejected(output, template, "2026-01-01")
     assert "GENERATED" not in result, app_dir.name
     assert "nix eject" not in result, app_dir.name
     assert f"# Ejected from template '{template}' on 2026-01-01." in result
