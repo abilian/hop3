@@ -210,12 +210,10 @@ class Deployer:
 
             if not self._update():
                 return False, step
-            # Install any requested features not yet present
-            if self.config.install_features:
-                step += 1
-                self.log_step(step, "Installing requested features")
-                if not self._install_features():
-                    return False, step
+            step += 1
+            self.log_step(step, "Reconciling the installation")
+            if not self._reconcile_installation():
+                return False, step
         else:
             step += 1
             self.log_step(step, "Installing Hop3")
@@ -682,19 +680,20 @@ class Deployer:
         cmd += " --verbose"
         return cmd
 
-    def _install_features(self) -> bool:
+    def _reconcile_installation(self) -> bool:
         """
-        Install additional features on an existing Hop3 installation.
+        Re-run the installer on an existing Hop3 installation.
 
-        Re-runs the installer with --with flags, skipping steps unrelated to
-        feature installation (nginx, package install). ``--acme-email`` is
-        forwarded so the cert engine is configured; the installer is idempotent
-        so already-installed features are skipped.
+        Every update, with or without `--with`: the installer is idempotent, and
+        this is how a setting the platform adds reaches a server installed
+        before it. It ran only when features were requested, so a plain
+        redeploy updated the code and nothing else, and the nginx
+        `server_names_hash_bucket_size` fix never reached the server it was
+        written for. The site config, certificate issuance and the package
+        install are skipped (see `_feature_install_command`).
         """
-        if not self.config.install_features:
-            return True
-
-        self.log(f"Installing features: {', '.join(self.config.install_features)}")
+        features = ", ".join(self.config.install_features) or "none requested"
+        self.log(f"Reconciling the installation (features: {features})")
 
         python_cmd = self._ensure_python310_plus()
 
@@ -729,10 +728,10 @@ class Deployer:
             print("done" if exit_code == 0 else "FAILED")
 
         if exit_code != 0:
-            self.log(f"Feature installation failed (exit code {exit_code})", "error")
+            self.log(f"Installer failed (exit code {exit_code})", "error")
             return False
 
-        self.log("Features installed", "success")
+        self.log("Installation reconciled", "success")
         return True
 
     def _run_migrations(self) -> bool:

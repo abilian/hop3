@@ -14,6 +14,7 @@ from hop3_installer.common import (
     has_systemd,
     print_info,
     print_success,
+    process_manager_pending,
     run_cmd,
 )
 from hop3_installer.constants import (
@@ -62,10 +63,29 @@ def _disable_conflicting_webservers() -> None:
             print_success(f"Masked {service} to prevent conflicts with Nginx")
 
 
+#: Hop3's own `http`-level nginx settings. conf.d is included inside `http`
+#: by the stock nginx.conf of every distribution Hop3 installs on.
+NGINX_HTTP_SETTINGS_PATH = Path("/etc/nginx/conf.d/hop3-http.conf")
+
+#: Every app vhost's names go into one hash, whose bucket must hold the longest
+#: name. nginx's default (64 on most builds) refuses a long but legal hostname:
+#: `hop3-tuto-nix-gen-flask.135.181.203.156.sslip.io` failed `nginx -t` with
+#: "could not build server_names_hash", and so did the deploy. 256 holds the
+#: longest name DNS allows (253 characters).
+NGINX_HTTP_SETTINGS = """\
+# Written by the Hop3 installer.
+server_names_hash_bucket_size 256;
+"""
+
+
 def setup_nginx(config: ServerInstallerConfig) -> None:
     """Configure nginx as reverse proxy."""
     if config.skip_nginx:
-        print_info("Skipping nginx setup (--skip-nginx)")
+        # A redeploy skips the site config (admin domain, certificates), but
+        # the http settings are the platform's and follow it on every install:
+        # gated here, they reached only fresh installs.
+        _reconcile_http_settings()
+        print_info("Skipping nginx site setup (--skip-nginx)")
         return
 
     # Disable conflicting webservers (Apache) before configuring Nginx
@@ -118,6 +138,7 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
 
     # Add include for app-specific configs
     _add_hop3_nginx_include()
+    _write_http_settings()
 
     # Test nginx config: it raises with nginx's own diagnosis.
     run_cmd(["nginx", "-t"])
@@ -138,6 +159,39 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     run_cmd(["systemctl", "enable", "nginx"])
     run_cmd(["systemctl", "restart", "nginx"])
     print_success("Nginx enabled and started")
+
+
+def _write_http_settings() -> bool:
+    """Write :data:`NGINX_HTTP_SETTINGS` if they differ; True when written."""
+    if (
+        NGINX_HTTP_SETTINGS_PATH.exists()
+        and NGINX_HTTP_SETTINGS_PATH.read_text() == NGINX_HTTP_SETTINGS
+    ):
+        return False
+    NGINX_HTTP_SETTINGS_PATH.parent.mkdir(parents=True, exist_ok=True)
+    NGINX_HTTP_SETTINGS_PATH.write_text(NGINX_HTTP_SETTINGS)
+    print_success(f"Nginx http settings written to {NGINX_HTTP_SETTINGS_PATH}")
+    return True
+
+
+def _reconcile_http_settings() -> None:
+    """
+    Bring a running nginx's http settings up to date.
+
+    Validated before the reload, so a rejected setting stops the install with
+    nginx's own message instead of being signalled to a master that ignores
+    it. `nginx -s reload` signals the master through its pid file, whichever
+    process manager started it.
+    """
+    if not _write_http_settings():
+        print_info("Nginx http settings already up to date")
+        return
+    run_cmd(["nginx", "-t"])
+    if process_manager_pending():
+        print_info("nginx will load these settings when the process manager starts it")
+        return
+    run_cmd(["nginx", "-s", "reload"])
+    print_success("Nginx reloaded with the new http settings")
 
 
 def _add_hop3_nginx_include() -> None:

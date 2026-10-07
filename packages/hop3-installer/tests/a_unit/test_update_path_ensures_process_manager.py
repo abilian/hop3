@@ -60,8 +60,8 @@ def _config() -> DeployConfig:
     """
     A Docker deploy with no extra features.
 
-    Features add a step after the update; this suite is about what happens
-    *before* it.
+    The installer re-runs after the update whatever the features; this suite
+    is about what happens *before* it.
     """
     config = DeployConfig(use_docker=True)
     config.with_features = []
@@ -80,13 +80,24 @@ def test_services_are_ensured_before_the_update_restarts_anything(
 ):
     deployer, backend = deployer_and_backend
 
-    with patch.object(
-        deployer, "_update", side_effect=lambda: backend.calls.append("update") or True
+    with (
+        patch.object(
+            deployer,
+            "_update",
+            side_effect=lambda: backend.calls.append("update") or True,
+        ),
+        patch.object(
+            deployer,
+            "_reconcile_installation",
+            side_effect=lambda: backend.calls.append("reconcile") or True,
+        ),
     ):
         success, _ = deployer._handle_install_or_update(0, None)
 
     assert success is True
-    assert backend.calls == ["start_services", "update"]
+    # The installer re-runs on every update, with no feature requested too:
+    # that is how a setting the platform adds reaches an existing server.
+    assert backend.calls == ["start_services", "update", "reconcile"]
 
 
 def test_a_process_manager_that_will_not_start_fails_the_deploy():

@@ -139,8 +139,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         Regression: features step must not reinstall hop3-server from PyPI.
 
         Without --skip-package-install, every deploy that triggers
-        _install_features (which is every deploy with --with set, and the
-        default includes 'docker') overwrites whatever the preceding
+        _reconcile_installation (which is every update) overwrites whatever the preceding
         _update_local_code/_update_from_git/_update_from_pypi step
         installed. The symptom is `hop3 system info` reporting PyPI's
         latest stable version (e.g. 0.4.0) even after a successful
@@ -149,7 +148,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         config.with_features = ["docker"]
         d = _make_deployer(config, backend)
 
-        # Stub out the upload + version-check shell-outs in _install_features
+        # Stub out the upload + version-check shell-outs in _reconcile_installation
         setattr(d.backend, "upload_file", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
         setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # ruff:ignore[set-attr-with-constant]
         setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # ruff:ignore[set-attr-with-constant]
@@ -162,7 +161,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         )
         # `not installer_path.exists()` is the abort condition; satisfy it
         with patch("pathlib.Path.exists", return_value=True):
-            assert d._install_features() is True
+            assert d._reconcile_installation() is True
 
         install_cmd = next(c.args[0] for c in backend.run_streaming.call_args_list)
         assert "--skip-package-install" in install_cmd, (
