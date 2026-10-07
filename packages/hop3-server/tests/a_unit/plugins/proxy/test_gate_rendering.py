@@ -18,6 +18,7 @@ import pytest
 from hop3.core.env import Env
 from hop3.core.protocols import GATE_REQUEST_HEADERS
 from hop3.core.roles import Role
+from hop3.lib.console import Abort
 from hop3.orm import App
 from hop3.plugins.proxy.caddy import CaddyVirtualHost
 from hop3.plugins.proxy.nginx import NginxVirtualHost
@@ -108,3 +109,60 @@ def test_an_open_app_has_no_gate_on_traefik():
 
     assert "notes-gate" not in config["middlewares"]
     assert "notes-https-hop3" not in config["routers"]
+
+
+class TestAnIncludeFileCannotForwardAroundTheGate:
+    """
+    The gate replaces the identity headers in each location Hop3 writes. A
+    location in NGINX_INCLUDE_FILE with its own `proxy_pass` inherits none of
+    that, and forwarded the client's own `X-Hop3-User`.
+    """
+
+    @staticmethod
+    def _vhost(tmp_path, monkeypatch, *, gated: bool, snippet: str):
+        src = tmp_path / "src"
+        src.mkdir()
+        (src / "extra.conf").write_text(snippet)
+        monkeypatch.setattr(App, "src_path", property(lambda self: src))
+        app = App(name="notes")
+        app.access_role = Role.VIEWER if gated else None
+        env = Env({
+            "APP": "notes",
+            "HOST_NAME": "notes.example.org",
+            "NGINX_INCLUDE_FILE": "extra.conf",
+            **NGINX_ENV,
+        })
+        return NginxVirtualHost(app, env, {"web": "x"})
+
+    def test_a_forwarding_location_is_refused_on_a_gated_app(
+        self, tmp_path, monkeypatch
+    ):
+        vhost = self._vhost(
+            tmp_path,
+            monkeypatch,
+            gated=True,
+            snippet="location /api/ {\n  proxy_pass http://127.0.0.1:9001;\n}\n",
+        )
+
+        with pytest.raises(Abort, match="proxy_pass"):
+            vhost._refuse_ungated_include()
+
+    def test_a_snippet_that_forwards_nothing_is_fine(self, tmp_path, monkeypatch):
+        vhost = self._vhost(
+            tmp_path,
+            monkeypatch,
+            gated=True,
+            snippet="client_max_body_size 50m;\n",
+        )
+
+        vhost._refuse_ungated_include()
+
+    def test_an_open_app_keeps_its_forwarding_location(self, tmp_path, monkeypatch):
+        vhost = self._vhost(
+            tmp_path,
+            monkeypatch,
+            gated=False,
+            snippet="location /api/ {\n  proxy_pass http://127.0.0.1:9001;\n}\n",
+        )
+
+        vhost._refuse_ungated_include()

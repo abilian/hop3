@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import os
+import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
@@ -56,6 +57,12 @@ if TYPE_CHECKING:
     from hop3.orm import App
 
 
+#: A directive that hands a request to another server from inside a location.
+_PASS_DIRECTIVE = re.compile(
+    r"^\s*((?:proxy|fastcgi|uwsgi|scgi|grpc)_pass)\b", re.MULTILINE
+)
+
+
 @dataclass(frozen=True)
 class NginxVirtualHost(BaseProxy):
     backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
@@ -66,6 +73,36 @@ class NginxVirtualHost(BaseProxy):
     app: App
     env: Env
     workers: dict[str, str]
+
+    def refuse_unsupported(self) -> None:
+        super().refuse_unsupported()
+        self._refuse_ungated_include()
+
+    def _refuse_ungated_include(self) -> None:
+        """
+        Refuse a gated app whose include file forwards requests itself.
+
+        The gate replaces the client's `X-Hop3-User`, `X-Hop3-Role` and
+        `Cookie` in each location Hop3 writes. nginx gives a location that sets
+        any `proxy_set_header` of its own nothing from outside it, so a
+        location in the include file with its own `proxy_pass` forwarded
+        whatever identity the client sent, and an app trusting the header
+        could be impersonated. Sign-in is still checked there (`auth_request`
+        is server-wide): it is the identity that would be forged.
+        """
+        if self.app.access_role is None:
+            return
+        include = self.include_file("NGINX_INCLUDE_FILE")
+        if match := _PASS_DIRECTIVE.search(include):
+            self._refuse(
+                f"NGINX_INCLUDE_FILE forwards requests itself ({match.group(1)}), "
+                "and the access gate cannot replace the identity headers there: "
+                "a client could send its own X-Hop3-User",
+                hint=(
+                    "serve those paths through the app's own worker, or drop "
+                    "[access] from this app"
+                ),
+            )
 
     def get_proxy_name(self) -> str:
         """Return the proxy name for environment variable construction."""
