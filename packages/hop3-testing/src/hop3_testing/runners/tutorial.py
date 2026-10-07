@@ -14,11 +14,14 @@ import re
 import shlex
 import subprocess
 import sys
+import tempfile
 import time
 from dataclasses import dataclass, field
+from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
+from hop3_testing.targets.admin import ADMIN_TOKEN_ENV
 from hop3_testing.util import as_text, build_test_env, run_captured
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
@@ -27,11 +30,15 @@ from .base import TestResult, ValidationResult
 from .validations import run_validation
 
 if TYPE_CHECKING:
-    from pathlib import Path
-
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.targets.base import DeploymentTarget
 
+
+#: curl's config for a tutorial run. A tutorial checks its app the way a reader
+#: does, `curl https://<app>.<domain>/`, and a reader's server has a trusted
+#: certificate; the test server's is self-signed. Set through CURL_HOME, so
+#: the tutorials themselves never teach skipping the certificate check.
+_TEST_CURLRC = "insecure\n"
 
 _VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILINE)
 
@@ -234,15 +241,14 @@ class TutorialTestRunner:
 
     def _run_validoc_remote(self, tutorial_path: Path) -> dict:
         """Dispatch to on-server validoc, or error if the host wasn't prepared."""
-        token = getattr(self.target, "tutorial_token", None)
-        if not token:
+        if not getattr(self.target, "tutorial_host_ready", False):
             reason = getattr(self.target, "tutorial_host_error", "host not prepared")
             return {
                 "success": False,
                 "error": f"Tutorial host not prepared (validoc/token): {reason}",
                 "logs": "",
             }
-        return self._run_validoc_on_server(tutorial_path, token)
+        return self._run_validoc_on_server(tutorial_path)
 
     def _run_validoc_local(self, tutorial_path: Path, cwd: Path) -> dict:
         """Run validoc locally (docker/local targets; legacy path)."""
@@ -284,12 +290,14 @@ class TutorialTestRunner:
         # group on timeout so validoc's `hop3`/`ssh` grandchildren can't wedge
         # output capture (see its docstring).
         try:
-            result = run_captured(
-                [*validoc_cmd, "run", str(tutorial_path)],
-                cwd=cwd,
-                timeout=600,  # 10 minute timeout
-                env=build_test_env(self.target.info),
-            )
+            with tempfile.TemporaryDirectory() as curl_home:
+                (Path(curl_home) / ".curlrc").write_text(_TEST_CURLRC)
+                result = run_captured(
+                    [*validoc_cmd, "run", str(tutorial_path)],
+                    cwd=cwd,
+                    timeout=600,  # 10 minute timeout
+                    env={**build_test_env(self.target.info), "CURL_HOME": curl_home},
+                )
 
             logs = result.stdout + result.stderr
 
@@ -319,7 +327,7 @@ class TutorialTestRunner:
                 "logs": "",
             }
 
-    def _run_validoc_on_server(self, tutorial_path: Path, token: str) -> dict:
+    def _run_validoc_on_server(self, tutorial_path: Path) -> dict:
         """
         Run validoc on the target server (see ``_run_validoc`` for why).
 
@@ -329,7 +337,6 @@ class TutorialTestRunner:
         validoc's own teardown destroys any app it deployed.
         """
         target = self.target
-        host = target.info.ssh_host
         name = re.sub(r"[^A-Za-z0-9._-]", "_", tutorial_path.stem)
         workdir = f"/tmp/hop3-tut/{name}"
         remote_md = f"{workdir}/{tutorial_path.name}"
@@ -338,9 +345,12 @@ class TutorialTestRunner:
         # build_test_env but targets localhost with the minted admin token.
         env = " ".join([
             "HOP3_NO_INPUT=1",
-            f"HOP3_TEST_DOMAIN={host}.sslip.io",
+            f"HOP3_TEST_DOMAIN={build_test_env(target.info)['HOP3_TEST_DOMAIN']}",
             "HOP3_API_URL=http://localhost:8000",
-            f"HOP3_API_TOKEN={shlex.quote(token)}",
+            # Read from the server's token file, never written on this line:
+            # any local user reads a command line from /proc/<pid>/cmdline.
+            ADMIN_TOKEN_ENV,
+            f"CURL_HOME={shlex.quote(workdir)}",
             # validoc runs as root here; composer refuses to run its plugins
             # as root unless this is set, which breaks e.g. symfony/flex
             # (`composer require webapp`). Allow it so root builds work.
@@ -370,6 +380,9 @@ class TutorialTestRunner:
         try:
             target.exec_run(["rm", "-rf", workdir])
             target.upload_file(tutorial_path, remote_md)
+            target.exec_run(
+                f"printf {shlex.quote(_TEST_CURLRC)} > {shlex.quote(workdir)}/.curlrc"
+            )
             code, out, err = target.exec_run(run_cmd)
         except Exception as e:
             return {"success": False, "error": str(e), "logs": ""}

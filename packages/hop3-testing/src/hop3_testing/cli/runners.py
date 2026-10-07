@@ -431,7 +431,8 @@ def _maybe_prepare_tutorial_host(
 
     console.status("Preparing server to run tutorials (validoc + admin token)...")
     try:
-        target.tutorial_token = ensure_tutorial_host(target)  # type: ignore[attr-defined]
+        ensure_tutorial_host(target)
+        target.tutorial_host_ready = True  # type: ignore[attr-defined]
     except TutorialHostError as e:
         target.tutorial_host_error = str(e)  # type: ignore[attr-defined]
         console.error(f"Could not prepare the server for tutorials: {e}")

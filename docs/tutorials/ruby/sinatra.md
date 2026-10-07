@@ -259,10 +259,14 @@ hop3 env set --app hop3-tuto-sinatra RACK_ENV=production
 
 ### Prepare for Deployment
 
-Remove the Gemfile.lock to avoid bundler version conflicts between local and server:
+Keep `Gemfile.lock`: Hop3 installs exactly the gems it lists, and refuses to deploy a Ruby app without one.
 
 ```bash exec id=prep-deploy dir=hop3-tuto-sinatra
-rm -f Gemfile.lock
+ls Gemfile.lock
+```
+
+```output contains
+Gemfile.lock
 ```
 
 ### Deploy
@@ -316,7 +320,7 @@ hop3-tuto-sinatra
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-sinatra.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-sinatra.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains

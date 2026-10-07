@@ -308,7 +308,7 @@ hop3-tuto-jekyll
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-jekyll.$HOP3_TEST_DOMAIN/ | head -10
+curl -s https://hop3-tuto-jekyll.$HOP3_TEST_DOMAIN/ | head -10
 ```
 
 ```output contains

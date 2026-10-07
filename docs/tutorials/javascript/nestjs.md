@@ -45,7 +45,7 @@ npm -v
 Create a new Nest.js app using the CLI:
 
 ```bash exec id=create-nest timeout=180
-CI=true npx --yes @nestjs/cli@latest new hop3-tuto-nestjs --package-manager npm --skip-git --skip-install
+CI=true npx --yes @nestjs/cli@11 new hop3-tuto-nestjs --package-manager npm --skip-git --skip-install
 ```
 
 ```assert file-exists path=hop3-tuto-nestjs/package.json
@@ -413,7 +413,7 @@ hop3 env set --app hop3-tuto-nestjs HOST_NAME=hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
 Configure additional environment variables:
 
 ```bash exec id=set-env timeout=30
-hop3 env set --app hop3-tuto-nestjs ALLOWED_ORIGINS=http://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-nestjs ALLOWED_ORIGINS=https://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -441,7 +441,7 @@ hop3-tuto-nestjs
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-nestjs.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains

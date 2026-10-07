@@ -9,6 +9,7 @@ from __future__ import annotations
 import contextlib
 import os
 import signal
+import socket
 import subprocess
 from typing import TYPE_CHECKING
 
@@ -44,15 +45,34 @@ def build_test_env(target_info: TargetInfo) -> dict[str, str]:
         # on a tty until the per-command timeout, failing every tutorial.
         "HOP3_NO_INPUT": "1",
     }
-    # Tutorials set HOST_NAME=<app>.$HOP3_TEST_DOMAIN and then curl that host, so
-    # the domain MUST resolve to the target. Default to <host>.sslip.io —
-    # *.<ip>.sslip.io resolves to <ip> via public wildcard DNS, so app vhosts
-    # work with zero DNS setup. Without it HOST_NAME is "<app>." (empty domain),
-    # no nginx vhost is created, and curl fails to resolve. An operator can
-    # override HOP3_TEST_DOMAIN (e.g. a real wildcard domain pointed at the box).
+    # An operator can override HOP3_TEST_DOMAIN (e.g. a real wildcard domain
+    # pointed at the box).
     if not env.get("HOP3_TEST_DOMAIN"):
-        env["HOP3_TEST_DOMAIN"] = f"{target_info.ssh_host}.sslip.io"
+        env["HOP3_TEST_DOMAIN"] = default_test_domain(target_info)
     return env
+
+
+def default_test_domain(target_info: TargetInfo) -> str:
+    """
+    A domain whose every subdomain resolves to the target: ``<ip>.sslip.io``.
+
+    Tutorials set HOST_NAME=<app>.$HOP3_TEST_DOMAIN and then curl that host, so
+    the domain must resolve to the target with no DNS setup. sslip.io answers
+    only for names that carry an address, so a target named by hostname
+    (``--host hop3.dev``) is resolved first: ``<app>.hop3.dev.sslip.io``
+    resolves to nothing, and every tutorial's check failed with curl's
+    "could not resolve host".
+    """
+    host = target_info.host
+    try:
+        address = socket.gethostbyname(host)
+    except OSError as e:
+        msg = (
+            f"Cannot build a test domain for {host!r}: it does not resolve ({e}). "
+            "Set HOP3_TEST_DOMAIN to a domain whose subdomains point at the server."
+        )
+        raise RuntimeError(msg) from e
+    return f"{address}.sslip.io"
 
 
 def run_captured(

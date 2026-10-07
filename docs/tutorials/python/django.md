@@ -157,15 +157,14 @@ urlpatterns = [
 
 ### Create a Requirements File
 
-Create a minimal `requirements.txt`:
+Record the exact versions you installed, dependencies included. Hop3 refuses ranges such as `Django>=5.0`: they resolve to whatever is newest on the day of the deploy, so two deploys of the same commit could install different code.
 
-```file path=hop3-tuto-django/requirements.txt
-Django>=5.0,<6.0
-gunicorn>=21.0
-psycopg2-binary>=2.9
-whitenoise>=6.6
-dj-database-url>=2.1
-python-decouple>=3.8
+```bash exec id=freeze-requirements dir=hop3-tuto-django
+. venv/bin/activate && pip freeze > requirements.txt && grep -i "^django==" requirements.txt
+```
+
+```output regex
+(?i)django==[0-9]
 ```
 
 ### Configure Settings for Production
@@ -621,7 +620,7 @@ hop3-tuto-django
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-django.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-django.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains

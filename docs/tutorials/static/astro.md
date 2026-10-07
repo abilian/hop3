@@ -36,7 +36,7 @@ v[0-9]+\.
 ## Step 1: Create a New Astro Site
 
 ```bash exec id=create-astro timeout=300
-CI=true ASTRO_TELEMETRY_DISABLED=1 npm create astro@latest hop3-tuto-astro -- --template minimal --no-install --no-git --yes
+CI=true ASTRO_TELEMETRY_DISABLED=1 npm create astro@5 hop3-tuto-astro -- --template minimal --no-install --no-git --yes
 ```
 
 ```assert file-exists path=hop3-tuto-astro/astro.config.mjs
@@ -382,7 +382,7 @@ hop3-tuto-astro
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-astro.$HOP3_TEST_DOMAIN/
+curl -s https://hop3-tuto-astro.$HOP3_TEST_DOMAIN/
 ```
 
 ```output contains

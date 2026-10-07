@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from hop3_testing.catalog.features import required_features_from_tests
 from hop3_testing.catalog.loader import generate_tutorial_test_definition
 from hop3_testing.catalog.models import Priority, Tier
 from hop3_testing.catalog.scanner import Catalog
@@ -91,3 +92,24 @@ def test_catalog_skips_index_and_readme(tmp_path: Path):
 
     names = {t.name for t in catalog}
     assert names == {"docs/src/tutorials/python/flask.md"}
+
+
+def test_a_tutorial_needs_what_its_hop3_toml_declares(tmp_path: Path):
+    """The server gets Nix and the addons, as for an app with that hop3.toml."""
+    md = _write_tutorial(tmp_path, "nix", "nix-gen-flask", "Nix")
+    md.write_text(
+        md.read_text() + '\n```file path=demo/hop3.toml\n[build]\nbuilder = "nix"\n\n'
+        '[nix]\ntemplate = "python-venv"\n\n[[addons]]\ntype = "postgres"\n```\n'
+    )
+
+    td = generate_tutorial_test_definition(md)
+
+    assert required_features_from_tests([td]) == {"nix", "postgresql"}
+
+
+def test_a_tutorial_without_a_hop3_toml_needs_nothing(tmp_path: Path):
+    md = _write_tutorial(tmp_path, "python", "flask", "Deploy Flask")
+
+    assert (
+        required_features_from_tests([generate_tutorial_test_definition(md)]) == set()
+    )

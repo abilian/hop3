@@ -275,7 +275,7 @@ hop3 env set --app hop3-tuto-fastify HOST_NAME=hop3-tuto-fastify.$HOP3_TEST_DOMA
 Configure additional environment variables:
 
 ```bash exec id=set-env timeout=30
-hop3 env set --app hop3-tuto-fastify ALLOWED_ORIGINS=http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN
+hop3 env set --app hop3-tuto-fastify ALLOWED_ORIGINS=https://hop3-tuto-fastify.$HOP3_TEST_DOMAIN
 ```
 
 ### Apply Configuration
@@ -301,7 +301,7 @@ hop3-tuto-fastify
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-fastify.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-fastify.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains

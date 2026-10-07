@@ -82,6 +82,11 @@ class TargetInfo:
     api_token: str | None = None
     metadata: dict[str, Any] | None = None
 
+    @property
+    def host(self) -> str:
+        """The machine alone: the Docker target's ``ssh_host`` is ``hop3@<ip>``."""
+        return self.ssh_host.rpartition("@")[2]
+
     def require_api_token(self) -> str:
         """The admin token; a target that serves an API without one is broken."""
         if not self.api_token:

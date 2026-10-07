@@ -3,10 +3,11 @@
 """
 Tutorials run ON a remote server, not locally (so deploys hit the run target).
 
-The dispatch keys off the target's class name being "RemoteTarget" plus a
-``tutorial_token`` placed by ``ensure_tutorial_host``. A remote target without a
-token must error — never fall back to local execution, which would deploy to the
-dev machine's default CLI context (the wrong server).
+The dispatch keys off the target's class name being "RemoteTarget" plus the
+``tutorial_host_ready`` flag set once ``ensure_tutorial_host`` succeeded. A
+remote target that was not prepared must error — never fall back to local
+execution, which would deploy to the dev machine's default CLI context (the
+wrong server).
 """
 
 from __future__ import annotations
@@ -16,6 +17,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from hop3_testing.runners.tutorial import TutorialTestRunner
+from hop3_testing.targets.base import TargetInfo
 from hop3_testing.targets.config import RemoteConfig
 from hop3_testing.targets.remote import RemoteTarget as RealRemoteTarget
 
@@ -23,9 +25,9 @@ from hop3_testing.targets.remote import RemoteTarget as RealRemoteTarget
 class RemoteTarget:
     """A stand-in whose class name matches the real RemoteTarget."""
 
-    def __init__(self, token=None):
-        self.info = SimpleNamespace(ssh_host="1.2.3.4")
-        self.tutorial_token = token
+    def __init__(self, *, ready: bool):
+        self.info = TargetInfo(ssh_host="1.2.3.4", ssh_port=22)
+        self.tutorial_host_ready = ready
         self.calls: list = []
         self.uploaded: list = []
 
@@ -37,8 +39,8 @@ class RemoteTarget:
         self.uploaded.append((str(local), remote))
 
 
-def test_remote_without_token_errors_and_never_runs_locally():
-    target = RemoteTarget(token=None)
+def test_unprepared_remote_errors_and_never_runs_locally():
+    target = RemoteTarget(ready=False)
     target.tutorial_host_error = "validoc install failed"
     runner = TutorialTestRunner(target=target)
 
@@ -51,9 +53,8 @@ def test_remote_without_token_errors_and_never_runs_locally():
     assert target.calls == []
 
 
-def test_remote_with_token_runs_validoc_on_the_server():
-    token = "eyJ" + "a" * 30 + ".eyJ" + "b" * 30 + "." + "c" * 30
-    target = RemoteTarget(token=token)
+def test_prepared_remote_runs_validoc_on_the_server():
+    target = RemoteTarget(ready=True)
     runner = TutorialTestRunner(target=target)
 
     result = runner._run_validoc(Path("/x/flask.md"), Path("/x"))
@@ -68,8 +69,14 @@ def test_remote_with_token_runs_validoc_on_the_server():
     cmd = run_cmds[0]
     assert "/home/hop3/venv/bin/validoc run" in cmd
     assert "HOP3_API_URL=http://localhost:8000" in cmd
-    assert token in cmd
+    # the token is read from the server's file, never written on the line
+    assert 'HOP3_API_TOKEN="$(cat /home/hop3/.hop3-harness-admin-token)"' in cmd
+    assert "eyJ" not in cmd
+    # curl accepts the test server's self-signed certificate via CURL_HOME
+    assert "CURL_HOME=/tmp/hop3-tut/flask" in cmd
+    assert any(isinstance(c, str) and ".curlrc" in c for c in target.calls)
     assert "HOP3_NO_INPUT=1" in cmd
+    assert "HOP3_TEST_DOMAIN=1.2.3.4.sslip.io" in cmd
     # the scratch dir is cleaned up
     assert any(isinstance(c, list) and c[:2] == ["rm", "-rf"] for c in target.calls)
 

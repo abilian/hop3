@@ -25,6 +25,10 @@ ADMIN_USER = "hop3-harness"
 ADMIN_EMAIL = "hop3-harness@hop3.test"
 _TOKEN_FILE = "/home/hop3/.hop3-harness-admin-token"
 
+#: Shell words that put the admin token in a command's environment, read from
+#: the token file at run time so it never appears on a command line.
+ADMIN_TOKEN_ENV = f'HOP3_API_TOKEN="$(cat {_TOKEN_FILE})"'
+
 
 class AdminAccessError(RuntimeError):
     """The harness could not act as an admin on the server."""
@@ -62,8 +66,8 @@ def ensure_admin_token(target: DeploymentTarget) -> None:
 
 def run_as_admin(target: DeploymentTarget, *args: str) -> tuple[int, str, str]:
     """Run the on-server `hop3` client as the harness admin; (code, out, err)."""
-    command = (
-        f'HOP3_API_TOKEN="$(cat {_TOKEN_FILE})" HOP3_API_URL=http://localhost:8000 '
-        + shlex.join([f"{VENV_BIN}/hop3", *args])
-    )
+    command = f"{ADMIN_TOKEN_ENV} HOP3_API_URL=http://localhost:8000 " + shlex.join([
+        f"{VENV_BIN}/hop3",
+        *args,
+    ])
     return target.exec_run(f"su - hop3 -c {shlex.quote(command)}")

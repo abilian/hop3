@@ -13,51 +13,42 @@ deploys to whatever server that points at, not the run's target.
 Running validoc on the run's server fixes both: the box already has the
 installer-provisioned toolchains, and ``hop3 deploy`` targets ``localhost``.
 This module installs ``validoc`` into the server venv and mints an admin token
-so the on-server ``hop3`` client can authenticate to the local server.
+into a file on the server, which the on-server ``hop3`` client reads.
 
-Fails loud: without validoc or a token, on-server tutorials can't run, so we
+Fails loud: without validoc or the admin token, on-server tutorials can't run, so we
 raise rather than silently fall back to (wrong) local execution.
 """
 
 from __future__ import annotations
 
-import re
-import shlex
 from typing import TYPE_CHECKING
+
+from hop3_testing.targets.admin import AdminAccessError, ensure_admin_token
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
 VENV_BIN = "/home/hop3/venv/bin"
 
-# Same shape as hop3_cli.tokens.JWT_PATTERN — a three-segment JWT.
-_JWT_RE = re.compile(
-    r"eyJ[A-Za-z0-9_-]{20,500}\.eyJ[A-Za-z0-9_-]{20,500}\.[A-Za-z0-9_-]{20,500}"
-)
-
-_ADMIN_USER = "tutorial-runner"
-_ADMIN_EMAIL = "tutorial-runner@hop3.test"
-# The password is never used to authenticate — we authenticate with the JWT the
-# command returns. It only satisfies admin:create's --password-stdin.
-_ADMIN_PASSWORD = "tutorial-runner"
-
 
 class TutorialHostError(RuntimeError):
     """Raised when the server can't be prepared to run tutorials."""
 
 
-def ensure_tutorial_host(target: DeploymentTarget) -> str:
+def ensure_tutorial_host(target: DeploymentTarget) -> None:
     """
-    Install validoc on the server and mint an admin token; return the token.
+    Install validoc on the server and mint the harness admin token there.
 
-    Idempotent enough for the blank-slate full-suite run (the admin is created
-    once on a fresh box). On a dirty box where the admin already exists,
-    admin:create fails and no token is produced — we raise, surfacing why.
+    The token stays on the server, in a file only the hop3 user and root read
+    (`targets.admin`); validoc's commands read it into their environment.
     """
     _configure_git_identity(target)
     _install_validoc(target)
     _patch_validoc_output_truncation(target)
-    return _mint_admin_token(target)
+    try:
+        ensure_admin_token(target)
+    except AdminAccessError as e:
+        raise TutorialHostError(str(e)) from e
 
 
 def _configure_git_identity(target: DeploymentTarget) -> None:
@@ -79,16 +70,21 @@ def _configure_git_identity(target: DeploymentTarget) -> None:
             raise TutorialHostError(msg)
 
 
+#: What a tutorial expects on the reader's machine, which here is the server:
+#: validoc runs the tutorial, and uv writes the lockfile of nix-gen-flask.
+_TUTORIAL_TOOLS = ("validoc", "uv")
+
+
 def _install_validoc(target: DeploymentTarget) -> None:
     code, out, err = target.exec_run([
         f"{VENV_BIN}/pip",
         "install",
         "--upgrade",
-        "validoc",
+        *_TUTORIAL_TOOLS,
     ])
     if code != 0:
         detail = (err or out).strip()[:300]
-        msg = f"Could not install validoc on the server: {detail}"
+        msg = f"Could not install validoc and uv on the server: {detail}"
         raise TutorialHostError(msg)
 
 
@@ -113,29 +109,3 @@ def _patch_validoc_output_truncation(target: DeploymentTarget) -> None:
     # Only the failure-output slices use [:10]; the success-verbose path uses
     # [:5], so this leaves it untouched.
     target.exec_run(["sed", "-i", "s/\\[:10\\]/[-80:]/g", path])
-
-
-def _mint_admin_token(target: DeploymentTarget) -> str:
-    # Run as the hop3 user so the DB stays hop3-owned; pipe the password to
-    # --password-stdin. The su wrapper passes our stdin through to hop3-server.
-    create = (
-        f"{VENV_BIN}/hop3-server admin:create "
-        f"{shlex.quote(_ADMIN_USER)} {shlex.quote(_ADMIN_EMAIL)} --password-stdin"
-    )
-    cmd = f"echo {shlex.quote(_ADMIN_PASSWORD)} | su - hop3 -c {shlex.quote(create)}"
-    code, out, err = target.exec_run(cmd)
-
-    token = _extract_jwt(out) or _extract_jwt(err)
-    if not token:
-        detail = (err or out).strip()[:300]
-        msg = (
-            f"Could not mint an admin token on the server (exit {code}). The "
-            f"on-server `hop3` client can't authenticate without it: {detail}"
-        )
-        raise TutorialHostError(msg)
-    return token
-
-
-def _extract_jwt(text: str | None) -> str | None:
-    match = _JWT_RE.search(text or "")
-    return match.group(0) if match else None

@@ -347,7 +347,7 @@ hop3-tuto-hugo
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-hugo.$HOP3_TEST_DOMAIN/ | head -5
+curl -s https://hop3-tuto-hugo.$HOP3_TEST_DOMAIN/ | head -5
 ```
 
 ```output contains

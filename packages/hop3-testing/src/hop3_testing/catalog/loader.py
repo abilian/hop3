@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 from typing import Any
 
@@ -710,6 +711,18 @@ def load_test_definition_smart(app_path: Path) -> TestDefinition:
     return generate_test_definition_from_app(app_path)
 
 
+#: A validoc fence that writes the app's hop3.toml: ```file path=<dir>/hop3.toml
+_HOP3_TOML_FENCE = re.compile(
+    r"^```file path=\S*hop3\.toml[^\n]*\n(.*?)^```", re.MULTILINE | re.DOTALL
+)
+
+
+def _tutorial_hop3_toml(md_path: Path) -> dict[str, Any]:
+    """The hop3.toml a tutorial writes, parsed; empty if it writes none."""
+    match = _HOP3_TOML_FENCE.search(md_path.read_text())
+    return tomllib.loads(match.group(1)) if match else {}
+
+
 def _read_markdown_title(md_path: Path) -> str | None:
     """Read a tutorial's description from its first markdown heading."""
     try:
@@ -742,6 +755,9 @@ def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
     language = md_path.parent.name
     framework = md_path.stem
     covers = [c for c in (language, framework) if c]
+    # What the server must provide comes from the hop3.toml the tutorial
+    # writes, exactly as for an app: its builder (Nix) and its addons.
+    hop3_data = _tutorial_hop3_toml(md_path)
 
     return TestDefinition(
         # P1 + slow so tutorials run in the nightly matrix (nightly = P0+P1,
@@ -751,6 +767,7 @@ def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
         priority=Priority.P1,
         requirements=TestRequirements(
             targets=[TargetType.DOCKER, TargetType.REMOTE],
+            services=_extract_services_from_hop3_toml(hop3_data),
         ),
         validations=[],
         tutorial=TutorialConfig(path=md_path.name, runner="validoc"),
@@ -759,7 +776,7 @@ def generate_tutorial_test_definition(md_path: Path) -> TestDefinition:
             language=language,
             framework=framework,
             covers=covers,
-            builder=None,  # tutorials don't use the builder system
+            builder=_builder_from_hop3_toml(hop3_data, md_path.parent),
             toolchain=language,  # parent dir name is the toolchain (python, go, etc.)
             spec="tutorial",
         ),

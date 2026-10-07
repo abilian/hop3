@@ -80,7 +80,7 @@ def test_build_test_env_requests_non_interactive():
     The harness opts every CLI command into non-interactive mode so a
     deploy/confirm prompt can't wedge a tutorial run (HOP3_NO_INPUT bridge).
     """
-    env = build_test_env(TargetInfo(ssh_host="h", ssh_port=22))
+    env = build_test_env(TargetInfo(ssh_host="192.0.2.1", ssh_port=22))
     assert env["HOP3_NO_INPUT"] == "1"
 
 
@@ -97,3 +97,35 @@ def test_build_test_env_defaults_test_domain_to_sslip(monkeypatch):
     monkeypatch.setenv("HOP3_TEST_DOMAIN", "test.example.com")
     env = build_test_env(TargetInfo(ssh_host="135.181.203.156", ssh_port=22))
     assert env["HOP3_TEST_DOMAIN"] == "test.example.com"  # operator override wins
+
+
+def test_build_test_env_test_domain_drops_the_ssh_user(monkeypatch):
+    """The Docker target's ssh_host is `hop3@<ip>`; a hostname has no `@`."""
+    monkeypatch.delenv("HOP3_TEST_DOMAIN", raising=False)
+    env = build_test_env(TargetInfo(ssh_host="hop3@192.168.215.2", ssh_port=22))
+    assert env["HOP3_TEST_DOMAIN"] == "192.168.215.2.sslip.io"
+
+
+def test_build_test_env_resolves_a_target_named_by_hostname(monkeypatch):
+    """sslip.io answers only for names carrying an address: resolve first."""
+    monkeypatch.delenv("HOP3_TEST_DOMAIN", raising=False)
+    monkeypatch.setattr(
+        "hop3_testing.util.subprocess.socket.gethostbyname",
+        lambda host: {"box.example.test": "192.0.2.10"}[host],
+    )
+    env = build_test_env(TargetInfo(ssh_host="box.example.test", ssh_port=22))
+    assert env["HOP3_TEST_DOMAIN"] == "192.0.2.10.sslip.io"
+
+
+def test_build_test_env_refuses_a_host_that_does_not_resolve(monkeypatch):
+    monkeypatch.delenv("HOP3_TEST_DOMAIN", raising=False)
+
+    def no_such_host(host):
+        msg = "Name or service not known"
+        raise OSError(msg)
+
+    monkeypatch.setattr(
+        "hop3_testing.util.subprocess.socket.gethostbyname", no_such_host
+    )
+    with pytest.raises(RuntimeError, match="HOP3_TEST_DOMAIN"):
+        build_test_env(TargetInfo(ssh_host="nowhere.example.test", ssh_port=22))

@@ -299,7 +299,7 @@ hop3-tuto-sanic
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-sanic.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-sanic.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains

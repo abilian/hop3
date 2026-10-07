@@ -500,7 +500,7 @@ hop3-tuto-spring-boot
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-spring-boot.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains

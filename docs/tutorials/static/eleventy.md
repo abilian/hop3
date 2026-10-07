@@ -391,7 +391,7 @@ hop3-tuto-eleventy
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-eleventy.$HOP3_TEST_DOMAIN/
+curl -s https://hop3-tuto-eleventy.$HOP3_TEST_DOMAIN/
 ```
 
 ```output contains

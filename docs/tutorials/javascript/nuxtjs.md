@@ -58,7 +58,7 @@ package.json
 Install Nuxt:
 
 ```bash exec id=install-nuxt dir=hop3-tuto-nuxtjs timeout=120
-npm install nuxt@latest
+npm install nuxt@4
 ```
 
 ```output contains
@@ -336,7 +336,6 @@ start = "node .output/server/index.mjs"
 # committed or rotated (ADR 046).
 NUXT_SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
-NITRO_PORT = "$PORT"
 
 [port]
 web = 3000
@@ -466,7 +465,7 @@ hop3-tuto-nuxtjs
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN/api/up
+curl -s https://hop3-tuto-nuxtjs.$HOP3_TEST_DOMAIN/api/up
 ```
 
 ```output contains
@@ -529,7 +528,7 @@ export default defineNuxtConfig({
 - Ensure all dependencies are in `dependencies` (not `devDependencies`)
 
 ### Runtime Errors
-- Check `NITRO_PORT` is set correctly
+- The server listens on `$PORT`, which Hop3 sets; Nitro reads it unless `NITRO_PORT` overrides it. `[env]` values are literal, so `NITRO_PORT = "$PORT"` passes the text `$PORT`
 - Verify `.output` directory exists after build
 
 ## Example Files
@@ -552,7 +551,6 @@ start = "node .output/server/index.mjs"
 [env]
 NUXT_SECRET_KEY = { generate = "hex", length = 32 }
 NODE_ENV = "production"
-NITRO_PORT = "$PORT"
 
 [port]
 web = 3000

@@ -527,7 +527,7 @@ hop3-tuto-fastapi
 ```
 
 ```bash exec id=check-health timeout=30
-curl -s http://hop3-tuto-fastapi.$HOP3_TEST_DOMAIN/up
+curl -s https://hop3-tuto-fastapi.$HOP3_TEST_DOMAIN/up
 ```
 
 ```output contains
