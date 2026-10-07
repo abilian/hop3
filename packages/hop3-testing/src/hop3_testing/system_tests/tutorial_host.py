@@ -23,12 +23,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hop3_testing.targets.admin import AdminAccessError, ensure_admin_token
+from hop3_testing.targets.admin import VENV_BIN, AdminAccessError, ensure_admin_token
 
 if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
-
-VENV_BIN = "/home/hop3/venv/bin"
 
 
 class TutorialHostError(RuntimeError):

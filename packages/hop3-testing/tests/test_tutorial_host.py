@@ -44,8 +44,10 @@ def test_configures_git_installs_validoc_and_mints_the_token_file():
     assert any("/home/hop3/venv/bin/pip" in c and "validoc" in c for c in joined)
     # and uv, which a tutorial runs on the "reader's machine" (the server)
     assert any("/home/hop3/venv/bin/pip" in c and " uv" in c for c in joined)
-    # the token is minted into a 0600 file on the server, as the hop3 user
-    assert any("admin:token" in c and "umask 077" in c for c in joined)
+    # the token is minted into a 0600 file on the server, as the hop3 user,
+    # from admin:ssh-token: no account is created
+    assert any("admin:ssh-token" in c and "umask 077" in c for c in joined)
+    assert not any("admin:create" in c for c in joined)
 
 
 def test_raises_when_git_config_fails():
@@ -63,6 +65,6 @@ def test_raises_when_validoc_install_fails():
 def test_raises_when_the_token_cannot_be_minted():
     # Without the token the on-server client cannot authenticate: a loud
     # failure, never a silent return.
-    target = _FakeTarget(fail_substr="admin:token")
+    target = _FakeTarget(fail_substr="admin:ssh-token")
     with pytest.raises(TutorialHostError, match="token"):
         ensure_tutorial_host(target)

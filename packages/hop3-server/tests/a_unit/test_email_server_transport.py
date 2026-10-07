@@ -210,6 +210,27 @@ def test_status_shows_transport_never_password(email_root, no_dns):
     assert "s3cr3t" not in flat  # never the password
 
 
+def _backend_row(result) -> str:
+    rows = [row for it in result if it["t"] == "table" for row in it["rows"]]
+    return next(value for field, value in rows if field == "backend")
+
+
+def test_status_names_the_backend_whatever_it_is(email_root, no_dns):
+    """
+    The harness reads this row (through `--json`) to decide whether it may
+    switch a server to `catch`: never scraped from prose.
+    """
+    assert (
+        _backend_row(ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin"))
+        == "none"
+    )
+    save_server_transport(_server_transport())
+    assert (
+        _backend_row(ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin"))
+        == "relay"
+    )
+
+
 # ---- addon email create: inherit vs override --------------------------------
 
 

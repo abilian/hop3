@@ -21,7 +21,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
-from hop3_testing.targets.admin import ADMIN_TOKEN_ENV
+from hop3_testing.targets.admin import ADMIN_TOKEN_ENV, LOCAL_API_URL
 from hop3_testing.util import as_text, build_test_env, run_captured
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
@@ -346,7 +346,7 @@ class TutorialTestRunner:
         env = " ".join([
             "HOP3_NO_INPUT=1",
             f"HOP3_TEST_DOMAIN={build_test_env(target.info)['HOP3_TEST_DOMAIN']}",
-            "HOP3_API_URL=http://localhost:8000",
+            f"HOP3_API_URL={LOCAL_API_URL}",
             # Read from the server's token file, never written on this line:
             # any local user reads a command line from /proc/<pid>/cmdline.
             ADMIN_TOKEN_ENV,

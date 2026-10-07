@@ -506,6 +506,7 @@ class ServerEmailStatusCmd(Command):
         if transport is None:
             return [
                 warning(_EXPERIMENTAL_MSG),
+                table(headers=["Field", "Value"], rows=[["backend", "none"]]),
                 warning("No server email transport is configured."),
                 text(
                     "Set it: hop3 server email set --smtp-host <h> --smtp-user "
@@ -516,6 +517,7 @@ class ServerEmailStatusCmd(Command):
         selector = load_server_dkim_selector()
         domain = transport.mail_from.rsplit("@", maxsplit=1)[-1]
         rows = [
+            ["backend", "relay"],
             ["host", transport.smtp_host],
             ["port", str(transport.smtp_port)],
             ["sending domain", domain],

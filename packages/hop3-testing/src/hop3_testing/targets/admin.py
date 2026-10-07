@@ -5,24 +5,32 @@
 """
 Admin commands on a deployed server, for the harness's own setup steps.
 
-The harness deploys apps with a non-admin CLI token, and a few setup steps are
-admin-only (selecting the email catch backend). The admin token is minted on
-the server into a file only the hop3 user can read, and each command reads it
-into its environment: it never appears on a command line, where any local user
-reads it from ``/proc/<pid>/cmdline``, nor in the harness's output.
+A few setup steps are admin-only (selecting the email catch backend, running
+tutorials on the server). The admin token is minted on the server into a file
+only the hop3 user and root read, and each command reads it into its
+environment: it never appears on a command line, where any local user reads it
+from ``/proc/<pid>/cmdline``, nor in the harness's output.
+
+It comes from ``admin:ssh-token``, the command ``hop3 login --ssh`` runs: a
+token for an active admin, and no new account. The harness used to create an
+admin whose password was its own username, published in this repository, and
+on a ``--host`` server that account outlived the run.
 """
 
 from __future__ import annotations
 
 import shlex
+from pathlib import PurePosixPath
 from typing import TYPE_CHECKING
+
+from hop3_cli.commands.local.ssh_ops import HOP_SERVER_PATH, SSH_TOKEN_COMMAND
 
 if TYPE_CHECKING:
     from .base import DeploymentTarget
 
-VENV_BIN = "/home/hop3/venv/bin"
-ADMIN_USER = "hop3-harness"
-ADMIN_EMAIL = "hop3-harness@hop3.test"
+VENV_BIN = str(PurePosixPath(HOP_SERVER_PATH).parent)
+#: The local server, as the on-server ``hop3`` client reaches it.
+LOCAL_API_URL = "http://localhost:8000"
 _TOKEN_FILE = "/home/hop3/.hop3-harness-admin-token"
 
 #: Shell words that put the admin token in a command's environment, read from
@@ -36,25 +44,13 @@ class AdminAccessError(RuntimeError):
 
 def ensure_admin_token(target: DeploymentTarget) -> None:
     """
-    Create the harness admin if needed and mint its token into the token file.
+    Mint an admin token into the token file, as the hop3 user.
 
-    The password only satisfies `admin:create --password-stdin`; the token is
-    what authenticates. `admin:token` prints it twice (the token, then a login
-    example carrying it), hence the first match only.
+    `admin:ssh-token` prints the token on a line of its own; the first JWT on
+    its output is the token.
     """
-    create = (
-        f"{VENV_BIN}/hop3-server admin:create {ADMIN_USER} {ADMIN_EMAIL} "
-        "--password-stdin"
-    )
-    code, out, err = target.exec_run(
-        f"echo {ADMIN_USER} | su - hop3 -c {shlex.quote(create)}"
-    )
-    if code != 0 and "already" not in f"{out}{err}":
-        msg = f"Could not create the harness admin (exit {code}): {(err or out).strip()[:300]}"
-        raise AdminAccessError(msg)
-
     mint = (
-        f"umask 077 && {VENV_BIN}/hop3-server admin:token {ADMIN_USER} "
+        f"umask 077 && {SSH_TOKEN_COMMAND} "
         f"| grep -oE 'eyJ[A-Za-z0-9_.-]+' | head -1 > {_TOKEN_FILE} "
         f"&& test -s {_TOKEN_FILE}"
     )
@@ -66,7 +62,7 @@ def ensure_admin_token(target: DeploymentTarget) -> None:
 
 def run_as_admin(target: DeploymentTarget, *args: str) -> tuple[int, str, str]:
     """Run the on-server `hop3` client as the harness admin; (code, out, err)."""
-    command = f"{ADMIN_TOKEN_ENV} HOP3_API_URL=http://localhost:8000 " + shlex.join([
+    command = f"{ADMIN_TOKEN_ENV} HOP3_API_URL={LOCAL_API_URL} " + shlex.join([
         f"{VENV_BIN}/hop3",
         *args,
     ])

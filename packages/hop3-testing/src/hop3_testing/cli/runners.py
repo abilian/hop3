@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import sys
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
@@ -137,6 +138,17 @@ def _select_email_catch(
     if not any("email" in t.requirements.services for t in tests):
         return
     ensure_admin_token(target)
+    current = _email_backend(target)
+    if current not in _SWITCHABLE_EMAIL_BACKENDS:
+        msg = (
+            f"This server's email backend is {current!r}, and the apps that "
+            "declare email need it switched to `catch`. The harness will not "
+            "replace an operator's mail setup it cannot restore afterwards (a "
+            "relay's credentials cannot be read back). Run them against a "
+            "throwaway server, or select `hop3 server email backend catch` "
+            "there yourself."
+        )
+        raise RuntimeError(msg)
     _, out, err = run_as_admin(
         target, "server", "email", "backend", "catch",
         "--from-domain", _CATCH_FROM_DOMAIN,
@@ -150,6 +162,26 @@ def _select_email_catch(
         )
         raise RuntimeError(msg)
     console.status("Email: catch backend selected; captured mail is in Mailpit")
+
+
+#: Backends the harness may switch to `catch` with nothing to restore.
+_SWITCHABLE_EMAIL_BACKENDS = frozenset({"none", "catch"})
+
+
+def _email_backend(target: DeploymentTarget) -> str:
+    """The server's email backend, from the `backend` row of `status --json`."""
+    code, out, err = run_as_admin(target, "server", "email", "status", "--json")
+    try:
+        items = json.loads(out)
+    except json.JSONDecodeError as e:
+        msg = f"`server email status --json` printed no JSON (exit {code}): {(err or out).strip()[:300]}"
+        raise RuntimeError(msg) from e
+    rows = [row for item in items if item.get("t") == "table" for row in item["rows"]]
+    for field, value in rows:
+        if field == "backend":
+            return str(value).split()[0]
+    msg = f"`server email status` reported no backend: {out.strip()[:300]}"
+    raise RuntimeError(msg)
 
 
 def _resolve_logs_dir(logs_dir: str | None, mode_label: str) -> Path | None:
