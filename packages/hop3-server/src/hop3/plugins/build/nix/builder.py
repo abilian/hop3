@@ -196,6 +196,23 @@ class NixBuilder:
             fpm_env, fpm_workers = self._serve_with_php_fpm(
                 runtime_data["php_fpm"], runtime_data.get("writable_tree", "")
             )
+            # The pool replaced a declared `web` worker, or a declared
+            # PHP_DOCUMENT_ROOT, without a word: say which one wins, by refusing.
+            if clash := sorted(
+                (workers.keys() & fpm_workers.keys())
+                | (env_vars.keys() & fpm_env.keys())
+            ):
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="Nix builder",
+                        action="serve the app with php-fpm",
+                        reason=(
+                            "runtime.json declares a php_fpm pool and also "
+                            f"{', '.join(clash)}, which the pool provides"
+                        ),
+                        hint="drop one: the php_fpm entry, or those keys",
+                    )
+                )
             env_vars = {**env_vars, **fpm_env}
             workers = {**workers, **fpm_workers}
             backend_protocol = "fastcgi"

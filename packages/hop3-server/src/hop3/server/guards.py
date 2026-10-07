@@ -14,11 +14,13 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
+import anyio
 from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
 
 from hop3 import config
 from hop3.server.security.authorization import lookup_account
-from hop3.server.security.web_auth import current_identity
+from hop3.server.security.tokens import validate_token
+from hop3.server.security.web_auth import extract_token
 
 if TYPE_CHECKING:
     from litestar.connection import ASGIConnection
@@ -39,12 +41,17 @@ class RoleGuard:
 
     required: Role
 
-    def __call__(self, connection: ASGIConnection, _: BaseRouteHandler) -> None:
+    async def __call__(self, connection: ASGIConnection, _: BaseRouteHandler) -> None:
         # As in the RPC dispatcher: the bypass is refused outside development.
         if config.HOP3_UNSAFE:
             return
+        # Two database reads (the token's revocation, the account's role) per
+        # request: on a worker thread, not on the event loop every other
+        # request is waiting on, async handlers included.
+        await anyio.to_thread.run_sync(self._authorize, extract_token(connection))
 
-        identity = current_identity(connection)
+    def _authorize(self, token: str | None) -> None:
+        identity = validate_token(token) if token else None
         if not identity:
             raise NotAuthorizedException(detail="Authentication required")
 

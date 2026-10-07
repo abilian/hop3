@@ -319,10 +319,15 @@ class Proxy(Protocol):
     def setup(self) -> None: ...
 
 
+#: The port hop3-server listens on (`hop3-server serve` passes it to Granian).
+#: The installer's HOP3_SERVER_BIND names the same port: it is a separate,
+#: stdlib-only package and keeps its own copy.
+SERVER_PORT = 8000
+
 #: Where a proxy reaches hop3-server's access-gate check (ADR 062): the
-#: server's own port on loopback, Granian's default and the installer's
-#: HOP3_SERVER_BIND.
-GATE_CHECK_UPSTREAM = "127.0.0.1:8000"
+#: server's own port on loopback. It relied on Granian's default port, which
+#: the server never stated.
+GATE_CHECK_UPSTREAM = f"127.0.0.1:{SERVER_PORT}"
 
 #: The request headers a gated app receives from the check's answer, never
 #: from the client: the proxy deletes each, then sets those the check returned.

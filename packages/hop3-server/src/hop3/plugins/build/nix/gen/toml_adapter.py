@@ -471,6 +471,12 @@ def _github_source(nix_config: dict[str, Any]) -> GitHubSource:
     if stray:
         msg = f"[nix].github replaces {', '.join(stray)}: remove them"
         raise ValueError(msg)
+    # These describe a downloaded file, and a GitHub tree is unpacked by its
+    # fetcher: they were dropped without a word.
+    inert = sorted({"strip-components", "executable"} & set(nix_config))
+    if inert:
+        msg = f"[nix].github is a source tree, so {', '.join(inert)} does not apply"
+        raise ValueError(msg)
     repo = nix_config["github"]
     rev = nix_config.get("rev", "")
     digest = nix_config.get("hash", "")

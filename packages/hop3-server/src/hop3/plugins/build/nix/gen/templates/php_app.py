@@ -434,10 +434,7 @@ def _php_exec_line(spec: AppSpec, p: PhpAppPayload) -> str:
     if p.serve_mode == "artisan":
         artisan = "./artisan" if p.needs_writable_dir else "APPDIR/artisan"
         return f"PHPBIN/php {artisan} serve --host=0.0.0.0 --port=${{PORT:-8080}}"
-    if p.serve_mode == "custom":
-        if spec.exec_target is None:
-            msg = "serve_mode='custom' requires exec_target"
-            raise ValueError(msg)
-        return spec.exec_target
-    msg = f"Unknown serve_mode: {p.serve_mode}"
-    raise ValueError(msg)
+    if spec.exec_target is None:
+        msg = "serve_mode='custom' requires exec_target"
+        raise ValueError(msg)
+    return spec.exec_target

@@ -511,3 +511,20 @@ def test_a_malformed_gem_cargo_hash_is_refused(entry, match):
         app_spec_from_config(
             _minimal("ruby-bundler", **{"gem-cargo-hashes": entry}), {}, "t"
         )
+
+
+def test_an_unknown_php_serve_mode_is_refused_when_read():
+    """It surfaced only while generating, deep inside a deploy."""
+    config = {"template": "php-app", "url": "https://x.test/a.tgz", "sha256": "0" * 52,
+              "archive": "tar-gz", "serve-mode": "fmp"}  # fmt: skip
+    with pytest.raises(ValueError, match="serve-mode is 'fmp'"):
+        app_spec_from_config(config, {"id": "app", "version": "1"}, "app")
+
+
+def test_file_only_keys_beside_a_github_source_are_refused():
+    """`strip-components` was dropped without a word."""
+    config = _github(
+        "go-source", **{"strip-components": 1, "go-vendor-hash": TREE_HASH}
+    )
+    with pytest.raises(ValueError, match="strip-components does not apply"):
+        app_spec_from_config(config, {"id": "app", "version": "1"}, "app")

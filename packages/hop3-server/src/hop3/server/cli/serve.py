@@ -8,6 +8,7 @@ from granian.constants import Interfaces
 from granian.log import LogLevels
 
 # from hop3.config import MODE
+from hop3.core.protocols import SERVER_PORT
 from hop3.lib.registry import register
 from hop3.server.security.rate_limit import LIMITER_STATE_IS_SHARED
 
@@ -71,7 +72,7 @@ class Serve(Command):
             factory=True,
             address=HOST,
             workers=WORKERS,
-            # port=port,
+            port=SERVER_PORT,
             interface=Interfaces.ASGI,
             log_dictconfig={"root": {"level": "DEBUG"}} if not DEBUG else {},
             log_level=LOG_LEVEL,

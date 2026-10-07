@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+import anyio
 import pytest
 from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
 
@@ -37,8 +38,12 @@ if TYPE_CHECKING:
 
 
 def _run_guard(conn: object, required: Role = Role.VIEWER) -> None:
-    """Call a role guard with the test double cast to the declared types."""
-    RoleGuard(required)(cast("ASGIConnection", conn), cast("BaseRouteHandler", None))
+    """Run a role guard (async) with the test double cast to the declared types."""
+    anyio.run(
+        RoleGuard(required),
+        cast("ASGIConnection", conn),
+        cast("BaseRouteHandler", None),
+    )
 
 
 class _FakeConnection:

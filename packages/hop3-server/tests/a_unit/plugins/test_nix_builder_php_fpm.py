@@ -109,3 +109,13 @@ def test_a_root_above_the_tree_is_refused(tmp_path, monkeypatch):
 
     with pytest.raises(Abort, match="inside the application source"):
         _build(tmp_path, monkeypatch, store)
+
+
+def test_a_declared_web_worker_beside_a_pool_is_refused(tmp_path, monkeypatch):
+    """The pool replaced it without a word; which one runs is not obvious."""
+    runtime = _fpm()
+    runtime["workers"] = {"web": "$out/bin/php -S 0.0.0.0:$PORT"}
+    store = _store(tmp_path, runtime, front_controller="")
+
+    with pytest.raises(Abort, match="also web"):
+        _build(tmp_path, monkeypatch, store)

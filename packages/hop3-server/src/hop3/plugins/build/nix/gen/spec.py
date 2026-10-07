@@ -28,7 +28,7 @@ belongs to another template has nowhere to go, and the adapter rejects it.
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import ClassVar, TypeVar
+from typing import ClassVar, Literal, TypeVar, get_args
 
 #: Which nixpkgs pnpm a template builds with, unless the recipe names one.
 #: The default follows the default pin: nixos-26.05 marks pnpm_9 insecure and
@@ -417,6 +417,12 @@ class NixpkgsWrapperPayload(TemplatePayload):
     env_exports_raw: dict[str, str] = field(default_factory=dict)
 
 
+#: How a php-app is served: a php-fpm pool (the default), PHP's built-in
+#: server, `artisan serve`, or the recipe's own `exec-target`.
+ServeMode = Literal["fpm", "builtin", "artisan", "custom"]
+SERVE_MODES: tuple[str, ...] = get_args(ServeMode)
+
+
 @dataclass(frozen=True)
 class PhpAppPayload(TemplatePayload):
     template_name: ClassVar[str] = "php-app"
@@ -438,7 +444,7 @@ class PhpAppPayload(TemplatePayload):
     composer_extra_flags: list[str] = field(default_factory=list)
     # Serving mode: "fpm" (a php-fpm pool behind the proxy), "builtin"
     # (php -S), "artisan" (php artisan serve), "custom".
-    serve_mode: str = "fpm"
+    serve_mode: ServeMode = "fpm"
     # Web document root relative to $out/app. E.g. "htdocs" for Dolibarr; ""
     # serves the detected front-controller directory under fpm, the tree
     # itself otherwise.
@@ -466,6 +472,16 @@ class PhpAppPayload(TemplatePayload):
     # against the generated hop3.nix's own directory (the recipe dir), so Nix
     # imports each file from there at build time.
     install_files: list[str] = field(default_factory=list)
+
+    def __post_init__(self) -> None:
+        # Checked when hop3.toml is read: a typo surfaced only while generating,
+        # as "Unknown serve_mode", deep inside a deploy.
+        if self.serve_mode not in SERVE_MODES:
+            msg = (
+                f"[nix].serve-mode is {self.serve_mode!r}; it is one of "
+                f"{', '.join(SERVE_MODES)}"
+            )
+            raise ValueError(msg)
 
 
 @dataclass(frozen=True)
