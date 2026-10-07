@@ -107,8 +107,8 @@ class NixBuilder:
         - A hop3.nix file exists in the source directory (explicit mode), or
         - The hop3.toml has a [nix] section with a template name (generated mode)
 
-        In both cases, the nix command must be available on the system.
-        Raises Abort if both modes are configured simultaneously.
+        Raises Abort if both modes are configured simultaneously, or if the app
+        asks for Nix and this server cannot run it.
 
         Returns:
             True if builder can handle this application.
@@ -121,22 +121,20 @@ class NixBuilder:
         # Mode 1: explicit hop3.nix file (mutually exclusive with
         # [nix].template, enforced above by _check_no_contradiction)
         if (source / "hop3.nix").exists():
-            if not self._nix_available():
-                self.rejection_reason = "nix command not found"
-                return False
-            self._mode = "explicit"
-            return True
-
+            mode = "explicit"
         # Mode 2: [nix].template section in hop3.toml
-        if self._has_nix_template():
-            if not self._nix_available():
-                self.rejection_reason = "nix command not found"
-                return False
-            self._mode = "generated"
-            return True
+        elif self._has_nix_template():
+            mode = "generated"
+        else:
+            self.rejection_reason = "no hop3.nix and no [nix].template in hop3.toml"
+            return False
 
-        self.rejection_reason = "no hop3.nix and no [nix].template in hop3.toml"
-        return False
+        # The app asked for Nix. Declining here let auto-selection move on to
+        # the next builder, and an app with a Procfile beside its hop3.nix was
+        # built some other way without a word.
+        self._require_nix()
+        self._mode = mode
+        return True
 
     def build(self) -> BuildArtifact:
         """
@@ -335,11 +333,23 @@ class NixBuilder:
         )
         return nix_file
 
-    def _nix_available(self) -> bool:
-        """Check if nix command is available on the system."""
+    def _require_nix(self) -> None:
+        """Refuse, with the fix, when this server cannot run Nix."""
         if not self._nix_installed():
-            return False
-        return self._run_nix_command("nix --version").returncode == 0
+            raise Abort(format_diagnosis(_NO_NIX))
+        result = self._run_nix_command("nix --version")
+        if result.returncode != 0:
+            raise Abort(
+                format_diagnosis(
+                    Diagnosis(
+                        component="Nix builder",
+                        action="build the app",
+                        reason=f"`nix --version` failed: {result.stderr.strip()}",
+                        hint="Check the Nix installation on the server "
+                        "(`hop3-install server --with nix` repairs it)",
+                    )
+                )
+            )
 
     def _nix_installed(self) -> bool:
         """A Nix profile to source, or nix-build already on PATH (NixOS)."""

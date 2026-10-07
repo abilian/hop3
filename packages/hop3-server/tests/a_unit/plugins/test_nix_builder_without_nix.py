@@ -5,9 +5,10 @@
 """
 A Nix app on a server installed without Nix.
 
-`[build].builder = "nix"` selects the builder without `accept()`, so the build
-itself is where a missing Nix surfaces. It used to run `nix-build` anyway and
-report `bash: nix-build: command not found`.
+Whether the builder is forced (`[build].builder = "nix"`, straight to
+`build()`) or auto-selected (`accept()`), an app that asks for Nix is refused
+with the fix. It used to run `nix-build` anyway and report `bash: nix-build:
+command not found`, or be built by another builder.
 """
 
 from __future__ import annotations
@@ -44,6 +45,22 @@ def test_build_names_the_missing_nix_and_the_fix(builder: NixBuilder):
     assert "Nix is not installed on this server" in str(excinfo.value)
 
 
-def test_accept_still_declines_with_a_reason(builder: NixBuilder):
+def test_accept_refuses_rather_than_declines(builder: NixBuilder):
+    """
+    Declining let auto-selection move on to the next builder: an app with a
+    Procfile beside its hop3.nix was built some other way, without a word.
+    """
+    with pytest.raises(Abort, match="--with nix"):
+        builder.accept()
+
+
+def test_an_app_without_nix_files_is_still_just_declined(tmp_path, monkeypatch):
+    monkeypatch.setenv("PATH", str(tmp_path / "empty-bin"))
+    (tmp_path / "Procfile").write_text("web: python app.py\n")
+    context = BuildContext(
+        app_name="plain", source_path=tmp_path, app_config={"hop3_config": {}}
+    )
+    builder = NixBuilder(context)
+
     assert builder.accept() is False
-    assert builder.rejection_reason == "nix command not found"
+    assert "no hop3.nix" in builder.rejection_reason

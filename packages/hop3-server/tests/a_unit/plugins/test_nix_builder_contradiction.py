@@ -41,6 +41,7 @@ def _no_real_nix(monkeypatch):
     The test_nix_build_* tests override this with their own capture (monkeypatch
     wins on re-setattr).
     """
+    monkeypatch.setattr(NixBuilder, "_nix_installed", lambda self: True)
     monkeypatch.setattr(
         NixBuilder,
         "_run_nix_command",
