@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 
 import httpx
 from hop3_cli.exceptions import CliError
+from hop3_cli.rpc.errors import server_error
 from hop3_cli.tokens import bearer_header
 
 from hop3_tui.api.models import App, AppState, Backup, EnvVar, SystemStatus
@@ -437,6 +438,7 @@ def http_error_message(response: httpx.Response) -> str:
     command that fixes it (ADR 061). "HTTP error: 403" says none of that.
     """
     try:
-        return str(response.json()["error"]["message"])
-    except (ValueError, KeyError, TypeError):
-        return f"HTTP error: {response.status_code}"
+        message, _kind = server_error(response.json())
+    except ValueError:
+        message = ""
+    return message or f"HTTP error: {response.status_code}"

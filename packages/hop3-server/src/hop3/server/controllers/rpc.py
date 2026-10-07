@@ -644,6 +644,8 @@ class RPCController(Controller):
             message="Authentication required. Use 'hop3 auth login' to authenticate.",
             request_id=request_id,
             status_code=401,
+            # Clients branch on this, never on the prose (hop3_cli.rpc.errors).
+            data={"kind": "unauthenticated"},
         )
 
     def _check_authorization(
@@ -680,6 +682,7 @@ class RPCController(Controller):
                 ),
                 request_id=request_id,
                 status_code=401,
+                data={"kind": "account_unusable"},
             )
 
         role = account.role

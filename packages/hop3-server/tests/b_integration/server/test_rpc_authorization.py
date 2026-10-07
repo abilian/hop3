@@ -107,6 +107,7 @@ def test_a_token_for_an_account_that_does_not_exist_is_refused(client, file_db):
 
     assert response.status_code == 401
     assert "which does not exist" in response.json()["error"]["message"]
+    assert response.json()["error"]["data"]["kind"] == "account_unusable"
 
 
 def test_a_disabled_account_is_refused(client, account):
@@ -116,6 +117,7 @@ def test_a_disabled_account_is_refused(client, account):
 
     assert response.status_code == 401
     assert "which is disabled" in response.json()["error"]["message"]
+    assert response.json()["error"]["data"]["kind"] == "account_unusable"
 
 
 def test_a_demotion_takes_effect_on_the_next_call(client, account, file_db):

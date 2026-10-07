@@ -19,6 +19,7 @@ from hop3_cli.core.auto_auth import auto_authenticate
 from hop3_cli.core.ssh_target import SSH_SCHEMES, SshSettings
 from hop3_cli.core.ssh_tunnel import SshTunnel
 from hop3_cli.exceptions import AuthenticationError, CliError
+from hop3_cli.rpc.errors import UNAUTHENTICATED, server_error
 from hop3_cli.tokens import bearer_header
 from hop3_cli.ui.upload_progress import upload_body
 
@@ -396,14 +397,14 @@ class Client:
         would hide it.
         """
         try:
-            message = response.json()["error"]["message"]
-        except (ValueError, KeyError, TypeError):
+            body = response.json()
+        except ValueError:
             return ""
-        if not isinstance(message, str) or message.startswith(
-            "Authentication required"
-        ):
-            return ""
-        return message
+        message, kind = server_error(body)
+        if kind:
+            return message if kind != UNAUTHENTICATED else ""
+        # A server older than `error.data.kind` says it only in its prose.
+        return "" if message.startswith("Authentication required") else message
 
     def _make_auth_error(self, request_id: int, reason: str = "") -> Error:
         """Create authentication required error, keeping the server's reason."""
