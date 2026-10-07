@@ -1185,8 +1185,8 @@ class AccessSection(BaseModel):
         default="none",
         description='"auth": only signed-in Hop3 accounts reach the app.',
     )
-    role: str = Field(
-        default="member",
+    role: Role = Field(
+        default=Role.MEMBER,
         description="Lowest standard role admitted: member, viewer, deployer, admin.",
     )
     public_paths: list[str] = Field(
@@ -1195,10 +1195,12 @@ class AccessSection(BaseModel):
         description="Path regexes reachable without signing in (webhooks, health).",
     )
 
-    @field_validator("role")
+    @field_validator("role", mode="before")
     @classmethod
-    def _check_role(cls, v: str) -> str:
-        return Role.parse(v).value
+    def _parse_role(cls, v: object) -> object:
+        # Parsed once, here, with Role's own message for an unknown name: it was
+        # parsed, turned back into a string, and parsed again by the deployer.
+        return Role.parse(v) if isinstance(v, str) else v
 
     @field_validator("public_paths")
     @classmethod

@@ -13,7 +13,6 @@ commands, and the inherit-vs-override path in `addon email create`.
 from __future__ import annotations
 
 import stat
-from types import SimpleNamespace
 
 import pytest
 
@@ -58,18 +57,6 @@ def _server_transport(domain: str = "example.com") -> EmailTransport:
         smtp_user="relay-user",
         smtp_password="s3cr3t",
         mail_from=f"noreply@{domain}",
-    )
-
-
-def _admin_repo():
-    return SimpleNamespace(
-        get_by_username=lambda u: SimpleNamespace(is_admin=True, username=u)
-    )
-
-
-def _nonadmin_repo():
-    return SimpleNamespace(
-        get_by_username=lambda u: SimpleNamespace(is_admin=False, username=u)
     )
 
 
@@ -147,9 +134,7 @@ def test_resolve_inherited_rejects_subdomain(email_root):
 
 
 def test_set_stores_transport_for_admin(email_root, no_dns):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--smtp-host", "smtp.example.com", "--smtp-user", "u",
+    result = ServerEmailSetCmd().call("--smtp-host", "smtp.example.com", "--smtp-user", "u",
         "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert "warning" in _types(result)  # the experimental banner
@@ -161,9 +146,7 @@ def test_set_stores_transport_for_admin(email_root, no_dns):
 
 
 def test_set_rejects_from_domain_with_at(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--smtp-host", "h", "--smtp-user", "u",
+    result = ServerEmailSetCmd().call("--smtp-host", "h", "--smtp-user", "u",
         "--smtp-password", "pw", "--from-domain", "noreply@example.com",
     )  # fmt: skip
     assert "error" in _types(result)
@@ -172,9 +155,7 @@ def test_set_rejects_from_domain_with_at(email_root):
 
 
 def test_set_rejects_port_25(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--smtp-host", "h", "--smtp-user", "u",
+    result = ServerEmailSetCmd().call("--smtp-host", "h", "--smtp-user", "u",
         "--smtp-password", "pw", "--from-domain", "example.com",
         "--smtp-port", "25",
     )  # fmt: skip
@@ -184,9 +165,7 @@ def test_set_rejects_port_25(email_root):
 
 def test_set_missing_flags_is_loud(email_root):
     with pytest.raises(ValueError, match="Missing: --smtp-user"):
-        ServerEmailSetCmd(user_repo=_admin_repo()).call(
-            "admin", "--smtp-host", "smtp.example.com"
-        )
+        ServerEmailSetCmd().call("--smtp-host", "smtp.example.com")
     assert load_server_transport() is None
 
 
@@ -194,14 +173,14 @@ def test_set_missing_flags_is_loud(email_root):
 
 
 def test_status_not_configured(email_root):
-    result = ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin")
+    result = ServerEmailStatusCmd().call()
     assert "warning" in _types(result)
     assert "No server email transport" in _joined(result)
 
 
 def test_status_shows_transport_never_password(email_root, no_dns):
     save_server_transport(_server_transport())
-    result = ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin")
+    result = ServerEmailStatusCmd().call()
     assert "table" in _types(result)
     table_item = next(it for it in result if it["t"] == "table")
     flat = " ".join(" ".join(map(str, row)) for row in table_item["rows"])
@@ -220,15 +199,9 @@ def test_status_names_the_backend_whatever_it_is(email_root, no_dns):
     The harness reads this row (through `--json`) to decide whether it may
     switch a server to `catch`: never scraped from prose.
     """
-    assert (
-        _backend_row(ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin"))
-        == "none"
-    )
+    assert _backend_row(ServerEmailStatusCmd().call()) == "none"
     save_server_transport(_server_transport())
-    assert (
-        _backend_row(ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin"))
-        == "relay"
-    )
+    assert _backend_row(ServerEmailStatusCmd().call()) == "relay"
 
 
 # ---- addon email create: inherit vs override --------------------------------
@@ -434,7 +407,7 @@ def test_server_dkim_selector_none_when_no_transport(email_root):
 def test_status_reverifies_dkim_with_stored_selector(email_root, monkeypatch):
     save_server_transport(_server_transport(), dkim_selector="sel")
     monkeypatch.setattr(deliverability, "lookup_txt", _dns_all_present())
-    result = ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin")
+    result = ServerEmailStatusCmd().call()
     # the selector shows in the config table
     config_table = next(it for it in result if it["t"] == "table")
     flat = " ".join(" ".join(map(str, row)) for row in config_table["rows"])
@@ -498,18 +471,14 @@ def test_only_resend_has_a_fixed_dkim_selector():
 
 
 def test_list_providers_lists_the_roster(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin", "--list-providers"
-    )
+    result = ServerEmailSetCmd().call("--list-providers")
     prov_table = next(it for it in result if it["t"] == "table")
     names = [row[0] for row in prov_table["rows"]]
     assert names == ["resend", "postmark", "brevo", "mailgun", "mailgun-eu", "scaleway"]
 
 
 def test_set_provider_fills_endpoint_and_shows_spf(email_root, no_dns):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--provider", "brevo",
+    result = ServerEmailSetCmd().call("--provider", "brevo",
         "--smtp-user", "u", "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert "error" not in _types(result)
@@ -521,18 +490,14 @@ def test_set_provider_fills_endpoint_and_shows_spf(email_root, no_dns):
 
 
 def test_set_provider_resend_supplies_fixed_dkim_selector(email_root, no_dns):
-    ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--provider", "resend",
+    ServerEmailSetCmd().call("--provider", "resend",
         "--smtp-user", "resend", "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert load_server_dkim_selector() == "resend"
 
 
 def test_set_unknown_provider_fails_loud(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--provider", "nope",
+    result = ServerEmailSetCmd().call("--provider", "nope",
         "--smtp-user", "u", "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert "error" in _types(result)
@@ -541,9 +506,7 @@ def test_set_unknown_provider_fails_loud(email_root):
 
 
 def test_set_provider_with_explicit_host_conflicts(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--provider", "brevo", "--smtp-host", "smtp.other.com",
+    result = ServerEmailSetCmd().call("--provider", "brevo", "--smtp-host", "smtp.other.com",
         "--smtp-user", "u", "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert "error" in _types(result)
@@ -552,9 +515,7 @@ def test_set_provider_with_explicit_host_conflicts(email_root):
 
 
 def test_set_provider_with_explicit_port_conflicts(email_root):
-    result = ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--provider", "brevo", "--smtp-port", "465",
+    result = ServerEmailSetCmd().call("--provider", "brevo", "--smtp-port", "465",
         "--smtp-user", "u", "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert "error" in _types(result)
@@ -562,18 +523,14 @@ def test_set_provider_with_explicit_port_conflicts(email_root):
 
 
 def test_set_explicit_dkim_selector_overrides_provider(email_root, no_dns):
-    ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--provider", "resend", "--dkim-selector", "custom",
+    ServerEmailSetCmd().call("--provider", "resend", "--dkim-selector", "custom",
         "--smtp-user", "r", "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
     assert load_server_dkim_selector() == "custom"  # explicit wins over resend's
 
 
 def test_set_dkim_selector_without_provider(email_root, no_dns):
-    ServerEmailSetCmd(user_repo=_admin_repo()).call(
-        "admin",
-        "--smtp-host", "smtp.own.com",
+    ServerEmailSetCmd().call("--smtp-host", "smtp.own.com",
         "--smtp-user", "u", "--smtp-password", "pw", "--from-domain", "example.com",
         "--dkim-selector", "s1",
     )  # fmt: skip
@@ -585,8 +542,7 @@ def test_set_dkim_selector_without_provider(email_root, no_dns):
 
 def test_backend_relay_stores_transport(email_root, no_dns):
     # `backend relay` is the canonical spelling of `server email set`.
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
-        "admin", "relay",
+    result = ServerEmailBackendCmd().call("relay",
         "--smtp-host", "smtp.example.com", "--smtp-user", "u",
         "--smtp-password", "pw", "--from-domain", "example.com",
     )  # fmt: skip
@@ -597,9 +553,7 @@ def test_backend_relay_stores_transport(email_root, no_dns):
 
 
 def test_backend_catch_selects_dev_sink(email_root):
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
-        "admin", "catch", "--from-domain", "example.com"
-    )
+    result = ServerEmailBackendCmd().call("catch", "--from-domain", "example.com")
     assert "error" not in _types(result)
     assert "captured, not sent" in _joined(result)
     assert st_module.load_server_backend_kind() == "catch"
@@ -615,9 +569,7 @@ def test_server_sending_domain_reads_the_backend_domain(email_root):
 def test_backend_catch_inherited_addon_injects_loopback(email_root, no_dns):
     # Under catch, an inheriting app still gets the loopback endpoint (:25);
     # Postfix relays to the sink. No provider transport is needed.
-    ServerEmailBackendCmd(user_repo=_admin_repo()).call(
-        "admin", "catch", "--from-domain", "example.com"
-    )
+    ServerEmailBackendCmd().call("catch", "--from-domain", "example.com")
     result = AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
     assert "error" not in _types(result)
     env = EmailAddon(addon_name="mail").get_connection_details()
@@ -629,8 +581,8 @@ def test_backend_catch_inherited_addon_injects_loopback(email_root, no_dns):
 
 
 def test_backend_direct_selects_self_hosted_mta(email_root, no_dns):
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call(
-        "admin", "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
+    result = ServerEmailBackendCmd().call(
+        "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
     )
     assert "error" not in _types(result)
     assert "direct" in _joined(result)
@@ -639,7 +591,7 @@ def test_backend_direct_selects_self_hosted_mta(email_root, no_dns):
 
 
 def test_backend_direct_requires_from_domain(email_root):
-    result = ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "direct")
+    result = ServerEmailBackendCmd().call("direct")
     assert "error" in _types(result)
     assert "from-domain" in _joined(result)
     assert st_module.load_server_backend_kind() is None
@@ -648,8 +600,8 @@ def test_backend_direct_requires_from_domain(email_root):
 def test_backend_direct_inherited_addon_injects_loopback(email_root, no_dns):
     # A direct-backed inheriting app also sends via the loopback (:25); Postfix
     # then delivers to MX. No provider transport needed.
-    ServerEmailBackendCmd(user_repo=_admin_repo()).call(
-        "admin", "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
+    ServerEmailBackendCmd().call(
+        "direct", "--from-domain", "example.com", "--server-ip", "203.0.113.7"
     )
     AddonEmailCreateCmd().call("mail", "--from", "team@example.com")
     env = EmailAddon(addon_name="mail").get_connection_details()
@@ -659,9 +611,9 @@ def test_backend_direct_inherited_addon_injects_loopback(email_root, no_dns):
 
 def test_backend_unknown_kind_is_loud(email_root):
     with pytest.raises(ValueError, match="Unknown backend 'smtp'"):
-        ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin", "smtp")
+        ServerEmailBackendCmd().call("smtp")
 
 
 def test_backend_missing_kind_shows_usage(email_root):
     with pytest.raises(ValueError, match=r"backend <relay\|catch\|direct>"):
-        ServerEmailBackendCmd(user_repo=_admin_repo()).call("admin")
+        ServerEmailBackendCmd().call()

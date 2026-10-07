@@ -17,7 +17,6 @@ from typing import TYPE_CHECKING
 
 from hop3 import config as c
 from hop3.core.plugins import get_proxy_class
-from hop3.core.roles import Role
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
 
 if TYPE_CHECKING:
@@ -37,11 +36,11 @@ def configure_access_preflight(
         app.access_public_paths = []
     else:
         _refuse_unenforceable_gate(app, allow_http=app_config.hop3_config.allow_http)
-        app.access_role = Role(section.role)
+        app.access_role = section.role
         app.access_public_paths = list(section.public_paths)
         log(
             f"Access gate on '{app.name}': signed-in accounts with role "
-            f"{section.role} or above"
+            f"{section.role.value} or above"
             + (
                 f"; public: {', '.join(section.public_paths)}"
                 if section.public_paths

@@ -83,14 +83,6 @@ def _transport(port: int = 587) -> EmailTransport:
     return EmailTransport("smtp.example.com", port, "user", "pw", "noreply@example.com")
 
 
-def _admin_repo():
-    return SimpleNamespace(get_by_username=lambda u: SimpleNamespace(is_admin=True))
-
-
-def _nonadmin_repo():
-    return SimpleNamespace(get_by_username=lambda u: SimpleNamespace(is_admin=False))
-
-
 def _types(items):
     return [it["t"] for it in items]
 
@@ -256,58 +248,48 @@ def test_notify_survives_invalid_stored_transport(notif_root):
 
 def test_cli_on_without_transport_warns(notif_root, monkeypatch):
     monkeypatch.setattr(notif_module, "config", SimpleNamespace(ACME_EMAIL=""))
-    result = ServerEmailNotificationsCmd(user_repo=_admin_repo()).call(
-        "admin", "on", "--to", "ops@x.com"
-    )
+    result = ServerEmailNotificationsCmd().call("on", "--to", "ops@x.com")
     assert "will NOT send" in _joined(result)
     assert notifications_enabled() is True  # opt-in still recorded
 
 
 def test_cli_on_with_transport_shows_recipient(notif_root):
     save_server_transport(_transport())
-    result = ServerEmailNotificationsCmd(user_repo=_admin_repo()).call(
-        "admin", "on", "--to", "ops@x.com"
-    )
+    result = ServerEmailNotificationsCmd().call("on", "--to", "ops@x.com")
     assert "ops@x.com" in _joined(result)
     assert "will NOT send" not in _joined(result)
 
 
 def test_cli_off_disables(notif_root):
     save_notifications_config(enabled=True)
-    ServerEmailNotificationsCmd(user_repo=_admin_repo()).call("admin", "off")
+    ServerEmailNotificationsCmd().call("off")
     assert notifications_enabled() is False
 
 
 def test_cli_status_warns_when_on_but_undeliverable(notif_root, monkeypatch):
     monkeypatch.setattr(notif_module, "config", SimpleNamespace(ACME_EMAIL=""))
     save_notifications_config(enabled=True, recipient="ops@x.com")  # no transport
-    result = ServerEmailNotificationsCmd(user_repo=_admin_repo()).call(
-        "admin", "status"
-    )
+    result = ServerEmailNotificationsCmd().call("status")
     assert "not deliverable" in _joined(result)
 
 
 def test_cli_test_sends_a_message(notif_root, fake_smtp):
     save_server_transport(_transport())
-    result = ServerEmailNotificationsCmd(user_repo=_admin_repo()).call(
-        "admin", "test", "--to", "ops@x.com"
-    )
+    result = ServerEmailNotificationsCmd().call("test", "--to", "ops@x.com")
     assert "error" not in _types(result)
     assert fake_smtp.instances  # a real send happened
     assert "ops@x.com" in _joined(result)
 
 
 def test_cli_test_without_transport_fails_loud(notif_root):
-    result = ServerEmailNotificationsCmd(user_repo=_admin_repo()).call(
-        "admin", "test", "--to", "ops@x.com"
-    )
+    result = ServerEmailNotificationsCmd().call("test", "--to", "ops@x.com")
     assert "error" in _types(result)
     assert "No server email transport" in _joined(result)
 
 
 def test_cli_unknown_action_is_loud(notif_root):
     with pytest.raises(ValueError, match="Unknown action 'bogus'"):
-        ServerEmailNotificationsCmd(user_repo=_admin_repo()).call("admin", "bogus")
+        ServerEmailNotificationsCmd().call("bogus")
 
 
 # ---- cert-renewal-failure wiring --------------------------------------------

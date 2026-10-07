@@ -18,14 +18,17 @@ from __future__ import annotations
 import os
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 import tomllib  # Python 3.11+
 
 from hop3.lib import log
-
-if TYPE_CHECKING:
-    from hop3.project.schema import AccessSection
+from hop3.project.schema import (
+    AccessSection,
+    Hop3TomlValidationError,
+    ProxySection,
+    validate_hop3_toml,
+)
 
 
 def _validation_skip_requested() -> bool:
@@ -112,11 +115,6 @@ class Hop3Config:
         Raises:
             Hop3TomlValidationError: If validation fails
         """
-        from hop3.project.schema import (  # ruff:ignore[import-outside-top-level]
-            Hop3TomlValidationError,
-            validate_hop3_toml,
-        )
-
         try:
             validate_hop3_toml(data)
             log(f"hop3.toml validated successfully: {path}", level=2, fg="green")
@@ -325,10 +323,6 @@ class Hop3Config:
 
         The file was validated at load, so this cannot fail here.
         """
-        from hop3.project.schema import (  # ruff:ignore[import-outside-top-level]
-            ProxySection,
-        )
-
         return ProxySection.model_validate(self.proxy).deny
 
     @property
@@ -715,10 +709,6 @@ class Hop3Config:
         The section's defaults when it is absent, which is an app anyone may
         reach. The file was validated at load, so this cannot fail here.
         """
-        from hop3.project.schema import (  # ruff:ignore[import-outside-top-level]
-            AccessSection,
-        )
-
         return AccessSection.model_validate(self._data.get("access", {}))
 
     # =========================================================================

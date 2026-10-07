@@ -21,10 +21,6 @@ from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
 # Runtime import for Dishka DI (not just a type hint).
-from hop3.orm.repositories import (
-    UserRepository,  # ruff:ignore[typing-only-first-party-import]
-)
-
 from .cli import _EXPERIMENTAL_MSG
 from .notifications import (
     load_notifications_config,
@@ -49,17 +45,14 @@ class ServerEmailNotificationsCmd(Command):
     through the server email transport (`hop3 server email set`). Admin-only.
     """
 
-    user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "notifications")
     min_role: ClassVar[Role] = Role.ADMIN
-    pass_username: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "action": {"positional": True},
         "to": {"type": str},
     }
 
-    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         action = parsed.get("action", "")
         recipient = parsed.get("to", "")

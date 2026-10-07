@@ -68,7 +68,7 @@ def _postgres_conf_dir() -> Path:
     return conf_dir
 
 
-def _configure_postgres_listen_addresses(_unused: str = "") -> bool:
+def _configure_postgres_listen_addresses() -> bool:
     """
     Configure PostgreSQL to listen on all interfaces for Docker access.
 
@@ -108,7 +108,7 @@ def _configure_postgres_listen_addresses(_unused: str = "") -> bool:
     return True
 
 
-def _configure_postgres_hba(_unused: str = "") -> bool:
+def _configure_postgres_hba() -> bool:
     """
     Configure pg_hba.conf to allow connections from Docker networks.
 
@@ -183,8 +183,8 @@ def _configure_postgres_for_docker() -> None:
         print_detail("Docker not installed, skipping PostgreSQL Docker configuration")
         return
 
-    listen_changed = _configure_postgres_listen_addresses("docker")
-    hba_changed = _configure_postgres_hba("docker")
+    listen_changed = _configure_postgres_listen_addresses()
+    hba_changed = _configure_postgres_hba()
     if listen_changed or hba_changed:
         _restart_postgres()
         print_detail(

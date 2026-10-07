@@ -25,10 +25,6 @@ from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
 
 # Runtime import for Dishka DI (not just a type hint).
-from hop3.orm.repositories import (
-    UserRepository,  # ruff:ignore[typing-only-first-party-import]
-)
-
 from .catcher import SINK_SMTP, CatcherError, caught_messages, check_sink_answers
 from .cli import _EXPERIMENTAL_MSG, _deliverability_items
 from .email import EmailTransport
@@ -125,10 +121,8 @@ class ServerEmailSetCmd(Command):
             --smtp-password @./pw --from-domain example.com --dkim-selector s1
     """
 
-    user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "set")
     min_role: ClassVar[Role] = Role.ADMIN
-    pass_username: ClassVar[bool] = True
     _arg_spec: ClassVar[dict] = {
         "provider": {"type": str},
         "smtp_host": {"type": str},
@@ -141,8 +135,7 @@ class ServerEmailSetCmd(Command):
         "list_providers": {"flag": True},
     }
 
-    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, self._arg_spec)
         if parsed.get("list_providers"):
             return _list_providers_items()
@@ -316,13 +309,10 @@ class ServerEmailBackendCmd(Command):
             --smtp-password @./smtp.secret --from-domain example.com
     """
 
-    user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "backend")
     min_role: ClassVar[Role] = Role.ADMIN
-    pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
-
+    def call(self, *args: str) -> list[dict]:
         if not args:
             msg = "Missing: <relay|catch|direct>."
             raise self.usage_error(msg)
@@ -331,9 +321,7 @@ class ServerEmailBackendCmd(Command):
         if kind == "relay":
             # `relay` delegates to `server email set`, which owns endpoint /
             # credential resolution, the loopback-relay config, and storage.
-            return ServerEmailSetCmd(user_repo=self.user_repo).call(
-                authenticated_username, *rest
-            )
+            return ServerEmailSetCmd().call(*rest)
         if kind == "catch":
             return self._configure_catch(tuple(rest))
         if kind == "direct":
@@ -473,13 +461,10 @@ class ServerEmailStatusCmd(Command):
     SPF/DMARC pre-flight on that domain. Never shows the password. Admin-only.
     """
 
-    user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "status")
     min_role: ClassVar[Role] = Role.ADMIN
-    pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", *_args: str) -> list[dict]:
-
+    def call(self, *_args: str) -> list[dict]:
         kind = load_server_backend_kind()
         if kind == CATCH_BACKEND:
             return [warning(_EXPERIMENTAL_MSG), *_catch_status_items()]
@@ -555,12 +540,10 @@ class ServerEmailCaughtCmd(Command):
     carry password-reset links and sign-in tokens.
     """
 
-    user_repo: UserRepository
     name: ClassVar[tuple[str, ...]] = ("server", "email", "caught")
     min_role: ClassVar[Role] = Role.ADMIN
-    pass_username: ClassVar[bool] = True
 
-    def call(self, authenticated_username: str = "", *args: str) -> list[dict]:
+    def call(self, *args: str) -> list[dict]:
         parsed = parse_cli_args(args, {"limit": {"type": str, "default": "20"}})
         limit_arg = parsed["limit"]
         if not str(limit_arg).isdigit() or int(limit_arg) < 1:

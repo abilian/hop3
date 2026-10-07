@@ -30,6 +30,14 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import ClassVar, TypeVar
 
+#: Which nixpkgs pnpm a template builds with, unless the recipe names one.
+#: The default follows the default pin: nixos-26.05 marks pnpm_9 insecure and
+#: refuses to evaluate it. pnpm 10 reads most lockfiles pnpm 9 wrote, but not
+#: one with `patchedDependencies`, whose hashes it computes differently
+#: (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH); a recipe with such a lockfile, on its
+#: own older pin, names pnpm_9.
+DEFAULT_PNPM_PACKAGE = "pnpm_10"
+
 
 @dataclass(frozen=True)
 class Source:
@@ -344,12 +352,8 @@ class NodePnpmInstallPayload(TemplatePayload):
     deps_hash: str | None = None
     # Which nixpkgs pnpm to build with. The committed lockfile's format must be
     # one this major can read (see PNPM_LOCKFILE_VERSIONS in the template).
-    # The default follows the default pin: nixos-26.05 marks pnpm_9 insecure and
-    # refuses to evaluate it. pnpm 10 reads most lockfiles pnpm 9 wrote, but not
-    # one with `patchedDependencies`, whose hashes it computes differently
-    # (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH); a recipe with such a lockfile, on its
-    # own older pin, names pnpm_9.
-    pnpm_package: str = "pnpm_10"
+    # See DEFAULT_PNPM_PACKAGE.
+    pnpm_package: str = DEFAULT_PNPM_PACKAGE
     # nixpkgs' own reproducibility knob for `pnpm.fetchDeps`. Left unset, the
     # fetcher normalises JSON key order and timestamps and nothing else, so the
     # file permissions pnpm happened to create survive into the output: the same
@@ -505,19 +509,9 @@ class GoSourcePayload(TemplatePayload):
     # pnpm.fetchDeps + the pnpm configHook rather than buildNpmPackage.
     frontend_pnpm: bool = False
     pnpm_deps_hash: str | None = None
-    # The default follows the default pin: nixos-26.05 marks pnpm_9 insecure and
-    # refuses to evaluate it. pnpm 10 reads most lockfiles pnpm 9 wrote, but not
-    # one with `patchedDependencies`, whose hashes it computes differently
-    # (ERR_PNPM_LOCKFILE_CONFIG_MISMATCH); a recipe with such a lockfile, on its
-    # own older pin, names pnpm_9.
-    pnpm_package: str = "pnpm_10"
-    # nixpkgs' own reproducibility knob for `pnpm.fetchDeps`. Left unset, the
-    # fetcher normalises JSON key order and timestamps and nothing else, so the
-    # file permissions pnpm happened to create survive into the output: the same
-    # lockfile then yields different bytes on different machines, and the pinned
-    # hash matches only where it was recorded. Version 2 normalises permissions,
-    # 3 packs a reproducible tarball. A pin that predates the argument rejects
-    # it; a recipe on such a pin moves to a newer `nixpkgs-rev` too.
+    # See DEFAULT_PNPM_PACKAGE.
+    pnpm_package: str = DEFAULT_PNPM_PACKAGE
+    # As NodePnpmInstallPayload.pnpm_fetcher_version.
     pnpm_fetcher_version: int | None = None
     frontend_node_package: str = "nodejs"
     # Embed the built frontend into the source at this path before the Go build

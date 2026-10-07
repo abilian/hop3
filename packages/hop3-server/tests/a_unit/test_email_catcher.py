@@ -17,7 +17,6 @@ import json
 import socket
 import threading
 from http.server import BaseHTTPRequestHandler, HTTPServer
-from types import SimpleNamespace
 
 import pytest
 
@@ -94,12 +93,6 @@ def _free_port() -> int:
         return s.getsockname()[1]
 
 
-def _admin_repo():
-    return SimpleNamespace(
-        get_by_username=lambda u: SimpleNamespace(is_admin=True, username=u)
-    )
-
-
 def _text(items) -> str:
     return " ".join(json.dumps(it) for it in items)
 
@@ -124,7 +117,7 @@ def test_captured_mail_is_read_back(mailpit_api):
 def test_status_names_the_catch_backend_and_its_sink(email_root, smtp_greeter):
     """It said "No server email transport is configured" for catch and direct."""
     save_server_catch("example.com")
-    out = _text(ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin"))
+    out = _text(ServerEmailStatusCmd().call())
     assert "No server email transport" not in out
     assert "catch" in out
     assert "answering" in out
@@ -133,13 +126,13 @@ def test_status_names_the_catch_backend_and_its_sink(email_root, smtp_greeter):
 def test_status_says_when_the_catch_sink_is_down(email_root, monkeypatch):
     save_server_catch("example.com")
     monkeypatch.setattr(catcher, "SINK_SMTP", ("127.0.0.1", _free_port()))
-    items = ServerEmailStatusCmd(user_repo=_admin_repo()).call("admin")
+    items = ServerEmailStatusCmd().call()
     assert any(it["t"] == "error" for it in items)
 
 
 def test_caught_lists_captured_mail(email_root, mailpit_api):
     save_server_catch("example.com")
-    out = _text(ServerEmailCaughtCmd(user_repo=_admin_repo()).call("admin"))
+    out = _text(ServerEmailCaughtCmd().call())
     assert "Reset your password" in out
     assert "user@example.com" in out
 
@@ -148,6 +141,6 @@ def test_caught_refuses_when_the_backend_is_not_catch(email_root, monkeypatch):
     monkeypatch.setattr(
         server_cli, "caught_messages", lambda *_a: pytest.fail("must not query")
     )
-    items = ServerEmailCaughtCmd(user_repo=_admin_repo()).call("admin")
+    items = ServerEmailCaughtCmd().call()
     assert items[0]["t"] == "error"
     assert "backend catch" in _text(items)

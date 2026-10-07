@@ -79,7 +79,6 @@ REPOSITORY_TYPES: dict[str, type] = {
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
-    from hop3.core.roles import Role
     from hop3.lib.types import Json, JsonDict
 
 # Scan and register all CLI commands (including aliases)
@@ -190,11 +189,6 @@ def requires_authentication(command_class: type[Command]) -> bool:
         True if authentication is required, False otherwise
     """
     return getattr(command_class, "requires_auth", True)
-
-
-def required_role(command_class: type[Command]) -> Role:
-    """The lowest role that may run ``command_class`` (ADR 061 §3)."""
-    return command_class.min_role
 
 
 def is_rate_limited(command_class: type[Command]) -> bool:
@@ -689,7 +683,7 @@ class RPCController(Controller):
             )
 
         role = account.role
-        required = required_role(command_class)
+        required = command_class.min_role  # ADR 061 §3
         if role.includes(required):
             return None
 

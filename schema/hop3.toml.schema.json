@@ -23,10 +23,9 @@
           "type": "string"
         },
         "role": {
+          "$ref": "#/$defs/Role",
           "default": "member",
-          "description": "Lowest standard role admitted: member, viewer, deployer, admin.",
-          "title": "Role",
-          "type": "string"
+          "description": "Lowest standard role admitted: member, viewer, deployer, admin."
         }
       },
       "title": "AccessSection",
@@ -1016,6 +1015,17 @@
       },
       "title": "ProxySection",
       "type": "object"
+    },
+    "Role": {
+      "description": "A standard role. A command or a gate names the *minimum* it requires.",
+      "enum": [
+        "member",
+        "viewer",
+        "deployer",
+        "admin"
+      ],
+      "title": "Role",
+      "type": "string"
     },
     "RunSection": {
       "additionalProperties": false,
