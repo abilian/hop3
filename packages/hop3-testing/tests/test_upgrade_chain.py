@@ -136,3 +136,21 @@ def test_docker_invocation_reaches_deploy_loop(monkeypatch):
     result = _invoke("--docker", "--chain", "local,local")
     assert result.exit_code == 1
     assert "FAILED" in result.output
+
+
+def test_a_seed_with_the_wrong_rights_stops_the_chain(monkeypatch, tmp_path):
+    """
+    Recorded as found, a failed probe on hop 1 (no token, so all three
+    False) compared equal on every later hop: the role migration "passed"
+    without being exercised.
+    """
+    chain = importlib.import_module("hop3_testing.cli.commands.upgrade_chain")
+    session = type("S", (), {"deploy": lambda self: None})()
+    monkeypatch.setattr(chain, "DeploymentSession", lambda *_a, **_kw: session)
+    monkeypatch.setattr(chain, "_hop3", lambda *_a, **_kw: None)
+    no_token = chain._Rights(token=False, read_env=False, list_users=False)
+    monkeypatch.setattr(chain, "_state", lambda *_a: no_token)
+    target = type("T", (), {"cli_env": lambda self: {}})()
+
+    with pytest.raises(RuntimeError, match="wrong baseline"):
+        chain._seed(target, tmp_path, "v0.6.2")

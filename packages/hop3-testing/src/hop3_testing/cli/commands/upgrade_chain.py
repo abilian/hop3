@@ -371,6 +371,11 @@ class _Rights:
     detail: str = field(default="", compare=False)
 
 
+#: A plain non-admin account, before roles (ADR 061) and as a deployer after:
+#: it gets a token and reads its app's environment, and cannot list accounts.
+_PLAIN_ACCOUNT_RIGHTS = _Rights(token=True, read_env=True, list_users=False)
+
+
 @dataclass(frozen=True)
 class _Seed:
     """State hop 1 creates for every later hop to find intact."""
@@ -397,6 +402,16 @@ def _seed(target, repo_root: Path, ref: str) -> _Seed:
         stdin=password,
     )
     rights = _state(session, password, ref)
+    # Every later hop is compared with this. Recorded as found, a probe that
+    # failed on hop 1 (no token: all three False) compared equal on every hop,
+    # and the role migration passed without being exercised.
+    if rights != _PLAIN_ACCOUNT_RIGHTS:
+        msg = (
+            f"on {ref}, the newly created {_SEED_USER} can {_describe(rights)}; "
+            f"a plain account can {_describe(_PLAIN_ACCOUNT_RIGHTS)}, so the "
+            f"later hops would be compared with the wrong baseline.\n{rights.detail}"
+        )
+        raise RuntimeError(msg)
     click.echo(f"  ✓ {ref}: seeded; {_SEED_USER} can {_describe(rights)}")
     return _Seed(session=session, password=password, rights=rights)
 

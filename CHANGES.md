@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **A gated app's nginx include file cannot forward around the gate.** The gate replaces the client's `X-Hop3-User`, `X-Hop3-Role` and `Cookie` in the locations Hop3 writes; a location in `NGINX_INCLUDE_FILE` with its own `proxy_pass` inherited none of that and forwarded whatever identity the client sent. Such an include is now refused on an app with `[access]`.
 - **The test harness no longer creates admin accounts.** It created `hop3-harness` and `tutorial-runner` with their usernames as passwords, published in the repository, and on a `--host` server they outlived the run. It now takes a token from `admin:ssh-token`, as `hop3 login --ssh` does. Servers the harness ran against should have those two accounts removed.
 - **The test harness no longer replaces a server's mail setup.** It switched any server to the `catch` backend for apps that declare email and never switched back; it now does so only when no backend, or `catch`, is configured, and refuses otherwise.
 - **The tutorial runner no longer puts the admin token on a command line.** On a remote target it passed `HOP3_API_TOKEN=<token>` in the shell line it runs, readable by any local user while validoc ran; the token now stays in a `0600` file on the server, shared with the harness's other admin steps.
@@ -84,6 +85,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **The executable tutorials pass on Docker again.** The test domain carried the Docker target's SSH user (`hop3@<ip>.sslip.io`), so every tutorial's hostname step was refused; on a target named by hostname it was `<name>.sslip.io`, which sslip.io does not resolve; and all 33 checked their app over `http://`, which the platform redirects. Tutorials now check `https://`; the harness accepts the test server's self-signed certificate. A tutorial also gets the server its `hop3.toml` asks for (Nix, its addons), as an app does.
+- **Two deploy steps no longer carry on past a failure.** A served tree the web server could not be granted read on (every asset then answered 403), and a volume that could not be given to the app's user (the app then could not write it), were logged and the deploy reported success. Both now stop it, naming the path and the error.
+- **The upgrade-chain check cannot pass vacuously.** The seeded account's rights on the first hop were recorded as found, so a probe that failed there compared equal on every later hop; the seed now must have a plain account's rights.
 - **The installer says why a service would not start.** Redis and MySQL failures aborted with "did not restart" and nothing else; the failing command's output and the unit's journal now come with it. Redis is given time to listen after a restart, which an init script does not wait for.
 - **A Nix app on a server without Nix is refused whichever way its builder is chosen.** Auto-selection declined it and moved on, so an app with a Procfile beside its `hop3.nix` was built by another builder without a word.
 - **`server email status` names the backend in every case** (`none`, `relay`, `catch`, `direct`).
