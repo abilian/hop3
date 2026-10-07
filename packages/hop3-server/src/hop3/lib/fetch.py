@@ -110,7 +110,7 @@ def fetch(
     os.close(handle)
     partial = Path(name)
     try:
-        _download(url, partial)
+        _download(url, partial, pinned=bool(sha256))
         if sha256:
             got = _sha256(partial)
             if got != sha256:
@@ -176,7 +176,7 @@ def _cache_key(url: str, sha256: str | None) -> str:
     return f"url-{hashlib.sha256(url.encode()).hexdigest()}"
 
 
-def _download(url: str, dest: Path) -> None:
+def _download(url: str, dest: Path, *, pinned: bool) -> None:
     """
     Fetch ``url`` into ``dest``, backing off on transient and rate-limit errors.
 
@@ -186,13 +186,25 @@ def _download(url: str, dest: Path) -> None:
     the last one did. Only an attempt that brings nothing counts against
     ATTEMPTS: from a slow network each resume adds a few MB, and six of them
     were not enough.
+
+    A resume names the version it continues (`If-Range`, from the first
+    response's ETag or Last-Modified): a file replaced upstream between two
+    attempts is then sent whole, rather than its tail spliced onto the old
+    head. Without a validator, only a pinned ``sha256`` would catch such a
+    splice, so an unpinned download starts again from zero.
     """
     stalls = 0
+    furthest = 0  # Progress is new bytes beyond this, not bytes since a restart.
+    validator: str | None = None
     while True:
+        if dest.stat().st_size and not (validator or pinned):
+            dest.write_bytes(b"")
         have = dest.stat().st_size
         headers = {"User-Agent": USER_AGENT}
         if have:
             headers["Range"] = f"bytes={have}-"
+            if validator:
+                headers["If-Range"] = validator
         # A fresh Request per attempt. The opener records redirect history on
         # the Request object it is given, so a reused one accumulates hops
         # across retries and eventually reports "would lead to an infinite
@@ -202,6 +214,10 @@ def _download(url: str, dest: Path) -> None:
         try:
             with urllib.request.urlopen(request, timeout=TIMEOUT) as response:
                 start, expected = _body_range(response)
+                if start == 0:
+                    validator = response.headers.get("ETag") or response.headers.get(
+                        "Last-Modified"
+                    )
                 if start not in {0, have}:
                     dest.write_bytes(b"")
                     msg = f"resumed at byte {start}, not {have}"
@@ -235,7 +251,9 @@ def _download(url: str, dest: Path) -> None:
             if isinstance(e, urllib.error.HTTPError) and e.code not in RETRYABLE_STATUS:
                 msg = f"{url}: HTTP {e.code} {e.reason}"
                 raise FetchError(msg) from e
-            stalls = 0 if dest.stat().st_size > have else stalls + 1
+            reached = dest.stat().st_size
+            stalls = 0 if reached > furthest else stalls + 1
+            furthest = max(furthest, reached)
             if stalls == ATTEMPTS:
                 msg = f"{url}: {e} (gave up after {ATTEMPTS} attempts without progress)"
                 raise FetchError(msg) from e

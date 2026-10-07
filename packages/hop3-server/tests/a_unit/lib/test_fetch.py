@@ -36,7 +36,7 @@ def downloads(monkeypatch, tmp_path):
     """Serve PAYLOAD, counting how many times the network was actually used."""
     calls = []
 
-    def fake_download(url: str, dest) -> None:
+    def fake_download(url: str, dest, *, pinned: bool) -> None:
         calls.append(url)
         dest.write_bytes(PAYLOAD)
 
@@ -107,6 +107,7 @@ class _Response:
         declared: int | None = None,
         *,
         content_range: str | None = None,
+        etag: str | None = None,
     ) -> None:
         self._body = body
         length = len(body) if declared is None else declared
@@ -115,6 +116,8 @@ class _Response:
         self.headers["Content-Length"] = str(length)
         if content_range is not None:
             self.headers["Content-Range"] = content_range
+        if etag is not None:
+            self.headers["ETag"] = etag
 
     def read(self, size: int = -1) -> bytes:
         chunk, self._body = self._body, b""
@@ -246,8 +249,46 @@ def test_a_truncated_download_resumes_where_it_stopped(tmp_path, monkeypatch):
     ranges = []
     total = len(PAYLOAD)
     responses = [
-        _Response(PAYLOAD[:3], declared=total),
+        _Response(PAYLOAD[:3], declared=total, etag='"v1"'),
         _Response(PAYLOAD[3:], content_range=f"bytes 3-{total - 1}/{total}"),
+    ]
+
+    def urlopen(request, **_kw):
+        ranges.append((request.get_header("Range"), request.get_header("If-range")))
+        return responses.pop(0)
+
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
+    # The resume names the version it continues.
+    assert ranges == [(None, None), ("bytes=3-", '"v1"')]
+
+
+def test_a_file_replaced_upstream_is_fetched_whole_not_spliced(tmp_path, monkeypatch):
+    """
+    `Range` alone splices: the tail of the new file onto the head of the old.
+    With `If-Range`, a server whose file changed answers 200 with all of it.
+    """
+    new = b"a different release, longer"
+    responses = [
+        _Response(PAYLOAD[:3], declared=len(PAYLOAD), etag='"v1"'),
+        _Response(new, etag='"v2"'),
+    ]
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request, "urlopen", lambda _r, **_kw: responses.pop(0)
+    )
+
+    assert fetch(URL, cache=tmp_path).read_bytes() == new
+
+
+def test_without_a_validator_an_unpinned_download_starts_over(tmp_path, monkeypatch):
+    """Nothing would catch a splice: no version to name, no hash to check."""
+    ranges = []
+    responses = [
+        _Response(PAYLOAD[:3], declared=len(PAYLOAD)),
+        _Response(PAYLOAD),
     ]
 
     def urlopen(request, **_kw):
@@ -258,7 +299,7 @@ def test_a_truncated_download_resumes_where_it_stopped(tmp_path, monkeypatch):
     monkeypatch.setattr(fetch_module.urllib.request, "urlopen", urlopen)
 
     assert fetch(URL, cache=tmp_path).read_bytes() == PAYLOAD
-    assert ranges == [None, "bytes=3-"]
+    assert ranges == [None, None]
 
 
 def test_a_download_that_keeps_progressing_is_not_given_up(tmp_path, monkeypatch):
@@ -277,7 +318,9 @@ def test_a_download_that_keeps_progressing_is_not_given_up(tmp_path, monkeypatch
     for piece in pieces:
         declared = None if offset else total
         range_ = None if offset == 0 else f"bytes {offset}-{total - 1}/{total}"
-        responses.append(_Response(piece, declared=declared, content_range=range_))
+        responses.append(
+            _Response(piece, declared=declared, content_range=range_, etag='"v1"')
+        )
         offset += len(piece)
     monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
     monkeypatch.setattr(
@@ -364,3 +407,20 @@ def test_without_refresh_a_cached_copy_is_kept(tmp_path, monkeypatch):
     monkeypatch.setattr(fetch_module.urllib.request, "urlopen", _no_network)
 
     assert fetch(URL, cache=tmp_path).read_bytes() == b"already here"
+
+
+def test_restarting_from_zero_cannot_loop_forever(tmp_path, monkeypatch):
+    """
+    Each restart brings bytes again; only bytes beyond the furthest any
+    attempt reached count as progress, or a server that always drops at the
+    same point is retried without end.
+    """
+    monkeypatch.setattr(fetch_module.time, "sleep", lambda _: None)
+    monkeypatch.setattr(
+        fetch_module.urllib.request,
+        "urlopen",
+        lambda *_a, **_kw: _Response(PAYLOAD[:3], declared=len(PAYLOAD)),
+    )
+
+    with pytest.raises(FetchError, match="without progress"):
+        fetch(URL, cache=tmp_path)
