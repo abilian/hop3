@@ -180,16 +180,14 @@ def test_cert_dns_names_parses_cn_across_openssl_formats():
 
 def test_reload_nginx_uses_rootd_not_sudo(monkeypatch):
     # The platform reloads nginx via hop3-rootd, never passwordless sudo (which
-    # real servers don't grant). Drop the pytest short-circuit to run the path.
+    # real servers don't grant).
     _FakeRootdClient.calls = []
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.setattr(certificates, "LocalRootdClient", _FakeRootdClient)
     certificates.reload_nginx()
     assert _FakeRootdClient.calls == ["nginx.reload"]
 
 
 def test_reload_nginx_raises_loudly_when_rootd_unavailable(monkeypatch):
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
     monkeypatch.setattr(
         certificates,
         "LocalRootdClient",

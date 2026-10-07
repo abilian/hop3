@@ -5,7 +5,6 @@
 from __future__ import annotations
 
 import datetime
-import os
 import re
 import shlex
 import shutil
@@ -616,9 +615,6 @@ def reload_nginx() -> None:
     issuance and to apply renewed certs; raises loudly if nginx cannot be
     reloaded (a deploy/renewal blocker, never swallowed).
     """
-    # Skip reload in test environments.
-    if os.environ.get("PYTEST_CURRENT_TEST"):
-        return
     try:
         with LocalRootdClient() as client:
             client.call("nginx.reload", {})

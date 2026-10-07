@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import contextlib
 import json
-import os
 import subprocess
 import time
 import urllib.error
@@ -986,11 +985,6 @@ class DestroyCmd(Command):
         without a successful reload), which once let a poisoned nginx config
         deadlock every subsequent deploy unnoticed.
         """
-        # Skip reload in unit/integration tests (no live daemon), but not E2E.
-        if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
-            "HOP3_E2E_TEST"
-        ):
-            return
 
         try:
             with LocalRootdClient() as client:

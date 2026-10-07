@@ -138,9 +138,9 @@ def test_setup_with_workers(env: Env) -> None:
 
 # --- reload_proxy: hop3-rootd is a hard dependency (ADR 041) -------------
 #
-# These tests bypass the unit-test reload guard via HOP3_E2E_TEST so the
-# rootd path actually runs, then prove that an unreachable / failing daemon
-# aborts the deploy loudly instead of silently leaving nginx stale.
+# These replace the suite's fake rootd with a failing one, and prove that an
+# unreachable / failing daemon aborts the deploy loudly instead of silently
+# leaving nginx stale.
 
 from hop3.lib.console import Abort  # ruff:ignore[module-import-not-at-top-of-file]
 from hop3.lib.rootd import (  # ruff:ignore[module-import-not-at-top-of-file]
@@ -174,7 +174,6 @@ class _OpErrorClient:
 
 
 def test_reload_proxy_aborts_when_rootd_unavailable(env, monkeypatch) -> None:
-    monkeypatch.setenv("HOP3_E2E_TEST", "1")  # bypass the unit-test guard
     monkeypatch.setattr(nginx_setup, "LocalRootdClient", _UnavailableClient)
     nginx = NginxVirtualHost(App(name="testapp"), env, {})
     with pytest.raises(Abort):
@@ -182,7 +181,6 @@ def test_reload_proxy_aborts_when_rootd_unavailable(env, monkeypatch) -> None:
 
 
 def test_reload_proxy_aborts_when_rootd_reload_errors(env, monkeypatch) -> None:
-    monkeypatch.setenv("HOP3_E2E_TEST", "1")
     monkeypatch.setattr(nginx_setup, "LocalRootdClient", _OpErrorClient)
     nginx = NginxVirtualHost(App(name="testapp"), env, {})
     with pytest.raises(Abort):

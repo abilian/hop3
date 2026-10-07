@@ -28,6 +28,7 @@ from hop3.server.security.rate_limit import AUTH_RATE_LIMITER
 
 # Import fixtures from di_fixtures.py to make them available to all tests
 from .di_fixtures import di_container  # ruff:ignore[unused-import]
+from .fake_rootd import fake_rootd  # ruff:ignore[unused-import] (autouse)
 
 # Provide a stable session secret so create_app() doesn't warn about a generated
 # key during tests. The warning (asgi.py) is a production-only concern; tests

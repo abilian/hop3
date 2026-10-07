@@ -15,7 +15,6 @@ configured, never a fake success.
 
 from __future__ import annotations
 
-import os
 from typing import TYPE_CHECKING
 
 from hop3.lib.rootd import LocalRootdClient, RootdError
@@ -43,43 +42,41 @@ def _relay_args(transport: EmailTransport) -> dict[str, object]:
     }
 
 
-def configure_relay_backend(transport: EmailTransport) -> str | None:
+def configure_relay_backend(transport: EmailTransport) -> str:
     """
     Point the loopback Postfix relay at ``transport`` (a provider/smarthost).
 
-    Returns the reload method, or ``None`` when skipped (unit/integration tests,
-    which run without a live daemon). Raises :class:`OnRampError` if hop3-rootd
-    is unavailable or the op fails.
+    Returns the reload method. Raises :class:`OnRampError` if hop3-rootd is
+    unavailable or the op fails.
     """
     return _reloaded(_configure(_relay_args(transport), "relay"))
 
 
-def configure_catch_backend() -> str | None:
+def configure_catch_backend() -> str:
     """
     Point the loopback Postfix relay at the local dev sink (Mailpit).
 
     The sink must answer first: selecting `catch` with nothing listening used
     to succeed, and every message was then deferred, never captured.
 
-    Returns the reload method, or ``None`` when skipped in tests. Raises
-    :class:`OnRampError` if the sink does not answer or the op fails.
+    Returns the reload method. Raises :class:`OnRampError` if the sink does
+    not answer or the op fails.
     """
-    if not _in_unit_tests():
-        try:
-            check_sink_answers()
-        except CatcherError as e:
-            raise OnRampError(str(e)) from e
+    try:
+        check_sink_answers()
+    except CatcherError as e:
+        raise OnRampError(str(e)) from e
     return _reloaded(_configure({"mode": "catch"}, "catch sink"))
 
 
 def configure_direct_backend(
     from_domain: str, server_ip: str, dkim_selector: str
-) -> dict[str, object] | None:
+) -> dict[str, object]:
     """
     Configure a self-hosted MTA delivering to MX, DKIM-signed.
 
-    Returns the op result (including the ``records`` to publish), or ``None``
-    when skipped in tests. Raises :class:`OnRampError` on failure.
+    Returns the op result (including the ``records`` to publish). Raises
+    :class:`OnRampError` on failure.
     """
     return _configure(
         {
@@ -92,21 +89,11 @@ def configure_direct_backend(
     )
 
 
-def _reloaded(result: dict[str, object] | None) -> str | None:
-    return None if result is None else str(result.get("reloaded", "rootd"))
+def _reloaded(result: dict[str, object]) -> str:
+    return str(result.get("reloaded", "rootd"))
 
 
-def _in_unit_tests() -> bool:
-    """Unit and integration tests run without a live daemon or sink; E2E does."""
-    return bool(os.environ.get("PYTEST_CURRENT_TEST")) and not os.environ.get(
-        "HOP3_E2E_TEST"
-    )
-
-
-def _configure(args: dict[str, object], what: str) -> dict[str, object] | None:
-    if _in_unit_tests():
-        return None
-
+def _configure(args: dict[str, object], what: str) -> dict[str, object]:
     try:
         with LocalRootdClient() as client:
             return client.call("postfix.configure", args)

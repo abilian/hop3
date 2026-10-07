@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import os
 import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, NoReturn
@@ -335,12 +334,8 @@ class CaddyVirtualHost(BaseProxy):
         Reload caddy to apply configuration changes.
 
         A failed reload is fatal (like nginx): the new routes/cert can't be
-        published, so the deploy must not report success. Skipped only in tests.
+        published, so the deploy must not report success.
         """
-        # Skip reload in test environments
-        if os.environ.get("PYTEST_CURRENT_TEST"):
-            return
-
         # Through hop3-rootd, like nginx. This used to run `sudo -n
         # supervisorctl/systemctl` directly, which fails outright on a host
         # where the hop3 user has no passwordless sudo — and since a failed

@@ -13,7 +13,6 @@ banner. The per-app `addon email <verb>` commands live in ``cli.py``.
 
 from __future__ import annotations
 
-import os
 import socket
 from dataclasses import dataclass
 from typing import Any, ClassVar, cast
@@ -81,10 +80,8 @@ def _egress_status() -> tuple[str, str]:
     Whether outbound port 25 is open — three-state, never a fake 'ready'.
 
     Direct delivery is impossible if the host blocks outbound 25 (most clouds
-    do). Skipped under tests (no network); otherwise a best-effort probe.
+    do). A best-effort probe.
     """
-    if os.environ.get("PYTEST_CURRENT_TEST"):
-        return "unverified", "outbound port 25 not probed under tests"
     for host in _EGRESS_PROBES:
         try:
             with socket.create_connection((host, 25), timeout=5):
@@ -425,7 +422,7 @@ class ServerEmailBackendCmd(Command):
         from_domain: str,
         selector: str,
         server_ip: str,
-        result: dict[str, object] | None,
+        result: dict[str, object],
     ) -> list[dict]:
         lines: list[dict] = [
             warning(_EXPERIMENTAL_MSG),
@@ -434,7 +431,7 @@ class ServerEmailBackendCmd(Command):
                 f"recipients' MX (sending IP {server_ip}, domain {from_domain})."
             ),
         ]
-        raw = (result or {}).get("records")
+        raw = result.get("records")
         if isinstance(raw, dict):
             records = cast("dict[str, Any]", raw)
             lines.append(text("\nPublish these DNS records on your sending domain:"))

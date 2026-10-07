@@ -262,8 +262,6 @@ def test_reload_proxy_raises_when_all_methods_fail(monkeypatch):
     host = CaddyVirtualHost(
         App(name="testapp"), Env({"HOST_NAME": "a.example.com"}), {}
     )
-    # Bypass the test-environment short-circuit so the reload logic runs.
-    monkeypatch.delenv("PYTEST_CURRENT_TEST", raising=False)
 
     def _boom(*_a, **_k):
         msg = "no reload method available"

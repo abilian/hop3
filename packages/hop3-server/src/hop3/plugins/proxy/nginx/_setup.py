@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import os
 import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
@@ -411,16 +410,10 @@ class NginxVirtualHost(BaseProxy):
         :meth:`reload_proxy` uses. A failed check aborts the deploy loudly and
         leaves the running config untouched; :meth:`BaseProxy.setup` then rolls
         the rejected file out of the include directory (see
-        :func:`restore_on_failure`). Skipped in unit/integration tests (no live
-        daemon), matching reload_proxy; rootd-availability is enforced by
+        :func:`restore_on_failure`). Rootd-availability is enforced by
         reload_proxy, so an unreachable daemon here defers to it rather than
         duplicating that diagnosis.
         """
-        if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
-            "HOP3_E2E_TEST"
-        ):
-            return
-
         try:
             with LocalRootdClient() as client:
                 if not self._validate_nginx_config(client):
@@ -505,16 +498,7 @@ class NginxVirtualHost(BaseProxy):
         The only non-fatal path is a generated config that fails `nginx -t`:
         the previously-running config stays live and the deploy stops so the
         operator can fix the error and redeploy.
-
-        Skipped only in unit/integration tests (not E2E), which run without a
-        live daemon.
         """
-        # Skip reload in unit/integration tests, but NOT in E2E tests
-        # E2E tests run in Docker containers and need nginx to actually reload
-        if os.environ.get("PYTEST_CURRENT_TEST") and not os.environ.get(
-            "HOP3_E2E_TEST"
-        ):
-            return
 
         try:
             with LocalRootdClient() as client:

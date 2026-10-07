@@ -4,7 +4,6 @@
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any, ClassVar
 
@@ -320,12 +319,8 @@ class TraefikVirtualHost(BaseProxy):
         reloads itself, so a failed *explicit* reload is often benign — hence it
         is surfaced LOUDLY (not silently) rather than raised, to avoid failing
         legitimate file-watch deploys. (A stricter contract would detect whether
-        the file provider is configured before deciding.) Skipped only in tests.
+        the file provider is configured before deciding.)
         """
-        # Skip reload in test environments
-        if os.environ.get("PYTEST_CURRENT_TEST"):
-            return
-
         # Through hop3-rootd, like nginx and caddy — `sudo -n` fails on a host
         # without passwordless sudo for the hop3 user. Unlike caddy this stays
         # non-fatal: traefik's file provider watches its config directory, so
