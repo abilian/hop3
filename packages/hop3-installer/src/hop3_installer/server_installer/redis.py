@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import time
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -176,21 +177,35 @@ def configure_redis() -> None:
 
     # Through `control_service`, so this works without systemd and finds the
     # unit under its Debian or Fedora name.
-    if has_systemd() and not control_service("enable", *_REDIS_SERVICE_NAMES):
-        msg = f"Redis could not be enabled (tried: {', '.join(_REDIS_SERVICE_NAMES)})"
-        raise InstallStepError(msg)
-    if not control_service("restart", *_REDIS_SERVICE_NAMES):
-        msg = "Redis did not restart, so apps with a redis addon cannot connect"
-        raise InstallStepError(msg)
+    if has_systemd():
+        control_service("enable", *_REDIS_SERVICE_NAMES)
+    control_service("restart", *_REDIS_SERVICE_NAMES)
+    _await_redis_pong(password)
+    print_success("Redis configured and running")
 
+
+#: An init script returns at fork, before Redis listens: a single PING right
+#: after the restart failed the install intermittently on the Docker target.
+_PING_ATTEMPTS = 10
+_PING_DELAY = 0.5
+
+
+def _await_redis_pong(password: str | None) -> None:
+    """Wait for Redis to answer PING (authenticated), or raise with its reply."""
     # With requirepass set, an unauthenticated PING answers NOAUTH.
     env = {"REDISCLI_AUTH": password} if password else None
-    result = run_cmd(["redis-cli", "PING"], check=False, env=env)
-    if "PONG" not in (result.stdout or ""):
-        raise CommandError(
-            cmd=["redis-cli", "PING"],
-            returncode=result.returncode,
-            stdout=result.stdout or "",
-            stderr=result.stderr or "",
-        )
-    print_success("Redis configured and running")
+    attempts = 0
+    while True:
+        result = run_cmd(["redis-cli", "PING"], check=False, env=env)
+        if "PONG" in (result.stdout or ""):
+            return
+        attempts += 1
+        if attempts == _PING_ATTEMPTS:
+            break
+        time.sleep(_PING_DELAY)
+    raise CommandError(
+        cmd=["redis-cli", "PING"],
+        returncode=result.returncode,
+        stdout=result.stdout or "",
+        stderr=result.stderr or "",
+    )

@@ -31,6 +31,7 @@ from hop3_installer.common import (
     print_header,
     print_info,
     print_step,
+    print_success,
 )
 from hop3_installer.deprecation import warn_deprecated_flags
 
@@ -47,7 +48,7 @@ from .deps_common import (
 )
 from .mailpit import install_mailpit
 from .mysql import setup_mysql
-from .nginx import setup_nginx
+from .nginx import reconcile_http_settings, setup_nginx
 from .nix import install_nix
 from .postgres import setup_postgres
 from .python import (
@@ -277,6 +278,23 @@ def _report_failure(e: Exception) -> None:
         print_failure_output("stdout", e.stdout)
 
 
+def _reconcile() -> int:
+    """
+    Bring an existing install's platform configuration up to date.
+
+    What a code update runs (`hop3-deploy-server` without `--with`): the
+    settings Hop3 owns, written when they differ, and nothing restarted that
+    runs apps. The full installer restarts uwsgi-hop3, Redis and Mailpit.
+    """
+    try:
+        reconcile_http_settings()
+    except (CommandError, OSError) as e:
+        _report_failure(e)
+        return 1
+    print_success("Platform configuration reconciled")
+    return 0
+
+
 def main() -> int:
     """
     Main entry point.
@@ -314,6 +332,13 @@ def main() -> int:
     distro = detect_distro()
     print_info(f"Detected distribution family: {distro}")
 
+    if config.reconcile_only:
+        return _reconcile()
+    return _install(distro, config)
+
+
+def _install(distro: str, config: ServerInstallerConfig) -> int:
+    """Run the installation steps and verify the result; the exit code."""
     if config.features:
         print_info(f"Optional features: {', '.join(sorted(config.features))}")
 

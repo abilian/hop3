@@ -153,3 +153,43 @@ def test_redis_ping_authenticates_when_a_password_is_set(monkeypatch):
 
     redis.configure_redis()
     assert seen["env"] == {"REDISCLI_AUTH": "s3cret"}
+
+
+def _systemd_calls(tmp_path, *, unit_on_disk: str | None) -> list[list[str]]:
+    """The systemctl calls `setup_systemd` makes, with a given uwsgi unit present."""
+    calls: list[list[str]] = []
+
+    def fake_run(cmd, **_kw):
+        calls.append(cmd)
+        return _ok()
+
+    units = tmp_path / "etc/systemd/system"
+    units.mkdir(parents=True)
+    if unit_on_disk is not None:
+        (units / "uwsgi-hop3.service").write_text(unit_on_disk)
+    with (
+        patch.object(services, "setup_environment_file", return_value="k"),
+        patch.object(services, "has_systemd", return_value=True),
+        patch.object(services, "run_cmd", side_effect=fake_run),
+        patch.object(services, "Path", side_effect=lambda p: tmp_path / p.lstrip("/")),
+    ):
+        services.setup_systemd()
+    return calls
+
+
+def test_an_unchanged_uwsgi_unit_leaves_the_apps_running(tmp_path):
+    """
+    uwsgi-hop3 runs every app: restarting it on every install bounced them
+    all, on every redeploy that re-ran the installer.
+    """
+    calls = _systemd_calls(tmp_path, unit_on_disk=services.UWSGI_UNIT)
+
+    assert ["systemctl", "restart", "uwsgi-hop3"] not in calls
+    assert ["systemctl", "start", "uwsgi-hop3"] in calls
+    assert ["systemctl", "restart", "hop3-server"] in calls
+
+
+def test_a_changed_uwsgi_unit_is_restarted(tmp_path):
+    calls = _systemd_calls(tmp_path, unit_on_disk="[Unit]\nDescription=old\n")
+
+    assert ["systemctl", "restart", "uwsgi-hop3"] in calls

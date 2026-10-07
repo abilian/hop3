@@ -101,6 +101,15 @@ Optional Features (--with):
         help="Skip system dependency installation",
     )
     parser.add_argument(
+        "--reconcile",
+        dest="reconcile_only",
+        action="store_true",
+        help=(
+            "Apply only the platform's own configuration (nginx http settings) "
+            "to an existing install, restarting nothing else"
+        ),
+    )
+    parser.add_argument(
         "--skip-nginx",
         action="store_true",
         default=env_config.skip_nginx,
@@ -188,6 +197,7 @@ def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
         skip_postgres=args.skip_postgres,
         skip_acme=args.skip_acme,
         skip_package_install=args.skip_package_install,
+        reconcile_only=args.reconcile_only,
         domain=args.domain,
         acme_email=args.acme_email,
         operator_email=args.operator_email,

@@ -34,6 +34,8 @@ class ServerInstallerConfig:
     # reinstalling from PyPI would clobber it (downgrading to whatever
     # PyPI's latest stable is).
     skip_package_install: bool = False
+    # Apply only the platform's own configuration to an existing install.
+    reconcile_only: bool = False
     domain: str | None = None
     acme_email: str | None = None  # Email for Let's Encrypt registration
     # Operator contact written as OPERATOR_EMAIL; resolves recipes'

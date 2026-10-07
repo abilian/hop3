@@ -19,7 +19,7 @@ from hop3_installer.deployer.deploy import Deployer
 def _cmd(**cfg) -> str:
     # The helper only reads self.config; the backend is unused here.
     deployer = Deployer(DeployConfig(**cfg), backend=object())  # type: ignore[arg-type]
-    return deployer._feature_install_command("python3")
+    return deployer._installer_update_command("python3")
 
 
 def test_feature_install_forwards_acme_email():
@@ -203,3 +203,20 @@ def test_without_an_acme_email_self_signed_is_the_default():
     ok, self_signed = _ssl()
     assert ok is True
     assert self_signed == ["admin.example.org"]
+
+
+def test_a_plain_code_update_only_reconciles_platform_settings():
+    """
+    The full installer restarts uwsgi-hop3, Redis and Mailpit; run on every
+    code update, it bounced every app on the box.
+    """
+    cmd = _cmd(with_features=[])
+    assert "--reconcile" in cmd
+    assert "--with" not in cmd
+
+
+def test_an_acme_email_alone_still_reaches_the_installer():
+    """A plain update with --acme-email must not drop the flag."""
+    cmd = _cmd(with_features=[], acme_email="sf@fermigier.com")
+    assert "--reconcile" not in cmd
+    assert "--acme-email sf@fermigier.com" in cmd

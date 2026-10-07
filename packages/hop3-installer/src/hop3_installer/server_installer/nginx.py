@@ -84,7 +84,7 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
         # A redeploy skips the site config (admin domain, certificates), but
         # the http settings are the platform's and follow it on every install:
         # gated here, they reached only fresh installs.
-        _reconcile_http_settings()
+        reconcile_http_settings()
         print_info("Skipping nginx site setup (--skip-nginx)")
         return
 
@@ -174,7 +174,7 @@ def _write_http_settings() -> bool:
     return True
 
 
-def _reconcile_http_settings() -> None:
+def reconcile_http_settings() -> None:
     """
     Bring a running nginx's http settings up to date.
 

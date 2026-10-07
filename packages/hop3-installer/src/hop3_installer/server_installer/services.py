@@ -160,20 +160,35 @@ def setup_systemd(config: ServerInstallerConfig | None = None) -> str:
         return secret_key
 
     Path("/etc/systemd/system/hop3-server.service").write_text(SYSTEMD_UNIT)
-    Path("/etc/systemd/system/uwsgi-hop3.service").write_text(UWSGI_UNIT)
+    uwsgi_changed = _write_if_changed(
+        Path("/etc/systemd/system/uwsgi-hop3.service"), UWSGI_UNIT
+    )
     run_cmd(["systemctl", "daemon-reload"])
     run_cmd(["systemctl", "enable", "hop3-server", "uwsgi-hop3"])
 
-    # RESTART, not start: this step just (re)wrote the unit files and the
-    # EnvironmentFile (/etc/default/hop3, with ACME_ENGINE/secret key). On a
-    # redeploy the service is already running, so `systemctl start` is a no-op
-    # and the process keeps its STALE environment — the new ACME engine never
-    # takes effect (it silently reports success while serving the old config).
-    # `restart` starts a stopped service and reloads config on a running one.
-    for unit in ("hop3-server", "uwsgi-hop3"):
-        _restart_unit(unit)
+    # hop3-server: RESTART, not start. This step just rewrote its
+    # EnvironmentFile (/etc/default/hop3, with ACME_ENGINE and the secret
+    # key), and a running process keeps its stale environment under `start`:
+    # the new ACME engine never took effect, while the install reported
+    # success.
+    _restart_unit("hop3-server")
+    # uwsgi-hop3 runs every app, so a restart bounces all of them. It reads no
+    # environment file: only a changed unit needs one. Otherwise `start`
+    # starts a stopped emperor and leaves a running one, and its apps, alone.
+    if uwsgi_changed:
+        _restart_unit("uwsgi-hop3")
+    else:
+        run_cmd(["systemctl", "start", "uwsgi-hop3"])
     print_success("Systemd services configured and (re)started")
     return secret_key
+
+
+def _write_if_changed(path: Path, content: str) -> bool:
+    """Write ``content`` to ``path`` unless it is already there; True if written."""
+    if path.exists() and path.read_text() == content:
+        return False
+    path.write_text(content)
+    return True
 
 
 def _restart_unit(unit: str) -> None:

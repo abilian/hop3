@@ -658,7 +658,7 @@ class Deployer:
         # Default: update from PyPI
         return self._update_from_pypi()
 
-    def _feature_install_command(self, python_cmd: str) -> str:
+    def _installer_update_command(self, python_cmd: str) -> str:
         """
         Build the installer command for the feature/redeploy path.
 
@@ -670,6 +670,11 @@ class Deployer:
         certbot on every redeploy (which would hammer Let's Encrypt limits).
         """
         cmd = f"{python_cmd} -u /tmp/install-server.py"
+        if not (self.config.install_features or self.config.acme_email):
+            # A code update: the platform's own settings, and no restart of
+            # what runs the apps. The full installer below restarts Redis and
+            # Mailpit, and uwsgi-hop3 when its unit changed.
+            return f"{cmd} --reconcile --verbose"
         if self.config.install_features:
             cmd += f" --with {','.join(self.config.install_features)}"
         cmd += " --skip-nginx --skip-acme --skip-package-install"
@@ -684,13 +689,13 @@ class Deployer:
         """
         Re-run the installer on an existing Hop3 installation.
 
-        Every update, with or without `--with`: the installer is idempotent, and
-        this is how a setting the platform adds reaches a server installed
-        before it. It ran only when features were requested, so a plain
-        redeploy updated the code and nothing else, and the nginx
+        Every update: this is how a setting the platform adds reaches a server
+        installed before it. It ran only when features were requested, so a
+        plain redeploy updated the code and nothing else, and the nginx
         `server_names_hash_bucket_size` fix never reached the server it was
-        written for. The site config, certificate issuance and the package
-        install are skipped (see `_feature_install_command`).
+        written for. Without `--with` it runs the installer's `--reconcile`
+        mode only: the full installer restarts uwsgi-hop3, which bounces every
+        app on the box (see `_installer_update_command`).
         """
         features = ", ".join(self.config.install_features) or "none requested"
         self.log(f"Reconciling the installation (features: {features})")
@@ -712,7 +717,7 @@ class Deployer:
         # reinstalls hop3-server from PyPI, clobbering whatever the
         # preceding _update() just installed (local code, specific git
         # branch, or specific PyPI version).
-        install_cmd = self._feature_install_command(python_cmd)
+        install_cmd = self._installer_update_command(python_cmd)
 
         self.log(f"Running: {install_cmd}")
         if not self.quiet:

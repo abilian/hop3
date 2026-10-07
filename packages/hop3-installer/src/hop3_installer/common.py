@@ -365,9 +365,9 @@ def has_systemd() -> bool:
     return comm == "systemd"
 
 
-def control_service(action: str, *names: str) -> bool:
+def control_service(action: str, *names: str) -> None:
     """
-    Run ``action`` (start/restart/stop) on the first of ``names`` that exists.
+    Run ``action`` (start/restart/stop/enable) on the first of ``names`` that exists.
 
     Uses systemd where systemd is running, and the sysvinit script otherwise —
     so a service actually starts on a container instead of the call quietly
@@ -379,20 +379,56 @@ def control_service(action: str, *names: str) -> bool:
     container images set to deny everything. We are the ones asking, so the
     policy meant for package postinsts should not apply.
 
-    Returns:
-        True if one of the services was acted on successfully.
+    Raises:
+        CommandError: every attempt failed; carries each attempt's output and,
+            on systemd, the journal of the last unit tried. It returned a bool,
+            and its callers aborted with "Redis did not restart" and nothing
+            else.
+        InstallStepError: no init script exists for any of ``names``.
     """
-    if has_systemd():
-        return any(
-            run_cmd(["systemctl", action, name], check=False).returncode == 0
-            for name in names
-        )
+    if not has_systemd():
+        _control_with_init_script(action, names)
+        return
 
+    attempts: list[str] = []
+    returncode = 0
+    for name in names:
+        result = run_cmd(["systemctl", action, name], check=False)
+        if result.returncode == 0:
+            return
+        returncode = result.returncode
+        attempts.append(f"systemctl {action} {name}: {(result.stderr or '').strip()}")
+    journal = run_cmd(
+        ["journalctl", "-u", names[-1], "-n", "30", "--no-pager"], check=False
+    )
+    raise CommandError(
+        cmd=["systemctl", action, *names],
+        returncode=returncode,
+        stdout=journal.stdout or "",
+        stderr="\n".join(attempts),
+    )
+
+
+def _control_with_init_script(action: str, names: tuple[str, ...]) -> None:
+    """Run the first existing ``/etc/init.d/<name> <action>``, or raise."""
     for name in names:
         script = Path("/etc/init.d") / name
-        if script.is_file():
-            return run_cmd([str(script), action], check=False).returncode == 0
-    return False
+        if not script.is_file():
+            continue
+        result = run_cmd([str(script), action], check=False)
+        if result.returncode != 0:
+            raise CommandError(
+                cmd=[str(script), action],
+                returncode=result.returncode,
+                stdout=result.stdout or "",
+                stderr=result.stderr or "",
+            )
+        return
+    msg = (
+        f"no init script for {' or '.join(names)} in /etc/init.d, so it "
+        f"cannot be {action}ed on this host"
+    )
+    raise InstallStepError(msg)
 
 
 def process_manager_pending() -> bool:

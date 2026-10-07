@@ -63,7 +63,7 @@ def _get_debian_mysql_credentials() -> tuple[str, str] | None:
 _MYSQL_SERVICE_NAMES = ("mysql", "mariadb")
 
 
-def _start_mysql_service() -> bool:
+def _start_mysql_service() -> None:
     """
     Start MySQL or MariaDB, whichever this distro ships.
 
@@ -73,12 +73,12 @@ def _start_mysql_service() -> bool:
     aborted with "Could not start MySQL service", two steps after PostgreSQL had
     started fine through its own non-systemd path in the same run.
     """
-    return control_service("start", *_MYSQL_SERVICE_NAMES)
+    control_service("start", *_MYSQL_SERVICE_NAMES)
 
 
-def _restart_mysql() -> bool:
+def _restart_mysql() -> None:
     """Restart MySQL using whichever init system is actually running."""
-    return control_service("restart", *_MYSQL_SERVICE_NAMES)
+    control_service("restart", *_MYSQL_SERVICE_NAMES)
 
 
 def _find_mysql_admin_connection() -> tuple[list[str], dict[str, str]] | None:
@@ -302,12 +302,8 @@ def _configure_mysql_for_docker(
 
     bind_changed = _configure_mysql_bind_address(docker_ip)
     _create_mysql_docker_user(root_cmd, root_env, mysql_password, docker_ip)
-    if bind_changed and not _restart_mysql():
-        msg = (
-            "MySQL's bind-address was changed but the service did not restart, "
-            "so Docker containers cannot reach it"
-        )
-        raise InstallStepError(msg)
+    if bind_changed:
+        _restart_mysql()
     print_detail("MySQL configured to accept connections from Docker containers")
 
 
@@ -326,9 +322,7 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
         return None
 
     print_info("Configuring MySQL...")
-    if not _start_mysql_service():
-        msg = f"MySQL did not start (tried: {', '.join(_MYSQL_SERVICE_NAMES)})"
-        raise InstallStepError(msg)
+    _start_mysql_service()
     print_success("MySQL service started")
 
     admin = _find_mysql_admin_connection()
