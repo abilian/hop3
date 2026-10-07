@@ -22,6 +22,7 @@ import shutil
 from typing import TYPE_CHECKING
 
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
+from hop3.lib.path import is_confined_to
 from hop3.run.fastcgi import FCGI_PING_PATH
 
 if TYPE_CHECKING:
@@ -90,7 +91,9 @@ def php_fpm_binary() -> str:
     return found
 
 
-def document_root(src_path: Path, declared: str = "") -> Path:
+def document_root(
+    src_path: Path, declared: str = "", *, key: str = "[build].document-root"
+) -> Path:
     """
     Where nginx should serve from, which is not always the project root.
 
@@ -103,17 +106,21 @@ def document_root(src_path: Path, declared: str = "") -> Path:
     knob was documented, validated, and unreachable: a recipe that set it got
     silent auto-detection, and for an app whose web root is not one of the
     names below that means serving the project root, data directory included.
+
+    ``key`` names where the value came from, for the message (a Nix app's is
+    its runtime.json, written from `[nix].web-root`). The root must lie inside
+    the application: `..` would serve the directory above it.
     """
     if declared:
         root = (src_path / declared).resolve()
-        if not root.is_dir():
+        if not (root.is_dir() and is_confined_to(root, src_path)):
             abort_with_diagnosis(
                 Diagnosis(
                     component="PHP toolchain",
                     action="resolve document root",
                     reason=(
-                        f"[build].document-root is {declared!r}, which is not "
-                        f"a directory in the application source"
+                        f"{key} is {declared!r}, which is not a directory "
+                        f"inside the application source"
                     ),
                     hint=(
                         "Set it to a path relative to the project root, or "

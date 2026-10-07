@@ -57,6 +57,13 @@ class TestTheDocumentRootIsNotAlwaysTheProjectRoot:
         (tmp_path / "httpdocs").mkdir()
         assert document_root(tmp_path, "httpdocs") == tmp_path / "httpdocs"
 
+    def test_a_declared_root_above_the_project_aborts(self, tmp_path) -> None:
+        """`..` is a directory, and serving it publishes the app's neighbours."""
+        project = tmp_path / "src"
+        project.mkdir()
+        with pytest.raises(Abort, match="inside the application source"):
+            document_root(project, "..")
+
     def test_a_declared_root_that_does_not_exist_aborts(self, tmp_path) -> None:
         with pytest.raises(Abort) as excinfo:
             document_root(tmp_path, "nope")

@@ -17,7 +17,7 @@ from typing import Literal
 
 from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
-from hop3.lib import Abort, log
+from hop3.lib import Abort, abort_with_diagnosis, log
 from hop3.lib.diagnostics import Diagnosis, format_diagnosis
 from hop3.toolchains.php_fpm import document_root, serve_with_php_fpm
 
@@ -253,24 +253,35 @@ class NixBuilder:
         """
         binary = php_fpm["binary"]
         tree = Path(php_fpm["tree"]).resolve()
-        declared = php_fpm.get("document_root", "")
         missing = [
             path
             for path, present in (
                 (binary, Path(binary).is_file()),
-                (str(tree / declared), (tree / declared).is_dir()),
+                (tree, tree.is_dir()),
             )
             if not present
         ]
         if missing:
-            msg = (
-                f"runtime.json asks for a php-fpm pool, but the build output "
-                f"has no {' and no '.join(missing)}. Check the `php_fpm` entry "
-                f"the expression writes: `binary` is ${{php}}/bin/php-fpm, "
-                f"`tree` the application, `document_root` a directory in it."
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Nix builder",
+                    action="serve the app with php-fpm",
+                    reason=(
+                        "runtime.json asks for a php-fpm pool, but the build "
+                        f"output has no {' and no '.join(map(str, missing))}"
+                    ),
+                    hint=(
+                        "check the `php_fpm` entry the expression writes: "
+                        "`binary` is ${php}/bin/php-fpm, `tree` the application"
+                    ),
+                )
             )
-            raise RuntimeError(msg)
-        root = document_root(tree, declared)
+        # Checked there, once: a directory, and inside the tree.
+        root = document_root(
+            tree,
+            php_fpm.get("document_root", ""),
+            key="runtime.json's php_fpm document_root (`[nix].web-root`)",
+        )
         if writable_tree and Path(writable_tree).resolve() == tree:
             root = self.context.source_path / root.relative_to(tree)
         return serve_with_php_fpm(

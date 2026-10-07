@@ -19,6 +19,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from hop3.core.protocols import BuildContext
+from hop3.lib.console import Abort
 from hop3.plugins.build.nix import builder as builder_module
 from hop3.plugins.build.nix.builder import NixBuilder
 from hop3.toolchains.php_fpm import POOL_TEMPLATE_NAME
@@ -90,12 +91,21 @@ def test_a_missing_php_fpm_fails_the_build(tmp_path, monkeypatch):
     store = _store(tmp_path, _fpm(), front_controller="")
     (store / "bin" / "php-fpm").unlink()
 
-    with pytest.raises(RuntimeError, match="php-fpm"):
+    with pytest.raises(Abort, match="php-fpm"):
         _build(tmp_path, monkeypatch, store)
 
 
 def test_a_declared_root_the_tree_lacks_fails_the_build(tmp_path, monkeypatch):
     store = _store(tmp_path, _fpm(document_root="web"), front_controller="")
 
-    with pytest.raises(RuntimeError, match="app/web"):
+    with pytest.raises(Abort, match="'web', which is not a directory"):
+        _build(tmp_path, monkeypatch, store)
+
+
+def test_a_root_above_the_tree_is_refused(tmp_path, monkeypatch):
+    """`..` passed the directory check and crashed in `relative_to`; or,
+    without a writable tree, served the store path's parent."""
+    store = _store(tmp_path, _fpm(document_root=".."), front_controller="")
+
+    with pytest.raises(Abort, match="inside the application source"):
         _build(tmp_path, monkeypatch, store)
