@@ -13,6 +13,7 @@ from __future__ import annotations
 import importlib
 from pathlib import Path
 
+import click
 import pytest
 from click.testing import CliRunner
 from hop3_testing.cli.commands.upgrade_chain import (
@@ -154,3 +155,15 @@ def test_a_seed_with_the_wrong_rights_stops_the_chain(monkeypatch, tmp_path):
 
     with pytest.raises(RuntimeError, match="wrong baseline"):
         chain._seed(target, tmp_path, "v0.6.2")
+
+
+def test_a_teardown_that_leaves_something_fails_the_chain(capsys):
+    """It printed a ⚠ line and exited 0; on --host, the leftover stays."""
+    chain = importlib.import_module("hop3_testing.cli.commands.upgrade_chain")
+    ctx = click.Context(click.Command("upgrade-chain"))
+
+    with pytest.raises(click.exceptions.Exit) as exited:
+        chain._finish(ctx, ["v0.6.2", "HEAD"], ["could not remove chain-account: x"])
+
+    assert exited.value.exit_code == 1
+    assert "could not remove chain-account" in capsys.readouterr().err

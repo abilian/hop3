@@ -42,11 +42,14 @@ def test_cleanup_destroys_on_success_too():
     destroy.assert_called_once()
 
 
-def test_cleanup_warns_but_does_not_raise_on_destroy_error():
+def test_a_failed_destroy_is_reported_and_returned_not_raised():
+    """Printed whatever the verbosity (a warning `--quiet` hid), and returned."""
     s = _session(deployed=False)
     with patch.object(
         DeploymentSession, "_destroy_app", side_effect=CleanupError("boom")
     ):
-        s.cleanup()  # must not raise
-    cast("Any", s.console.warning).assert_called_once()
+        problem = s.cleanup()  # must not raise
+    assert problem is not None
+    assert "boom" in problem
+    cast("Any", s.console.error).assert_called_once()
     cast("Any", s._preparation.cleanup).assert_called_once()  # temp dir still cleaned

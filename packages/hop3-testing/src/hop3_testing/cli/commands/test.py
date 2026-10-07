@@ -26,7 +26,7 @@ from hop3_testing.catalog.features import (
 )
 from hop3_testing.catalog.loader import load_test_definition_smart
 from hop3_testing.cli.deprecation import warn_deprecated
-from hop3_testing.cli.runners import run_tests
+from hop3_testing.cli.runners import LeftOut, run_tests
 from hop3_testing.selector import Selector, get_mode_config, list_modes
 from hop3_testing.selector.modes import MODE_ALIASES
 from hop3_testing.targets import DockerTarget, RemoteTarget
@@ -499,14 +499,17 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     # and the installer refuses `--with docker` there. Leave Docker-built apps
     # out before the deploy, each with the reason, rather than abort the
     # install for everyone or fail them one by one at build.
+    left_out: list[LeftOut] = []
     if target_type == "docker":
         tests, docker_built = runnable_on_docker_target(tests)
-        for t in docker_built:
-            click.echo(
-                f"Skipping {t.name}: it is built with Docker, which the Docker "
-                "target cannot run; test it against a server (--host)",
-                err=True,
+        left_out = [
+            LeftOut(
+                t.name,
+                "it is built with Docker, which the Docker target cannot run; "
+                "test it against a server (--host)",
             )
+            for t in docker_built
+        ]
         if not tests:
             click.echo("No tests remaining: every one is built with Docker", err=True)
             ctx.exit(1)
@@ -597,4 +600,5 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         mode_label="system" if deploy_from != "none" else "reuse",
         selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
         available_features=available_features,
+        left_out=left_out,
     )

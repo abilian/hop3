@@ -170,6 +170,10 @@ class PrintingConsole:
             for key, value in details.items():
                 print(red(f"  {key}: {value}"))
 
+    def notice(self, message: str) -> None:
+        """Print a message the run's outcome depends on (always shown)."""
+        print(yellow(message))
+
     def warning(self, message: str) -> None:
         """Print a warning message."""
         if self._verbosity == Verbosity.QUIET:

@@ -301,7 +301,19 @@ def upgrade_chain(
         ctx.exit(1)
 
     _print_summary(results)
-    _cleanup(target, seed, worktrees, tmp, repo_root, keep=keep)
+    _finish(ctx, refs, _cleanup(target, seed, worktrees, tmp, repo_root, keep=keep))
+
+
+def _finish(ctx: click.Context, refs: list[str], leftovers: list[str]) -> None:
+    """Report a passed chain, and fail it if its teardown left anything behind."""
+    if leftovers:
+        # On --host the server outlives the run, and what it leaves stays.
+        click.echo(
+            "\n✗ Upgrade chain passed, but its teardown did not finish:\n  "
+            + "\n  ".join(leftovers),
+            err=True,
+        )
+        ctx.exit(1)
     click.echo(f"\n✓ Upgrade chain passed: {' → '.join(refs)}")
 
 
@@ -530,15 +542,17 @@ def _cleanup(
     repo_root: Path,
     *,
     keep: bool,
-) -> None:
+) -> list[str]:
+    """Tear the chain down; what could not be removed (the caller fails on it)."""
     if keep:
         click.echo(f"\n--keep: target left running; worktrees under {tmp}")
-        return
+        return []
+    leftovers: list[str] = []
     if seed is not None:
-        # Before stopping the target: a --host server outlives the run. Like the
-        # app's destroy, a failure here is reported and does not mask the
-        # outcome the run already printed.
-        seed.session.cleanup()
+        # Before stopping the target: a --host server outlives the run. A
+        # failure is collected, so the run still reports the outcome it reached.
+        if problem := seed.session.cleanup():
+            leftovers.append(problem)
         removed = _hop3(
             seed.session.target.cli_env(),
             "user",
@@ -548,10 +562,9 @@ def _cleanup(
             check=False,
         )
         if removed.returncode != 0:
-            click.echo(
-                f"⚠ could not remove {_SEED_USER}: "
-                f"{(removed.stderr or removed.stdout).strip()}",
-                err=True,
+            leftovers.append(
+                f"could not remove {_SEED_USER}: "
+                f"{(removed.stderr or removed.stdout).strip()}"
             )
     if target is not None:
         target.stop()
@@ -562,6 +575,7 @@ def _cleanup(
             capture_output=True,
         )
     shutil.rmtree(tmp, ignore_errors=True)
+    return leftovers
 
 
 def _print_summary(results: list[dict[str, str]]) -> None:

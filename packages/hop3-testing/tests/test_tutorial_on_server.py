@@ -4,7 +4,7 @@
 Tutorials run ON a remote server, not locally (so deploys hit the run target).
 
 The dispatch keys off the target's class name being "RemoteTarget" plus the
-``tutorial_host_ready`` flag set once ``ensure_tutorial_host`` succeeded. A
+``tutorial_host_problem`` cleared once ``ensure_tutorial_host`` succeeded. A
 remote target that was not prepared must error — never fall back to local
 execution, which would deploy to the dev machine's default CLI context (the
 wrong server).
@@ -27,7 +27,7 @@ class RemoteTarget:
 
     def __init__(self, *, ready: bool):
         self.info = TargetInfo(ssh_host="1.2.3.4", ssh_port=22)
-        self.tutorial_host_ready = ready
+        self.tutorial_host_problem = None if ready else "not prepared for tutorials"
         self.calls: list = []
         self.uploaded: list = []
 
@@ -41,7 +41,7 @@ class RemoteTarget:
 
 def test_unprepared_remote_errors_and_never_runs_locally():
     target = RemoteTarget(ready=False)
-    target.tutorial_host_error = "validoc install failed"
+    target.tutorial_host_problem = "validoc install failed"
     runner = TutorialTestRunner(target=target)
 
     result = runner._run_validoc(Path("/x/flask.md"), Path("/x"))

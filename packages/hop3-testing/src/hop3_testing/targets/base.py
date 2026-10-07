@@ -115,6 +115,9 @@ class DeploymentTarget(ABC):
         """
         self.config = config or {}
         self._info: TargetInfo | None = None
+        #: Why tutorials cannot run on this server, or None once it is ready
+        #: for them (validoc installed, admin token minted).
+        self.tutorial_host_problem: str | None = "not prepared for tutorials"
 
     @abstractmethod
     def start(self) -> TargetInfo:

@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import json
 import sys
+from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
@@ -28,6 +29,8 @@ from .logging import TestLogWriter
 from .reports import generate_reports
 
 if TYPE_CHECKING:
+    from collections.abc import Sequence
+
     import click
 
     from hop3_testing.catalog.models import TestDefinition
@@ -45,10 +48,32 @@ def _create_console(verbose: bool, quiet: bool = False) -> PrintingConsole:
     return console
 
 
+@dataclass(frozen=True)
+class LeftOut:
+    """A selected test the run does not execute, and why."""
+
+    name: str
+    reason: str
+
+
+def _report_left_out(left_out: Sequence[LeftOut], console: PrintingConsole) -> None:
+    """
+    Name every test left out, whatever the verbosity.
+
+    These went through `console.warning`, which `--quiet` silences, and never
+    became results: a quiet run's report did not show them at all.
+    """
+    if not left_out:
+        return
+    console.notice(f"Left out ({len(left_out)}):")
+    for item in left_out:
+        console.notice(f"  {item.name}: {item.reason}")
+
+
 def _filter_by_available_services(
     tests: list[TestDefinition],
     available_features: list[str],
-    console: PrintingConsole,
+    left_out: list[LeftOut],
 ) -> list[TestDefinition]:
     """
     Filter out tests whose required services aren't in --with features.
@@ -74,9 +99,12 @@ def _filter_by_available_services(
         required = {feature_for_addon(s) for s in test.requirements.services}
         missing = required - available
         if missing:
-            console.warning(
-                f"Skipping {test.name}: requires {', '.join(sorted(missing))} "
-                f"(not in --with {', '.join(sorted(available_features))})"
+            left_out.append(
+                LeftOut(
+                    test.name,
+                    f"requires {', '.join(sorted(missing))} (not in --with "
+                    f"{', '.join(sorted(available_features))})",
+                )
             )
         else:
             filtered.append(test)
@@ -86,7 +114,7 @@ def _filter_by_available_services(
 def _filter_by_admin_domain(
     tests: list[TestDefinition],
     target: DeploymentTarget,
-    console: PrintingConsole,
+    left_out: list[LeftOut],
 ) -> list[TestDefinition]:
     """
     Leave out, loudly, the tests whose app needs an admin domain the server lacks.
@@ -107,12 +135,14 @@ def _filter_by_admin_domain(
         raise RuntimeError(msg)
     if out.strip():
         return tests
-    for test in needing:
-        console.warning(
-            f"Skipping {test.name}: its app needs an admin domain and this server "
-            "has none. Target the server by its hostname, or deploy it with "
-            "--admin-domain."
+    left_out.extend(
+        LeftOut(
+            test.name,
+            "its app needs an admin domain and this server has none; target the "
+            "server by its hostname, or deploy it with --admin-domain",
         )
+        for test in needing
+    )
     return [t for t in tests if not t.requirements.admin_domain]
 
 
@@ -325,6 +355,37 @@ def _execute_tests(
     return results
 
 
+def _runnable_with_services(
+    tests: list[TestDefinition],
+    available_features: list[str],
+    left_out: list[LeftOut],
+    console: PrintingConsole,
+) -> list[TestDefinition]:
+    """The tests whose services the server has; exit if there are none."""
+    tests = _filter_by_available_services(tests, available_features, left_out)
+    _report_left_out(left_out, console)
+    if not tests:
+        console.error("No tests remaining after filtering by available services")
+        sys.exit(1)
+    return tests
+
+
+def _runnable_with_admin_domain(
+    tests: list[TestDefinition],
+    target: DeploymentTarget,
+    left_out: list[LeftOut],
+    console: PrintingConsole,
+) -> list[TestDefinition]:
+    """The tests the server's admin domain allows; exit if there are none."""
+    before = len(left_out)
+    tests = _filter_by_admin_domain(tests, target, left_out)
+    _report_left_out(left_out[before:], console)
+    if not tests:
+        console.error("No tests remaining: every one needs an admin domain")
+        sys.exit(1)
+    return tests
+
+
 def run_tests(
     ctx: click.Context,
     tests: list[TestDefinition],
@@ -342,6 +403,7 @@ def run_tests(
     mode_label: str = "system",
     selection_mode: str | None = None,
     available_features: list[str] | None = None,
+    left_out: Sequence[LeftOut] = (),
 ) -> None:
     """
     Run tests against a target.
@@ -351,13 +413,9 @@ def run_tests(
     """
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
-
-    # Filter out tests whose required services aren't available
+    left_out = list(left_out)
     if available_features is not None:
-        tests = _filter_by_available_services(tests, available_features, console)
-        if not tests:
-            console.error("No tests remaining after filtering by available services")
-            sys.exit(1)
+        tests = _runnable_with_services(tests, available_features, left_out, console)
     store = ResultStore()
 
     # Order the run: previously-failed tests (same family = mode + target type)
@@ -383,10 +441,7 @@ def run_tests(
         _emit_startup_diagnostics(target, console, e)
         sys.exit(1)
 
-    tests = _filter_by_admin_domain(tests, target, console)
-    if not tests:
-        console.error("No tests remaining: every one needs an admin domain")
-        sys.exit(1)
+    tests = _runnable_with_admin_domain(tests, target, left_out, console)
 
     _select_email_catch(tests, target, console)
 
@@ -425,6 +480,7 @@ def run_tests(
 
         store.finish_run()
         reporter.summary(results)
+        _report_left_out(left_out, console)
         generate_reports(target, report, results)
         if narrate:
             narrate_timings(results)
@@ -464,9 +520,9 @@ def _maybe_prepare_tutorial_host(
     console.status("Preparing server to run tutorials (validoc + admin token)...")
     try:
         ensure_tutorial_host(target)
-        target.tutorial_host_ready = True  # type: ignore[attr-defined]
+        target.tutorial_host_problem = None
     except TutorialHostError as e:
-        target.tutorial_host_error = str(e)  # type: ignore[attr-defined]
+        target.tutorial_host_problem = str(e)
         console.error(f"Could not prepare the server for tutorials: {e}")
 
 

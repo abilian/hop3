@@ -241,11 +241,10 @@ class TutorialTestRunner:
 
     def _run_validoc_remote(self, tutorial_path: Path) -> dict:
         """Dispatch to on-server validoc, or error if the host wasn't prepared."""
-        if not getattr(self.target, "tutorial_host_ready", False):
-            reason = getattr(self.target, "tutorial_host_error", "host not prepared")
+        if (problem := self.target.tutorial_host_problem) is not None:
             return {
                 "success": False,
-                "error": f"Tutorial host not prepared (validoc/token): {reason}",
+                "error": f"Tutorial host not prepared (validoc/token): {problem}",
                 "logs": "",
             }
         return self._run_validoc_on_server(tutorial_path)

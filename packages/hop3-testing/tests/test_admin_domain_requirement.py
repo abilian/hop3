@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 from hop3_testing.catalog.loader import generate_test_definition_from_hop3_toml
-from hop3_testing.cli.runners import _filter_by_admin_domain
-from hop3_testing.util.console import PrintingConsole
+from hop3_testing.cli.runners import LeftOut, _filter_by_admin_domain, _report_left_out
+from hop3_testing.util.console import PrintingConsole, Verbosity
 
 GATED = {"metadata": {"id": "gated"}, "access": {"require": "auth"}}
 OPEN = {"metadata": {"id": "open"}}
@@ -49,26 +49,38 @@ def test_a_gated_app_needs_an_admin_domain():
 def test_a_server_with_an_admin_domain_runs_every_test():
     tests = [_test(GATED), _test(OPEN)]
     target = _Target(0, "https://admin.example.com\n")
-    assert _filter_by_admin_domain(tests, target, PrintingConsole()) == tests
+    assert _filter_by_admin_domain(tests, target, []) == tests
     assert target.commands == [
         "sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:server-url"
     ]
 
 
-def test_a_server_without_one_leaves_the_gated_test_out(capsys):
+def test_a_server_without_one_leaves_the_gated_test_out():
     tests = [_test(GATED), _test(OPEN)]
-    kept = _filter_by_admin_domain(tests, _Target(0, "\n"), PrintingConsole())
+    left_out: list[LeftOut] = []
+    kept = _filter_by_admin_domain(tests, _Target(0, "\n"), left_out)
     assert [t.name for t in kept] == ["open"]
-    assert "Skipping gated" in capsys.readouterr().out
+    assert [item.name for item in left_out] == ["gated"]
+    assert "admin domain" in left_out[0].reason
+
+
+def test_a_quiet_run_still_names_what_it_left_out(capsys):
+    """`console.warning` is silent under --quiet, and the skip disappeared."""
+    console = PrintingConsole()
+    console.set_verbosity(Verbosity.QUIET)
+
+    _report_left_out([LeftOut("gated", "needs an admin domain")], console)
+
+    assert "gated: needs an admin domain" in capsys.readouterr().out
 
 
 def test_the_server_is_not_asked_when_no_test_needs_it():
     target = _Target(0, "")
     tests = [_test(OPEN)]
-    assert _filter_by_admin_domain(tests, target, PrintingConsole()) == tests
+    assert _filter_by_admin_domain(tests, target, []) == tests
     assert target.commands == []
 
 
 def test_a_server_that_cannot_answer_fails_the_run():
     with pytest.raises(RuntimeError, match="admin:server-url"):
-        _filter_by_admin_domain([_test(GATED)], _Target(1, ""), PrintingConsole())
+        _filter_by_admin_domain([_test(GATED)], _Target(1, ""), [])
