@@ -19,8 +19,10 @@ from __future__ import annotations
 
 import hashlib
 import os
+import socket
 import tarfile
 import tempfile
+import time
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -109,7 +111,12 @@ def _install_mailpit_binary() -> None:
         # One named member, read rather than extracted: no path from the
         # archive reaches the filesystem, on any Python the installer runs on.
         with tarfile.open(archive) as tar:
-            member = tar.extractfile("mailpit")
+            # A missing member raises KeyError, which nothing above catches;
+            # a member that is not a regular file gives None.
+            try:
+                member = tar.extractfile("mailpit")
+            except KeyError:
+                member = None
             if member is None:
                 msg = f"{url} has no `mailpit` file"
                 raise InstallStepError(msg)
@@ -149,6 +156,7 @@ WantedBy=multi-user.target
         run_cmd(["systemctl", "daemon-reload"])
         run_cmd(["systemctl", "enable", "mailpit"])
         run_cmd(["systemctl", "restart", "mailpit"])
+        _await_mailpit_smtp()
         print_success("Mailpit running (systemd)")
         return
 
@@ -167,4 +175,40 @@ stderr_logfile=/var/log/mailpit.err.log
         return
     run_cmd(["supervisorctl", "reread"])
     run_cmd(["supervisorctl", "update"])
+    _await_mailpit_smtp()
     print_success("Mailpit running (supervisord)")
+
+
+#: A `Type=simple` unit, like `supervisorctl update`, reports success when the
+#: process is launched, before it listens.
+_MAILPIT_WAIT_ATTEMPTS = 20
+_MAILPIT_WAIT_DELAY = 0.5
+
+
+def _await_mailpit_smtp() -> None:
+    """
+    Wait for Mailpit's SMTP greeting, or stop the install.
+
+    "Mailpit running" was printed on the restart's exit code, and nothing
+    checked the port afterwards: the catch backend would then relay to a port
+    nothing answered.
+    """
+    host, port = MAILPIT_SMTP.rsplit(":", 1)
+    last_error = ""
+    for attempt in range(_MAILPIT_WAIT_ATTEMPTS):
+        try:
+            with socket.create_connection((host, int(port)), timeout=2) as conn:
+                greeting = conn.recv(64).decode(errors="replace")
+        except OSError as e:
+            last_error = str(e)
+        else:
+            if greeting.startswith("220"):
+                return
+            last_error = f"unexpected greeting {greeting.strip()!r}"
+        if attempt < _MAILPIT_WAIT_ATTEMPTS - 1:
+            time.sleep(_MAILPIT_WAIT_DELAY)
+    msg = (
+        f"Mailpit was started but does not answer on {MAILPIT_SMTP} "
+        f"({last_error}); see `journalctl -u mailpit` or /var/log/mailpit.err.log"
+    )
+    raise InstallStepError(msg)
