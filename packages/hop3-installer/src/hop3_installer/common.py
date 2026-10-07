@@ -271,6 +271,7 @@ def run_cmd(
     check: bool = True,
     env: dict[str, str] | None = None,
     timeout: float | None = None,
+    stdin_text: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Run a command and return the result.
@@ -281,6 +282,8 @@ def run_cmd(
         check: Whether to raise CommandError on non-zero exit
         env: Additional environment variables
         timeout: Timeout in seconds (None for no timeout)
+        stdin_text: Text for the command's stdin. How a secret reaches a command:
+            argv is readable by any local user in /proc/<pid>/cmdline.
 
     Returns:
         CompletedProcess with returncode, stdout, stderr
@@ -305,7 +308,8 @@ def run_cmd(
             # instead of blocking forever on a terminal the installer may not
             # have. (needrestart's whiptail reads /dev/tty, not stdin -- that
             # one is handled by NEEDRESTART_MODE=a in the apt environment.)
-            stdin=subprocess.DEVNULL,
+            stdin=subprocess.DEVNULL if stdin_text is None else None,
+            input=stdin_text,
         )
     except subprocess.TimeoutExpired:
         # Return a failed result on timeout

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import secrets
+import subprocess
 import time
 from pathlib import Path
 
@@ -295,9 +296,9 @@ _SUPERUSER_VERIFY_ATTEMPTS = 5
 _SUPERUSER_VERIFY_DELAY = 1.0
 
 
-def _verify_superuser_tcp(password: str) -> bool:
+def _verify_superuser_tcp(password: str) -> subprocess.CompletedProcess:
     """
-    Whether ``password`` authenticates the ``postgres`` role over TCP.
+    Try ``password`` on the ``postgres`` role over TCP; returncode 0 if it works.
 
     This is the EXACT path hop3-server uses to provision addons (127.0.0.1:5432,
     password auth). A local peer ``ALTER`` can succeed — or hit a different
@@ -307,8 +308,7 @@ def _verify_superuser_tcp(password: str) -> bool:
     """
     argv = ["psql", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres",
             "-d", "template1", "-tAc", "SELECT 1"]  # fmt: skip
-    result = run_cmd(argv, check=False, env={"PGPASSWORD": password})
-    return result.returncode == 0
+    return run_cmd(argv, check=False, env={"PGPASSWORD": password})
 
 
 def _set_postgres_password(existing: str | None = None) -> str:
@@ -333,7 +333,7 @@ def _set_postgres_password(existing: str | None = None) -> str:
     if not _validate_postgres_password(pg_password):
         # An operator-customised password we can't safely interpolate into SQL:
         # we can't re-assert it, but it may already be correct on the role.
-        if existing and _verify_superuser_tcp(existing):
+        if existing and _verify_superuser_tcp(existing).returncode == 0:
             print_info("Reusing existing PostgreSQL superuser password")
             return existing
         msg = (
@@ -343,23 +343,39 @@ def _set_postgres_password(existing: str | None = None) -> str:
         )
         raise InstallStepError(msg)
 
-    sql_cmd = f"ALTER USER postgres PASSWORD '{pg_password}';"
-    for attempt in range(_SUPERUSER_VERIFY_ATTEMPTS):
-        run_cmd(["su", "-", "postgres", "-c", f'psql -c "{sql_cmd}"'], check=False)
-        if _verify_superuser_tcp(pg_password):
+    # On stdin: on argv the password was readable by any local user in
+    # /proc/<pid>/cmdline while psql ran.
+    sql = f"ALTER USER postgres PASSWORD '{pg_password}';"
+    attempts = 0
+    while True:
+        altered = run_cmd(
+            ["su", "-", "postgres", "-c", "psql -v ON_ERROR_STOP=1"],
+            check=False,
+            stdin_text=sql,
+        )
+        verified = _verify_superuser_tcp(pg_password)
+        if verified.returncode == 0:
             print_success(
                 "PostgreSQL superuser password reused"
                 if existing
                 else "PostgreSQL superuser password configured"
             )
             return pg_password
-        if attempt < _SUPERUSER_VERIFY_ATTEMPTS - 1:
-            time.sleep(_SUPERUSER_VERIFY_DELAY)
+        attempts += 1
+        if attempts == _SUPERUSER_VERIFY_ATTEMPTS:
+            break
+        time.sleep(_SUPERUSER_VERIFY_DELAY)
 
+    # Which of the two failed is the diagnosis: refused, wrong password, or
+    # an ALTER that never ran.
     msg = (
         "the PostgreSQL superuser password could not be verified over TCP "
         "(127.0.0.1:5432 as 'postgres'): the role and hop3-server.toml would "
-        "disagree, and every PostgreSQL addon would fail to provision"
+        "disagree, and every PostgreSQL addon would fail to provision. "
+        f"ALTER USER (exit {altered.returncode}): "
+        f"{(altered.stderr or altered.stdout or '').strip()[:300]}; "
+        f"TCP check (exit {verified.returncode}): "
+        f"{(verified.stderr or verified.stdout or '').strip()[:300]}"
     )
     raise InstallStepError(msg)
 

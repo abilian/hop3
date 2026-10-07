@@ -153,10 +153,12 @@ def _run_admin_sql(
     """
     Run one statement as the MySQL admin, or raise naming ``what`` it did.
 
-    The error names the statement's purpose, never its text: several carry
-    the hop3 password, and a CommandError prints its command.
+    The statement goes on stdin, and the error names its purpose, never its
+    text: several carry the hop3 password, which on argv (`mysql -e`) any
+    local user read in /proc/<pid>/cmdline, and a CommandError prints its
+    command.
     """
-    result = run_cmd(root_cmd + ["-e", sql], check=False, env=root_env)
+    result = run_cmd(root_cmd, check=False, env=root_env, stdin_text=sql)
     if result.returncode != 0:
         raise CommandError(
             cmd=["mysql", f"<{what}>"],
