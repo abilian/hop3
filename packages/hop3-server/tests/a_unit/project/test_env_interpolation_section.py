@@ -58,6 +58,24 @@ class TestALiteralSectionRefusesAnInterpolation:
         assert "[contexts.*.env]" in message
 
 
+class TestAValueThatIsOnlyABareReference:
+    """
+    ``NITRO_PORT = "$PORT"``, from the Nuxt tutorial: no braces, so the
+    ``${VAR}`` check let it through, and Node died on
+    ``options.port should be >= 0 and < 65536. Received type string ('$PORT')``.
+    """
+
+    def test_the_port_is_refused_with_the_start_line_remedy(self):
+        message = _error({"env": {"NITRO_PORT": "$PORT"}})
+        assert "NITRO_PORT" in message
+        assert "[run].start" in message
+
+    def test_an_addon_variable_points_at_the_computed_section(self):
+        message = _error({"env": {"DB_HOST": "$PGHOST"}})
+        assert "[env.computed]" in message
+        assert "${PGHOST}" in message
+
+
 class TestTheRemedyIsTheOneThatWorks:
     """
     Three references, three different right answers. Naming the wrong one
@@ -92,6 +110,10 @@ class TestWhatStaysLegal:
     def test_a_lone_dollar_sign_is_not_an_interpolation(self):
         """A price, a regex, a shell variable the app expands itself."""
         _validate({"env": {"CURRENCY": "$", "PROMPT": "$PORT is not ${"}})
+
+    def test_a_dollar_inside_a_longer_value_is_left_alone(self):
+        """Only a value that is nothing but `$NAME` is the mistake."""
+        _validate({"env": {"GREETING": "costs $5", "TEMPLATE": "$HOME/data"}})
 
     def test_a_generated_secret_is_still_a_table_not_a_string(self):
         _validate({"env": {"SECRET_KEY": {"generate": "hex", "length": 32}}})

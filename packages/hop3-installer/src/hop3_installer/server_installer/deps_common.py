@@ -303,6 +303,13 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
 #: that is the whole point of it being a decision rather than a date.
 PNPM_VERSION = "11.27.0"
 
+#: The npm every Hop3 server runs, for the same reason, and in place of the one
+#: Node ships. Node 22 bundles npm 10, which crashes installing a project
+#: scaffolded with today's NestJS CLI (`Cannot read properties of null (reading
+#: 'edgesOut')`) that npm 11 installs cleanly: an app its author built on their
+#: own machine failed in the server's build. npm 11 needs Node 20.17 or 22.9.
+NPM_VERSION = "11.17.0"
+
 
 def install_node_global_packages() -> None:
     """
@@ -319,50 +326,53 @@ def install_node_global_packages() -> None:
         msg = "npm is not on PATH after the Node install, so pnpm and nodeenv cannot be installed"
         raise InstallStepError(msg)
 
-    _install_pnpm()
+    # npm first: it installs pnpm.
+    _install_pinned_tool("npm", NPM_VERSION)
+    _install_pinned_tool("pnpm", PNPM_VERSION)
 
     # nodeenv (for per-app [build].node-version pins) is installed separately:
     # it is a PyPI tool, not an npm package — see _install_nodeenv.
     _install_nodeenv()
 
 
-def _install_pnpm() -> None:
-    """Install :data:`PNPM_VERSION`, replacing whatever version is present."""
-    installed = _pnpm_version()
-    if installed == PNPM_VERSION:
-        print_info(f"pnpm {PNPM_VERSION} already installed")
+def _install_pinned_tool(tool: str, version: str) -> None:
+    """Install ``tool@version`` with npm, replacing whatever version is present."""
+    installed = _tool_version(tool)
+    if installed == version:
+        print_info(f"{tool} {version} already installed")
         return
 
     if installed:
-        print_info(f"Replacing pnpm {installed} with the pinned {PNPM_VERSION}...")
+        print_info(f"Replacing {tool} {installed} with the pinned {version}...")
     else:
-        print_info(f"Installing pnpm {PNPM_VERSION}...")
-    with Spinner(f"Installing pnpm {PNPM_VERSION} globally..."):
-        run_cmd(["npm", "install", "-g", f"pnpm@{PNPM_VERSION}"])
+        print_info(f"Installing {tool} {version}...")
+    with Spinner(f"Installing {tool} {version} globally..."):
+        run_cmd(["npm", "install", "-g", f"{tool}@{version}"])
 
-    # Say so when the pin did not take. A pnpm installed by some other route
-    # (corepack, the standalone script) shadows npm's global bin on PATH, and
-    # the silent outcome would be the drift this pin exists to end — with the
-    # installer reporting the version it meant to install.
-    effective = _pnpm_version()
+    # Say so when the pin did not take. A copy installed by some other route
+    # (corepack, a standalone script, a distribution package) can shadow npm's
+    # global bin on PATH, and the silent outcome would be the drift this pin
+    # exists to end — with the installer reporting the version it meant to
+    # install.
+    effective = _tool_version(tool)
     if not effective:
-        msg = f"installed pnpm {PNPM_VERSION} with npm, but no pnpm is on PATH"
+        msg = f"installed {tool} {version} with npm, but no {tool} is on PATH"
         raise InstallStepError(msg)
-    if effective != PNPM_VERSION:
+    if effective != version:
         msg = (
-            f"installed pnpm {PNPM_VERSION}, but `pnpm --version` reports "
-            f"{effective}: another pnpm is ahead of it on PATH, and apps would "
+            f"installed {tool} {version}, but `{tool} --version` reports "
+            f"{effective}: another {tool} is ahead of it on PATH, and apps would "
             f"build with that one"
         )
         raise InstallStepError(msg)
-    print_success(f"pnpm {PNPM_VERSION} installed")
+    print_success(f"{tool} {version} installed")
 
 
-def _pnpm_version() -> str:
-    """The version `pnpm` on PATH reports, or "" when there is none."""
-    if not cmd_exists("pnpm"):
+def _tool_version(tool: str) -> str:
+    """The version ``tool`` on PATH reports, or "" when there is none."""
+    if not cmd_exists(tool):
         return ""
-    result = run_cmd(["pnpm", "--version"], check=False)
+    result = run_cmd([tool, "--version"], check=False)
     return result.stdout.strip() if result.returncode == 0 else ""
 
 

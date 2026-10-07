@@ -35,6 +35,27 @@ class RubyToolchain(LanguageToolchain):
     def accept(self) -> bool:
         return self.check_exists("Gemfile")
 
+    def _bundle_install_frozen(self, env: Env) -> None:
+        """
+        Install exactly the gems in Gemfile.lock.
+
+        Frozen refuses a lockfile that is out of sync with the Gemfile, instead
+        of silently re-resolving to a gem set nobody tested. It is set through
+        the environment: Bundler 4 removed the `--frozen` flag, and Bundler 2
+        switches itself to Bundler 4 when the lockfile was written by it, so the
+        flag failed every app whose author runs a current Bundler.
+        """
+        if not self.check_exists("Gemfile.lock"):
+            msg = (
+                f"'{self.app_name}' has no Gemfile.lock, so the build would "
+                f"resolve its gems to whatever satisfies the Gemfile today and "
+                f"cannot be reproduced. Run `bundle lock` and commit Gemfile.lock."
+            )
+            raise RuntimeError(msg)
+        frozen = Env(dict(env))
+        frozen["BUNDLE_FROZEN"] = "true"
+        self.shell("bundle install", env=frozen)
+
     def build(self) -> BuildArtifact:
         log(f"Building Ruby application '{self.app_name}'", level=1, fg="blue")
 
@@ -44,11 +65,8 @@ class RubyToolchain(LanguageToolchain):
 
             emit(InstallingVirtualEnv(self.app_name))
             log("Installing Ruby gems with bundler...", level=2, fg="cyan")
-            # --frozen refuses to install when Gemfile.lock is missing or out of
-            # sync with the Gemfile, instead of silently re-resolving and
-            # producing a different gem set than the one that was tested.
             if not self._run_declared_build(env=env):
-                self.shell("bundle install --frozen", env=env)
+                self._bundle_install_frozen(env)
             log("Ruby gems installed successfully", level=2, fg="green")
 
         # Compute environment variables for runtime

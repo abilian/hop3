@@ -1268,6 +1268,12 @@ def _reject_committed_env_secret(name: str, value: object, where: str) -> None:
 #: two apart.
 _INTERPOLATION = re.compile(r"\$\{([A-Za-z_][A-Za-z0-9_]*)(:-[^}]*)?\}")
 
+#: A value that is nothing but a shell reference without braces: `"$PORT"`.
+#: Only the whole value: `$` inside a longer value is often meant literally
+#: (a prompt, a template the app expands itself), but a value that is exactly
+#: `$NAME` was written for a shell that never sees it.
+_BARE_REFERENCE = re.compile(r"\$([A-Za-z_][A-Za-z0-9_]*)")
+
 #: Two facts about interpolation that both the validator (wrong section) and
 #: the deploy-time resolver (right section, missing variable) have to state.
 #: Kept here, next to the syntax they describe, so the two cannot drift.
@@ -1303,6 +1309,18 @@ def _reject_uninterpolated_env_value(name: str, value: object, where: str) -> No
     """
     if not isinstance(value, str):
         return
+    if bare := _BARE_REFERENCE.fullmatch(value):
+        referenced = bare.group(1)
+        remedy = _interpolation_remedy(referenced, has_default=False)
+        msg = (
+            f"{where}.{name} = {value!r} is exported literally: the app receives "
+            f"the text {value!r}, not the value of {referenced}. {remedy} "
+            f"There, write it as ${{{referenced}}}."
+            if referenced != "PORT"
+            else f"{where}.{name} = {value!r} is exported literally: the app "
+            f"receives the text {value!r}, not a port. {remedy}"
+        )
+        raise ValueError(msg)
     match = _INTERPOLATION.search(value)
     if not match:
         return

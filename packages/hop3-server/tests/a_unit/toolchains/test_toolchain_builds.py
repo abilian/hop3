@@ -11,7 +11,7 @@ it issues and the ``BuildArtifact`` it returns — without a real toolchain bina
 
 The shell is the seam: we replace ``tc.shell`` with a recorder, so every command
 is captured instead of run. That lets us pin the reproducibility-critical choices
-(``npm ci`` not ``npm install``, ``bundle install --frozen``, ``--require-hashes``
+(``npm ci`` not ``npm install``, a frozen ``bundle install``, ``--require-hashes``
 when a requirements file is fully hashed) and the artifact shape every deployer
 reads back.
 
@@ -52,11 +52,13 @@ class ShellRecorder:
 
     def __init__(self, returncode: int = 0, stdout: str = "") -> None:
         self.calls: list[str] = []
+        self.envs: dict[str, object] = {}
         self.returncode = returncode
         self.stdout = stdout
 
     def __call__(self, command, cwd="", *, env=None, check=True):
         self.calls.append(command)
+        self.envs[command] = env
         return subprocess.CompletedProcess(command, self.returncode, self.stdout, "")
 
 
@@ -91,20 +93,35 @@ def _ctx_toolchain(cls, tmp_path: Path, build_section: dict, files=None):
 
 class TestRubyBuild:
     def test_installs_frozen_gems_and_shapes_artifact(self, tmp_path, monkeypatch):
-        _src(tmp_path, {"Gemfile": "source 'https://rubygems.org'\n"})
+        _src(
+            tmp_path,
+            {"Gemfile": "source 'https://rubygems.org'\n", "Gemfile.lock": "GEM\n"},
+        )
         tc = RubyToolchain("myapp", tmp_path)
         rec = _record(tc, monkeypatch)
 
         artifact = tc.build()
 
-        # --frozen refuses to re-resolve a stale lockfile (reproducibility).
-        assert "bundle install --frozen" in rec.calls
+        # Frozen refuses to re-resolve a stale lockfile (reproducibility). Set
+        # in the environment: Bundler 4 removed the `--frozen` flag.
+        assert "bundle install" in rec.calls
+        assert not any("--frozen" in c for c in rec.calls)
+        assert rec.envs["bundle install"]["BUNDLE_FROZEN"] == "true"
         assert any("bundle config set path" in c for c in rec.calls)
         assert artifact.kind == "ruby"
         env_vars = artifact.runtime.env_vars
         assert env_vars["GEM_HOME"] == str(tc.virtual_env)
         assert env_vars["BUNDLE_PATH"] == str(tc.virtual_env)
         assert str(tc.virtual_env / "bin") in artifact.runtime.path_prepend
+
+    def test_refuses_an_app_without_a_lockfile(self, tmp_path, monkeypatch):
+        _src(tmp_path, {"Gemfile": "source 'https://rubygems.org'\n"})
+        tc = RubyToolchain("myapp", tmp_path)
+        rec = _record(tc, monkeypatch)
+
+        with pytest.raises(RuntimeError, match="bundle lock"):
+            tc.build()
+        assert "bundle install" not in rec.calls
 
     def test_make_virtual_env_is_idempotent(self, tmp_path, monkeypatch):
         _src(tmp_path)

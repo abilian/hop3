@@ -9,6 +9,7 @@ import json
 import os
 import pwd
 import shlex
+import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
@@ -17,6 +18,7 @@ from typing import Literal
 from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
 from hop3.lib import Abort, log
+from hop3.lib.diagnostics import Diagnosis, format_diagnosis
 from hop3.toolchains.php_fpm import document_root, serve_with_php_fpm
 
 # See docker/builder.py for the rationale — single generous timeout + a
@@ -28,6 +30,14 @@ NIX_BUILD_MAX_SILENT_SECONDS = 300
 # Note: Single-user path is evaluated at runtime via _get_nix_profile_paths()
 # to ensure we use the correct HOME for the current process
 NIX_DAEMON_PROFILE = Path("/nix/var/nix/profiles/default/etc/profile.d/nix-daemon.sh")
+
+#: A Nix app deployed to a server installed without `--with nix`.
+_NO_NIX = Diagnosis(
+    component="Nix builder",
+    action="build the app",
+    reason="Nix is not installed on this server (no Nix profile, no nix-build on PATH)",
+    hint="Install it with `hop3-install server --with nix`, then deploy again",
+)
 
 
 class NixBuilder:
@@ -327,8 +337,16 @@ class NixBuilder:
 
     def _nix_available(self) -> bool:
         """Check if nix command is available on the system."""
-        result = self._run_nix_command("nix --version")
-        return result.returncode == 0
+        if not self._nix_installed():
+            return False
+        return self._run_nix_command("nix --version").returncode == 0
+
+    def _nix_installed(self) -> bool:
+        """A Nix profile to source, or nix-build already on PATH (NixOS)."""
+        path = self._get_nix_env()["PATH"]
+        return self._find_nix_profile() is not None or bool(
+            shutil.which("nix-build", path=path)
+        )
 
     def _kill_stale_nix_builds(self, nix_file: Path) -> None:
         """
@@ -492,15 +510,10 @@ class NixBuilder:
         Returns:
             CompletedProcess with stdout, stderr, and returncode.
         """
-        # Find available Nix profile script
+        if not self._nix_installed():
+            raise Abort(format_diagnosis(_NO_NIX))
         profile_script = self._find_nix_profile()
-
-        if profile_script:
-            # Source the profile and run the command
-            shell_cmd = f'. "{profile_script}" && {cmd}'
-        else:
-            # No profile found, try running directly (might work if in PATH)
-            shell_cmd = cmd
+        shell_cmd = f'. "{profile_script}" && {cmd}' if profile_script else cmd
 
         # Stream stderr for real-time build progress while capturing stdout
         proc = subprocess.Popen(
