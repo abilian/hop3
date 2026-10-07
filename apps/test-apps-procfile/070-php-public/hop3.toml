@@ -33,12 +33,11 @@ path = "/"
 status = 200
 contains = "Served from public/"
 
-# The containment assertion. `/.env` resolves under the *project* root, not the
-# document root, so nginx has no file to serve and try_files hands the path to
-# the front controller — a 200 carrying the app's own page. What must never
-# appear is the canary. check.py makes the negative assertion, which this
-# validation cannot express.
+# The containment assertion. Nginx answers any hidden file with 404 before the
+# document root is consulted, so `/.env` never reaches PHP or the disk. What
+# must never appear, under any status, is the canary: check.py makes that
+# negative assertion over the traversal forms too, which this validation
+# cannot express.
 [[test.validations]]
 path = "/.env"
-status = 200
-contains = "Served from public/"
+status = 404

@@ -1,0 +1,11 @@
+# Generated with: uv pip compile --generate-hashes --python-version 3.12 \
+#   --python-platform x86_64-unknown-linux-gnu requirements.in -o requirements.txt
+# Both packages ship a pure-Python wheel, so the vendored set (and
+# pip-deps-hash) is the same on every architecture.
+gunicorn==23.0.0 \
+    --hash=sha256:ec400d38950de4dfd418cff8328b2c8faed0edb0d517d3394e457c317908ca4d \
+    --hash=sha256:f014447a0101dc57e294f6c18ca6b40227a4c90e9bdb586042628030cba004ec
+packaging==26.3 \
+    --hash=sha256:94edc256424af38762eb31306eed28beb9f0efc50a8837492c9d6fd6004aed79 \
+    --hash=sha256:d7193f7c8e4e93f444fde0262bf90af30e16fa0ad0ad44cb553c87339b23cd1c
+    # via gunicorn

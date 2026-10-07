@@ -28,6 +28,7 @@ Example apps: Isso, Bugsink.
 
 from __future__ import annotations
 
+from hop3.plugins.build.nix.gen.escaping import nix_escape
 from hop3.plugins.build.nix.gen.spec import AppSpec, PythonVenvPayload
 from hop3.plugins.build.nix.gen.templates.base import (
     ReproTier,
@@ -153,11 +154,13 @@ class PythonVenvTemplate:
                 # $APPDIR is the app's own tree in the store; PYTHONPATH is what
                 # makes `gunicorn myapp:app` find it. Both are placeholders the
                 # installPhase seds, because the store path is not known here.
+                # The wrapper sits inside a Nix '' string, so the shell's own
+                # `${...}` must be escaped or Nix tries to interpolate it.
                 + 'APPDIR="APPDIR_PLACEHOLDER"\n'
                 + "export APPDIR\n"
-                + 'PYTHONPATH="$APPDIR'
-                "${PYTHONPATH:+:"
-                '${PYTHONPATH}}"\n' + "export PYTHONPATH" + rest
+                + nix_escape('PYTHONPATH="$APPDIR${PYTHONPATH:+:${PYTHONPATH}}"\n')
+                + "export PYTHONPATH"
+                + rest
             )
 
         runtime_json = format_runtime_json(spec, f"$out/bin/{spec.pname}")

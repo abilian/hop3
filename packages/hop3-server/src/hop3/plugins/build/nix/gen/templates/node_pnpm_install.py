@@ -175,11 +175,18 @@ class NodePnpmInstallTemplate:
         app_install = (
             "\n      # The application's own code, from the recipe directory."
             "\n      cp -r $src/. $out/app/"
+            # Store files are read-only, and the install below writes into
+            # this tree (the manifest, the lockfile, node_modules).
+            "\n      chmod -R u+w $out/app"
             if p.local_source
             else ""
         )
 
-        npm_pkg = p.npm_package
+        what = (
+            "The application in this directory, with its dependencies"
+            if p.local_source
+            else f"Wraps an npm-published package ({p.npm_package})"
+        )
         runtime_pkg = spec.runtime_package or "nodejs_22"
         pnpm_pkg = p.pnpm_package
 
@@ -231,7 +238,7 @@ class NodePnpmInstallTemplate:
         return f"""# hop3.nix - Nix expression for {spec.pname}
 #
 {generated_line("node-pnpm-install")}
-# Wraps an npm-published package ({npm_pkg}) installed via pnpm from a
+# {what} installed via pnpm from a
 # committed lockfile: deps are fetched by a fixed-output derivation and
 # the app build itself runs offline inside the sandbox.
 # The resulting virtual-store layout is preserved verbatim in the
@@ -303,7 +310,14 @@ let
       # then fails its own vendorHash check on a rebuild). Normalize exactly as
       # nixpkgs' own pnpm.fetchDeps does — drop the temp dirs, strip `checkedAt`
       # at any depth, sort keys — so the vendored store is byte-stable.
-      rm -rf $out/v3/tmp $out/v10/tmp
+      #
+      # pnpm 10 also registers the project it fetched for under
+      # `v10/projects/<hash of its path>`. The path is the build directory,
+      # which differs per build wherever the sandbox does not pin it to /build
+      # (the Docker target, macOS), so the hash changed on every fetch of an
+      # unchanged lockfile. It points at a directory gone after the build and
+      # carries no package content.
+      rm -rf $out/v3/tmp $out/v10/tmp $out/v10/projects
       find $out -name '*.json' -type f | while read -r f; do
         ${{pkgs.jq}}/bin/jq --sort-keys 'del(.. | .checkedAt?)' "$f" > "$f.norm"
         mv "$f.norm" "$f"

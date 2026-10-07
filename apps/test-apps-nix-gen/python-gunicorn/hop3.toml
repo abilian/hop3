@@ -1,0 +1,35 @@
+# A Python app packaged by the generator from this directory: the git-push case
+# for the python-venv template. The venv comes from the hash-pinned lockfile;
+# the app's own code is installed beside it and put on PYTHONPATH.
+
+[metadata]
+id = "python-gunicorn-gen"
+version = "1.0.0"
+description = "WSGI app under gunicorn, packaged from local source by nix-gen"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "python-venv"
+pip-local-source = true
+pip-requirements = "requirements.txt"
+pip-deps-hash = "sha256-WeCkr5aGH3uy7lpDfXSAdV4gY4pVhaKHtQrhEVMUmmM="
+runtime-package = "python312"
+exec-target = "gunicorn"
+exec-args = ["app:application", "--bind", "0.0.0.0:${PORT:-8080}"]
+
+[healthcheck]
+path = "/"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "gunicorn", "nix", "nix-gen", "local-source"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Hello World, from gunicorn"

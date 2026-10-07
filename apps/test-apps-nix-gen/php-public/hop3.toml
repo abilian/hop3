@@ -1,0 +1,40 @@
+# The same source as apps/test-apps-procfile/070-php-public, packaged by the
+# generator from this directory: the git-push case for the php-app template,
+# served by php-fpm from the Nix store.
+
+[metadata]
+id = "php-public-gen"
+version = "1.0.0"
+description = "PHP front controller under public/, packaged from local source by nix-gen"
+
+[build]
+builder = "nix"
+
+[nix]
+template = "php-app"
+# No `url`: the application is this directory.
+php-version = "php82"
+# No `web-root` either: Hop3 detects `public/` as it does for a native PHP app,
+# which is the detection this fixture exists to exercise on the Nix path.
+
+[healthcheck]
+path = "/"
+contains = "fpm-fcgi"
+
+[test]
+priority = "P1"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["php", "php-fpm", "nix", "nix-gen", "local-source"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "Served from public/"
+
+# `.env` sits above the document root, and nginx answers any hidden file with
+# 404 before the document root is consulted.
+[[test.validations]]
+path = "/.env"
+status = 404
