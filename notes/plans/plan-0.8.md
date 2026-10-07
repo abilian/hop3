@@ -5,6 +5,24 @@
 **Successor:** [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind this release) and [`parked.md`](parked.md) (directions not scheduled).
 **Sources:** the "After 0.7" list in [`../todo.md`](../todo.md), TR-03 §9 (Future Work), the draft and deferred ADRs, the per-app experience reports and their deferral records, the team's internal roadmap notes.
 
+## Status, 2026-10-07
+
+The target week has passed. Where each part stands:
+
+- **Headline 1, per-app UID separation:** two of its three steps are done (state survives a redeploy for every native and Nix recipe; each app has its own `HOME` and `TMPDIR`). The third, per-app users, is not started, and ADR 055 is still Proposed. This is the release's open question (see [To release 0.8](#to-release-08)).
+- **Headline 2, php-fpm:** done, native and Nix.
+- **Headline 3, local-source builds:** done: one fixture per template, built and served, and the git-push-to-Nix tutorial.
+- **Headline 4, installer composability:** partly. Rust, Clojure and Elixir are `--with` features; npm and pnpm are pinned server-wide; Node versions per app exist. The per-app package manager and the `--with nodejs-*` family are open.
+- **Roles and the sign-in gate:** done (ADR 061, ADR 062, three proxies).
+- **Email:** the test harness unblock is done (Mailpit behind `catch`, an end-to-end fixture); direct delivery, the per-app override and the catalog rollout are open.
+
+Work the plan did not list, done in the same cycle:
+
+- **The installer fails loud.** An audit found 105 warning sites, about 74 of which should have stopped the install ([`../installer-fail-loud-audit.md`](../installer-fail-loud-audit.md)); they do, and a deploy that carries past an unlisted ⚠ fails its test run.
+- **A review of everything since 0.7** (`devel` against `main`, 76 commits) found 42 problems, five of them serious, and all are fixed: among them a harness that left admin accounts with published passwords on test servers, a gated app's include file that could forward a forged identity header, database passwords on command lines, and production code that changed behaviour under pytest.
+- **The executable tutorials pass again.** They could not pass on the Docker target from June to October, and nothing said so (`lessons-learned/e2e-test-infrastructure.md`); 28 of 35 then passed on a remote server, and the seven failures became five platform and tutorial fixes.
+- **An update reaches existing servers.** `hop3-deploy-server` on an existing server now applies the platform's own settings (`--reconcile`) without restarting the apps.
+
 ## The theme
 
 0.7 answered a question about applications: *do real self-hosted apps deploy on Hop3 and actually work?* Twenty of them do, verified by signing in. The same campaign produced a long list of things the *substrate* cannot yet express or protect, and almost every item below was found by an application running into it.
@@ -163,6 +181,45 @@ Not yet proven: the HTTPS path has only been exercised against a server with an 
 - [ ] `nixpkgs-wrapper` supporting sibling packages (`nixpkgs-packages = {main = "…", assets = "…"}`): unblocks Vaultwarden, WriteFreely and GoToSocial, and is the companion-archive hook that Outline, PeerTube, Funkwhale and Chatwoot will also need.
 - [ ] Node/pnpm workspace layouts (ESM/CJS mismatch, dangling virtual-store symlinks): blocks Directus, HedgeDoc, and future Outline/Strapi/Rocket.Chat.
 
+## To release 0.8
+
+### The open decision: per-app users in 0.8, or after it
+
+Undecided (SF).
+
+- **Ship per-app users in 0.8.** Buys: the release's first headline in full; the rootd escalation and cross-app reads closed. Costs: the largest piece of work in the plan, still gated on UID allocation and on builds running as `hop3` (ADR 055 open question 6), so the release moves by weeks.
+- **Ship the shared `hop3-apps` user in 0.8, per-app users in 0.9.** Buys: the rootd hole and the control-plane secrets closed now. Costs: a group-writable file model that per-app users later replace, and apps still read each other's data.
+- **Release 0.8 without either, and make separation 0.9's headline.** Buys: everything else above ships now. Costs: the first property in "The theme" stays open, and the release notes must say so plainly.
+
+What decides: whether UID allocation and build-time isolation can be designed in days. The preparatory steps (state out of `src/`, per-app `HOME`) are done whichever way it goes.
+
+### Before tagging
+
+- [ ] **Publish the catalog** (SF): the state-out-of-`src/` fixes reach servers only from the published catalog, and 19 entries already say `requires_hop3 = "0.8"`.
+- [ ] **A full catalog run on a blank-slate remote server**, `--with all`, from the release tree: the gate the advertised set depends on. It is also the only place the Docker-bridge paths (MySQL's Docker user, `pg_hba`, Redis `requirepass`) and the Docker-built variants run.
+- [ ] **The full tutorial suite on a remote server**, after the 2026-10-06 fixes (rails, sinatra, jekyll, django, nestjs, nuxtjs, nix-gen-flask were the failures).
+- [ ] **`make test-e2e` on a quiet machine** (one e2e session per machine).
+- [ ] **Re-record directus-nixgen's `node-deps-hash` on x86_64** (`../todo.md`).
+- [ ] **The HTTPS login path against a real admin domain**, owed since ADR 042's fourth revision: only the SSH fallback has run end to end.
+- [ ] **Move ADR 055 out of Proposed** with the increment chosen above.
+- [ ] **`CHANGES.md` reviewed as release notes**: it has grown by accretion over the cycle.
+
+### The second tier: a proposed cut
+
+Undecided (SF). The second tier was written as "cut first if September gets tight", and September has passed. A proposal, item by item:
+
+| Item | Proposal | Why |
+|---|---|---|
+| Email: direct backend, per-app override, catalog rollout | 0.9 | The harness unblock, the part that gated testing, is done |
+| Control-plane audit log | Keep if small | It makes an incident reconstructible, and it is scoped as modest |
+| Monitoring and resource metrics | 0.9 | Long planned, never started, and large |
+| Command surface (ADR 047 + manifest) | 0.9 | A breaking CLI and server change; the context model half is done |
+| `hop3-catalog-core` extraction | 0.9 | No user-visible effect |
+| `nixpkgs-wrapper` sibling packages, pnpm workspaces | 0.9 | Unblock specific apps; catalog growth can follow the release |
+| Per-app pnpm, `--with nodejs-*` | Decide with the experiment in headline 4 | The experiment is defined and not run |
+| `vm.max_map_count` sysctl | Keep | Small, unblocks SonarQube |
+| Gate: bearer tokens for scripts; Caddy and Traefik in the installer; per-app roles | 0.9 | The gate works on nginx for people; these widen it |
+
 ## After 0.8
 
 The queue behind this release is [`plan-0.9-plus.md`](plan-0.9-plus.md): recipe upgrades for installed catalog applications, the second UID-separation increment, SSO and MFA, the isolation ADR and the alternative backends behind it, the runtime-stack replacement (ADR 023), deployment strategies, backups phases 2 and 3, supply-chain attestation, and a tail of smaller self-contained items.
@@ -173,4 +230,4 @@ Directions *not* scheduled (the agent model, multi-component applications, the g
 
 If the four headline items land, the platform is one an operator can be handed without a list of caveats. An app that cannot reach root or read its neighbour's secrets. PHP served properly. A generator that packages your own code. An installer that can be asked for the toolchain you need. That is the bar. Roles and the sign-in gate, already in, add the other half: the operator decides who reaches each app.
 
-The second tier is where scope should be cut first if September gets tight, with one exception: **the email test-harness unblock is small and gates a whole dimension of testing**, so it should survive any cut.
+The second tier is where scope is cut first; the email test-harness unblock, the one item marked as surviving any cut, is done.
