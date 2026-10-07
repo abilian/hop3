@@ -13,9 +13,10 @@ Ubuntu 24.04, and every such install printed a warning and went on.
 from __future__ import annotations
 
 from types import SimpleNamespace
+from unittest.mock import patch
 
 import pytest
-from hop3_installer.common import CommandError
+from hop3_installer.common import CommandError, InstallStepError
 from hop3_installer.server_installer import deps_common
 
 
@@ -77,3 +78,46 @@ def test_apt_offers_reads_the_install_candidate(monkeypatch, policy, offered):
     )
 
     assert deps_common._apt_offers("dotnet-sdk-8.0") is offered
+
+
+def test_an_installed_sdk_counts_as_offered_on_fedora():
+    """`dnf list --available` may omit it, and a redeploy then aborted."""
+    answers = {"rpm": 0, "dnf": 1}
+
+    def run(cmd, **_kw):
+        return SimpleNamespace(returncode=answers[cmd[0]], stdout="", stderr="")
+
+    with patch.object(deps_common, "run_cmd", side_effect=run):
+        assert deps_common._dnf_offers("dotnet-sdk-10.0")
+
+
+def test_debian_without_microsofts_repository_stops_the_install():
+    """Debian has no .NET of its own: nothing could be installed after it."""
+    with (
+        patch.object(
+            deps_common, "_detect_debian_version", return_value=("debian", "12")
+        ),
+        patch.object(deps_common, "_add_microsoft_repository", return_value=False),
+        pytest.raises(InstallStepError, match=r"Debian has no \.NET packages"),
+    ):
+        deps_common.install_dotnet_sdk_debian()
+
+
+def test_on_ubuntu_a_missing_sdk_names_the_repository_failure(capsys):
+    """It said "not published" when the repository had failed to be added."""
+    with (
+        patch.object(
+            deps_common, "_detect_debian_version", return_value=("ubuntu", "24.04")
+        ),
+        patch.object(deps_common, "_add_microsoft_repository", return_value=False),
+        patch.object(
+            deps_common,
+            "run_cmd",
+            return_value=SimpleNamespace(returncode=0, stdout="", stderr=""),
+        ),
+        patch.object(deps_common, "Spinner"),
+        patch.object(deps_common, "_apt_offers", lambda pkg: pkg.endswith("8.0")),
+    ):
+        deps_common.install_dotnet_sdk_debian()
+
+    assert "Microsoft's repository could not be added" in capsys.readouterr().out

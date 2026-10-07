@@ -1033,7 +1033,11 @@ TOLERATED_DEPLOY_WARNINGS: tuple[tuple[re.Pattern[str], str], ...] = (
     ),
     (
         re.compile(r"Could not add Microsoft's repository"),
-        "the .NET SDK check that follows aborts if no SDK is then available",
+        (
+            "Ubuntu only (on Debian it aborts): the distribution's own .NET "
+            "packages remain, an SDK missing because of it is named as such, "
+            "and the install aborts if none is available"
+        ),
     ),
 )
 

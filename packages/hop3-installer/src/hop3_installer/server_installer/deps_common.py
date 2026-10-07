@@ -917,26 +917,51 @@ def install_dotnet_sdk_debian() -> None:
     """Install .NET SDKs on Debian/Ubuntu, Microsoft's repository added.
 
     Ubuntu ships its own .NET packages; Debian has none, so the repository is
-    what makes an SDK available there at all.
+    what makes an SDK available there at all, and failing to add it is fatal
+    there. On Ubuntu it is named as the likely cause of an SDK not offered:
+    that line used to say "not published", when the repository or the package
+    lists had failed.
     """
-    _add_microsoft_repository()
+    distro, _version = _detect_debian_version()
+    repo_added = _add_microsoft_repository()
+    if not repo_added and distro == "debian":
+        msg = (
+            "Microsoft's package repository could not be added, and Debian "
+            "has no .NET packages of its own"
+        )
+        raise InstallStepError(msg)
     with Spinner("Updating package lists..."):
-        run_cmd(["apt-get", "update", "-q", *APT_LOCK_FLAGS], check=False)
+        run_cmd(["apt-get", "update", "-q", *APT_LOCK_FLAGS])
     _install_dotnet_sdks(
         is_offered=_apt_offers,
         install_cmd=lambda pkg: ["apt-get", "install", "-y", *APT_LOCK_FLAGS, pkg],
         env=APT_NONINTERACTIVE_ENV,
+        missing_reason=(
+            "" if repo_added else " (Microsoft's repository could not be added)"
+        ),
     )
 
 
 def install_dotnet_sdk_fedora() -> None:
     """Install .NET SDKs on Fedora, which has them in its own repositories."""
     _install_dotnet_sdks(
-        is_offered=lambda pkg: (
-            run_cmd(["dnf", "-q", "list", "--available", pkg], check=False).returncode
-            == 0
-        ),
+        is_offered=_dnf_offers,
         install_cmd=lambda pkg: ["dnf", "install", "-y", pkg],
+    )
+
+
+def _dnf_offers(pkg: str) -> bool:
+    """
+    Whether ``pkg`` is installed, or dnf has it to install.
+
+    `dnf list --available` may leave out a package already installed at the
+    repository's version, which made a redeploy report every SDK unpublished
+    and abort.
+    """
+    if run_cmd(["rpm", "-q", pkg], check=False).returncode == 0:
+        return True
+    return (
+        run_cmd(["dnf", "-q", "list", "--available", pkg], check=False).returncode == 0
     )
 
 
@@ -945,6 +970,7 @@ def _install_dotnet_sdks(
     is_offered: Callable[[str], bool],
     install_cmd: Callable[[str], list[str]],
     env: dict[str, str] | None = None,
+    missing_reason: str = "",
 ) -> None:
     """
     Install every long-term SDK the platform publishes, and abort on failure.
@@ -959,7 +985,10 @@ def _install_dotnet_sdks(
     offered = [pkg for pkg in packages if is_offered(pkg)]
     for pkg in packages:
         if pkg not in offered:
-            print_info(f"{pkg} is not published for this platform; not installed")
+            print_info(
+                f"{pkg} is not offered by this server's package sources"
+                f"{missing_reason}; not installed"
+            )
     if not offered:
         msg = (
             f"no .NET SDK ({', '.join(packages)}) is published for this "
@@ -990,13 +1019,12 @@ def _apt_offers(pkg: str) -> bool:
     return candidate is not None and candidate.group(1) != "(none)"
 
 
-def _add_microsoft_repository() -> None:
+def _add_microsoft_repository() -> bool:
     """
     Add Microsoft's package repository for this distribution version.
 
-    A failure is reported and not fatal by itself: what matters is whether
-    an SDK is then offered, which ``_install_dotnet_sdks`` checks and aborts
-    on. On Ubuntu the distribution's own packages are enough.
+    Returns whether it was added; the caller decides whether that is fatal
+    (on Debian it is: no SDK can come from anywhere else).
     """
     distro, version = _detect_debian_version()
     print_detail(f"Detected {distro} {version}")
@@ -1012,3 +1040,5 @@ def _add_microsoft_repository() -> None:
         run_cmd(["rm", "-f", deb], check=False)
     if result.returncode != 0:
         print_warning(f"Could not add Microsoft's repository from {repo_url}")
+        return False
+    return True
