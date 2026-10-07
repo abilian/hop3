@@ -128,6 +128,13 @@ With the model above in mind, pick your framework. Each section starts with an *
 |-----------|-------------|
 | [Phoenix](elixir/phoenix.md) | Productive web framework |
 
+### Nix
+
+| Tutorial | Description |
+|----------|-------------|
+| [Flask with a hand-written expression](nix/nix-flask.md) | Write `hop3.nix` yourself, packages from nixpkgs |
+| [Flask built from your own directory](nix/nix-gen-flask.md) | No Nix code: a template and a hash-pinned lockfile |
+
 ### .NET
 
 | Framework | Description |

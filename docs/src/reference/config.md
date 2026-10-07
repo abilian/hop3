@@ -952,7 +952,7 @@ Eleven templates are available. Prefer the higher tiers when possible — see [N
 
 Most templates *fetch* the application — `url` names a release tarball, `nixpkgs-package` an attribute, `npm-package` a registry package. Omit the source and the recipe directory itself is the application, which is the git-push case: your own code, built by Nix.
 
-Supported today by `go-source` and `ruby-bundler`. For `go-source`, a module that requires nothing declares `go-vendor-hash = "none"` (there is no dependency set to pin); a module with dependencies still needs a real hash.
+Supported by `go-source`, `ruby-bundler` and `php-app`, which build the directory when the source is omitted, and by `python-venv` and `node-pnpm-install`, which say so explicitly (`pip-local-source = true`, `node-local-source = true`): neither ever reads a `url`, so its absence means nothing there. For `go-source`, a module that requires nothing declares `go-vendor-hash = "none"` (there is no dependency set to pin); a module with dependencies still needs a real hash. A local `php-app` refuses `needs-composer` and `needs-writable-dir`. The tutorial [Your Own Flask App, Built Hermetically by Nix](../tutorials/nix/nix-gen-flask.md) walks through the Python case.
 
 ```toml
 [nix]
@@ -970,7 +970,7 @@ Each key below is claimed either by the shared core or by exactly one template. 
 It would have no effect here.
 ```
 
-Run `hop3 nix eject <app>` or deploy to see the generated expression; the error names the valid keys for the template in use.
+Run `hop3 nix eject --app <app>` or deploy to see the generated expression; the error names the valid keys for the template in use.
 
 ### Common Fields
 
@@ -1062,6 +1062,44 @@ serve-mode = "fpm"             # the default: a php-fpm pool behind the proxy;
                                # "builtin" (php -S) and "artisan" remain
 web-root = "htdocs"            # Document root; detected when absent (fpm)
 post-install-dirs = ["storage/logs", "bootstrap/cache"]
+```
+
+### Python-Specific Fields
+
+The dependency set comes from a lockfile with a hash on every requirement (`uv pip compile --generate-hashes`, or `pip-compile --generate-hashes`). One step downloads exactly those files and is checked against `pip-deps-hash`; the virtualenv is then installed offline from them.
+
+```toml
+[nix]
+template = "python-venv"
+pip-requirements = "requirements.txt"
+pip-deps-hash = "sha256-..."            # a failed build prints it as `got:`
+pip-local-source = true                 # install this directory beside the venv
+                                        # and put it on PYTHONPATH
+pip-source-packages = ["markupsafe"]    # fetch these as sdists, not wheels
+pip-build-requires = ["setuptools==84.0.0"]  # their build backends, pinned
+runtime-package = "python312"
+exec-target = "gunicorn"                # a script in the venv's bin
+exec-args = ["app:app", "--bind", "0.0.0.0:${PORT:-8080}"]
+```
+
+A package that ships per-architecture wheels makes the downloaded set, and `pip-deps-hash`, depend on the build machine. Listing it in `pip-source-packages` fetches its source distribution instead, the same bytes everywhere, so one hash holds on every architecture.
+
+### Node-Specific Fields
+
+The dependency set comes from a committed `package.json` and `pnpm-lock.yaml`. `pnpm fetch` downloads it into a store checked against `node-deps-hash`; the install then runs offline, with `--ignore-scripts`.
+
+```toml
+[nix]
+template = "node-pnpm-install"
+node-manifest = "package.json"
+node-lockfile = "pnpm-lock.yaml"
+node-deps-hash = "sha256-..."           # a failed build prints it as `got:`
+node-local-source = true                # or npm-package = "<name>" to install
+                                        # a registry package
+exec-target = "server.js"               # local: the entry script, run by node;
+                                        # registry: a bin under node_modules/.bin
+node-native-packages = ["isolated-vm"]  # addons to compile from source, offline
+runtime-package = "nodejs_22"
 ```
 
 ### Ruby-Specific Fields
