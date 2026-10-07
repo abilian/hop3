@@ -233,14 +233,13 @@ def restart_hop3_server() -> None:
         )
         return
 
-    if has_systemd():
-        result = run_cmd(["systemctl", "restart", "hop3-server"], check=False)
-    else:
-        result = run_cmd(["supervisorctl", "restart", "hop3-server"], check=False)
+    manager = "systemctl" if has_systemd() else "supervisorctl"
+    cmd = [manager, "restart", "hop3-server"]
+    result = run_cmd(cmd, check=False)
 
     if result.returncode != 0:
         raise CommandError(
-            cmd=["restart", "hop3-server"],
+            cmd=cmd,
             returncode=result.returncode,
             stdout=result.stdout or "",
             stderr=result.stderr or "",

@@ -49,7 +49,7 @@ def test_an_sdk_the_platform_lacks_is_skipped(monkeypatch):
 
 
 def test_a_platform_with_no_sdk_aborts(monkeypatch):
-    with pytest.raises(CommandError):
+    with pytest.raises(InstallStepError):
         _install(monkeypatch, offered=set())
 
 

@@ -120,11 +120,8 @@ def install_base_packages(spec: PackageSpec) -> None:
 
     if result.returncode != 0:
         print_error("Base package installation failed")
-        # apt reports *why* on stdout and only the summary on stderr, so
-        # printing stderr alone leaves "dpkg returned an error code (1)" and no
-        # cause. Show both, stdout last: it holds the failing package.
-        print_failure_output("stderr", result.stderr)
-        print_failure_output("stdout", result.stdout)
+        # apt reports *why* on stdout and only the summary on stderr: both
+        # travel with the error, and main() prints them once.
         raise CommandError(
             [spec.pkg_manager, "install"] + spec.base_packages,
             result.returncode,
@@ -161,8 +158,6 @@ def install_conditional_package(
         )
     if result.returncode != 0:
         print_error(f"{pkg_name} installation failed")
-        print_failure_output("stderr", result.stderr)
-        print_failure_output("stdout", result.stdout)
         raise CommandError(
             cmd=install_cmd,
             returncode=result.returncode,
@@ -434,16 +429,19 @@ def _toolchain_failed(
     (`--with rust|clojure|elixir`), the toolchain is a promise, and its
     failure stops the install.
     """
-    (print_error if required else print_warning)(msg)
+    if required:
+        # main() prints the error and its output, once.
+        if result is None:
+            raise InstallStepError(msg)
+        raise CommandError(
+            cmd=[str(arg) for arg in result.args],
+            returncode=result.returncode,
+            stdout=result.stdout or "",
+            stderr=result.stderr or msg,
+        )
+    print_warning(msg)
     if result is not None:
         print_failure_output("stderr", result.stderr, lines=8)
-    if required:
-        raise CommandError(
-            cmd=[msg],
-            returncode=result.returncode if result is not None else 1,
-            stdout=(result.stdout or "") if result is not None else "",
-            stderr=(result.stderr or msg) if result is not None else msg,
-        )
 
 
 def _verify_or_repair_cargo(
@@ -542,12 +540,9 @@ def install_catalogue_baseline(os_family: str) -> None:
     # distro nodejs) stayed hidden while every Node app failed downstream. Abort
     # loudly so the operator fixes provisioning instead of chasing per-app errors.
     print_error("Catalogue baseline install failed")
-    # Same reasoning as install_base_packages above, and the same helper: apt
-    # reports *why* on stdout and only the one-line verdict on stderr, so the
-    # stderr tail alone gave "E: Error, pkgProblemResolver::Resolve generated
-    # breaks" with no way to tell which package. Echo both, stdout last.
-    print_failure_output("stderr", result.stderr)
-    print_failure_output("stdout", result.stdout)
+    # As in install_base_packages: apt reports *why* on stdout and only the
+    # one-line verdict on stderr ("E: Error, pkgProblemResolver::Resolve
+    # generated breaks"), so both travel with the error; main() prints them.
     raise CommandError(
         cmd=install_cmd,
         returncode=result.returncode,
@@ -994,15 +989,12 @@ def _install_dotnet_sdks(
             f"no .NET SDK ({', '.join(packages)}) is published for this "
             f"platform, so .NET apps cannot be built on it"
         )
-        print_error(msg)
-        raise CommandError(cmd=["dotnet-sdk"], returncode=1, stderr=msg)
+        raise InstallStepError(msg)
     for pkg in offered:
         with Spinner(f"Installing {pkg}..."):
             result = run_cmd(install_cmd(pkg), env=env, check=False)
         if result.returncode != 0:
             print_error(f"{pkg} installation failed")
-            print_failure_output("stderr", result.stderr)
-            print_failure_output("stdout", result.stdout)
             raise CommandError(
                 cmd=install_cmd(pkg),
                 returncode=result.returncode,

@@ -31,8 +31,8 @@ from hop3_installer.server_installer import (
 from hop3_installer.server_installer.config import ServerInstallerConfig
 
 
-def _failed(*_a, **_kw) -> SimpleNamespace:
-    return SimpleNamespace(returncode=1, stdout="", stderr="boom")
+def _failed(cmd, **_kw) -> SimpleNamespace:
+    return SimpleNamespace(args=cmd, returncode=1, stdout="", stderr="boom")
 
 
 def test_node_without_npm_stops_the_install():

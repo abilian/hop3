@@ -197,8 +197,23 @@ def _create_mysql_hop3_user(
     hosts, so the user is created for both. mysql_native_password, for
     mysql-connector-python.
     """
+    _create_hop3_user_at(root_cmd, root_env, mysql_password, ("localhost", "127.0.0.1"))
+
+
+def _create_hop3_user_at(
+    root_cmd: list[str],
+    root_env: dict[str, str],
+    mysql_password: str,
+    hosts: tuple[str, ...],
+) -> None:
+    """
+    (Re-)create ``'hop3'@host`` for each of ``hosts``, with privileges.
+
+    One sequence for the local rows and the Docker-bridge row, so they cannot
+    drift: database-addon-portability.md asks for exactly this.
+    """
     _check_mysql_password(mysql_password)
-    for host in ("localhost", "127.0.0.1"):
+    for host in hosts:
         _run_admin_sql(root_cmd, root_env,
                        f"DROP USER IF EXISTS 'hop3'@'{host}';",
                        f"drop user hop3@{host}")  # fmt: skip
@@ -270,26 +285,9 @@ def _create_mysql_docker_user(
     root_cmd: list[str], root_env: dict[str, str], mysql_password: str, docker_ip: str
 ) -> None:
     """Create the hop3 MySQL user for the Docker bridge network (e.g. 172.17.%)."""
-    _check_mysql_password(mysql_password)
     parts = docker_ip.split(".")
     pattern = f"{parts[0]}.{parts[1]}.%"
-    _run_admin_sql(root_cmd, root_env,
-                   f"DROP USER IF EXISTS 'hop3'@'{pattern}';",
-                   f"drop user hop3@{pattern}")  # fmt: skip
-    _run_admin_sql(
-        root_cmd,
-        root_env,
-        f"CREATE USER 'hop3'@'{pattern}' IDENTIFIED WITH mysql_native_password "
-        f"BY '{mysql_password}';",
-        f"create user hop3@{pattern}",
-    )
-    _run_admin_sql(
-        root_cmd,
-        root_env,
-        f"GRANT ALL PRIVILEGES ON *.* TO 'hop3'@'{pattern}' WITH GRANT OPTION;",
-        f"grant privileges to hop3@{pattern}",
-    )
-    _run_admin_sql(root_cmd, root_env, "FLUSH PRIVILEGES;", "flush privileges")
+    _create_hop3_user_at(root_cmd, root_env, mysql_password, (pattern,))
     print_detail(f"MySQL user 'hop3' configured for Docker network ({pattern})")
 
 
