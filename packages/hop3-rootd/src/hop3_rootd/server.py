@@ -29,6 +29,7 @@ from pathlib import Path
 from typing import Final
 
 from hop3_rootd.audit import AuditEntry, AuditLog, logger, sanitise_args
+from hop3_rootd.caller import APP_RUNTIME_UNIT, in_app_runtime
 from hop3_rootd.cgroup import CgroupError
 from hop3_rootd.dkim import DkimError
 from hop3_rootd.exec import CommandTimeoutError
@@ -93,9 +94,9 @@ def _resolve_allowed_uids() -> set[int]:
     return uids
 
 
-def get_peer_uid(sock: socket.socket) -> int | None:
+def get_peer_creds(sock: socket.socket) -> tuple[int, int] | None:
     """
-    Return the UID of the peer connected to this AF_UNIX socket.
+    Return the ``(pid, uid)`` of the peer connected to this AF_UNIX socket.
 
     Uses SO_PEERCRED. Returns None on platforms that don't support it
     (e.g., macOS — but the daemon is Linux-only in practice).
@@ -108,8 +109,8 @@ def get_peer_uid(sock: socket.socket) -> int | None:
         if so_peercred is None:
             return None
         creds = sock.getsockopt(socket.SOL_SOCKET, so_peercred, struct.calcsize("3i"))
-        _pid, uid, _gid = struct.unpack("3i", creds)
-        return uid
+        pid, uid, _gid = struct.unpack("3i", creds)
+        return pid, uid
     except OSError:
         return None
 
@@ -419,12 +420,25 @@ class Server:
             return
         client.setblocking(False)
 
-        peer_uid = get_peer_uid(client)
-        if peer_uid is None or peer_uid not in self.allowed_uids:
+        creds = get_peer_creds(client)
+        if creds is None or creds[1] not in self.allowed_uids:
             logger.warning(
                 "rejecting connection from uid=%s (not in allowed set %s)",
-                peer_uid,
+                creds and creds[1],
                 sorted(self.allowed_uids),
+            )
+            client.close()
+            return
+        peer_pid, peer_uid = creds
+        # Apps share the hop3 uid until ADR 055's per-app users: the uid check
+        # alone admitted any app's code. Its place in the process tree does not.
+        if in_app_runtime(peer_pid):
+            logger.warning(
+                "rejecting connection from pid=%d uid=%d: it runs inside the "
+                "app runtime (%s), and apps may not call hop3-rootd",
+                peer_pid,
+                peer_uid,
+                APP_RUNTIME_UNIT,
             )
             client.close()
             return

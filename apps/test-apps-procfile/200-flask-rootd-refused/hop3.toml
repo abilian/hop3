@@ -1,0 +1,22 @@
+# An app must not reach hop3-rootd (plan-0.8, headline 1).
+#
+# Apps share the hop3 uid with the control plane until ADR 055's per-app users,
+# so rootd's uid check admitted them; it now also refuses a caller inside the
+# app runtime. This app connects to rootd's socket and reports the outcome.
+
+[metadata]
+id = "flask-rootd-refused"
+description = "Flask app that tries to call hop3-rootd and must be refused"
+
+[test]
+priority = "P0"
+tier = "fast"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "security", "rootd"]
+
+# "answered" would mean an app reaches root.
+[[test.validations]]
+path = "/"
+status = 200
+contains = "rootd from an app: refused"

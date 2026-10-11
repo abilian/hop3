@@ -70,6 +70,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Security
 
+- **An app can no longer call hop3-rootd.** Every native app runs as `hop3`, the uid rootd admits, so any app's code could ask the privileged helper for anything: root, with no exploit. rootd now also refuses a caller running inside the app runtime: the `uwsgi-hop3` service's cgroup or `hop3.slice` under systemd, and descendants of the uWSGI Emperor on a host without systemd (weaker: a process that double-forks escapes it). Apps still share one user, so one app can read another's data until per-app users land (planned for 0.9).
 - **A gated app's nginx include file cannot forward around the gate.** The gate replaces the client's `X-Hop3-User`, `X-Hop3-Role` and `Cookie` in the locations Hop3 writes; a location in `NGINX_INCLUDE_FILE` with its own `proxy_pass` inherited none of that and forwarded whatever identity the client sent. Such an include is now refused on an app with `[access]`.
 - **Scaling a process type down removes that worker's copy of the app's secrets.** Each worker's environment is a `0600` file; a removed worker's file stayed on disk, and a later rotation never updated it.
 - **Database passwords no longer appear on a command line.** The installer set the PostgreSQL superuser password with `psql -c "ALTER USER ... PASSWORD '...'"` and created the MySQL `hop3` user with `mysql -e`, both readable by any local user in `/proc/<pid>/cmdline` while they ran; the SQL now goes on stdin.

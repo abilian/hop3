@@ -18,6 +18,7 @@ Minimal "Hello World" applications covering core language toolchains. Used for a
 | `120-flask-pip-alt` | Python | Flask with config in hop3/ subdir |
 | `130-golang-minimal` | Go | Minimal Go HTTP server |
 | `190-flask-email` | Python | Email addon: sends through the relay, reads it back from the catch sink |
+| `200-flask-rootd-refused` | Python | An app cannot call hop3-rootd: the connection is refused from inside the app runtime |
 
 ## Running Tests
 
