@@ -9,7 +9,7 @@
 
 The target week has passed. Where each part stands:
 
-- **Headline 1, per-app UID separation:** two of its three steps are done (state survives a redeploy for every native and Nix recipe; each app has its own `HOME` and `TMPDIR`). The third, per-app users, is not started, and ADR 055 is still Proposed. This is the release's open question (see [To release 0.8](#to-release-08)).
+- **Headline 1, per-app UID separation:** two of its three steps are done (state survives a redeploy for every native and Nix recipe; each app has its own `HOME` and `TMPDIR`). The third, per-app users, moves to 0.9 together with build-time isolation (decided 2026-10-11); 0.8 instead stops app code reaching root, by having rootd refuse callers inside the app runtime.
 - **Headline 2, php-fpm:** done, native and Nix.
 - **Headline 3, local-source builds:** done: one fixture per template, built and served, and the git-push-to-Nix tutorial.
 - **Headline 4, installer composability:** partly. Rust, Clojure and Elixir are `--with` features; npm and pnpm are pinned server-wide; Node versions per app exist. The per-app package manager and the `--with nodejs-*` family are open.
@@ -57,7 +57,7 @@ A fourth property belongs on that list and is absent on purpose: nothing watches
 
 - [x] Run the capability experiment; record the result in the ADR. Done 2026-09-24: a `setpriv` wrapper, not uWSGI, performs the drop.
 - [x] Stop delivering `[env]` on the `attach-daemon` command line (ADR 055 §6). Done 2026-09-24: workers source a `0600` file; an app picks it up on its next deploy.
-- [ ] Move ADR 055 from Proposed to Accepted with the increment recorded.
+- [ ] Move ADR 055 from Proposed to Accepted once the 0.9 work settles its open questions.
 
 **What running an app as another user would break (surveyed 2026-09-28).** A static read of every catalog recipe, asking where each app writes at runtime, changed the order of work:
 
@@ -71,7 +71,8 @@ The item is now three steps:
 - [x] **State survives a redeploy.** Platform, 2026-09-28: `scratch` volumes; volumes linked after the build, a newly declared one seeded from the tree the deploy replaces; a harness that fails an app writing into `src/` and redeploys every app. The first measurement passed 7 of 20 golden recipes; after the fixes, all 20 pass on Docker, redeploy included. 2026-09-29: a Nix wrapper's config files and `pre-exec` run once per deploy as the build's own before-run step, and `writable-home-at-runtime` copies the package at deploy time; all 34 beta Nix variants pass on Docker, redeploy included. The native and Nix alpha recipes too, 54 of 55 (directus-nixgen's dependency hash does not match on arm64). Done for every native and Nix recipe. Not covered: the 52 Docker variants, whose state lives in the container, and a harness check that the data itself survives a redeploy (`notes/todo.md`).
 - [ ] **Publish the catalog.** The fixes reach servers only once published, and only new installs then: an installed app has no path to a newer recipe (plan-0.9, recipe upgrades). The 19 published entries that need a 0.8 server now say so with `requires_hop3`.
 - [x] **Each app gets its own `HOME` and `TMPDIR`** (2026-09-30), `<app>/home/` and `<app>/tmp/`, for everything that runs the app's code: workers, `before-run`, the `[admin]`/`[probe]` `create` commands (which also stopped inheriting the server's environment), `hop3 run`, `hop3 app shell`. Build steps keep the server's `HOME`, where rustup, cargo, npm and pnpm keep toolchains and caches; they move with step 3, when builds stop running as `hop3` (ADR 055 open question 6).
-- [ ] **Per-app users**: hooks and runtime in one change, `src/` read-only to the app.
+- [ ] **rootd refuses callers inside the app runtime.** Its only check was the caller's uid, which every app shares with the control plane, so a compromised app reached root with no exploit. rootd now also refuses a caller in the `uwsgi-hop3` cgroup (systemd) or descended from the uWSGI Emperor (hosts without systemd, where it is weaker: a process that double-forks escapes it). A fixture checks that a deployed app is refused at the socket.
+- **Moved to 0.9: per-app users, with build-time isolation** (2026-10-11). Doing the runtime alone would leave build-time recipe code running as `hop3` and change every app's file ownership twice. Work plan: [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md): every switch of user goes through hop3-rootd, no sudo.
 
 ### 2. PHP-FPM: a production runtime for ten catalog apps
 
@@ -183,15 +184,9 @@ Not yet proven: the HTTPS path has only been exercised against a server with an 
 
 ## To release 0.8
 
-### The open decision: per-app users in 0.8, or after it
+### Decided: per-app users in 0.9 (2026-10-11)
 
-Undecided (SF).
-
-- **Ship per-app users in 0.8.** Buys: the release's first headline in full; the rootd escalation and cross-app reads closed. Costs: the largest piece of work in the plan, still gated on UID allocation and on builds running as `hop3` (ADR 055 open question 6), so the release moves by weeks.
-- **Ship the shared `hop3-apps` user in 0.8, per-app users in 0.9.** Buys: the rootd hole and the control-plane secrets closed now. Costs: a group-writable file model that per-app users later replace, and apps still read each other's data.
-- **Release 0.8 without either, and make separation 0.9's headline.** Buys: everything else above ships now. Costs: the first property in "The theme" stays open, and the release notes must say so plainly.
-
-What decides: whether UID allocation and build-time isolation can be designed in days. The preparatory steps (state out of `src/`, per-app `HOME`) are done whichever way it goes.
+0.8 ships without them, and rootd's caller check closes the worst consequence (app code reaching root). The release notes say what remains: apps share one Unix user, so one app can read another's data and the control plane's, until 0.9.
 
 ### Before tagging
 
@@ -201,7 +196,7 @@ What decides: whether UID allocation and build-time isolation can be designed in
 - [ ] **`make test-e2e` on a quiet machine** (one e2e session per machine).
 - [ ] **Re-record directus-nixgen's `node-deps-hash` on x86_64** (`../todo.md`).
 - [ ] **The HTTPS login path against a real admin domain**, owed since ADR 042's fourth revision: only the SSH fallback has run end to end.
-- [ ] **Move ADR 055 out of Proposed** with the increment chosen above.
+- [ ] **Release notes state the isolation that remains open**, and where it is planned.
 - [ ] **`CHANGES.md` reviewed as release notes**: it has grown by accretion over the cycle.
 
 ### The second tier: a proposed cut
@@ -228,6 +223,6 @@ Directions *not* scheduled (the agent model, multi-component applications, the g
 
 ## What would make 0.8 a good release
 
-If the four headline items land, the platform is one an operator can be handed without a list of caveats. An app that cannot reach root or read its neighbour's secrets. PHP served properly. A generator that packages your own code. An installer that can be asked for the toolchain you need. That is the bar. Roles and the sign-in gate, already in, add the other half: the operator decides who reaches each app.
+If the headline items land, the platform is one an operator can be handed with one stated caveat. An app that cannot reach root (reading its neighbour's data waits for 0.9). PHP served properly. A generator that packages your own code. An installer that can be asked for the toolchain you need. That is the bar. Roles and the sign-in gate, already in, add the other half: the operator decides who reaches each app.
 
 The second tier is where scope is cut first; the email test-harness unblock, the one item marked as surviving any cut, is done.

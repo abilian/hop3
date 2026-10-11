@@ -11,7 +11,7 @@ Ordered by how likely each is to be picked up first.
 
 ## Security and identity
 
-**Per-app UID separation, second increment (ADR 055).** 0.8 ships the shared `hop3-apps` user, which closes the privilege-escalation path into `hop3-rootd` and stops applications reading the control plane's secrets. It does *not* stop applications interfering with each other: `app_name` is still caller-asserted, so one application can act on another's cgroups, ports and volumes. Per-app `hop3-app-<name>` users are the second increment, and the ADR's open questions (UID allocation and reuse after destroy, the minimal capability set for the process supervisor, groups versus ACLs for addon sockets) need answers first.
+**Per-app users and build-time isolation (ADR 055).** Each app runs as its own Unix user, its run-time commands and its builds included, with `src/` read-only to it. 0.8 stops app code reaching root through hop3-rootd; apps still share `hop3`, so one can read another's data and the control plane's until this lands. Work plan: [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md); every switch of user goes through hop3-rootd. The ADR's open questions (UID allocation and reuse after destroy, single-user Nix) are settled there before code.
 
 **Per-resource ownership (`App.owner`).** Ownership recorded on the row, dispatcher-level authorization, and a migration for existing applications. Needs its own ADR. ADR 011 notes that per-tenant encryption keys only become meaningful once the control plane distinguishes accounts, so this gates that too.
 

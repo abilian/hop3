@@ -11,4 +11,6 @@ Where Hop3 is going, at four horizons. Each file states what it is for, so an it
 
 The boundary that matters most is the last one. Everything in `parked.md` has a standing justification of its own, which is exactly why it needs a file: without one, each direction gets rediscovered, looks like the obvious next thing, and takes a week before anyone asks whether it was the right week. The default there is "not yet".
 
+An item large enough to need its own sequence of work gets a work plan beside its release plan: [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md) (per-app users and build-time isolation).
+
 Shipped release plans are in [`../ngi-2024/`](../ngi-2024/), kept as record.
