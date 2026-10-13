@@ -170,10 +170,13 @@ Extensible via plugins:
 
 ### Application Isolation
 
-- Separate directories per application
+- Separate directories per application, with its own `HOME` and `TMPDIR`
 - Isolated virtual environments
 - Dedicated database credentials
-- Process isolation via uWSGI
+- Optional per-app CPU and memory limits (cgroup v2)
+- Applications cannot call the privileged helper (hop3-rootd)
+
+Applications still run as one shared Unix user, so one application can read another's files. Per-application users are planned for 0.9.
 
 ### Network Security
 

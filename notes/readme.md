@@ -37,7 +37,8 @@ See [`reports/README.md`](./reports/README.md) for the series and how it builds.
 Four horizons, indexed in [`plans/README.md`](./plans/README.md):
 
 - [`plans/plan-0.7.x.md`](./plans/plan-0.7.x.md). The 0.7 maintenance tail: the unreleased security payload, catalog presentation, the open security backlog.
-- [`plans/plan-0.8.md`](./plans/plan-0.8.md). Version 0.8 (September 2026): app isolation, a production PHP runtime, local-source Nix builds, installer composability.
+- [`plans/plan-0.8.md`](./plans/plan-0.8.md). Version 0.8, the next release: a production PHP runtime, local-source Nix builds, roles and a sign-in gate, installer composability, and apps kept away from root. Per-app users moved to 0.9.
+- [`plans/plan-0.9-per-app-users.md`](./plans/plan-0.9-per-app-users.md). The 0.9 work plan for per-app Unix users and build-time isolation.
 - [`plans/plan-0.9-plus.md`](./plans/plan-0.9-plus.md). The queue behind 0.8: designs without dates.
 - [`plans/parked.md`](./plans/parked.md). Five architectural directions parked on purpose.
 

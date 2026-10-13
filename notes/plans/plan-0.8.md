@@ -1,15 +1,15 @@
 # Plan: 0.8: the platform underneath the apps
 
-**Created:** 2026-08-01. **Owner:** SF. **Target:** the week of 2026-09-28 (set 2026-09-24; was September 2026).
+**Created:** 2026-08-01. **Owner:** SF. **Target:** no fixed date; the release follows the checks in [To release 0.8](#to-release-08) (set 2026-10-11; was the week of 2026-09-28, and September 2026 before that).
 **Predecessor:** [`plan-0.7.x.md`](plan-0.7.x.md): fixes and polish on what 0.7 ships. Anything that repairs 0.7 belongs there; this file is for what 0.8 *adds*.
 **Successor:** [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind this release) and [`parked.md`](parked.md) (directions not scheduled).
 **Sources:** the "After 0.7" list in [`../todo.md`](../todo.md), TR-03 §9 (Future Work), the draft and deferred ADRs, the per-app experience reports and their deferral records, the team's internal roadmap notes.
 
-## Status, 2026-10-07
+## Status, 2026-10-11
 
-The target week has passed. Where each part stands:
+Where each part stands:
 
-- **Headline 1, per-app UID separation:** two of its three steps are done (state survives a redeploy for every native and Nix recipe; each app has its own `HOME` and `TMPDIR`). The third, per-app users, moves to 0.9 together with build-time isolation (decided 2026-10-11); 0.8 instead stops app code reaching root, by having rootd refuse callers inside the app runtime.
+- **Headline 1, per-app UID separation:** two of its three steps are done (state survives a redeploy for every native and Nix recipe; each app has its own `HOME` and `TMPDIR`). The third, per-app users, moves to 0.9 together with build-time isolation (decided 2026-10-11); 0.8 instead stops app code reaching root: rootd refuses callers inside the app runtime (done 2026-10-11).
 - **Headline 2, php-fpm:** done, native and Nix.
 - **Headline 3, local-source builds:** done: one fixture per template, built and served, and the git-push-to-Nix tutorial.
 - **Headline 4, installer composability:** partly. Rust, Clojure and Elixir are `--with` features; npm and pnpm are pinned server-wide; Node versions per app exist. The per-app package manager and the `--with nodejs-*` family are open.
@@ -71,7 +71,7 @@ The item is now three steps:
 - [x] **State survives a redeploy.** Platform, 2026-09-28: `scratch` volumes; volumes linked after the build, a newly declared one seeded from the tree the deploy replaces; a harness that fails an app writing into `src/` and redeploys every app. The first measurement passed 7 of 20 golden recipes; after the fixes, all 20 pass on Docker, redeploy included. 2026-09-29: a Nix wrapper's config files and `pre-exec` run once per deploy as the build's own before-run step, and `writable-home-at-runtime` copies the package at deploy time; all 34 beta Nix variants pass on Docker, redeploy included. The native and Nix alpha recipes too, 54 of 55 (directus-nixgen's dependency hash does not match on arm64). Done for every native and Nix recipe. Not covered: the 52 Docker variants, whose state lives in the container, and a harness check that the data itself survives a redeploy (`notes/todo.md`).
 - [ ] **Publish the catalog.** The fixes reach servers only once published, and only new installs then: an installed app has no path to a newer recipe (plan-0.9, recipe upgrades). The 19 published entries that need a 0.8 server now say so with `requires_hop3`.
 - [x] **Each app gets its own `HOME` and `TMPDIR`** (2026-09-30), `<app>/home/` and `<app>/tmp/`, for everything that runs the app's code: workers, `before-run`, the `[admin]`/`[probe]` `create` commands (which also stopped inheriting the server's environment), `hop3 run`, `hop3 app shell`. Build steps keep the server's `HOME`, where rustup, cargo, npm and pnpm keep toolchains and caches; they move with step 3, when builds stop running as `hop3` (ADR 055 open question 6).
-- [ ] **rootd refuses callers inside the app runtime.** Its only check was the caller's uid, which every app shares with the control plane, so a compromised app reached root with no exploit. rootd now also refuses a caller in the `uwsgi-hop3` cgroup (systemd) or descended from the uWSGI Emperor (hosts without systemd, where it is weaker: a process that double-forks escapes it). A fixture checks that a deployed app is refused at the socket.
+- [x] **rootd refuses callers inside the app runtime** (2026-10-11). Its only check was the caller's uid, which every app shares with the control plane, so a compromised app reached root with no exploit. rootd now also refuses a caller in the `uwsgi-hop3` cgroup (systemd) or descended from the uWSGI Emperor (hosts without systemd, where it is weaker: a process that double-forks escapes it). A fixture checks that a deployed app is refused at the socket.
 - **Moved to 0.9: per-app users, with build-time isolation** (2026-10-11). Doing the runtime alone would leave build-time recipe code running as `hop3` and change every app's file ownership twice. Work plan: [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md): every switch of user goes through hop3-rootd, no sudo.
 
 ### 2. PHP-FPM: a production runtime for ten catalog apps

@@ -5,7 +5,7 @@ Where Hop3 is going, at four horizons. Each file states what it is for, so an it
 | File | Horizon | Admission test |
 |---|---|---|
 | [`plan-0.7.x.md`](plan-0.7.x.md) | days to weeks | Does it repair or complete something a 0.7 user can already see? |
-| [`plan-0.8.md`](plan-0.8.md) | September 2026 | Does it add a capability the platform is missing underneath the applications? |
+| [`plan-0.8.md`](plan-0.8.md) | the next release | Does it add a capability the platform is missing underneath the applications? |
 | [`plan-0.9-plus.md`](plan-0.9-plus.md) | after 0.8 | Is it wanted and designed, but without a date? |
 | [`parked.md`](parked.md) | not scheduled | Would it change the shape of the platform? |
 

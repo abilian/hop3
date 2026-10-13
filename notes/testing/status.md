@@ -1,6 +1,6 @@
 # Hop3 Test Status
 
-**Last updated:** 2026-10-05.
+**Last updated:** 2026-10-11.
 
 The *structure* is [ADR 043](../adrs/043-unified-testing-architecture.md) and [`strategy.md`](strategy.md); the *commands* are [`cheat-sheet.md`](cheat-sheet.md) and the quick reference in `CLAUDE.md`. This file records where the suites stand today, and nothing more. Every number on it is reproducible by the command beside it. If you are reading it more than a few weeks after the date above, re-run the commands before trusting the numbers.
 
@@ -10,6 +10,12 @@ The *structure* is [ADR 043](../adrs/043-unified-testing-architecture.md) and [`
 - The server is installed with what the selected apps declare: their addons and the runtime their builder needs (`nix`, `docker`). Nothing is installed by default.
 - On the Docker target, Docker-built apps are left out before the deploy, each named: the container cannot run Docker. Most `-docker` recipes declare no test targets, so a Docker-target run now lists them as skipped; they run against a server with `--host`.
 - A run that includes an app declaring email selects the `catch` backend, and the mail lands in Mailpit (`190-flask-email` checks the path).
+
+**Since 2026-10-05.**
+
+- **The executable tutorials run again.** They could not pass on the Docker target from June to October, unnoticed, for three stacked reasons: the test domain carried the SSH user (`hop3@<ip>.sslip.io`), a target named by hostname got a domain sslip.io cannot resolve, and every tutorial checked `http://`, which the platform redirects. A tutorial also now gets the server its `hop3.toml` asks for (Nix, its addons).
+- **New fixtures:** one per local-source nix-gen template (`apps/test-apps-nix-gen/`), and `200-flask-rootd-refused`, which checks that an app cannot call hop3-rootd.
+- **A review of everything since 0.7** (`devel` against `main`) found 42 problems; all are fixed, each with a regression test.
 
 ## The layers
 
@@ -25,7 +31,8 @@ Three, decided by what a test *needs* (Docker, root, host mutation). Complexity 
 
 | Suite | Result | Time | Command |
 |-------|--------|------|---------|
-| Fast tier, all packages | 5983 passed, 1 skipped | ~55 s | `make test-fast` |
+| Fast tier, all packages | 6586 passed, 1 skipped | ~60 s | `make test-fast` |
+| Executable tutorials, remote target | 28 of 35, then the seven failures fixed (2026-10-06) | ~35 min | `hop3-test run --host <server> --from local docs/tutorials/` |
 | Integration, hop3-server | 537 passed, 22 skipped | ~42 s | `uv run pytest packages/hop3-server/tests/b_integration` |
 | Docker e2e | green, no skips | ~15 min | `make test-e2e` |
 | App catalog, remote target | **162 of 162**, over three runs | ~5 h | `hop3-test run --host <server> --with all` |
@@ -74,6 +81,9 @@ Five of the eight were the platform's fault. Three could only have been found by
 
 ## Known gaps
 
+- **The last full catalog run predates most of 0.8.** The golden set passed in the week of 2026-09-28 (runs 1190–1194); since then the installer, the update path, the proxy, rootd and the email backend have changed. A blank-slate remote run is the release gate ([`../plans/plan-0.8.md`](../plans/plan-0.8.md), "Before tagging").
+- **The tutorial suite has no scheduled run**, which is how it stayed broken for four months ([`../todo.md`](../todo.md)).
+- **rootd's caller check has run on the Docker target only**, where the process ancestry decides. Its systemd path (the `uwsgi-hop3.service` cgroup and `hop3.slice`) is unit-tested and has not run on a systemd host.
 - **A warm Nix store hides an app that cannot build.** `directus-nixgen` passed nine runs between 2026-08-24 and 2026-09-16 and failed on 2026-09-21 with `reused 0, downloaded 1267`: its dependency-fetch derivation was rebuilt for the first time since August, and `pnpm fetch` died compiling `isolated-vm@5.0.3`. Nix short-circuits a fixed-output derivation whose path already exists, so neither the catalog run nor `hop3-tools nix check-reproducible` re-enters that step once it has succeeded once. Every nix-gen app has the same hiding place. `make test-nix-cold` is the answer: `--clean` removes Hop3 and leaves `/nix`, so only an OS rebuild empties the store. Run it on a schedule, because a warm store makes the cheap gates say nothing.
 - **The two php-fpm platform fixtures are the cheap check**, and the catalog run is the only layer that exercises the runtime against real applications. `apps/test-apps-procfile/060-php-hello` and `070-php-public` cover it in seconds; the fourteen migrated recipes went through a full run on 2026-09-21.
 - **A feature can ship with a green suite and never have run.** php-fpm shipped on 2026-09-11 with seven defects the suite could not see, because every recipe's own `[run].start` overrode the new worker and the tests asserted the shape of a command string rather than that a pool came up. Any new code path behind a precedence rule has zero users on the day it ships; its fixture has to exist before it does.
