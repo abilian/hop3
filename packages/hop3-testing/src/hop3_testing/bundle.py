@@ -583,6 +583,8 @@ def _collect_sections(
         "journalctl -u hop3-server -n 500 --no-pager 2>&1; "
         "echo '--- hop3-rootd (journal) ---'; "
         "journalctl -u hop3-rootd -n 200 --no-pager 2>&1; "
+        "echo '--- uwsgi-hop3, the Emperor (journal) ---'; "
+        "journalctl -u uwsgi-hop3 -n 300 --no-pager 2>&1; "
         "else "
         "echo '--- hop3-server (supervisor stdout) ---'; "
         "tail -500 /var/log/supervisor/hop3-server.log 2>&1; "
@@ -590,6 +592,8 @@ def _collect_sections(
         "tail -500 /var/log/supervisor/hop3-server_err.log 2>&1; "
         "echo '--- hop3-rootd (supervisor) ---'; "
         "tail -200 /var/log/supervisor/hop3-rootd*.log 2>&1; "
+        "echo '--- uwsgi-hop3, the Emperor (supervisor) ---'; "
+        "tail -300 /var/log/supervisor/uwsgi.log 2>&1; "
         "fi);"
         'echo "$OUT";'
         'if [ -z "$(echo "$OUT" | grep -vE \'^---|^$|^tail:|No such file|No journal files|-- No entries\')" ]; then '

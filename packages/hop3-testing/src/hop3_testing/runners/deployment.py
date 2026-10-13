@@ -377,9 +377,12 @@ class DeploymentTestRunner:
         of the deploy and failed here, in the same minute. The port had already
         taught this lesson once; see :meth:`_run_check_script_remote`.
 
-        Best-effort by design: an app that declares no ``[admin]`` simply has no
-        credential, and its check.py fails loudly on its own when it asks for
-        one. Failing here instead would block apps whose checks need no sign-in.
+        An app that declares no ``[admin]`` has no credential: the file is
+        written empty, and a check that asks for one fails loudly on its own.
+        The file is always written because the check's shell sources it, and
+        dash exits 2 on sourcing a missing file, before the check runs: every
+        check of an app without credentials failed with ``exit 2`` and no
+        output. A reader that cannot run raises, with its output.
         """
         reader = (
             "from sqlalchemy import select;"
@@ -390,22 +393,24 @@ class DeploymentTestRunner:
             "print(''.join(k+'='+v+chr(10) for k,v in "
             "(check_credentials(a,s) if a else {}).items()), end='')"
         )
-        try:
-            exit_code, stdout, _ = self.target.exec_run(
-                f'su - hop3 -c "set -a; . /etc/default/hop3 2>/dev/null; '
-                f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\""'
+        exit_code, stdout, stderr = self.target.exec_run(
+            f'su - hop3 -c "set -a; . /etc/default/hop3 2>/dev/null; '
+            f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\""'
+        )
+        if exit_code != 0:
+            msg = (
+                f"the check's credentials could not be read on the server "
+                f"(exit {exit_code}): {(stderr or stdout)[:300]}"
             )
-            lines = [line for line in stdout.splitlines() if line.startswith("HOP3_")]
-            if exit_code != 0 or not lines:
-                return
-            body = "\n".join(lines)
-            self.target.exec_run(
-                f"sh -c 'umask 077; cat > {env_path} <<\"HOP3EOF\"\n{body}\nHOP3EOF'"
-            )
-        except Exception:
-            # A credential we cannot read is not a reason to skip the check; the
-            # check itself decides whether it needed one.
-            return
+            raise RuntimeError(msg)
+        lines = [line for line in stdout.splitlines() if line.startswith("HOP3_")]
+        body = "".join(f"{line}\n" for line in lines)
+        exit_code, stdout, stderr = self.target.exec_run(
+            f"sh -c 'umask 077; cat > {env_path} <<\"HOP3EOF\"\n{body}HOP3EOF'"
+        )
+        if exit_code != 0:
+            msg = f"could not write {env_path} (exit {exit_code}): {stderr or stdout}"
+            raise RuntimeError(msg)
 
     def _upload_check_helpers(
         self, session: DeploymentSession, remote_dir: str
@@ -480,7 +485,7 @@ class DeploymentTestRunner:
             # the credential file whatever the outcome, preserving its exit code.
             exit_code, stdout, stderr = self.target.exec_run(
                 "sh -c '"
-                f"set -a; . {env_path} 2>/dev/null; set +a; "
+                f"set -a; . {env_path}; set +a; "
                 f"export NODE_PATH={_app_node_modules(session.app_name)}; "
                 f"{_HOP3_VENV_PYTHON} {remote_path} {host} {_CHECK_PORT}; "
                 f"rc=$?; rm -rf {env_path} {remote_dir}; exit $rc"
@@ -954,10 +959,10 @@ class DeploymentTestRunner:
             if validation_error := self._validate(
                 test, session, app_source, validation_results
             ):
-                return _fail_result(validation_error)
+                return _fail_result(validation_error, deploy_logs=deploy_logs)
 
             if write_error := self._check_runtime_writes(session, validation_results):
-                return _fail_result(write_error)
+                return _fail_result(write_error, deploy_logs=deploy_logs)
 
             if self.redeploy and (
                 redeploy_error := self._redeploy_and_revalidate(

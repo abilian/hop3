@@ -26,6 +26,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from typing import Any, cast
 
+import pytest
 from hop3_testing.runners.deployment import DeploymentTestRunner
 
 _READER_OUTPUT = (
@@ -110,19 +111,22 @@ def test_the_reader_survives_its_shell_quoting():
     compile(python_snippet, "<reader>", "exec")
 
 
-def test_an_app_with_no_credentials_writes_no_file():
+def test_an_app_with_no_credentials_gets_an_empty_file():
     """
-    A check that needs no sign-in must still run; it fails on its own if it
-    asks for a credential that is not there.
+    The check's shell sources the file, and dash exits 2 on sourcing a missing
+    one, before the check runs. No file for an app without `[admin]` failed
+    every such check with "exit 2" and no output (2026-10-11, six fixtures).
     """
     target = _RecordingTarget(reader_output="")
     _write(target)
 
-    assert not [c for c in target.commands if "HOP3EOF" in c]
+    body = _env_file_body(target)
+    assert "HOP3_" not in body
 
 
-def test_a_reader_that_could_not_run_writes_no_file():
-    target = _RecordingTarget(reader_output="Traceback…", exit_code=1)
-    _write(target)
+def test_a_reader_that_could_not_run_fails_loudly():
+    target = _RecordingTarget(reader_output="Traceback: no module", exit_code=1)
 
+    with pytest.raises(RuntimeError, match="Traceback: no module"):
+        _write(target)
     assert not [c for c in target.commands if "HOP3EOF" in c]
