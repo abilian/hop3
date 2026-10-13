@@ -114,6 +114,6 @@ The "After 0.7" wish-list that used to sit here is scheduled. The plans carry th
 - **Alternative backends:** nix+docker, docker without compose, podman, systemd-nspawn/bubblewrap isolation, lightweight VMs: all in `plan-0.9-plus.md`, all behind the isolation ADR that has to be written first.
 - **IAM / centrally managed SSO:** `plan-0.9-plus.md`: Canaille evaluation and an OAuth2/OIDC gateway, alongside the MFA deferral in ADR 012.
 - **Web analytics for deployed apps**, and **`sslip.io` as a default hostname**: `plan-0.9-plus.md`, smaller items.
-- **Threat dashboard for active security management:** waits on the monitoring substrate in `plan-0.8.md`'s second tier (cgroup v2 tracking, metrics collection, `/metrics`).
+- **Threat dashboard for active security management:** waits on the monitoring substrate in `plan-0.9-plus.md` (cgroup v2 tracking, metrics collection, `/metrics`).
 
 ## (other items as they come up)

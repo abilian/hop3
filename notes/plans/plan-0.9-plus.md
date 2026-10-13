@@ -1,13 +1,52 @@
 # Plan: 0.9 and beyond
 
 **Created:** 2026-08-01. **Owner:** SF. **Horizon:** after 0.8 ships, so late 2026 onward.
-**Siblings:** [`plan-0.7.x.md`](plan-0.7.x.md) (maintenance), [`plan-0.8.md`](plan-0.8.md) (September), [`parked.md`](parked.md) (not scheduled at all).
+**Siblings:** [`plan-0.7.x.md`](plan-0.7.x.md) (maintenance), [`plan-0.8.md`](plan-0.8.md), [`parked.md`](parked.md) (not scheduled at all).
 
 ## What this file is
 
 The queue behind 0.8: work that is wanted, has a design or a design record, and has no date. Unlike [`parked.md`](parked.md), nothing here is held back on purpose: these are simply next, and each will move into a release plan when it earns the slot.
 
 Ordered by how likely each is to be picked up first.
+
+## Cut from 0.8 (2026-10-13)
+
+The second tier of [`plan-0.8.md`](plan-0.8.md), moved here by SF so 0.8 can tag on its headlines and its release checks. These are first in the queue.
+
+### Email: make the built things real
+
+The ADR 054 model is settled and 0.7 shipped the interface; the harness unblock is done.
+
+- [ ] **Direct backend from preview to supported**: an e2e against pebble or a local DNS/MX rig (never a real provider quota), opendkim under a process manager on the non-systemd path, DKIM rotation and DNS cutover.
+- [ ] **Per-app override via the loopback**: the rootd sender-map operations already exist and are dormant; this is the wiring (`sender_dependent_relayhost_maps`, rebuilt from the DB at the deploy boundary).
+- [ ] **Catalog rollout** (~15 apps): Django, Flask and generic apps read the environment directly and are nearly free; Dolibarr, Easy!Appointments, Keycloak, Kanboard, Nextcloud and Paheko store SMTP in a database or config file, so the mapping goes in their setup step.
+
+### Control-plane audit log
+
+- [ ] ADR 010 states the gap: rootd has an audit log, the control plane has none for RPC-level security events. Scheduled for 0.8 in the security remediation plan, and cut from it on 2026-10-13. Modest work, and it makes an incident reconstructible.
+
+### Monitoring and resource metrics
+
+- [ ] cgroup v2 per-app tracking, CPU, memory and disk collection, a Prometheus-format `/metrics` endpoint, and a dashboard widget. Long planned and never started. It blocks email outage and health notifications, and is the substrate a "threat dashboard" (`../todo.md`) would render.
+
+### Finish the command surface (ADR 047 + a command-manifest ADR)
+
+TR-03 §9.5 calls this the substantive open item in the CLI: the resolution chain is hard to reason about, several concepts are reachable under more than one spelling, and the governing records are drafts.
+
+- [ ] **Write the command-manifest ADR first.** It also absorbs `DESTRUCTIVE_COMMANDS` and `_MISMATCH_GUARDED_PREFIXES`, the two sibling hardcoded lists with the same disease.
+- [ ] **ADR 047**: the *app* resolution chain and its conditional trust, and the resolved context travelling with each invocation so the server sees a decided context. A **breaking change** requiring one coordinated CLI and server release: an unknown `extra_args` key reaches the command as a kwarg and raises `TypeError`, so a mixed old-server, new-client pair is unsupported.
+
+The target and transport half is done (ADR 042, fourth revision; see [plan-0.8.md](plan-0.8.md#done)).
+
+### Catalog: one core behind two front-ends
+
+- [ ] **Extract `hop3-catalog-core`**: models, loader, taxonomy, policy, and the view-model both renderers consume. Pure Python, no web framework. `packages/hop3-marketplace` depends on the whole of `hop3-server` (Litestar, SQLAlchemy, the plugin manager) to render static HTML today. `hop3-server` keeps everything about fetching, verifying and installing (trust and state); the new package is presentation. The server feature table (catalog versioning, 0.8) stays in hop3-server.
+
+### Catalog growth
+
+- [ ] More applications, now that the packaging playbook and the verification bar exist.
+- [ ] `nixpkgs-wrapper` supporting sibling packages (`nixpkgs-packages = {main = "…", assets = "…"}`): unblocks Vaultwarden, WriteFreely and GoToSocial, and is the companion-archive hook that Outline, PeerTube, Funkwhale and Chatwoot will also need.
+- [ ] Node/pnpm workspace layouts (ESM/CJS mismatch, dangling virtual-store symlinks): block Directus, HedgeDoc, and future Outline, Strapi and Rocket.Chat.
 
 ## Security and identity
 
@@ -52,7 +91,7 @@ It adds fields to the application record and a command whose failure modes reach
 
 **Deployment strategies (ADR 032).** Blue-green and canary appear in an accepted ADR and nowhere in the source, alongside `revert`/`upgrade`/`downgrade` naming over `current`/`previous`. 0.7 shipped upgrade-with-automatic-rollback, which covers the operationally urgent part; the rest is optional for a single-server platform, which is why it sits here.
 
-**Backups, phases 2 and 3 (ADR 016).** Scheduled backups and retention policies first; then remote storage (S3, B2), encryption, and incremental backups. Phase 1 shipped in 0.7 including cross-instance restore. Phase 2 is small and pairs naturally with the control-plane audit log that 0.8 adds.
+**Backups, phases 2 and 3 (ADR 016).** Scheduled backups and retention policies first; then remote storage (S3, B2), encryption, and incremental backups. Phase 1 shipped in 0.7 including cross-instance restore. Phase 2 is small and pairs naturally with the control-plane audit log above.
 
 **Supply chain (ADR 013).** Signature attestation for release artefacts and for the SBOM (Sigstore, in-toto, cosign), scheduled reproducible-builds verification, and upstream source mirroring against registry deletions. The Cyber Resilience Act imposes an external deadline on attestation, which makes this the item here most likely to become urgent for reasons that have nothing to do with our own priorities.
 
