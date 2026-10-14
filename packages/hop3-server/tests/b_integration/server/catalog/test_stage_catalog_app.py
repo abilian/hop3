@@ -140,6 +140,19 @@ def test_stage_refuses_a_recipe_that_needs_a_newer_server(rooted) -> None:
     assert not (rooted / "apps" / "mycloud").exists()
 
 
+def test_stage_refuses_a_recipe_that_needs_a_feature_this_server_lacks(
+    rooted,
+) -> None:
+    """The refusal names the feature, before anything is created."""
+    CatalogService.get_instance().get_app("nextcloud").requires = ["teleport"]
+    session = get_session_factory()()
+
+    with pytest.raises(CatalogInstallError, match=r"features .* not have: teleport"):
+        stage_catalog_app("nextcloud", "mycloud", "", session)
+
+    assert session.query(App).filter_by(name="mycloud").first() is None
+
+
 def test_stage_installs_a_recipe_this_server_satisfies(rooted) -> None:
     _require_hop3(rooted, "0.1")
     session = get_session_factory()()

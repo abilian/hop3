@@ -20,7 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`ruby-bundler` builds gems with a Rust extension.** `gem-cargo-hashes = { commonmarker = "sha256-…" }` in `[nix]` vendors the gem's crates before the offline build, which is what Redmine 6 needs.
 
-- **A catalog entry can say which server it needs.** `requires_hop3 = "0.8"` in an entry's `catalog.toml` makes an older server refuse `hop3 catalog install` by name, before it creates anything, where it used to stage the recipe and fail in the middle of the build.
+- **A catalog entry can say which server it needs.** `requires_hop3 = "0.8"` in an entry's `catalog.toml` makes an older server refuse `hop3 catalog install` by name, before it creates anything, where it used to stage the recipe and fail in the middle of the build. The publisher now works out what a recipe needs from its `hop3.toml` (php-fpm, scratch volumes, `[proxy] deny`, `[access]`, a GitHub Nix source, and others), records the feature names in the signed index, and refuses to publish a recipe whose `requires_hop3` is lower than those features need: Paheko, WordPress, Dolibarr and Kanboard needed php-fpm and did not say so. A server refuses an entry that names a feature it does not have.
 
 - **Accounts have roles: `admin`, `deployer`, `viewer` and `member`.** `hop3 user set-role alice viewer` grants one; `hop3 user add --role` sets it at creation. A viewer reads apps, addons, backups and certificates but no secret. A deployer deploys and operates apps and addons. An admin also manages accounts and the server. A member signs in to the web interface and sees its own profile. A deployer's builds run with the control plane's own privileges, so treat that role as an administrator credential. (ADR 061)
 
@@ -33,6 +33,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`hop3-test` fails an app that writes into `src/` while running, and redeploys every app.** Each deploy replaces `src/`, so whatever an app writes there is lost at the next one, an upgrade included. The test lists the directories the app wrote to after it started, grouped for a `[[volumes]]` entry. It then deploys the unchanged source again and runs every validation a second time. `--no-redeploy` skips the second deploy.
 
 ### Changed
+
+- **The catalog is fetched from a path that names its format**: `https://apps.hop3.cloud/catalog/v1/catalog.tar.gz`. The server reads the `format` the signed index declares and refuses one it does not know, naming it and keeping the catalog it holds; the publisher had written `"format": 1` since the catalog shipped, and no server read it. A future format is published beside this one, under `v2/`, so a server that reads only format 1 keeps receiving updates. Servers before 0.8 keep fetching the old path, which carries the same catalog. A `CATALOG_SOURCE_URL` set to the old path still works; move it to `v1/`.
 
 - **The deploy that first declares a volume keeps what the app had already written there.** Declaring `[[volumes]]` for data an app kept in `src/` used to delete that data: the deploy replaced `src/` before linking the new, empty volume. The old tree is now set aside until the volumes are linked, and an empty volume is filled from it first, then from what the build produced.
 

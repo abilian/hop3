@@ -236,6 +236,20 @@ def load_apps(apps_dir: Path) -> list[CatalogApp]:
     return apps
 
 
+def _feature_names(entry: dict) -> list[str]:
+    """An index entry's ``requires``: a list of feature names, or refused."""
+    requires = entry.get("requires", [])
+    if not isinstance(requires, list) or not all(
+        isinstance(name, str) for name in requires
+    ):
+        msg = (
+            f"Catalog index entry {entry.get('id')!r} has an invalid requires: "
+            f"{requires!r} (expected a list of feature names)"
+        )
+        raise CatalogSpecError(msg)
+    return requires
+
+
 def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
     """
     Load only the app directories named in the (verified) ``index.json``.
@@ -249,6 +263,7 @@ def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
     # An index that predates statuses names none, and the model's default then
     # stands (see CatalogApp.status).
     status_of: dict[str, str] = {}
+    entry_of: dict[str, dict] = {}
     for app in index.get("apps", []):
         for entry in app.get("files", []):
             top = entry["path"].split("/", 1)[0]
@@ -257,18 +272,21 @@ def load_apps_from_index(apps_dir: Path, index: dict) -> list[CatalogApp]:
                 app_dirs.append(top)
                 if app.get("status"):
                     status_of[top] = app["status"]
+                entry_of[top] = app
 
     apps: list[CatalogApp] = []
     for name in app_dirs:
         app_dir = apps_dir / name
         try:
             app = load_app(app_dir)
+            requires = _feature_names(entry_of[name])
         except CatalogSpecError:
             logger.exception("Excluding catalog app %r from the catalog", name)
             continue
         if app:
             if name in status_of:
                 app.status = status_of[name]
+            app.requires = requires
             _attach_icon(app, app_dir)
             apps.append(app)
     return apps

@@ -41,13 +41,18 @@ import tomllib
 from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric.ed25519 import Ed25519PrivateKey
 
+from .features import features_used, release_needed
 from .policy import (
     PUBLISHABLE_STATUSES,
     CatalogSpecError,
+    load_catalog_overlay,
+    required_hop3,
+    server_satisfies,
     validate_catalog_app_files,
     validate_catalog_spec,
     validate_catalog_status,
 )
+from .sync import CATALOG_FORMAT
 from .verify import sha256_file
 
 _ALGO_PREHASHED = b"ED"  # minisign: signature is over BLAKE2b-512 of the content
@@ -200,6 +205,7 @@ def build_index(content_dir: Path, serial: int) -> IndexBuild:
             validate_catalog_status(status, app_id)
             validate_catalog_spec(data, app_id)
             validate_catalog_app_files(app_dir, app_id, published=published)
+            requires = _required_features(app_dir, app_id, data)
         except CatalogSpecError as e:
             raise PublishError(str(e)) from e
 
@@ -220,6 +226,8 @@ def build_index(content_dir: Path, serial: int) -> IndexBuild:
         entry: dict = {"id": app_id, "files": files}
         if status:
             entry["status"] = status
+        if requires:
+            entry["requires"] = requires
         apps.append(entry)
 
     if not apps:
@@ -230,10 +238,32 @@ def build_index(content_dir: Path, serial: int) -> IndexBuild:
     # between statuses.
     apps.sort(key=itemgetter("id"))
     return IndexBuild(
-        index={"format": 1, "serial": serial, "apps": apps},
+        index={"format": CATALOG_FORMAT, "serial": serial, "apps": apps},
         sources=sources,
         excluded=sorted(excluded),
     )
+
+
+def _required_features(app_dir: Path, app_id: str, recipe: dict) -> list[str]:
+    """
+    The server features ``recipe`` uses, checked against its ``requires_hop3``.
+
+    Servers before 0.8 read only ``requires_hop3`` from ``catalog.toml``, so it
+    must name a release that has every feature found. A higher value is kept:
+    a recipe may need something no rule detects.
+    """
+    features = features_used(recipe)
+    needed = release_needed(features)
+    declared = required_hop3(load_catalog_overlay(app_dir), app_id)
+    if needed and not (declared and server_satisfies(needed, declared)):
+        names = ", ".join(f"{f.name} ({f.since})" for f in features)
+        msg = (
+            f"Catalog app {app_id!r} uses {names}, so its catalog.toml must "
+            f'declare requires_hop3 = "{needed}" or higher under [catalog]; '
+            f"it declares {declared or 'none'}."
+        )
+        raise CatalogSpecError(msg)
+    return sorted(f.name for f in features)
 
 
 def write_tarball(sources: dict[str, Path], index: dict, dest: Path) -> bytes:

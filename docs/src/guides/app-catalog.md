@@ -58,7 +58,7 @@ There is no automatic refresh timer yet; run `hop3 catalog refresh` when you wan
 
 The catalog is a **signed artifact that your server pulls**; the source never pushes to your server. Authenticity is mandatory: because installing a catalog app runs code you didn't write, the bundle's signature is verified against a public key **built into your hop3-server release** (not a file on disk that could be swapped). A bundle that fails verification is rejected and never loaded.
 
-The default source is Hop3's own catalog at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`). An empty-but-verified catalog is valid; a *failed fetch* is reported as an error rather than treated as an empty catalog.
+The default source is Hop3's own catalog at `https://apps.hop3.cloud/catalog/v1/catalog.tar.gz` (with a detached signature at the same URL plus `.minisig`); `v1` is the index format this server reads. A catalog in a format the server does not read is refused, and the catalog already installed stays in use. An empty-but-verified catalog is valid; a *failed fetch* is reported as an error rather than treated as an empty catalog.
 
 ## Configuration (operators)
 
@@ -66,7 +66,7 @@ These settings are read from the environment (or your server config); most deplo
 
 | Setting | Default | Purpose |
 |---------|---------|---------|
-| `CATALOG_SOURCE_URL` | `https://apps.hop3.cloud/catalog/catalog.tar.gz` | The signed bundle to pull. Override to point at a **staging** catalog or an **air-gapped mirror**. Must be `https://`: the sync refuses any other scheme, and TLS verification is always on. |
+| `CATALOG_SOURCE_URL` | `https://apps.hop3.cloud/catalog/v1/catalog.tar.gz` | The signed bundle to pull. Override to point at a **staging** catalog or an **air-gapped mirror**. Must be `https://`: the sync refuses any other scheme, and TLS verification is always on. |
 | `CATALOG_ROOT` | `$HOP3_ROOT/catalog` | Where the active catalog lives (a symlink the sync manages). |
 | `CATALOG_STATE_ROOT` | `$HOP3_ROOT/catalog-state` | Holds the anti-rollback serial, kept outside `CATALOG_ROOT` so it survives catalog swaps. |
 

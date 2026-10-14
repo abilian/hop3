@@ -59,6 +59,10 @@ FETCH_TIMEOUT = 30  # seconds
 _INDEX_FILENAME = "index.json"
 _SERIAL_FILENAME = "serial"
 
+# The index layout this server reads, and the one the publisher writes. It moves
+# only on a change an existing reader would misread; ``catalog/v<N>/`` serves it.
+CATALOG_FORMAT = 1
+
 
 class CatalogSyncError(Exception):
     """Raised when fetching/extracting/publishing the catalog fails."""
@@ -244,6 +248,7 @@ def install_catalog_tarball(
             max_members=max_members,
         )
         index = _load_index(staging)
+        _check_index_format(index)
         verify_tree_against_index(staging, index)
         serial = _index_serial(index)
 
@@ -347,6 +352,20 @@ def _load_index(catalog_dir: Path) -> dict:
     except (ValueError, OSError) as e:
         msg = f"Catalog {_INDEX_FILENAME} is unreadable/invalid: {e}"
         raise CatalogSyncError(msg) from e
+
+
+def _check_index_format(index: dict) -> None:
+    fmt = index.get("format")
+    if type(fmt) is int and fmt == CATALOG_FORMAT:
+        return
+    found = "no format" if fmt is None else f"format {fmt!r}"
+    msg = (
+        f"Catalog refused: its index declares {found}, and this server reads "
+        f"format {CATALOG_FORMAT} only. Upgrade hop3-server if the catalog is "
+        f"newer, or point CATALOG_SOURCE_URL at a catalog/v{CATALOG_FORMAT}/ "
+        "source. The catalog already installed stays in use."
+    )
+    raise CatalogSyncError(msg)
 
 
 def _index_serial(index: dict) -> int:

@@ -61,10 +61,14 @@ def _sign(priv: Ed25519PrivateKey, message: bytes) -> str:
 # --- catalog tarball builder -------------------------------------------------
 
 
-def _build_catalog(tmp_path: Path, serial: int, apps: dict[str, dict[str, bytes]]):
+def _build_catalog(
+    tmp_path: Path, serial: int, apps: dict[str, dict[str, bytes]], fmt=1
+):
     """Build a catalog source tree + index.json, return its directory."""
     src = tmp_path / f"build-{serial}"
-    index = {"format": 1, "serial": serial, "apps": []}
+    index = {"format": fmt, "serial": serial, "apps": []}
+    if fmt is None:
+        del index["format"]
     for app_id, files in apps.items():
         for name, content in files.items():
             p = src / app_id / name
@@ -87,11 +91,11 @@ def _tar_gz(src_dir: Path, dest: Path) -> None:
             tar.add(str(p), arcname=p.relative_to(src_dir).as_posix(), recursive=False)
 
 
-def _signed_catalog(tmp_path, priv, serial=1, apps=None):
+def _signed_catalog(tmp_path, priv, serial=1, apps=None, fmt=1):
     apps = apps or {
         "nextcloud": {"hop3.toml": b"id='nextcloud'\n", "readme.md": b"# n\n"}
     }
-    src = _build_catalog(tmp_path, serial, apps)
+    src = _build_catalog(tmp_path, serial, apps, fmt)
     tarball = tmp_path / f"catalog-{serial}.tar.gz"
     _tar_gz(src, tarball)
     return tarball, _sign(priv, tarball.read_bytes())
@@ -147,6 +151,26 @@ def test_install_rejects_rollback(tmp_path):
     with pytest.raises(CatalogSyncError, match="rollback"):
         install_catalog_tarball(t1, s1, _pubkey_text(priv), catalog_root, state_root)
     assert catalog_root.resolve().name == "catalog-2"  # unchanged
+
+
+@pytest.mark.parametrize(
+    ("fmt", "found"),
+    [(2, "format 2"), (None, "no format"), (True, "format True"), (1.0, "format 1.0")],
+)
+def test_install_refuses_a_format_it_does_not_read(tmp_path, fmt, found):
+    priv = Ed25519PrivateKey.generate()
+    catalog_root, state_root = _roots(tmp_path)
+    t1, s1 = _signed_catalog(tmp_path, priv, serial=1)
+    install_catalog_tarball(t1, s1, _pubkey_text(priv), catalog_root, state_root)
+
+    t2, s2 = _signed_catalog(tmp_path, priv, serial=2, fmt=fmt)
+    with pytest.raises(CatalogSyncError, match=f"declares {found}, and this server"):
+        install_catalog_tarball(t2, s2, _pubkey_text(priv), catalog_root, state_root)
+
+    # The held catalog and its serial stay live.
+    assert catalog_root.resolve().name == "catalog-1"
+    assert read_high_water_mark(state_root) == 1
+    assert not list(catalog_root.parent.glob(".catalog-staging-*"))
 
 
 def test_install_rejects_extra_file_not_in_index(tmp_path):

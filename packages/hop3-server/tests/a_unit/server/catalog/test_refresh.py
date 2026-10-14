@@ -104,7 +104,7 @@ def test_refresh_end_to_end(tmp_path, monkeypatch):
     monkeypatch.setattr(service_module, "_default_catalog_dir", lambda: catalog_root)
 
     result = refresh_catalog(
-        source_url="https://apps.hop3.cloud/catalog/catalog.tar.gz",
+        source_url="https://apps.hop3.cloud/catalog/v1/catalog.tar.gz",
         public_key=_pubkey_text(priv),
         catalog_root=catalog_root,
         state_root=state_root,

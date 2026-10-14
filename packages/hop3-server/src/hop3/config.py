@@ -239,10 +239,11 @@ class HopConfig:
 
         The node fetches this, verifies its signature against the compiled-in
         catalog public key, and loads the verified contents. Override for staging
-        or an air-gapped mirror.
+        or an air-gapped mirror. The ``v1`` path names the index format this
+        server reads (``CATALOG_FORMAT`` in ``server/catalog/sync.py``).
         """
         return self._config_loader.get_str(
-            "CATALOG_SOURCE_URL", "https://apps.hop3.cloud/catalog/catalog.tar.gz"
+            "CATALOG_SOURCE_URL", "https://apps.hop3.cloud/catalog/v1/catalog.tar.gz"
         )
 
     # Resource limits (ADR 046 §3 / P2.2)

@@ -125,10 +125,10 @@ def server_satisfies(required: str, running: str) -> bool:
     (``0.8.0.dev3``) satisfies a recipe that needs 0.8: it has the features
     the recipe is waiting for.
     """
-    return _release(running) >= _release(required)
+    return release_number(running) >= release_number(required)
 
 
-def _release(version: str) -> tuple[int, int, int]:
+def release_number(version: str) -> tuple[int, int, int]:
     """The first three release components of ``version``, zero-padded."""
     match = _RELEASE_RE.match(version)
     if match is None:

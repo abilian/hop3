@@ -85,7 +85,7 @@ make publish CONTEXT=<ctx>     # validate → build → verify → site → stag
 Then confirm the live artifact matches what you signed, because a successful upload does not guarantee a served file:
 
 ```bash
-curl -fsSL https://apps.hop3.cloud/catalog/catalog.tar.gz | sha256sum
+curl -fsSL https://apps.hop3.cloud/catalog/v1/catalog.tar.gz | sha256sum
 sha256sum dist/catalog.tar.gz            # the two must match
 ```
 
@@ -125,6 +125,8 @@ requires_hop3 = "0.8"
 A server older than that refuses `hop3 catalog install` by name ("needs Hop3 0.8 or newer, and this server runs 0.7.5") before it creates anything, instead of staging the recipe and failing in the middle of the build. The value is a plain release number; the publish step refuses anything else. A development build counts as its release, so a `0.8.0.dev` server installs a recipe that needs 0.8.
 
 Servers released before the key existed ignore it. They still fail on such a recipe, at build time, so a recipe that needs a new server is published only once that server is released.
+
+The publish step also works out what a recipe needs. Each platform feature a recipe can depend on has a rule over its `hop3.toml` (`server/catalog/features.py`): `php-fpm` for a PHP recipe with no start command, `scratch-volumes`, `proxy-deny`, `access-gate`, `nix-github-source` and others. The names a recipe matches go into its entry in the signed index as `requires`, and a server lacking one refuses the install, naming it. The publish refuses a recipe whose `requires_hop3` is missing or lower than the release that introduced its features, and says which value to write; a higher value is kept, for a need no rule detects.
 
 ## The ordering trap
 

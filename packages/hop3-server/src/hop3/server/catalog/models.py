@@ -84,6 +84,11 @@ class CatalogApp:
     #: by name instead of failing in the middle of a build.
     requires_hop3: str = ""
 
+    #: The server features this recipe uses (``features.py``), as the publisher
+    #: computed them into the signed index. A server lacking one refuses the
+    #: install by name.
+    requires: list[str] = field(default_factory=list)
+
     # Computed fields
     category: str = ""
     resource_tier: str = "medium"
@@ -161,6 +166,7 @@ class CatalogApp:
             "featured": self.featured,
             "status": self.status,
             "requires_hop3": self.requires_hop3,
+            "requires": self.requires,
             "memory": self.memory,
             "screenshots": self.screenshots,
             "resource_tier": self.resource_tier,

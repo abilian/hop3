@@ -44,21 +44,21 @@ This writes `dist/catalog.tar.gz`, `dist/catalog.tar.gz.minisig`, and `dist/inde
 Serve **both** the tarball and its signature at the same path, on a host whose TLS certificate is trusted by the server's CA store (Let's Encrypt is fine):
 
 ```
-https://staging.example.com/catalog/catalog.tar.gz
-https://staging.example.com/catalog/catalog.tar.gz.minisig
+https://staging.example.com/catalog/v1/catalog.tar.gz
+https://staging.example.com/catalog/v1/catalog.tar.gz.minisig
 ```
 
-The server reads `index.json` from inside the tarball, so you do **not** host it.
+The server reads `index.json` from inside the tarball, so you do **not** host it. It refuses an index whose `format` it does not read (`v1` names format 1).
 
 > The catalog fetch enforces TLS certificate + hostname verification and **cannot be disabled** (unlike the CLI's `--insecure`). A self-signed *TLS* cert on the staging host will fail. Add its CA to the host's trust store or use a CA-issued cert. (A self-signed *signing* key, step 0, is the intended model. That is a different thing.)
 
 ## 3. Point the server at your staging catalog
 
-`CATALOG_SOURCE_URL` defaults to `https://apps.hop3.cloud/catalog/catalog.tar.gz` and is overridable. Set it in the systemd env file (wins over `hop3-server.toml`):
+`CATALOG_SOURCE_URL` defaults to `https://apps.hop3.cloud/catalog/v1/catalog.tar.gz` and is overridable. Set it in the systemd env file (wins over `hop3-server.toml`):
 
 ```bash
 # /etc/default/hop3
-CATALOG_SOURCE_URL=https://staging.example.com/catalog/catalog.tar.gz
+CATALOG_SOURCE_URL=https://staging.example.com/catalog/v1/catalog.tar.gz
 ```
 
 Restart `hop3-server` so the new value is read.

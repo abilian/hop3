@@ -60,14 +60,14 @@ make verify        # = verify_minisign(dist/catalog.tar.gz, .minisig, keys/catal
 
 ## 4. Deploy the site: `make stage` + `make deploy`
 
-`apps.hop3.cloud` is itself a **Hop3-deployed static app**, and this repo *is* that app: a `hop3.toml` (a `static` app bound to host `apps.hop3.cloud`) plus a `public/` web root. `make stage` copies the signed artifacts into `public/catalog/`, and `make deploy` ships the site with `hop3`:
+`apps.hop3.cloud` is itself a **Hop3-deployed static app**, and this repo *is* that app: a `hop3.toml` (a `static` app bound to host `apps.hop3.cloud`) plus a `public/` web root. `make stage` copies the signed artifacts into `public/catalog/v1/`, named after the index format they carry, and into `public/catalog/` for servers before 0.8; then `make deploy` ships the site with `hop3`:
 
 ```bash
-make stage                     # cp dist/catalog.tar.gz{,.minisig} → public/catalog/
+make stage                     # cp dist/catalog.tar.gz{,.minisig} → public/catalog/v1/ and public/catalog/
 make deploy CONTEXT=<ctx>      # hop3 --context <ctx> deploy --app apps-hop3-cloud
 ```
 
-so nodes fetch them at `https://apps.hop3.cloud/catalog/catalog.tar.gz` (+ `.minisig`).
+so nodes fetch them at `https://apps.hop3.cloud/catalog/v1/catalog.tar.gz` (+ `.minisig`). A server refuses an index whose `format` it does not read, and keeps the catalog it holds; a new format is published under its own `v<N>/` beside the old one.
 
 **The signing key never ships.** `hop3 deploy` uploads a tar of the working directory, and this repo also holds `keys/catalog.key`. An allowlist guards against that, declared as `[build].ignore` in the site's own `hop3.toml`:
 
@@ -82,7 +82,7 @@ Deploy to the server `apps.hop3.cloud` actually resolves to, picking it with `CO
 **Confirm the deploy took.** A successful `hop3 deploy` means the upload landed, which is not the same as the domain serving your new bytes. A wrong `CONTEXT`, or a cache in front of the host, would leave the *old* catalog live while the release looked green. Check the live artifact against what you signed before announcing:
 
 ```bash
-curl -fsSL https://apps.hop3.cloud/catalog/catalog.tar.gz | sha256sum
+curl -fsSL https://apps.hop3.cloud/catalog/v1/catalog.tar.gz | sha256sum
 sha256sum dist/catalog.tar.gz            # the two hashes must match
 ```
 

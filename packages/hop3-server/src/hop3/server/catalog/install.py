@@ -29,6 +29,7 @@ from hop3.config import config
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.lib import log
 from hop3.orm import App, AppRepository, EnvVar
+from hop3.server.catalog.features import SERVER_FEATURES
 from hop3.server.catalog.policy import server_satisfies
 from hop3.server.catalog.service import CatalogService
 
@@ -88,6 +89,15 @@ def stage_catalog_app(
     catalog_app = service.get_app(app_id)
     if catalog_app is None:
         raise CatalogInstallError([f"Unknown catalog app '{app_id}'"])
+
+    missing = sorted(set(catalog_app.requires) - SERVER_FEATURES)
+    if missing:
+        msg = (
+            f"Catalog app '{app_id}' needs server features this server does not "
+            f"have: {', '.join(missing)}. Upgrade the server (hop3-install "
+            f"server), then install again."
+        )
+        raise CatalogInstallError([msg])
 
     running = version("hop3-server")
     required = catalog_app.requires_hop3
