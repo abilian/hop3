@@ -382,34 +382,36 @@ class DeploymentTestRunner:
         The file is always written because the check's shell sources it, and
         dash exits 2 on sourcing a missing file, before the check runs: every
         check of an app without credentials failed with ``exit 2`` and no
-        output. A reader that cannot run raises, with its output.
+        output.
+
+        The reader writes the file itself, on the server: the credentials never
+        travel back here, and never appear on a command line, where any local
+        user reads them in ``/proc/<pid>/cmdline``. Values are shell-quoted,
+        since the file is sourced. A reader that cannot run raises, with its
+        stderr (its stdout is the file).
         """
         reader = (
+            "import shlex;"
             "from sqlalchemy import select;"
             "from hop3.orm import get_session_factory, App;"
             "from hop3.server.checks.runner import check_credentials;"
             "s=get_session_factory()();"
             f"a=s.scalars(select(App).where(App.name=='{session.app_name}')).one_or_none();"
-            "print(''.join(k+'='+v+chr(10) for k,v in "
+            "print(''.join(k+'='+shlex.quote(v)+chr(10) for k,v in "
             "(check_credentials(a,s) if a else {}).items()), end='')"
         )
-        exit_code, stdout, stderr = self.target.exec_run(
-            f'su - hop3 -c "set -a; . /etc/default/hop3 2>/dev/null; '
-            f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\""'
+        exit_code, _, stderr = self.target.exec_run(
+            # A file a crashed run left behind belongs to root, and hop3 could
+            # not replace it.
+            f"rm -f {env_path}; "
+            f'su - hop3 -c "umask 077; set -a; . /etc/default/hop3 2>/dev/null; '
+            f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\" > {env_path}"'
         )
         if exit_code != 0:
             msg = (
-                f"the check's credentials could not be read on the server "
-                f"(exit {exit_code}): {(stderr or stdout)[:300]}"
+                f"the check's credentials could not be written to {env_path} on "
+                f"the server (exit {exit_code}): {stderr[:300]}"
             )
-            raise RuntimeError(msg)
-        lines = [line for line in stdout.splitlines() if line.startswith("HOP3_")]
-        body = "".join(f"{line}\n" for line in lines)
-        exit_code, stdout, stderr = self.target.exec_run(
-            f"sh -c 'umask 077; cat > {env_path} <<\"HOP3EOF\"\n{body}HOP3EOF'"
-        )
-        if exit_code != 0:
-            msg = f"could not write {env_path} (exit {exit_code}): {stderr or stdout}"
             raise RuntimeError(msg)
 
     def _upload_check_helpers(

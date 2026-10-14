@@ -38,7 +38,7 @@ class _FakeTarget:
         if self._raise_on == "exec":
             msg = "ssh exec failed"
             raise RuntimeError(msg)
-        if "check_credentials" in cmd or "HOP3EOF" in cmd:  # no credentials
+        if "check_credentials" in cmd:  # the credential file, written on the server
             return 0, "", ""
         return self._exit_code, "stdout-body", ("boom" if self._exit_code else "")
 
