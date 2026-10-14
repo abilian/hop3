@@ -27,7 +27,7 @@ from hop3_testing.util.streaming import run_streaming
 
 from .debug import DeploymentDebugger
 from .preparation import AppPreparation
-from .verification import AppVerifier
+from .verification import HttpVerifier
 
 # How much of a response body to fetch. A `contains` assertion is matched against
 # this body, so the limit has to fit a realistic page rather than a preview: at
@@ -427,8 +427,7 @@ class DeploymentSession:
         # No usable direct port (static apps served by nginx only; FastCGI
         # backends whose socket does not speak HTTP).
         # For SSH targets, test via curl on the server with Host header.
-        is_remote = self.target.info.ssh_host not in {"localhost", "127.0.0.1", None}
-        if is_remote:
+        if not self.target.info.is_container:
             return self._test_http_via_nginx_ssh(
                 path,
                 expected_status,
@@ -439,8 +438,8 @@ class DeploymentSession:
         # server_name (its declared host, or the injected {app_name}.test.local)
         # as the Host header so the request hits the app's vhost instead of the
         # platform default_server (audit L5).
-        verifier = self._get_verifier()
-        return verifier.verify_http_detailed(
+        verifier = HttpVerifier(self.target.info, self.app_name, self.console)
+        return verifier.test_detailed(
             hostname or self._preparation.test_hostname,
             path,
             expected_status,
@@ -724,15 +723,6 @@ class DeploymentSession:
             "message": f"check.py failed: {output.strip()[:300]}",
             "details": details,
         }
-
-    def _get_verifier(self) -> AppVerifier:
-        """Get a verifier instance for this session."""
-        return AppVerifier(
-            self.target.info,
-            self.app,
-            self.app_name,
-            console=self.console,
-        )
 
     def cleanup(self) -> str | None:
         """Destroy the app (always) and remove temp files; what failed, or None.

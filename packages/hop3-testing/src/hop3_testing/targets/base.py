@@ -76,10 +76,16 @@ class TargetInfo:
     ssh_key: str | None = None
     ssh_password: str | None = None
     http_base: str = ""
+    #: The same server over TLS, where Hop3 redirects plain HTTP.
+    https_base: str = ""
     api_url: str = ""
     # A token for an admin account on the server (``admin:ssh-token``), so the
     # harness authenticates for real (no HOP3_UNSAFE bypass).
     api_token: str | None = None
+    #: A Docker container reached through its published ports. Its vhosts
+    #: exist only inside it, so the harness names them in a Host header and
+    #: runs check.py from here; a server's own name reaches its vhosts.
+    is_container: bool = False
     metadata: dict[str, Any] | None = None
 
     @property

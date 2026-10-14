@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 import pytest
+from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.results import ResultStore
 from hop3_testing.targets.adapter import ContainerTarget
@@ -233,12 +234,14 @@ def _start_hop3_container(
     http_port = ports["80/tcp"][0]["HostPort"]
     https_port = ports["443/tcp"][0]["HostPort"]
     api_port = ports["8000/tcp"][0]["HostPort"]
+    # The ports are published on the Docker daemon's machine.
+    host = pin_docker_endpoint().published_host
 
     # Ready where the tests talk to it: through the host's port mapping. The
     # loop above ran inside the container, which says nothing about a forward
     # that is not up yet; a deploy through it once died with RemoteDisconnected
     # right after a container on the same machine was removed.
-    _wait_for_host_port(f"http://localhost:{api_port}/", label)
+    _wait_for_host_port(f"http://{host}:{api_port}/", label)
 
     # Get SSH key for passwordless access. The path includes container.short_id
     # so concurrent containers don't collide on the same /tmp file.
@@ -251,20 +254,21 @@ def _start_hop3_container(
     info = {
         "container": container,
         "label": label,
-        "ssh_host": "hop3@localhost",
+        "host": host,
+        "ssh_host": f"hop3@{host}",
         "ssh_port": int(ssh_port),
         "ssh_key": str(ssh_key_path),
         "ssh_key_path": ssh_key_path,
-        "http_base": f"http://localhost:{http_port}",
+        "http_base": f"http://{host}:{http_port}",
         "https_port": int(https_port),
         "proxy": proxy,
-        "api_url": f"http://localhost:{api_port}",
+        "api_url": f"http://{host}:{api_port}",
         # A real admin account's token, fetched the way `hop3 login --ssh` does.
         "api_token": fetch_api_token(DockerCommandRunner(container)),
     }
 
     print(f"\n[{label}] Container ready:")
-    print(f"  SSH: ssh -i {ssh_key_path} -p {ssh_port} hop3@localhost")
+    print(f"  SSH: ssh -i {ssh_key_path} -p {ssh_port} hop3@{host}")
     print(f"  HTTP: {info['http_base']}")
     print(f"  API:  {info['api_url']}")
 
@@ -478,7 +482,7 @@ def run_hop3_command(
 
     # Set environment for hop3 CLI
     env = os.environ.copy()
-    env["HOP3_API_URL"] = f"ssh://hop3@localhost:{ssh_port}"
+    env["HOP3_API_URL"] = f"ssh://hop3@{container_info['host']}:{ssh_port}"
     env["HOP3_SSH_KEY"] = ssh_key
     # Use the same secret key configured in the container
     env["HOP3_SECRET_KEY"] = "e2e-test-secret-key-do-not-use-in-production"

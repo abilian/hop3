@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING, Any, TextIO, cast
 
 import docker
 from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
+from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 
 from hop3_testing.diagnostics import DiagnosticCollector
 
@@ -148,6 +149,9 @@ class DockerTarget(DeploymentTarget):
         )
         self.diagnostics.set_phase("setup")
 
+        print(f"Docker daemon: {pin_docker_endpoint().url}")
+        # paramiko for an ssh:// daemon, docker-py's default: over the `ssh`
+        # binary (use_ssh_client) exec_run never returns.
         self._client = docker.from_env()
 
         # Determine the mode
@@ -538,8 +542,11 @@ class DockerTarget(DeploymentTarget):
         """Build TargetInfo from container."""
         assert self._container_helper is not None  # Set before calling this method
 
+        # The ports are published on the Docker daemon's machine.
+        host = pin_docker_endpoint().published_host
         ssh_port = self._container_helper.get_mapped_port(22)
         http_port = self._container_helper.get_mapped_port(80)
+        https_port = self._container_helper.get_mapped_port(443)
         api_port = self._container_helper.get_mapped_port(8000)
 
         # Get container's internal IP for SSH (used when no host port mapping)
@@ -547,7 +554,7 @@ class DockerTarget(DeploymentTarget):
 
         # Determine SSH host: prefer host-mapped port, fall back to container IP
         if ssh_port:
-            ssh_host = "hop3@localhost"
+            ssh_host = f"hop3@{host}"
             effective_ssh_port = ssh_port
         elif container_ip:
             # No SSH port mapped to host, use container's internal IP
@@ -565,8 +572,9 @@ class DockerTarget(DeploymentTarget):
                 ssh_key_path = self._container_helper.extract_ssh_key()
 
         # Build URLs based on available ports
-        http_base = f"http://localhost:{http_port}" if http_port else ""
-        api_url = f"http://localhost:{api_port}" if api_port else ""
+        http_base = f"http://{host}:{http_port}" if http_port else ""
+        https_base = f"https://{host}:{https_port}" if https_port else ""
+        api_url = f"http://{host}:{api_port}" if api_port else ""
 
         return TargetInfo(
             ssh_host=ssh_host,
@@ -574,8 +582,10 @@ class DockerTarget(DeploymentTarget):
             ssh_user="root",
             ssh_key=str(ssh_key_path) if ssh_key_path else None,
             http_base=http_base,
+            https_base=https_base,
             api_url=api_url,
             api_token=self._fetch_api_token() if api_url else None,
+            is_container=True,
             metadata={
                 "container_id": self._container_helper.container_id,
                 "container_name": self._container_helper.name,

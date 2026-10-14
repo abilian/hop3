@@ -48,8 +48,12 @@ def docker_client(
     ``contexts/`` directory it resolves through, so the ``docker`` CLI a test
     shells out to (``hop3-deploy-server``, ``docker build``) reaches the same
     daemon as this client. See ``write_docker_config``.
+
+    The daemon is the one the ``docker`` CLI would use, pinned for the session
+    (``pin_docker_endpoint``): a remote Docker host works like the local one.
     """
     import docker
+    from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 
     cfg_dir = tmp_path_factory.mktemp("docker-config")
     write_docker_config(cfg_dir, Path.home() / ".docker")
@@ -57,8 +61,12 @@ def docker_client(
     prev = os.environ.get("DOCKER_CONFIG")
     os.environ["DOCKER_CONFIG"] = str(cfg_dir)
     try:
+        endpoint = pin_docker_endpoint()
+        print(f"Docker daemon: {endpoint.url}")
+        # paramiko for an ssh:// daemon, docker-py's default: over the `ssh`
+        # binary (use_ssh_client) exec_run never returns.
         client = docker.from_env()
-        client.ping()  # connectivity check (context preserved)
+        client.ping()  # connectivity check
         yield client
         client.close()
     finally:

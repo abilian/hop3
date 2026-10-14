@@ -1,0 +1,13 @@
+# The build context of the test images, which may go to a remote daemon: only
+# what their Dockerfiles copy. A COPY outside this list fails the build, loudly.
+*
+!packages/hop3-installer/docker
+!packages/hop3-installer/src
+!packages/hop3-server/README.md
+!packages/hop3-server/pyproject.toml
+!packages/hop3-server/src
+!packages/hop3-server/tests/c_e2e/docker
+!packages/hop3-rootd/README.md
+!packages/hop3-rootd/pyproject.toml
+!packages/hop3-rootd/src
+**/__pycache__

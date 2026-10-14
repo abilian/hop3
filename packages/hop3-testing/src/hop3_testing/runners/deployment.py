@@ -10,7 +10,6 @@ import time
 import traceback
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any
-from urllib.parse import urlparse
 
 from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import BODY_FETCH_LIMIT, DeploymentSession
@@ -332,12 +331,8 @@ class DeploymentTestRunner:
         self, session: DeploymentSession, validation_results: list[ValidationResult]
     ) -> str | None:
         """Run check script and return error message if failed, None otherwise."""
-        target_info = self.target.info
-        parsed_http = urlparse(target_info.http_base)
-        is_remote_target = parsed_http.hostname not in {"localhost", "127.0.0.1"}
-
         check_start = time.time()
-        if is_remote_target:
+        if not self.target.info.is_container:
             # Was: silently fabricated passed=True. check.py asserts app-specific
             # body content, so skipping it on remote meant the ONLY assertion
             # that distinguishes the app from a bare 200 never ran. Run it ON the

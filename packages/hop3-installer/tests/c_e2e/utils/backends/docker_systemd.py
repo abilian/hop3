@@ -57,10 +57,10 @@ class DockerSystemdBackend(Backend):
         Initialize Docker systemd backend.
 
         Args:
-            installer_dir: Path to installer directory (for mounting)
+            installer_dir: The hop3-installer package, which holds the Dockerfile
         """
         # parents[4] = the hop3-installer package root (…/backends/…/tests/../),
-        # which holds docker/Dockerfile.systemd and is mounted into the container.
+        # which holds docker/Dockerfile.systemd.
         self.installer_dir = installer_dir or Path(__file__).parents[4]
         self.container_name = CONTAINER_NAME
         self.image = SYSTEMD_IMAGE
@@ -228,10 +228,6 @@ class DockerSystemdBackend(Backend):
                     "--cgroupns=host",
                     "-v",
                     "/sys/fs/cgroup:/sys/fs/cgroup:rw",
-                    "-v",
-                    f"{self.installer_dir}:/installer:ro",
-                    "-w",
-                    "/installer",
                     self.image,
                 ],
                 check=True,
@@ -381,12 +377,3 @@ class DockerSystemdBackend(Backend):
         )
         self.run("systemctl daemon-reload")
         log_success("Server cleanup complete")
-
-    def get_installer_path(self, installer_type: str) -> str:
-        """
-        Return the path to the installer inside the container
-        (mounted via the ``/installer`` volume).
-        """
-        if installer_type == "cli":
-            return "/installer/install-cli.py"
-        return "/installer/install-server.py"

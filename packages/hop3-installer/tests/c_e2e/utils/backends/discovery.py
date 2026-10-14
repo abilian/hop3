@@ -239,7 +239,7 @@ def get_backend(
     Args:
         backend_type: One of "docker", "docker-systemd", "ssh", "vagrant"
         distro: Distribution for Docker/Vagrant backends
-        installer_dir: Path to installer directory (for Docker mount)
+        installer_dir: The hop3-installer package (docker-systemd's Dockerfile)
 
     Returns:
         Backend instance
@@ -251,7 +251,7 @@ def get_backend(
         if not docker_available():
             msg = "Docker is not available"
             raise ValueError(msg)
-        return DockerBackend(distro=distro, installer_dir=installer_dir)
+        return DockerBackend(distro=distro)
 
     if backend_type == "docker-systemd":
         if not docker_available():

@@ -46,6 +46,17 @@ make test-e2e
 pytest packages/hop3-server/tests/c_e2e/
 ```
 
+### Which Docker daemon
+
+Every Docker test uses the daemon the `docker` command would use: `DOCKER_HOST`, else `DOCKER_CONTEXT`, else the current context (`docker context use`). The harness resolves it once, prints it (`Docker daemon: …`), and exports it as `DOCKER_HOST`, so the `docker` command, docker-py and `hop3-deploy-server` all reach the same daemon. To run the tests on another machine:
+
+```bash
+docker context create builder --docker "host=ssh://you@builder.local"
+docker context use builder        # or: export DOCKER_CONTEXT=builder
+```
+
+A container's ports are then published on that machine, each on a host port Docker picks (a fixed one collides with whatever else the machine runs), and the harness reaches them at the machine's hostname, which must resolve from here. They listen on all its interfaces, and the test container's API accepts a known fallback key, so keep that machine on a trusted network. Build contexts hold only what the test images copy (the root `.dockerignore`), so a build sends a few megabytes rather than the checkout. One run at a time per developer machine: the Docker target's container name is fixed, and `hop3-test` takes a lock (`~/.hop3/docker-target.lock`) before it starts.
+
 ### Run Application Tests
 
 ```bash

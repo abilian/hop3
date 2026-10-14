@@ -17,11 +17,16 @@ from types import SimpleNamespace
 from typing import Any, cast
 
 from hop3_testing.runners.deployment import _HOP3_VENV_PYTHON, DeploymentTestRunner
+from hop3_testing.targets.base import TargetInfo
 
 
 class _FakeTarget:
     def __init__(self, *, exit_code: int = 0, raise_on: str | None = None) -> None:
-        self.info = SimpleNamespace(http_base="http://remote.example:80")
+        self.info = TargetInfo(
+            ssh_host="root@remote.example",
+            ssh_port=22,
+            http_base="http://remote.example:80",
+        )
         self._exit_code = exit_code
         self._raise_on = raise_on
         self.uploaded: tuple[str, str] | None = None

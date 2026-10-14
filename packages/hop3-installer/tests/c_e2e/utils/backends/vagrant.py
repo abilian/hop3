@@ -274,9 +274,3 @@ class VagrantBackend(Backend):
         )
         self.run("systemctl daemon-reload", sudo=True)
         log_success("Server cleanup complete")
-
-    def get_installer_path(self, installer_type: str) -> str:
-        """Get path to installer in VM (shared folder)."""
-        if installer_type == "cli":
-            return "/vagrant/installer/install-cli.py"
-        return "/vagrant/installer/install-server.py"

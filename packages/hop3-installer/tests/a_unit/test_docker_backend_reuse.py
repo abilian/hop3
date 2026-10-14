@@ -11,8 +11,15 @@ fresh install — the in-place UPDATE path (upgrades) was unreachable. Honour
 
 from __future__ import annotations
 
+import pytest
 from hop3_installer.deployer.backends.docker import DockerDeployBackend
 from hop3_installer.deployer.config import DeployConfig
+
+
+@pytest.fixture(autouse=True)
+def _local_daemon(monkeypatch):
+    """setup() resolves the daemon; never ask a real `docker` from a unit test."""
+    monkeypatch.setenv("DOCKER_HOST", "unix:///var/run/docker.sock")
 
 
 def _backend(*, clean: bool, running: bool):
@@ -21,7 +28,7 @@ def _backend(*, clean: bool, running: bool):
     calls: list[str] = []
     backend._docker_unavailable_reason = lambda: None
     backend._container_running = lambda: running
-    backend._check_ports_available = list
+    backend._reclaim_orphans = list
     backend._build_image = lambda: True
     backend._wait_for_container_ready = lambda: True
     backend._remove_container = lambda: calls.append("remove")
@@ -45,11 +52,3 @@ def test_recreates_when_no_container_running():
     backend, calls = _backend(clean=False, running=False)
     assert backend.setup() is True
     assert calls == ["remove", "start"]  # nothing to reuse -> fresh
-
-
-def test_reuse_takes_precedence_over_port_conflict_check():
-    # A reused container legitimately holds the ports; the port check (which
-    # would flag them) must be skipped when reusing.
-    backend, _calls = _backend(clean=False, running=True)
-    backend._check_ports_available = lambda: [(8000, "hop3-dev", "Hop3 API")]
-    assert backend.setup() is True

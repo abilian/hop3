@@ -104,7 +104,7 @@ def box(
             home=home,
         )
     return Box(
-        host="localhost",
+        host=hop3_container["host"],
         ssh_port=int(hop3_container["ssh_port"]),
         key=hop3_container["ssh_key"],
         cli_environment=cli_env(hop3_container),

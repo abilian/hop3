@@ -1647,22 +1647,16 @@ class Deployer:
         is `https://<admin-domain>`, and `http://<host>:8000` — what this
         wrote — is the API port in clear, which would carry the operator's
         bearer token over plain HTTP to a socket bound on every interface.
-        Loopback into a container is the one case where that address is the
-        right one.
+        A throwaway test container, on this machine or on the Docker host, is
+        the one case where that address is the right one.
         """
         if not self.config.use_docker:
             return True
         token = self._fetch_admin_token()
         if not token:
             return False
-        return self._login_local_cli(self._deployed_api_url(), token)
-
-    def _deployed_api_url(self) -> str:
-        """The address of the server this run deployed, never the ambient one."""
-        host = (
-            "localhost" if self.config.use_docker else (self.config.host or "localhost")
-        )
-        return f"http://{host}:8000" if "://" not in host else host
+        # The container this run deployed, never the ambient host.
+        return self._login_local_cli(self.backend.get_server_url(), token)
 
     def _fetch_admin_token(self) -> str | None:
         """Create the admin user if needed and return an API token for it."""

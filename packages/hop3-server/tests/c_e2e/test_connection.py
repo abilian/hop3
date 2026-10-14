@@ -87,7 +87,7 @@ def ssh_target(
         return SshTarget(user=user or "root", host=host, port=22, key=None)
     return SshTarget(
         user="root",
-        host="localhost",
+        host=hop3_container["host"],
         port=int(hop3_container["ssh_port"]),
         key=hop3_container["ssh_key"],
     )

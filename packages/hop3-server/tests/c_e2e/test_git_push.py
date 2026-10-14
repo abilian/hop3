@@ -104,9 +104,7 @@ def add_hop3_remote(
         check=False,
     )
 
-    # Add hop3 remote
-    # The remote URL format is: hop3@localhost:app_name
-    remote_url = f"hop3@localhost:{app_name}"
+    remote_url = f"{container_info['ssh_host']}:{app_name}"
     subprocess.run(
         ["git", "remote", "add", "hop3", remote_url],
         cwd=app_dir,

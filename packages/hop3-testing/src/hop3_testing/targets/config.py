@@ -104,6 +104,7 @@ class DockerConfig:
         default_factory=lambda: {
             "22/tcp": None,  # SSH - random port
             "80/tcp": None,  # HTTP - random port
+            "443/tcp": None,  # HTTPS - random port
             "8000/tcp": None,  # API - random port
         }
     )

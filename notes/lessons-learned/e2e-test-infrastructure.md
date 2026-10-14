@@ -251,3 +251,9 @@ The executable tutorials could not pass on the Docker target from 2026-06-15 unt
 
 They were found by writing a new tutorial and running it. The fixes: a `host` property that is the machine alone, resolved to its address; tutorials check `https://`, what a reader with a real certificate runs; and the harness, not the tutorial, accepts the test server's self-signed certificate (a `.curlrc` through `CURL_HOME`). A field that carries two things (`user@host`) is read as one by the next caller. A suite with no scheduled run has no status, only a last-known one.
 
+
+## The Docker daemon is wherever the context says, and only the CLI knows it
+
+Moving the Docker tests to a build machine (2026-10-14) exposed three assumptions that a local daemon had hidden. The `docker` CLI follows contexts and docker-py does not, so with the current context on the build machine `hop3-deploy-server` started its container there while the harness looked for it on the local socket, where another session's container of the same name was running. Every URL said `localhost`, and three places decided "this is a Docker target" from that word, so a container elsewhere would have been treated as a remote server. And the fixed host ports collided with a service the build machine already ran on 8080, which the conflict check, reading only `docker ps`, could not see.
+
+The run now resolves the daemon once, the way the CLI does, and exports it as `DOCKER_HOST` (`hop3_installer.deployer.docker_endpoint`); published ports are reached at that daemon's host; `TargetInfo.is_container` says what the target is; and Docker picks the host ports. Anything keyed on "the machine" (a pid, a lock file, `localhost`) has to say which one: the client's or the daemon's.

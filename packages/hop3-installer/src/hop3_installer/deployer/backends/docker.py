@@ -17,23 +17,26 @@ The hardcoded ``E2E_TEST_SECRET_KEY`` below is the supervisor's
 installer normally generates). The harness never signs with it: it
 fetches a token from the container with ``hop3-server admin:ssh-token``
 (``DockerTarget._fetch_api_token``), which signs with whatever key the
-server validates with. Keeping a known fallback is still safe — the container is ephemeral and
-bound to localhost ports. If this module is ever loaded in a context
-where ``MODE=production``, that is a bug; we abort at backend
-construction time rather than risk shipping the test key into a
-real deploy.
+server validates with. The container is ephemeral, but its ports are
+published on every interface of the daemon's machine, so
+its API answers that machine's network while it runs: keep the Docker host on
+a trusted network. If this module is ever loaded in a context where
+``MODE=production``, that is a bug; we abort at backend construction time
+rather than risk shipping the test key into a real deploy.
 """
 
 from __future__ import annotations
 
 import os
 import shlex
+import socket
 import subprocess
 import time
 from pathlib import Path
-from typing import TYPE_CHECKING, ClassVar
+from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult, ServiceStartError
+from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 
 from .base import DeployBackend
 
@@ -61,6 +64,14 @@ DOWNLOAD_CACHE_PATH = "/var/cache/hop3-downloads"
 # recognise one of ours and find out whether anybody still owns it.
 MARKER_LABEL = "hop3.test.container"
 OWNER_LABEL = "hop3.test.owner-pid"
+#: The machine that pid lives on: the daemon may serve several.
+OWNER_HOST_LABEL = "hop3.test.owner-host"
+
+#: The container ports a deploy publishes, each on a host port Docker picks: a
+#: fixed host port collides with whatever else the Docker host runs (LocalAI
+#: holds 8080 on a typical build box).
+API_PORT = 8000
+PUBLISHED_PORTS = (API_PORT, 80, 443)
 
 # Supervisor configuration for Hop3 services in Docker
 SUPERVISOR_CONFIG = f"""\
@@ -149,13 +160,6 @@ class DockerDeployBackend(DeployBackend):
 
     # Image name for built test image
     TEST_IMAGE = "hop3-test:latest"
-
-    # Required ports: (host_port, container_port, description)
-    REQUIRED_PORTS: ClassVar[list[tuple[int, int, str]]] = [
-        (8000, 8000, "Hop3 API"),
-        (8080, 80, "HTTP"),
-        (8443, 443, "HTTPS"),
-    ]
 
     def __init__(self, config: DeployConfig) -> None:
         # Belt-and-suspenders interlock: this backend embeds a known JWT
@@ -291,74 +295,44 @@ class DockerDeployBackend(DeployBackend):
             check=False,
         )
 
-    def _check_ports_available(self) -> list[tuple[int, str, str]]:
+    def _reclaim_orphans(self) -> list[str]:
         """
-        Check if required ports are available.
-
-        Returns:
-            List of (port, container_name, description) for ports in use
-        """
-        conflicts: list[tuple[int, str, str]] = []
-
-        # Check what's using our ports via docker ps
-        result = subprocess.run(
-            ["docker", "ps", "--format", "{{.Names}}\t{{.Ports}}"],
-            capture_output=True,
-            text=True,
-            check=False,
-        )
-
-        if result.returncode != 0:
-            return conflicts
-
-        for line in result.stdout.strip().split("\n"):
-            if not line:
-                continue
-            parts = line.split("\t", 1)
-            if len(parts) < 2:
-                continue
-            container_name, ports_str = parts
-
-            # Skip our own container (will be removed anyway)
-            if container_name == self.container_name:
-                continue
-
-            # Check each required port
-            for host_port, _container_port, desc in self.REQUIRED_PORTS:
-                # Look for port mapping like "0.0.0.0:8080->80/tcp"
-                if f":{host_port}->" in ports_str or f":{host_port}/" in ports_str:
-                    conflicts.append((host_port, container_name, desc))
-
-        return conflicts
-
-    def _reclaim_orphans(self, conflicts: list[tuple[int, str, str]]) -> list[str]:
-        """
-        Remove conflicting containers this tool created whose run is gone.
+        Remove the containers this tool created from here whose run is gone.
 
         A run killed by Ctrl-C, a timeout or an OOM cannot tear its own
-        container down, and the container keeps holding ports 8000/8080/8443.
-        The next run — quite possibly a *different* harness, since `hop3-test`
-        and the pytest e2e layer use different container names but the same
-        host ports — then fails before it starts, and only a hand-typed
-        `docker rm -f` clears it. Per the project's own rule, a leftover that
-        blocks the next deploy is a platform bug, not something to tell the
-        operator to go fix.
+        container down, and the container goes on using the Docker host's
+        memory and disk. Per the project's own rule, a leftover is a platform
+        bug, not something to tell the operator to go fix.
 
-        Only containers carrying this backend's label are ever touched, and
+        Only containers carrying this backend's labels are ever touched, only
+        those created from this machine (a pid means nothing on another), and
         only when the process that created them is gone: a live run's container
-        is somebody's work in progress, and taking it out from under them would
-        be worse than the conflict. Unlabelled containers (someone else's, or
-        one from an older build) are left alone too.
+        is somebody's work in progress. Unlabelled containers (someone else's,
+        or one from an older build) are left alone too.
 
         Returns the names reclaimed.
         """
+        listed = subprocess.run(
+            [
+                "docker",
+                "ps",
+                "-a",
+                "--filter",
+                f"label={MARKER_LABEL}",
+                "--filter",
+                f"label={OWNER_HOST_LABEL}={socket.gethostname()}",
+                "--format",
+                "{{.Names}}",
+            ],
+            capture_output=True,
+            text=True,
+            check=True,
+        )
         reclaimed: list[str] = []
-        for name in dict.fromkeys(container for _, container, _ in conflicts):
+        for name in listed.stdout.split():
             owner = self._container_label(name, OWNER_LABEL)
-            if owner is None:
-                continue  # not ours — never touch it
-            if _process_is_alive(owner):
-                continue  # somebody is still using it; conflict is real
+            if owner is None or _process_is_alive(owner):
+                continue  # somebody is still using it
             print(
                 f"  → Reclaiming '{name}': it belongs to hop3 run pid {owner}, "
                 "which is no longer running (a killed run cannot clean up "
@@ -389,19 +363,6 @@ class DockerDeployBackend(DeployBackend):
         value = result.stdout.strip()
         # `docker inspect` prints "<no value>" for a label that is not set.
         return value if value and value != "<no value>" else None
-
-    def _report_port_conflicts(self, conflicts: list[tuple[int, str, str]]) -> None:
-        """Report port conflict error to user."""
-        print("  ✗ Port conflict detected!")
-        print()
-        print("  The following ports are already in use by other containers:")
-        for port, container, desc in conflicts:
-            print(f"    - Port {port} ({desc}): used by container '{container}'")
-        print()
-        print("  To resolve this, either:")
-        print(f"    1. Stop the conflicting container: docker stop {conflicts[0][1]}")
-        print(f"    2. Remove it entirely: docker rm -f {conflicts[0][1]}")
-        print()
 
     def _start_container(self) -> bool:
         """
@@ -453,17 +414,12 @@ class DockerDeployBackend(DeployBackend):
                 "--label",
                 f"{OWNER_LABEL}={os.getpid()}",
                 "--label",
+                f"{OWNER_HOST_LABEL}={socket.gethostname()}",
+                "--label",
                 f"{MARKER_LABEL}=1",
                 "-v",
-                f"{self.config.project_root}:/hop3:ro",
-                "-v",
                 f"{DOWNLOAD_CACHE_VOLUME}:{DOWNLOAD_CACHE_PATH}",
-                "-p",
-                "8000:8000",
-                "-p",
-                "8080:80",
-                "-p",
-                "8443:443",
+                *(f"--publish={port}" for port in PUBLISHED_PORTS),
                 self.image,
                 "sleep",
                 "infinity",
@@ -532,6 +488,7 @@ class DockerDeployBackend(DeployBackend):
         if reason := self._docker_unavailable_reason():
             print(f"  ✗ Docker is not available: {reason}")
             return False
+        print(f"  → Docker daemon: {pin_docker_endpoint().url}")
 
         # Reuse a running container unless --clean was asked for: a second
         # deploy then hits the in-place UPDATE path (upgrade) instead of a
@@ -554,19 +511,9 @@ class DockerDeployBackend(DeployBackend):
 
     def _create_fresh_container(self) -> bool:
         """Drop any existing container and start a clean one."""
-        # Drop any existing one FIRST so the port check and start don't
-        # collide with a stale container of our own.
         self._remove_container()
-
-        # Check for port conflicts (now that our own container is gone)
-        conflicts = self._check_ports_available()
-        if conflicts:
-            # An abandoned container of ours is ours to clear; a live one is not.
-            if self._reclaim_orphans(conflicts):
-                conflicts = self._check_ports_available()
-        if conflicts:
-            self._report_port_conflicts(conflicts)
-            return False
+        # An abandoned container of ours is ours to clear; a live one is not.
+        self._reclaim_orphans()
 
         # Build image using Dockerfile (with layer caching)
         image_built = self._build_image()
@@ -709,7 +656,26 @@ class DockerDeployBackend(DeployBackend):
 
     def get_server_url(self) -> str:
         """Get the URL to access the server."""
-        return "http://localhost:8000"
+        host = pin_docker_endpoint().published_host
+        return f"http://{host}:{self.published_port(API_PORT)}"
+
+    def published_port(self, container_port: int) -> int:
+        """The host port Docker picked for one of the container's ports."""
+        result = subprocess.run(
+            ["docker", "port", self.container_name, f"{container_port}/tcp"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        # One line per address family: "0.0.0.0:32768", "[::]:32768".
+        lines = result.stdout.split()
+        if result.returncode != 0 or not lines:
+            msg = (
+                f"Container {self.container_name} publishes no port "
+                f"{container_port}: {result.stderr.strip() or 'no mapping'}"
+            )
+            raise RuntimeError(msg)
+        return int(lines[0].rpartition(":")[2])
 
     def get_container_ip(self) -> str | None:
         """Get the container's internal IP address."""

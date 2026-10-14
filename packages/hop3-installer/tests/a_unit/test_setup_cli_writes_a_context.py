@@ -54,6 +54,9 @@ class _Backend:
             )
         return SimpleNamespace(success=True, stdout="", stderr="", returncode=0)
 
+    def get_server_url(self) -> str:
+        return "http://fedora.local:8000"
+
 
 @pytest.fixture
 def spawned(monkeypatch):
@@ -85,7 +88,7 @@ def test_writes_through_hop3_login_into_a_named_context(spawned):
     assert argv[:2] == ["hop3", "login"]
     assert "--context" in argv
     assert argv[argv.index("--context") + 1] == CLI_CONTEXT_NAME
-    assert argv[argv.index("--url") + 1] == "http://localhost:8000"
+    assert argv[argv.index("--url") + 1] == "http://fedora.local:8000"
     assert argv[argv.index("--token") + 1].startswith("eyJ")
 
 
@@ -121,11 +124,11 @@ def test_the_deprecated_settings_command_is_never_invoked(spawned):
     assert not any("settings" in argv for argv in spawned)
 
 
-def test_docker_targets_loopback_not_the_ambient_host(spawned):
+def test_docker_targets_the_container_not_the_ambient_host(spawned):
     """`--docker` deployed to the container; the ambient host is not the target."""
     make_deployer(_Backend(), use_docker=True)._setup_cli()
     argv = spawned[0]
-    assert argv[argv.index("--url") + 1] == "http://localhost:8000"
+    assert argv[argv.index("--url") + 1] == "http://fedora.local:8000"
 
 
 def test_no_token_means_no_login_and_no_success_claim(spawned, capsys):

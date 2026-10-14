@@ -106,17 +106,3 @@ class Backend(ABC):
     @abstractmethod
     def cleanup_server(self) -> None:
         """Clean up server installation from the test environment."""
-
-    def get_installer_path(self, installer_type: str) -> str:
-        """
-        Get the path to the installer script in the test environment.
-
-        Args:
-            installer_type: "cli" or "server"
-
-        Returns:
-            Path to the installer script
-        """
-        if installer_type == "cli":
-            return "/tmp/install-cli.py"
-        return "/tmp/install-server.py"

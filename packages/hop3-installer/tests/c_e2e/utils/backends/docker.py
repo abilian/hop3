@@ -6,12 +6,15 @@ from __future__ import annotations
 
 import subprocess
 import time
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult
 
 from ..common import log_debug, log_error, log_info, log_success
 from .base import Backend
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 # Docker images for each distro
 DOCKER_IMAGES = {
@@ -36,16 +39,14 @@ class DockerBackend(Backend):
     name = "docker"
     supports_systemd = False  # No systemd in standard Docker containers
 
-    def __init__(self, distro: str = "ubuntu", installer_dir: Path | None = None):
+    def __init__(self, distro: str = "ubuntu"):
         """
         Initialize Docker backend.
 
         Args:
             distro: Distribution to test on (ubuntu, debian, fedora)
-            installer_dir: Path to installer directory (for mounting)
         """
         self.distro = distro
-        self.installer_dir = installer_dir or Path(__file__).parent.parent.parent.parent
         self.container_name = f"{CONTAINER_PREFIX}-{distro}"
         self.image = DOCKER_IMAGES.get(distro, DOCKER_IMAGES["ubuntu"])
 
@@ -116,10 +117,6 @@ class DockerBackend(Backend):
                     "-d",
                     "--name",
                     self.container_name,
-                    "-v",
-                    f"{self.installer_dir}:/installer:ro",
-                    "-w",
-                    "/installer",
                     self.image,
                     "sleep",
                     "infinity",
@@ -240,9 +237,3 @@ class DockerBackend(Backend):
         self.run("rm -rf /home/hop3 /etc/hop3")
         self.run("userdel -r hop3 2>/dev/null || true")
         log_success("Server cleanup complete")
-
-    def get_installer_path(self, installer_type: str) -> str:
-        """Get path to installer in container (mounted volume)."""
-        if installer_type == "cli":
-            return "/installer/install-cli.py"
-        return "/installer/install-server.py"
