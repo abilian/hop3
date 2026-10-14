@@ -19,7 +19,7 @@ import shlex
 import subprocess
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, TextIO, cast
 
 import docker
 from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
@@ -42,6 +42,7 @@ from .helpers import (
     find_project_root,
     run_hop3_deploy,
 )
+from .machine_lock import hold_docker_target
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -121,6 +122,8 @@ class DockerTarget(DeploymentTarget):
         # State
         self._started = False
         self._we_created_container = False
+        #: The machine-wide lock, held from start() to stop() (machine_lock).
+        self._machine_lock: TextIO | None = None
 
     def start(self) -> TargetInfo:
         """
@@ -135,6 +138,9 @@ class DockerTarget(DeploymentTarget):
         Returns:
             TargetInfo with connection details
         """
+        # Before anything touches Docker: one e2e session per machine.
+        self._machine_lock = hold_docker_target()
+
         # Initialize diagnostics context
         self.diagnostics.set_context(
             test_name=f"docker-{self.docker_config.container_name}",
@@ -705,6 +711,14 @@ class DockerTarget(DeploymentTarget):
 
     def stop(self) -> None:
         """Stop and cleanup the Docker target."""
+        try:
+            self._stop()
+        finally:
+            if self._machine_lock is not None:
+                self._machine_lock.close()
+                self._machine_lock = None
+
+    def _stop(self) -> None:
         if not self._started:
             return
 
