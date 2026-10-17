@@ -851,6 +851,11 @@ def _build_deploy_command(
             cmd.extend(["--identity", ssh_key])
 
     cmd.extend(_source_flags(source, branch, version, legacy=legacy_flags))
+    # A Docker deploy otherwise runs `hop3 login` in the developer's own CLI
+    # config, which makes the throwaway container their default context: once
+    # the run removed it, every plain `hop3` command went to a dead address.
+    # The harness passes its own URL and token to every call; it needs no login.
+    cmd.append("--no-cli-setup")
     if clean:
         cmd.append("--clean")
     if verbose:

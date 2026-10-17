@@ -47,6 +47,11 @@ def test_docker_target_gets_no_identity():
     assert "--identity" not in _cmd(docker=True, ssh_key="/k")  # docker doesn't ssh
 
 
+def test_a_test_deploy_leaves_the_developers_cli_alone():
+    assert "--no-cli-setup" in _cmd(docker=True)
+    assert "--no-cli-setup" in _cmd(legacy_flags=True)  # every release has it
+
+
 def test_uses_canonical_user_flag():
     assert "--user" in _cmd()
     assert "--ssh-user" not in _cmd()  # canonical spelling, not the alias
