@@ -203,7 +203,11 @@ class DockerDeployBackend(DeployBackend):
         are reused and rebuilds are fast.
         """
         if not self._dockerfile_path:
-            print("  ✗ Dockerfile not found, falling back to direct apt-get install")
+            print(
+                "  ✗ Docker deploy can't build the test image: Dockerfile.base is "
+                "missing from packages/hop3-installer/docker/; run from a hop3 "
+                "checkout"
+            )
             return False
 
         print("  → Building Docker image (using layer cache)...")
@@ -226,7 +230,10 @@ class DockerDeployBackend(DeployBackend):
         )
 
         if result.returncode != 0:
-            print(f"  ✗ Docker build failed (exit code {result.returncode})")
+            print(
+                f"  ✗ Docker build failed (exit code {result.returncode}); "
+                "the build output above names the failing step"
+            )
             return False
 
         print(f"  ✓ Image built: {self.TEST_IMAGE}")
@@ -454,26 +461,6 @@ class DockerDeployBackend(DeployBackend):
         print("  ✗ Container failed to start within timeout")
         return False
 
-    def _install_fallback_packages(self) -> bool:
-        """
-        Install base packages when using fallback ubuntu image.
-
-        Returns:
-            True if packages installed successfully, False otherwise.
-        """
-        print(
-            "  → Installing base packages in container (this may take a few minutes)..."
-        )
-        install_cmd = (
-            "apt-get update && apt-get install -y python3 python3-venv git curl sudo"
-        )
-        exit_code = self.run_streaming(install_cmd)
-        if exit_code != 0:
-            print(f"  ✗ Failed to install base packages (exit code {exit_code})")
-            return False
-        print("  ✓ Base packages installed")
-        return True
-
     def setup(self) -> bool:
         """
         Start Docker container for deployment.
@@ -515,24 +502,17 @@ class DockerDeployBackend(DeployBackend):
         # An abandoned container of ours is ours to clear; a live one is not.
         self._reclaim_orphans()
 
-        # Build image using Dockerfile (with layer caching)
-        image_built = self._build_image()
+        # A failed build stops the deploy. It used to fall back to a bare
+        # ubuntu:24.04 with a few apt packages: a different machine from the
+        # one the e2e image describes, announced by one printed line.
+        if not self._build_image():
+            return False
 
-        # If build failed or no Dockerfile, fall back to ubuntu
-        if not image_built:
-            self.image = "ubuntu:24.04"
-            print(f"  → Falling back to {self.image}")
-
-        # Start and wait for container
         if not self._start_container():
             return False
 
         if not self._wait_for_container_ready():
             return False
-
-        # If we fell back to ubuntu, install packages manually
-        if not image_built:
-            return self._install_fallback_packages()
 
         print("  ✓ Container ready (packages pre-installed via cached layers)")
         return True
