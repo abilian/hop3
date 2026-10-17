@@ -92,24 +92,7 @@ def stage_catalog_app(
     if catalog_app is None:
         raise CatalogInstallError([f"Unknown catalog app '{app_id}'"])
 
-    missing = sorted(set(catalog_app.requires) - SERVER_FEATURES)
-    if missing:
-        msg = (
-            f"Catalog app '{app_id}' needs server features this server does not "
-            f"have: {', '.join(missing)}. Upgrade the server (hop3-install "
-            f"server), then install again."
-        )
-        raise CatalogInstallError([msg])
-
-    running = version("hop3-server")
-    required = catalog_app.requires_hop3
-    if required and not server_satisfies(required, running):
-        msg = (
-            f"Catalog app '{app_id}' needs Hop3 {required} or newer, and this "
-            f"server runs {running}. Upgrade the server (hop3-install server), "
-            f"then install again."
-        )
-        raise CatalogInstallError([msg])
+    _check_server_can_install(catalog_app, app_id)
 
     # Fail loud rather than staging an empty app: the recipe dir must exist.
     # (The old _copy_catalog_source silently returned when it did not.)
@@ -157,6 +140,37 @@ def stage_catalog_app(
     db_session.add(app)
     db_session.commit()
     return app
+
+
+def _check_server_can_install(catalog_app: CatalogApp, app_id: str) -> None:
+    """
+    Refuse a recipe needing a server feature this one lacks, by name.
+
+    The features are the check whenever the index names them: a development
+    build carries the previous release's number with the next release's
+    features, so ``requires_hop3`` refused every recipe needing 0.8 on a server
+    built from the 0.8 branch. ``requires_hop3`` is for servers that predate
+    feature names, and for catalogs published before them.
+    """
+    if catalog_app.requires is not None:
+        missing = sorted(set(catalog_app.requires) - SERVER_FEATURES)
+        if missing:
+            msg = (
+                f"Catalog app '{app_id}' needs server features this server does "
+                f"not have: {', '.join(missing)}. Upgrade the server "
+                f"(hop3-install server), then install again."
+            )
+            raise CatalogInstallError([msg])
+        return
+    running = version("hop3-server")
+    required = catalog_app.requires_hop3
+    if required and not server_satisfies(required, running):
+        msg = (
+            f"Catalog app '{app_id}' needs Hop3 {required} or newer, and this "
+            f"server runs {running}. Upgrade the server (hop3-install server), "
+            f"then install again."
+        )
+        raise CatalogInstallError([msg])
 
 
 def _validate_app_name(app_name: str) -> list[str]:

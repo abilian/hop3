@@ -84,6 +84,27 @@ def test_publish_writes_requires_and_the_server_reads_it_back(tmp_path):
     assert app.requires_hop3 == "0.8"
 
 
+def test_a_recipe_needing_no_feature_is_published_as_such(tmp_path):
+    """
+    An entry without `requires` reads as one published before feature names,
+    so the server checked `requires_hop3` instead: a development build refused
+    every such recipe declaring the next release.
+    """
+    app = tmp_path / "radicale"
+    app.mkdir()
+    (app / "hop3.toml").write_text(
+        '[metadata]\nid = "radicale"\n[build]\ntoolchain = "python"\n'
+    )
+    (app / "check.py").write_text("# smoke test\n")
+
+    index = build_index(tmp_path, serial=1).index
+
+    (entry,) = index["apps"]
+    assert entry["requires"] == []
+    (loaded,) = load_apps_from_index(tmp_path, json.loads(json.dumps(index)))
+    assert loaded.requires == []
+
+
 def test_the_local_source_templates_are_the_ones_that_build_locally():
     """
     The rule names templates by hand. A template that learns to build from the

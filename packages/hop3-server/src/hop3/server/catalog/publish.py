@@ -223,11 +223,12 @@ def build_index(content_dir: Path, serial: int) -> IndexBuild:
         if not files:
             msg = f"Catalog app dir {app_dir.name!r} contains no files"
             raise PublishError(msg)
-        entry: dict = {"id": app_id, "files": files}
+        # `requires` is written even when empty: an entry without it is one
+        # published before feature names, and a server checks its
+        # `requires_hop3` instead (`install._check_server_can_install`).
+        entry: dict = {"id": app_id, "files": files, "requires": requires}
         if status:
             entry["status"] = status
-        if requires:
-            entry["requires"] = requires
         apps.append(entry)
 
     if not apps:

@@ -236,9 +236,11 @@ def load_apps(apps_dir: Path) -> list[CatalogApp]:
     return apps
 
 
-def _feature_names(entry: dict) -> list[str]:
-    """An index entry's ``requires``: a list of feature names, or refused."""
-    requires = entry.get("requires", [])
+def _feature_names(entry: dict) -> list[str] | None:
+    """An index entry's ``requires``: feature names, None if absent, or refused."""
+    if "requires" not in entry:
+        return None
+    requires = entry["requires"]
     if not isinstance(requires, list) or not all(
         isinstance(name, str) for name in requires
     ):

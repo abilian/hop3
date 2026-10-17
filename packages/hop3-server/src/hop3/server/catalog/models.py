@@ -86,8 +86,10 @@ class CatalogApp:
 
     #: The server features this recipe uses (``features.py``), as the publisher
     #: computed them into the signed index. A server lacking one refuses the
-    #: install by name.
-    requires: list[str] = field(default_factory=list)
+    #: install by name. None when the catalog names no features: it was
+    #: published before them, or read from a directory without an index, and
+    #: ``requires_hop3`` is all there is to check.
+    requires: list[str] | None = None
 
     # Computed fields
     category: str = ""

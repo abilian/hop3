@@ -153,6 +153,21 @@ def test_stage_refuses_a_recipe_that_needs_a_feature_this_server_lacks(
     assert session.query(App).filter_by(name="mycloud").first() is None
 
 
+def test_named_features_decide_whatever_the_version_says(rooted) -> None:
+    """
+    A development build carries the previous release's number with the next
+    release's features: the 0.8 branch, numbered 0.7.5, refused every recipe
+    declaring `requires_hop3 = "0.8"`.
+    """
+    _require_hop3(rooted, "99.0")
+    CatalogService.get_instance().get_app("nextcloud").requires = []
+    session = get_session_factory()()
+
+    app = stage_catalog_app("nextcloud", "mycloud", "", session)
+
+    assert app.name == "mycloud"
+
+
 def test_stage_installs_a_recipe_this_server_satisfies(rooted) -> None:
     _require_hop3(rooted, "0.1")
     session = get_session_factory()()
