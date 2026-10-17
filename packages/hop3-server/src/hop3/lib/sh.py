@@ -71,6 +71,10 @@ def shell(
             command_list,
             cwd=str(resolved_cwd),
             env=dict(env) if env is not None else None,
+            # A prompt fails instead of waiting: under supervisor, the
+            # server's stdin is a pipe nobody writes, and `unzip` asking
+            # "replace?" held a Vikunja upgrade until the client gave up.
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             check=check,

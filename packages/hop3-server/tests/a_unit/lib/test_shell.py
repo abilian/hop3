@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import os
 import subprocess
 from pathlib import Path
 
@@ -303,3 +304,21 @@ class TestShell:
         text = _logged_text(captured)
         assert "Calling:" in text
         assert "echo logged" in text
+
+
+def test_a_command_reading_stdin_gets_nothing_to_wait_for(tmp_path: Path) -> None:
+    """
+    Under supervisor the server's stdin is a pipe nobody writes. `unzip`
+    asking "replace?" over a previous build's files waited there for good.
+    """
+    read_end, write_end = os.pipe()
+    saved = os.dup(0)
+    os.dup2(read_end, 0)
+    try:
+        result = shell("cat", cwd=tmp_path, timeout=5)
+    finally:
+        os.dup2(saved, 0)
+        for fd in (saved, read_end, write_end):
+            os.close(fd)
+
+    assert result.stdout == ""
