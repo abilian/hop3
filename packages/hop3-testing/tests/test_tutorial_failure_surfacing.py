@@ -143,6 +143,34 @@ def test_failed_tutorial_collects_target_diagnostics(tmp_path, monkeypatch):
     assert result.deployed_app_name == "hop3-tuto-flask"
 
 
+def test_a_failed_tutorial_step_is_named_in_the_bundle(tmp_path, monkeypatch):
+    test = _tutorial(tmp_path)
+    test.metadata.framework = "flask"
+
+    class _Target:
+        info = TargetInfo(ssh_host="", ssh_port=22)
+
+        def exec_run(self, _cmd):
+            return (0, "", "")
+
+    monkeypatch.setattr(
+        TutorialTestRunner,
+        "_run_validoc",
+        lambda self, path: {
+            "success": False,
+            "error": "validoc failed with exit code 1",
+            "logs": "  [FAIL] exec: curl -fsS https://x/ 0.3s\n"
+            "       Error: Expected exit code 0, got 22\n",
+        },
+    )
+
+    bundle = TutorialTestRunner(cast("Any", _Target())).run(test).bundle
+
+    assert bundle is not None
+    assert bundle.classifier == "step-failure"
+    assert "exec: curl -fsS https://x/" in bundle.headline
+
+
 def test_missing_tutorial_file_is_reported_as_failed(tmp_path):
     # source_path points at a file that does not exist -> hard failure, not a pass.
     test = TestDefinition(

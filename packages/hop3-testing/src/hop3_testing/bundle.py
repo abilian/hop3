@@ -40,6 +40,7 @@ Classifier = Literal[
     "app-crash",
     "timeout",
     "startup-failure",
+    "step-failure",
     "indeterminate",
     "ok",
 ]
@@ -47,7 +48,9 @@ Classifier = Literal[
 (could not read the listen table without root) so we refuse a confident
 proxy-502. ``startup-failure`` = the target itself (hop3-server) never came up.
 That is a deploy/startup failure with no app process to inspect, so the deploy
-log is the lens for it. The app/proxy probe has nothing to say. ``ok`` is never persisted."""
+log is the lens for it. The app/proxy probe has nothing to say. ``step-failure``
+= a tutorial step failed: validoc names the step, and its output is in the
+deploy section, whatever the step was. ``ok`` is never persisted."""
 
 DeployerKind = Literal["uwsgi", "docker", "static", "unknown"]
 
@@ -74,6 +77,7 @@ _SECTION_HINT: dict[str, str] = {
     "app-crash": "app",
     "timeout": "journal",
     "startup-failure": "deploy",
+    "step-failure": "deploy",
     "indeterminate": "proxy",
     "ok": "app",
 }
@@ -403,6 +407,8 @@ def build_headline(
     icon = _ICON.get(classifier, "✗")
     if classifier == "startup-failure":
         verdict = _deploy_error_line(sections) or "the target never came up"
+    elif classifier == "step-failure":
+        verdict = " | ".join(failed_step(sections.get("deploy", ""))) or "a step failed"
     elif probe is not None and classifier in {"proxy-502", "indeterminate"}:
         verdict = probe.verdict
     else:
@@ -418,6 +424,29 @@ def build_headline(
     section = _SECTION_HINT.get(classifier, "app")
     lines.append(f"why: hop3-test why {run_id} --section {section}")
     return "\n".join(lines)
+
+
+#: validoc's line for a failed block: ``[FAIL] exec: hop3 deploy --app x 10.08s``.
+_FAILED_STEP_RE = re.compile(r"^\s*\[FAIL\]\s*(?P<step>.*?)(?:\s+\d+(?:\.\d+)?s)?\s*$")
+_ANSI_RE = re.compile(r"\x1b\[[0-9;]*m|\[\d+m")
+
+
+def failed_step(validoc_output: str) -> tuple[str, ...]:
+    """
+    The first step validoc reports failed, and its ``Error:`` line; () if none.
+
+    Its ``Error: Expected exit code 0, got 1`` matched the build-error pattern,
+    so every failed tutorial was a "build-failure" pointing at an empty build
+    section, an output mismatch included.
+    """
+    lines = _ANSI_RE.sub("", validoc_output).splitlines()
+    for index, line in enumerate(lines):
+        if m := _FAILED_STEP_RE.match(line):
+            error = next(
+                (ln.strip() for ln in lines[index + 1 : index + 3] if ln.strip()), ""
+            )
+            return tuple(part[:160] for part in (m["step"], error) if part)
+    return ()
 
 
 def _deploy_error_line(sections: dict[str, str]) -> str:

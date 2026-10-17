@@ -27,7 +27,7 @@ from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.runtime_diagnostics import collect_runtime_logs
 
 if TYPE_CHECKING:
-    from hop3_testing.bundle import Bundle
+    from hop3_testing.bundle import Bundle, Classifier
     from hop3_testing.targets.base import DeploymentTarget
 
 
@@ -80,6 +80,7 @@ def collect_failure_diagnostics(
     *,
     deploy_logs: str = "",
     expected_port: int | None = None,
+    classifier_hint: Classifier | None = None,
 ) -> tuple[str, Bundle | None]:
     """
     SUT-side diagnostics for a failed/timed-out test. Never raises.
@@ -108,6 +109,7 @@ def collect_failure_diagnostics(
             bundle = collect_diagnostic_bundle(
                 target,
                 app_name,
+                classifier_hint=classifier_hint,
                 deploy_logs=deploy_logs,
                 expected_port=expected_port,
                 target_kind=target_kind(target),

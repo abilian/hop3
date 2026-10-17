@@ -17,6 +17,7 @@ import time
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from hop3_testing.bundle import failed_step
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.targets.admin import ADMIN_TOKEN_ENV, LOCAL_API_URL
 from hop3_testing.util import build_test_env
@@ -226,7 +227,11 @@ class TutorialTestRunner:
         app_name = _tutorial_app_name(test)
         if not passed:
             runtime_logs, bundle = collect_failure_diagnostics(
-                self.target, app_name, deploy_logs=logs
+                self.target,
+                app_name,
+                deploy_logs=logs,
+                # The step validoc reports is the failure, whatever it ran.
+                classifier_hint="step-failure" if failed_step(logs) else None,
             )
 
         return TestResult(

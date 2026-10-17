@@ -20,6 +20,7 @@ from hop3_testing.bundle import (
     build_headline,
     classify,
     collect_diagnostic_bundle,
+    failed_step,
     parse_listen_ports,
     parse_proxy_pass_port,
 )
@@ -540,3 +541,51 @@ def test_a_php_fpm_pool_is_not_a_crash_because_it_speaks_no_http():
 def test_a_php_fpm_pool_bound_nowhere_is_still_found():
     probe = _probe(speaks_http=False, curl_status=0, listen_ports=())
     assert classify({}, probe, kind="uwsgi", http_front=None) == "proxy-502"
+
+
+# What validoc printed for two failed tutorials, 2026-10-15.
+_LARAVEL = """## Deploy
+
+  [FAIL] exec: hop3 deploy --app hop3-tuto-laravel 10.08s
+       Error: Expected exit code 0, got 1
+       Output:
+         ->     - symfony/console v8.1.9 requires php >=8.4.1
+"""
+_RAILS = """  [PASS] exec: gem install rails 4.2s
+  [FAIL] output verification \x1b[2m
+       Error: Output mismatch (regex):
+Expected:
+Rails [0-9]+\\.
+"""
+
+
+def test_failed_step_names_the_step_and_its_error() -> None:
+    assert failed_step(_LARAVEL) == (
+        "exec: hop3 deploy --app hop3-tuto-laravel",
+        "Error: Expected exit code 0, got 1",
+    )
+    assert failed_step(_RAILS) == (
+        "output verification",
+        "Error: Output mismatch (regex):",
+    )
+    assert failed_step("  [PASS] exec: true 0.1s\n") == ()
+
+
+def test_a_failed_step_is_not_a_build_failure() -> None:
+    """Every failed tutorial used to be "build-failure", an output mismatch included."""
+    sections = {"deploy": _RAILS, "build": "(no build.log)"}
+    classifier = classify(
+        sections, None, kind="unknown", http_front=None, hint="step-failure"
+    )
+    headline = build_headline(
+        classifier=classifier,
+        app="hop3-tuto-rails",
+        run_id="rid-t",
+        probe=None,
+        sections=sections,
+        http_front=None,
+    )
+
+    assert "step-failure — hop3-tuto-rails" in headline
+    assert "verdict: output verification | Error: Output mismatch" in headline
+    assert headline.strip().endswith("--section deploy")
