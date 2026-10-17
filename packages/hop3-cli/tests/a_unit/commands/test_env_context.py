@@ -92,13 +92,13 @@ class TestTheAuthFailureNamesTheTarget:
         config = stored_config()
         config.set_active_server(STORED)
         show_unauthenticated_message(config)
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert STORED in out
         assert f"context {DEFAULT_CONTEXT_NAME!r}" in out
 
     def test_it_teaches_the_current_sign_in_command(self, capsys):
         show_unauthenticated_message(stored_config())
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert "hop3 login root@your-server.com" in out
         # It used to advertise `hop3 init`, which the CLI's own help retired,
         # and claim the token lands in config.toml, which stopped being true
@@ -114,7 +114,7 @@ class TestTheAuthFailureNamesTheTarget:
         """
         monkeypatch.setenv("HOP3_API_URL", ENV_URL)
         show_unauthenticated_message(stored_config())
-        out = capsys.readouterr().out
+        out = capsys.readouterr().err
         assert ENV_URL in out
         assert "HOP3_API_TOKEN" in out
         assert "unset HOP3_API_URL" in out
@@ -123,4 +123,4 @@ class TestTheAuthFailureNamesTheTarget:
     def test_no_target_falls_back_to_the_generic_line(self, capsys):
         """A configured CLI with nothing selected still gets an answer."""
         show_unauthenticated_message(Config(data={}))
-        assert "Authentication required" in capsys.readouterr().out
+        assert "Authentication required" in capsys.readouterr().err

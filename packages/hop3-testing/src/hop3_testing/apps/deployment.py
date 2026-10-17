@@ -842,7 +842,10 @@ class DeploymentSession:
                 self.console.error(
                     f"Failed to destroy app (exit code {result.returncode})"
                 )
-                error_msg = result.stderr[:200] if result.stderr else "Unknown error"
+                # Both streams: the CLI printed "No credential for ..." on
+                # stdout, and stderr alone said "Unknown error".
+                output = (result.stderr + result.stdout).strip()
+                error_msg = output[:300] or "the CLI printed nothing"
                 self.deployed = False
                 raise CleanupError(
                     f"Failed to destroy app '{self.app_name}': {error_msg}"

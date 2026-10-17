@@ -60,11 +60,11 @@ def test_unconfigured_message_is_context_aware(capsys):
     cs.set_token("ssh://root@a", "t")
     cs.set_token("ssh://root@b", "t")
     show_unconfigured_message(["apps"])
-    out = capsys.readouterr().out
+    out = capsys.readouterr().err
     assert "ssh://root@a:22" in out
     assert "--context" in out  # guides to naming + selecting a context
 
 
 def test_unconfigured_message_no_servers_shows_init(capsys):
     show_unconfigured_message(["apps"])
-    assert "not configured" in capsys.readouterr().out.lower()
+    assert "not configured" in capsys.readouterr().err.lower()

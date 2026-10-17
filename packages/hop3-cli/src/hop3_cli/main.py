@@ -12,10 +12,13 @@ thin wrapper around SSH to communicate with the server.
 from __future__ import annotations
 
 import sys
+from contextlib import contextmanager
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from .commands.flags import CliFlags
     from .core.resolution import AppResolution, ContextResolution
 
@@ -58,7 +61,7 @@ from .core.resolution import (
 from .core.ssh_target import is_ssh_address
 from .core.workspace_guard import check_workspace_dependency
 from .exceptions import AuthenticationError, CliError
-from .exit_codes import ExitCode
+from .exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from .rpc import Client, handle_response
 from .ui import (
     RichPrinter,
@@ -1027,40 +1030,50 @@ def _execute_rpc_command(
                 printer.print_debug(f"Direct connection to {client.rpc_url}")
 
         try:
-            validated_extra_args: dict[str, Any] = {
-                k: v
-                for k, v in extra_args.items()
-                if isinstance(k, str) and v is not None
-            }
-            response = client.rpc("cli", cli_args, **validated_extra_args)
+            with _transport_errors_reported(client):
+                validated_extra_args: dict[str, Any] = {
+                    k: v
+                    for k, v in extra_args.items()
+                    if isinstance(k, str) and v is not None
+                }
+                response = client.rpc("cli", cli_args, **validated_extra_args)
 
-            # Get tunnel port if using SSH tunnel (for streaming support)
-            tunnel_port = None
-            if client.tunnel:
-                tunnel_port = client.tunnel.local_bind_port
+                # Get tunnel port if using SSH tunnel (for streaming support)
+                tunnel_port = None
+                if client.tunnel:
+                    tunnel_port = client.tunnel.local_bind_port
 
-            # Handle response INSIDE the context to keep tunnel alive for streaming
-            handle_response(
-                response, cli_args, config, printer, tunnel_port=tunnel_port
-            )
-
-        except requests.exceptions.SSLError:
-            _handle_ssl_error(client.rpc_url)
-        except requests.exceptions.ConnectionError as e:
-            if client.tunnel:
-                _handle_connection_error(
-                    e, client.api_url, ssh_stderr=client.tunnel.stderr_tail
+                # Handle response INSIDE the context to keep tunnel alive for
+                # streaming
+                handle_response(
+                    response, cli_args, config, printer, tunnel_port=tunnel_port
                 )
-            _handle_connection_error(e, client.rpc_url)
-        except requests.exceptions.HTTPError as e:
-            err(f"HTTP error while connecting to the Hop3 server:\n{e}")
-            sys.exit(ExitCode.NETWORK_ERROR)
-        except TimeoutError:
-            err("Connection to the Hop3 server timed out.")
-            sys.exit(ExitCode.NETWORK_ERROR)
         except Exception as e:
             err(f"Error while executing command:\n{e}")
             sys.exit(ExitCode.GENERAL_ERROR)
+
+
+@contextmanager
+def _transport_errors_reported(client: Client) -> Iterator[None]:
+    """Report a failure to reach the server as what it is, and exit."""
+    try:
+        yield
+    except requests.exceptions.SSLError:
+        _handle_ssl_error(client.rpc_url)
+    except requests.exceptions.ConnectionError as e:
+        if client.tunnel:
+            _handle_connection_error(
+                e, client.api_url, ssh_stderr=client.tunnel.stderr_tail
+            )
+        _handle_connection_error(e, client.rpc_url)
+    except requests.exceptions.HTTPError as e:
+        err(f"HTTP error while connecting to the Hop3 server:\n{e}")
+        sys.exit(ExitCode.NETWORK_ERROR)
+    except (TimeoutError, requests.exceptions.Timeout) as e:
+        # requests' ReadTimeout is neither of the above: it reached the
+        # catch-all as "Error while executing command".
+        err(f"The Hop3 server at {client.rpc_url} did not answer in time:\n  {e}")
+        sys.exit(ExitCode.NETWORK_ERROR)
 
 
 def _handle_ssl_error(rpc_url: str) -> None:
@@ -1156,6 +1169,12 @@ def _run_config_migration() -> None:
         print(f"hop3: {note}", file=sys.stderr)
 
 
+def _refuses_credential(code: int, message: str) -> bool:
+    """The server refused the credential: by its code, or an older server's prose."""
+    exits = {map_rpc_code_to_exit(code), map_message_to_exit(message)}
+    return ExitCode.AUTH_ERROR in exits
+
+
 def verify_authentication(config: Config) -> None:
     """
     Verify that the current authentication token is valid.
@@ -1165,22 +1184,24 @@ def verify_authentication(config: Config) -> None:
     Args:
         config: The CLI configuration
 
+    Only the server's refusal of the credential is an `AuthenticationError`.
+    Anything else is reported as itself, and exits: a server too busy to answer
+    within the timeout was reported as "No credential for ...", exit 4, and the
+    advice to log in again.
+
     Raises:
-        AuthenticationError: If authentication is invalid or verification fails.
+        AuthenticationError: If the server refuses the credential.
     """
-    try:
-        with Client(config=config) as client:
-            response = client.rpc("cli", ["auth", "whoami"])
-            match response:
-                case Ok():
-                    return
-                case Error(message=message):
-                    msg = f"Authentication failed: {message}"
-                    raise AuthenticationError(msg)
-                case _ as unreachable:
-                    assert_never(unreachable)
-    except AuthenticationError:
-        raise
-    except Exception as e:
-        msg = f"Authentication verification failed: {e}"
-        raise AuthenticationError(msg) from e
+    with Client(config=config) as client, _transport_errors_reported(client):
+        response = client.rpc("cli", ["auth", "whoami"])
+    match response:
+        case Ok():
+            return
+        case Error(code=code, message=message) if _refuses_credential(code, message):
+            msg = f"Authentication failed: {message}"
+            raise AuthenticationError(msg)
+        case Error(code=code, message=message):
+            err(f"The Hop3 server could not check your credential: {message}")
+            sys.exit(map_rpc_code_to_exit(code))
+        case _ as unreachable:
+            assert_never(unreachable)
