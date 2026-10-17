@@ -53,6 +53,24 @@ Every failure aborts, leaves the previously verified catalog serving, and report
 
 The release process builds and signs the artifact offline with the `hop3-catalog` tool (`keygen` + `publish`). It assembles `index.json`, builds the tarball *from* that index (so the published tree is bijective with the signed index by construction), runs the coexistence gate on every spec before signing, and emits the detached signature. See `docs/src/developers/catalog-publishing.md`.
 
+### Versioning
+
+A catalog and a recipe are versioned on different axes. The format is the container: whether a server can read the catalog at all. What a recipe needs from the server is a separate question, and it moves with every server release while the format stays put.
+
+| Axis | Where | Answers | Changes when |
+|---|---|---|---|
+| `format` | the signed `index.json`, and the URL | Can this server read this catalog at all? | The layout changes in a way an existing reader would misread |
+| `serial` | the signed `index.json` | Is this catalog newer than the one I hold? | Every publish (anti-rollback, F4) |
+| `requires` | each entry of the signed index | Does this server have what this app needs? | A recipe starts using a server feature |
+
+**`format` is an integer, and a server refuses one it does not read**, naming the format it does. The number moves only on an incompatible change. An addition an older reader can ignore (a new optional key in the index, a new file in an entry) leaves it alone: readers ignore unknown keys, and within a format the publisher never removes or reinterprets one.
+
+**The format is also in the URL**: `catalog/v<format>/catalog.tar.gz`. A server's default source is the highest format it reads. A new format is published beside the old one for as long as servers that read only the old one are supported, so those servers keep receiving updates instead of a refusal. Retiring a format is a decision made at publication, and neither it nor a new format needs a server release made after the fact. The unversioned path, `catalog/catalog.tar.gz`, serves servers that predate the format check; they would misread any other format, so it only ever carries format 1.
+
+**What a recipe needs is a list of named server features, computed by the publisher** from the recipe's `hop3.toml` and, where it has one, its hand-written `hop3.nix` (`hop3/server/catalog/features.py`). A hand-written requirement is wrong as soon as someone forgets it. A feature is named rather than versioned, so the check survives what a version number cannot: a fix backported to a point release, a development build, a fork. A server refuses to install an entry naming a feature it lacks, and the error names the missing features.
+
+**`requires_hop3` remains, for servers that predate feature names.** It is declared in the entry's `catalog.toml`, and the publisher refuses a recipe whose `requires_hop3` is lower than its features need. A server that reads `requires` ignores it. A need no rule can see, such as a nixpkgs attribute that only a newer server's default pin carries, is declared by hand in `requires_hop3`, with the reason beside it.
+
 ## Considered Alternatives
 
 **Transport: git repo (pinned commit) instead of a tarball.** Viable, and documented as a fallback: the repo tree *is* the catalog, Homebrew-tap style. Rejected for v1: it puts `git` in the fetch path, re-ships the whole tree per refresh, and has no clean atomic-verify-then-swap story. A tarball over HTTPS needs only stdlib `urllib` and swaps atomically.

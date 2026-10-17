@@ -68,7 +68,7 @@ In order. An item names how to run it and what finishes it.
 
 **A run of the published catalog is a flag on `hop3-test run`**, not a second runner: `check-catalog.py` and the harness drifted before (the probe credential, the check port).
 
-ADR 049 gains a versioning section once this is built.
+Built; [ADR 049](../adrs/049-catalog-distribution.md#versioning) records the design.
 
 ## Decided: per-app users in 0.9 (2026-10-11)
 
