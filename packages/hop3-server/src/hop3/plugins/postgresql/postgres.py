@@ -318,6 +318,18 @@ def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) ->
         conn.close()
 
 
+def _admin_execute(admin: PostgresAdmin, *statements: sql.Composable) -> None:
+    """Run ``statements`` in order as the admin, outside a transaction."""
+    conn = psycopg2.connect(**admin.get_connection_params())
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    try:
+        with conn.cursor() as cursor:
+            for statement in statements:
+                cursor.execute(statement)
+    finally:
+        conn.close()
+
+
 @dataclass(frozen=True)
 class PostgresAddon:
     """
@@ -772,24 +784,44 @@ class PostgresAddon:
 
     def restore(self, backup_path: Path) -> None:
         """
-        Restore PostgreSQL database from a backup file.
+        Replace the database with the one dumped in ``backup_path``.
 
-        Args:
-            backup_path: Path to the SQL backup file
+        The dump is loaded into a fresh database, in one transaction that
+        stops at its first error, and that database then takes the place of
+        the live one: a restore that fails leaves the live one as it was.
+        Replayed over the live database, a dump's CREATE statements failed on
+        the tables already there, psql carried on and exited 0, and the
+        "restored" database mixed the two.
+
+        It runs as the admin, so the dump can create the extensions the app
+        used; its `OWNER TO` statements give every object back to the app's
+        user.
         """
         # Confine the caller-supplied path to the backup tree: this value
         # comes straight from RPC and reaches a file-reading sink below.
         # Same root backup() writes to, so the two cannot drift apart.
         backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
 
-        admin = self._get_admin()
-        password = self._get_stored_password()
-
-        if not password:
+        if not self._get_stored_password():
             msg = f"No stored password for addon '{self.addon_name}'."
             raise RuntimeError(msg)
 
-        # Use psql to restore
+        admin = self._get_admin()
+        staging = f"{self.db_name[:50]}_restoring"
+        _admin_execute(
+            admin,
+            sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(
+                sql.Identifier(staging)
+            ),
+            sql.SQL("CREATE DATABASE {} WITH OWNER {}").format(
+                sql.Identifier(staging), sql.Identifier(self.db_user)
+            ),
+        )
+        _grant_schema_create(admin, db_name=staging, db_user=self.db_user)
+
+        env = os.environ.copy()
+        if admin.superuser_password:
+            env["PGPASSWORD"] = admin.superuser_password
         cmd = [
             "psql",
             "-h",
@@ -797,17 +829,36 @@ class PostgresAddon:
             "-p",
             str(admin.port),
             "-U",
-            self.db_user,
+            admin.superuser,
             "-d",
-            self.db_name,
+            staging,
+            "-v",
+            "ON_ERROR_STOP=1",
+            "--single-transaction",
+            "--quiet",
             "-f",
             str(backup_path),
         ]
+        try:
+            subprocess.run(cmd, check=True, env=env)
+        except subprocess.CalledProcessError:
+            _admin_execute(
+                admin,
+                sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(
+                    sql.Identifier(staging)
+                ),
+            )
+            raise
 
-        # Preserve existing environment and add PGPASSWORD
-        env = os.environ.copy()
-        env["PGPASSWORD"] = password
-        subprocess.run(cmd, check=True, env=env)
+        _admin_execute(
+            admin,
+            sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(
+                sql.Identifier(self.db_name)
+            ),
+            sql.SQL("ALTER DATABASE {} RENAME TO {}").format(
+                sql.Identifier(staging), sql.Identifier(self.db_name)
+            ),
+        )
 
     def info(self) -> dict[str, Any]:
         """

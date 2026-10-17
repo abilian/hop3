@@ -21,6 +21,7 @@ Run with: pytest tests/b_integration/plugins/test_postgres_integration.py -v
 from __future__ import annotations
 
 import shutil
+import subprocess
 import uuid
 from contextlib import suppress
 
@@ -325,3 +326,77 @@ class TestPostgresBackupRestore:
 
         finally:
             pg_module.HOP3_ROOT = original_root
+
+
+def _app_sql(addon: PostgresAddon, *statements: str) -> list:
+    """Run ``statements`` as the app's user; the last one's rows."""
+    details = addon.get_connection_details()
+    conn = psycopg2.connect(
+        host=details["PGHOST"],
+        port=int(details["PGPORT"]),
+        user=details["PGUSER"],
+        password=details["PGPASSWORD"],
+        dbname=details["PGDATABASE"],
+    )
+    try:
+        with conn.cursor() as cur:
+            for statement in statements:
+                cur.execute(statement)
+            rows = cur.fetchall() if cur.description else []
+        conn.commit()
+    finally:
+        conn.close()
+    return rows
+
+
+def test_a_restore_over_the_live_database_gives_back_the_dump(
+    postgres_addon, tmp_path, monkeypatch
+):
+    """
+    LimeSurvey's rollback replayed its dump over the upgraded database: every
+    CREATE failed on an existing table, psql exited 0, and both mixed.
+    """
+    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    postgres_addon.create()
+    _app_sql(
+        postgres_addon,
+        "CREATE TABLE answers (value TEXT)",
+        "INSERT INTO answers VALUES ('before')",
+    )
+    backup_path = postgres_addon.backup()
+    _app_sql(
+        postgres_addon,
+        "INSERT INTO answers VALUES ('after')",
+        "CREATE TABLE added_by_the_upgrade (id INT)",
+    )
+
+    postgres_addon.restore(backup_path)
+
+    assert _app_sql(postgres_addon, "SELECT value FROM answers") == [("before",)]
+    tables = _app_sql(
+        postgres_addon,
+        "SELECT tablename FROM pg_tables WHERE schemaname = 'public'",
+    )
+    assert tables == [("answers",)]
+    # The app's user still owns what it created, and can write.
+    _app_sql(postgres_addon, "INSERT INTO answers VALUES ('later')")
+
+
+def test_a_dump_that_fails_leaves_the_live_database_alone(
+    postgres_addon, tmp_path, monkeypatch
+):
+    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    postgres_addon.create()
+    _app_sql(
+        postgres_addon,
+        "CREATE TABLE answers (value TEXT)",
+        "INSERT INTO answers VALUES ('live')",
+    )
+    broken = tmp_path / "backups" / "postgres" / "broken.sql"
+    broken.parent.mkdir(parents=True, exist_ok=True)
+    broken.write_text("CREATE TABLE answers (value TEXT);\nNOT SQL;\n")
+
+    with pytest.raises(subprocess.CalledProcessError):
+        postgres_addon.restore(broken)
+
+    assert _app_sql(postgres_addon, "SELECT value FROM answers") == [("live",)]
