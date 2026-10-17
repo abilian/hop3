@@ -1011,6 +1011,7 @@ class TestNodePnpmInstallTemplate:
         assert "pnpm rebuild" not in output
         assert "pkgs.gcc" not in output
         assert "npm_config_nodedir" not in output
+        assert "CXXFLAGS" not in output
 
     def test_native_packages_compiled_offline_from_source(self):
         """
@@ -1036,6 +1037,14 @@ class TestNodePnpmInstallTemplate:
         """
         output = generate(self._base_spec(native_packages=["isolated-vm"]))
         assert "pnpm rebuild --config.dangerouslyAllowAllBuilds=true" in output
+
+    def test_a_native_addon_gets_cstdint_without_including_it(self):
+        """
+        isolated-vm 5.0.3 uses `uint32_t` without including <cstdint>, which
+        the pinned libstdc++ no longer pulls in through <memory>.
+        """
+        output = generate(self._base_spec(native_packages=["isolated-vm"]))
+        assert 'export CXXFLAGS="-include cstdint"' in output
 
     def test_multiple_native_packages_rebuilt_together(self):
         output = generate(self._base_spec(native_packages=["isolated-vm", "sharp"]))

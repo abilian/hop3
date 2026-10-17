@@ -136,6 +136,12 @@ def _native_addon_build(payload: NodePnpmInstallPayload) -> tuple[str, str]:
       # builds; it rebuilds only the packages named here. pnpm 9 ignores the key.
       export npm_config_nodedir=${{nodejs}}
       export CI=true
+      # An addon written for an older libstdc++ reaches `uint32_t` through
+      # <memory> or <functional>, which no longer include <cstdint>: isolated-vm
+      # 5.0.3, which every Directus release still pins, stops at "'uint32_t' has
+      # not been declared". Include it for every C++ unit, as the standard says
+      # the addon should have.
+      export CXXFLAGS="-include cstdint"
       ${{pnpm}}/bin/pnpm rebuild --config.dangerouslyAllowAllBuilds=true \\
         --store-dir $PNPM_STORE {targets}
 """
