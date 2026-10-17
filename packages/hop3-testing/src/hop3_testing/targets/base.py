@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import contextlib
+import shlex
 import subprocess
 import tarfile
 import tempfile
@@ -19,12 +20,14 @@ from typing import TYPE_CHECKING, Any, Self
 import httpx
 
 from hop3_testing.exceptions import (
+    CommandTimeoutError,
     ConfigurationError,
     DeploymentError,
     TargetOutOfDiskError,
 )
 
 from .constants import (
+    DEFAULT_COMMAND_TIMEOUT,
     hermetic_cli_cwd,
     hermetic_cli_env,
 )
@@ -102,6 +105,12 @@ class TargetInfo:
         return self.api_token
 
 
+#: SIGKILL this long after SIGTERM, for a command that ignores the first.
+_KILL_GRACE = 10
+#: `timeout`'s exit status: 124 after its SIGTERM, 128 + 9 after its SIGKILL.
+_TIMED_OUT = frozenset({124, 137})
+
+
 class DeploymentTarget(ABC):
     """
     Abstract base class for deployment targets.
@@ -152,16 +161,38 @@ class DeploymentTarget(ABC):
             raise RuntimeError(msg)
         return self._info
 
-    def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
+    def exec_run(
+        self, cmd: str | list[str], *, timeout: int = DEFAULT_COMMAND_TIMEOUT
+    ) -> tuple[int, str, str]:
         """
-        Execute a command on the target.
+        Execute a command on the target, killed after ``timeout`` seconds.
 
-        Args:
-            cmd: Command to execute (string or list)
+        A string is a shell command line; a list is quoted into one. Neither the
+        Docker exec nor the SSH channel bounds a command, so one that hung left
+        the run silent, with no error, for as long as it hung. It is bounded on
+        the target, by ``timeout``, so the process is gone when this raises.
 
         Returns:
             Tuple of (exit_code, stdout, stderr)
+
+        Raises:
+            CommandTimeoutError: The command was still running after ``timeout``.
         """
+        command = cmd if isinstance(cmd, str) else shlex.join(cmd)
+        bounded = f"timeout -k {_KILL_GRACE} {timeout} bash -c {shlex.quote(command)}"
+        started = time.monotonic()
+        code, out, err = self._exec_shell(bounded)
+        if code in _TIMED_OUT and time.monotonic() - started >= timeout:
+            tail = "\n".join((out + err).strip().splitlines()[-20:])
+            msg = (
+                f"`{command}` did not finish within {timeout}s on the target and "
+                f"was killed. Its last output:\n{tail or '(none)'}"
+            )
+            raise CommandTimeoutError(msg)
+        return code, out, err
+
+    def _exec_shell(self, command: str) -> tuple[int, str, str]:
+        """Run a shell command line on the target: ``(exit_code, stdout, stderr)``."""
         msg = "exec_run not implemented for this target"
         raise NotImplementedError(msg)
 

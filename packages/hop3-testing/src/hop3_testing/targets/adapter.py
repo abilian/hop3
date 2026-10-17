@@ -14,13 +14,9 @@ unchanged. The container lifecycle stays owned by the fixture, so ``start``/
 
 from __future__ import annotations
 
-import shlex
-from typing import TYPE_CHECKING, Any
+from typing import Any
 
 from hop3_testing.targets.base import DeploymentTarget, TargetInfo
-
-if TYPE_CHECKING:
-    from collections.abc import Sequence
 
 
 class ContainerTarget(DeploymentTarget):
@@ -42,12 +38,10 @@ class ContainerTarget(DeploymentTarget):
     def stop(self) -> None:  # lifecycle owned by the fixture
         return
 
-    def exec_run(self, cmd: str | Sequence[str]) -> tuple[int, str, str]:
-        """Run ``cmd`` in the container, returning ``(exit_code, stdout, stderr)``."""
-        if not isinstance(cmd, str):
-            cmd = shlex.join(cmd)
+    def _exec_shell(self, command: str) -> tuple[int, str, str]:
+        """Run ``command`` in the container, returning ``(exit_code, stdout, stderr)``."""
         result = self._container.exec_run(
-            ["bash", "-c", cmd], demux=True, user=self._user
+            ["bash", "-c", command], demux=True, user=self._user
         )
         out, err = result.output
         stdout = out.decode() if out else ""

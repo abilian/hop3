@@ -509,7 +509,7 @@ class DockerContainerHelper:
         if self._ssh_key_path and self._ssh_key_path.exists():
             self._ssh_key_path.unlink()
 
-    def exec_run(self, cmd: str, demux: bool = False) -> Any:
+    def exec_run(self, cmd: str | list[str], demux: bool = False) -> Any:
         """
         Execute a command in the container.
 

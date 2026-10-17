@@ -30,6 +30,10 @@ class DeployTimeoutError(DeploymentError):
     """
 
 
+class CommandTimeoutError(TestingError):
+    """Raised when a command on the target runs past its ceiling and is killed."""
+
+
 class CleanupError(TestingError):
     """Raised when cleanup fails."""
 

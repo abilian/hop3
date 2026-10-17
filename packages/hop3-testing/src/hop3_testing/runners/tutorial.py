@@ -42,6 +42,9 @@ _TEST_CURLRC = "insecure\n"
 #: Every subdomain resolves to 127.0.0.1.
 LOOPBACK_TEST_DOMAIN = "127.0.0.1.sslip.io"
 
+#: A whole tutorial: scaffold, build, deploy and check. Past this it is hung.
+TUTORIAL_TIMEOUT = 900
+
 _VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILINE)
 
 
@@ -299,13 +302,8 @@ class TutorialTestRunner:
             "RUSTUP_HOME=/home/hop3/.rustup",
             "PATH=/home/hop3/venv/bin:/usr/local/bin:/home/hop3/.cargo/bin:/usr/bin:/bin:$PATH",
         ])
-        # Bound the run server-side (the SSH exec has no timeout of its own): a
-        # hung tutorial would otherwise wedge the whole suite. `timeout` sends
-        # SIGTERM at 900s, then SIGKILL 30s later. The env-var prefix applies to
-        # `timeout`, which passes the environment through to validoc.
         run_cmd = (
             f"cd {shlex.quote(workdir)} && {env} "
-            f"timeout -k 30 900 "
             f"/home/hop3/venv/bin/validoc run {shlex.quote(tutorial_path.name)}"
         )
 
@@ -315,7 +313,7 @@ class TutorialTestRunner:
             target.exec_run(
                 f"printf {shlex.quote(_TEST_CURLRC)} > {shlex.quote(workdir)}/.curlrc"
             )
-            code, out, err = target.exec_run(run_cmd)
+            code, out, err = target.exec_run(run_cmd, timeout=TUTORIAL_TIMEOUT)
         except Exception as e:
             return {"success": False, "error": str(e), "logs": ""}
         finally:

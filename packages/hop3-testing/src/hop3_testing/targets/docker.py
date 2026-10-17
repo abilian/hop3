@@ -16,7 +16,6 @@ testing scenarios:
 from __future__ import annotations
 
 import io
-import shlex
 import subprocess
 import tarfile
 import time
@@ -761,29 +760,15 @@ class DockerTarget(DeploymentTarget):
         self._started = False
         print("Container stopped.")
 
-    def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
-        """
-        Execute a command on the target.
-
-        Args:
-            cmd: Command to execute
-
-        Returns:
-            Tuple of (exit_code, stdout, stderr)
-        """
-        if isinstance(cmd, list):
-            # Use shlex.join: the list-form contract advertises safe
-            # execution, so individual args must reach the command intact
-            # through the shell (spaces, quotes, $, …). " ".join breaks them.
-            # The test author owns the input, so this is a correctness fix
-            # with no security role; matches the sister-site fix in remote.py.
-            cmd = shlex.join(cmd)
-
+    def _exec_shell(self, command: str) -> tuple[int, str, str]:
+        """Run a shell command line in the container."""
         if self._command_runner:
-            result = self._command_runner.run(cmd, check=False)
+            result = self._command_runner.run(command, check=False)
             return result.returncode, result.stdout, result.stderr
         if self._container_helper:
-            result = self._container_helper.exec_run(cmd, demux=True)
+            result = self._container_helper.exec_run(
+                ["bash", "-c", command], demux=True
+            )
             stdout = result.output[0].decode() if result.output[0] else ""
             stderr = result.output[1].decode() if result.output[1] else ""
             return result.exit_code, stdout, stderr

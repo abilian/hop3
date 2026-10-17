@@ -28,7 +28,7 @@ class RemoteTarget:
         self.calls: list = []
         self.uploaded: list = []
 
-    def exec_run(self, cmd):
+    def exec_run(self, cmd, **_kw):
         self.calls.append(cmd)
         return (0, "ok", "")
 

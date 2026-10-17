@@ -15,7 +15,6 @@ The behavior is determined by whether a DeploymentConfig is provided.
 
 from __future__ import annotations
 
-import shlex
 import time
 from typing import TYPE_CHECKING, Any
 
@@ -361,33 +360,16 @@ class RemoteTarget(DeploymentTarget):
         print("Remote target cleanup complete (server keeps running).")
         self._started = False
 
-    def exec_run(self, cmd: str | list[str]) -> tuple[int, str, str]:
-        """
-        Execute a command on the remote server.
-
-        Args:
-            cmd: Command to execute
-
-        Returns:
-            Tuple of (exit_code, stdout, stderr)
-        """
-        if isinstance(cmd, list):
-            # shlex.join handles every shell metachar (quotes, $, &, |,
-            # backslash, …) the previous "wrap-if-spaces" form missed.
-            # Test author owns the input, so this is correctness rather
-            # than a security control; matches the sister-site fix in
-            # docker.py.
-            cmd = shlex.join(cmd)
-
-        # Use command runner if available
+    def _exec_shell(self, command: str) -> tuple[int, str, str]:
+        """Run a shell command line on the remote server."""
         if self._command_runner:
-            result = self._command_runner.run(cmd, check=False)
+            result = self._command_runner.run(command, check=False)
             return result.returncode, result.stdout, result.stderr
 
         # Fallback to direct SSH
         if self._ssh_client:
             try:
-                _stdin, stdout, stderr = self._ssh_client.exec_command(cmd)
+                _stdin, stdout, stderr = self._ssh_client.exec_command(command)
                 exit_code = stdout.channel.recv_exit_status()
                 stdout_text = stdout.read().decode()
                 stderr_text = stderr.read().decode()
