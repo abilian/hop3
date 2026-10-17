@@ -23,8 +23,8 @@ from hop3.server.catalog.publish import PublishError, build_index
 PHP_RECIPE = {"build": {"toolchain": "php"}, "run": {"before-run": "setup"}}
 
 
-def _names(recipe):
-    return [f.name for f in features_used(recipe)]
+def _names(recipe, expression=""):
+    return [f.name for f in features_used(recipe, expression)]
 
 
 def test_a_php_recipe_without_a_start_command_needs_php_fpm():
@@ -103,6 +103,24 @@ def test_a_recipe_needing_no_feature_is_published_as_such(tmp_path):
     assert entry["requires"] == []
     (loaded,) = load_apps_from_index(tmp_path, json.loads(json.dumps(index)))
     assert loaded.requires == []
+
+
+def test_a_hand_written_expression_that_writes_before_run_needs_0_8(tmp_path):
+    """Only its hop3.nix shows it; an older server never runs the setup step."""
+    app = _app(tmp_path, '[catalog]\nrequires_hop3 = "0.7.5"\n')
+    (app / "hop3.nix").write_text(
+        '# before_run in runtime.json\n{ "before_run": ["$out/bin/setup"] }\n'
+    )
+
+    with pytest.raises(PublishError, match=r'nix-before-run \(0\.8\).*"0\.8"'):
+        build_index(tmp_path, serial=1)
+
+
+def test_a_comment_naming_before_run_is_not_a_use():
+    assert (
+        _names({}, "# Hop3 runs this before the server (before_run in runtime.json)")
+        == []
+    )
 
 
 def test_the_local_source_templates_are_the_ones_that_build_locally():

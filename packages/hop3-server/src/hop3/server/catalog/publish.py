@@ -253,7 +253,10 @@ def _required_features(app_dir: Path, app_id: str, recipe: dict) -> list[str]:
     must name a release that has every feature found. A higher value is kept:
     a recipe may need something no rule detects.
     """
-    features = features_used(recipe)
+    expression = app_dir / "hop3.nix"
+    features = features_used(
+        recipe, expression.read_text() if expression.is_file() else ""
+    )
     needed = release_needed(features)
     declared = required_hop3(load_catalog_overlay(app_dir), app_id)
     if needed and not (declared and server_satisfies(needed, declared)):

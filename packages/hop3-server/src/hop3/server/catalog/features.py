@@ -26,11 +26,19 @@ from .policy import release_number
 Recipe = Mapping[str, Any]
 
 
+def _never(_recipe: Recipe) -> bool:
+    return False
+
+
 @dataclass(frozen=True, slots=True)
 class Feature:
     name: str
     since: str
-    used_by: Callable[[Recipe], bool]
+    used_by: Callable[[Recipe], bool] = _never
+    #: Text whose presence in a hand-written ``hop3.nix`` means the recipe uses
+    #: the feature: the expression writes the runtime contract itself, so the
+    #: parsed ``hop3.toml`` cannot show it.
+    in_expression: str = ""
 
 
 def _section(recipe: Recipe, name: str) -> Mapping[str, Any]:
@@ -91,14 +99,20 @@ FEATURES: tuple[Feature, ...] = (
         "0.8",
         lambda r: "gem-cargo-hashes" in _section(r, "nix"),
     ),
+    # An older server ignores the key: the app's setup step never runs.
+    Feature("nix-before-run", "0.8", in_expression='"before_run"'),
 )
 
 SERVER_FEATURES: frozenset[str] = frozenset(f.name for f in FEATURES)
 
 
-def features_used(recipe: Recipe) -> list[Feature]:
-    """The features a recipe uses, in table order."""
-    return [f for f in FEATURES if f.used_by(recipe)]
+def features_used(recipe: Recipe, expression: str = "") -> list[Feature]:
+    """The features a recipe and its hand-written ``hop3.nix`` use, in order."""
+    return [
+        f
+        for f in FEATURES
+        if f.used_by(recipe) or (f.in_expression and f.in_expression in expression)
+    ]
 
 
 def release_needed(features: list[Feature]) -> str:
