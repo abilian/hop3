@@ -334,7 +334,7 @@ class DeploymentTarget(ABC):
     def _free_disk_pct(self) -> int | None:
         """Percent free on the apps filesystem, or None if it can't be read."""
         try:
-            code, out, _ = self.exec_run("df -P /home/hop3 2>/dev/null | tail -1")
+            code, out, _ = self.exec_run("df -P /home/hop3 2>/dev/null | tail -n 1")
         except Exception:
             return None
         if code != 0 or not out.strip():

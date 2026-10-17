@@ -687,7 +687,7 @@ class DockerTarget(DeploymentTarget):
             print(f"  Port 8000: {result.stdout.strip()}")
 
             result = self._command_runner.run(
-                "tail -30 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
+                "tail -n 30 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
                 check=False,
             )
             print(f"  hop3-server log:\n{result.stdout}")

@@ -521,10 +521,10 @@ def _collect_sections(
         f"echo '=== rendered conf ==='; cat {HOP3_ROOT}/nginx/{app}.conf 2>&1 "
         "|| echo '(no nginx conf)';"
         "echo '=== nginx error.log (tail 200) ==='; "
-        "tail -200 /var/log/nginx/error.log 2>&1 "
+        "tail -n 200 /var/log/nginx/error.log 2>&1 "
         "|| echo '(no error.log / permission denied — needs root)';"
         "echo '=== nginx access.log (tail 80) ==='; "
-        "tail -80 /var/log/nginx/access.log 2>&1 || echo '(no access.log)'",
+        "tail -n 80 /var/log/nginx/access.log 2>&1 || echo '(no access.log)'",
     )
 
     sections["app"] = _section_body(
@@ -587,13 +587,13 @@ def _collect_sections(
         "journalctl -u uwsgi-hop3 -n 300 --no-pager 2>&1; "
         "else "
         "echo '--- hop3-server (supervisor stdout) ---'; "
-        "tail -500 /var/log/supervisor/hop3-server.log 2>&1; "
+        "tail -n 500 /var/log/supervisor/hop3-server.log 2>&1; "
         "echo '--- hop3-server (supervisor stderr) ---'; "
-        "tail -500 /var/log/supervisor/hop3-server_err.log 2>&1; "
+        "tail -n 500 /var/log/supervisor/hop3-server_err.log 2>&1; "
         "echo '--- hop3-rootd (supervisor) ---'; "
-        "tail -200 /var/log/supervisor/hop3-rootd*.log 2>&1; "
+        "tail -n 200 /var/log/supervisor/hop3-rootd*.log 2>&1; "
         "echo '--- uwsgi-hop3, the Emperor (supervisor) ---'; "
-        "tail -300 /var/log/supervisor/uwsgi.log 2>&1; "
+        "tail -n 300 /var/log/supervisor/uwsgi.log 2>&1; "
         "fi);"
         'echo "$OUT";'
         'if [ -z "$(echo "$OUT" | grep -vE \'^---|^$|^tail:|No such file|No journal files|-- No entries\')" ]; then '
@@ -619,14 +619,14 @@ def _collect_sections(
         "|| echo '(no nix gcroots/auto)';"
         "echo '=== OOM kills (dmesg) ==='; "
         "dmesg -T 2>/dev/null | grep -iE 'killed process|out of memory|oom-kill' "
-        "| tail -10 || echo '(dmesg unavailable or no OOM)'",
+        "| tail -n 10 || echo '(dmesg unavailable or no OOM)'",
     )
 
     sections["build"] = _section_body(
         target,
         'echo "uid=$(id -un)";'
         f"if [ -f {HOP3_ROOT}/apps/{app}/log/build.log ]; then "
-        f"tail -200 {HOP3_ROOT}/apps/{app}/log/build.log 2>&1; "
+        f"tail -n 200 {HOP3_ROOT}/apps/{app}/log/build.log 2>&1; "
         "else echo '(no build.log)'; fi",
     )
 

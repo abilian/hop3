@@ -257,7 +257,7 @@ class DeploymentDebugger:
             # Get container logs
             self.console.status("Container logs (last 30 lines):")
             _exit, stdout, _ = self.target.exec_run(
-                f"docker logs {container_name} 2>&1 | tail -30"
+                f"docker logs {container_name} 2>&1 | tail -n 30"
             )
             self.console.echo(stdout)
 
@@ -322,7 +322,7 @@ class DeploymentDebugger:
             # Check uWSGI logs
             self.console.status("uWSGI logs (last 30 lines):")
             _exit, stdout, _ = self.target.exec_run(
-                f"tail -30 /home/hop3/apps/{self.app_name}/log/web.1.log "
+                f"tail -n 30 /home/hop3/apps/{self.app_name}/log/web.1.log "
                 "2>/dev/null || echo 'Log not found'"
             )
             self.console.echo(stdout)

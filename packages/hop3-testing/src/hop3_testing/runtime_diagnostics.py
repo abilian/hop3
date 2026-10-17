@@ -106,7 +106,7 @@ def _diagnostic_sections(
                 '    printf "%s\\n" "$files" | while IFS= read -r f; do '
                 '      [ -n "$f" ] || continue; '
                 '      echo "--- $f ---"; '
-                '      tail -80 "$f" 2>&1; '
+                '      tail -n 80 "$f" 2>&1; '
                 "    done; "
                 "  else "
                 "    echo '(no per-app .log files yet — the app may not have started)'; "
@@ -122,12 +122,12 @@ def _diagnostic_sections(
             # them with `nix log` and skip any guess about a docker builder.
             (
                 f"if [ -f {app_dir}/log/build.log ]; then "
-                f"  tail -80 {app_dir}/log/build.log 2>&1; "
+                f"  tail -n 80 {app_dir}/log/build.log 2>&1; "
                 f"elif [ -L {app_dir}/.nix-result ]; then "
                 "    echo '(Nix build — no per-app build.log; showing nix log for "
                 "the built store path)'; "
                 f'    nix log "$(readlink -f {app_dir}/.nix-result)" 2>&1 '
-                "      | tail -80 || echo '(nix log unavailable)'; "
+                "      | tail -n 80 || echo '(nix log unavailable)'; "
                 "else "
                 "  echo '(no per-app build log — the build output is in the deploy "
                 "log shown above.)'; "

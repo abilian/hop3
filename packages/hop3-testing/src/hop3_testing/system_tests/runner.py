@@ -613,7 +613,7 @@ class TestRunnerManager:
                 "nginx.conf": f"cat /home/hop3/nginx/{app_name}.conf 2>&1 || cat /etc/nginx/sites-enabled/{app_name}* 2>&1",
                 # uWSGI configs use pattern: {app_name}_{kind}.{ordinal}.ini
                 "uwsgi.ini": f"cat /home/hop3/uwsgi-enabled/{app_name}*.ini 2>&1 || cat /home/hop3/uwsgi-available/{app_name}*.ini 2>&1",
-                "uwsgi-all.log": f"cat /home/hop3/apps/{app_name}/log/*.log 2>&1 | tail -200",
+                "uwsgi-all.log": f"cat /home/hop3/apps/{app_name}/log/*.log 2>&1 | tail -n 200",
                 "journal-hop3-server.log": "journalctl -u hop3-server -n 100 --no-pager 2>&1",
                 "journal-uwsgi.log": "journalctl -u uwsgi-hop3 -n 100 --no-pager 2>&1",
                 "process-info.txt": f"ps aux | grep -E '{app_name}|uwsgi' | grep -v grep 2>&1",

@@ -708,7 +708,7 @@ class DockerServiceManager:
         )
         if "NOT_RUNNING" in result.stdout:
             log_result = self.backend.run(
-                "tail -50 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
+                "tail -n 50 /home/hop3/hop3-server.log 2>/dev/null || echo 'No log'",
                 check=False,
             )
             if self.diagnostics:

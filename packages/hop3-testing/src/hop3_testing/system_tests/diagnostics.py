@@ -58,12 +58,12 @@ class DiagnosticCollector:
         "hop3-server.log": (
             'if [ "$(cat /proc/1/comm 2>/dev/null)" = systemd ]; then '
             "journalctl -u hop3-server --no-pager -n 500 2>&1; else "
-            "tail -500 /var/log/supervisor/hop3-server.log 2>&1; "
-            "tail -500 /var/log/supervisor/hop3-server_err.log 2>&1; fi "
+            "tail -n 500 /var/log/supervisor/hop3-server.log 2>&1; "
+            "tail -n 500 /var/log/supervisor/hop3-server_err.log 2>&1; fi "
             "|| echo 'No hop3-server logs'"
         ),
-        "nginx-error.log": "tail -500 /var/log/nginx/error.log 2>&1 || echo 'No nginx error log'",
-        "nginx-access.log": "tail -200 /var/log/nginx/access.log 2>&1 || echo 'No nginx access log'",
+        "nginx-error.log": "tail -n 500 /var/log/nginx/error.log 2>&1 || echo 'No nginx error log'",
+        "nginx-access.log": "tail -n 200 /var/log/nginx/access.log 2>&1 || echo 'No nginx access log'",
         "docker-daemon.log": "journalctl -u docker --no-pager -n 200 2>&1 || echo 'No docker logs'",
         "system-info.txt": "echo '=== Disk ===' && df -h && echo '\\n=== Memory ===' && free -h && echo '\\n=== Docker ===' && docker info 2>&1 | head -30",
         "docker-images.txt": "docker images 2>&1 || echo 'Docker not available'",
@@ -266,7 +266,7 @@ class DiagnosticCollector:
         docker_dir.mkdir(exist_ok=True)
 
         # Get recent Docker events
-        cmd = "docker events --since '1h' --until 'now' --filter 'type=image' 2>&1 | tail -50 || echo 'No events'"
+        cmd = "docker events --since '1h' --until 'now' --filter 'type=image' 2>&1 | tail -n 50 || echo 'No events'"
         self._collect_command_output(cmd, docker_dir / "events.log", result)
 
         # Get Docker build cache info
