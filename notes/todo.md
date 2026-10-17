@@ -79,7 +79,6 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
   - **uv installs without bytecode.** The Python toolchain's `uv sync` has no `--compile-bytecode`, so a uv-built app compiles into its venv at runtime, which a read-only venv would silently stop.
   - **Nextcloud apps from the app store land in `apps/`,** beside the ones Nextcloud ships, and a deploy deletes them while `config.php` still lists them. Upstream's answer is a second, writable `apps_paths` entry (`custom_apps/`) on a volume.
   - **Mattermost's System Console settings do not survive a deploy.** `scripts/setup-config.sh` writes `config.json` from the platform's values on every deploy, by design, so what an administrator changes in the console is overwritten. Mattermost can keep its configuration in the database (`MM_CONFIG` set to the DSN).
-  - **`hop3check` reports `no-port` for a recipe whose `[run].start` is a script** that reads `$PORT` itself (keycloak, mattermost). The rule reads the start line only.
 
 - **Left from the native alpha pass, 2026-09-29.** State, secrets and destructive steps are fixed in 20 recipes; these remain:
   - owncast serves its admin with upstream's default password (`abc123`), stored in its database. Setting it at start takes a password on argv; the way through is a post-start hook that changes it over the admin API when the default still works.
