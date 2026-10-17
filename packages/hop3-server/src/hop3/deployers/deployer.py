@@ -48,8 +48,11 @@ from hop3.deployers.probe_account import (
     provision_probe_credential,
 )
 from hop3.deployers.volumes import (
+    delivered_source_path,
     drop_previous_source,
+    keep_delivered_source,
     realize_volumes,
+    restore_delivered_source,
     retire_source_tree,
 )
 from hop3.deployers.waf import configure_waf_preflight, start_waf_proxy
@@ -62,6 +65,7 @@ from hop3.lib import (
     log_diagnosis,
     shell,
 )
+from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.logging import server_log
 from hop3.orm.app import AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY, should_redirect_to_https
@@ -163,6 +167,8 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     # --- 1. Parse Application Configuration ---
     log(f"Starting deployment for app '{app.name}'", level=0, fg="green")
     server_log.info("Starting deployment", app_name=app.name, app_id=app.id)
+
+    _start_from_delivered_source(app)
 
     try:
         app_config = AppConfig.from_dir(app.app_path)
@@ -1398,6 +1404,40 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
             )
         )
         return
+
+
+def replace_source(app: App, archive: bytes) -> None:
+    """
+    Write a new source tree for the app from ``archive``, and keep it as delivered.
+
+    Every path that delivers source (an upload, a git push over RPC or over
+    SSH) goes through here; the catalog install copies a recipe instead.
+    """
+    make_way_for_new_source(app)
+    extract_archive_to_dir(archive, app.src_path)
+    keep_delivered_source(app)
+
+
+def _start_from_delivered_source(app: App) -> None:
+    """
+    Build from the tree the last deploy delivered, never from a build's output.
+
+    After a delivery `src/` already holds that tree, and copying it again is
+    the price of one rule for every deploy.
+    """
+    # ponytail: one redundant copy of the source per delivery; skip it with a
+    # "fresh" marker if large repositories make it measurable.
+    if not delivered_source_path(app).exists():
+        log(
+            f"No copy of the source '{app.name}' was delivered with: it was "
+            f"deployed by an older Hop3, so this build runs on the previous "
+            f"build's output. The next deploy keeps one.",
+            level=1,
+            fg="yellow",
+        )
+        return
+    stop_previous_instance(app)
+    restore_delivered_source(app)
 
 
 def make_way_for_new_source(app: App) -> None:

@@ -20,7 +20,6 @@ from typing import TYPE_CHECKING
 
 from hop3.core.git import GitManager, extract_app_name_from_repo_path
 from hop3.lib import echo
-from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository, get_session_factory
 
@@ -139,7 +138,7 @@ class GitHookCmd(Command):
 
         from hop3.deployers import (  # ruff:ignore[import-outside-top-level]
             do_deploy,
-            make_way_for_new_source,
+            replace_source,
         )
 
         session_factory = get_session_factory()
@@ -179,9 +178,6 @@ class GitHookCmd(Command):
                 fg="green",
             )
 
-            # Stop the running instance and set its tree aside, then extract
-            # the commit into a fresh src/ (see make_way_for_new_source).
-            make_way_for_new_source(app)
             echo(f"-----> Extracting commit {new_sha[:8]}...", fg="cyan")
 
             # SECURITY: route the archive through the same hardened
@@ -201,7 +197,8 @@ class GitHookCmd(Command):
                 check=True,
                 capture_output=True,
             )
-            extract_archive_to_dir(git_archive.stdout, app.src_path)
+            # Stops the running instance and sets its tree aside first.
+            replace_source(app, git_archive.stdout)
 
             # Trigger deployment
             echo(f"-----> Deploying '{app_name}'...", fg="cyan")

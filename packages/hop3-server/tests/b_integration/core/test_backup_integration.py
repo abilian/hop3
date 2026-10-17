@@ -24,7 +24,11 @@ from sqlalchemy.orm import sessionmaker
 
 from hop3.config import HopConfig
 from hop3.core.backup import BackupManager, BackupManifest
-from hop3.deployers.volumes import realize_volumes
+from hop3.deployers.volumes import (
+    delivered_source_path,
+    keep_delivered_source,
+    realize_volumes,
+)
 from hop3.orm import AddonCredential, App, Backup, BackupStateEnum, EnvVar
 from hop3.orm.repositories import (
     AddonCredentialRepository,
@@ -641,6 +645,21 @@ class TestVolumeBackupRestore:
         backup_manager._restore_volumes(app, backup_dir, manifest)
 
         assert (app.volumes_path / "store" / "secret.txt").read_text() == "precious"
+
+    def test_restore_brings_back_the_delivered_tree(self, backup_manager, sample_app):
+        """The rollback rebuilds from it; without it, it rebuilt on build output."""
+        app = sample_app
+        (app.src_path / "hop3.toml").write_text("[metadata]\nid = 'x'\n")
+        keep_delivered_source(app)
+        (app.src_path / "vendor").mkdir()
+
+        _id, backup_dir = backup_manager.create_backup(app, include_addons=False)
+        shutil.rmtree(delivered_source_path(app))
+        backup_manager._restore_source(app, backup_dir)
+
+        delivered = delivered_source_path(app)
+        assert sorted(p.name for p in delivered.iterdir()) == ["hop3.toml"]
+        assert (app.src_path / "vendor").is_dir()
 
     def test_volume_backup_can_be_opted_out(self, backup_manager, sample_app):
 

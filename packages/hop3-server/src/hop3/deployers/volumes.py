@@ -73,6 +73,31 @@ def drop_previous_source(app: App) -> None:
     robust_rmtree(previous_source_path(app))
 
 
+def delivered_source_path(app: App) -> Path:
+    """The tree the last deploy delivered, as it arrived, before any build."""
+    return app.app_path / "src.delivered"
+
+
+def keep_delivered_source(app: App) -> None:
+    """Copy the tree just written into `src/`, before a build writes into it."""
+    delivered = delivered_source_path(app)
+    robust_rmtree(delivered)
+    shutil.copytree(app.src_path, delivered, symlinks=True)
+
+
+def restore_delivered_source(app: App) -> None:
+    """
+    Replace `src/` with the tree the last deploy delivered.
+
+    A build writes into `src/`: it downloads, unpacks, moves directories into
+    place. A redeploy without new source (an upgrade, a restore, a scale) built
+    on that output, so a recipe that unpacks its application met its own
+    leftovers (`mv: cannot overwrite './vendor': Directory not empty`).
+    """
+    retire_source_tree(app)
+    shutil.copytree(delivered_source_path(app), app.src_path, symlinks=True)
+
+
 def realize_volumes(app: App, volumes: list[dict[str, Any]]) -> None:
     """Link each declared volume into the app's source tree (ADR 046 §2)."""
     for vol in volumes:

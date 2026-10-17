@@ -28,8 +28,10 @@ from typing import Any
 
 from hop3.config import HopConfig
 from hop3.core.plugins import get_addon
+from hop3.deployers.volumes import delivered_source_path
 from hop3.lib import log
 from hop3.lib.path import is_under
+from hop3.lib.util import robust_rmtree
 from hop3.orm import App, AppStateEnum, Backup, BackupStateEnum, EnvVar
 
 # Runtime imports for Dishka DI (not just type hints)
@@ -769,6 +771,10 @@ class BackupManager:
         with tarfile.open(tar_path, "w:gz") as tar:
             if src_path.exists():
                 tar.add(src_path, arcname="src", filter=_src_filter)
+            # What the build starts from: a restore rebuilds from it.
+            delivered = delivered_source_path(app)
+            if delivered.exists():
+                tar.add(delivered, arcname=delivered.name)
             if repo_path.exists():
                 tar.add(repo_path, arcname="git")
 
@@ -1034,6 +1040,9 @@ class BackupManager:
             shutil.rmtree(app.src_path)
         if app.repo_path.exists():
             shutil.rmtree(app.repo_path)
+        # A backup taken before the delivered tree was kept restores without
+        # one, and the rebuild runs on the restored tree as it did then.
+        robust_rmtree(delivered_source_path(app))
 
         # Extract tar (with filter for security)
         with tarfile.open(tar_path, "r:gz") as tar:

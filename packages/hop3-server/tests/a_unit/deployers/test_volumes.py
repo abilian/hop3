@@ -25,9 +25,12 @@ import pytest
 from hop3.deployers import deployer
 from hop3.deployers.deployer import _reject_volumes_on_docker
 from hop3.deployers.volumes import (
+    delivered_source_path,
     drop_previous_source,
+    keep_delivered_source,
     previous_source_path,
     realize_volumes,
+    restore_delivered_source,
     retire_source_tree,
 )
 
@@ -383,6 +386,37 @@ def test_volumes_are_linked_once_after_the_build() -> None:
     assert source.index('"postbuild"') < linking
     assert linking < source.index("drop_previous_source(app)")
     assert source.index("drop_previous_source(app)") < source.index("get_deployer(")
+
+
+def test_a_rebuild_starts_from_the_delivered_tree(tmp_path: Path) -> None:
+    """
+    LimeSurvey's `hop3 app upgrade` ran its download script on the previous
+    build's output: `mv: cannot overwrite './vendor': Directory not empty`.
+    """
+    app = _app(tmp_path)
+    (app.src_path / "hop3.toml").write_text("recipe")
+    keep_delivered_source(app)
+    vol = [_persist("upload", "upload")]
+    _unpack_over(app, "upload", {"vendor/lib.php": "built"})
+    realize_volumes(app, vol)
+    (app.src_path / "upload" / "survey.png").write_text("participant's")
+
+    restore_delivered_source(app)
+    assert sorted(p.name for p in app.src_path.iterdir()) == ["hop3.toml"]
+    _unpack_over(app, "upload", {"vendor/lib.php": "built"})
+    realize_volumes(app, vol)
+    drop_previous_source(app)
+
+    assert (app.src_path / "upload" / "survey.png").read_text() == "participant's"
+    assert (delivered_source_path(app) / "hop3.toml").read_text() == "recipe"
+    assert not previous_source_path(app).exists()
+
+
+def test_every_deploy_starts_from_the_delivered_tree() -> None:
+    source = inspect.getsource(deployer._do_deploy)
+    assert source.index("_start_from_delivered_source(app)") < source.index(
+        "AppConfig.from_dir("
+    )
 
 
 def test_a_volume_the_app_cannot_own_stops_the_deploy(

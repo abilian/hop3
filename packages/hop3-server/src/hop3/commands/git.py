@@ -15,9 +15,8 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3.core.git import GitManager
 from hop3.core.identifiers import validate_app_name
 from hop3.core.roles import Role
-from hop3.deployers import do_deploy, make_way_for_new_source
+from hop3.deployers import do_deploy, replace_source
 from hop3.lib import log
-from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.args import pop_app_flag
 from hop3.lib.registry import register
 from hop3.orm import App, AppRepository
@@ -129,7 +128,6 @@ class GitHookCmd(Command):
         Raises:
             subprocess.CalledProcessError: If `git archive` fails
         """
-        make_way_for_new_source(app)
         log(f"Extracting commit {commit_sha[:8]} to {app.src_path}", level=2)
         archive = subprocess.run(
             ["git", "archive", "--format=tar.gz", commit_sha],
@@ -137,7 +135,7 @@ class GitHookCmd(Command):
             check=True,
             capture_output=True,
         )
-        extract_archive_to_dir(archive.stdout, app.src_path)
+        replace_source(app, archive.stdout)
 
         log(
             f"Successfully extracted commit {commit_sha[:8]} to source",

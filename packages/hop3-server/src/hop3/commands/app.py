@@ -23,7 +23,7 @@ from hop3.core.git import clone_repository
 from hop3.core.identifiers import validate_app_name, validate_repo_url
 from hop3.core.plugins import get_addon
 from hop3.core.roles import Role
-from hop3.deployers import do_deploy, make_way_for_new_source
+from hop3.deployers import do_deploy, replace_source
 from hop3.deployers.admin_bootstrap import (
     format_admin_credential,
     read_admin_credential,
@@ -31,7 +31,6 @@ from hop3.deployers.admin_bootstrap import (
 from hop3.deployers.fixed_ports import release_fixed_ports
 from hop3.deployers.waf import teardown_waf
 from hop3.lib import log
-from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.console import capture_logs
 from hop3.lib.logging import server_log
@@ -262,13 +261,9 @@ class DeployCmd(Command):
             self.db_session.commit()
             server_log.info("Deploy: created new app", app_name=app_name, app_id=app.id)
 
-        # Stop a still-running previous instance BEFORE replacing its source,
-        # and set the old tree aside for the volumes this deploy declares.
-        # No-op on a first deploy. See deployers.deployer.make_way_for_new_source.
-        make_way_for_new_source(app)
-
-        archives_bytes = b64decode(cast("str", kwargs["repository"]))
-        extract_archive_to_dir(archives_bytes, app.src_path)
+        # Stops a still-running previous instance BEFORE replacing its source,
+        # and sets the old tree aside for the volumes this deploy declares.
+        replace_source(app, b64decode(cast("str", kwargs["repository"])))
 
         # Load ENV file from deployed source (provides defaults for HOST_NAME, etc.)
         env_file = app.src_path / "ENV"

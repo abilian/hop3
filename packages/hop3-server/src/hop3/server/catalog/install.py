@@ -27,6 +27,8 @@ import tomllib
 from hop3.commands._helpers import check_hostname_conflict, parse_hostname_string
 from hop3.config import config
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
+from hop3.deployers import make_way_for_new_source
+from hop3.deployers.volumes import keep_delivered_source
 from hop3.lib import log
 from hop3.orm import App, AppRepository, EnvVar
 from hop3.server.catalog.features import SERVER_FEATURES
@@ -296,23 +298,26 @@ def _recipe_pins_hostname(app: App) -> bool:
 
 def _copy_catalog_source(catalog_app: CatalogApp, app: App) -> None:
     """
-    Copy the catalog recipe (hop3.toml + siblings) into the app's src tree.
+    Copy the catalog recipe (hop3.toml + siblings) into a fresh src tree.
 
     Shallow-copies top-level files and directories from the blueprint's verified
     source dir, skipping ``__pycache__`` / ``.git`` at the top level (matching
-    the prior controller behaviour exactly). The caller guarantees the source
-    dir exists.
+    the prior controller behaviour exactly), and keeps it as delivered. A retry
+    after a failed first deploy starts from the recipe, not from what that
+    deploy's build left. The caller guarantees the source dir exists.
     """
     src_path = Path(catalog_app.source_path)
     dest_path = Path(app.src_path)
-    dest_path.mkdir(parents=True, exist_ok=True)
+    make_way_for_new_source(app)
+    dest_path.mkdir(parents=True)
 
     excluded_dirs = {"__pycache__", ".git"}
     for item in src_path.iterdir():
         if item.is_file():
             shutil.copy2(item, dest_path / item.name)
         elif item.is_dir() and item.name not in excluded_dirs:
-            shutil.copytree(item, dest_path / item.name, dirs_exist_ok=True)
+            shutil.copytree(item, dest_path / item.name)
+    keep_delivered_source(app)
 
 
 def _parse_and_add_env_vars(app: App, env_vars_str: str) -> None:
