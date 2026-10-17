@@ -926,7 +926,7 @@ When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression a
 
 1. If a `hop3.nix` file exists in the source directory, it is used directly (hand-crafted mode).
 2. If no `hop3.nix` exists but `[nix].template` is set, Hop3 generates one at build time from the template.
-3. Run `hop3 nix eject <app>` to materialize the generated file for manual customization.
+3. Run `hop3 nix eject --app <app>` to materialize the generated file for manual customization.
 
 ### Template Types
 
