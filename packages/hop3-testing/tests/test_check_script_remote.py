@@ -53,7 +53,7 @@ def _session(tmp_path) -> Any:
     return SimpleNamespace(
         app_name="myapp",
         test_hostname="myapp.test.local",
-        app=SimpleNamespace(path=tmp_path),
+        app=SimpleNamespace(path=tmp_path, creates_probe_account=False),
     )
 
 

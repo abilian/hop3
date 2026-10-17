@@ -67,7 +67,10 @@ class CheckOutcome:
                 "covers it"
             )
         if not self.used_hop3_account:
-            return "smoke test passed (verified the handover only — no [probe])"
+            return (
+                "smoke test passed (verified the handover only: no probe "
+                "account to sign in as)"
+            )
         return "smoke test passed"
 
 

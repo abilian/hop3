@@ -335,6 +335,17 @@ class DeploymentTestRunner:
     ) -> str | None:
         """Run check script and return error message if failed, None otherwise."""
         check_start = time.time()
+        probe_error = self._probe_account_error(session)
+        if probe_error:
+            validation_results.append(
+                ValidationResult(
+                    passed=False,
+                    message=probe_error,
+                    duration=time.time() - check_start,
+                    validation_type="probe_account",
+                )
+            )
+            return probe_error
         if not self.target.info.is_container:
             # Was: silently fabricated passed=True. check.py checks app-specific
             # body content, so skipping it on remote meant the ONLY assertion
@@ -356,6 +367,60 @@ class DeploymentTestRunner:
         if not check_result["passed"]:
             return check_result["message"]
         return None
+
+    def _probe_account_error(self, session: DeploymentSession) -> str | None:
+        """
+        Why the probe account a recipe creates does not exist, or None if it does.
+
+        The deploy treats a failed ``[probe].create`` as non-fatal: the app
+        works, and its check falls back to the operator's credential. That kept
+        six recipes green for a whole published run while their probe commands
+        could not have worked (a missing config path, a missing socket, a
+        missing binary). Here the recipe promises the account, so its absence
+        is a failure. The server's record decides (``HOP3_PROBE_CREATED``); the
+        deploy log only explains.
+        """
+        if not session.app.creates_probe_account:
+            return None
+        reader = (
+            "from sqlalchemy import select;"
+            "from hop3.orm import get_session_factory, App;"
+            "from hop3.deployers.probe_account import PROBE_CREATED_ENV;"
+            "s=get_session_factory()();"
+            f"a=s.scalars(select(App).where(App.name=='{session.app_name}')).one();"
+            "print('created' if a.get_runtime_env().get(PROBE_CREATED_ENV) else '')"
+        )
+        exit_code, stdout, stderr = self._run_as_hop3(reader)
+        if exit_code != 0:
+            return (
+                f"could not read whether the probe account exists (exit "
+                f"{exit_code}): {stderr[:300]}"
+            )
+        if stdout.strip() == "created":
+            return None
+        deploy_log = session.last_deploy_output
+        start = deploy_log.find("Could not create the probe account")
+        why = f": {deploy_log[start:][:800]}" if start >= 0 else ""
+        return (
+            f"[probe].create did not create the probe account, so check.py "
+            f"could only sign in as the operator{why}"
+        )
+
+    def _run_as_hop3(self, code: str, stdout_to: str = "") -> tuple[int, str, str]:
+        """
+        Run Python ``code`` on the server as hop3, with the server's environment.
+
+        ``stdout_to`` replaces that file with the output, mode 0600. A file a
+        crashed run left behind belongs to root, and hop3 could not replace it.
+        """
+        clear, redirect = (
+            (f"rm -f {stdout_to}; ", f" > {stdout_to}") if stdout_to else ("", "")
+        )
+        return self.target.exec_run(
+            f"{clear}"
+            f'su - hop3 -c "umask 077; set -a; . /etc/default/hop3 2>/dev/null; '
+            f'{_HOP3_VENV_PYTHON} -c \\"{code}\\"{redirect}"'
+        )
 
     def _write_check_credentials(
         self, session: DeploymentSession, env_path: str
@@ -398,13 +463,7 @@ class DeploymentTestRunner:
             "print(''.join(k+'='+shlex.quote(v)+chr(10) for k,v in "
             "(check_credentials(a,s) if a else {}).items()), end='')"
         )
-        exit_code, _, stderr = self.target.exec_run(
-            # A file a crashed run left behind belongs to root, and hop3 could
-            # not replace it.
-            f"rm -f {env_path}; "
-            f'su - hop3 -c "umask 077; set -a; . /etc/default/hop3 2>/dev/null; '
-            f'{_HOP3_VENV_PYTHON} -c \\"{reader}\\" > {env_path}"'
-        )
+        exit_code, _, stderr = self._run_as_hop3(reader, stdout_to=env_path)
         if exit_code != 0:
             msg = (
                 f"the check's credentials could not be written to {env_path} on "

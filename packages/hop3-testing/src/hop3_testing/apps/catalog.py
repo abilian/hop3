@@ -32,6 +32,15 @@ class AppSource:
         return (self.path / "check.py").exists()
 
     @property
+    def creates_probe_account(self) -> bool:
+        """The recipe's ``[probe]`` names a ``create`` command: Hop3 makes the account."""
+        hop3_toml = self.path / "hop3.toml"
+        if not hop3_toml.exists():
+            return False
+        probe: dict = tomllib.loads(hop3_toml.read_text()).get("probe") or {}
+        return bool(probe.get("create"))
+
+    @property
     def has_procfile(self) -> bool:
         """Check if app has a Procfile.
 
