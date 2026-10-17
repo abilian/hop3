@@ -205,11 +205,51 @@ def test_use_unknown_context(capsys):
     assert "not found" in capsys.readouterr().err
 
 
-def test_use_rejects_global(capsys):
+def test_use_global_sets_the_default_context(capsys):
+    """A test run once left the default on a removed container; a login was the only way back."""
     _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
+    config = _cfg()
+    config.set_context_server("prod", "ssh://root@prod")
+    config.set_context_server("gone", "http://container:32000")
+    config.set_default_context("gone")
+
+    context_use(["--global", "prod"], config)
+
+    assert Config.from_toml_file(Path.cwd() / "config.toml").get_default_context() == (
+        "prod"
+    )
+    assert not (Path.cwd() / ".hop3-local.toml").exists()
+    assert "ssh://root@prod" in capsys.readouterr().out
+
+
+def test_use_outside_a_project_is_global():
+    config = _cfg()
+    config.set_context_server("prod", "ssh://root@prod")
+
+    context_use(["prod"], config)
+
+    assert config.get_default_context() == "prod"
+
+
+def test_use_global_refuses_an_unknown_context(capsys):
+    config = _cfg()
+    config.set_context_server("prod", "ssh://root@prod")
+
     with pytest.raises(SystemExit):
-        context_use(["dev", "--global"], _cfg())
-    assert "no global form" in capsys.readouterr().err
+        context_use(["--global", "nope"], config)
+
+    assert config.get_default_context() is None
+    assert "prod" in capsys.readouterr().err
+
+
+def test_use_global_says_when_the_environment_outranks_it(capsys, monkeypatch):
+    monkeypatch.setenv("HOP3_API_URL", "http://elsewhere:8000")
+    config = _cfg()
+    config.set_context_server("prod", "ssh://root@prod")
+
+    context_use(["--global", "prod"], config)
+
+    assert "outranks it" in capsys.readouterr().err
 
 
 def test_use_global_context_name_redirects(capsys):
@@ -226,7 +266,7 @@ def test_use_global_context_name_redirects(capsys):
     assert exc.value.code == 2
     err = capsys.readouterr().err
     assert "global context" in err
-    assert "--context prod" in err
+    assert "hop3 context use --global prod" in err
 
 
 # ---- global contexts (project-less) ----

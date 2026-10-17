@@ -19,6 +19,7 @@ import re
 import shlex
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Final
+from urllib.parse import urlparse
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -149,6 +150,15 @@ def is_ssh_address(address: str | None) -> bool:
         return False
     scheme, sep, _ = address.partition("://")
     return bool(sep) and scheme in SSH_SCHEMES
+
+
+def ssh_target_from_address(address: str, default_user: str) -> str | None:
+    """``ssh://[user@]host[:port]`` as the ``user@host[:port]`` ssh is given."""
+    parsed = urlparse(address)
+    if not parsed.hostname:
+        return None
+    port = f":{parsed.port}" if parsed.port else ""
+    return f"{parsed.username or default_user}@{parsed.hostname}{port}"
 
 
 def is_safe_ssh_target(target: str) -> bool:

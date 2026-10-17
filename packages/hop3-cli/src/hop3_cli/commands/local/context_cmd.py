@@ -18,7 +18,8 @@ whichever fits where you stand (``--global`` forces the global scope):
 - ``list`` / ``show``      — read contexts at the current scope
 - ``add`` / ``remove`` / ``rename`` — edit them (project hop3.toml or global config.toml)
 - ``use``                 — pin a project context for this checkout via
-  ``.hop3-local.toml [local].context`` (gitignored, not committed)
+  ``.hop3-local.toml [local].context`` (gitignored, not committed); at the
+  global scope, make a global context the default target
 
 Writes preserve the file's comments/order (tomlkit round-trip). No secrets ever
 land in either file: the server is a literal address; the token lives in the
@@ -36,7 +37,7 @@ import tomlkit
 import tomlkit.exceptions  # ken: explicit import for except clause below
 
 from hop3_cli.commands.local.help_text import print_context_help
-from hop3_cli.config import DEFAULT_CONTEXT_NAME
+from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME
 from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
 from hop3_cli.core.local_overlay import atomic_write_text, read_overlay, write_overlay
 
@@ -549,35 +550,34 @@ def context_rename(args: list[str]) -> None:
 
 
 def context_use(args: list[str], config: Config) -> None:
-    """Pin a context for this checkout via .hop3-local.toml (not committed)."""
-    if "--global" in args or "-g" in args:
-        print(
-            "Error: `hop3 context use` pins a project context for THIS checkout "
-            "(.hop3-local.toml) — it has no global form. To make a global context "
-            "the default target, log in naming it (`hop3 login --context <name>`), "
-            "or select per-command with `--context <name>`.",
-            file=sys.stderr,
-        )
-        sys.exit(2)
+    """
+    Select a context: pin a project one for this checkout, or set the global default.
 
+    Inside a project, `use` writes ``.hop3-local.toml [local].context``. With
+    ``--global``, or outside a project, it sets ``[cli].default_context``, which
+    only a login used to write: once a test run had pointed the default at a
+    container it then removed, signing in again was the only way back.
+    """
     name = next((a for a in args if not a.startswith("-")), None)
     if not name:
-        print("Usage: hop3 context use <name>", file=sys.stderr)
+        print("Usage: hop3 context use [--global] <name>", file=sys.stderr)
         sys.exit(1)
+
+    if _use_global_scope(args):
+        _use_global_context(name, config)
+        return
 
     path = _require_project_toml()
     contexts = _read_contexts(path)
     if name not in contexts:
-        # The name may be a GLOBAL context (config.toml). `use` only pins
-        # PROJECT contexts (ADR 042), so don't dead-end on the project file —
-        # name the global context and point at the mechanism that applies to it.
+        # The name may be a GLOBAL context (config.toml): don't dead-end on the
+        # project file, name the form that applies to it.
         if config.get_context_server(name):
             print(
-                f"Context {name!r} is a global context, but `hop3 context use` "
-                f"only pins PROJECT contexts for this checkout (.hop3-local.toml).\n"
-                f"To make {name!r} your default target, log in naming it "
-                f"(`hop3 login --context {name}`), or select it per-command with "
-                f"`--context {name}`.",
+                f"Context {name!r} is a global context; inside a project, "
+                f"`hop3 context use` pins a PROJECT context (.hop3-local.toml).\n"
+                f"To make {name!r} your default target: "
+                f"`hop3 context use --global {name}`.",
                 file=sys.stderr,
             )
             sys.exit(2)
@@ -589,3 +589,25 @@ def context_use(args: list[str], config: Config) -> None:
     write_overlay({"local": {"context": name}})
     print(f"Selected context '{name}' for this checkout (.hop3-local.toml).")
     print("  local, not committed — each checkout chooses its own.")
+
+
+def _use_global_context(name: str, config: Config) -> None:
+    """Make a global context the default target of project-less commands."""
+    known = set(config.list_global_contexts()) - {ENV_CONTEXT_NAME}
+    if name not in known:
+        print(
+            f"No global context {name!r} in config.toml.\n"
+            f"  Known: {', '.join(sorted(known)) or '(none)'}",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+    config.set_default_context(name)
+    print(f"Default context: {name} -> {config.get_context_server(name)}")
+    # The default ranks below the environment. Say so, rather than let the next
+    # command go somewhere other than where this line just said.
+    if (current := config.get_current_context_name()) != name:
+        print(
+            f"  but {current!r} outranks it in this shell "
+            f"(HOP3_CONTEXT, HOP3_API_URL or HOP3_DEV_MODE).",
+            file=sys.stderr,
+        )

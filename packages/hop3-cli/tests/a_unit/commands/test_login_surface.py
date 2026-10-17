@@ -179,6 +179,49 @@ class TestDispatch:
         assert routed == ["web"]
 
 
+class TestANamedContextSignsInThroughItsRoute:
+    """`hop3 login --context dev` asked for a username, though `dev` was ssh://."""
+
+    @pytest.fixture
+    def ssh_args(self, monkeypatch):
+        calls: list[list[str]] = []
+        monkeypatch.setattr(
+            login_cmd, "handle_login_ssh", lambda args, *_a: calls.append(args)
+        )
+        monkeypatch.setattr(
+            login_cmd, "handle_login_password", lambda *_a: calls.append(["password"])
+        )
+        return calls
+
+    def _config(self, tmp_path, **contexts: dict[str, str]) -> Config:
+        config = Config(data={"contexts": contexts}, config_file=tmp_path / "c.toml")
+        config.set_context_override("dev")
+        return config
+
+    def test_an_ssh_server(self, ssh_args, tmp_path):
+        config = self._config(tmp_path, dev={"server": "ssh://admin@dev.example:2222"})
+        login_cmd.handle_login([], config, None)
+        assert ssh_args == [["admin@dev.example:2222"]]
+
+    def test_an_https_server_with_a_bootstrap_route(self, ssh_args, tmp_path):
+        config = self._config(
+            tmp_path,
+            dev={"server": "https://dev.example", "bootstrap": "ssh://dev.example"},
+        )
+        login_cmd.handle_login([], config, None)
+        assert ssh_args == [["root@dev.example"]]
+
+    def test_no_route_is_still_the_password_form(self, ssh_args, tmp_path):
+        config = self._config(tmp_path, dev={"server": "https://dev.example"})
+        login_cmd.handle_login([], config, None)
+        assert ssh_args == [["password"]]
+
+    def test_a_username_asks_for_the_password_form(self, ssh_args, tmp_path):
+        config = self._config(tmp_path, dev={"server": "ssh://root@dev.example"})
+        login_cmd.handle_login(["--username", "alice"], config, None)
+        assert ssh_args == [["password"]]
+
+
 class TestContextAddCarriesABootstrapRoute:
     """
     Without this, a context on https:// could be declared but never renew.

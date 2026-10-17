@@ -16,7 +16,7 @@ from urllib.parse import parse_qs, urlparse
 from jsonrpcclient import Error, Ok
 
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
-from hop3_cli.core.ssh_target import is_safe_ssh_target
+from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_target_from_address
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import bearer_header, extract_jwt
 
@@ -53,6 +53,7 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
 
     Usage:
         hop3 login user@server                           # this CLI, over SSH
+        hop3 login --context <name>                      # its recorded SSH route
         hop3 login --browser [user@server]               # a link for the browser
         hop3 login "http://localhost:8000?token=eyJ..."  # URL with embedded token
         hop3 login --token <token> --url <url>           # Separate token and server
@@ -85,9 +86,26 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
         handle_login_token(args, config, printer)
     elif ssh_target_argument(args) or "--ssh" in args:
         handle_login_ssh(args, config, printer)
+    elif "--username" not in args and (target := _recorded_ssh_target(config)):
+        handle_login_ssh([target, *args], config, printer)
     else:
         # Default: password-based authentication
         handle_login_password(args, config, printer)
+
+
+def _recorded_ssh_target(config: Config) -> str | None:
+    """
+    The SSH route the context named by ``--context`` already records, if any.
+
+    `hop3 login --context dev`, for a context whose server is ``ssh://``, asked
+    for a username and password: without a target on the line, the login fell
+    through to the password form, though the context said where to go.
+    """
+    name = config.get_context_override()
+    bootstrap = config.get_context_bootstrap(name) if name else None
+    if not bootstrap:
+        return None
+    return ssh_target_from_address(bootstrap, config.get("ssh_user", "root"))
 
 
 #: The old spellings. `--ssh` named a transport and `--browser`'s predecessor

@@ -6,13 +6,12 @@ import dataclasses
 import os
 from pathlib import Path
 from typing import ClassVar, overload
-from urllib.parse import urlparse
 
 import toml
 
 from hop3_cli.core import credential_store
 from hop3_cli.core.paths import config_dir
-from hop3_cli.core.ssh_target import is_ssh_address
+from hop3_cli.core.ssh_target import is_ssh_address, ssh_target_from_address
 from hop3_cli.exceptions import ConfigError
 
 # The prefix for all environment variables.
@@ -174,13 +173,7 @@ class Config:
                 address = api_url
         if not address:
             return None
-        parsed = urlparse(address)
-        if not parsed.hostname:
-            return None
-        user = parsed.username or self.get("ssh_user", "root")
-        host = parsed.hostname
-        port = f":{parsed.port}" if parsed.port else ""
-        return f"{user}@{host}{port}"
+        return ssh_target_from_address(address, self.get("ssh_user", "root"))
 
     def set_active_server(self, address: str | None) -> None:
         """

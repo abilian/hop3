@@ -118,6 +118,9 @@ Examples:
   # Name the server, so `--context prod` selects it from anywhere
   hop3 login --context prod root@prod.example.com
 
+  # Sign in to it again later: the context records its SSH route
+  hop3 login --context prod
+
   # URL with embedded token (for local development)
   hop3 login "http://localhost:8000?token=eyJ..."
 
@@ -166,6 +169,7 @@ Subcommands (operate on the current scope; --global forces global):
   remove <name>       Remove a context
   rename <old> <new>  Rename a project context
   use <name>          Pin a PROJECT context for THIS checkout (.hop3-local.toml)
+  use --global <name> Make a GLOBAL context the default target (config.toml)
 
 Add options:
   --server <addr>   Target server address (required), e.g. ssh://root@host

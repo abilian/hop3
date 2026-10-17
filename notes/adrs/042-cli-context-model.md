@@ -143,8 +143,8 @@ The `hop3 context` verbs operate at whichever scope fits where you stand: **proj
 
 - `hop3 context list / show [name]`: read contexts at the current scope
 - `hop3 context add / remove / rename`: define/edit them (a global context is a named server; a project context adds app/domains/env)
-- `hop3 context use <name>`: pin a *project* context for this checkout (`.hop3-local.toml [local].context`)
-- `hop3 login <user>@<host> [--context <name>]`: authenticate to a server, store its token, and record it as a global context (`default` when unnamed) + the current target. The target is positional: SSH is the only transport a bootstrap has, so naming it in a flag said nothing. `hop3 login --browser [<target>]` mints a credential for the *browser* instead: the surviving axis is which client receives one, not which wire it travels over.
+- `hop3 context use <name>`: pin a *project* context for this checkout (`.hop3-local.toml [local].context`); at the global scope, make a global context the default target (`[cli].default_context`)
+- `hop3 login <user>@<host> [--context <name>]`: authenticate to a server, store its token, and record it as a global context (`default` when unnamed) + the current target. With `--context <name>` and no target, it signs in again through the SSH route that context records. The target is positional: SSH is the only transport a bootstrap has, so naming it in a flag said nothing. `hop3 login --browser [<target>]` mints a credential for the *browser* instead: the surviving axis is which client receives one, not which wire it travels over.
 - `hop3 deploy [--context <name>]`: deploy the resolved environment
 
 A context can be hand-written in the file or created with `hop3 context add` (mirroring `[env]` vs `hop3 env set`: two interfaces, neither privileged). `add`/`remove`/`rename` edit a **shared** file (committed `hop3.toml`, or the per-developer `config.toml`); `use` edits the **gitignored** `.hop3-local.toml`. Each verb names the file and its sharing in its output.

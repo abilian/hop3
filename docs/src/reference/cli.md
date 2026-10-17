@@ -351,17 +351,20 @@ Context: devel (default)  [global]
 
 ### `hop3 context use`
 
-Pin a context for this checkout. **Safe by default**: writes a gitignored `.hop3-local.toml`, never the committed `hop3.toml` and never global state.
+Pin a context for this checkout, or set the global default target. Inside a project it writes a gitignored `.hop3-local.toml`, never the committed `hop3.toml`.
 
 **Usage:**
 ```bash
 hop3 context use <name>
+hop3 context use --global <name>
 ```
 
 **Arguments:**
-- `name` - Name of a context declared in this project's `hop3.toml`
+- `name` - Name of a context declared in this project's `hop3.toml`, or, with `--global` or outside a project, a global context in `config.toml`
 
-Run `hop3 context use <name>` from inside a project directory (a tree containing `hop3.toml`). It writes `[local].context = "<name>"` to `.hop3-local.toml` (item 3 of the [Context Priority](#context-priority) chain). The file is local and not committed; each checkout chooses its own environment. `use` pins a *project* context only: it has no global form; to set a global default target, log in naming it (`hop3 auth login --context <name>`) or select per-command with `--context <name>`.
+Run `hop3 context use <name>` from inside a project directory (a tree containing `hop3.toml`). It writes `[local].context = "<name>"` to `.hop3-local.toml` (item 3 of the [Context Priority](#context-priority) chain). The file is local and not committed; each checkout chooses its own environment.
+
+With `--global`, or outside a project, `use` sets `[cli].default_context` in `config.toml` instead: the target of project-less commands. It says so when the environment (`HOP3_CONTEXT`, `HOP3_API_URL`) outranks it in the current shell.
 
 **Examples:**
 ```bash
@@ -371,6 +374,9 @@ hop3 context use staging        # writes .hop3-local.toml [local].context = "sta
 
 # Now any hop3 command in this directory tree targets the staging environment
 hop3 deploy
+
+# Make a global context the default target again
+hop3 context use --global prod
 ```
 
 **Best Practice:**
@@ -602,6 +608,7 @@ scriptable token use [`hop3 auth get-token`](#hop3-auth-get-token).
 ```bash
 hop3 login root@server                           # SSH bootstrap (no password needed)
 hop3 login --context devel root@server           # same, recorded as the context 'devel'
+hop3 login --context devel                       # again, through the SSH route 'devel' records
 hop3 login                                       # password (prompted) for the current server
 hop3 login --token <tok> --url <url>             # pre-generated token + server address
 hop3 login --browser                             # magic link for the web dashboard
