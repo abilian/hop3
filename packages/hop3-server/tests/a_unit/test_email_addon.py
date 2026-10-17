@@ -11,6 +11,7 @@ import pytest
 from hop3.plugins.addons import secrets as secrets_module
 from hop3.plugins.email import (
     deliverability,
+    email as email_module,
     server_transport as server_transport_module,
 )
 from hop3.plugins.email.cli import AddonEmailCreateCmd, AddonEmailStatusCmd
@@ -277,3 +278,26 @@ def test_lookup_txt_none_when_dig_absent(monkeypatch):
 
     monkeypatch.setattr(deliverability.subprocess, "run", boom)
     assert deliverability.lookup_txt("example.com") is None
+
+
+def test_a_backup_records_the_addon_without_its_password(email_root, monkeypatch):
+    """
+    Refusing failed every backup of an app with an email addon, and with it
+    every `hop3 app upgrade`, whose snapshot is a backup.
+    """
+    monkeypatch.setattr(email_module, "HOP3_ROOT", email_root)
+    addon = _configured()
+
+    record = addon.backup()
+
+    assert record.is_file()
+    assert "p@ss" not in record.read_text()
+    addon.restore(record)  # still configured: nothing to do, no raise
+
+
+def test_a_restore_without_the_addon_names_the_command(email_root, monkeypatch):
+    monkeypatch.setattr(email_module, "HOP3_ROOT", email_root)
+    record = _configured().backup()
+
+    with pytest.raises(RuntimeError, match="hop3 addon email create other"):
+        EmailAddon(addon_name="other").restore(record)

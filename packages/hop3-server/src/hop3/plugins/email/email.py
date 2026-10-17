@@ -16,10 +16,12 @@ its ``S3_*``/``AWS_*`` aliases.
 
 from __future__ import annotations
 
+import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
+from hop3.config import HOP3_ROOT
 from hop3.lib import log
 from hop3.plugins.addons.secrets import (
     delete_addon_secrets,
@@ -280,19 +282,30 @@ class EmailAddon:
     # ------------------------------------------------------------------
 
     def backup(self) -> Path:
-        msg = (
-            "Email addon has no data to back up — it only holds the operator's "
-            f"SMTP credentials. Re-create it with: hop3 addon email create "
-            f"{self.addon_name} --smtp-host <h> …"
-        )
-        raise RuntimeError(msg)
+        """
+        Record the addon by name: it holds no data, only the operator's settings.
+
+        Refusing failed every backup of an app with an email addon, and with
+        it every `hop3 app upgrade`, whose snapshot is a backup. The settings
+        are not copied: they hold the SMTP password, and they outlive the app's
+        backup and restore on this server.
+        """
+        backup_dir = HOP3_ROOT / "backups" / _TYPE
+        backup_dir.mkdir(parents=True, exist_ok=True)
+        record = backup_dir / f"{self.addon_name}.json"
+        record.write_text(json.dumps({"addon_name": self.addon_name}))
+        return record
 
     def restore(self, backup_path: Path) -> None:
-        msg = (
-            "Email addon cannot be restored from a backup — re-create it with: "
-            f"hop3 addon email create {self.addon_name} --smtp-host <h> …"
-        )
-        raise RuntimeError(msg)
+        """Nothing to restore, provided the addon is still configured here."""
+        if load_addon_secrets(_TYPE, self.addon_name) is None:
+            msg = (
+                f"Email addon {self.addon_name!r} is not configured on this "
+                "server, and a backup holds none of its settings. Re-create it "
+                f"with: hop3 addon email create {self.addon_name} --smtp-host <h> …"
+            )
+            raise RuntimeError(msg)
+        log(f"Email addon {self.addon_name!r} is still configured; nothing to restore")
 
     def info(self) -> dict[str, Any]:
         """Status for `hop3 addon email status` — never includes the password."""
