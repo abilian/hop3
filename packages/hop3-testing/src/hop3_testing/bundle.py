@@ -277,6 +277,12 @@ _BUILD_ERR_RE = re.compile(
     r"Deploy failed|Builder can't",
     re.IGNORECASE,
 )
+#: Nix's report of a fixed-output hash that changed. Its first line ends at the
+#: derivation, so quoting that line alone leaves out the one value to act on.
+_NIX_HASH_MISMATCH_RE = re.compile(
+    r"hash mismatch in fixed-output derivation '/nix/store/[a-z0-9]+-(?P<drv>[^']+)':"
+    r"\s*specified:\s*(?P<specified>\S+)\s*got:\s*(?P<got>\S+)"
+)
 _ADDON_ERR_RE = re.compile(
     r"could not connect to server|connection refused.*:(5432|3306|6379)|"
     r"psycopg|redis\.exceptions\.ConnectionError|OperationalError",
@@ -464,6 +470,11 @@ def _deploy_error_line(sections: dict[str, str]) -> str:
 def _root_cause(sections: dict[str, str], http_front: HttpResponse | None) -> str:
     """A one-line cause for non-proxy classifiers."""
     build = sections.get("build", "")
+    if mismatch := _NIX_HASH_MISMATCH_RE.search(build):
+        return (
+            f"hash mismatch in {mismatch['drv']}: the recipe has "
+            f"{mismatch['specified']}, the build got {mismatch['got']}"
+        )
     m = _BUILD_ERR_RE.search(build)
     if m:
         line = next((ln for ln in build.splitlines() if _BUILD_ERR_RE.search(ln)), "")

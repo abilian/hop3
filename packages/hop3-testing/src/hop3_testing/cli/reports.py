@@ -50,8 +50,9 @@ def generate_reports(
             if has_failures:
                 log_path = target.save_diagnostics(generate_html=False)  # type: ignore[operator]
                 click.echo(f"\nDiagnostic logs saved to: {log_path}")
-                # Show diagnostics in console
-                if hasattr(target.diagnostics, "dump_to_console"):
+                # The target's own failures. When it has none, the block would
+                # say "No failures recorded." under a list of failed tests.
+                if target.diagnostics.has_failures():
                     click.echo(target.diagnostics.dump_to_console())  # type: ignore[operator]
 
 

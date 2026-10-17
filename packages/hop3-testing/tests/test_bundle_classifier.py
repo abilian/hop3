@@ -589,3 +589,28 @@ def test_a_failed_step_is_not_a_build_failure() -> None:
     assert "step-failure — hop3-tuto-rails" in headline
     assert "verdict: output verification | Error: Output mismatch" in headline
     assert headline.strip().endswith("--section deploy")
+
+
+def test_a_nix_hash_mismatch_headline_quotes_the_hash_the_build_got() -> None:
+    # Nix's first line ends at the derivation; the value to put in the recipe
+    # is two lines further down, and the headline used to stop before it.
+    build = (
+        "error: hash mismatch in fixed-output derivation "
+        "'/nix/store/27yak4cd5npjqgf88mli4f1340w0qvcx-directus-nixgen-pnpm-store-11.17.2.drv':\n"
+        "         specified: sha256-gUgRCosG87CtiGnmu6BEt07v0Cb0/QF+gY63Z13A0cI=\n"
+        "            got:    sha256-dQWWPtJ1eFwVBWxqV66oHNi9efoOhnu085ShuhhUD40=\n"
+        "error: Cannot build '/nix/store/ln3h-directus-nixgen-11.17.2.drv'.\n"
+    )
+    headline = build_headline(
+        classifier="build-failure",
+        app="directus-nixgen",
+        run_id="rid",
+        probe=None,
+        sections={"build": build},
+        http_front=None,
+    )
+    assert (
+        "verdict: hash mismatch in directus-nixgen-pnpm-store-11.17.2.drv: the "
+        "recipe has sha256-gUgRCosG87CtiGnmu6BEt07v0Cb0/QF+gY63Z13A0cI=, the build "
+        "got sha256-dQWWPtJ1eFwVBWxqV66oHNi9efoOhnu085ShuhhUD40="
+    ) in headline
