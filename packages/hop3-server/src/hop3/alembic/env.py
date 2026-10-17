@@ -31,10 +31,12 @@ if not database_url or database_url == "driver://user:pass@localhost/dbname":
 # Override the sqlalchemy.url in the config
 config.set_main_option("sqlalchemy.url", database_url)
 
-# Interpret the config file for Python logging.
-# This line sets up loggers basically.
-if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+# The `alembic` CLI configures logging from alembic.ini. In-process (the server
+# hands over its connection), the server owns logging: fileConfig's default
+# disables every logger created before it, and the catalog loader's exclusions
+# went silent.
+if config.config_file_name is not None and "connection" not in config.attributes:
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # add your model's MetaData object here
 # for 'autogenerate' support
