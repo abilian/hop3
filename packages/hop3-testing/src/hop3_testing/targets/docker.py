@@ -15,11 +15,13 @@ testing scenarios:
 
 from __future__ import annotations
 
+import io
 import shlex
 import subprocess
+import tarfile
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, TextIO, cast
+from typing import TYPE_CHECKING, Any, cast
 
 import docker
 from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
@@ -43,7 +45,7 @@ from .helpers import (
     find_project_root,
     run_hop3_deploy,
 )
-from .machine_lock import hold_docker_target
+from .machine_lock import DockerTargetHold, hold_docker_target
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -124,7 +126,7 @@ class DockerTarget(DeploymentTarget):
         self._started = False
         self._we_created_container = False
         #: The machine-wide lock, held from start() to stop() (machine_lock).
-        self._machine_lock: TextIO | None = None
+        self._machine_lock: DockerTargetHold | None = None
 
     def start(self) -> TargetInfo:
         """
@@ -203,8 +205,8 @@ class DockerTarget(DeploymentTarget):
         self._container.reload()
         if self._container.status != "running":
             # The container exists but was stopped (likely by a previous
-            # test run or a manual `docker stop`). Start it rather than
-            # giving up — this matches the user intent of --reuse.
+            # test run or a manual `docker stop`). Start it again, which
+            # matches the user intent of --reuse.
             print(
                 f"Container '{self.docker_config.container_name}' "
                 f"is {self._container.status}; restarting..."
@@ -459,8 +461,8 @@ class DockerTarget(DeploymentTarget):
                 verbose=self.deployment.verbose,
                 features=self.deployment.features,
                 # A checkout's own deployer runs LOCALLY (deploys into the
-                # container), so command_prefix/cwd apply here too — needed to
-                # run an old version's deployer via `uv run` in its worktree.
+                # container), so command_prefix/cwd apply here too. They run
+                # an old version's deployer via `uv run` in its worktree.
                 command_prefix=self.deployment.command_prefix,
                 cwd=self.deployment.cwd,
                 deployer_command=self.deployment.deployer_command,
@@ -546,7 +548,6 @@ class DockerTarget(DeploymentTarget):
         host = pin_docker_endpoint().published_host
         ssh_port = self._container_helper.get_mapped_port(22)
         http_port = self._container_helper.get_mapped_port(80)
-        https_port = self._container_helper.get_mapped_port(443)
         api_port = self._container_helper.get_mapped_port(8000)
 
         # Get container's internal IP for SSH (used when no host port mapping)
@@ -573,7 +574,6 @@ class DockerTarget(DeploymentTarget):
 
         # Build URLs based on available ports
         http_base = f"http://{host}:{http_port}" if http_port else ""
-        https_base = f"https://{host}:{https_port}" if https_port else ""
         api_url = f"http://{host}:{api_port}" if api_port else ""
 
         return TargetInfo(
@@ -582,7 +582,6 @@ class DockerTarget(DeploymentTarget):
             ssh_user="root",
             ssh_key=str(ssh_key_path) if ssh_key_path else None,
             http_base=http_base,
-            https_base=https_base,
             api_url=api_url,
             api_token=self._fetch_api_token() if api_url else None,
             is_container=True,
@@ -773,11 +772,11 @@ class DockerTarget(DeploymentTarget):
             Tuple of (exit_code, stdout, stderr)
         """
         if isinstance(cmd, list):
-            # Use shlex.join, not " ".join — the list-form contract
-            # advertises safe execution, so individual args must survive
-            # the trip through the shell intact (spaces, quotes, $, …).
-            # Test author owns the input, so this is correctness, not a
-            # security control; matches the sister-site fix in remote.py.
+            # Use shlex.join: the list-form contract advertises safe
+            # execution, so individual args must reach the command intact
+            # through the shell (spaces, quotes, $, …). " ".join breaks them.
+            # The test author owns the input, so this is a correctness fix
+            # with no security role; matches the sister-site fix in remote.py.
             cmd = shlex.join(cmd)
 
         if self._command_runner:
@@ -791,6 +790,22 @@ class DockerTarget(DeploymentTarget):
 
         msg = "Target not started"
         raise RuntimeError(msg)
+
+    def upload_file(self, local_path: Path | str, remote_path: str) -> None:
+        """Copy a local file into the container, creating its directory."""
+        if not self._container_helper:
+            msg = "Target not started"
+            raise RuntimeError(msg)
+        remote_dir, _, name = remote_path.rpartition("/")
+        self.exec_run(["mkdir", "-p", remote_dir])
+        archive = io.BytesIO()
+        with tarfile.open(fileobj=archive, mode="w") as tar:
+            tar.add(str(local_path), arcname=name)
+        if not self._container_helper.container.put_archive(
+            remote_dir, archive.getvalue()
+        ):
+            msg = f"Docker refused the upload of {local_path} to {remote_path}"
+            raise RuntimeError(msg)
 
     def save_diagnostics(self, generate_html: bool = False) -> Path:
         """

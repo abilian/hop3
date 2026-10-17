@@ -10,12 +10,10 @@ from .catalog import AppSource
 from .debug import DeploymentDebugger
 from .deployment import DeploymentSession
 from .preparation import AppPreparation
-from .verification import HttpVerifier
 
 __all__ = [
     "AppPreparation",
     "AppSource",
     "DeploymentDebugger",
     "DeploymentSession",
-    "HttpVerifier",
 ]

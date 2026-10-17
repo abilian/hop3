@@ -55,7 +55,7 @@ def main() -> None:
 
     The package's own errors are outcomes, not crashes: "that server is not
     labelled throwaway", "the target ran out of disk", "the deploy failed".
-    Each already carries a sentence saying what to do, and burying it under
+    Each already includes a sentence saying what to do, and burying it under
     twenty frames of click internals makes the reader hunt for the one line
     that matters. So those print as the message alone.
 

@@ -2,7 +2,7 @@
 #
 # SPDX-License-Identifier: Apache-2.0
 
-"""``hop3-test why <run-id>`` — replay a saved diagnostic bundle (ADR 043 §7)."""
+"""``hop3-test why <run-id>``: replay a saved diagnostic bundle (ADR 043 §7)."""
 
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ def _resolve_bundle(run_id: str) -> tuple[Path, str | None, str | None] | None:
     Locate a bundle by run-id: the store record first, else the on-disk dir.
 
     A diagnostic bundle is written to ``~/.hop3/test-runs/<run-id>/`` even when
-    no result row exists yet — a deploy/startup failure is captured before any
+    no result row exists yet: a deploy/startup failure is captured before any
     ``TestResult`` (see ``_emit_startup_diagnostics``). The failure headline
     still prints ``hop3-test why <run-id>``, so that pointer has to resolve
     off-disk too, or the tool contradicts itself: "diagnostics saved … run
@@ -39,7 +39,7 @@ def _resolve_bundle(run_id: str) -> tuple[Path, str | None, str | None] | None:
     if record is not None and record.bundle_path:
         return Path(str(record.bundle_path)), record.headline, record.classification
 
-    # No store record — fall back to the on-disk bundle and its manifest. Guard
+    # No store record: fall back to the on-disk bundle and its manifest. Guard
     # against a run-id that isn't a bare basename (no path traversal).
     if Path(run_id).name != run_id:
         return None
@@ -68,8 +68,8 @@ def why_cmd(run_id: str, section: str | None, *, list_sections: bool) -> None:
     Show the diagnostic bundle for a failed run.
 
     RUN_ID is the ``<ISO>-<app>-<shortid>`` printed in a failure headline. The
-    bundle resolves from the result store, or — when the failure had no result
-    row (e.g. a deploy that never came up) — directly from its on-disk directory.
+    bundle resolves from the result store or, when the failure had no result
+    row (e.g. a deploy that never came up), directly from its on-disk directory.
     """
     resolved = _resolve_bundle(run_id)
     if resolved is None:

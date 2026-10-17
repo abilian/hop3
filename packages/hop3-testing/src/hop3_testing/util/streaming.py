@@ -27,7 +27,7 @@ _IS_POSIX = sys.platform != "win32"
 
 def _terminate_process_tree(process: subprocess.Popen) -> None:
     """
-    Send SIGKILL to the entire process group started by ``process``.
+    Send SIGKILL to every process in the group started by ``process``.
 
     ``run_streaming`` starts the child in its own session (see
     ``start_new_session`` in :func:`run_streaming`), so the child's pid is
@@ -140,7 +140,7 @@ def run_streaming(
         # Start in its own session so _terminate_process_tree can kill
         # grand-children (nix-build, docker, ssh) on timeout. Without
         # this, only the direct child receives SIGKILL and subprocesses
-        # orphan — polluting Docker containers and leaving nix daemons
+        # orphan, polluting Docker containers and leaving nix daemons
         # holding locks.
         start_new_session=_IS_POSIX,
     )

@@ -3,12 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-The Docker image the pytest e2e layer runs against, and the gate that keeps it fresh.
+The Docker image the pytest e2e layer runs against, with the gate that keeps it fresh.
 
-Lives here rather than in one package's conftest because more than one package needs
-a running server to test against: hop3-server's own e2e layer, and hop3-tui's, which
+This lives in a shared module because more than one package needs a running server
+to test against. hop3-server's own e2e layer is one; hop3-tui's is the other, and it
 verifies that the argv its client builds is a command the server actually answers.
-Copying the build would mean copying the staleness gate below, and a second copy is
+Copying the build would mean copying the staleness gate below. A second copy is
 exactly how a cached image starts silently testing code that no longer exists.
 """
 
@@ -25,7 +25,7 @@ import docker.errors
 if TYPE_CHECKING:
     from collections.abc import Iterable
 
-#: Label carrying a content hash of everything the image bakes in. Reuse is gated on
+#: Label holding a content hash of everything the image bakes in. Reuse is gated on
 #: it, so the cached image can never silently test stale code.
 SRC_HASH_LABEL = "cloud.hop3.e2e-src-hash"
 
@@ -78,9 +78,9 @@ def source_hash() -> str:
 def _print_build_log(entries: Iterable[Any]) -> None:
     """Echo the `stream` lines of a docker build log.
 
-    docker-py yields arbitrary JSON here, not only dicts — `"stream" in entry`
-    against a str would substring-match and against an int would raise, so the
-    shape is checked rather than assumed.
+    docker-py yields arbitrary JSON here, of which dicts are one case.
+    `"stream" in entry` against a str would substring-match and against an int
+    would raise, so the shape is checked before use.
     """
     for entry in entries:
         if isinstance(entry, dict) and "stream" in entry:
@@ -93,8 +93,8 @@ def ensure_e2e_image(client: docker.DockerClient) -> str:
 
     The image bakes hop3-server + hop3-rootd source (and the e2e Dockerfile) at
     build time. We stamp the build with a content hash of those inputs
-    (``SRC_HASH_LABEL``) and reuse the cached image only when the hash still
-    matches — so a ``git pull`` or a source edit can never silently test stale
+    (``SRC_HASH_LABEL``). The cached image is reused only when the hash still
+    matches, so a ``git pull`` or a source edit can never silently test stale
     code (the class of bug where a WAF deploy went "green" against a server with
     no WAF support). ``HOP3_E2E_FORCE_REBUILD=1`` forces a rebuild regardless.
     """

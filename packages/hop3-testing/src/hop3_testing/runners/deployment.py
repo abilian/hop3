@@ -36,13 +36,13 @@ if TYPE_CHECKING:
 
 
 # The hop3-server venv Python. hop3-server depends on httpx (pyproject), so this
-# interpreter is guaranteed present and can run any check.py that imports httpx —
-# no `uv`, no `--with httpx`, no reliance on ~/.local/bin being on a non-login
-# SSH PATH (which it isn't). VENV_DIR = /home/hop3/venv (installer constants),
+# interpreter is guaranteed present and can run any check.py that imports httpx.
+# It needs no `uv`, no `--with httpx`, and does not depend on ~/.local/bin being
+# on a non-login SSH PATH (which it isn't). VENV_DIR = /home/hop3/venv (installer constants),
 # and the harness hardcodes /home/hop3 throughout.
 _HOP3_VENV_PYTHON = "/home/hop3/venv/bin/python3"
 
-#: The port check.py is handed, and it must be the TLS one. `Check` builds an
+#: The port check.py is handed. It must be the TLS one: `Check` builds an
 #: https:// base URL unconditionally, so a plain-HTTP port here means a TLS
 #: handshake against a server that answers in cleartext. Kept equal to what
 #: `hop3.server.checks.runner` passes on the deploy path: one check reached two
@@ -50,7 +50,7 @@ _HOP3_VENV_PYTHON = "/home/hop3/venv/bin/python3"
 _CHECK_PORT = 443
 
 
-#: What the runtime-write probe prints instead of a file list.
+#: What the runtime-write probe prints when it has no file list to give.
 _NO_WORKERS = "hop3-test: no worker runs from src/"
 _NO_MARKER = "hop3-test: no start recorded"
 
@@ -63,10 +63,10 @@ def _runtime_writes_script(app_name: str) -> str:
     The shell that lists what ``app_name`` wrote into its ``src/`` since start.
 
     The server touches a marker just before the app's workers start, after
-    everything the deploy itself writes there. A file newer than it was
-    written by the running app (or by what runs after start: ``[admin]`` and
-    ``[probe]`` creation). ``find`` does not follow the volume links, so what
-    lands in a volume is not listed. Two things are left out because they are
+    everything the deploy itself writes there. A file newer than the marker was
+    written by the running app, or by what runs after start, such as the
+    ``[admin]`` and ``[probe]`` creation. The volume links are not followed by
+    ``find``, so what lands in a volume is not listed. Two things are left out because they are
     never state: ``__pycache__``, which Python skips silently when it cannot
     write, and sockets (gunicorn's ``gunicorn.ctl``), which the process makes
     again each time it starts.
@@ -105,13 +105,13 @@ def _app_node_modules(app_name: str) -> str:
     """
     The app's own ``node_modules``, for a check that shells out to node.
 
-    A check may use a library the *application* already ships rather than one
-    the platform carries: uptime-kuma authenticates over socket.io, and its
-    probe requires ``socket.io-client`` from the app's dependency tree instead
-    of adding a Python socket.io client to hop3-server for one app.
+    A check may use a library the *application* already ships. Uptime-kuma
+    authenticates over socket.io, so its probe requires ``socket.io-client``
+    from the app's dependency tree; hop3-server then needs no Python socket.io
+    client for one app.
 
     Node resolves modules from the script's own directory upwards, so a probe
-    running anywhere outside the app tree cannot find it — and ``NODE_PATH`` is
+    running anywhere outside the app tree cannot find it. ``NODE_PATH`` is
     how the app's own runtime makes it resolvable (it is in the uWSGI env the
     deployer writes). The server's `run_app_check` gets this for free by passing
     the app's runtime env; this path sourced only the credentials file, so the
@@ -131,7 +131,7 @@ def _target_kind(target: DeploymentTarget) -> str:
 def _collect_runtime_logs(target: DeploymentTarget, app_name: str | None) -> str:
     """
     Best-effort app-side runtime logs (gunicorn/app stderr, migrate
-    output, docker logs) captured before cleanup. Never raises — diagnostics
+    output, docker logs) captured before cleanup. Never raises: diagnostics
     must not crash the run. Module-level so tests can patch the binding.
     """
     try:
@@ -202,13 +202,13 @@ class DeploymentTestRunner:
         """
         Run HTTP validations from test.toml, or default for Procfile apps.
 
-        A passing HTTP check MUST assert app-specific body content, not just a
-        status code — otherwise an app goes green on a bare 200: a placeholder /
+        A passing HTTP check MUST check app-specific body content as well as the
+        status code. Otherwise an app goes green on a bare 200: a placeholder /
         install-wizard page, a 200-rendered error page, or (via a Host mismatch)
         another app's default_server content. So at least one validation must
-        carry a `contains`, OR the app must ship a check.py (which asserts
-        content and now runs on remote too). An app with neither fails loud
-        rather than passing on the wrong thing (audit C8).
+        hold a `contains`, OR the app must ship a check.py (which checks
+        content and now runs on remote too). An app with neither fails with an
+        error, so it never passes on the wrong thing (audit C8).
         """
         http_validations = [v for v in test.validations if v.type == "http"]
 
@@ -257,7 +257,7 @@ class DeploymentTestRunner:
         validation_results: list[ValidationResult],
         reason: str,
     ) -> str:
-        """Record a loud failure: the app asserts no body content (audit C8)."""
+        """Record a failure: the app checks no body content (audit C8)."""
         msg = (
             f"{test.name}: {reason} and the app has no check.py — a bare-status "
             "pass is not allowed. Add a body assertion (`contains` on a "
@@ -298,9 +298,12 @@ class DeploymentTestRunner:
                 # Show the whole checked body (not a 200-char stub): a `contains`
                 # miss is undiagnosable without seeing where the marker should be.
                 shown = body if len(body) <= 8000 else body[:8000] + "…[truncated]"
+                if not body:
+                    headers = http_result["details"].get("headers", "")
+                    shown = f"Response headers:\n{headers}"
                 # If the fetch hit its limit, "does not contain" is not a sound
-                # conclusion — the marker may sit beyond the bytes we looked at.
-                # Say so rather than report a possible false negative as fact.
+                # conclusion: the marker may sit beyond the bytes we looked at.
+                # Say so, so a possible false negative is not reported as fact.
                 caveat = (
                     f" WARNING: the body hit the {BODY_FETCH_LIMIT}-char fetch "
                     "limit, so the marker may exist beyond the bytes checked; "
@@ -333,7 +336,7 @@ class DeploymentTestRunner:
         """Run check script and return error message if failed, None otherwise."""
         check_start = time.time()
         if not self.target.info.is_container:
-            # Was: silently fabricated passed=True. check.py asserts app-specific
+            # Was: silently fabricated passed=True. check.py checks app-specific
             # body content, so skipping it on remote meant the ONLY assertion
             # that distinguishes the app from a bare 200 never ran. Run it ON the
             # server instead (where localhost is the app's nginx), and never pass
@@ -360,20 +363,20 @@ class DeploymentTestRunner:
         """
         Write the credentials a check may sign in with to a 0600 file on the server.
 
-        Which credentials those are is the server's decision, not ours:
+        The server decides which credentials those are:
         `hop3.server.checks.runner.check_credentials` is the single definition,
         and the deploy's own smoke test reads the same one. This used to read
         the encrypted store directly and export ``HOP3_ADMIN_*`` alone, so
         ``Check.has_probe`` was false for every app the harness tested and
         every check fell back to the operator's credential while the deploy
-        signed in as the probe. Piwigo failed on exactly that difference — its
-        administrator gets an empty-gallery interstitial on every page and its
-        probe, an ordinary user, does not — so the same check passed at the end
+        signed in as the probe. Piwigo failed on exactly that difference (its
+        administrator gets an empty-gallery interstitial on every page, while its
+        probe, an ordinary user, does not), so the same check passed at the end
         of the deploy and failed here, in the same minute. The port had already
         taught this lesson once; see :meth:`_run_check_script_remote`.
 
-        An app that declares no ``[admin]`` has no credential: the file is
-        written empty, and a check that asks for one fails loudly on its own.
+        An app that declares no ``[admin]`` has no credential. The file is
+        written empty; a check that asks for one fails with its own error.
         The file is always written because the check's shell sources it, and
         dash exits 2 on sourcing a missing file, before the check runs: every
         check of an app without credentials failed with ``exit 2`` and no
@@ -416,7 +419,7 @@ class DeploymentTestRunner:
         Ship the files a check reaches for beside itself.
 
         A check may be more than one file: uptime-kuma authenticates over
-        socket.io rather than an HTML form, so its check shells out to a node
+        socket.io with no HTML form, so its check shells out to a node
         probe it locates with ``Path(__file__).parent / "scripts" / "probe.js"``.
 
         That resolves on the server's own path, where the check runs from the
@@ -440,21 +443,21 @@ class DeploymentTestRunner:
 
         The local runner can't run check.py against a remote box: the check
         addresses the app over loopback with its real hostname, and on the test
-        client loopback is the client, not the server. So upload the script and
+        client loopback is the client itself. So upload the script and
         run it on the server, where the app's nginx is listening and SNI selects
         its vhost. NEVER silently passes: a server that cannot run check.py is a
         hard FAIL (audit C8).
 
         **Port 443, matching `hop3.server.checks.runner`.** This passed 80 for a
-        long time, on the reasoning in the old docstring — "localhost:80 is the
-        app's nginx and the Host header selects the vhost" — which was true when
+        long time, on the reasoning in the old docstring ("localhost:80 is the
+        app's nginx and the Host header selects the vhost"), which was true when
         the check spoke plain HTTP. It no longer does: `Check` builds an
         ``https://`` base URL unconditionally, because Hop3 redirects HTTP to
         HTTPS and because a `Secure` session cookie is never sent back over
         HTTP, so a sign-in there fails whatever the credential. The transport
         then sent a TLS ClientHello to port 80 and nginx answered in plain HTTP:
         ``[SSL: WRONG_VERSION_NUMBER]``, reported as the *first step of the
-        check* failing — "the admin credential signs in" — which points at the
+        check* failing ("the admin credential signs in"), which points at the
         credential, the app and the recipe, none of which were involved.
 
         The deploy's own smoke test always passed 443, so the same check passed
@@ -472,12 +475,12 @@ class DeploymentTestRunner:
             # No helper to ship: a check imports `hop3.server.checks`, which the
             # hop3-server venv below already provides. One copy, no drift.
             # Hand the check the app's generated admin credential, so it can
-            # assert a real sign-in instead of only that a page renders.
+            # check a real sign-in as well as that a page renders.
             self._write_check_credentials(session, env_path)
             # Run with the hop3-server venv Python (has httpx). Bare `uv` isn't on
             # the non-login SSH PATH (exit 127); this interpreter always is.
-            # The credentials are sourced from a 0600 file rather than passed on
-            # the command line, where they would show up in `ps` to every user.
+            # The credentials are sourced from a 0600 file. Passed on the
+            # command line, they would show up in `ps` to every user.
             # One command: source the credentials, run the check, then remove
             # the credential file whatever the outcome, preserving its exit code.
             exit_code, stdout, stderr = self.target.exec_run(
@@ -514,7 +517,7 @@ class DeploymentTestRunner:
 
     # Single generous deploy timeout. Matches the server-side build
     # timeout (see hop3/plugins/docker/builder.py::BUILD_TIMEOUT_SECONDS);
-    # anything above 30 min is a design smell, not a tier problem.
+    # anything above 30 min is a design smell in the app or the builder.
     _DEPLOY_TIMEOUT_SECONDS = 30 * 60
 
     def _run_deploy_and_verify(
@@ -528,22 +531,22 @@ class DeploymentTestRunner:
         Run deployment and verification.
 
         Returns ``(deploy_logs, error or None, infra_failed)``. ``infra_failed``
-        is True for the two UNAMBIGUOUS infrastructure failures — target out of
-        disk and deploy timeout — which are hard-failed regardless of
+        is True for the two UNAMBIGUOUS infrastructure failures (target out of
+        disk and deploy timeout), which are hard-failed regardless of
         ``expects_failure`` so they can't invert into a green negative test
         (audit C7). A genuine builder/deployer rejection stays ``infra_failed``
         False and may still satisfy an ``expects-failure`` test.
 
         ponytail: a server-unreachable deploy (a non-zero CLI exit that isn't a
         builder rejection) is NOT yet classified as infra, so it can still turn
-        a negative test green — that carve-out needs the CLI to reliably emit
+        a negative test green. Classifying it needs the CLI to reliably emit
         ExitCode.DEPLOYMENT_ERROR (8) for builder rejections vs NETWORK_ERROR (7)
-        for outages, which isn't validated. Disk + timeout are the cases the
-        audit names; add the exit-code carve-out once rejections are confirmed
+        for outages. That isn't validated yet. Disk + timeout are the cases the
+        audit names; add the exit-code exception once rejections are confirmed
         to exit 8.
         """
         # Reclaim disk before deploying so a full target fails with one clear
-        # message instead of cascading misleading ENOSPC per-app errors.
+        # message, with no cascade of misleading ENOSPC per-app errors.
         try:
             self.target.ensure_disk_headroom()
         except TargetOutOfDiskError as e:
@@ -669,7 +672,7 @@ class DeploymentTestRunner:
         """
         Deploy the unchanged source again, then run every validation again.
 
-        An update is a redeploy, and a test that deploys once never takes that
+        An update is a redeploy. A test that deploys once never takes that
         path. It is where setup guarded by "already installed?" meets a tree
         that no longer holds what the guard reads, and where anything kept in
         ``src/`` is gone.
@@ -732,10 +735,10 @@ class DeploymentTestRunner:
 
         A deploy failure → PASS (with a synthetic validation result so
         the report shows the inversion explicitly). A deploy success →
-        FAIL (unexpected pass — the app should have been rejected).
+        FAIL (unexpected pass: the app should have been rejected).
 
         Cleanup runs in both cases but is isolated in its own
-        try/except — a CleanupError here must NOT flip the test
+        try/except: a CleanupError here must NOT flip the test
         result back to failed (mirrors the happy-path cleanup in
         `run()`, which also ignores cleanup errors).
         """
@@ -765,7 +768,7 @@ class DeploymentTestRunner:
                 deployed_app_name=session.app_name,
             )
 
-        # Unexpected success — the deploy went through on an app that
+        # Unexpected success: the deploy went through on an app that
         # was supposed to be rejected. That's a regression: either the
         # rejection path broke, or the test is mislabeled.
         err = (
@@ -797,7 +800,7 @@ class DeploymentTestRunner:
         except Exception:  # diagnostics must never crash the run
             expected_port = None
         # _collect_bundle is only ever called on a failed test, so force the
-        # bundle to disk even when the runtime classifier says "ok" — a check.py
+        # bundle to disk even when the runtime classifier says "ok": a check.py
         # / HTTP-`contains` failure serves fine yet still needs a replayable
         # bundle for `hop3-test why`.
         bundle = collect_diagnostic_bundle(
@@ -810,10 +813,10 @@ class DeploymentTestRunner:
         )
         # Point the developer at the durable copy NOW, at the failure. The app
         # is torn down next (_safe_cleanup), so the deploy transcript's own
-        # `hop3 app logs --app <app> --build` pointer is already dead here — the
-        # bundle is where every section (build, deploy, journal, nginx, …) lives.
-        # Use warning (not info): info is verbose-only, so on a normal run the
-        # one pointer to the surviving logs was invisible.
+        # `hop3 app logs --app <app> --build` pointer is already dead here. The
+        # bundle holds every section (build, deploy, journal, nginx, …).
+        # Use warning: info is verbose-only, so on a normal run the one
+        # pointer to the logs that outlast teardown was invisible.
         if bundle.artifact_dir:
             self.console.warning(
                 f"Full local diagnostics (survive teardown): {bundle.artifact_dir}"
@@ -840,7 +843,7 @@ class DeploymentTestRunner:
             session.cleanup()
         except Exception as exc:
             # Surfaced (not swallowed): a failed cleanup leaks resources and
-            # is the leading cause of later cascade failures — make it visible.
+            # is the leading cause of later cascade failures, so make it visible.
             self.console.warning(
                 f"Cleanup FAILED for {test.name} — resources may leak "
                 f"(addons/disk): {exc}"
@@ -904,7 +907,7 @@ class DeploymentTestRunner:
             Build a failure TestResult, then tear the app down.
 
             Captures runtime logs and the diagnostic bundle from the target
-            while the app is still present, THEN runs cleanup — so a failed test
+            while the app is still present, THEN runs cleanup, so a failed test
             never leaks its app (and its fixed-port claim, addon slots, …) into
             the next deploy. Previously these early-return paths skipped cleanup
             entirely; only the success path tore down.
@@ -928,7 +931,7 @@ class DeploymentTestRunner:
                 test, session, start_time, validation_results
             )
             # Infrastructure failures (target out of disk, hung deploy timeout)
-            # are HARD fails regardless of expects_failure — they must never
+            # are HARD fails regardless of expects_failure: they must never
             # invert into a green negative test and mask a total outage (C7).
             if infra_failed:
                 # _run_deploy_and_verify always pairs infra_failed with a
@@ -937,7 +940,7 @@ class DeploymentTestRunner:
                 return _fail_result(error, deploy_logs=deploy_logs)
             # Negative test cases: a genuine builder/deployer REJECTION is the
             # expected outcome (e.g., an input the builder is expected to
-            # reject — see the catalog's broken/ status). We record a PASS, skip the
+            # reject; see the catalog's broken/ status). We record a PASS, skip the
             # HTTP/check-script stages (there's no running app to probe), and
             # short-circuit to cleanup.
             if test.expects_failure:
@@ -1033,4 +1036,5 @@ class DeploymentTestRunner:
             path=app_path,
             category=category,
             description=test.description or "",
+            catalog_id=test.catalog_id,
         )

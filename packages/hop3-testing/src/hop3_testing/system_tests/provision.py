@@ -9,7 +9,7 @@ a clean OS and hands its IP to the normal remote deploy+test path. This is the
 one capability the cloud path had that `run` lacked; everything else (deploy,
 test, the shared result store, reporting, app-addon auto-provisioning) `run`
 already owns. Reuses the R3 HetznerManager.rebuild_server + wait_for_ssh_ready
-(which re-injects the SSH key and updates known_hosts) — the exact calls the
+(which re-injects the SSH key and updates known_hosts), the same calls the
 testlab blank-slate makes.
 """
 
@@ -64,8 +64,8 @@ def provision_server(
     manager = HetznerManager(config, verbose=verbose, console=console)
 
     # Provisioning is a multi-minute OS rebuild + SSH wait; announce each phase
-    # unconditionally (not gated on --verbose) so the console never looks hung —
-    # a silent `run --provider` reads as a frozen command, not "reinstalling".
+    # unconditionally, even without --verbose, so the console never looks hung.
+    # A silent `run --provider` reads as a frozen command.
     console.print(
         f"\n[bold]Provisioning a fresh {provider} server[/] — rebuilding server "
         f"{config.server_id} to image '{config.image or 'default'}'. "

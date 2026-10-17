@@ -110,7 +110,7 @@ class SSHKeyManager:
         # No shell: this used to interpolate host and port into a command
         # string with `>> {path} 2>/dev/null`, which meant a host containing a
         # space or a shell character produced something other than the intended
-        # command, and a failing keyscan reported nothing but False.
+        # command. A failing keyscan also reported nothing but False.
         result = subprocess.run(
             ["ssh-keyscan", "-p", str(port), "-t", "ed25519,rsa", host],
             capture_output=True,

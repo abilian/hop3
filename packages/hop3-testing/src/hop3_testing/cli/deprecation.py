@@ -5,16 +5,16 @@
 Deprecation notices for the hop3-test CLI (ADR 052 Migration).
 
 Old command/flag spellings stay accepted for one release and print a one-line
-stderr notice pointing at the canonical name. hop3-testing deliberately does not
-import hop3-installer, so this mirrors that package's warn_deprecated locally.
+stderr notice pointing at the canonical name. hop3-testing does not import
+hop3-installer by design, so this mirrors that package's warn_deprecated locally.
 """
 
 from __future__ import annotations
 
 import click
 
-# Warn at most once per (old) name per process — a repeated deprecated spelling
-# shouldn't spam.
+# Warn at most once per (old) name per process, so a repeated deprecated spelling
+# doesn't spam.
 _WARNED: set[str] = set()
 
 

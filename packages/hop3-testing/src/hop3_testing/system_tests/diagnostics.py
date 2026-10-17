@@ -52,7 +52,7 @@ class DiagnosticCollector:
     # Commands to run for collecting diagnostics
     DIAGNOSTIC_COMMANDS: ClassVar[dict[str, str]] = {
         # journalctl exists in the Docker image but nothing there runs under
-        # systemd, so asking it alone yields "No journal files were found" —
+        # systemd, so asking it alone yields "No journal files were found",
         # recorded as if the server had logged nothing. Read whichever source
         # the running process manager actually writes to.
         "hop3-server.log": (

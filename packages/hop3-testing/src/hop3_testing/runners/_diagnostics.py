@@ -4,17 +4,18 @@
 """
 Shared SUT-side failure diagnostics for the test runners.
 
-When a test fails or times out, the *target* holds the answer — the app log, the
+When a test fails or times out, the *target* holds the answer: the app log, the
 nginx/uWSGI config, the journal, the docker state, and the app list
 (`hop3 apps`). The deployment runner already collects this; the tutorial and demo
 runners historically did not, so a tutorial `hop3 deploy` that timed out was a
 black box ("Command timed out after 120s" and nothing else). This module gives
 all runners one uniform, never-raising collector.
 
-The `hop3 apps` snapshot is collected *unconditionally* (no app name needed): it
-reveals leftover/stranded apps (e.g. one still holding a fixed port) and an app
-stuck mid-build at the moment a client-side deploy timeout fired — exactly the
-case where the per-app build log doesn't exist yet.
+The `hop3 apps` snapshot is collected *unconditionally*, with no app name
+needed. It reveals leftover/stranded apps (e.g. one still holding a fixed port).
+It also reveals an app stuck mid-build at the moment a client-side deploy
+timeout fired. That is exactly the case where the per-app build log doesn't
+exist yet.
 """
 
 from __future__ import annotations
@@ -44,7 +45,7 @@ def hop3_apps_snapshot(target: DeploymentTarget) -> str:
     in a transitional (building/starting) state when a deploy timed out.
     """
     # `hop3` lives in the hop3 user's venv (/home/hop3/venv/bin), which isn't on
-    # root's PATH in the non-login shell exec_run uses — a bare `hop3 apps` then
+    # root's PATH in the non-login shell exec_run uses. A bare `hop3 apps` then
     # fails with "hop3: command not found". Prepend the venv (and the usual
     # install dirs) so the snapshot actually runs; the trailing $PATH keeps the
     # Docker target working where hop3 is already on PATH.
@@ -55,10 +56,10 @@ def hop3_apps_snapshot(target: DeploymentTarget) -> str:
         out = err = ""
     body = (out or "") + (err or "")
 
-    # The on-target CLI is usually NOT configured to talk to its own server
-    # (the deploy ran with HOP3_API_URL/HOP3_API_TOKEN in its env; this probe
-    # has neither), so `hop3 apps` prints the multi-line "Hop3 CLI is not
-    # configured" setup help — useless and misleading as a diagnostic. Fall back
+    # The on-target CLI is usually NOT configured to talk to its own server.
+    # The deploy ran with HOP3_API_URL/HOP3_API_TOKEN in its env; this probe
+    # has neither. So `hop3 apps` prints the multi-line "Hop3 CLI is not
+    # configured" setup help, which is useless and misleading as a diagnostic. Fall back
     # to the filesystem, which is the ground truth for stranded/leftover apps.
     if not body.strip() or "is not configured" in body:
         try:

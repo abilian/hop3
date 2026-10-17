@@ -451,9 +451,9 @@ class DeploymentVerifier:
                 },
                 timeout=timeout,
             )
-            # Any HTTP response means server is running
-            # 200 = success, 401/403 = auth, 404 = command not found
-            # 500 with body = server error but still running
+            # Any HTTP response means the server is running.
+            # 200 = success, 401/403 = auth, 404 = command not found.
+            # A 500 with a body is a server error from a running server.
             if response.status_code in {200, 401, 403, 404}:
                 return True
             return bool(response.status_code == 500 and response.text)

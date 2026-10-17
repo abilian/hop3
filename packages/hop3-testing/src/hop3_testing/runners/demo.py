@@ -128,7 +128,7 @@ class DemoTestRunner:
             )
         except subprocess.TimeoutExpired as e:
             # Persist the partial output so a hung/slow demo still has
-            # diagnostics — otherwise the dashboard shows "No logs recorded".
+            # diagnostics. Otherwise the dashboard shows "No logs recorded".
             logs = as_text(e.stdout) + as_text(e.stderr)
             log_tail = logs[-2000:] if len(logs) > 2000 else logs
             error = (
@@ -152,7 +152,7 @@ class DemoTestRunner:
         passed = error is None and all(v.passed for v in validation_results)
 
         # On failure, snapshot the target's app list so a failed/hung demo isn't
-        # a black box — it reveals leftover apps and an app stuck mid-deploy.
+        # a black box. It reveals leftover apps and an app stuck mid-deploy.
         # Demos don't follow a single app-name convention, so per-app logs are
         # skipped; the name-independent `hop3 apps` snapshot is the value. Never
         # raises.

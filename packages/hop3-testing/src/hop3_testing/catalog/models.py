@@ -69,7 +69,7 @@ class TargetType(str, Enum):
 class TestRequirements:
     """Requirements for running a test."""
 
-    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+    __test__ = False  # domain model; stops pytest collecting this Test* class
 
     targets: list[TargetType] = field(default_factory=lambda: [TargetType.DOCKER])
     """Which target types can run this test."""
@@ -218,7 +218,7 @@ class TutorialConfig:
 class TestMetadata:
     """Optional metadata about the test."""
 
-    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+    __test__ = False  # domain model; stops pytest collecting this Test* class
 
     author: str | None = None
     """Test author."""
@@ -241,8 +241,8 @@ class TestMetadata:
     toolchain: str | None = None
     """Language/toolchain tag used to build, normalised to a canonical name
     (e.g. python, php, node, go, ruby, rust, java, elixir, static, generic).
-    Sourced from ``[build].toolchain``, an inferred app type, or — for
-    tutorials — the parent directory name; ``None`` when not discernible."""
+    Sourced from ``[build].toolchain``, an inferred app type, or (for
+    tutorials) the parent directory name; ``None`` when not discernible."""
 
     spec: str | None = None
     """Configuration format: hop3toml, procfile, tutorial, demo."""
@@ -252,7 +252,7 @@ class TestMetadata:
 class TestDefinition:
     """Complete test definition parsed from test.toml."""
 
-    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+    __test__ = False  # domain model; stops pytest collecting this Test* class
 
     name: str
     """Unique test identifier."""
@@ -285,13 +285,16 @@ class TestDefinition:
     # Runner treats a failed deploy as PASS (and an unexpected
     # successful deploy as FAIL). Used for apps that intentionally
     # exercise a rejection path (e.g., an input the builder must
-    # reject — see the catalog's broken/ status).
+    # reject; see the catalog's broken/ status).
     expects_failure: bool = False
     """Whether this test expects the deployment to fail."""
 
-    # Runtime info (set by loader, not from TOML)
+    # Runtime info (set by the loader, absent from TOML)
     source_path: Path | None = None
     """Path to the test.toml file."""
+
+    catalog_id: str | None = None
+    """The published catalog entry this test installs, when it came from one."""
 
     def can_run_on(self, target_type: TargetType) -> bool:
         """Check if this test can run on given target type."""

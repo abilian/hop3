@@ -76,8 +76,6 @@ class TargetInfo:
     ssh_key: str | None = None
     ssh_password: str | None = None
     http_base: str = ""
-    #: The same server over TLS, where Hop3 redirects plain HTTP.
-    https_base: str = ""
     api_url: str = ""
     # A token for an admin account on the server (``admin:ssh-token``), so the
     # harness authenticates for real (no HOP3_UNSAFE bypass).
@@ -173,7 +171,7 @@ class DeploymentTarget(ABC):
 
         Runs another ``hop3-deploy-server`` against the SAME box without
         recreating it, so it exercises the deployer's update path (install the
-        new version -> ``db:upgrade`` -> restart -> verify) — the mechanism an
+        new version -> ``db:upgrade`` -> restart -> verify), the mechanism an
         upgrade chain tests. Pass ``clean=False`` in ``config`` to stay on the
         update path. Raises on failure. Overridden by DockerTarget/RemoteTarget.
         """
@@ -201,7 +199,7 @@ class DeploymentTarget(ABC):
 
         Hermetic: ambient HOP3_* steering vars are stripped (see
         ``hermetic_cli_env``), so the launch environment cannot redirect the
-        call, and the explicit target URL and token are set. Non-interactive:
+        call. The explicit target URL and token are set. Non-interactive:
         without ``HOP3_NO_INPUT`` the ADR-042 deploy confirmation refuses to run
         without a tty (exit 10).
         """
@@ -273,16 +271,16 @@ class DeploymentTarget(ABC):
         Pressure-gated, two-tier and cache-preserving:
 
         * **Gentle** (free < ``min_free_pct``): drop the genuinely-ephemeral
-          artifacts — stopped containers, *unused per-app images*
-          (``hop3/<app>:latest`` are uniquely tagged so ``image prune -f``
-          misses them, yet they are never reused), dangling images — and cap
-          the build cache at ``cache_ceiling``. Base images + warm cache stay,
+          artifacts (stopped containers, *unused per-app images*, dangling
+          images) and cap the build cache at ``cache_ceiling``. Per-app images
+          (``hop3/<app>:latest``) are uniquely tagged so ``image prune -f``
+          misses them, yet they are never reused. Base images + warm cache stay,
           so repeat runs are fast and network-cheap.
         * **Escalation** (still < ``hard_floor_pct``): sacrifice the warm cache
-          too — all unused images (incl. base) and the whole build cache.
+          too: all unused images (incl. base) and the whole build cache.
           Losing cache beats failing the run.
         * **Fail** (still < ``hard_floor_pct``): raise ``TargetOutOfDiskError``
-          so the caller reports one clear message instead of cascading
+          so the caller reports one clear message in place of a cascade of
           misleading per-app errors (the disk is then full of non-docker data
           or simply too small).
 

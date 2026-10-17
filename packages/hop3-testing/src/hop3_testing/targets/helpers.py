@@ -26,6 +26,7 @@ from hop3_cli.commands.local.ssh_ops import (
     extract_token,
 )
 
+from hop3_testing.bundle_ids import DEFAULT_RUNS_DIR
 from hop3_testing.exceptions import ConfigurationError, ServiceStartError
 from hop3_testing.util.streaming import run_streaming
 
@@ -350,7 +351,7 @@ class DiagnosticsHelper:
         log_path = self.diagnostics.save_logs()
         # Distinct from the diagnostic *bundle* (~/.hop3/test-runs/<run-id>) that
         # the runner prints on a startup failure: this is the raw deploy-phase
-        # capture. Two different artifacts — don't label both "saved to".
+        # capture. They are two different artifacts: don't label both "saved to".
         print(f"\nDeploy logs saved to: {log_path}")
         return log_path
 
@@ -468,7 +469,7 @@ class DockerContainerHelper:
 
         SECURITY: create the file with restrictive perms *before* writing
         the key. The earlier shape used ``write_text(...)`` (default
-        umask, typically 0o644) followed by ``chmod 0o600`` — there's a
+        umask, typically 0o644) followed by ``chmod 0o600``; there's a
         race window during which other local users on the workstation
         could read the SSH private key. ``mkstemp`` creates the file at
         0o600 from the start, and ``os.fchmod`` on the descriptor before
@@ -667,7 +668,7 @@ class DockerServiceManager:
             check=False,
         )
         # No --stats socket: a stale one in sticky /tmp buries the Emperor on
-        # start (see nginx_templates.py UWSGI_UNIT) — and nothing consumes it.
+        # start (see nginx_templates.py UWSGI_UNIT), and nothing consumes it.
         self.backend.run(
             "su - hop3 -c '"
             "nohup /home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled "
@@ -733,7 +734,7 @@ def fetch_api_token(
     token for an active admin and creates the default one on a fresh server.
     The token therefore names an account that exists, which the server checks
     once authorization reads roles (ADR 061). The harness used to read the
-    server's signing key and mint a token for an account nobody had created.
+    server's signing key and mint a token for an account that was never created.
 
     Raises:
         ConfigurationError: if the command fails or prints no token.
@@ -857,7 +858,7 @@ def _build_deploy_command(
     if features:
         cmd.extend(["--with", ",".join(features)])
     # Admin/ACME setup (cloud path). Emitted only when configured, so the plain
-    # run path (domain=None) is unaffected — but when the cloud caller sets a
+    # run path (domain=None) is unaffected. When the cloud caller sets a
     # domain, it must reach the deployer or admin/ACME setup silently vanishes.
     if domain:
         cmd.extend(["--admin-domain", domain])
@@ -865,7 +866,7 @@ def _build_deploy_command(
         cmd.extend(["--acme-email", acme_email])
     # The deployer forwards --admin-email as the server's OPERATOR_EMAIL, which
     # is what recipes' `[admin].email = "operator"` resolve to (ADR 056). Always
-    # set it for a test box so admin-credential apps can deploy — relying on the
+    # set it for a test box so admin-credential apps can deploy. Relying on the
     # deployer's env default (HOP3_ADMIN_EMAIL) let an empty value slip through
     # and left the server with no operator email.
     if admin_email:
@@ -900,34 +901,34 @@ def run_hop3_deploy(
     """
     Run hop3-deploy-server via subprocess.
 
-    This invokes hop3-deploy-server as a CLI tool rather than importing its
+    This invokes hop3-deploy-server as a CLI tool and imports none of its
     internals, keeping hop3-testing decoupled from hop3-installer.
 
     Args:
-        docker: If True, deploy to Docker container
-        host: Remote host (required if not docker)
-        user: SSH user for remote deployment
-        container_name: Docker container name
-        image: Docker base image
-        source: Install source ("local" | "git" | "pypi"), emitted as --from
-        clean: Clean before deploy (--clean flag)
-        branch: Git branch to deploy (only used when source == "git")
-        version: Pinned PyPI version, emitted as --version (only when source == "pypi")
+        docker: If True, deploy to Docker container.
+        host: Remote host (required if not docker).
+        user: SSH user for remote deployment.
+        container_name: Docker container name.
+        image: Docker base image.
+        source: Install source ("local" | "git" | "pypi"), emitted as --from.
+        clean: Clean before deploy (--clean flag).
+        branch: Git branch to deploy (only used when source == "git").
+        version: Pinned PyPI version, emitted as --version (only when source == "pypi").
         legacy_flags: Emit old-style source flags (--local/--git/--pypi) accepted by
-            every version's deployer — for driving an OLD version's own deployer
-        verbose: Enable verbose output
-        features: Features to install (docker, mysql, redis, nix, etc.)
-        domain: Admin domain, emitted as --admin-domain (cloud path)
-        acme_email: Let's Encrypt email, emitted as --acme-email (cloud path)
+            every version's deployer, for driving an OLD version's own deployer.
+        verbose: Enable verbose output.
+        features: Features to install (docker, mysql, redis, nix, etc.).
+        domain: Admin domain, emitted as --admin-domain (cloud path).
+        acme_email: Let's Encrypt email, emitted as --acme-email (cloud path).
         command_prefix: Prepended to the command (e.g. ["uv", "run"]) so a caller
-            deploying from a source checkout can invoke the deployer via uv
-        cwd: Working directory for the deploy subprocess (e.g. a cloned repo)
+            deploying from a source checkout can invoke the deployer via uv.
+        cwd: Working directory for the deploy subprocess (e.g. a cloned repo).
         deployer_command: The deployer's script name in that checkout (see
-            ``DeploymentConfig.deployer_command``)
+            ``DeploymentConfig.deployer_command``).
         on_output: Called for each output line (in addition to printing), so a
             caller can capture the deploy transcript (e.g. the cloud path's
-            DeploymentResult.log_output)
-        diagnostics: Optional diagnostics collector
+            DeploymentResult.log_output).
+        diagnostics: Optional diagnostics collector.
 
     Returns:
         Tuple of (success, duration_seconds)
@@ -953,62 +954,97 @@ def run_hop3_deploy(
     if command_prefix:
         cmd = [*command_prefix, *cmd]
 
-    print(f"\nRunning: {' '.join(cmd)}\n")
-
     if diagnostics:
         diagnostics.set_phase("deploy")
+
+    log_path = _deploy_log_path()
+    print(f"Running: {' '.join(cmd)}")
+    print(f"Full output: {log_path}")
 
     start_time = time.time()
 
     # `hop3-deploy --clean --with all` can take 10-20 minutes on a cold
-    # docker image (apt install, nix single-user install, extensions).
-    # Stream output line-by-line so the user sees progress in real time,
-    # while still capturing the full log for the diagnostics failure
-    # report. A 4-hour timeout is generous but bounded — the process
-    # group gets killed on timeout so no orphaned nix-build / docker.
-    def _emit(line: str) -> None:
-        print(line, flush=True)
-        if on_output is not None:
-            on_output(line)
+    # docker image (apt install, nix single-user install, extensions). The
+    # console gets one line per step, enough to see it advance; the full
+    # transcript goes to the log, and to the console on a failure. A 4-hour
+    # timeout is generous but bounded: the process group gets killed on
+    # timeout so no orphaned nix-build / docker.
+    with log_path.open("w") as log:
 
-    try:
-        result = run_streaming(
-            cmd,
-            on_output=_emit,
-            timeout=4 * 3600,
-            cwd=cwd,
-        )
-    except FileNotFoundError:
-        duration = time.time() - start_time
-        _log_deploy_not_found(diagnostics, duration)
-        return False, duration
+        def _emit(line: str) -> None:
+            log.write(line + "\n")
+            log.flush()
+            if verbose or _DEPLOY_STEP.match(_ANSI.sub("", line)):
+                print(line, flush=True)
+            if on_output is not None:
+                on_output(line)
+
+        try:
+            result = run_streaming(
+                cmd,
+                on_output=_emit,
+                timeout=4 * 3600,
+                cwd=cwd,
+            )
+        except FileNotFoundError:
+            duration = time.time() - start_time
+            _log_deploy_not_found(diagnostics, duration)
+            return False, duration
 
     duration = time.time() - start_time
 
     if result.timed_out:
+        _print_deploy_tail(result, log_path, verbose)
         _log_deploy_timeout(diagnostics, duration, result)
         return False, duration
 
     if result.returncode != 0:
+        _print_deploy_tail(result, log_path, verbose)
         _log_deploy_failure(diagnostics, duration, result)
         return False, duration
 
-    # An old checkout's deployer (the upgrade chain) carries warnings this
+    # An old checkout's deployer (the upgrade chain) prints warnings this
     # tree can no longer fix; the gate is for the code under test.
     if cwd is None and not legacy_flags:
         warnings = untolerated_deploy_warnings(result.stdout or "")
         if warnings:
+            print(f"Full output: {log_path}")
             _log_untolerated_warnings(diagnostics, duration, warnings)
             return False, duration
 
+    print(f"Hop3 deployed in {duration:.0f}s")
     _log_deploy_success(diagnostics, duration)
     return True, duration
+
+
+#: The deploy's step headers: the installer's `[1/11] …`, the deployer's `[1] …`.
+_DEPLOY_STEP = re.compile(r"^\s*\[\d+(/\d+)?\] ")
+
+#: Lines of a failed deploy's transcript shown on the console.
+_DEPLOY_TAIL_LINES = 60
+
+
+def _deploy_log_path() -> Path:
+    """A new file for this deploy's transcript, beside the test-run bundles."""
+    stamp = time.strftime("%Y%m%d-%H%M%S")
+    DEFAULT_RUNS_DIR.mkdir(parents=True, exist_ok=True)
+    return DEFAULT_RUNS_DIR / f"deploy-{stamp}.log"
+
+
+def _print_deploy_tail(result, log_path: Path, verbose: bool) -> None:
+    """The end of a failed deploy's transcript, unless it was all shown."""
+    if not verbose:
+        lines = (result.stdout or "").splitlines()[-_DEPLOY_TAIL_LINES:]
+        print(f"\n--- last {len(lines)} lines of the deploy ---")
+        print("\n".join(lines))
+        print("---")
+    print(f"Full output: {log_path}")
 
 
 #: Warnings a deploy may print and still pass, each with why continuing is
 #: safe. Everything else the installer or deployer marks with ⚠ fails the run:
 #: two bugs and an install failing on every Ubuntu 24.04 server hid for weeks
-#: behind warnings every log carried and nobody read. A new entry needs the
+#: behind warnings that every log showed and no one read. A new entry needs the
 #: same justification; see notes/installer-fail-loud-audit.md.
 TOLERATED_DEPLOY_WARNINGS: tuple[tuple[re.Pattern[str], str], ...] = (
     (
@@ -1057,7 +1093,7 @@ def untolerated_deploy_warnings(transcript: str) -> list[str]:
 def _log_untolerated_warnings(
     diagnostics: DiagnosticCollector | None, duration: float, warnings: list[str]
 ) -> None:
-    """Fail the deploy on warnings it carried past, naming each one."""
+    """Fail the deploy on warnings it printed and went past, naming each one."""
     message = (
         f"hop3-deploy-server succeeded with {len(warnings)} warning(s) it "
         f"carried past. Fix each, or justify it in TOLERATED_DEPLOY_WARNINGS "
@@ -1078,9 +1114,9 @@ def _log_deploy_failure(
     """
     Log deployment failure.
 
-    Output was streamed to the console as it arrived; no need to
-    re-print it here. The captured transcript still goes to the
-    diagnostics report so HTML/JSON reports stay complete.
+    The console has the transcript's tail and the log's path already; the
+    whole transcript goes to the diagnostics report as well, so HTML/JSON
+    reports stay complete.
     """
     if diagnostics:
         diagnostics.add_failure(
@@ -1099,7 +1135,7 @@ def _log_deploy_timeout(
     duration: float,
     result,
 ) -> None:
-    """Log deployment timeout — subprocess group has already been killed."""
+    """Log deployment timeout; the subprocess group has already been killed."""
     if diagnostics:
         diagnostics.add_failure(
             layer="deployer",

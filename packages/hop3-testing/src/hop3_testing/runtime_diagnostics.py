@@ -9,17 +9,17 @@ Runs a set of shell commands on the target after a test fails (but BEFORE
 cleanup destroys the app/container) so the per-app log file contains everything
 a developer needs to diagnose the failure without SSH'ing in.
 
-The collected sections are *tailored to the app*, not speculative:
+The collected sections are *tailored to the app*:
 
-- Docker sections are emitted only when a container for the app actually exists
-  — a native/Nix app has none, so probing for them is pure noise.
+- Docker sections are emitted only when a container for the app actually exists.
+  A native/Nix app has none, so probing for them is pure noise.
 - The build-log section knows a Nix build keeps its log in ``nix log <store
-  path>`` (there is no per-app ``build.log``), instead of guessing "may use
+  path>`` (there is no per-app ``build.log``). It no longer guesses "may use
   docker builder".
 - A missing nginx vhost is reported as an actionable finding, not the raw
   ``cat: … No such file`` error the old ``cat … 2>&1 || echo`` form leaked.
 
-Keep this module small and stable — every test failure calls into it, so the
+Keep this module small and stable. Every test failure calls into it, so the
 cost of bad commands here shows up in test-suite time.
 """
 
@@ -44,7 +44,7 @@ def _app_dir_exists(target: DeploymentTarget, app_name: str) -> bool:
     server creates the app), this directory is absent. Probing it once lets the
     collector emit a single accurate "app was never created" line instead of a
     cascade of redundant per-subdir errors ("ls: ... No such file", then "no log
-    directory at .../log/", then "no per-app build log" — all saying the same
+    directory at .../log/", then "no per-app build log", all saying the same
     thing). On a probe error, assume it exists: better a noisy bundle than a
     silently suppressed one.
     """
@@ -83,7 +83,7 @@ def _diagnostic_sections(
     The (title, shell-command) pairs to collect for ``app_name``.
 
     A pure function of the app name and whether it is containerised, so the
-    section set is unit-testable without a target. Titles are stable — the
+    section set is unit-testable without a target. Titles are stable: the
     console reporter keys off "App log files" and "Docker container logs …".
     """
     app_dir = f"{HOP3_APPS}/{app_name}"
@@ -118,8 +118,8 @@ def _diagnostic_sections(
         ),
         (
             "Build log",
-            # Nix keeps build logs in the store, not a per-app build.log — fetch
-            # them with `nix log` instead of guessing about a docker builder.
+            # Nix keeps build logs in the store and has no per-app build.log. Fetch
+            # them with `nix log` and skip any guess about a docker builder.
             (
                 f"if [ -f {app_dir}/log/build.log ]; then "
                 f"  tail -80 {app_dir}/log/build.log 2>&1; "
@@ -164,7 +164,7 @@ def _diagnostic_sections(
         ),
     ]
 
-    # Docker sections only when the app actually has a container — otherwise
+    # Docker sections only when the app actually has a container. Otherwise
     # they are pure noise on a native/Nix failure.
     if has_docker_container:
         sections += [
@@ -204,7 +204,7 @@ def collect_runtime_logs(
         app_name: The deployed app name (with timestamp suffix).
 
     Returns:
-        A single string with labelled sections — empty string if either
+        A single string with labelled sections, or an empty string if either
         ``target`` or ``app_name`` is missing.
     """
     if target is None or not app_name:
@@ -212,8 +212,8 @@ def collect_runtime_logs(
 
     header = "=== Runtime Logs (collected from target) ==="
 
-    # If the app dir is absent the deploy never reached app creation. Say so once
-    # — every per-app section below would otherwise just restate "not found".
+    # If the app dir is absent the deploy never reached app creation. Say so once:
+    # every per-app section below would otherwise just restate "not found".
     if not _app_dir_exists(target, app_name):
         return (
             f"{header}\n\n"

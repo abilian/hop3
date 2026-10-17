@@ -58,7 +58,7 @@ def default_test_domain(target_info: TargetInfo) -> str:
 
     Tutorials set HOST_NAME=<app>.$HOP3_TEST_DOMAIN and then curl that host, so
     the domain must resolve to the target with no DNS setup. sslip.io answers
-    only for names that carry an address, so a target named by hostname
+    only for names that contain an address, so a target named by hostname
     (``--host hop3.dev``) is resolved first: ``<app>.hop3.dev.sslip.io``
     resolves to nothing, and every tutorial's check failed with curl's
     "could not resolve host".
@@ -88,10 +88,10 @@ def run_captured(
 
     Demo and tutorial runs spawn grandchildren (the ``hop3`` CLI, then ``ssh``)
     that inherit the captured stdout/stderr pipes. ``subprocess.run`` only kills
-    the direct child on timeout, so a surviving grandchild keeps the pipe's
-    write end open and the post-kill ``communicate()`` blocks forever — the run
+    the direct child on timeout, so a grandchild still alive keeps the pipe's
+    write end open and the post-kill ``communicate()`` blocks forever: the run
     never returns and the dashboard shows "No logs recorded". Running the child
-    in its own session lets us SIGKILL the entire tree, then drain whatever was
+    in its own session lets us SIGKILL every process in the tree, then drain whatever was
     buffered before the kill.
 
     Raises ``subprocess.TimeoutExpired`` with ``output``/``stderr`` populated on
@@ -103,8 +103,8 @@ def run_captured(
         cwd=cwd,
         env=env,
         stdin=subprocess.DEVNULL,  # never inherit a tty: a prompt must fail
-        # fast (a non-tty read hits EOF / the CLI's no-tty refusal) rather
-        # than block on input until the timeout — the tutorial-hang failure.
+        # fast (a non-tty read hits EOF / the CLI's no-tty guard) and never
+        # blocks on input until the timeout (the tutorial-hang failure).
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
         text=True,

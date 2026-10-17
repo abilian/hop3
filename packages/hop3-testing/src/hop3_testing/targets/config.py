@@ -34,8 +34,8 @@ class DeploymentConfig:
 
     legacy_flags: bool = False
     """Emit old-style source flags (--local/--git/--pypi) instead of --from.
-    Set when running an OLD version's own deployer (upgrade chain) — pre-ADR-052
-    releases don't have --from, and the current deployer keeps the aliases."""
+    Set when running an OLD version's own deployer (upgrade chain): pre-ADR-052
+    releases don't have --from. The current deployer keeps the aliases."""
 
     clean: bool = False
     """Whether to clean existing installation before deploying."""
@@ -104,7 +104,6 @@ class DockerConfig:
         default_factory=lambda: {
             "22/tcp": None,  # SSH - random port
             "80/tcp": None,  # HTTP - random port
-            "443/tcp": None,  # HTTPS - random port
             "8000/tcp": None,  # API - random port
         }
     )

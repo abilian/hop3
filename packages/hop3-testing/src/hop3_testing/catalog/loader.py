@@ -105,9 +105,9 @@ def _parse_test_definition(data: dict[str, Any], path: Path) -> TestDefinition:
         metadata=metadata,
         # Only an explicit declaration makes a test negative. Deriving it from
         # the `broken/` directory meant a broken app reported as a pass, and a
-        # deploy that timed out reported as "deployed unexpectedly" — both the
+        # deploy that timed out reported as "deployed unexpectedly". Both were the
         # opposite of what happened. A recipe under `broken/` is simply expected
-        # to fail, and a failure is what the report should say.
+        # to fail. The report should then say it failed.
         expects_failure=bool(test_section.get("expects-failure", False)),
         source_path=path,
     )
@@ -117,8 +117,8 @@ def _is_broken_recipe(path: Path | None) -> bool:
     """
     True for a recipe under the catalog's ``broken`` status (ADR 059).
 
-    This is a question about where a recipe lives, and the only caller left is
-    the scanner's business-drop skip. It deliberately no longer decides whether
+    This is a question about where a recipe lives. The only caller left is
+    the scanner's business-drop skip. By design it no longer decides whether
     a test is negative: deriving that from the directory made the report call a
     broken app a pass, and a 30-minute deploy timeout an unexpected success.
     """
@@ -345,7 +345,7 @@ def generate_test_definition_from_app(
     validations: list[Validation] = []
     if (app_path / "demo-script.py").exists():
         demo_config = DemoConfig(script="demo-script.py", type="script")
-        spec = "demo"  # demo-script.py is the config source, not Procfile
+        spec = "demo"  # demo-script.py is the config source (no Procfile)
     else:
         deployment_config = DeploymentConfig(
             path=deployment_path,
@@ -431,9 +431,9 @@ def _extract_healthcheck_from_hop3_toml(data: dict[str, Any]) -> dict[str, Any]:
     Extract healthcheck config (path + optional body assertion) from hop3.toml.
 
     ``[healthcheck].contains`` is a first-class field (see the server's
-    HealthcheckSection): the runtime readiness probe requires the endpoint to
-    return that substring, and the harness mirrors it as the default validation's
-    body assertion — so a green test means the app served its own content, not a
+    HealthcheckSection). The runtime readiness probe requires the endpoint to
+    return that substring. The harness mirrors it as the default validation's
+    body assertion, so a green test means the app served its own content beyond a
     bare 200. Apps needing checks beyond the single healthcheck endpoint add
     ``[[test.validations]]``.
     """
@@ -620,7 +620,7 @@ def generate_test_definition_from_hop3_toml(
     else:
         overrides = {}
 
-    # Tier is a display label only — no longer drives any timeout
+    # Tier is a display label only; it no longer drives any timeout
     # (single 30-min budget applies to all builds + deploys).
     tier = overrides.get("tier", Tier.MEDIUM)
     priority = overrides.get("priority", Priority.P1)
@@ -665,7 +665,7 @@ def generate_test_definition_from_hop3_toml(
         ),
         description=description,
         metadata=TestMetadata(**metadata_kwargs),
-        # Explicit only — see the note on the other construction site.
+        # Explicit only. See the note on the other construction site.
         expects_failure=overrides.get("expects_failure", False),
         source_path=app_path / "hop3.toml",
     )

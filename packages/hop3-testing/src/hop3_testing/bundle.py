@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Unified diagnostic bundle (ADR 043 §7) — the silent-502 collector.
+Unified diagnostic bundle (ADR 043 §7): the silent-502 collector.
 
 ONE target-agnostic collector, called on a *failure* before teardown. It runs a
 fixed set of read-only commands over ``DeploymentTarget.exec_run`` (identical on
@@ -16,7 +16,7 @@ pure functions over strings (unit-tested without any target); the only IO is
 ``exec_run`` (read-only) and a single directory write at the end.
 
 This module must NOT import from ``hop3_testing.results`` (results imports Bundle,
-never the reverse — avoids an import cycle).
+never the reverse; this avoids an import cycle).
 """
 
 from __future__ import annotations
@@ -45,9 +45,9 @@ Classifier = Literal[
 ]
 """Failure buckets (ADR 043 §7.1). ``indeterminate`` = the probe was blind
 (could not read the listen table without root) so we refuse a confident
-proxy-502. ``startup-failure`` = the target itself (hop3-server) never came up —
-a deploy/startup failure, not an app crash, so the app/proxy probe is not the
-lens; the deploy log is. ``ok`` is never persisted."""
+proxy-502. ``startup-failure`` = the target itself (hop3-server) never came up.
+That is a deploy/startup failure with no app process to inspect, so the deploy
+log is the lens for it. The app/proxy probe has nothing to say. ``ok`` is never persisted."""
 
 DeployerKind = Literal["uwsgi", "docker", "static", "unknown"]
 
@@ -144,7 +144,7 @@ class Bundle:
 
         This is the test-context replacement for the server's own
         `hop3 app logs --app <app> --build` pointer: under `hop3-test` the app
-        is destroyed right after the failure, so that pointer is dead — but the
+        is destroyed right after the failure, so that pointer is dead. The
         bundle is durable (every section is recorded under
         ``~/.hop3/test-runs/<run-id>/``).
         """
@@ -170,8 +170,8 @@ _PROXY_PASS_RE = re.compile(r"proxy_pass\s+https?://[\d.]+:(\d+)")
 _UPSTREAM_RE = re.compile(
     r"upstream\s+\S+\s*\{[^}]*?server\s+127\.0\.0\.1:(\d+)", re.DOTALL
 )
-# A listener nginx's `proxy_pass http://127.0.0.1:PORT` can actually reach — not
-# just a literal 127.0.0.1 bind. gunicorn/uwsgi default to `--bind 0.0.0.0:$PORT`
+# A listener nginx's `proxy_pass http://127.0.0.1:PORT` can actually reach,
+# which includes more than a literal 127.0.0.1 bind. gunicorn/uwsgi default to `--bind 0.0.0.0:$PORT`
 # (all interfaces, loopback included), so matching only "127.0.0.1:PORT" made the
 # app's own port invisible and produced a FALSE proxy-502 for a healthy app that
 # curl(127.0.0.1:PORT) reached fine. Accept the wildcard binds too (0.0.0.0, *,
@@ -231,7 +231,7 @@ def parse_listen_ports(text: str) -> tuple[tuple[int, ...], bool, dict[int, str]
     default) and mislabelled them proxy-502.
 
     Returns ``(ports, table_available, owner_by_port)``. ``table_available`` is
-    False when nothing parseable was produced (no tool present + non-root) — the
+    False when nothing parseable was produced (no tool present + non-root). The
     classifier uses that to refuse a confident proxy-502.
     """
     stripped = text.strip()
@@ -286,7 +286,7 @@ _CRASH_RE = re.compile(
 # The deployer's health-check-timeout signature. These lines are emitted only
 # AFTER a successful build (the deploy reached the start/health-check phase),
 # so their presence reliably means "built and deployed, but never became
-# healthy" — distinct from a build failure. See hop3-server deployer.py
+# healthy", which is distinct from a build failure. See hop3-server deployer.py
 # (_handle_startup_timeout / the "did not respond to health checks" Diagnosis).
 _STARTUP_FAIL_RE = re.compile(
     r"failed to start within|did not respond to health checks|"
@@ -307,11 +307,11 @@ def _classify_logs(sections: dict[str, str]) -> Classifier | None:
     """
     Failure buckets derivable from the log sections alone, in precedence order.
 
-    Startup failure is checked before build failure: an app that built fine but
+    Startup failure is checked before build failure. An app that built fine but
     failed its start/health-check leaves "failed to start" / "did not respond to
-    health checks" in the deploy log, which _build_failed's broad
-    "error:"/"Deploy failed" regex would otherwise match — mislabeling it
-    "build-failure" and pointing the user at the (green) build section.
+    health checks" in the deploy log. _build_failed's broad
+    "error:"/"Deploy failed" regex would otherwise match those lines, mislabel
+    the app "build-failure" and point the user at the (green) build section.
     """
     if _startup_failed(sections.get("deploy", "")):
         return "startup-failure"
@@ -422,7 +422,7 @@ def build_headline(
 
 def _deploy_error_line(sections: dict[str, str]) -> str:
     """
-    The most telling line of the deploy log — the verdict for a startup
+    The most telling line of the deploy log: the verdict for a startup
     failure. The last non-empty line is usually the failure point.
     """
     deploy = sections.get("deploy", "").strip()
@@ -473,7 +473,7 @@ def _signal_lines(
 
 
 # --------------------------------------------------------------------------- #
-# Collectors (imperative shell — read-only exec_run)
+# Collectors (imperative shell, read-only exec_run)
 # --------------------------------------------------------------------------- #
 def _exec(target: DeploymentTarget, cmd: str) -> tuple[int, str, str]:
     """Run a command, never raising (per-section isolation)."""
@@ -564,7 +564,7 @@ def _collect_sections(
     # The server's own log, from whichever process manager is actually running.
     #
     # This used to branch on `command -v journalctl`, which is present in the
-    # Docker image even though nothing there is managed by systemd — so the
+    # Docker image even though nothing there is managed by systemd. So the
     # journalctl path was taken, `journalctl` printed "No journal files were
     # found", and the bundle recorded that as the server's log. An empty
     # section reads as "no errors", which is the worst possible answer: an app
@@ -602,7 +602,7 @@ def _collect_sections(
         "manager above against where its logs actually go.'; fi",
     )
 
-    # Host resource state — disk/inodes/memory + nix GC roots + OOM kills. A
+    # Host resource state: disk/inodes/memory + nix GC roots + OOM kills. A
     # long run accumulates disk (caches, store, app trees); when it runs low,
     # builds truncate (spring-boot "zip file is empty"), nix auto-GC deletes
     # running apps' closures (forgejo), and the OOM killer fells builds (astro
@@ -823,13 +823,13 @@ def collect_diagnostic_bundle(
     """
     Collect a target-agnostic diagnostic bundle BEFORE teardown.
 
-    Only call this on a real failure. By default an ``ok`` classification is not
-    written to disk — but some failures classify ``ok`` at the runtime layer
+    Only call this on a real failure. By default an ``ok`` classification is never
+    written to disk. Some failures do classify ``ok`` at the runtime layer
     (the app serves fine; a check.py body assertion or HTTP `contains` is what
     failed). For those, pass ``force_persist=True`` so the bundle is still
-    written and ``why <run-id>`` can replay it. Never raises: per-section
-    isolation + a probe that degrades to ``indeterminate`` rather than emitting a
-    confident-but-wrong verdict.
+    written and ``why <run-id>`` can replay it. Never raises. Each section is
+    isolated. A blind probe degrades to ``indeterminate`` and reports that
+    verdict in place of a confident guess.
     """
     kind = _detect_kind(target, app)
     sections = _collect_sections(

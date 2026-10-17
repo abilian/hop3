@@ -57,9 +57,9 @@ class Selector:
         if specific_tests:
             return self._get_specific_tests(specific_tests)
 
-        # A curated profile carries an explicit test list: return exactly those,
+        # A curated profile holds an explicit test list: return exactly those,
         # in order, ignoring the tier/priority/target filters (which it leaves
-        # empty). Order matters — it preserves demo01→demoNN sequencing.
+        # empty). Order matters: it preserves demo01→demoNN sequencing.
         if mode_config.tests:
             return self._get_specific_tests(mode_config.tests)
 
@@ -134,7 +134,7 @@ _TIER_ORDER = {"fast": 0, "medium": 1, "slow": 2, "very-slow": 3}
 
 def _tag_cells(test: TestDefinition) -> set[str]:
     """
-    Individual tag values this test exercises — one cell per axis value.
+    Individual tag values this test exercises: one cell per axis value.
 
     Tag axes: builder, toolchain, addon, category, spec.  Each axis value
     appears as an independent cell, so a test contributes multiple cells
@@ -191,8 +191,8 @@ def reduce_to_representatives(
     coverable cell is covered.  Deterministic: ties break by (priority, tier,
     name).
 
-    Tests marked ``expects_failure`` are excluded: a coverage suite proves the
-    platform works, and an app that is *meant* to fail represents nothing.
+    Tests marked ``expects_failure`` are excluded. A coverage suite proves the
+    platform works; an app that is *meant* to fail represents nothing.
     """
     tests = [t for t in tests if not t.expects_failure]
     if not tests:

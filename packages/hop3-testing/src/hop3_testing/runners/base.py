@@ -54,7 +54,7 @@ class ValidationResult:
 class TestResult:
     """Complete result of running a test."""
 
-    __test__ = False  # domain model, not a pytest test class (avoid Test* collection)
+    __test__ = False  # domain model; keeps pytest from collecting this Test* class
 
     test: TestDefinition
     """The test definition that was run."""
@@ -82,12 +82,12 @@ class TestResult:
     runtime_logs: str = ""
     """Runtime logs collected from the target side when the test
     failed. Populated BEFORE cleanup destroys the app, so the content
-    survives even when the container/app dir is gone by the time the
-    log is written to disk. Legacy fallback — superseded by ``bundle``."""
+    is still there when the container/app dir is gone by the time the
+    log is written to disk. Legacy fallback, superseded by ``bundle``."""
 
     bundle: Bundle | None = None
     """Unified diagnostic bundle (ADR 043 §7), collected on failure before
-    cleanup. Carries the headline, classifier, and the saved artifact path."""
+    cleanup. Holds the headline, classifier, and the saved artifact path."""
 
     @property
     def failed_validations(self) -> list[ValidationResult]:

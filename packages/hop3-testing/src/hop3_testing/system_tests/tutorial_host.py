@@ -6,9 +6,9 @@ Prepare a server to run tutorial tests *on it* (a controlled environment).
 
 Tutorials are validated by ``validoc``, which executes their bash blocks
 (scaffold, build, ``hop3 deploy``, …). Running those on the dev machine has two
-problems: the scaffold/build steps need every toolchain installed locally, and
-the tutorial's ``hop3 deploy`` uses the dev's default CLI context — so it
-deploys to whatever server that points at, not the run's target.
+problems. The scaffold/build steps need every toolchain installed locally. The
+tutorial's ``hop3 deploy`` uses the dev's default CLI context, so it deploys to
+whatever server that context points at, which may differ from the run's target.
 
 Running validoc on the run's server fixes both: the box already has the
 installer-provisioned toolchains, and ``hop3 deploy`` targets ``localhost``.
@@ -16,7 +16,7 @@ This module installs ``validoc`` into the server venv and mints an admin token
 into a file on the server, which the on-server ``hop3`` client reads.
 
 Fails loud: without validoc or the admin token, on-server tutorials can't run, so we
-raise rather than silently fall back to (wrong) local execution.
+raise. Falling back to local execution would run them in the wrong place.
 """
 
 from __future__ import annotations
@@ -55,7 +55,7 @@ def _configure_git_identity(target: DeploymentTarget) -> None:
 
     Tutorials do ``git init && git add && git commit`` to make the repo Hop3
     deploys. A fresh server has no global git user, so the commit fails with
-    "Author identity unknown" — which is why this is set once, up front.
+    "Author identity unknown". This sets it once, up front.
     """
     for key, value in (
         ("user.email", "tutorial-runner@hop3.test"),
@@ -95,9 +95,9 @@ def _patch_validoc_output_truncation(target: DeploymentTarget) -> None:
     real cause is lost. This best-effort patch rewrites those slices in the
     installed package on the test host so failures are diagnosable.
 
-    Remove once a validoc release carries the fix upstream. Best-effort by
+    Remove once a validoc release ships the fix upstream. Best-effort by
     design: never raises (a non-matching/renamed reporter just leaves validoc
-    as-is — we don't want host prep to fail over a diagnostics nicety).
+    as-is; host prep should not fail over a diagnostics nicety).
     """
     locate = f"{VENV_BIN}/python -c 'import validoc.reporter as m; print(m.__file__)'"
     code, out, _err = target.exec_run(locate)

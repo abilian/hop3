@@ -111,7 +111,7 @@ class TestLogWriter:
             ])
 
         # On failure, the runner has already collected runtime logs
-        # BEFORE cleanup — just dump them here.
+        # BEFORE cleanup; just dump them here.
         if not result.passed and result.runtime_logs:
             lines.append(result.runtime_logs)
 

@@ -29,7 +29,7 @@ from .logging import TestLogWriter
 from .reports import generate_reports
 
 if TYPE_CHECKING:
-    from collections.abc import Sequence
+    from collections.abc import Callable, Sequence
 
     import click
 
@@ -117,10 +117,10 @@ def _filter_by_admin_domain(
     left_out: list[LeftOut],
 ) -> list[TestDefinition]:
     """
-    Leave out, loudly, the tests whose app needs an admin domain the server lacks.
+    Leave out, with a reported reason, the tests needing a missing admin domain.
 
-    A gated app is refused at deploy on a server with no admin domain, which is
-    right; running it there would report the target, not the app. The server
+    A gated app is rejected at deploy on a server with no admin domain, which is
+    right; running it there would measure the target and say nothing of the app. The server
     says what it has: `admin:server-url` prints its public address, or nothing.
     """
     needing = [t for t in tests if t.requirements.admin_domain]
@@ -267,10 +267,10 @@ def _order_failed_first(
 
     "Same family" is (mode, target_type): the most recent finished run with that
     scope. Re-running its failures first surfaces regressions fast without
-    changing WHICH tests run — the set is identical, only the order differs.
+    changing WHICH tests run: the set is identical, only the order differs.
 
     Demos are exempt: they're an ordered complexity ladder (demo01 simplest) with
-    its own fail-fast, so they always run in name order — failed-first must not
+    its own fail-fast, so they always run in name order; failed-first must not
     scramble the ladder. They're appended after the others, still name-ordered.
     """
     by_name = sorted(tests, key=lambda t: t.name)
@@ -404,25 +404,24 @@ def run_tests(
     selection_mode: str | None = None,
     available_features: list[str] | None = None,
     left_out: Sequence[LeftOut] = (),
+    select: Callable[[DeploymentTarget, list[LeftOut]], list[TestDefinition]]
+    | None = None,
 ) -> None:
     """
     Run tests against a target.
 
     This is the single test execution function used by all CLI commands.
     The target is started, tests are executed, results are collected and reported.
+    ``select``, when given, chooses the tests from the started target, in place
+    of ``tests``.
     """
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
     left_out = list(left_out)
-    if available_features is not None:
+    if select is None and available_features is not None:
+        # Before the target starts: a run with nothing left installs nothing.
         tests = _runnable_with_services(tests, available_features, left_out, console)
     store = ResultStore()
-
-    # Order the run: previously-failed tests (same family = mode + target type)
-    # run first so a re-run surfaces regressions fast; the rest follow by name.
-    run_mode, target_kind, tests = _order_run(
-        tests, store, target, mode=selection_mode or mode_label, console=console
-    )
 
     log_path = _resolve_logs_dir(logs_dir, mode_label)
     reporter = ConsoleReporter(
@@ -441,17 +440,30 @@ def run_tests(
         _emit_startup_diagnostics(target, console, e)
         sys.exit(1)
 
-    tests = _runnable_with_admin_domain(tests, target, left_out, console)
-
-    _select_email_catch(tests, target, console)
-
-    # Tutorials run ON the server (controlled toolchains; `hop3 deploy` targets
-    # localhost). Prepare the host once if the selection includes any tutorial.
-    _maybe_prepare_tutorial_host(target, tests, console)
-
     try:
+        if select is not None:
+            tests = select(target, left_out)
+            if available_features is not None:
+                tests = _runnable_with_services(
+                    tests, available_features, left_out, console
+                )
+        # Order the run: previously-failed tests (same family = mode + target
+        # type) run first so a re-run surfaces regressions fast; the rest
+        # follow by name.
+        run_mode, target_kind, tests = _order_run(
+            tests, store, target, mode=selection_mode or mode_label, console=console
+        )
+        tests = _runnable_with_admin_domain(tests, target, left_out, console)
+
+        _select_email_catch(tests, target, console)
+
+        # Tutorials run ON the server (controlled toolchains; `hop3 deploy`
+        # targets localhost). Prepare the host once if the selection includes
+        # any tutorial.
+        _maybe_prepare_tutorial_host(target, tests, console)
+
         # Record the test-selection scope (smoke/ci/broad/full) as the run's
-        # mode — that's what the dashboard shows and what the regressions diff
+        # mode: that's what the dashboard shows and what the regressions diff
         # compares against. ``mode_label`` (system/reuse, the deploy style) stays
         # the per-run log-dir label. Older callers that don't pass a selection
         # fall back to mode_label.
@@ -499,16 +511,13 @@ def _maybe_prepare_tutorial_host(
     target: DeploymentTarget, tests: list[TestDefinition], console: PrintingConsole
 ) -> None:
     """
-    Prepare a remote server to run tutorials on it, if the run has any.
+    Prepare the target to run tutorials on it, if the run has any.
 
-    Installs validoc + mints an admin token on the server (so the on-server
-    ``hop3`` deploys to localhost). Only applies to remote targets — docker/local
-    runs still execute validoc locally. A preparation failure is recorded on the
-    target (loud) and turns every tutorial into an explicit error rather than a
-    silent local fall-back that would deploy to the wrong server.
+    Installs validoc and mints an admin token on the target, a container
+    included, so the on-target ``hop3`` deploys to its own server. A preparation
+    failure is recorded on the target and reported, and every tutorial then
+    fails with it: validoc never runs on the developer's machine.
     """
-    if type(target).__name__ != "RemoteTarget":
-        return
     if not any(t.tutorial is not None for t in tests):
         return
 
@@ -532,9 +541,9 @@ def _emit_startup_diagnostics(
     """
     Best-effort diagnostics when the target itself never came up.
 
-    This is a *deploy/startup* failure, not an app crash: the deploy error is the
-    verdict and the ``deploy`` section is where ``why`` points — the app/proxy
-    probe is not the lens here. There is no result row yet, so
+    This is a *deploy/startup* failure, so the deploy error is the verdict and
+    ``why`` points at the ``deploy`` section. The app/proxy probe does not apply
+    here. There is no result row yet, so
     ``hop3-test why <run-id>`` resolves this bundle off-disk (its directory under
     ~/.hop3/test-runs/); the bundle path is printed here too.
     """
@@ -583,7 +592,7 @@ def run_single_test(
         # when available; fall back to the test name only for
         # runners that don't populate it. Using test.name directly
         # points the debugger at a nonexistent path (the test path
-        # rather than ``<basename>-<timestamp>``).
+        # where ``<basename>-<timestamp>`` was needed).
         app_name = result.deployed_app_name or test.name
         debugger = DeploymentDebugger(
             target=target,

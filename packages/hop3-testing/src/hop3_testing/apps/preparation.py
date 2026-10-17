@@ -47,7 +47,7 @@ class AppPreparation:
     def test_hostname(self) -> str:
         """The hostname the app is deployed under (its nginx server_name).
 
-        The HTTP validation MUST send this exact value as the Host header — a
+        The HTTP validation MUST send this exact value as the Host header. A
         mismatch falls through to the platform's default_server, which 301-
         redirects (HTTP→HTTPS), so the check sees a 301 instead of the app.
 
@@ -98,7 +98,7 @@ class AppPreparation:
         """Pin a routable HOST_NAME for nginx-served apps that declare none.
 
         Injects `HOST_NAME={app_name}.test.local` for any app that does NOT
-        declare its own hostname — Procfile-only apps AND hop3.toml apps with
+        declare its own hostname: Procfile-only apps AND hop3.toml apps with
         neither [domains] nor [env].HOST_NAME. That value is the nginx
         server_name the HTTP validation probes with; without it a hop3.toml
         static app gets a bare-app-name server_name (or none), so the probe's
@@ -137,7 +137,7 @@ class AppPreparation:
             )
             subprocess.run(
                 # Identity inline so the commit never depends on the caller's git
-                # config — a server-resident runtime user has none ('git commit'
+                # config. A server-resident runtime user has none ('git commit'
                 # exits 128: "Please tell me who you are").
                 [
                     "git",

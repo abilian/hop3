@@ -44,8 +44,8 @@ class HetznerConfig:
             server_id = int(env.get("HETZNER_SERVER_ID", "0"))
 
         # The rebuild key may come from the [hetzner] table or the environment
-        # (env wins nothing here — explicit config first, env as fallback). Both
-        # ssh_key_name AND ssh_key_path must be carried: resolve_ssh_key() uses
+        # (explicit config first, env as fallback). Both ssh_key_name AND
+        # ssh_key_path must be kept: resolve_ssh_key() uses
         # the name if set, else derives the registered key from <ssh_key_path>.pub.
         ssh_key_name = (
             data.get("ssh_key_name") or env.get("HETZNER_SSH_KEY_NAME") or None
@@ -53,7 +53,7 @@ class HetznerConfig:
         ssh_key_path = (
             data.get("ssh_key_path")
             or env.get("HETZNER_SSH_KEY_PATH")
-            # The key the harness already uses to reach the server — its .pub is
+            # The key the harness already uses to reach the server: its .pub is
             # registered in the project, so it's the natural rebuild key.
             or env.get("HOP3_TEST_SSH_KEY")
             or None

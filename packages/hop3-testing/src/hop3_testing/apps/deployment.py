@@ -27,13 +27,12 @@ from hop3_testing.util.streaming import run_streaming
 
 from .debug import DeploymentDebugger
 from .preparation import AppPreparation
-from .verification import HttpVerifier
 
 # How much of a response body to fetch. A `contains` assertion is matched against
-# this body, so the limit has to fit a realistic page rather than a preview: at
+# this body, so the limit has to fit a whole realistic page. At
 # the previous 16 KB, WordPress 6.4's block theme inlined enough CSS into <head>
-# to push the asserted post title out of the window, and the harness reported
-# "body does not contain 'Hello world'" for a site that was serving it — a false
+# to push the expected post title out of the window. The harness then reported
+# "body does not contain 'Hello world'" for a site that was serving it: a false
 # negative that read like an application failure.
 BODY_FETCH_LIMIT = 262_144
 
@@ -43,6 +42,41 @@ if TYPE_CHECKING:
     from hop3_testing.targets.base import DeploymentTarget
 
     from .catalog import AppSource
+
+
+#: Seconds a body fetch may take: a page answering its status in time can
+#: still be slow to send on a target busy with builds.
+BODY_FETCH_TIMEOUT = 15
+
+
+class BodyFetchError(RuntimeError):
+    """The response body could not be fetched; the message says how."""
+
+
+def fetch_body(target: DeploymentTarget, url: str, curl_args: str = "") -> str:
+    """
+    The body at ``url`` on the target, redirects followed, cut at the limit.
+
+    `-L`: a `contains` assertion is about content, and for an app whose entry
+    point redirects (kanboard to its login controller) the content lives at the
+    redirect target; a 3xx body is typically empty. The status check is never
+    followed, so a recipe can still assert `status = 302`.
+
+    One `curl`, no pipe, so its exit code is curl's: the fetch went through
+    `| head -c`, whose exit code replaced it, and a fetch that timed out
+    read as a page that "does not contain 'Vikunja' (checked 0 chars)".
+    """
+    code, body, err = target.exec_run(
+        f"curl -sS -L --max-redirs 5 {curl_args} "
+        f"--max-time {BODY_FETCH_TIMEOUT} '{url}'"
+    )
+    if code != 0:
+        msg = (
+            f"the status matched, but fetching the body of {url} failed "
+            f"(curl exit {code}): {(err or '').strip()[:300]}"
+        )
+        raise BodyFetchError(msg)
+    return (body or "")[:BODY_FETCH_LIMIT].strip()
 
 
 def _status_match(actual: int, expected: int | Iterable[int]) -> bool:
@@ -69,11 +103,11 @@ def _extract_deploy_root_cause(output: str) -> str:
     """Concise, actionable tail of a failed deploy.
 
     Drops the high-volume "step succeeded" noise (DB migrations, per-file build
-    progress — lines ending in " OK") that otherwise buries the real error under
+    progress: lines ending in " OK") that otherwise buries the real error under
     hundreds of lines, and keeps the last handful that remain. The full
     transcript is preserved separately (``_last_deploy_output`` → the diagnostic
-    bundle, ``hop3-test why <run-id> --section deploy``), so nothing is lost —
-    this is only what the console shows.
+    bundle, ``hop3-test why <run-id> --section deploy``), so nothing is lost.
+    This is only what the console shows.
     """
     kept = [
         stripped.lstrip("> ")
@@ -122,7 +156,7 @@ class DeploymentSession:
         self.target = target
         self.config = config or {}
 
-        # Generate unique app name if not provided
+        # Generate a unique app name when the caller gives none
         if app_name is None:
             timestamp = int(time.time())
             app_name = f"{app.name}-{timestamp}".replace("_", "-")
@@ -189,8 +223,8 @@ class DeploymentSession:
         Args:
             wait_time: Time to wait after deployment (seconds)
             deploy_timeout: Max seconds for the ``hop3 deploy`` subprocess
-                (default 600). Slow tier apps — heavy Docker builds,
-                large nix fetches — may need more. The runner sizes
+                (default 600). Slow tier apps (heavy Docker builds,
+                large nix fetches) may need more. The runner sizes
                 this based on the test's tier.
 
         Raises:
@@ -241,13 +275,7 @@ class DeploymentSession:
             DeploymentError: If deployment fails.
         """
         env = self.target.cli_env()
-        cmd = [
-            "hop3",
-            "deploy",
-            "--app",
-            self.app_name,
-            str(self._preparation.temp_dir),
-        ]
+        cmd = self._deploy_command()
 
         verbose = self.config.get("verbose", False)
         debug = self.config.get("debug", False)
@@ -274,15 +302,15 @@ class DeploymentSession:
         )
         stdout = result.stdout
         returncode = result.returncode
-        # Keep the full deploy output for every build (success or failure), not
-        # just a one-line summary — so the per-build logs are actually useful.
+        # Keep the full deploy output for every build (success or failure) beyond
+        # a one-line summary, so the per-build logs are actually useful.
         self._last_deploy_output = stdout
 
         if result.timed_out:
             mins = timeout // 60
             self._last_deploy_error = f"Deploy timed out after {mins} minutes"
             self.console.error(self._last_deploy_error)
-            # A hung deploy is infrastructure, not a builder rejection — raise
+            # A hung deploy is an infrastructure failure. Raise
             # the dedicated type so a negative test can't go green on it (C7).
             raise DeployTimeoutError(self._last_deploy_error)
 
@@ -300,6 +328,25 @@ class DeploymentSession:
         # The output contains: "port=XXXXX" in the DeploymentInfo line.
         self._extract_port_from_output(stdout)
 
+    def _deploy_command(self) -> list[str]:
+        """
+        The `hop3` command that deploys the app, the way its operator would.
+
+        A catalog entry is installed the first time and upgraded after that:
+        an installed app has no source to upload, and a second install of the
+        same name is refused.
+        """
+        catalog_id = self.app.catalog_id
+        if catalog_id is None:
+            return ["hop3", "deploy", "--app", self.app_name, str(self.temp_dir)]
+        if self.deployed:
+            return ["hop3", "app", "upgrade", "--app", self.app_name]
+        cmd = ["hop3", "catalog", "install", catalog_id, "--app", self.app_name]
+        if self.app.declared_hostname is None:
+            # The host the probes address; an uploaded app gets it from ENV.
+            cmd += ["--domain", self.test_hostname]
+        return cmd
+
     def _extract_port_from_output(self, stdout: str) -> None:
         """Extract the app's direct port and what that port speaks.
 
@@ -312,8 +359,8 @@ class DeploymentSession:
         answers FastCGI and nothing else, so polling `http://127.0.0.1:<port>/`
         against it fails forty times and the app is reported as crashed while
         it serves perfectly through nginx. The server names the protocol on
-        this same line; taking it from there keeps one contract rather than
-        letting the harness guess from the app's shape.
+        this same line. Taking it from there keeps one contract and spares
+        the harness from guessing from the app's shape.
         """
         import re  # noqa: PLC0415
 
@@ -393,7 +440,6 @@ class DeploymentSession:
 
     def test_http_detailed(
         self,
-        hostname: str | None = None,
         path: str = "/",
         expected_status: int | Iterable[int] = HTTPStatus.OK,
         max_retries: int = 40,
@@ -418,33 +464,19 @@ class DeploymentSession:
         # Try to get the app's direct port and test without nginx. A port that
         # does not speak HTTP is no use here: a php-fpm pool answers FastCGI on
         # its socket, so the direct probe times out on an app that is serving.
-        # Such an app goes down the same route as a static one — through the
+        # Such an app goes down the same route as a static one: through the
         # proxy, which is where its HTTP responses exist.
         app_port = self.get_app_port()
         if app_port and self._app_protocol == "http":
             return self._test_http_direct(app_port, path, expected_status, max_retries)
 
         # No usable direct port (static apps served by nginx only; FastCGI
-        # backends whose socket does not speak HTTP).
-        # For SSH targets, test via curl on the server with Host header.
-        if not self.target.info.is_container:
-            return self._test_http_via_nginx_ssh(
-                path,
-                expected_status,
-                max_retries,
-            )
-
-        # Fall back to local nginx-based testing. Send the app's real
-        # server_name (its declared host, or the injected {app_name}.test.local)
-        # as the Host header so the request hits the app's vhost instead of the
-        # platform default_server (audit L5).
-        verifier = HttpVerifier(self.target.info, self.app_name, self.console)
-        return verifier.test_detailed(
-            hostname or self._preparation.test_hostname,
-            path,
-            expected_status,
-            max_retries,
-        )
+        # backends whose socket does not speak HTTP): curl through nginx on the
+        # target itself, a container included. A second, client-side checker
+        # for containers read only 4096 characters and followed redirects
+        # before matching the status, so wordpress lost its "Hello world" and
+        # kanboard's 302 read as a 200.
+        return self._test_http_via_nginx_ssh(path, expected_status, max_retries)
 
     def _test_http_direct(
         self,
@@ -515,17 +547,16 @@ class DeploymentSession:
                     result["details"]["attempts"] = attempt + 1
 
                     if _status_match(status_code, expected_status):
-                        # Fetch body for contains checks. Follow redirects (-L):
-                        # a `contains` assertion is about CONTENT, which for an
-                        # app whose entry point 302/307-redirects (kanboard→board,
-                        # easy-appointments→installer) lives at the redirect
-                        # target — the 3xx response itself has an empty body. The
-                        # STATUS check above is NOT followed, so a validation can
-                        # still assert the immediate redirect (`status = 302`).
-                        _, body, _ = self.target.exec_run(
-                            f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c {BODY_FETCH_LIMIT}"
-                        )
-                        result["details"]["body_preview"] = body.strip() if body else ""
+                        try:
+                            body = fetch_body(self.target, url)
+                        except BodyFetchError as e:
+                            result["message"] = str(e)
+                            return result
+                        result["details"]["body_preview"] = body
+                        if not body:
+                            result["details"]["headers"] = self._response_headers(
+                                url
+                            )
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -537,12 +568,7 @@ class DeploymentSession:
                         time.sleep(1)
                         continue
 
-                    # Get body preview for non-matching status (follow redirects
-                    # so the diagnostic shows the real page, not an empty 3xx).
-                    _, body, _ = self.target.exec_run(
-                        f"curl -s -L --max-redirs 5 --max-time 5 '{url}' | head -c {BODY_FETCH_LIMIT}"
-                    )
-                    body_text = body.strip() if body else ""
+                    body_text = self._diagnostic_body(url)
                     result["details"]["body_preview"] = body_text
                     body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
@@ -551,7 +577,7 @@ class DeploymentSession:
                     )
                     return result
 
-                # curl failed (connection refused, etc.) — app still starting
+                # curl failed (connection refused, etc.): app still starting
                 time.sleep(1)
 
             except Exception as e:
@@ -561,6 +587,26 @@ class DeploymentSession:
 
         result["message"] = f"HTTP test failed after {max_retries} attempts on {url}"
         return result
+
+    def _response_headers(self, url: str, curl_args: str = "") -> str:
+        """
+        The headers of an empty response, so a `contains` miss on it is explained.
+
+        Uptime Kuma's /dashboard once answered 200 with no body, and the report
+        could say only "checked 0 chars".
+        """
+        _code, out, err = self.target.exec_run(
+            f"curl -sS -L --max-redirs 5 {curl_args} --max-time {BODY_FETCH_TIMEOUT} "
+            f"-o /dev/null -D - '{url}'"
+        )
+        return (out or err or "").strip()
+
+    def _diagnostic_body(self, url: str, curl_args: str = "") -> str:
+        """The body shown beside a wrong status: the page, or why it is missing."""
+        try:
+            return fetch_body(self.target, url, curl_args)
+        except BodyFetchError as e:
+            return f"({e})"
 
     def _test_http_via_nginx_ssh(
         self,
@@ -578,8 +624,8 @@ class DeploymentSession:
         **HTTPS, via --resolve.** This used to curl `http://127.0.0.1{path}` with
         a `Host:` header, and read the resulting 301 as proof of a Host mismatch.
         It is not: an app's own HTTP vhost redirects to HTTPS, so a correct Host
-        gets the same 301 as a wrong one, and a static app — which has no direct
-        port to fall back on — could never pass. `--resolve` sets the TLS SNI
+        gets the same 301 as a wrong one. A static app, which has no direct
+        port to fall back on, could never pass. `--resolve` sets the TLS SNI
         *and* the Host header while connecting to loopback, which is what selects
         the vhost; `-k` because the per-host cert is self-signed.
         """
@@ -593,24 +639,6 @@ class DeploymentSession:
             "message": "",
             "details": {"url": url, "method": "nginx-ssh", "host": host},
         }
-
-        def fetch_body() -> str:
-            # `-L`, for the same reason the direct-port path uses it: a
-            # `contains` assertion is about CONTENT, and for an app whose entry
-            # point redirects (kanboard -> the login controller) that content
-            # lives at the redirect target — a 3xx body is typically empty. The
-            # STATUS check below is deliberately NOT followed, so a recipe can
-            # still assert the immediate `status = 302`.
-            #
-            # These two paths disagreed until a php-fpm app was routed through
-            # this one: the direct-port fetch followed redirects and this did
-            # not, so the same recipe passed or failed depending on which
-            # transport its backend happened to use.
-            _, body, _ = self.target.exec_run(
-                f"curl -s -L --max-redirs 5 {resolve} --max-time 5 '{url}' "
-                f"| head -c {BODY_FETCH_LIMIT}"
-            )
-            return body.strip() if body else ""
 
         self.console.info(f"Testing HTTP via nginx ({url} -> 127.0.0.1): {path}")
 
@@ -628,8 +656,16 @@ class DeploymentSession:
                     result["details"]["attempts"] = attempt + 1
 
                     if _status_match(status_code, expected_status):
-                        # Fetch body for contains checks
-                        result["details"]["body_preview"] = fetch_body()
+                        try:
+                            body = fetch_body(self.target, url, resolve)
+                        except BodyFetchError as e:
+                            result["message"] = str(e)
+                            return result
+                        result["details"]["body_preview"] = body
+                        if not body:
+                            result["details"]["headers"] = self._response_headers(
+                                url, resolve
+                            )
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -641,8 +677,7 @@ class DeploymentSession:
                         time.sleep(1)
                         continue
 
-                    # Non-matching status — get body for diagnostics
-                    body_text = fetch_body()
+                    body_text = self._diagnostic_body(url, resolve)
                     result["details"]["body_preview"] = body_text
                     body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
                     result["message"] = (
@@ -665,7 +700,7 @@ class DeploymentSession:
         """
         Run the app's check.py through the server, and return detailed results.
 
-        Via `hop3 app check`, which is the one implementation — the same one the
+        Via `hop3 app check`, which is the one implementation: the same one the
         end of every deploy uses. This used to `exec()` the script in-process
         instead, and that second implementation ran it in the wrong place and
         the wrong way:
@@ -679,7 +714,7 @@ class DeploymentSession:
         - **With the harness's own argv.** The script is invoked as
           `check.py <hostname> 443`, so `run()` reads `sys.argv[2]` as the port.
           Exec'd in-process it read *hop3-test's* argv and did
-          `int("--docker")` — which is what failed eleven of twenty golden apps,
+          `int("--docker")`, which is what failed eleven of twenty golden apps,
           each of them already serving HTTP 200.
         - **Without `__file__`,** which a bare `exec` namespace does not define;
           uptime-kuma's check used it and died on a NameError.
@@ -730,7 +765,7 @@ class DeploymentSession:
         The destroy is attempted even after a FAILED deploy: a partial deploy
         can still have created the app and provisioned some addons (e.g.
         postgres before redis failed). Skipping cleanup for failures leaks an
-        app dir + addon slots on every run — the slow cause of disk and
+        app dir + addon slots on every run, the slow cause of disk and
         Redis-db exhaustion. A failed destroy is not raised, so temp-dir
         cleanup always runs; it is printed whatever the verbosity (it was a
         warning `--quiet` hid) and returned, for a caller that must fail on it.
@@ -799,6 +834,10 @@ class DeploymentSession:
 
                 # Verify app is gone
                 self._verify_app_destroyed(env)
+            elif f"App '{self.app_name}' not found" in result.stderr:
+                # A refused install or a deploy that failed before creating the
+                # app: nothing exists, so nothing leaked.
+                self.console.debug(f"{self.app_name} was never created")
             else:
                 self.console.error(
                     f"Failed to destroy app (exit code {result.returncode})"

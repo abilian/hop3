@@ -53,7 +53,7 @@ def test_failed_validoc_is_reported_as_failed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         TutorialTestRunner,
         "_run_validoc",
-        lambda self, path, cwd: {
+        lambda self, path: {
             "success": False,
             "error": "validoc failed with exit code 1",
             "logs": "block 3 failed",
@@ -72,7 +72,7 @@ def test_passing_validoc_is_reported_as_passed(tmp_path, monkeypatch):
     monkeypatch.setattr(
         TutorialTestRunner,
         "_run_validoc",
-        lambda self, path, cwd: {"success": True, "logs": "all blocks passed"},
+        lambda self, path: {"success": True, "logs": "all blocks passed"},
     )
 
     result = _runner().run(test)
@@ -128,7 +128,7 @@ def test_failed_tutorial_collects_target_diagnostics(tmp_path, monkeypatch):
     monkeypatch.setattr(
         TutorialTestRunner,
         "_run_validoc",
-        lambda self, path, cwd: {
+        lambda self, path: {
             "success": False,
             "error": "Command timed out after 120s",
             "logs": "running hop3 deploy...",

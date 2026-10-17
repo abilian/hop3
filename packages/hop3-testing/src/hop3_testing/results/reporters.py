@@ -83,7 +83,7 @@ class ConsoleReporter:
     Whether ``--keep`` left the failed app deployed.
 
     The failure note used to say "app destroyed after failure" unconditionally.
-    Under ``--keep`` that is false, and it is false in the one situation the flag
+    Under ``--keep`` that is false. It is false in the one situation the flag
     exists for: the app IS still up, waiting to be inspected, and the report sends
     the reader to a static bundle instead. A run was spent on that.
     """
@@ -117,7 +117,7 @@ class ConsoleReporter:
 
     def _status(self, result: TestResult) -> tuple[str, str]:
         """
-        The word for this outcome, and what it means, in the reader's terms.
+        The word for this outcome, with its meaning in the reader's terms.
 
         A negative test (a recipe under `broken/`, or one declaring
         `expects-failure`) inverts `passed`: the runner sets it True when the
@@ -145,7 +145,7 @@ class ConsoleReporter:
         Without it the report says only that the app is still broken, which
         proves something went wrong and not that the *expected* thing did. The
         reason lives in the validation the runner records when it inverts the
-        outcome, and its message carries the deploy error.
+        outcome. Its message holds the deploy error.
         """
         prefix = "Deploy failed as expected (expects-failure=true):"
         for validation in getattr(result, "validations", None) or []:
@@ -205,13 +205,13 @@ class ConsoleReporter:
         Point at the failure's durable evidence, and say where the app is.
 
         A failed test always leaves a local bundle. Naming it HERE matters
-        because the error tail carries the server's own
+        because the error tail contains the server's own
         `hop3 app logs --app <app> --build` hint, which is normally already dead:
         the runner destroys the app right after (and a hetzner box is re-imaged
         on the next run).
 
         Whether it is dead depends on `--keep`, and saying so unconditionally was
-        wrong in the one case the flag exists for — the app was up, waiting to be
+        wrong in the one case the flag exists for. The app was up, waiting to be
         looked at, while this line sent the reader to a static bundle.
         """
         if result.passed or result.bundle is None:
@@ -324,7 +324,7 @@ class ConsoleReporter:
 
         # Headline-first (ADR 043 §7): the bundle's classifier verdict + the
         # `why` pointer say what's wrong and where to look. The full sections
-        # stay on disk — terse on screen, rich in the artifact.
+        # stay on disk: terse on screen, rich in the artifact.
         if r.bundle is not None:
             for line in r.bundle.headline.splitlines():
                 print(f"      {line}", file=self.output)
@@ -332,7 +332,7 @@ class ConsoleReporter:
                 print(f"      bundle: {r.bundle.artifact_dir}/", file=self.output)
             return
 
-        # Legacy path — runners not yet wired to the bundle.
+        # Legacy path: runners not yet wired to the bundle.
         cause = self._extract_root_cause(r.error or "validation failed")
         print(f"      {cause}", file=self.output)
         app_tail = self._extract_app_log_tail(r)
@@ -354,16 +354,16 @@ class ConsoleReporter:
         ``collect_runtime_logs`` produces a labelled blob with per-section
         ``--- Title ---`` headers. Two relevant sections:
 
-        - **App log files** — uWSGI / native deployer logs at
+        - **App log files**: uWSGI / native deployer logs at
           ``/home/hop3/apps/<app>/log/<name>.log``. Per-file markers look
           like ``--- /home/hop3/apps/<app>/log/<file>.log ---``.
-        - **Docker container logs** — for docker-based apps, the per-app
+        - **Docker container logs**: for docker-based apps, the per-app
           uWSGI dir is empty. Per-container markers look like
           ``--- <container-name> ---``.
 
         We try native logs first (web.* > worker.* > other), then fall
         back to docker container logs. This way the inline tail is
-        useful for both deployer types — previously docker apps showed
+        useful for both deployer types. Previously docker apps showed
         the literal ``tail: cannot open ...`` shell error here, which
         was uniformly unhelpful.
         """
@@ -396,7 +396,7 @@ class ConsoleReporter:
             return ""
 
         # Preference order: web.* (HTTP-serving worker), worker.* (background
-        # workers — often the real app process in attach-daemon-style runs),
+        # workers, often the real app process in attach-daemon-style runs),
         # anything else ending in .log but not build.log (which is verbose
         # nix/docker output unhelpful for runtime failures).
         def priority(path_content: tuple[str, str]) -> int:
@@ -426,7 +426,7 @@ class ConsoleReporter:
         import re  # ruff:ignore[import-outside-top-level]
 
         # The "Docker container logs ..." section header is the last in
-        # collect_runtime_logs — anything after it is in scope.
+        # collect_runtime_logs; anything after it is in scope.
         section_re = re.compile(
             r"^---\s+Docker container logs[^-\n]*---\s*$",
             re.MULTILINE,
@@ -627,7 +627,7 @@ class ConsoleReporter:
             print(f"  {status} {cat}: {passed}/{total} passed", file=self.output)
 
         # Per-app status listing. `test.name` can be either the
-        # `metadata.id` (short — e.g., "directus") or the relative
+        # `metadata.id` (short, e.g., "directus") or the relative
         # path (e.g., "apps/broken/focalboard")
         # depending on how it reached the catalog. Short names collide
         # across broken/ variants (multiple "focalboard"s), so we

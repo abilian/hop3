@@ -5,11 +5,11 @@
 """
 SQLAlchemy models for test result storage.
 
-Columns keep ``nullable=True`` (the schema's long-standing shape — every
-non-PK column is nullable) even where the ``Mapped[...]`` annotation is
-non-optional: the annotation reflects how the code *uses* a loaded row
-(these fields are populated in practice), while the relaxed DB constraint
-keeps existing ``test-results.db`` files and partial inserts working.
+Columns keep ``nullable=True`` even where the ``Mapped[...]`` annotation is
+non-optional. This is the schema's long-standing shape: every non-PK column is
+nullable. The annotation reflects how the code *uses* a loaded row, since these
+fields are populated in practice. The relaxed DB constraint keeps existing
+``test-results.db`` files and partial inserts working.
 """
 
 from __future__ import annotations
@@ -47,7 +47,7 @@ class TestRun(Base):
     """
 
     __tablename__ = "test_runs"
-    __test__ = False  # SQLAlchemy model named Test*, not a pytest test class
+    __test__ = False  # SQLAlchemy model named Test*; pytest must not collect it
 
     id: Mapped[int] = mapped_column(primary_key=True)
     started_at: Mapped[datetime] = mapped_column(
@@ -62,7 +62,7 @@ class TestRun(Base):
     # No `index=True`: the partial UNIQUE index (`uq_test_runs_run_uid`, created
     # in store.py::_ensure_columns) is the run_uid index. A plain `index=True`
     # here created `ix_test_runs_run_uid`, and the unique index reused that exact
-    # name, so `CREATE UNIQUE INDEX IF NOT EXISTS` silently no-op'd on fresh DBs —
+    # name, so `CREATE UNIQUE INDEX IF NOT EXISTS` silently no-op'd on fresh DBs, so
     # uniqueness was never enforced (review #10).
     run_uid: Mapped[str | None] = mapped_column(String(80), nullable=True)
     """User-facing run handle (<ISO>-<target>-<shortid>); the `why`/`triage` key.
@@ -117,7 +117,7 @@ class TestRun(Base):
     run_metadata: Mapped[dict | None] = mapped_column(JSON, default=dict, nullable=True)
     """Extensible session-metadata bag (target OS name/version, server type,
     location, image, …). Progressive-disclosure detail; the named columns
-    (hop3_version, git_sha) stay queryable. NB: can't be named ``metadata`` —
+    (hop3_version, git_sha) stay queryable. NB: can't be named ``metadata``:
     that attribute is reserved by SQLAlchemy's declarative base."""
 
     planned_counts: Mapped[dict | None] = mapped_column(JSON, nullable=True)
@@ -143,7 +143,7 @@ class TestResultRecord(Base):
     """Individual test result."""
 
     __tablename__ = "test_results"
-    __test__ = False  # SQLAlchemy model named Test*, not a pytest test class
+    __test__ = False  # SQLAlchemy model named Test*; pytest must not collect it
 
     id: Mapped[int] = mapped_column(primary_key=True)
     run_id: Mapped[int] = mapped_column(ForeignKey("test_runs.id"), nullable=True)
@@ -154,7 +154,7 @@ class TestResultRecord(Base):
     test_path: Mapped[str | None] = mapped_column(Text, nullable=True)
     """The test's source path (e.g. ``apps/real-apps-docker/bugsink/hop3.toml``).
     The packaging variant (docker / native / nix / nix-template / demo / tutorial)
-    is derived from it — the bare ``test_name`` doesn't encode it."""
+    is derived from it. The bare ``test_name`` doesn't encode it."""
 
     category: Mapped[str] = mapped_column(String(20), nullable=True)
     """Test category (deployment, demo, tutorial)."""
@@ -273,7 +273,7 @@ class RunLease(Base):
     """
 
     __tablename__ = "run_lease"
-    __test__ = False  # SQLAlchemy model named *Run*/Lease, not a pytest test class
+    __test__ = False  # SQLAlchemy model named *Run*/Lease; pytest must not collect it
 
     id: Mapped[int] = mapped_column(primary_key=True)
     target_id: Mapped[str] = mapped_column(
@@ -291,7 +291,7 @@ class RunLease(Base):
     pid_starttime: Mapped[int | None] = mapped_column(nullable=True)
     """The engine PID's start-time (jiffies, ``/proc/<pid>/stat`` field 22). The
     kernel never reissues the same (pid, starttime) pair, so the stop control can
-    confirm the PID still refers to *our* engine before signalling — guarding
+    confirm the PID still refers to *our* engine before signalling. This guards
     against killing an unrelated process that recycled the PID."""
 
 

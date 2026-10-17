@@ -23,6 +23,8 @@ class AppSource:
     path: Path
     category: str = ""
     description: str = ""
+    catalog_id: str | None = None
+    """Deployed with `hop3 catalog install <catalog_id>`, not uploaded."""
 
     @property
     def has_check_script(self) -> bool:
@@ -50,7 +52,7 @@ class AppSource:
         case the harness must NOT inject ``{app_name}.test.local`` (the app's
         own value wins at deploy, and the nginx probe must target the app's real
         server_name). Returns the first declared host (the primary server_name),
-        or None when the app declares none — Procfile-only apps, or a hop3.toml
+        or None when the app declares none: Procfile-only apps, or a hop3.toml
         with neither [domains] nor a string [env].HOST_NAME (audit L5).
         """
         hop3_toml = self.path / "hop3.toml"
@@ -74,7 +76,7 @@ class AppSource:
             # Only a plain-string HOST_NAME yields a usable probe host; a dynamic
             # [env] ref ({ key = ... }) can't be resolved statically.
             if isinstance(host_name, str) and host_name:
-                # HOST_NAME may carry several space/comma-separated hosts; the
+                # HOST_NAME may list several space/comma-separated hosts; the
                 # first is the primary server_name.
                 return host_name.replace(",", " ").split()[0]
 

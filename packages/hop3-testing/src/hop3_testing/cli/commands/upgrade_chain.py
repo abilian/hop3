@@ -2,19 +2,19 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-`hop3-test upgrade-chain` — install version A on a FRESH box, then upgrade
+`hop3-test upgrade-chain`: install version A on a FRESH box, then upgrade
 in-place through a chain of releases, using each version's OWN installer.
 
 Each hop is a git ref (a release tag, or `local` for the current tree). The hop
 is deployed by checking that ref out into a git worktree and running THAT
-checkout's `hop3-deploy-server` (via `uv run`) with the stable `--local` flag —
+checkout's `hop3-deploy-server` (via `uv run`) with the stable `--local` flag,
 so every version is installed/upgraded by its own tooling, exactly as a real
 operator would. Hop 1 is a clean install; every later hop is a non-clean
 redeploy that hits the deployer's in-place update path (db:upgrade -> restart ->
 verify). After each hop we assert the server answers (the deploy verified it)
 and the schema is readable.
 
-A fresh install proves nothing about the state an upgrade must carry, so hop 1
+A fresh install proves nothing about the state an upgrade must preserve, so hop 1
 also seeds some: an app, deployed once and never again, and a non-admin
 account. After every hop the app must still serve its page and each account
 must still do what its role allows (see ``_assert_seed``).
@@ -57,7 +57,7 @@ from hop3_testing.targets.constants import HOP3_SERVER_BIN, hermetic_cli_cwd
 DEFAULT_CHAIN = "0.6.2,local"
 
 _CONTAINER = "hop3-upgrade-chain"
-#: The interpreter every hop's worktree runs under. A tag's worktree carries no
+#: The interpreter every hop's worktree runs under. A tag's worktree has no
 #: `.python-version`, so a bare `uv run` there picks the newest interpreter on
 #: the machine; on a Mac with 3.14 free-threaded installed that resolved a
 #: dependency (psycopg-binary) with no wheel for it and the chain died before
@@ -70,8 +70,8 @@ _HOP3_PYTHON = "/home/hop3/venv/bin/python"
 _SEED_APP = Path("apps/test-apps-procfile/010-flask-pip-wsgi")
 _SEED_APP_NAME = "chain-seed"
 _SEED_APP_CONTENT = "Hello World!"
-#: Created by an admin on hop 1, as a plain account: its rights there are
-#: recorded, and every later hop must leave them unchanged (``_assert_seed``).
+#: Created by an admin on hop 1, as a plain account. Hop 1 records its rights;
+#: every later hop must leave them unchanged (``_assert_seed``).
 _SEED_USER = "chain-account"
 
 
@@ -307,7 +307,7 @@ def upgrade_chain(
 def _finish(ctx: click.Context, refs: list[str], leftovers: list[str]) -> None:
     """Report a passed chain, and fail it if its teardown left anything behind."""
     if leftovers:
-        # On --host the server outlives the run, and what it leaves stays.
+        # On --host the server outlives the run; whatever it leaves stays.
         click.echo(
             "\n✗ Upgrade chain passed, but its teardown did not finish:\n  "
             + "\n  ".join(leftovers),
@@ -334,10 +334,11 @@ def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
     Assert the box is healthy at this hop; return {version, rootd, revision}.
 
     The deploy already health-verified the server (start/redeploy raise
-    otherwise); this adds: the installed version is the one this hop's checkout
-    carries (the wrong deployer running is otherwise invisible), hop3-rootd is
-    at that same version (every update path used to leave the daemon behind),
-    and the schema is stamped + readable (`db:current`).
+    otherwise). This adds three checks. The installed version must be the one
+    this hop's checkout ships (the wrong deployer running is otherwise
+    invisible). hop3-rootd must be at that same version (every update path used
+    to leave the daemon behind). The schema must be stamped and readable
+    (`db:current`).
     """
     version = _exec(
         target,
@@ -430,7 +431,7 @@ def _seed(target, repo_root: Path, ref: str) -> _Seed:
 
 def _assert_seed(seed: _Seed, ref: str) -> None:
     """
-    The seed app still serves, and no account's rights changed.
+    Check that the seed app still serves and that no account's rights changed.
 
     Rights are probed by effect, so one probe works before roles exist and
     after their migration. The admin must still list the accounts, and the

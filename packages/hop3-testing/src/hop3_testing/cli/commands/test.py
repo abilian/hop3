@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import sys
+import tempfile
 from pathlib import Path
 from typing import TYPE_CHECKING, Literal, cast
 
@@ -25,6 +26,11 @@ from hop3_testing.catalog.features import (
     validate_features,
 )
 from hop3_testing.catalog.loader import load_test_definition_smart
+from hop3_testing.catalog.published import (
+    PUBLISHED_STATUSES,
+    PublishedCatalogError,
+    published_tests,
+)
 from hop3_testing.cli.deprecation import warn_deprecated
 from hop3_testing.cli.runners import LeftOut, run_tests
 from hop3_testing.selector import Selector, get_mode_config, list_modes
@@ -33,15 +39,18 @@ from hop3_testing.targets import DockerTarget, RemoteTarget
 from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from hop3_testing.catalog.models import TestDefinition
+    from hop3_testing.targets.base import DeploymentTarget
 
 
 def _mode_choices() -> list[str]:
     """
     Valid ``--mode`` values: the current profiles plus back-compat aliases.
 
-    Dynamic (not a hardcoded list) so renamed/added profiles — including custom
-    ones from the Test Lab — are always accepted. The old hardcoded list is what
+    Computed at call time so renamed/added profiles (including custom ones from
+    the Test Lab) are always accepted. The old hardcoded list is what
     silently rejected the renamed `smoke`/`curated`/`full` profiles.
     """
     return sorted(set(list_modes()) | set(MODE_ALIASES))
@@ -65,7 +74,7 @@ def _resolve_tests(
 
     ``statuses`` and ``covers`` are the two orthogonal axes of the catalog:
     maturity (the folder, ADR 059) and technology (the recipe's ``covers``
-    tags). Keeping them separate is the point — pinning "the Nix suite" to a
+    tags). Keeping them separate matters: pinning "the Nix suite" to a
     maturity folder held only while every Nix recipe happened to sit in one, and
     silently dropped the 34 that had moved on.
     """
@@ -336,6 +345,13 @@ def _run_image_sweep(
     multiple=True,
     help="Keep only apps declaring this [test].covers tag — repeatable (e.g. --covers nix)",
 )
+@click.option(
+    "--recipes",
+    type=click.Choice(["local", "published"]),
+    default="local",
+    help="Recipes from the sibling catalog checkout (local), or from the catalog "
+    "the server publishes, installed with `hop3 catalog install` (published)",
+)
 @click.pass_context
 def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
     ctx: click.Context,
@@ -366,6 +382,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     features: tuple[str, ...],
     statuses: tuple[str, ...],
     covers: tuple[str, ...],
+    recipes: str,
 ) -> None:
     """
     Deploy Hop3 and run tests.
@@ -383,6 +400,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
       hop3-test run --host X                  # Remote (--host implies remote)
       hop3-test run --host X demos/demo03     # Specific app on a remote
       hop3-test run --reuse --host X          # Skip deploy
+      hop3-test run --host X --recipes published  # The catalog operators install
       hop3-test run --provider hetzner --image ubuntu-24.04       # One fresh cloud box
       hop3-test run --provider hetzner --images ubuntu-24.04,debian-13  # Sweep several
       hop3-test run --provider hetzner --images all               # Sweep every image
@@ -409,9 +427,9 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     )
 
     # ADR 052 D9: --list-images / --images fold the former `matrix`/`cloud`
-    # command into `run`. --images sweeps a matrix of cloud OS images — each image
+    # command into `run`. --images sweeps a matrix of cloud OS images; each image
     # is a full `run --provider hetzner --image X` (provision → deploy → test →
-    # persist), aggregated. Cardinality is a flag, not a separate command.
+    # persist), aggregated. Cardinality is expressed as a flag on `run`.
     if list_images:
         from hop3_testing.system_tests.multi_distro import (  # ruff:ignore[import-outside-top-level]
             show_images,
@@ -451,8 +469,8 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         )
         target_type = "remote"
 
-    # ADR 052 D2: --host (from the flag or $HOP3_HOST) implies the remote target
-    # — no separate --ssh mode flag needed. --docker still selects Docker; --ssh
+    # ADR 052 D2: --host (from the flag or $HOP3_HOST) implies the remote target,
+    # so no separate --ssh mode flag is needed. --docker still selects Docker; --ssh
     # stays as a deprecated alias (warned above). The retired HOP3_TEST_HOST /
     # HOP3_DEV_HOST are NOT consulted (ADR 043): a target comes from --host or
     # $HOP3_HOST only, never from those legacy env vars.
@@ -471,18 +489,38 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     if reuse:
         deploy_from = "none"
 
-    # A remote target needs a host (from --host or $HOP3_HOST) — e.g. bare --ssh.
+    # A remote target needs a host (from --host or $HOP3_HOST), e.g. bare --ssh.
     if target_type == "remote" and not host:
         click.echo(
             "Error: remote target needs --host <server> (or $HOP3_HOST)", err=True
         )
         sys.exit(1)
 
-    # Resolve tests
     root = ctx.obj["root"]
-    tests = _resolve_tests(app_names, root, mode, target_type, statuses, covers)
+    select = None
+    if recipes == "published":
+        if unpublished := sorted(set(statuses) - set(PUBLISHED_STATUSES)):
+            click.echo(
+                f"Error: {', '.join(unpublished)} is not published: the catalog "
+                f"offers {' and '.join(PUBLISHED_STATUSES)} only. Test it with "
+                "--recipes local.",
+                err=True,
+            )
+            sys.exit(1)
+        statuses = statuses or PUBLISHED_STATUSES
+        select = _published_selection(statuses, app_names, covers, target_type)
+        # The server's features are chosen before it exists, so they are sized
+        # from the local checkout the catalog is published from. A published
+        # app needing one the server lacks is left out, and named.
+        tests = [
+            t
+            for t in _resolve_tests((), root, mode, target_type, statuses, covers)
+            if not app_names or t.name in app_names
+        ]
+    else:
+        tests = _resolve_tests(app_names, root, mode, target_type, statuses, covers)
 
-    if not tests:
+    if not tests and select is None:
         # Exit non-zero: a selection that matches nothing is a mistake in the
         # selection, and reporting it as a clean run is how a typo'd --status or
         # a moved directory passes CI as "all green".
@@ -501,16 +539,8 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     # install for everyone or fail them one by one at build.
     left_out: list[LeftOut] = []
     if target_type == "docker":
-        tests, docker_built = runnable_on_docker_target(tests)
-        left_out = [
-            LeftOut(
-                t.name,
-                "it is built with Docker, which the Docker target cannot run; "
-                "test it against a server (--host)",
-            )
-            for t in docker_built
-        ]
-        if not tests:
+        tests = _leave_out_docker_built(tests, left_out)
+        if not tests and select is None:
             click.echo("No tests remaining: every one is built with Docker", err=True)
             ctx.exit(1)
 
@@ -530,14 +560,20 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
             click.echo("Clean install: True")
         if features:
             click.echo(f"Features: {', '.join(features)}")
-    click.echo(f"\nTests to run ({len(tests)}):")
-    for t in tests:
-        click.echo(f"  - {t.name}")
+    if select is not None:
+        click.echo(
+            f"\nRecipes: the catalog the server publishes ({', '.join(statuses)}),"
+            " selected once it is installed"
+        )
+    else:
+        click.echo(f"\nTests to run ({len(tests)}):")
+        for t in tests:
+            click.echo(f"  - {t.name}")
     click.echo("")
 
     # Auto-provision what the selected apps DECLARE (hop3.toml [[addons]] and
     # [build].builder), so the server is installed with it. The framework
-    # installs what the apps need — no manual --with, no silently-skipped app.
+    # installs what the apps need: no manual --with and no silently-skipped app.
     required_addons = required_features_from_tests(tests)
 
     # Build deployment config
@@ -601,4 +637,52 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
         available_features=available_features,
         left_out=left_out,
+        select=select,
     )
+
+
+def _leave_out_docker_built(
+    tests: list[TestDefinition], left_out: list[LeftOut]
+) -> list[TestDefinition]:
+    """The tests the Docker target can run; the others join ``left_out``."""
+    tests, docker_built = runnable_on_docker_target(tests)
+    left_out.extend(
+        LeftOut(
+            t.name,
+            "it is built with Docker, which the Docker target cannot run; "
+            "test it against a server (--host)",
+        )
+        for t in docker_built
+    )
+    return tests
+
+
+def _published_selection(
+    statuses: tuple[str, ...],
+    names: tuple[str, ...],
+    covers: tuple[str, ...],
+    target_type: str,
+) -> Callable[[DeploymentTarget, list[LeftOut]], list[TestDefinition]]:
+    """Choose the tests from the started target's published catalog."""
+
+    def select(
+        target: DeploymentTarget, left_out: list[LeftOut]
+    ) -> list[TestDefinition]:
+        into = Path(tempfile.mkdtemp(prefix="hop3-published-"))
+        try:
+            tests = published_tests(target, statuses, names, into)
+        except PublishedCatalogError as e:
+            click.echo(f"Error: {e}", err=True)
+            sys.exit(1)
+        tests = _by_covers(tests, covers)
+        if target_type == "docker":
+            tests = _leave_out_docker_built(tests, left_out)
+        if not tests:
+            click.echo("No published recipe left to test", err=True)
+            sys.exit(1)
+        click.echo(f"\nPublished recipes to test ({len(tests)}):")
+        for t in tests:
+            click.echo(f"  - {t.name}")
+        return tests
+
+    return select

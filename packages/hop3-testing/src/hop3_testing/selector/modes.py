@@ -6,9 +6,9 @@
 Test execution mode configurations.
 
 The built-in modes in ``MODES`` are the seed defaults. Users can override them
-(or add their own) from the Test Lab UI; those edits persist to a TOML overrides
-file (``$HOP3_TEST_MODES`` → ``~/.hop3/test-modes.toml``) that ``load_modes()``
-overlays on top of the built-ins. Every mode-resolution path goes through
+(or add their own) from the Test Lab UI. Those edits persist to a TOML overrides
+file (``$HOP3_TEST_MODES`` → ``~/.hop3/test-modes.toml``). The function
+``load_modes()`` overlays that file on top of the built-ins. Every mode-resolution path goes through
 ``load_modes()`` (``get_mode_config`` / ``list_modes``), so an edit applies
 consistently to the web trigger, the scheduler, and the ``hop3-test --mode X``
 subprocess the worker spawns.
@@ -78,7 +78,7 @@ class ModeConfig:
 # tutorials, targeting < 30 min. It's a normal built-in (resettable), and the
 # list is fully editable from the Test Lab profile picker.
 _CURATED_SEED: list[str] = [
-    # deployment — one fast test per language / packaging variant
+    # deployment: one fast test per language / packaging variant
     "apps/test-apps-procfile/000-static",
     "apps/test-apps-procfile/010-flask-pip-wsgi",
     "apps/test-apps-procfile/020-nodejs-express",
@@ -87,17 +87,17 @@ _CURATED_SEED: list[str] = [
     "apps/test-apps-procfile/050-clojure",
     "apps/test-apps-nix/golang-minimal",
     "apps/test-apps-nix/static-hello",
-    # One real application, from the catalog. Named by its ID, not its path:
-    # a catalog test's name is its app id (`isso`), because its directory sits
-    # outside this repo and so has no path relative to the root — while a local
+    # One real application, from the catalog, named by its ID. A catalog
+    # test's name is its app id (`isso`), because its directory sits outside
+    # this repo and so has no path relative to the root. A local
     # fixture is still named `apps/test-apps-procfile/000-static`. A path here
     # matches nothing, silently, and the fast set just gets smaller.
     "isso",
-    # demos — the three simplest (run in order; fail-fast stops the rest)
+    # demos: the three simplest (run in order; fail-fast stops the rest)
     "demos/demo01",
     "demos/demo02",
     "demos/demo03",
-    # tutorials — a diverse language sample
+    # tutorials: a diverse language sample
     "docs/tutorials/python/flask.md",
     "docs/tutorials/javascript/express.md",
     "docs/tutorials/go/gin.md",
@@ -190,7 +190,7 @@ BUILTIN_MODE_NAMES = frozenset(MODES)
 # Back-compat aliases: renames (dev→smoke, release→full, nightly→broad) keep the
 # old names working for `--mode`, saved profiles, and saved runs. Resolved in
 # get_mode_config(); not listed as selectable modes. NB: "nightly" is now only a
-# schedule cadence (the cron), never a test-selection scope — the suite it runs
+# schedule cadence (the cron), never a test-selection scope. The suite it runs
 # is "broad".
 MODE_ALIASES: dict[str, str] = {
     "dev": "smoke",

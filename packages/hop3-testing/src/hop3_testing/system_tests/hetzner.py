@@ -70,8 +70,8 @@ class ServerInfo:
     ipv6: str | None
     # Hetzner deprecated datacenters on 2026-06-02 (removal after 2026-10-01)
     # and hcloud 2.23 dropped `Server.datacenter` accordingly. Location is the
-    # replacement: coarser (hel1 rather than hel1-dc2), and the field that
-    # exists.
+    # replacement: coarser (hel1 where the datacenter was hel1-dc2), and the
+    # field that exists.
     location: str
     server_type: str
     image: str | None
@@ -101,7 +101,7 @@ class ServerInfo:
         )
 
 
-#: The label a server must carry before this module will rebuild it.
+#: The label a server must have before this module will rebuild it.
 THROWAWAY_LABEL = "hop3-throwaway"
 
 
@@ -110,8 +110,8 @@ class HetznerError(TestingError):
     Base exception for Hetzner operations.
 
     Part of the package's own hierarchy so the CLI can tell an expected,
-    actionable refusal — "that server is not labelled throwaway" — from a bug,
-    and print the sentence rather than a stack trace.
+    actionable error ("that server is not labelled throwaway") from a bug,
+    and print the sentence with no stack trace.
     """
 
 
@@ -180,7 +180,7 @@ class HetznerManager:
         """
         Get the server's IPv4 address.
 
-        Reads the address off the server directly rather than through
+        Reads the address off the server directly, bypassing
         ``ServerInfo``: the rebuild path needs only the IP, and mapping every
         other field first makes an unrelated upstream model change (hcloud
         removing ``Server.datacenter``) abort the provisioning run.
@@ -209,7 +209,7 @@ class HetznerManager:
                 "type": img.type,
             }
             for img in images
-            if img.type == "system"  # Only show system images, not snapshots/backups
+            if img.type == "system"  # Only system images; skip snapshots/backups
         ]
 
     def resolve_ssh_key(self):
@@ -218,9 +218,9 @@ class HetznerManager:
 
         Order: explicit ``ssh_key_name`` (must exist in the project); otherwise
         auto-derive from ``ssh_key_path`` by matching ``<path>.pub``'s
-        fingerprint against the project's registered keys. Never returns None —
+        fingerprint against the project's registered keys. Never returns None:
         a rebuild with no key locks us out, so an unresolvable key is a hard,
-        explained error rather than a silent skip.
+        explained error.
         """
         name = self.config.ssh_key_name
         if name:
@@ -275,11 +275,11 @@ class HetznerManager:
         Refuse to rebuild a server that is not labelled as a throwaway.
 
         A rebuild destroys everything on the box. The server id comes from a
-        config file or the environment, and both have pointed at a box people
+        config file or the environment. Both have pointed at a box people
         were using (the dev server was rebuilt on every unit-test run for a
         month before anyone found out). The server itself must say it is
         expendable: a Hetzner label, set once by the operator, that a wrong id
-        will not carry.
+        will not have.
         """
         labels: dict[str, str] = getattr(server, "labels", None) or {}
         if labels.get(THROWAWAY_LABEL) == "true":
@@ -325,8 +325,8 @@ class HetznerManager:
             msg = f"Image '{image_name}' not found"
             raise ServerResetError(msg)
 
-        # Resolve the SSH key to re-inject (raises loud if it can't — a rebuild
-        # with no key would lock us out of the fresh OS).
+        # Resolve the SSH key to re-inject (raises loud if it can't, since a
+        # rebuild with no key would lock us out of the fresh OS).
         ssh_key = self.resolve_ssh_key()
 
         # Initiate rebuild

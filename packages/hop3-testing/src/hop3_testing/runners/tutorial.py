@@ -13,16 +13,13 @@ from __future__ import annotations
 import re
 import shlex
 import subprocess
-import sys
-import tempfile
 import time
 from dataclasses import dataclass, field
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_testing.catalog.models import Validation, ValidationExpect
 from hop3_testing.targets.admin import ADMIN_TOKEN_ENV, LOCAL_API_URL
-from hop3_testing.util import as_text, build_test_env, run_captured
+from hop3_testing.util import build_test_env
 from hop3_testing.util.console import PrintingConsole, Verbosity
 
 from ._diagnostics import collect_failure_diagnostics
@@ -30,8 +27,10 @@ from .base import TestResult, ValidationResult
 from .validations import run_validation
 
 if TYPE_CHECKING:
+    from pathlib import Path
+
     from hop3_testing.catalog.models import TestDefinition
-    from hop3_testing.targets.base import DeploymentTarget
+    from hop3_testing.targets.base import DeploymentTarget, TargetInfo
 
 
 #: curl's config for a tutorial run. A tutorial checks its app the way a reader
@@ -40,7 +39,23 @@ if TYPE_CHECKING:
 #: the tutorials themselves never teach skipping the certificate check.
 _TEST_CURLRC = "insecure\n"
 
+#: Every subdomain resolves to 127.0.0.1.
+LOOPBACK_TEST_DOMAIN = "127.0.0.1.sslip.io"
+
 _VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILINE)
+
+
+def _on_target_test_domain(info: TargetInfo) -> str:
+    """
+    The test domain as seen from the target, where validoc runs.
+
+    A container's published address belongs to the Docker host, so from inside
+    the container it reaches the host's port 443 and no nginx of ours.
+    Loopback is the container's own nginx.
+    """
+    if info.is_container:
+        return LOOPBACK_TEST_DOMAIN
+    return build_test_env(info)["HOP3_TEST_DOMAIN"]
 
 
 def _tutorial_app_name(test: TestDefinition) -> str | None:
@@ -48,7 +63,7 @@ def _tutorial_app_name(test: TestDefinition) -> str | None:
     The app a tutorial deploys, by convention ``hop3-tuto-<framework>``.
 
     Best-effort: a couple of tutorials deviate from the convention, so the
-    per-app diagnostics may be empty for those — the always-collected ``hop3
+    per-app diagnostics may be empty for those. The always-collected ``hop3
     apps`` snapshot still surfaces the real app. ``None`` when framework unknown.
     """
     framework = (test.metadata.framework or "").strip()
@@ -140,7 +155,7 @@ class TutorialTestRunner:
             self.console.info(f"Running tutorial: {tutorial_path}")
             self.console.debug(f"Runner: {test.tutorial.runner}")
 
-            # A validoc tutorial with no executable blocks is a vacuous pass —
+            # A validoc tutorial with no executable blocks is a vacuous pass:
             # refuse it before running, so a stripped/rendered file can never be
             # reported as OK in 0.1s.
             if test.tutorial.runner == "validoc" and not _count_validoc_blocks(
@@ -160,7 +175,7 @@ class TutorialTestRunner:
 
             # Run the tutorial using the specified runner
             if test.tutorial.runner == "validoc":
-                result = self._run_validoc(tutorial_path, tutorial_dir)
+                result = self._run_validoc(tutorial_path)
             else:
                 result = self._run_generic(
                     tutorial_path, tutorial_dir, test.tutorial.runner
@@ -200,9 +215,9 @@ class TutorialTestRunner:
         passed = error is None and all(v.passed for v in validation_results)
 
         # On failure, attach SUT-side diagnostics so a tutorial deploy that
-        # failed or timed out isn't a black box: the target's app list (always
-        # — reveals an app stuck mid-build, or a stranded one holding a port),
-        # plus this app's runtime logs + diagnostic bundle. Never raises.
+        # failed or timed out isn't a black box. The target's app list is always
+        # attached; it reveals an app stuck mid-build or a stranded one holding
+        # a port. This app's runtime logs + diagnostic bundle follow. Never raises.
         runtime_logs = ""
         bundle = None
         app_name = _tutorial_app_name(test)
@@ -223,24 +238,19 @@ class TutorialTestRunner:
             bundle=bundle,
         )
 
-    def _run_validoc(self, tutorial_path: Path, cwd: Path) -> dict:
+    def _run_validoc(self, tutorial_path: Path) -> dict:
         """
-        Run a tutorial via validoc, on the server or locally.
+        Run a tutorial via validoc on the target, prepared by ``ensure_tutorial_host``.
 
-        On a remote server (prepared by ``ensure_tutorial_host``) validoc runs
-        *on the server* so the scaffold/build steps use the server's toolchains
-        and ``hop3 deploy`` targets localhost — never a local fall-back, which
-        would deploy to the dev's default CLI context (the wrong server).
+        On the target, the scaffold and build steps use the toolchains the
+        installer provisioned, and ``hop3 deploy`` reaches the target's own
+        server. A Docker target used to run validoc on the developer's machine,
+        which needed every toolchain there and sent the tutorial's ``curl``
+        through the client's network to the Docker host's port 443.
 
         Returns:
             Dict with success, logs, error
         """
-        if type(self.target).__name__ == "RemoteTarget":
-            return self._run_validoc_remote(tutorial_path)
-        return self._run_validoc_local(tutorial_path, cwd)
-
-    def _run_validoc_remote(self, tutorial_path: Path) -> dict:
-        """Dispatch to on-server validoc, or error if the host wasn't prepared."""
         if (problem := self.target.tutorial_host_problem) is not None:
             return {
                 "success": False,
@@ -248,83 +258,6 @@ class TutorialTestRunner:
                 "logs": "",
             }
         return self._run_validoc_on_server(tutorial_path)
-
-    def _run_validoc_local(self, tutorial_path: Path, cwd: Path) -> dict:
-        """Run validoc locally (docker/local targets; legacy path)."""
-        try:
-            # Check if validoc is available
-            result = subprocess.run(
-                [sys.executable, "-m", "validoc", "--help"],
-                capture_output=True,
-                text=True,  # str, so `result` stays CompletedProcess[str] below
-                timeout=10,
-                check=False,
-            )
-            if result.returncode != 0:
-                # Try as a command
-                result = subprocess.run(
-                    ["validoc", "--help"],
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                    check=False,
-                )
-                if result.returncode != 0:
-                    return {
-                        "success": False,
-                        "error": "validoc not found",
-                        "logs": "",
-                    }
-                validoc_cmd = ["validoc"]
-            else:
-                validoc_cmd = [sys.executable, "-m", "validoc"]
-        except FileNotFoundError:
-            return {
-                "success": False,
-                "error": "validoc not found",
-                "logs": "",
-            }
-
-        # Run validoc on the tutorial. run_captured kills the whole process
-        # group on timeout so validoc's `hop3`/`ssh` grandchildren can't wedge
-        # output capture (see its docstring).
-        try:
-            with tempfile.TemporaryDirectory() as curl_home:
-                (Path(curl_home) / ".curlrc").write_text(_TEST_CURLRC)
-                result = run_captured(
-                    [*validoc_cmd, "run", str(tutorial_path)],
-                    cwd=cwd,
-                    timeout=600,  # 10 minute timeout
-                    env={**build_test_env(self.target.info), "CURL_HOME": curl_home},
-                )
-
-            logs = result.stdout + result.stderr
-
-            if result.returncode != 0:
-                return {
-                    "success": False,
-                    "error": f"validoc failed with exit code {result.returncode}",
-                    "logs": logs,
-                }
-
-            return {
-                "success": True,
-                "logs": logs,
-            }
-
-        except subprocess.TimeoutExpired as e:
-            # Keep the partial output so a hung tutorial still has diagnostics.
-            return {
-                "success": False,
-                "error": "Tutorial execution timed out after 600s",
-                "logs": as_text(e.stdout) + as_text(e.stderr),
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "logs": "",
-            }
 
     def _run_validoc_on_server(self, tutorial_path: Path) -> dict:
         """
@@ -344,7 +277,7 @@ class TutorialTestRunner:
         # build_test_env but targets localhost with the minted admin token.
         env = " ".join([
             "HOP3_NO_INPUT=1",
-            f"HOP3_TEST_DOMAIN={build_test_env(target.info)['HOP3_TEST_DOMAIN']}",
+            f"HOP3_TEST_DOMAIN={_on_target_test_domain(target.info)}",
             f"HOP3_API_URL={LOCAL_API_URL}",
             # Read from the server's token file, never written on this line:
             # any local user reads a command line from /proc/<pid>/cmdline.
@@ -356,8 +289,8 @@ class TutorialTestRunner:
             "COMPOSER_ALLOW_SUPERUSER=1",
             # Rust is installed (rustup) under the hop3 user. Share the
             # toolchain read-only via RUSTUP_HOME, but give cargo a SEPARATE,
-            # root-owned registry/cache: the scaffold's `cargo build` runs as
-            # root, and if it wrote into /home/hop3/.cargo the later
+            # root-owned registry/cache. The scaffold's `cargo build` runs as
+            # root. If it wrote into /home/hop3/.cargo, the later
             # hop3-user deploy build couldn't read those root-owned registry
             # files ("Permission denied" reading e.g. fnv-*/lib.rs). The
             # rustup proxy (on PATH via /usr/local/bin) honours CARGO_HOME,

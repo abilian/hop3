@@ -7,7 +7,7 @@ Adapt a raw docker-py container to the DeploymentTarget contract.
 
 Some pytest fixtures (e.g. the proxy tests) yield a raw docker-py container
 rather than a ``DeploymentTarget``. ``ContainerTarget`` wraps such a container so
-the diagnostic-bundle collector — which only needs ``exec_run`` — can run over it
+the diagnostic-bundle collector (which only needs ``exec_run``) can run over it
 unchanged. The container lifecycle stays owned by the fixture, so ``start``/
 ``stop`` are no-ops.
 """
@@ -29,7 +29,7 @@ class ContainerTarget(DeploymentTarget):
 
     Only ``exec_run`` is meaningful. Commands run via ``bash -c`` as ``root`` so
     the bundle's shell pipelines (``;``, ``||``, ``$(...)``) and root-only reads
-    (nginx error.log, journalctl) work — matching ``DockerCommandRunner``.
+    (nginx error.log, journalctl) work, matching ``DockerCommandRunner``.
     """
 
     def __init__(self, container: Any, *, user: str = "root") -> None:

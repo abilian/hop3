@@ -7,8 +7,8 @@ Admin commands on a deployed server, for the harness's own setup steps.
 
 A few setup steps are admin-only (selecting the email catch backend, running
 tutorials on the server). The admin token is minted on the server into a file
-only the hop3 user and root read, and each command reads it into its
-environment: it never appears on a command line, where any local user reads it
+only the hop3 user and root read. Each command reads it into its
+environment, so it never appears on a command line, where any local user reads it
 from ``/proc/<pid>/cmdline``, nor in the harness's output.
 
 It comes from ``admin:ssh-token``, the command ``hop3 login --ssh`` runs: a

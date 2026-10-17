@@ -6,7 +6,7 @@
 Duration formatting for the --narrate timing reporter (ADR 043 phase 3).
 
 Ported from the standalone demo harness (demos/lib) so its per-run timing
-narration survives the move of demos into the unified hop3-test catalog.
+narration outlasts the move of demos into the unified hop3-test catalog.
 """
 
 from __future__ import annotations

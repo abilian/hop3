@@ -34,7 +34,7 @@ if TYPE_CHECKING:
 _ADDON_FEATURE_ALIASES = {"postgres": "postgresql"}
 
 # Features the server installer's --with understands (ADR 052 D4). An addon that
-# maps to nothing here is a real platform gap — surface it, don't drop it.
+# maps to nothing here is a real platform gap: surface it, don't drop it.
 KNOWN_INSTALLER_FEATURES = frozenset({
     "docker",
     "mysql",
@@ -48,7 +48,7 @@ KNOWN_INSTALLER_FEATURES = frozenset({
     # `--with email` installs Postfix inert (ADR 054); the app's email addon
     # then inherits whatever backend the operator configures, and degrades to
     # no outbound mail when none is set. Kept in sync with the installer's
-    # `ServerConfig.with_*` properties — see test_every_declared_addon_is_provisionable.
+    # `ServerConfig.with_*` properties; see test_every_declared_addon_is_provisionable.
     "email",
 })
 
@@ -97,9 +97,9 @@ def merge_features(base: Iterable[str], extra: Iterable[str]) -> list[str]:
     """
     Order-stable union: everything in ``base`` first, then unseen ``extra``.
 
-    ``all`` is the installer's install-everything sentinel — it subsumes every
-    specific feature. When it is present the result collapses to just ``["all"]``
-    rather than a redundant ``all,postgresql,mysql`` (e.g. ``--with all`` plus the
+    ``all`` is the installer's install-everything sentinel: it subsumes every
+    specific feature. When it is present the result collapses to just ``["all"]``,
+    dropping a redundant ``all,postgresql,mysql`` (e.g. ``--with all`` plus the
     addons the selected apps declare).
     """
     out = list(base)
@@ -119,7 +119,7 @@ def features_for_suites(project_root: Path, suites: Iterable[str]) -> set[str]:
 
     For the cloud path, which holds only suite path strings (not resolved
     TestDefinitions): scan the catalog and union each app's declared addons.
-    Fail loud on a scan/validation error — a caller must NOT swallow this and
+    Fail loud on a scan/validation error. A caller must NOT swallow this and
     silently deploy defaults.
     """
     from hop3_testing.catalog.scanner import (  # ruff:ignore[import-outside-top-level]
@@ -138,11 +138,11 @@ def features_for_suites(project_root: Path, suites: Iterable[str]) -> set[str]:
 
 def validate_features(features: Iterable[str]) -> None:
     """
-    Abort loudly if a required feature has no installer support.
+    Abort with an error if a required feature has no installer support.
 
     Silently dropping an unprovisionable addon (or passing it to the installer as
     garbage) would resurface as the opaque "Was the server installed with
-    '--with X'?" failure — surface the platform gap instead.
+    '--with X'?" failure. Surface the platform gap here.
     """
     unknown = sorted(f for f in features if f not in KNOWN_INSTALLER_FEATURES)
     if unknown:

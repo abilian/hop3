@@ -6,8 +6,8 @@
 Collision-safe run-ids and artifact directories for diagnostic bundles.
 
 A bundle's ``run_id`` is ``<ISO>-<app>-<shortid>`` (ADR 043 §7.3). The ISO
-timestamp is colon-free so it is filesystem-safe; the short hex suffix dedupes
-sub-second collisions of the same app; ``make_bundle_dir``'s
+timestamp is colon-free so it is filesystem-safe. The short hex suffix dedupes
+sub-second collisions of the same app. ``make_bundle_dir``'s
 ``mkdir(exist_ok=False)`` retry is the hard guarantee against overwriting an
 existing bundle (the "two focalboard logs clobber each other" bug).
 """

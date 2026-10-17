@@ -72,7 +72,7 @@ def _derive_status(result) -> str:
 
     A "bad recipe" (expects_failure) is inverted by the runner: a failed deploy
     yields ``result.passed=True``. So passed True -> the expected failure happened
-    (xfail); False -> it unexpectedly worked (xpass — notable, surfaced).
+    (xfail); False -> it unexpectedly worked (xpass: notable, surfaced).
     """
     if getattr(result.test, "expects_failure", False):
         return "xfail" if result.passed else "xpass"
@@ -128,7 +128,7 @@ class ResultStore:
                 SQLAlchemy DSN string for Postgres (``postgresql+psycopg://…``).
         """
         # An explicit db_path wins; else honor HOP3_TEST_RESULTS_DB (set by the
-        # Test Lab worker so the engine subprocess writes to the Lab's store — a
+        # Test Lab worker so the engine subprocess writes to the Lab's store, either a
         # SQLite path or a Postgres DSN), else the default local SQLite file.
         target = (
             db_path
@@ -209,7 +209,7 @@ class ResultStore:
                         )
                 except (OperationalError, ProgrammingError) as e:
                     # Tolerate only "already exists" (a concurrent xdist init beat
-                    # us); any other migration error is real — fail loud.
+                    # us); any other migration error is real: fail loud.
                     text = str(e).lower()
                     if "exist" not in text and "duplicate" not in text:
                         raise
@@ -247,12 +247,12 @@ class ResultStore:
         Start a new test run.
 
         Args:
-            mode: Execution mode (dev, ci, nightly, release, package)
-            target_type: Target type (docker, remote)
-            target_name: Target identifier
-            hop3_version: Hop3 version being tested (auto-detected if omitted)
-            trigger: provenance label (defaults from $HOP3_TEST_TRIGGER, else cli)
-            git_sha: code SHA under test (auto-detected if omitted)
+            mode: Execution mode (dev, ci, nightly, release, package).
+            target_type: Target type (docker, remote).
+            target_name: Target identifier.
+            hop3_version: Hop3 version being tested (auto-detected if omitted).
+            trigger: provenance label (defaults from $HOP3_TEST_TRIGGER, else cli).
+            git_sha: code SHA under test (auto-detected if omitted).
             metadata: extensible session metadata; merged with $HOP3_TEST_META
                 (a JSON object) so the worker can inject target/OS details
                 without changing this call site.
@@ -305,10 +305,10 @@ class ResultStore:
         Save a test result, returning the new record id.
 
         Records the diagnostic bundle pointer (bundle_run_id / bundle_path /
-        classification / headline) exactly when the bundle was written to disk
-        (``artifact_dir`` set) — so ``why <run-id>`` never resolves to a pointer
-        with no bundle behind it. Keyed on the on-disk artifact rather than the
-        classifier: a check.py / HTTP-`contains` failure classifies ``ok`` at the
+        classification / headline) exactly when the bundle was written to disk,
+        with ``artifact_dir`` set. So ``why <run-id>`` never resolves to a pointer
+        with no bundle behind it. The key is the on-disk artifact. The
+        classifier is unreliable here: a check.py / HTTP-`contains` failure classifies ``ok`` at the
         runtime layer but is still persisted (see ``collect_diagnostic_bundle``).
         """
         bundle = getattr(result, "bundle", None)
@@ -416,7 +416,7 @@ class ResultStore:
     # -- Read API (for `hop3-test why` / `triage`) -------------------------- #
 
     def get_result_by_run_id(self, bundle_run_id: str) -> TestResultRecord | None:
-        """Return the failed-test record carrying ``bundle_run_id`` (the `why` key)."""
+        """Return the failed-test record holding ``bundle_run_id`` (the `why` key)."""
         session = self.Session()
         try:
             record = (
@@ -488,7 +488,7 @@ class ResultStore:
         family (same ``mode`` + ``target_type``).
 
         Used to run the previous run's failures first, so a re-run surfaces
-        regressions fast. "Failed" means ``passed is False`` — a true failure;
+        regressions fast. "Failed" means ``passed is False``, a true failure;
         an expected negative-test failure is recorded as passed=True (xfail).
         """
         session = self.Session()

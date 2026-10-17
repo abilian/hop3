@@ -32,18 +32,18 @@ logger = logging.getLogger(__name__)
 IGNORE_FILE = "HOP3_TEST_IGNORE"
 
 # A DEFERRED.md under the catalog's broken/** is OVERLOADED: it marks BOTH a deploys-fine
-# business-drop (e.g. focalboard — "dropped for business reasons, not a platform
-# limitation") AND a genuine platform blocker (e.g. monica — a "## Blocker" that
-# really fails to deploy). Only the former is skipped from the run (it is not a
-# negative test); a genuine blocker STAYS a negative test, so DEFERRED.md
-# existence alone must NOT be the skip signal. The business-drop is distinguished
-# by the deliberate "not a platform limitation" marker line in its DEFERRED.md
-# (CLAUDE.md's "business-reasons decision" language). (audit C6)
+# business-drop (e.g. focalboard, dropped for business reasons) AND a genuine
+# platform blocker (e.g. monica, whose "## Blocker" really fails to deploy). Only
+# the former is skipped from the run (it is not a negative test); a genuine blocker
+# STAYS a negative test, so DEFERRED.md existence alone must NOT be the skip
+# signal. The business-drop is recognised by the _BUSINESS_DROP_MARKER line its
+# author wrote into the DEFERRED.md (CLAUDE.md's "business-reasons decision"
+# language). (audit C6)
 DEFERRED_FILE = "DEFERRED.md"
 _BUSINESS_DROP_MARKER = "not a platform limitation"
 
 # Executable validoc fences (same set the tutorial runner counts). A tutorial
-# markdown with none of these runs no commands — it's documentation, not a test.
+# markdown with none of these runs no commands: it is documentation only.
 _VALIDOC_BLOCK_RE = re.compile(r"^```(?:bash\s+exec|output|file)\b", re.MULTILINE)
 
 
@@ -55,21 +55,21 @@ def _has_executable_blocks(md_path: Path) -> bool:
         return False
 
 
-#: Local ``apps/`` families that hold platform test fixtures rather than
-#: applications anyone installs. These stay in this repository: they exercise
+#: Local ``apps/`` families that hold platform test fixtures, which no operator
+#: installs. These stay in this repository: they exercise
 #: builders, toolchains and error paths, and have no place in a catalog of
 #: things to offer an operator.
 FIXTURE_FAMILIES = ("test-apps-procfile", "test-apps-nix", "test-apps-nix-gen")
 
 #: Every maturity status a catalog recipe can live under (ADR 059). The folder
-#: *is* the status, so selecting a status is selecting a directory — there is
+#: *is* the status, so selecting a status is selecting a directory; there is
 #: nothing to filter and nothing to keep in sync.
 CATALOG_STATUSES = ("golden", "beta", "alpha", "broken", "retired")
 
 #: Catalog statuses a normal run covers: everything that is meant to work.
 #: ``golden`` and ``beta`` are published; ``alpha`` deploys and is the tier every
 #: new recipe lands in, so leaving it out meant the newest work was the least
-#: tested. ``broken`` and ``retired`` are a record of what does not work — ask
+#: tested. ``broken`` and ``retired`` are a record of what does not work. Ask
 #: for them by name (``--status broken``) when you want to know whether that is
 #: still true.
 CATALOG_SUITES = ("golden", "beta", "alpha")
@@ -85,13 +85,13 @@ def catalog_status_paths(root: Path, statuses: Iterable[str]) -> list[str]:
     """
     Scan paths for the named maturity statuses.
 
-    Status is a *selection of directories*, not a property to filter on: a
-    filter would quietly match nothing whenever the requested status lay outside
-    the default scan set, which is the shape of a silent skip.
+    Status is a *selection of directories*. A filter on a property would match
+    nothing, with no message, whenever the requested status lay outside the
+    default scan set, which is the shape of a silent skip.
 
     Raises:
-        ValueError: on an unknown status name, or with no catalog checkout —
-            either way the run would otherwise report "0 tests" and exit clean.
+        ValueError: on an unknown status name, or with no catalog checkout.
+            In either case the run would otherwise report "0 tests" and exit clean.
     """
     unknown = sorted(set(statuses) - set(CATALOG_STATUSES))
     if unknown:
@@ -123,20 +123,20 @@ def default_scan_paths(root: Path) -> list[str]:
 
     The single source of truth for "what to scan when no paths are given",
     shared by the ``hop3-test`` CLI and the Test Lab (which used to keep its own
-    copy). Scans the *source* tutorials tree (``docs/tutorials``), not the
-    rendered one — validoc's executable ``bash exec``/``output``/``file`` fences
-    are stripped out of ``docs/src/tutorials`` during the docs build, so scanning
-    that yields a vacuous "0 passed".
+    copy). Scans the *source* tutorials tree (``docs/tutorials``). The docs build
+    strips validoc's executable ``bash exec``/``output``/``file`` fences out of
+    the rendered ``docs/src/tutorials``, so scanning that yields a vacuous
+    "0 passed".
 
-    **Two roots, deliberately.** Real applications live in the catalog and the
+    **Two roots, by design.** Real applications live in the catalog and the
     fixtures live here, so neither tree alone is the answer. This repository
-    once carried its own copies of the applications too; they were forks that
-    drifted, and `hop3-test` was exercising them rather than the recipes an
+    once held its own copies of the applications too; they were forks that
+    drifted, and `hop3-test` was exercising them in place of the recipes an
     operator installs.
 
     Absolute paths are returned for the catalog and relative ones for this repo;
     ``Catalog.scan`` joins both correctly. To run against a different checkout,
-    pass its path to `hop3-test run` directly — an option for it would be a
+    pass its path to `hop3-test run` directly. An option for it would be a
     second way to say the same thing.
     """
     paths: list[str] = []
@@ -242,13 +242,13 @@ class Catalog:
         """
         True if ``path`` sits inside a demo directory (one with demo-script.py).
 
-        A demo's inner ``app/`` (``demos/demoNN/app/``, carrying its own
+        A demo's inner ``app/`` (``demos/demoNN/app/``, with its own
         ``hop3.toml``) is the demo's private deploy target, driven by
-        ``demo-script.py`` — not a standalone test. Walk ancestors up to and
+        ``demo-script.py``; it is never a standalone test. Walk ancestors up to and
         including ``root`` so this holds however the scan entered: ``demos/``,
         ``demos/demoNN``, or ``demos/demoNN/app``. (The old child-scan only
         worked when the scan path was the ``demos/`` parent, so a demo dir passed
-        directly leaked its inner app — the demo60/app regression.)
+        directly leaked its inner app: the demo60/app regression.)
         """
         current = path.parent
         while True:
@@ -269,12 +269,12 @@ class Catalog:
 
     def _is_deferred_business_drop(self, app_dir: Path) -> bool:
         """
-        True only for a deploys-fine business-drop under broken/** — a
-        DEFERRED.md that explicitly marks itself "not a platform limitation".
+        True only for a deploys-fine business-drop under broken/**: a
+        DEFERRED.md that explicitly holds the ``_BUSINESS_DROP_MARKER`` line.
 
         Such apps are skipped from the run (they aren't negative tests). A
-        genuine bad recipe — a DEFERRED.md documenting a real ``## Blocker`` that
-        fails to deploy, or no DEFERRED.md at all — is NOT skipped; it stays a
+        genuine bad recipe (a DEFERRED.md documenting a real ``## Blocker`` that
+        fails to deploy, or no DEFERRED.md at all) is NOT skipped; it stays a
         negative test so its builder-rejection coverage is preserved (audit C6).
         """
         if not _is_broken_recipe(app_dir):
@@ -363,10 +363,10 @@ class Catalog:
             if self._has_ignore_ancestor(md.parent, path):
                 continue
             # A source tutorial with no executable validoc blocks is pure prose
-            # (e.g. a Nix explainer): it tests nothing, so it's not a runnable
-            # test — skip it like index.md rather than report it as failing
-            # "nothing tested". (Source tree only; the runner still fails loudly
-            # if a 0-block file slips through, e.g. from a misconfigured scan.)
+            # (e.g. a Nix explainer): it tests nothing and is no runnable test.
+            # Skip it like index.md, so it is never reported as failing with
+            # "nothing tested". (Source tree only; the runner still fails with an
+            # error if a 0-block file slips through, e.g. from a misconfigured scan.)
             if not _has_executable_blocks(md):
                 logger.debug("Skipping doc-only tutorial (no exec blocks): %s", md)
                 continue

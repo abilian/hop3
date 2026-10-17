@@ -1,19 +1,16 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 """
-Tutorials run ON a remote server, not locally (so deploys hit the run target).
+Tutorials run on the target, a container included, so deploys hit the run target.
 
-The dispatch keys off the target's class name being "RemoteTarget" plus the
-``tutorial_host_problem`` cleared once ``ensure_tutorial_host`` succeeded. A
-remote target that was not prepared must error — never fall back to local
-execution, which would deploy to the dev machine's default CLI context (the
-wrong server).
+``tutorial_host_problem`` is cleared once ``ensure_tutorial_host`` succeeded. A
+target that was not prepared must error. Running locally instead would deploy
+to the dev machine's default CLI context, which may be another server.
 """
 
 from __future__ import annotations
 
 from pathlib import Path
-from types import SimpleNamespace
 from unittest.mock import MagicMock
 
 from hop3_testing.runners.tutorial import TutorialTestRunner
@@ -44,7 +41,7 @@ def test_unprepared_remote_errors_and_never_runs_locally():
     target.tutorial_host_problem = "validoc install failed"
     runner = TutorialTestRunner(target=target)
 
-    result = runner._run_validoc(Path("/x/flask.md"), Path("/x"))
+    result = runner._run_validoc(Path("/x/flask.md"))
 
     assert result["success"] is False
     assert "not prepared" in result["error"]
@@ -57,7 +54,7 @@ def test_prepared_remote_runs_validoc_on_the_server():
     target = RemoteTarget(ready=True)
     runner = TutorialTestRunner(target=target)
 
-    result = runner._run_validoc(Path("/x/flask.md"), Path("/x"))
+    result = runner._run_validoc(Path("/x/flask.md"))
 
     assert result["success"] is True
     # the markdown is uploaded under a scratch dir, named after the tutorial
@@ -81,21 +78,23 @@ def test_prepared_remote_runs_validoc_on_the_server():
     assert any(isinstance(c, list) and c[:2] == ["rm", "-rf"] for c in target.calls)
 
 
-def test_non_remote_target_uses_the_local_path(monkeypatch):
-    class DockerTarget:
-        info = SimpleNamespace(ssh_host="local")
-
-    runner = TutorialTestRunner(target=DockerTarget())
-    # The runner is a frozen dataclass; patch the method on the class.
-    monkeypatch.setattr(
-        TutorialTestRunner,
-        "_run_validoc_local",
-        lambda self, p, c: {"success": True, "logs": "local"},
+def test_a_container_runs_tutorials_inside_it_against_loopback():
+    """
+    validoc ran on the developer's machine for a Docker target: it needed every
+    toolchain there, and its curl reached the Docker host's port 443 instead of
+    the container's nginx.
+    """
+    target = RemoteTarget(ready=True)
+    target.info = TargetInfo(
+        ssh_host="hop3@fedora.local", ssh_port=32768, is_container=True
     )
+    runner = TutorialTestRunner(target=target)
 
-    result = runner._run_validoc(Path("/x/flask.md"), Path("/x"))
+    result = runner._run_validoc(Path("/x/flask.md"))
 
-    assert result["logs"] == "local"
+    assert result["success"] is True
+    cmd = next(c for c in target.calls if isinstance(c, str) and "validoc run" in c)
+    assert "HOP3_TEST_DOMAIN=127.0.0.1.sslip.io" in cmd
 
 
 def test_upload_file_sftps_and_makes_parent_dir(monkeypatch):
