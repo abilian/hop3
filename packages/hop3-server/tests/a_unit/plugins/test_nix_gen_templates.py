@@ -230,7 +230,7 @@ class TestNodePnpmFromTheRecipeDirectory:
     def test_the_recipe_directory_is_the_filtered_src(self):
         output = generate(self._spec())
         assert "pkgs.lib.cleanSource ./." in output
-        assert '!= "hop3.nix"' in output
+        assert '".hop3-generated.nix" "hop3.nix" ]' in output
 
     def test_the_app_tree_is_copied_before_pnpm_populates_it(self):
         """
@@ -293,7 +293,7 @@ class TestPythonVenvFromTheRecipeDirectory:
     def test_the_recipe_directory_becomes_the_src(self):
         output = generate(self._spec())
         assert "pkgs.lib.cleanSource ./." in output
-        assert '!= "hop3.nix"' in output
+        assert '".hop3-generated.nix" "hop3.nix" ]' in output
 
     def test_the_app_tree_is_installed_beside_the_venv(self):
         output = generate(self._spec())
@@ -365,7 +365,7 @@ class TestPhpAppFromTheRecipeDirectory:
     def test_the_directory_is_filtered_before_it_reaches_the_store(self):
         output = generate(self._spec())
         assert "pkgs.lib.cleanSource ./." in output
-        assert '!= "hop3.nix"' in output
+        assert '".hop3-generated.nix" "hop3.nix" ]' in output
 
     def test_no_unpack_phase_is_emitted_for_a_directory(self):
         """
@@ -1616,7 +1616,8 @@ class TestGoSourceLocalApp:
         """
         output = generate(self._spec())
         assert "pkgs.lib.cleanSource ./." in output  # drops .git
-        assert '!= "hop3.nix"' in output  # drops the expression itself
+        # drops the expression itself
+        assert '".hop3-generated.nix" "hop3.nix" ]' in output
 
     def test_a_url_still_fetches(self):
         output = generate(
@@ -1717,7 +1718,7 @@ class TestRubyBundler:
         """Same closed exclusion list as every other local-source template."""
         output = generate(self._spec())
         assert "pkgs.lib.cleanSource ./." in output
-        assert '!= "hop3.nix"' in output
+        assert '".hop3-generated.nix" "hop3.nix" ]' in output
 
     def test_packaged_app_fetches_a_pinned_tarball(self):
         """A released app is hash-pinned, not the recipe directory."""

@@ -147,10 +147,14 @@ class Template(Protocol):
 # ---------------------------------------------------------------------------
 
 
-#: The generated expression's own filename. The builder writes it into the
-#: app's source directory before building, so an unfiltered `./.` makes every
-#: expression part of its own input.
-_GENERATED_EXPR_NAME = "hop3.nix"
+#: Where the builder writes a generated expression, in the app's source tree.
+#: Never `hop3.nix`, which is the user's: the next deploy from the same tree
+#: would take it for a hand-written one.
+GENERATED_NIX_FILE = ".hop3-generated.nix"
+
+#: The expression's own filenames, generated or ejected (`hop3.nix`). An
+#: unfiltered `./.` makes every expression part of its own input.
+_EXPR_NAMES = (GENERATED_NIX_FILE, "hop3.nix")
 
 
 def local_source_expr() -> str:
@@ -183,7 +187,9 @@ def local_source_expr() -> str:
         "pkgs.lib.cleanSourceWith {\n"
         "      src = pkgs.lib.cleanSource ./.;\n"
         "      filter = path: _type:\n"
-        f'        baseNameOf (toString path) != "{_GENERATED_EXPR_NAME}";\n'
+        "        !(builtins.elem (baseNameOf (toString path)) [ "
+        + " ".join(f'"{name}"' for name in _EXPR_NAMES)
+        + " ]);\n"
         "    }"
     )
 

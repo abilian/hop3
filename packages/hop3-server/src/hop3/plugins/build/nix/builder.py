@@ -19,6 +19,7 @@ from hop3.config import APP_ROOT
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
 from hop3.lib import Abort, abort_with_diagnosis, log
 from hop3.lib.diagnostics import Diagnosis, format_diagnosis
+from hop3.plugins.build.nix.gen.templates.base import GENERATED_NIX_FILE
 from hop3.toolchains.php_fpm import document_root, serve_with_php_fpm
 
 # See docker/builder.py for the rationale — single generous timeout + a
@@ -69,10 +70,7 @@ class NixBuilder:
 
     def _has_nix_template(self) -> bool:
         """Check if hop3.toml declares a [nix].template."""
-        app_config = self.context.app_config or {}
-        hop3_config = app_config.get("hop3_config", {})
-        nix_section = hop3_config.get("nix", {})
-        return bool(nix_section.get("template"))
+        return bool(self._nix_config().get("template"))
 
     def _check_no_contradiction(self) -> None:
         """
@@ -82,22 +80,31 @@ class NixBuilder:
         intends one of them to take effect, and the other being ignored
         is a footgun. Force the user to delete one or eject deliberately.
 
+        A ``hop3.nix`` identical to what the template generates is not the
+        user's: deploys before 0.8 wrote the generated file there, and a
+        redeploy from the same tree (`hop3 app upgrade`, a restore) found
+        "both". It is removed, and the template builds.
+
         Raises:
             Abort: If both an explicit hop3.nix and a [nix].template
                 section in hop3.toml are present.
         """
-        source = self.context.source_path
-        if (source / "hop3.nix").exists() and self._has_nix_template():
-            msg = (
-                f"Both hop3.nix and a [nix].template section in hop3.toml "
-                f"are present in {source}. Pick one:\n"
-                f"  - Delete hop3.nix to use the template, OR\n"
-                f"  - Remove the [nix].template section to keep your "
-                f"hand-crafted hop3.nix.\n"
-                f"To convert a template to a hand-crafted file, "
-                f"run: hop3 nix eject --app {self.context.app_name} > hop3.nix"
-            )
-            raise Abort(msg)
+        explicit = self.context.source_path / "hop3.nix"
+        if not explicit.exists() or not self._has_nix_template():
+            return
+        if self._is_generated(explicit):
+            explicit.unlink()
+            return
+        msg = (
+            f"Both hop3.nix and a [nix].template section in hop3.toml "
+            f"are present in {self.context.source_path}. Pick one:\n"
+            f"  - Delete hop3.nix to use the template, OR\n"
+            f"  - Remove the [nix].template section to keep your "
+            f"hand-crafted hop3.nix.\n"
+            f"To convert a template to a hand-crafted file, "
+            f"run: hop3 nix eject --app {self.context.app_name} > hop3.nix"
+        )
+        raise Abort(msg)
 
     def accept(self) -> bool:
         """
@@ -307,19 +314,45 @@ class NixBuilder:
 
     def _generate_nix_file(self) -> Path:
         """
-        Generate a hop3.nix from the [nix] section in hop3.toml.
+        Write the expression the [nix] template generates beside the source.
 
-        Creates a temporary file containing the generated Nix expression
-        and returns its path. The file is written alongside the source
-        (in a temp dir, not inside the source tree which may be read-only).
+        In the source directory, so relative Nix paths (e.g. ``bundlerEnv {
+        gemdir = ./.; }``) resolve against the app's tree, but never as
+        ``hop3.nix``: the next deploy from the same tree would take it for a
+        hand-written one.
 
         Returns:
-            Path to the generated hop3.nix file.
+            Path to the generated file.
 
         Raises:
             RuntimeError: If the [nix] section is missing or invalid.
         """
-        from hop3.lib import log  # ruff:ignore[import-outside-top-level]
+        nix_text = self._generated_nix_text()
+        nix_file = self.context.source_path / GENERATED_NIX_FILE
+        nix_file.write_text(nix_text)
+
+        template = self._nix_config()["template"]
+        log(
+            f"  [nix] Generated {GENERATED_NIX_FILE} from template '{template}' "
+            f"({len(nix_text)} chars)",
+            level=1,
+            fg="blue",
+        )
+        return nix_file
+
+    def _is_generated(self, path: Path) -> bool:
+        """Whether ``path`` holds exactly what the app's template generates."""
+        try:
+            return path.read_text() == self._generated_nix_text()
+        except ValueError:
+            return False  # a spec that cannot generate wrote nothing
+
+    def _nix_config(self) -> dict:
+        app_config = self.context.app_config or {}
+        return app_config.get("hop3_config", {}).get("nix", {})
+
+    def _generated_nix_text(self) -> str:
+        """The Nix expression the app's [nix] template generates."""
         from hop3.plugins.build.nix.gen import (  # ruff:ignore[import-outside-top-level]
             generate,
         )
@@ -329,8 +362,7 @@ class NixBuilder:
 
         app_config = self.context.app_config or {}
         hop3_config = app_config.get("hop3_config", {})
-        nix_config = hop3_config.get("nix", {})
-        metadata = hop3_config.get("metadata", {})
+        nix_config = self._nix_config()
 
         if not nix_config.get("template"):
             msg = (
@@ -342,24 +374,10 @@ class NixBuilder:
 
         spec = app_spec_from_config(
             nix_config=nix_config,
-            metadata=metadata,
+            metadata=hop3_config.get("metadata", {}),
             app_name=self.context.app_name,
         )
-        nix_text = generate(spec)
-
-        # Write into the source directory so that relative Nix paths
-        # (e.g., bundlerEnv { gemdir = ./.; }) resolve correctly against
-        # the app's source tree. Always writable during deployment.
-        nix_file = self.context.source_path / "hop3.nix"
-        nix_file.write_text(nix_text)
-
-        log(
-            f"  [nix] Generated hop3.nix from template '{spec.template}' "
-            f"({len(nix_text)} chars)",
-            level=1,
-            fg="blue",
-        )
-        return nix_file
+        return generate(spec)
 
     def _require_nix(self) -> None:
         """Refuse, with the fix, when this server cannot run Nix."""

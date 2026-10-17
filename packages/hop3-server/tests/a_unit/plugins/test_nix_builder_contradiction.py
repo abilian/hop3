@@ -193,3 +193,51 @@ def test_nix_build_reregisters_previous_gc_root(tmp_path: Path, monkeypatch):
     build = [c for c in captured if "nix-build" in c]
     assert build, "expected a nix-build command"
     assert captured.index(reroot[0]) < captured.index(build[0])
+
+
+_TEMPLATE_CONFIG = {
+    "hop3_config": {
+        "metadata": {"id": "myapp", "version": "1.0"},
+        "nix": {
+            "template": "prebuilt-binary",
+            "url": "https://example.com/bin",
+            "sha256": "abc123",
+            "executable": True,
+            "binary-name": "myapp",
+        },
+    }
+}
+
+
+def test_a_redeploy_of_a_generated_app_is_no_contradiction(tmp_path: Path):
+    """
+    `hop3 app upgrade` and a restore redeploy from the same tree.
+
+    The generated expression was written as `hop3.nix`, so the second deploy of
+    every nix-gen app refused with "Both hop3.nix and a [nix].template".
+    """
+    first = NixBuilder(_make_context(tmp_path, _TEMPLATE_CONFIG))
+    generated = first._generate_nix_file()
+
+    assert generated.name == ".hop3-generated.nix"
+    assert not (tmp_path / "hop3.nix").exists()
+    assert NixBuilder(_make_context(tmp_path, _TEMPLATE_CONFIG)).accept() is True
+
+
+def test_a_hop3_nix_an_earlier_deploy_generated_is_replaced(tmp_path: Path):
+    """Deploys before the rename left the generated text in `hop3.nix`."""
+    builder = NixBuilder(_make_context(tmp_path, _TEMPLATE_CONFIG))
+    (tmp_path / "hop3.nix").write_text(builder._generated_nix_text())
+
+    assert builder.accept() is True
+    assert builder._mode == "generated"
+    assert not (tmp_path / "hop3.nix").exists()
+
+
+def test_an_edited_hop3_nix_beside_a_template_still_aborts(tmp_path: Path):
+    builder = NixBuilder(_make_context(tmp_path, _TEMPLATE_CONFIG))
+    (tmp_path / "hop3.nix").write_text(builder._generated_nix_text() + "# mine\n")
+
+    with pytest.raises(Abort, match="Pick one"):
+        builder.accept()
+    assert (tmp_path / "hop3.nix").exists()
