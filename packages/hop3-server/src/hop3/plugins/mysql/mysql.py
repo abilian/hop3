@@ -425,6 +425,9 @@ class MySQLAddon:
             "--single-transaction",
             "--routines",
             "--triggers",
+            # Tablespaces are server-wide and need PROCESS, which the app's
+            # user lacks: without this, every dump logs an access error.
+            "--no-tablespaces",
             self.db_name,
         ]
 

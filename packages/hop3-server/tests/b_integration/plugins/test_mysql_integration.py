@@ -248,6 +248,17 @@ class TestMySQLBackupRestore:
         finally:
             mysql_module.HOP3_ROOT = original_root
 
+    def test_a_backup_asks_for_nothing_beyond_the_database(
+        self, mysql_addon, tmp_path, monkeypatch, capfd
+    ):
+        """The app's user holds rights on its database only: no access error."""
+        monkeypatch.setattr(mysql_module, "HOP3_ROOT", tmp_path)
+        mysql_addon.create()
+
+        mysql_addon.backup()
+
+        assert capfd.readouterr().err == ""
+
     def test_restore_recovers_data(self, mysql_addon, tmp_path):
         """Test that restore actually recovers data."""
         original_root = mysql_module.HOP3_ROOT

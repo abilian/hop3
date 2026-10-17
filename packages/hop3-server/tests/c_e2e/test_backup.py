@@ -39,8 +39,8 @@ Coverage breakdown:
 
   - Happy paths: create, env-var preservation in backups, in-place
     restore, restore-to-different-app-name (clone), list, delete.
-  - An app with an attached PostgreSQL addon: the backup carries the
-    dump, and a restore brings a deleted row back.
+  - An app with an attached PostgreSQL or MySQL addon: the backup carries
+    the dump, and a restore brings a deleted row back.
   - Integrity: a backup whose archive was corrupted on disk is reported
     by `backup info` and refused by `backup restore`.
 
@@ -58,7 +58,9 @@ References
 from __future__ import annotations
 
 import contextlib
+import functools
 import json
+from pathlib import Path
 
 import pytest
 from hop3_testing.apps import DeploymentSession
@@ -71,6 +73,8 @@ from .conftest import (
     extract_backup_id,
     find_json_table,
 )
+
+MYSQL_FIXTURE = Path(__file__).parents[4] / "apps/test-apps-procfile/156-flask-mysql"
 
 
 @pytest.mark.e2e
@@ -293,7 +297,7 @@ def index():
         app = AppSource(name="postgres-app", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
             session.deploy()  # Raises DeploymentError on failure
-            with _postgres_addon(deployment_target, session.app_name) as addon:
+            with _addon(deployment_target, session.app_name, "postgres") as addon:
                 _sql(
                     deployment_target,
                     session.app_name,
@@ -325,7 +329,7 @@ def index():
         app = AppSource(name="restore-pg", path=app_dir)
         with DeploymentSession(app, deployment_target) as session:
             session.deploy()  # Raises DeploymentError on failure
-            with _postgres_addon(deployment_target, session.app_name):
+            with _addon(deployment_target, session.app_name, "postgres"):
                 _sql(
                     deployment_target,
                     session.app_name,
@@ -346,6 +350,43 @@ def index():
                 assert "row-before-backup" in back, (
                     f"the restored database does not hold the row: {back!r}"
                 )
+
+    def test_backup_and_restore_app_with_mysql(self, deployment_target):
+        """
+        A MySQL dump holds the row, logs no access error, and restores it.
+
+        mysqldump exits 0 after "Access denied; you need (at least one of) the
+        PROCESS privilege(s)" when it reaches the tablespaces: no test layer had
+        a MySQL, and every catalog upgrade logged it.
+        """
+        app = AppSource(name="flask-mysql", path=MYSQL_FIXTURE)
+        with DeploymentSession(app, deployment_target) as session:
+            session.deploy()  # Raises DeploymentError on failure
+            mysql = functools.partial(
+                _sql, deployment_target, session.app_name, runner=_MYSQL_RUNNER
+            )
+            mysql(
+                "CREATE TABLE marker (v text); "
+                "INSERT INTO marker VALUES ('row-before-backup')"
+            )
+            backup_id = _create_backup(deployment_target, session.app_name)
+
+            result = deployment_target.run_command("backup", "info", backup_id)
+            assert result.success, result.stderr
+            assert "mysql:" in result.stdout, result.stdout
+            code, out, err = deployment_target.exec_run([
+                "grep", "-h", "PROCESS privilege", _SERVER_STDERR_LOG
+            ])  # fmt: skip
+            assert code == 1, f"the dump logged an access error: {out}{err}"
+
+            mysql("DELETE FROM marker")
+            result = deployment_target.run_command("backup", "restore", backup_id)
+            assert result.success, f"Restore failed: {result.stderr}"
+
+            back = mysql("SELECT v FROM marker")
+            assert "row-before-backup" in back, (
+                f"the restored database does not hold the row: {back!r}"
+            )
 
     def test_backup_integrity_verification(self, deployment_target, tmp_path):
         """A backup corrupted on disk is reported by info and refused by restore."""
@@ -373,7 +414,7 @@ def index():
 
 _PG_REQS = "flask==3.0.0\npsycopg2-binary==2.9.9\n"
 
-_SQL_RUNNER = """
+_PG_RUNNER = """
 import os, psycopg2
 conn = psycopg2.connect(os.environ["DATABASE_URL"])
 conn.autocommit = True
@@ -382,11 +423,28 @@ cur.execute({sql!r})
 print(cur.fetchall() if cur.description else "ok")
 """
 
+# One statement per execute: PyMySQL refuses a multi-statement string.
+_MYSQL_RUNNER = """
+import os, pymysql
+conn = pymysql.connect(
+    host=os.environ["MYSQL_HOST"], port=int(os.environ["MYSQL_PORT"]),
+    user=os.environ["MYSQL_USER"], password=os.environ["MYSQL_PASSWORD"],
+    database=os.environ["MYSQL_DATABASE"], autocommit=True,
+)
+cur = conn.cursor()
+for statement in {sql!r}.split(";"):
+    cur.execute(statement)
+print(cur.fetchall() if cur.description else "ok")
+"""
 
-def _sql(target, app_name: str, sql: str) -> str:
+#: hop3-server's stderr in the e2e image, where a subprocess it runs writes.
+_SERVER_STDERR_LOG = "/var/log/supervisor/hop3-server_err.log"
+
+
+def _sql(target, app_name: str, sql: str, runner: str = _PG_RUNNER) -> str:
     """Run SQL against the app's attached database, from the app's own env."""
     result = target.run_command(
-        "run", "--app", app_name, "python", "-c", _SQL_RUNNER.format(sql=sql)
+        "run", "--app", app_name, "python", "-c", runner.format(sql=sql)
     )
     assert result.success, f"SQL failed: {sql}\n{result.stdout}\n{result.stderr}"
     return result.stdout
@@ -401,10 +459,10 @@ def _create_backup(target, app_name: str) -> str:
 
 
 @contextlib.contextmanager
-def _postgres_addon(target, app_name: str):
-    """A PostgreSQL addon attached to the app for the block, destroyed after."""
+def _addon(target, app_name: str, kind: str):
+    """A ``kind`` addon attached to the app for the block, destroyed after."""
     name = f"{app_name}-db"
-    result = target.run_command("addon", "create", "postgres", name)
+    result = target.run_command("addon", "create", kind, name)
     assert result.success, f"addon create failed: {result.stderr}"
     try:
         result = target.run_command("addon", "attach", name, "--app", app_name)

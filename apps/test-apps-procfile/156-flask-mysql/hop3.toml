@@ -1,0 +1,20 @@
+# Hop3 configuration for the Flask MySQL addon smoke test.
+
+[metadata]
+id = "flask-mysql"
+description = "Flask app exercising the Hop3 MySQL addon (write/read round-trip)"
+
+[[addons]]
+type = "mysql"
+
+[test]
+priority = "P1"
+tier = "medium"
+author = "hop3-team"
+targets = ["docker", "remote"]
+covers = ["python", "flask", "mysql", "addons"]
+
+[[test.validations]]
+path = "/"
+status = 200
+contains = "MySQL addon OK"
