@@ -397,7 +397,7 @@ def classify(  # ruff:ignore[too-many-return-statements] - one return per preced
     return "ok"
 
 
-_ICON: dict[str, str] = {"indeterminate": "?", "ok": "✓"}
+_ICON: dict[str, str] = {"indeterminate": "?"}
 
 
 def build_headline(
@@ -408,10 +408,18 @@ def build_headline(
     probe: ProxyProbe | None,
     sections: dict[str, str],
     http_front: HttpResponse | None,
+    failure: str = "",
 ) -> str:
     """Render the <=12-line, headline-first failure summary."""
-    icon = _ICON.get(classifier, "✗")
-    if classifier == "startup-failure":
+    title = f"{_ICON.get(classifier, '✗')} {classifier} — {app}"
+    if classifier == "ok":
+        # The app serves, so what failed is the test's own assertion: check.py,
+        # a `contains`, the probe account. This headline used to read "✓ ok"
+        # and "see sections below", under "Failed tests:".
+        title = f"✗ the app serves; its test failed — {app}"
+        first = next((ln.strip() for ln in failure.splitlines() if ln.strip()), "")
+        verdict = first[:160] or _root_cause(sections, http_front)
+    elif classifier == "startup-failure":
         verdict = _deploy_error_line(sections) or "the target never came up"
     elif classifier == "step-failure":
         verdict = " | ".join(failed_step(sections.get("deploy", ""))) or "a step failed"
@@ -420,7 +428,7 @@ def build_headline(
     else:
         verdict = _root_cause(sections, http_front)
     lines = [
-        f"{icon} {classifier} — {app}",
+        title,
         f"run-id: {run_id}",
         f"verdict: {verdict}",
         "",
@@ -859,6 +867,7 @@ def collect_diagnostic_bundle(
     base_dir: Path | None = None,
     persist: bool = True,
     force_persist: bool = False,
+    failure: str = "",
 ) -> Bundle:
     """
     Collect a target-agnostic diagnostic bundle BEFORE teardown.
@@ -867,7 +876,8 @@ def collect_diagnostic_bundle(
     written to disk. Some failures do classify ``ok`` at the runtime layer
     (the app serves fine; a check.py body assertion or HTTP `contains` is what
     failed). For those, pass ``force_persist=True`` so the bundle is still
-    written and ``why <run-id>`` can replay it. Never raises. Each section is
+    written and ``why <run-id>`` can replay it, and pass the test's own error
+    as ``failure``: it is that bundle's verdict. Never raises. Each section is
     isolated. A blind probe degrades to ``indeterminate`` and reports that
     verdict in place of a confident guess.
     """
@@ -889,6 +899,7 @@ def collect_diagnostic_bundle(
         probe=probe,
         sections=sections,
         http_front=http_front,
+        failure=failure,
     )
     bundle = Bundle(
         run_id=run_id,

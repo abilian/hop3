@@ -614,3 +614,25 @@ def test_a_nix_hash_mismatch_headline_quotes_the_hash_the_build_got() -> None:
         "recipe has sha256-gUgRCosG87CtiGnmu6BEt07v0Cb0/QF+gY63Z13A0cI=, the build "
         "got sha256-dQWWPtJ1eFwVBWxqV66oHNi9efoOhnu085ShuhhUD40="
     ) in headline
+
+
+def test_an_ok_bundle_is_headlined_by_the_tests_own_error() -> None:
+    """
+    A bundle is collected only for a failed test, so "ok" means the app serves
+    and the test's assertion failed. It was headlined "✓ ok" and "see sections
+    below", under "Failed tests:", naming neither the failure nor its cause.
+    """
+    headline = build_headline(
+        classifier="ok",
+        app="wordpress-nixgen",
+        run_id="rid-ok",
+        probe=_probe(),
+        sections={},
+        http_front=None,
+        failure="\n[probe].create did not create the probe account\nexit status 1",
+    )
+
+    assert "✓" not in headline
+    assert "its test failed — wordpress-nixgen" in headline
+    assert "verdict: [probe].create did not create the probe account" in headline
+    assert "exit status 1" not in headline

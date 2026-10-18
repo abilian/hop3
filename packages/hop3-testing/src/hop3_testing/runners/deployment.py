@@ -961,7 +961,7 @@ class DeploymentTestRunner:
             "regressed, or the test should drop expects-failure."
         )
         runtime_logs = _collect_runtime_logs(self.target, session.app_name)
-        bundle = self._collect_bundle(session, deploy_logs)
+        bundle = self._collect_bundle(session, deploy_logs, err)
         self._safe_cleanup(test, session)
         return TestResult(
             test=test,
@@ -976,7 +976,7 @@ class DeploymentTestRunner:
         )
 
     def _collect_bundle(
-        self, session: DeploymentSession, deploy_logs: str = ""
+        self, session: DeploymentSession, deploy_logs: str, failure: str
     ) -> Bundle:
         """Collect the unified diagnostic bundle from the target before cleanup."""
         try:
@@ -994,6 +994,7 @@ class DeploymentTestRunner:
             expected_port=expected_port,
             target_kind=_target_kind(self.target),
             force_persist=True,
+            failure=failure,
         )
         # Point the developer at the durable copy NOW, at the failure. The app
         # is torn down next (_safe_cleanup), so the deploy transcript's own
@@ -1107,7 +1108,7 @@ class DeploymentTestRunner:
                 error=err,
                 deployed_app_name=session.app_name,
                 runtime_logs=_collect_runtime_logs(self.target, session.app_name),
-                bundle=self._collect_bundle(session, deploy_logs),
+                bundle=self._collect_bundle(session, deploy_logs, err),
                 screenshots=self._failed_test_screenshots(test, None),
             )
             self._safe_cleanup(test, session)
@@ -1175,7 +1176,10 @@ class DeploymentTestRunner:
             unverified = ""
             shots = self._failed_test_screenshots(test, shots)
             runtime_logs = _collect_runtime_logs(self.target, session.app_name)
-            bundle = self._collect_bundle(session, deploy_logs)
+            failure = error or "; ".join(
+                v.message for v in validation_results if not v.passed
+            )
+            bundle = self._collect_bundle(session, deploy_logs, failure)
 
         # Cleanup AFTER collecting diagnostics so the app dir and docker
         # containers are still around. Routed through _safe_cleanup so a
