@@ -125,6 +125,8 @@ class ConsoleReporter:
         working one, so negative outcomes get their own words.
         """
         if not self._is_negative(result):
+            if result.passed and result.unverified:
+                return self._colorize("UNVERIFIED", "yellow"), result.unverified
             return (
                 (self._colorize("OK", "green"), "")
                 if result.passed
@@ -256,7 +258,17 @@ class ConsoleReporter:
         print(file=self.output)
         print("=" * 60, file=self.output)
 
-        if failed == 0:
+        unverified = [r for r in results if r.passed and r.unverified]
+        if failed == 0 and unverified:
+            print(
+                self._colorize(
+                    f"All {total} tests passed, {len(unverified)} of them "
+                    "not fully verified",
+                    "yellow",
+                ),
+                file=self.output,
+            )
+        elif failed == 0:
             print(
                 self._colorize(f"All {total} tests passed!", "green"),
                 file=self.output,
@@ -275,10 +287,56 @@ class ConsoleReporter:
         # the common "part of a large batch failed, which ones?" case.
         if failed > 0:
             self._print_failed_tests(results)
+        self._print_unverified(unverified)
+        self._print_screenshots(results)
 
         # Show recap unless quiet mode
         if not self.quiet and results:
             self._print_recap(results, total_duration)
+
+    def _print_unverified(self, unverified: list[TestResult]) -> None:
+        """The passed tests that left something unchecked, each with what."""
+        if not unverified:
+            return
+        print(file=self.output)
+        print(
+            self._colorize(
+                "Not verified (passed every check that ran, and one could not run):",
+                "bold",
+            ),
+            file=self.output,
+        )
+        for r in unverified:
+            mark = self._colorize("?", "yellow")
+            print(f"  {mark} {r.test.name}: {r.unverified}", file=self.output)
+
+    def _print_screenshots(self, results: list[TestResult]) -> None:
+        """
+        How many of the apps that were to be photographed were, and why not.
+
+        The denominator is every app the run was asked to photograph. Counting
+        only the apps that got far enough once printed "8/8 app(s)
+        screenshotted" over twelve that had failed first.
+        """
+        asked = [r for r in results if r.screenshots is not None]
+        if not asked:
+            return
+        complete = [r for r in asked if r.screenshots and r.screenshots.signed_in]
+        print(file=self.output)
+        print(
+            self._colorize(
+                f"Screenshots: {len(complete)}/{len(asked)} app(s) photographed "
+                "signed in",
+                "bold",
+            ),
+            file=self.output,
+        )
+        for r in asked:
+            shots = r.screenshots
+            if shots is None or shots.signed_in:
+                continue
+            why = shots.problem or f"sign-in page only: {shots.unsupported}"
+            print(f"  - {r.test.name}: {why}", file=self.output)
 
     def _print_failed_tests(self, results: list[TestResult]) -> None:
         """

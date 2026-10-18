@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 import traceback
 from dataclasses import dataclass, field
@@ -15,11 +16,20 @@ from hop3_testing.apps.catalog import AppSource
 from hop3_testing.apps.deployment import BODY_FETCH_LIMIT, DeploymentSession
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.exceptions import (
+    BrowserSignInError,
     DeploymentError,
     DeployTimeoutError,
     TargetOutOfDiskError,
 )
 from hop3_testing.runtime_diagnostics import collect_runtime_logs
+from hop3_testing.screenshots import (
+    ScreenshotError,
+    ScreenshotOutcome,
+    ScreenshotSettings,
+    SignIn,
+    recipe_screenshot_dir,
+    take,
+)
 from hop3_testing.targets.constants import (
     HOP3_APPS_ROOT,
     HOP3_UWSGI_ENABLED,
@@ -48,6 +58,70 @@ _HOP3_VENV_PYTHON = "/home/hop3/venv/bin/python3"
 #: `hop3.server.checks.runner` passes on the deploy path: one check reached two
 #: ways must reach the same door, or a green run means different things.
 _CHECK_PORT = 443
+
+
+#: Printed by a check whose sign-in only a real browser can drive
+#: (`hop3.server.checks`), followed by the reason. The check exits 0: it
+#: verified everything else, and the sign-in is the browser's to verify.
+BROWSER_REQUIRED_MARKER = "SIGN-IN VERIFIED BY BROWSER"
+
+
+def browser_sign_in(validation_results: list[ValidationResult]) -> str | None:
+    """Why the app's sign-in was left to a browser, or None if a check did it."""
+    for v in validation_results:
+        output = (v.details or {}).get("output", "")
+        for line in output.splitlines():
+            if BROWSER_REQUIRED_MARKER in line:
+                reason = line.split(BROWSER_REQUIRED_MARKER, 1)[1].lstrip(": ")
+                return reason.strip() or "no reason given"
+    return None
+
+
+def sign_in_verdict(reason: str | None, shots: ScreenshotOutcome | None) -> str:
+    """
+    What a passed test left unverified, for an app only a browser signs in to.
+
+    The browser's signed-in shot is the only evidence the credential works.
+    Without a browser the test passed everything that ran, and says what did
+    not: reported apart, never as a plain pass and never as a failure of an app
+    nothing found broken. Empty when nothing was left over.
+
+    Raises:
+        BrowserSignInError: a browser ran and could not sign in.
+    """
+    if reason is None or (shots is not None and shots.signed_in):
+        return ""
+    if shots is None:
+        return (
+            f"its sign-in needs a browser ({reason}), and none ran: run against "
+            "a server with --screenshots to verify it"
+        )
+    why = shots.problem or shots.unsupported or "it took no signed-in shot"
+    msg = (
+        f"its sign-in needs a browser ({reason}), and the browser did not sign "
+        f"in: {why}"
+    )
+    raise BrowserSignInError(msg)
+
+
+def _check_credentials_code(app_name: str, render: str) -> str:
+    """
+    Python, run on the server, that renders ``check_credentials`` for the app.
+
+    The one definition of what a check signs in with, so the check and the
+    browser are handed the same accounts. ``render`` sees them as ``c``. No
+    double quote: it travels inside ``su - hop3 -c "... -c \\"code\\""``.
+    """
+    return (
+        "import json, shlex;"
+        "from sqlalchemy import select;"
+        "from hop3.orm import get_session_factory, App;"
+        "from hop3.server.checks.runner import check_credentials;"
+        "s=get_session_factory()();"
+        f"a=s.scalars(select(App).where(App.name=='{app_name}')).one_or_none();"
+        "c=check_credentials(a,s) if a else {};"
+        f"{render}"
+    )
 
 
 #: What the runtime-write probe prints when it has no file list to give.
@@ -167,6 +241,9 @@ class DeploymentTestRunner:
 
     redeploy: bool = True
     """Deploy the unchanged source a second time and validate again."""
+
+    screenshots: ScreenshotSettings | None = None
+    """Photograph each catalog recipe once it passed, before teardown."""
 
     def __post_init__(self) -> None:
         """Set verbosity after initialization."""
@@ -453,15 +530,9 @@ class DeploymentTestRunner:
         since the file is sourced. A reader that cannot run raises, with its
         stderr (its stdout is the file).
         """
-        reader = (
-            "import shlex;"
-            "from sqlalchemy import select;"
-            "from hop3.orm import get_session_factory, App;"
-            "from hop3.server.checks.runner import check_credentials;"
-            "s=get_session_factory()();"
-            f"a=s.scalars(select(App).where(App.name=='{session.app_name}')).one_or_none();"
-            "print(''.join(k+'='+shlex.quote(v)+chr(10) for k,v in "
-            "(check_credentials(a,s) if a else {}).items()), end='')"
+        reader = _check_credentials_code(
+            session.app_name,
+            "print(''.join(k+'='+shlex.quote(v)+chr(10) for k,v in c.items()), end='')",
         )
         exit_code, _, stderr = self._run_as_hop3(reader, stdout_to=env_path)
         if exit_code != 0:
@@ -470,6 +541,59 @@ class DeploymentTestRunner:
                 f"the server (exit {exit_code}): {stderr[:300]}"
             )
             raise RuntimeError(msg)
+
+    def _take_screenshots(
+        self, test: TestDefinition, session: DeploymentSession
+    ) -> ScreenshotOutcome | None:
+        """
+        Photograph the app if it is a catalog recipe, or None if it is not.
+
+        Signs in with the admin credential the server hands its check, read over
+        the target's own channel: never a command line, never this run's output.
+        """
+        settings = self.screenshots
+        if settings is None:
+            return None
+        try:
+            out_dir = recipe_screenshot_dir(settings.catalog_apps, test.name)
+            if out_dir is None:
+                return None
+            sign_in = SignIn.from_credentials(
+                test.name,
+                f"https://{session.test_hostname}",
+                self.target.info.host,
+                self._read_check_credentials(session),
+            )
+        except ScreenshotError as e:
+            return ScreenshotOutcome(problem=str(e))
+        self.console.info(f"Screenshotting {test.name} into {out_dir}...")
+        return take(sign_in, out_dir, settings.copy_to)
+
+    def _failed_test_screenshots(
+        self, test: TestDefinition, shots: ScreenshotOutcome | None
+    ) -> ScreenshotOutcome | None:
+        """A failed test's outcome: what was taken, or asked for and never taken."""
+        settings = self.screenshots
+        if shots is not None or settings is None:
+            return shots
+        try:
+            if recipe_screenshot_dir(settings.catalog_apps, test.name) is None:
+                return None
+        except ScreenshotError as e:
+            return ScreenshotOutcome(problem=str(e))
+        return ScreenshotOutcome(problem="not taken: the test failed first")
+
+    def _read_check_credentials(self, session: DeploymentSession) -> dict[str, str]:
+        """The credentials ``check_credentials`` gives the app's check."""
+        reader = _check_credentials_code(session.app_name, "print(json.dumps(c))")
+        exit_code, stdout, stderr = self._run_as_hop3(reader)
+        if exit_code != 0:
+            msg = (
+                f"could not read the app's credentials on the server (exit "
+                f"{exit_code}): {stderr[:300]}"
+            )
+            raise ScreenshotError(msg)
+        return json.loads(stdout.strip().splitlines()[-1])
 
     def _upload_check_helpers(
         self, session: DeploymentSession, remote_dir: str
@@ -571,6 +695,7 @@ class DeploymentTestRunner:
                 "script": str(check_path),
                 "host": host,
                 "exit_code": exit_code,
+                "output": (stdout or "") + (stderr or ""),
             },
         }
 
@@ -943,6 +1068,8 @@ class DeploymentTestRunner:
         validation_results: list[ValidationResult] = []
         deploy_logs = ""
         error = None
+        shots: ScreenshotOutcome | None = None
+        unverified = ""
 
         if path_error := self._validate_app_path(test, start_time):
             return path_error
@@ -981,6 +1108,7 @@ class DeploymentTestRunner:
                 deployed_app_name=session.app_name,
                 runtime_logs=_collect_runtime_logs(self.target, session.app_name),
                 bundle=self._collect_bundle(session, deploy_logs),
+                screenshots=self._failed_test_screenshots(test, None),
             )
             self._safe_cleanup(test, session)
             return result
@@ -1032,6 +1160,9 @@ class DeploymentTestRunner:
                     redeploy_error, deploy_logs=session.last_deploy_output
                 )
 
+            shots = self._take_screenshots(test, session)
+            unverified = sign_in_verdict(browser_sign_in(validation_results), shots)
+
         except Exception as e:
             error = str(e)
             self.console.debug(traceback.format_exc())
@@ -1041,6 +1172,8 @@ class DeploymentTestRunner:
         bundle = None
         runtime_logs = ""
         if not passed:
+            unverified = ""
+            shots = self._failed_test_screenshots(test, shots)
             runtime_logs = _collect_runtime_logs(self.target, session.app_name)
             bundle = self._collect_bundle(session, deploy_logs)
 
@@ -1059,6 +1192,8 @@ class DeploymentTestRunner:
             deployed_app_name=session.app_name,
             runtime_logs=runtime_logs,
             bundle=bundle,
+            unverified=unverified,
+            screenshots=shots,
         )
 
     def _create_app_source(self, test: TestDefinition) -> AppSource:

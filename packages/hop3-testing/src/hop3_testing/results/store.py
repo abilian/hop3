@@ -68,7 +68,7 @@ def _configure_sqlite_conn(dbapi_conn, _record) -> None:
 
 def _derive_status(result) -> str:
     """
-    Map a result to pass/fail, or xfail/xpass for negative tests.
+    Map a result to pass/fail, xfail/xpass for negative tests, or unverified.
 
     A "bad recipe" (expects_failure) is inverted by the runner: a failed deploy
     yields ``result.passed=True``. So passed True -> the expected failure happened
@@ -76,6 +76,9 @@ def _derive_status(result) -> str:
     """
     if getattr(result.test, "expects_failure", False):
         return "xfail" if result.passed else "xpass"
+    if result.passed and getattr(result, "unverified", ""):
+        # Passed everything that ran, and something could not run here.
+        return "unverified"
     return "pass" if result.passed else "fail"
 
 

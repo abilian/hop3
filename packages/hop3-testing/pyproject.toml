@@ -65,6 +65,9 @@ project-includes = [
     "**/*.py*",
     "**/*.ipynb",
 ]
+# Playwright is loaded only for `hop3-test run --screenshots`, through
+# `uv run --with playwright`, so it is not installed here (screenshots.py).
+ignore-missing-imports = ["playwright.*"]
 
 [tool.coverage.report]
 exclude_also = [

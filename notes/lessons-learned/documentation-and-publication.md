@@ -37,7 +37,7 @@ Two traps cost time:
 - `docs/blog/posts/` is the source; `docs/src/blog/posts/` is generated from it by `preprocess_markdown.py`. An edit to the generated copy lasts only until the next build.
 - The tutorials work the same way: source in `docs/tutorials/`, generated into `docs/src/tutorials/`.
 
-The same mistake has a publication-order variant: `check-catalog.py` installs from the **published** catalog, so editing `apps/` and re-running silently re-tests the old recipe. Publishing is part of the edit-test loop.
+The same mistake has a publication-order variant: a run with `--recipes published` installs from the **published** catalog, so editing `apps/` and re-running silently re-tests the old recipe. Publishing is part of the edit-test loop.
 
 ## When output looks wrong, suspect the renderer before rewriting the source
 

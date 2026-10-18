@@ -138,6 +138,9 @@ def check_credentials(app: App, db_session: Session) -> dict[str, str]:
         credentials["HOP3_ADMIN_USER"] = cred.get("username", "")
         credentials["HOP3_ADMIN_EMAIL"] = cred.get("email", "")
         credentials["HOP3_ADMIN_PASSWORD"] = cred.get("password", "")
+        # The field the app's sign-in form takes, "username" or "email". A
+        # browser that offers the other is refused as a bad password.
+        credentials["HOP3_ADMIN_LOGIN"] = cred.get("login", "")
     return credentials
 
 

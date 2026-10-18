@@ -164,9 +164,10 @@ class BrowserRequired(Exception):  # ruff: ignore[error-suffix-on-exception-name
     post until a script has run.
 
     Raising this is NOT a failure and NOT a pass. It records that the sign-in is
-    verified by the browser harness instead (`shoot-catalog.py`, which drives a
-    real browser and refuses to photograph a page that still shows a login
-    form), so the two halves together cover what neither can alone.
+    verified by the browser harness instead (`hop3-test run --screenshots`,
+    which drives a real browser and refuses to photograph a page that still
+    shows a login form), so the two halves together cover what neither can
+    alone. A run without a browser reports the app as not verified.
     """
 
 

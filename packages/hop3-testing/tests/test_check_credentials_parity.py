@@ -117,22 +117,50 @@ def _run_reader(tmp_path: Path, credentials: dict[str, str] | None) -> str:
     Run the reader the server would run, against stand-ins for the server's
     modules, and return what it writes into the file.
     """
-    stubs = tmp_path / "stubs"
-    for relative, source in _STUBS.items():
-        path = stubs / relative
-        path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(source)
     result = subprocess.run(
         [sys.executable, "-c", _python_snippet(_reader_command())],
         capture_output=True,
         text=True,
         check=True,
-        env={
-            "PYTHONPATH": str(stubs),
-            "STUB_CREDENTIALS": json.dumps(credentials),
-        },
+        env=_stub_env(tmp_path, credentials),
     )
     return result.stdout
+
+
+def _stub_env(tmp_path: Path, credentials: dict[str, str] | None) -> dict[str, str]:
+    """An environment whose ``hop3`` and ``sqlalchemy`` are the stand-ins."""
+    stubs = tmp_path / "stubs"
+    for relative, source in _STUBS.items():
+        path = stubs / relative
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(source)
+    return {"PYTHONPATH": str(stubs), "STUB_CREDENTIALS": json.dumps(credentials)}
+
+
+class _StubServer:
+    """Runs the reader's Python here, against the stand-ins, as the server would."""
+
+    def __init__(self, env: dict[str, str]) -> None:
+        self.env = env
+
+    def exec_run(self, cmd: str) -> tuple[int, str, str]:
+        result = subprocess.run(
+            [sys.executable, "-c", _python_snippet(cmd)],
+            capture_output=True,
+            text=True,
+            check=False,
+            env=self.env,
+        )
+        return result.returncode, result.stdout, result.stderr
+
+
+def test_the_browser_signs_in_with_what_the_check_is_given(tmp_path):
+    """The screenshots read the same server function, over the same channel."""
+    server = _StubServer(_stub_env(tmp_path, _CREDENTIALS))
+    runner = DeploymentTestRunner(target=cast("Any", server), cleanup=True)
+    session = SimpleNamespace(app_name="piwigo-1789384399")
+
+    assert runner._read_check_credentials(cast("Any", session)) == _CREDENTIALS
 
 
 def _sourced(tmp_path: Path, body: str, key: str) -> str:

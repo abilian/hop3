@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 if TYPE_CHECKING:
     from hop3_testing.bundle import Bundle
     from hop3_testing.catalog.models import TestDefinition, Validation
+    from hop3_testing.screenshots import ScreenshotOutcome
 
 
 @dataclass
@@ -88,6 +89,15 @@ class TestResult:
     bundle: Bundle | None = None
     """Unified diagnostic bundle (ADR 043 §7), collected on failure before
     cleanup. Holds the headline, classifier, and the saved artifact path."""
+
+    unverified: str = ""
+    """What a passed test could not verify, and how to verify it: an app whose
+    sign-in only a browser can drive, in a run with no browser. Reported apart
+    from both passes and failures; empty when everything was verified."""
+
+    screenshots: ScreenshotOutcome | None = None
+    """The browser's images of the app, when the run asked for them and the
+    test is a catalog recipe."""
 
     @property
     def failed_validations(self) -> list[ValidationResult]:

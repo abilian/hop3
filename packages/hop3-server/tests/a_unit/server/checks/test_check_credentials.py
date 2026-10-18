@@ -32,7 +32,12 @@ from hop3.core.env import Env
 from hop3.deployers.probe_account import PROBE_CREATED_ENV
 from hop3.server.checks.runner import check_credentials
 
-ADMIN = {"username": "admin", "email": "op@example.com", "password": "admin-pw"}
+ADMIN = {
+    "username": "admin",
+    "email": "op@example.com",
+    "password": "admin-pw",
+    "login": "email",
+}
 
 PROBE = {
     "HOP3_PROBE_USER": "hop3probe",
@@ -74,6 +79,12 @@ class TestTheProbeTravelsWithTheAdmin:
 
         assert creds["HOP3_ADMIN_PASSWORD"] == "admin-pw"
 
+    def test_the_admin_says_which_field_it_signs_in_with(self, admin_credential):
+        """The browser harness fills the field the app's form takes."""
+        creds = check_credentials(_app(), object())
+
+        assert creds["HOP3_ADMIN_LOGIN"] == "email"
+
     def test_an_app_with_a_probe_and_no_admin_still_gets_its_probe(self, no_credential):
         creds = check_credentials(_app(**PROBE, **{PROBE_CREATED_ENV: "1"}), object())
 
@@ -111,4 +122,5 @@ class TestNothingIsInvented:
             "HOP3_ADMIN_USER",
             "HOP3_ADMIN_EMAIL",
             "HOP3_ADMIN_PASSWORD",
+            "HOP3_ADMIN_LOGIN",
         }

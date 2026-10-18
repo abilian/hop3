@@ -39,6 +39,8 @@ def _result(name: str, *, passed: bool, negative: bool, cause: str = ""):
         bundle=None,
         runtime_logs="",
         validations=validations,
+        unverified="",
+        screenshots=None,
     )
 
 

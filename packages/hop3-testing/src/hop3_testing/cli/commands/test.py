@@ -31,8 +31,10 @@ from hop3_testing.catalog.published import (
     PublishedCatalogError,
     published_tests,
 )
+from hop3_testing.catalog.scanner import default_catalog_apps
 from hop3_testing.cli.deprecation import warn_deprecated
 from hop3_testing.cli.runners import LeftOut, run_tests
+from hop3_testing.screenshots import ScreenshotSettings
 from hop3_testing.selector import Selector, get_mode_config, list_modes
 from hop3_testing.selector.modes import MODE_ALIASES
 from hop3_testing.targets import DockerTarget, RemoteTarget
@@ -352,6 +354,18 @@ def _run_image_sweep(
     help="Recipes from the sibling catalog checkout (local), or from the catalog "
     "the server publishes, installed with `hop3 catalog install` (published)",
 )
+@click.option(
+    "--screenshots",
+    is_flag=True,
+    help="Photograph each catalog recipe once it passed, signed in, into its "
+    "screenshots/ (a server target only; needs `uv run --with playwright`)",
+)
+@click.option(
+    "--screenshots-to",
+    type=click.Path(file_okay=False, path_type=Path),
+    default=None,
+    help="Also copy every image into this directory (implies --screenshots)",
+)
 @click.pass_context
 def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
     ctx: click.Context,
@@ -383,6 +397,8 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
     statuses: tuple[str, ...],
     covers: tuple[str, ...],
     recipes: str,
+    screenshots: bool,
+    screenshots_to: Path | None,
 ) -> None:
     """
     Deploy Hop3 and run tests.
@@ -401,6 +417,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
       hop3-test run --host X demos/demo03     # Specific app on a remote
       hop3-test run --reuse --host X          # Skip deploy
       hop3-test run --host X --recipes published  # The catalog operators install
+      uv run --with playwright hop3-test run --host X --screenshots  # + images
       hop3-test run --provider hetzner --image ubuntu-24.04       # One fresh cloud box
       hop3-test run --provider hetzner --images ubuntu-24.04,debian-13  # Sweep several
       hop3-test run --provider hetzner --images all               # Sweep every image
@@ -497,6 +514,9 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         sys.exit(1)
 
     root = ctx.obj["root"]
+    shot_settings = _screenshot_settings(
+        screenshots or screenshots_to is not None, screenshots_to, target_type, root
+    )
     select = None
     if recipes == "published":
         if unpublished := sorted(set(statuses) - set(PUBLISHED_STATUSES)):
@@ -638,7 +658,33 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         available_features=available_features,
         left_out=left_out,
         select=select,
+        screenshots=shot_settings,
     )
+
+
+def _screenshot_settings(
+    wanted: bool, copy_to: Path | None, target_type: str, root: Path
+) -> ScreenshotSettings | None:
+    """Where the run files its screenshots, or exit with why it cannot take any."""
+    if not wanted:
+        return None
+    if target_type == "docker":
+        click.echo(
+            "Error: --screenshots needs a server (--host): a Docker target's "
+            "apps answer only to a Host header on a published port, which a "
+            "browser cannot send.",
+            err=True,
+        )
+        sys.exit(1)
+    catalog_apps = default_catalog_apps(root)
+    if catalog_apps is None:
+        click.echo(
+            f"Error: --screenshots files images under each recipe in the catalog "
+            f"checkout, and there is none at {root.parent / 'hop3-catalog'}.",
+            err=True,
+        )
+        sys.exit(1)
+    return ScreenshotSettings(catalog_apps=catalog_apps, copy_to=copy_to)
 
 
 def _leave_out_docker_built(

@@ -21,6 +21,7 @@ from hop3_testing.runners import (
     DeploymentTestRunner,
     TutorialTestRunner,
 )
+from hop3_testing.screenshots import self_test as screenshot_self_test
 from hop3_testing.targets.admin import ensure_admin_token, run_as_admin
 from hop3_testing.targets.constants import HOP3_SERVER_BIN
 from hop3_testing.util.console import PrintingConsole, Verbosity
@@ -35,6 +36,7 @@ if TYPE_CHECKING:
 
     from hop3_testing.catalog.models import TestDefinition
     from hop3_testing.runners.base import TestResult
+    from hop3_testing.screenshots import ScreenshotSettings
     from hop3_testing.targets.base import DeploymentTarget
 
 
@@ -314,6 +316,7 @@ def _execute_tests(
     verbose: bool,
     debug: bool,
     fail_fast: bool,
+    screenshots: ScreenshotSettings | None = None,
 ) -> list[TestResult]:
     """
     Run the ordered tests, recording each result.
@@ -338,6 +341,7 @@ def _execute_tests(
             console=console,
             debug=debug,
             redeploy=redeploy,
+            screenshots=screenshots,
         )
         results.append(result)
         store.save(result)
@@ -406,6 +410,7 @@ def run_tests(
     left_out: Sequence[LeftOut] = (),
     select: Callable[[DeploymentTarget, list[LeftOut]], list[TestDefinition]]
     | None = None,
+    screenshots: ScreenshotSettings | None = None,
 ) -> None:
     """
     Run tests against a target.
@@ -418,6 +423,13 @@ def run_tests(
     verbose = ctx.obj["verbose"]
     console = _create_console(verbose, quiet)
     left_out = list(left_out)
+
+    if screenshots is not None and (problem := screenshot_self_test()):
+        # Before the target is touched: a missing browser costs seconds here,
+        # and a whole run if it is found at the first app.
+        console.error(f"--screenshots cannot run: {problem}")
+        sys.exit(1)
+
     if select is None and available_features is not None:
         # Before the target starts: a run with nothing left installs nothing.
         tests = _runnable_with_services(tests, available_features, left_out, console)
@@ -485,6 +497,7 @@ def run_tests(
             console,
             keep=keep,
             redeploy=redeploy,
+            screenshots=screenshots,
             verbose=verbose,
             debug=debug,
             fail_fast=fail_fast,
@@ -570,6 +583,7 @@ def run_single_test(
     console: PrintingConsole | None = None,
     debug: bool = False,
     redeploy: bool = True,
+    screenshots: ScreenshotSettings | None = None,
 ) -> TestResult:
     """Run a single test with the appropriate runner."""
     common_kwargs: dict[str, Any] = {"cleanup": cleanup, "verbose": verbose}
@@ -582,7 +596,9 @@ def run_single_test(
     elif test.tutorial is not None:
         runner = TutorialTestRunner(target, **common_kwargs)
     else:
-        runner = DeploymentTestRunner(target, redeploy=redeploy, **common_kwargs)
+        runner = DeploymentTestRunner(
+            target, redeploy=redeploy, screenshots=screenshots, **common_kwargs
+        )
 
     result = runner.run(test)
 

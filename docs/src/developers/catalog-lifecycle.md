@@ -62,7 +62,7 @@ hop3-test run --host <server> --recipes published --with all
 hop3-test run --host <server> --recipes published gitea-nixgen   # one app
 ```
 
-A published run refreshes the server's catalog first and fails if the refresh does. Alpha is refused: the catalog does not publish it. Each app is installed, validated, upgraded with `hop3 app upgrade` and validated again, then destroyed. Installing builds each app from source, so budget generously: a single Rust-heavy app can take twenty minutes. `scripts/check-catalog.py`, in the catalog repository, still takes the screenshots (`--screenshots`).
+A published run refreshes the server's catalog first and fails if the refresh does. Alpha is refused: the catalog does not publish it. Each app is installed, validated, upgraded with `hop3 app upgrade` and validated again, then destroyed. Installing builds each app from source, so budget generously: a single Rust-heavy app can take twenty minutes. `--screenshots` also photographs each app signed in, into its recipe's `screenshots/`, and is what verifies the apps whose sign-in only a browser can drive; without it those are reported as not verified. It needs Playwright: `uv run --with playwright hop3-test run --host <server> --recipes published --screenshots`.
 
 ## The loop
 

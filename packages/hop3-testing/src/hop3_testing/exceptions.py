@@ -34,6 +34,10 @@ class CommandTimeoutError(TestingError):
     """Raised when a command on the target runs past its ceiling and is killed."""
 
 
+class BrowserSignInError(TestingError):
+    """Raised when an app's sign-in is the browser's to verify, and it failed."""
+
+
 class CleanupError(TestingError):
     """Raised when cleanup fails."""
 

@@ -90,6 +90,19 @@ hop3-test upgrade-chain --docker --chain local,local
 | `--no-redeploy` | Deploy each app once, skipping the second deploy and validation pass |
 | `--docker` | Use Docker target |
 | `--host HOST` | Remote server hostname |
+| `--screenshots` | Photograph each catalog recipe signed in, into its `screenshots/` (a server only) |
+| `--screenshots-to DIR` | Also copy every image into `DIR` (implies `--screenshots`) |
+
+### Screenshots, and the sign-ins only a browser can check
+
+`--screenshots` drives a real browser to each passed catalog recipe before it is destroyed: its sign-in page, then its first page once signed in with the app's admin credential. The images land in the recipe's `screenshots/` in the catalog checkout, which the catalog publishes. The browser reaches the app over HTTPS at its test hostname, resolved to the server, so it needs a server target; on Docker the flag is refused. Playwright is loaded only for this:
+
+```bash
+uv run --with playwright playwright install chromium     # once
+uv run --with playwright hop3-test run --host <server> --recipes published --screenshots
+```
+
+Some apps build their sign-in form in JavaScript, so their `check.py` verifies everything else and leaves the sign-in to a browser (`SIGN-IN VERIFIED BY BROWSER`). With `--screenshots`, a browser that cannot sign in fails the test. Without it, the test is reported as **not verified**: listed by name in the summary, stored with the status `unverified`, and not counted as a failure, since nothing found the app broken. A release run uses `--screenshots`, so those apps count only once a browser has signed in.
 
 ### Features follow the apps
 
