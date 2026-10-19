@@ -1,5 +1,5 @@
 version = 1
-revision = 3
+revision = 5
 requires-python = ">=3.12, <3.15"
 resolution-markers = [
     "python_full_version >= '3.14'",
@@ -1249,7 +1249,7 @@ wheels = [
 
 [[package]]
 name = "hop3"
-version = "0.7.5"
+version = "0.8.0"
 source = { virtual = "." }
 dependencies = [
     { name = "hop3-cli" },
@@ -1380,7 +1380,7 @@ doc = [{ name = "zensical" }]
 
 [[package]]
 name = "hop3-cli"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-cli" }
 dependencies = [
     { name = "jsonrpcclient" },
@@ -1409,7 +1409,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-installer"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-installer" }
 
 [package.dev-dependencies]
@@ -1430,7 +1430,7 @@ dev = [
 
 [[package]]
 name = "hop3-marketplace"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-marketplace" }
 dependencies = [
     { name = "hop3-server" },
@@ -1445,7 +1445,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-rootd"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-rootd" }
 
 [package.dev-dependencies]
@@ -1464,7 +1464,7 @@ dev = [
 
 [[package]]
 name = "hop3-server"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-server" }
 dependencies = [
     { name = "advanced-alchemy" },
@@ -1560,7 +1560,7 @@ dev = [
 
 [[package]]
 name = "hop3-testing"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-testing" }
 dependencies = [
     { name = "attrs" },
@@ -1608,7 +1608,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-testlab"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-testlab" }
 dependencies = [
     { name = "advanced-alchemy" },
@@ -1671,7 +1671,7 @@ dev = [
 
 [[package]]
 name = "hop3-tooling"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-tooling" }
 dependencies = [
     { name = "click" },
@@ -1690,7 +1690,7 @@ requires-dist = [
 
 [[package]]
 name = "hop3-tui"
-version = "0.7.5"
+version = "0.8.0"
 source = { editable = "packages/hop3-tui" }
 dependencies = [
     { name = "hop3-cli" },

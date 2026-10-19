@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [0.8.0] - 2026-10-19
+
 ### Highlights
 
 - **Accounts have roles.** `[access]` puts an app behind a Hop3 sign-in (ADR 061, ADR 062).
@@ -691,7 +693,8 @@ Major release: Hop3 becomes a complete self-hosted PaaS.
 
 The initial release covers the core architecture, app builders, addon support, SQLAlchemy models and the first test runner.
 
-[Unreleased]: https://github.com/abilian/hop3/compare/0.7.5...HEAD
+[Unreleased]: https://github.com/abilian/hop3/compare/0.8.0...HEAD
+[0.8.0]: https://github.com/abilian/hop3/compare/0.7.5...0.8.0
 [0.7.5]: https://github.com/abilian/hop3/compare/0.7.4...0.7.5
 [0.7.4]: https://github.com/abilian/hop3/compare/0.7.3...0.7.4
 [0.7.3]: https://github.com/abilian/hop3/compare/0.7.2...0.7.3
