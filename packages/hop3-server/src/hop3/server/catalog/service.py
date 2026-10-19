@@ -197,7 +197,7 @@ class CatalogService:
             return self._build(catalog_dir, available=True)
         # Not an error (a fresh node has no catalog yet) but it must be visible:
         # log loudly and report unavailable rather than serving an empty catalog as
-        # if it were a successful "0 apps" result (ADR 049 / CLAUDE.md fail-loud).
+        # if it were a successful "0 apps" result (ADR 049).
         logger.warning(
             "Catalog not available at %s — run a catalog sync to populate it.",
             catalog_dir,

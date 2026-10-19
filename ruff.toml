@@ -137,7 +137,7 @@ known-first-party = ["hop3"]
     "ANN",
     "FBT",
     "T20", # flake8-print
-    # CLAUDE.md: imports stay at top level (no TYPE_CHECKING shuffling).
+    # imports stay at top level (no TYPE_CHECKING shuffling).
     "TC001",
     "TC002",
     "TC003",

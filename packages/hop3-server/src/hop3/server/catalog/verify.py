@@ -16,7 +16,7 @@ Pure, side-effect-light functions for the catalog trust chain:
   directory (ADR 049 F1).
 
 These functions never fall back: any verification problem raises
-``CatalogVerificationError`` (ADR 049 / CLAUDE.md fail-loud).
+``CatalogVerificationError`` (ADR 049 / "fail-loud" doctrine).
 """
 
 from __future__ import annotations

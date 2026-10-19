@@ -5,7 +5,7 @@ Catalog spec-validation gate (ADR 049 F7).
 
 A *verified* catalog spec is authentic but still potentially hostile to its
 neighbours. This gate refuses a spec that would claim an **unmanaged shared
-resource** and break the "apps must coexist" invariant (CLAUDE.md).
+resource** and break the "apps must coexist" invariant.
 
 The one such resource a `hop3.toml` can actually express is the reverse-proxy
 default server: an app whose ``[domains].list`` is the nginx catch-all ``"_"``

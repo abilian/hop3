@@ -8,8 +8,7 @@ Trust model
 This module is loaded *only* by ``hop3-deploy``, the developer-facing
 deploy tool used to spin up a throwaway Docker container for local
 testing and CI. It is **never** imported by ``hop3-install`` (the
-production server installer) — see ``packages/hop3-installer/CLAUDE.md``
-for the entry-point split.
+production server installer).
 
 The hardcoded ``E2E_TEST_SECRET_KEY`` below is the supervisor's
 *fallback* JWT signing key, used only when the installer hasn't written

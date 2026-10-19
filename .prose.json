@@ -68,7 +68,9 @@
     "R34-verbless/adr05x-verb-present": "Five sentences across ADRs 050, 051, 052 and 054 carry their finite verb (commits, is, recur, takes, is) and are reported verbless: each has a long parenthetical, an inline-code run, or a masked quotation between the subject and the verb, and the masker blanks it to whitespace.",
     "R37-bold/adr052-labels": "ADR 052:20 italicises a parenthetical enumeration of the concepts the ADR is about ('*which server, where to install from, which optional services, how loud, machine-readable?*'), and :119 bolds the precedence formula 'explicit flag > env var > built-in default'. Both are labels, which rule 37 exempts; neither is a sentence set as a punchline.",
     "R31-runon/adr05x-enumerations": "NOT exempted, recorded as a judgement: the fifteen rule-31 hits across ADRs 050-058 were read in this pass. They are the genre's own shapes — '**Positive**: …; …; …' and '**Negative**: …; …; …' consequence lists, the per-request evaluation order '(1) …; (2) …; (3) …', and the flag-inventory comparisons in 052 that list each tool's options. Every one is a serial list whose items carry their own commas, which rule 31 names as its exemption. Re-read if the text changes; do not split on the count.",
-    "R31-runon/adr060-three-ways-list": "NOT exempted, recorded as a judgement: ADR 060:53 'Three ways to empty a bucket were available: keep `mc`, which …, so …; add `boto3`, roughly 15 MB …; or sign the two required S3 requests directly.' is a serial list whose items carry their own commas, which rule 31 names as its exemption."
+    "R31-runon/adr060-three-ways-list": "NOT exempted, recorded as a judgement: ADR 060:53 'Three ways to empty a bucket were available: keep `mc`, which …, so …; add `boto3`, roughly 15 MB …; or sign the two required S3 requests directly.' is a serial list whose items carry their own commas, which rule 31 names as its exemption.",
+    "R34-verbless/report-taglines-and-leads-batch": "The remaining experience-report taglines (bugsink, isso, keycloak, miniflux, radicale) and 'What this app exercised' leads (bugsink, invoice-ninja, isso, paheko, vikunja), recorded one pattern each under the series judgements R34-verbless/report-tagline and R34-verbless/report-section-lead.",
+    "R31-runon/ngi-funding-statement": "README.md: the NLnet / NGI0 Commons Fund acknowledgement is the funder's standard wording (fund, programme, DG CONNECT, grant agreement number), reproduced as funded projects are asked to. Not ours to split for style; same class as R12-inflated/next-generation-internet."
   },
   "allowlist": {
     "R33-taboo": [
@@ -140,7 +142,17 @@
       "the nix-gen `configfile` is",
       "the same handful of concepts",
       "but `hop3-deploy` takes",
-      "the twelve-factor \"backing services\" principle is explicit"
+      "the twelve-factor \"backing services\" principle is explicit",
+      "Self-hosted error tracking",
+      "Two processes from one recipe",
+      "A Laravel application whose UI is a Flutter canvas",
+      "A lightweight commenting system",
+      "A comment widget whose",
+      "Enterprise SSO / OIDC / SAML",
+      "Minimalist and opinionated RSS reader",
+      "A PHP application that resolves its own public URL",
+      "A simple CalDAV and CardDAV server",
+      "Two toolchains in one derivation"
     ],
     "R37-bold": [
       "whether a packet may reach a port",
@@ -170,7 +182,8 @@
       "supported (experimental)",
       "functionality lost)",
       "documentation links resolve",
-      "live at submission"
+      "live at submission",
+      "partly funded through the"
     ],
     "R12-inflated": [
       "Next Generation Internet",

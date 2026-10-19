@@ -37,8 +37,7 @@ IGNORE_FILE = "HOP3_TEST_IGNORE"
 # the former is skipped from the run (it is not a negative test); a genuine blocker
 # STAYS a negative test, so DEFERRED.md existence alone must NOT be the skip
 # signal. The business-drop is recognised by the _BUSINESS_DROP_MARKER line its
-# author wrote into the DEFERRED.md (CLAUDE.md's "business-reasons decision"
-# language). (audit C6)
+# author wrote into the DEFERRED.md.
 DEFERRED_FILE = "DEFERRED.md"
 _BUSINESS_DROP_MARKER = "not a platform limitation"
 

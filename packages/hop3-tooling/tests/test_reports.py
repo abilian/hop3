@@ -267,3 +267,29 @@ def test_withdrawn_reports_do_not_claim_coverage(root: Path) -> None:
     )
     findings = reports.check_all(root)
     assert not any(f.report == "01-gone.md" for f in findings)
+
+
+def _published(root: Path, app_id: str, status: str = "golden") -> None:
+    """A catalog entry the loader accepts, filed under its maturity status."""
+    d = _catalog_apps(root) / status / app_id
+    d.mkdir(parents=True)
+    (d / "hop3.toml").write_text(
+        f'[metadata]\nid = "{app_id}"\nversion = "1.0"\ndescription = "An app"\n'
+    )
+
+
+def test_coverage_counts_applications_across_the_status_tree(root: Path) -> None:
+    """
+    The scan listed the directories directly under `apps/`, which are the
+    maturity statuses since ADR 059: every report read as describing an app the
+    catalog did not carry, and a published app without a report went unseen.
+    """
+    _published(root, "demo")
+    _published(root, "demo-nixgen", status="beta")
+    _published(root, "orphan")
+    _published(root, "draft", status="alpha")
+    _write_report(root, "01-demo.md", GOOD)
+
+    coverage = [f.message for f in reports.check_all(root) if f.report == "(coverage)"]
+
+    assert coverage == ["catalog app 'orphan' has no report"]

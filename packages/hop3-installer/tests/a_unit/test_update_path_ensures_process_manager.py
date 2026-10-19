@@ -20,9 +20,7 @@ identically —
     ✗   The restart command failed: supervisorctl restart hop3-server
         unix:///var/run/supervisor.sock no such file
 
-— with no way out but `--clean`. Three consecutive runs failed that way before
-the cause was visible, which is the shape CLAUDE.md calls order-dependent: the
-outcome of a run decided by what ran before it.
+— with no way out but `--clean`.
 
 `start_services()` is idempotent (reread+update when supervisord is already
 running) and a no-op on systemd targets, so ensuring it here costs nothing in the

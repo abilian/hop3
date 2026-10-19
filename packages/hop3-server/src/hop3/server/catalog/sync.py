@@ -3,7 +3,7 @@
 """
 Catalog sync: fetch, verify, and atomically publish the catalog (ADR 049).
 
-Pipeline (each step fails loud — no silent fallback, CLAUDE.md):
+Pipeline (each step fails loud — no silent fallback):
 
 1. ``fetch_to`` — HTTPS GET with a hard byte ceiling. TLS is always verified; an
    ``https→http`` redirect aborts; the CLI ``verify_ssl`` setting is never consulted

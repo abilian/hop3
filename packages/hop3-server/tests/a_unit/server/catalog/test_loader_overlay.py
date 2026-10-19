@@ -4,7 +4,7 @@
 
 Identity comes from hop3.toml [metadata] (incl. `homepage`); presentation
 (category/tags/featured/memory/license_note/screenshots) comes from catalog.toml
-when present, with graceful fallbacks otherwise (ADR 049 / catalog repo CLAUDE.md).
+when present, with graceful fallbacks otherwise (ADR 049).
 """
 
 from __future__ import annotations
