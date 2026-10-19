@@ -205,7 +205,7 @@ Providing `--acme-email` writes `ACME_ENGINE=certbot` to `/etc/default/hop3`; wi
 
 **Debian/Ubuntu packages:**
 - bc, git, sudo, cron, build-essential
-- nginx, postgresql, postgresql-contrib
+- nginx, postgresql
 - python3-dev, python3-pip, python3-venv
 - curl, wget, rsync, socat
 - Various development libraries

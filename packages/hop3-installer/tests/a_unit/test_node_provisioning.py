@@ -143,3 +143,21 @@ def test_nodeenv_installed_from_pypi_venv_not_npm(monkeypatch, tmp_path):
     # Never the (wrong) npm package.
     assert not any("npm" in part for c in cmds for part in c)
     symlink.assert_called_once()
+
+
+def test_catalogue_baseline_takes_the_releases_names_and_never_removes(monkeypatch):
+    monkeypatch.setattr(
+        baselines, "BASELINE_PACKAGES", {"debian": ["ffmpeg", "libmariadb-dev"]}
+    )
+    with (
+        patch.object(deps_common, "Spinner"),
+        patch.object(deps_common, "run_cmd", return_value=_ok()) as run_cmd,
+    ):
+        deps_common.install_catalogue_baseline(
+            "debian", {"libmariadb-dev": "libmysqlclient-dev"}
+        )
+
+    install_cmd = run_cmd.call_args_list[0].args[0]
+    assert "libmysqlclient-dev" in install_cmd
+    assert "libmariadb-dev" not in install_cmd
+    assert "--no-remove" in install_cmd

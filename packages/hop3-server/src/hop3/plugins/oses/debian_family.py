@@ -29,7 +29,7 @@ PACKAGES = [
     "sudo",
     "cron",
     "build-essential",
-    "libpcre3-dev",
+    "libpcre2-dev",
     "zlib1g-dev",
     # Python
     "python3",

@@ -194,8 +194,10 @@ def _create_mysql_hop3_user(
     Create (or re-create) the hop3 MySQL user, with privileges.
 
     MySQL treats 'localhost' (socket) and '127.0.0.1' (TCP) as different
-    hosts, so the user is created for both. mysql_native_password, for
-    mysql-connector-python.
+    hosts, so the user is created for both, with the server's default
+    authentication plugin, as the addon creates each app's user. MySQL 8.4
+    (Ubuntu 26.04) no longer loads `mysql_native_password`, which this user
+    used to name; mysql-connector-python speaks `caching_sha2_password`.
     """
     _create_hop3_user_at(root_cmd, root_env, mysql_password, ("localhost", "127.0.0.1"))
 
@@ -220,8 +222,7 @@ def _create_hop3_user_at(
         _run_admin_sql(
             root_cmd,
             root_env,
-            f"CREATE USER 'hop3'@'{host}' IDENTIFIED WITH mysql_native_password "
-            f"BY '{mysql_password}';",
+            f"CREATE USER 'hop3'@'{host}' IDENTIFIED BY '{mysql_password}';",
             f"create user hop3@{host}",
         )
         _run_admin_sql(

@@ -7,7 +7,7 @@ from __future__ import annotations
 import re
 import subprocess
 import time
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -53,6 +53,10 @@ APT_NONINTERACTIVE_ENV = {
 # unbounded, and are appended to every apt-get command.
 APT_LOCK_FLAGS = ["-o", "DPkg::Lock::Timeout=600"]
 
+# A package-list install must never remove a package to resolve a conflict:
+# apt does it silently and exits 0. With this flag it stops and lists them.
+APT_NO_REMOVE = ["--no-remove"]
+
 
 # =============================================================================
 # Declarative Package Specification
@@ -97,6 +101,38 @@ class PackageSpec:
 # =============================================================================
 
 
+def apt_failure_reason(output: str) -> str:
+    """
+    apt's own verdict, for the error line.
+
+    apt prints it last, after a line per package already installed, so the
+    summary a caller shows cut it off. The `--no-remove` refusal names the
+    packages it would have removed.
+    """
+    lines = output.splitlines()
+    if "remove is disabled" in output:
+        removed: list[str] = []
+        for i, line in enumerate(lines):
+            if line.strip().startswith("The following packages will be REMOVED"):
+                for listed in lines[i + 1 :]:
+                    if not listed.startswith(" "):
+                        break
+                    removed += listed.split()
+        names = ", ".join(removed) or "packages"
+        return (
+            f"apt would remove {names} to resolve a conflict. The installer "
+            "never removes packages: remove them if nothing on this server "
+            "needs them, then run it again"
+        )
+    errors = [line.strip() for line in lines if line.strip().startswith("E: ")]
+    return errors[0] if errors else ""
+
+
+def _failed(what: str, result: subprocess.CompletedProcess[str]) -> str:
+    reason = apt_failure_reason("\n".join(filter(None, [result.stdout, result.stderr])))
+    return f"{what}: {reason}" if reason else what
+
+
 def install_base_packages(spec: PackageSpec) -> None:
     """Install base packages using the given spec."""
     # Update package lists if needed
@@ -119,7 +155,7 @@ def install_base_packages(spec: PackageSpec) -> None:
         )
 
     if result.returncode != 0:
-        print_error("Base package installation failed")
+        print_error(_failed("Base package installation failed", result))
         # apt reports *why* on stdout and only the summary on stderr: both
         # travel with the error, and main() prints them once.
         raise CommandError(
@@ -178,17 +214,17 @@ def install_optional_packages(
         # Start Docker daemon so docker0 interface exists for database binding
         _start_docker_daemon()
 
+    # Always the install, never "already installed, skip": apt and dnf make it
+    # a no-op when the packages are there. A command on PATH said nothing about
+    # the server's package: on Ubuntu 26.04 `mysql-server` had been removed and
+    # its `mysqld` (from mysql-server-core) remained, so the installer skipped
+    # it and stopped at `systemctl start` with no unit to start. A MariaDB
+    # server in the way now stops the install (`--no-remove`), by name.
     if config.with_mysql:
-        if not cmd_exists("mysql"):
-            install_feature_packages("MySQL", spec.mysql_packages, spec)
-        else:
-            print_success("MySQL already installed")
+        install_feature_packages("MySQL", spec.mysql_packages, spec)
 
     if config.with_redis:
-        if not cmd_exists("redis-server"):
-            install_feature_packages("Redis", spec.redis_packages, spec)
-        else:
-            print_success("Redis already installed")
+        install_feature_packages("Redis", spec.redis_packages, spec)
         configure_redis_func()
 
     if config.with_nix and not cmd_exists("xz"):
@@ -261,7 +297,7 @@ def install_feature_packages(name: str, packages: list[str], spec: PackageSpec) 
     # reporting "Unable to shut down server with process id ..." on *stdout*,
     # while the five stderr lines shown said only that apt-utils was missing —
     # which is a warning, and not the reason for anything.
-    print_error(f"{name} installation failed")
+    print_error(_failed(f"{name} installation failed", result))
     for stream in (result.stdout, result.stderr):
         for line in (stream or "").strip().split("\n")[-8:]:
             if line:
@@ -475,7 +511,9 @@ def _verify_or_repair_cargo(
     return run_as_hop3([str(cargo_path), "--version"])
 
 
-def install_catalogue_baseline(os_family: str) -> None:
+def install_catalogue_baseline(
+    os_family: str, renames: Mapping[str, str] | None = None
+) -> None:
     """
     Install the catalogue-derived package baseline.
 
@@ -496,6 +534,9 @@ def install_catalogue_baseline(os_family: str) -> None:
     if not packages:
         msg = f"baselines.py has no catalogue baseline for OS family {os_family!r}"
         raise InstallStepError(msg)
+    # The baseline names one package per family; a release can differ.
+    renames = renames or {}
+    packages = [renames.get(name, name) for name in packages]
 
     # Defence in depth against a stale baselines.py: never apt/dnf-install Node's
     # distro packages — Node comes from NodeSource (see _NODESOURCE_PROVIDED).
@@ -509,7 +550,7 @@ def install_catalogue_baseline(os_family: str) -> None:
     # `apt-get install` if already-installed is a near-noop.
     pkg_manager = "apt-get" if os_family == "debian" else "dnf"
     is_apt = pkg_manager == "apt-get"
-    lock_flags = APT_LOCK_FLAGS if is_apt else []
+    lock_flags = [*APT_NO_REMOVE, *APT_LOCK_FLAGS] if is_apt else []
     apt_env = APT_NONINTERACTIVE_ENV if is_apt else None
     # --no-install-recommends, as every other apt call in the provisioning path
     # already does. The baseline is a list of packages the catalogue *declared*;
@@ -539,7 +580,7 @@ def install_catalogue_baseline(os_family: str) -> None:
     # build, and a warning here is how a real conflict (e.g. NodeSource vs the
     # distro nodejs) stayed hidden while every Node app failed downstream. Abort
     # loudly so the operator fixes provisioning instead of chasing per-app errors.
-    print_error("Catalogue baseline install failed")
+    print_error(_failed("Catalogue baseline install failed", result))
     # As in install_base_packages: apt reports *why* on stdout and only the
     # one-line verdict on stderr ("E: Error, pkgProblemResolver::Resolve
     # generated breaks"), so both travel with the error; main() prints them.

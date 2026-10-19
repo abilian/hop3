@@ -52,3 +52,19 @@ def test_mysql_admin_statements_are_not_on_argv():
         mysql._run_admin_sql(["mysql", "-u", "root"], {}, sql, "create the user")
 
     assert calls == [(["mysql", "-u", "root"], sql)]
+
+
+def test_the_hop3_mysql_user_takes_the_servers_default_plugin():
+    """
+    MySQL 8.4 (Ubuntu 26.04) does not load `mysql_native_password`, so a user
+    created with it failed: "Plugin 'mysql_native_password' is not loaded".
+    """
+    calls: list = []
+    with patch.object(mysql, "run_cmd", side_effect=_recording(calls)):
+        mysql._create_mysql_hop3_user(["mysql"], {}, PASSWORD)
+
+    creates = [sql for _, sql in calls if sql.startswith("CREATE USER")]
+    assert creates == [
+        f"CREATE USER 'hop3'@'{host}' IDENTIFIED BY '{PASSWORD}';"
+        for host in ("localhost", "127.0.0.1")
+    ]

@@ -28,6 +28,7 @@ from hop3_installer.common import (
 from .config import ServerInstallerConfig
 from .deps_common import (
     APT_LOCK_FLAGS,
+    APT_NO_REMOVE,
     APT_NONINTERACTIVE_ENV,
     PackageSpec,
     install_base_packages,
@@ -42,7 +43,7 @@ from .redis import configure_redis
 # =============================================================================
 
 # Base packages common to all Debian/Ubuntu versions
-# Note: libpcre3-dev vs libpcre2-dev handled in _create_debian_package_spec
+# libpcre3-dev or libpcre2-dev: see _create_debian_package_spec
 DEBIAN_BASE_PACKAGES = [
     # Core utilities
     "bc",
@@ -50,12 +51,13 @@ DEBIAN_BASE_PACKAGES = [
     "sudo",
     "cron",
     "build-essential",
-    # libpcre handled separately - Debian 13+ uses libpcre2-dev
     "zlib1g-dev",
     # Web server and database
     "nginx",
+    # The contrib modules ship in the server package since PostgreSQL 10;
+    # `postgresql-contrib` is only a transitional name, and a virtual one with
+    # two providers on Ubuntu 26.04.
     "postgresql",
-    "postgresql-contrib",
     # Python toolchain
     "python3-dev",
     "python3-pip",
@@ -180,6 +182,21 @@ def _get_debian_docker_packages(distro_info: DistroInfo) -> list[str]:
     return packages
 
 
+def package_renames(distro_info: DistroInfo) -> dict[str, str]:
+    """
+    Per-release replacements for the names in the base list and the baseline.
+
+    The MySQL client headers (for `mysqlclient` and `mysqlclient-sys`) are
+    MariaDB's on every release (see package_aliases.py), except Ubuntu 26.04+:
+    there MySQL's server conflicts with `mariadb-common`, which every libmariadb
+    depends on, so installing the MariaDB headers removed `mysql-server`. MySQL's
+    own headers serve the same builds.
+    """
+    if distro_info.is_ubuntu and distro_info.version_major >= 26:
+        return {"libmariadb-dev": "libmysqlclient-dev"}
+    return {}
+
+
 def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
     """
     Create a PackageSpec appropriate for the detected distro version.
@@ -190,18 +207,19 @@ def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
     Returns:
         PackageSpec configured for the specific distro/version.
     """
-    packages = list(DEBIAN_BASE_PACKAGES)
+    renames = package_renames(distro_info)
+    packages = [renames.get(name, name) for name in DEBIAN_BASE_PACKAGES]
 
-    # Handle PCRE library transition
-    # Debian 13 (trixie)+ moved to PCRE2, older versions use PCRE3
+    # PCRE1 (libpcre3) is gone from Debian 13 (trixie) and Ubuntu 26.04
+    # (resolute); uWSGI builds against PCRE2 where PCRE1 is missing.
     is_debian_13_plus = distro_info.is_debian and (
         distro_info.codename in {"trixie", "forky", "sid"}
         or distro_info.version_major >= 13
     )
-    if is_debian_13_plus:
+    is_ubuntu_26_plus = distro_info.is_ubuntu and distro_info.version_major >= 26
+    if is_debian_13_plus or is_ubuntu_26_plus:
         packages.append("libpcre2-dev")
     else:
-        # Ubuntu and older Debian use libpcre3-dev
         packages.append("libpcre3-dev")
 
     # Get version-appropriate Docker packages
@@ -211,10 +229,15 @@ def _create_debian_package_spec(distro_info: DistroInfo) -> PackageSpec:
         pkg_manager="apt-get",
         update_cmd=["apt-get", "update", "-q", *APT_LOCK_FLAGS],
         env_vars=dict(APT_NONINTERACTIVE_ENV),
-        install_flags=["--no-install-recommends", *APT_LOCK_FLAGS],
+        # --no-remove: apt resolves a conflict by removing the other side and
+        # still exits 0. `--with mysql` and the baseline swapped the MySQL and
+        # MariaDB headers that way on every install, and on Ubuntu 26.04 the
+        # swap removed mysql-server. A list install now stops and names them.
+        install_flags=["--no-install-recommends", *APT_NO_REMOVE, *APT_LOCK_FLAGS],
         base_packages=packages,
         docker_packages=docker_packages,
-        mysql_packages=["mysql-server", "mysql-client", "libmysqlclient-dev"],
+        # The client headers are in the base list (see package_renames).
+        mysql_packages=["mysql-server", "mysql-client"],
         redis_packages=["redis-server"],
         nix_packages=["xz-utils"],
         # npm is not a conditional package: the distro `npm` would drag in

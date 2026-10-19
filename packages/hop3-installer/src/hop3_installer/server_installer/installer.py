@@ -25,6 +25,7 @@ from hop3_installer.common import (
     ServiceStartError,
     check_python_version,
     detect_distro,
+    detect_distro_info,
     print_detail,
     print_error,
     print_failure_output,
@@ -46,6 +47,7 @@ from .deps_common import (
     install_node_global_packages,
     install_rust_toolchain,
 )
+from .deps_debian import package_renames
 from .mailpit import install_mailpit
 from .mysql import setup_mysql
 from .nginx import reconcile_http_settings, setup_nginx
@@ -149,7 +151,9 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     # aborts loudly rather than letting apps fail confusingly downstream.
     print_step(1, TOTAL_STEPS, "Installing system dependencies...")
     install_system_deps(distro, config)
-    if distro in {"debian", "fedora"}:
+    if distro == "debian":
+        install_catalogue_baseline(distro, package_renames(detect_distro_info()))
+    elif distro == "fedora":
         install_catalogue_baseline(distro)
 
     # Step 2: Create user
