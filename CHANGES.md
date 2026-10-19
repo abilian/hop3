@@ -178,6 +178,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Production code no longer checks whether it runs under pytest.** Seven places skipped a hop3-rootd call, the Mailpit check or the port-25 probe when `PYTEST_CURRENT_TEST` was set; the test suite now replaces those dependencies with fakes it declares.
 - **`070-php-public` expected the pre-2026-09-25 answer for `/.env`** (the front controller). nginx now answers hidden files with 404, which the fixture now checks.
 - **`hop3-tools catalog reports` checks coverage against the catalog's maturity folders.** It listed the directories directly under `apps/`, which have been the statuses since the catalog moved to them, so it said every experience report described an app the catalog did not hold, and could never report a published application without one. It now counts the applications behind the published entries, a variant counting as its application.
+- **A test run says what chose its tests.** Without apps, paths or `--status`, `hop3-test run` takes the `smoke` profile, nine Procfile fixtures, and a server rebuilt for the full catalog run passed it twice with "All 9 tests passed". The run now prints the selection before it starts and again under its summary, for example "profile smoke (tier fast; priority P0): 9 of 256 tests", with the options that widen it.
 
 ## [0.7.5] - 2026-09-21
 

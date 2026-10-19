@@ -411,9 +411,13 @@ def run_tests(
     select: Callable[[DeploymentTarget, list[LeftOut]], list[TestDefinition]]
     | None = None,
     screenshots: ScreenshotSettings | None = None,
+    selection: str = "",
 ) -> None:
     """
     Run tests against a target.
+
+    ``selection`` says what chose the tests; the summary repeats it, so a run
+    that selected nine tests cannot pass for one that selected the catalog.
 
     This is the single test execution function used by all CLI commands.
     The target is started, tests are executed, results are collected and reported.
@@ -505,7 +509,7 @@ def run_tests(
 
         store.finish_run()
         reporter.summary(results)
-        _report_left_out(left_out, console)
+        _report_scope(selection, left_out, console)
         generate_reports(target, report, results)
         if narrate:
             narrate_timings(results)
@@ -518,6 +522,15 @@ def run_tests(
         if not keep:
             console.status("Stopping target...")
             target.stop()
+
+
+def _report_scope(
+    selection: str, left_out: Sequence[LeftOut], console: PrintingConsole
+) -> None:
+    """Under the summary: what chose the tests, and what the run left out."""
+    if selection:
+        console.notice(f"Selection: {selection}")
+    _report_left_out(left_out, console)
 
 
 def _maybe_prepare_tutorial_host(

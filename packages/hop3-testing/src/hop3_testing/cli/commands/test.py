@@ -26,6 +26,7 @@ from hop3_testing.catalog.features import (
     validate_features,
 )
 from hop3_testing.catalog.loader import load_test_definition_smart
+from hop3_testing.catalog.models import TargetType
 from hop3_testing.catalog.published import (
     PUBLISHED_STATUSES,
     PublishedCatalogError,
@@ -36,7 +37,7 @@ from hop3_testing.cli.deprecation import warn_deprecated
 from hop3_testing.cli.runners import LeftOut, run_tests
 from hop3_testing.screenshots import ScreenshotSettings
 from hop3_testing.selector import Selector, get_mode_config, list_modes
-from hop3_testing.selector.modes import MODE_ALIASES
+from hop3_testing.selector.modes import MODE_ALIASES, ModeConfig
 from hop3_testing.targets import DockerTarget, RemoteTarget
 from hop3_testing.targets.config import DeploymentConfig, DockerConfig, RemoteConfig
 
@@ -580,6 +581,18 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
             click.echo("Clean install: True")
         if features:
             click.echo(f"Features: {', '.join(features)}")
+    scanned = 0 if app_names or statuses else _scan_count(root, target_type)
+    selection = describe_selection(
+        mode=mode,
+        app_names=app_names,
+        statuses=statuses if select is None else (),
+        covers=covers,
+        published=select is not None,
+        published_statuses=statuses,
+        selected=len(tests),
+        scanned=scanned,
+    )
+    click.echo(f"\nSelection: {selection}")
     if select is not None:
         click.echo(
             f"\nRecipes: the catalog the server publishes ({', '.join(statuses)}),"
@@ -659,7 +672,61 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         left_out=left_out,
         select=select,
         screenshots=shot_settings,
+        selection=selection,
     )
+
+
+def describe_selection(
+    *,
+    mode: str,
+    app_names: tuple[str, ...],
+    statuses: tuple[str, ...],
+    covers: tuple[str, ...],
+    published: bool,
+    published_statuses: tuple[str, ...],
+    selected: int,
+    scanned: int,
+) -> str:
+    """
+    What chose a run's tests, in one line; the summary repeats it.
+
+    Without apps, paths or `--status`, the `--mode` profile chooses, and the
+    default profile is `smoke`. A server rebuilt for the full catalog run ran
+    the nine smoke fixtures, twice, and the summary said "All 9 tests passed".
+    """
+    narrowed = f", covers {', '.join(covers)}" if covers else ""
+    if published:
+        return (
+            f"the published catalog, status {', '.join(published_statuses)}{narrowed}"
+        )
+    if statuses:
+        return f"catalog status {', '.join(statuses)}{narrowed}: {selected} tests"
+    if app_names:
+        return f"the apps and paths named{narrowed}: {selected} tests"
+    config = get_mode_config(mode)
+    line = (
+        f"profile {config.name} ({_profile_filter(config)}){narrowed}: "
+        f"{selected} of {scanned} tests"
+    )
+    if config.name == "full":
+        return line
+    return f"{line}. `--mode full` runs every test; `--status` picks catalog tiers"
+
+
+def _profile_filter(config: ModeConfig) -> str:
+    """How a profile filters, as the selection line names it."""
+    if config.tests:
+        return "a hand-picked list"
+    rule = f"tier {', '.join(config.tiers)}; priority {', '.join(config.priorities)}"
+    return f"{rule}; one test per combination" if config.representative else rule
+
+
+def _scan_count(root: Path, target_type: str) -> int:
+    """How many tests the default scan finds that can run on this target."""
+    catalog = Catalog(root)
+    catalog.scan(paths=default_scan_paths(root))
+    target = TargetType(target_type)
+    return sum(1 for t in catalog.filter() if t.can_run_on(target))
 
 
 def _screenshot_settings(
