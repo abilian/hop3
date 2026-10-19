@@ -5,13 +5,13 @@
 **Successor:** [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind this release), [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md), and [`parked.md`](parked.md) (directions not scheduled).
 **Sources:** the "After 0.7" list in [`../todo.md`](../todo.md), TR-03 §9 (Future Work), the draft and deferred ADRs, the per-app experience reports and their deferral records, the team's internal roadmap notes.
 
-This file reads in time order: what is left to do first, with what it takes to do it; the decisions those tasks rest on; the open work outside the release gate; then what is done, briefly, at the end.
+This file reads in time order: what is left to do first, with what it takes to do it; the decisions those tasks rest on; then what is done, briefly, at the end.
 
 ## Status, 2026-10-18
 
-- **Release gate:** the catalog is published under `catalog/v1/`, the blank-slate catalog run passes (2026-10-13), and so does a run of the published catalog on a remote server (2026-10-18). Left: the tutorial suite on a server, `make test-e2e` on a quiet machine, the HTTPS login path, and SF's review of the release notes.
-- **Headlines:** php-fpm (2) and local-source builds (3) are done. Per-app UID separation (1) ships its first two steps and rootd's caller check; per-app users move to 0.9. Installer composability (4) is partly done.
-- **Scope:** the second tier moved to 0.9 (2026-10-13, [below](#decided-the-second-tier-moves-to-09-2026-10-13)).
+- **Release gate:** the catalog is published under `catalog/v1/`. A run of the published catalog (2026-10-18) and the tutorial suite (2026-10-18) pass on a remote server. Left: the full catalog run on a blank-slate server, `make test-e2e` on a quiet machine, the HTTPS login path, and SF's review of the release notes.
+- **Headlines:** php-fpm (2) and local-source builds (3) are done. Per-app UID separation (1) ships its first two steps and rootd's caller check; per-app users move to 0.9. Installer composability (4) ships in part; the rest moves to 0.9.
+- **Scope:** the second tier moved to 0.9 (2026-10-13, [below](#decided-the-second-tier-moves-to-09-2026-10-13)), and so did the rest of 0.8's open work (2026-10-19, [below](#decided-the-remaining-open-work-moves-to-09-2026-10-19)). 0.8 tags on its release checks alone.
 
 ## Before tagging
 
@@ -36,8 +36,8 @@ In order. An item names how to run it and what finishes it.
 
 ### Runs
 
-- [x] **A full catalog run on a blank-slate remote server** (2026-10-13): `uv run hop3-test run --provider hetzner --host <throwaway box> --with all --from local` passes. Repeat it on the release tree if anything below changes the server.
-- [ ] **The full tutorial suite on a remote server**: `uv run hop3-test run --host <server> --from local docs/tutorials`. The 2026-10-06 failures (rails, sinatra, jekyll, django, nestjs, nuxtjs, nix-gen-flask) are fixed and not re-run.
+- [ ] **A full catalog run on a blank-slate remote server**: `uv run hop3-test run --provider hetzner --host <throwaway box> --with all --from local --mode full`. Finished when the catalog's golden, beta and alpha tiers pass on the rebuilt box and its empty Nix store, last done on 2026-09-21. Without `--mode`, `run` takes the `smoke` profile (fast and P0 tests only), which is the nine Procfile fixtures: the runs of 2026-10-13 (run 1244) and 2026-10-19 (run 1295) that this item once recorded as the catalog run were those nine.
+- [x] **The full tutorial suite on a remote server** (2026-10-18, run 1294): `uv run hop3-test run --host <server> --from local docs/tutorials` passed 35 of 35, the 2026-10-06 failures (rails, sinatra, jekyll, django, nestjs, nuxtjs, nix-gen-flask) included.
 - [ ] **`make test-e2e` on a quiet machine** (one e2e session per machine).
 - [x] **Re-record directus-nixgen's `node-deps-hash` on x86_64** (2026-10-17). Recorded from a cold build on an x86_64 Docker host. The build behind it then failed to compile `isolated-vm` 5.0.3, which uses `uint32_t` without including `<cstdint>`; the `node-pnpm-install` template now force-includes it for native addons, and the recipe passes, redeploy included. Alpha, so nothing to publish.
 - [ ] **The HTTPS login path against a real admin domain.** Owed since ADR 042's fourth revision: only the SSH fallback has run end to end. On a server with an admin domain and a trusted certificate: `hop3 login`, then a read-only command, checking that it travels over HTTPS and not the SSH tunnel; then the same with the gated fixture `180-flask-gated`, which the runner includes only on such a server.
@@ -76,34 +76,13 @@ Built; [ADR 049](../adrs/049-catalog-distribution.md#versioning) records the des
 
 ## Decided: the second tier moves to 0.9 (2026-10-13)
 
-SF cut the second tier: email beyond the harness, the control-plane audit log, monitoring and resource metrics, the rest of the command surface (ADR 047 and the command-manifest ADR), the `hop3-catalog-core` extraction, and catalog growth. Each is in [`plan-0.9-plus.md`](plan-0.9-plus.md#cut-from-08-2026-10-13), with the detail it had here. 0.8 keeps the remainder of headline 4 and the gate's remaining items, below.
+SF cut the second tier: email beyond the harness, the control-plane audit log, monitoring and resource metrics, the rest of the command surface (ADR 047 and the command-manifest ADR), the `hop3-catalog-core` extraction, and catalog growth. Each is in [`plan-0.9-plus.md`](plan-0.9-plus.md#cut-from-08-2026-10-13), with the detail it had here. 0.8 kept the remainder of headline 4 and the gate's remaining items until 2026-10-19 (below).
 
-## Open work in 0.8's scope
+## Decided: the remaining open work moves to 0.9 (2026-10-19)
 
-What remains of 0.8's headline 4 and of the gate.
+SF moved what was left in 0.8's scope: the rest of headline 4 (the installer's `--with=nodejs-*|pnpm|headless-browsers|latex`, a per-app package manager version, the kernel sysctls) and the gate's remaining items (bearer tokens for scripts, Caddy and Traefik in the installer, per-app roles, a regular run of the gate). Each is in [`plan-0.9-plus.md`](plan-0.9-plus.md#cut-from-08-second-round-2026-10-19), with the detail it had here.
 
-### Installer composability: toolchain versions as a choice (headline 4)
-
-The server shipped one Node version and no pnpm, so umami (needs ≥20) and ghost (needs pinned ≥18.12) could not be packaged natively, and native Outline and Strapi hit the same wall. Per-app `[build].node-version` and a pinned server-wide npm and pnpm are done; what remains:
-
-- [ ] **`hop3-install server --with=nodejs-18|nodejs-22|pnpm|headless-browsers|latex`**, composing with the existing `--with` features (`rust`, `clojure`, `elixir` exist: installed best-effort on every server, and requesting one makes its failure stop the install).
-- [ ] **A per-app package manager version.** A recipe cannot ask for a pnpm other than the server's. Etherpad has absorbed three breaking pnpm-10 changes in its download script to compensate; the third, upstream's plugin migration calling `pnpm ls --no-production` (a flag pnpm 10 removed), is a fatal startup error, so it presents as an app that will not boot although the build succeeds. Blocker #33 asks *which* package manager (dispatch from the lockfile); this asks *which version*. The two want deciding together.
-
-  **Experiment before deciding** (SF, 2026-09-25). It takes three steps, each producing a table:
-
-  1. *Inventory.* For every Node recipe in the catalog, native, Docker and Nix, fetch upstream at the recipe's version and record: the lockfiles present and their `lockfileVersion`, the `packageManager` field of `package.json`, any `engines` entry for npm, pnpm or yarn, and what the recipe does today (an overridden install command, a workaround in a script). This says how many apps name their package manager and its version themselves, and how many ship two lockfiles.
-  2. *Native build matrix* on Docker, for the apps with a pnpm or yarn lockfile. Build each three ways: today's server-wide pnpm; the version `packageManager` names, through corepack, installed into the app's venv; and a version installed into the venv beside `[build].node-version`. Record whether it builds, starts and passes `check.py`, the build time, and which of the recipe's workarounds can be deleted (etherpad's three are the test).
-  3. *Nix.* `node-pnpm-install` takes its pnpm from the nixpkgs pin, which offers one attribute per major (`pnpm_9`, `pnpm_10`). Build directus-nixgen and etherpad-nixgen with each major and with the major `packageManager` names, and check whether the major is enough for the lockfile.
-
-  What decides: the mechanism that removes the per-recipe workarounds, gives the same answer on both builders (so at most a major on the Nix side, since the sandbox cannot download a pnpm), and fails at build naming the version it could not provide. Corepack downloads the package manager at build time: acceptable on the native builder, not in the Nix sandbox, and that asymmetry is part of what the matrix measures.
-- [ ] **Kernel sysctls the platform requires** (`vm.max_map_count` for bundled Elasticsearch): unblocks SonarQube and anything Elasticsearch-shaped.
-
-### Roles and the sign-in gate: what remains
-
-- [ ] **Bearer tokens for scripts** calling a gated API, the gate's remaining open question (ADR 062).
-- [ ] **Caddy and Traefik in the installer**: an admin-domain route for each, Traefik's `aliasHeadersStrategy: delete` (the gate relies on it), and certificates made proxy-aware. certbot issuance and renewal are wired to nginx only, so both are refused elsewhere today.
-- [ ] **Per-app roles**, designed into ADR 061 and not built: a deployer reaches every app on the server.
-- [ ] **Where the gate runs regularly.** `180-flask-gated` needs an admin domain, so the Docker target and a server addressed by IP leave it out. Either target the box by its hostname and include the fixtures, or give those targets an admin domain of their own ([`../todo.md`](../todo.md)).
+Every one of them changes the server, so each would have sent the release back through the blank-slate catalog run and the tutorial run. No published recipe needs any of them. What 0.8 ships without them: headline 4 in part, a sign-in gate that a server installed with Caddy or Traefik cannot use yet (the release notes say so), a deployer role that reaches every app, and Etherpad's pnpm-10 workarounds. A native Node app in 0.8's catalog, or the gate on Caddy in this release, would each have pulled one item back in.
 
 ## The theme
 
@@ -116,11 +95,11 @@ The server shipped one Node version and no pnpm, so umami (needs ≥20) and ghos
 
 Absent on purpose: nothing watches a process that dies (ADR 029), and multi-process applications rely on convention alone (ADR 038). Both are in [`parked.md`](parked.md); each would change the platform's shape.
 
-**What makes 0.8 a good release:** an operator can be handed the platform with one stated caveat. An app that cannot reach root (reading its neighbour's data waits for 0.9). PHP served properly. A generator packages your own code. An installer can be asked for the toolchain you need. Roles and the sign-in gate add the other half: the operator decides who reaches each app.
+**What makes 0.8 a good release:** an operator can be handed the platform with one stated caveat. An app that cannot reach root (reading its neighbour's data waits for 0.9). PHP served properly. A generator packages your own code. An app chooses its Node version. An operator can ask the installer for Rust, Clojure or Elixir. Roles and the sign-in gate add the other half: the operator decides who reaches each app.
 
 ## After 0.8
 
-The queue behind this release is [`plan-0.9-plus.md`](plan-0.9-plus.md). It starts with the second tier cut from 0.8 (email, the audit log, monitoring, the command surface, catalog-core, catalog growth) and per-app users with build-time isolation. Then come recipe upgrades for installed catalog applications, SSO and MFA, the isolation ADR and the alternative backends behind it, the runtime-stack replacement (ADR 023), deployment strategies, backups phases 2 and 3, supply-chain attestation, and a tail of smaller items. ADR 055 moves from Proposed to Accepted once that work settles its open questions.
+The queue behind this release is [`plan-0.9-plus.md`](plan-0.9-plus.md). It starts with what was cut from 0.8: the second tier (email, the audit log, monitoring, the command surface, catalog-core, catalog growth), then the rest of headline 4 and of the sign-in gate. Per-app users with build-time isolation come next. Then come recipe upgrades for installed catalog applications, SSO and MFA, the isolation ADR and the alternative backends behind it, the runtime-stack replacement (ADR 023), deployment strategies, backups phases 2 and 3, supply-chain attestation, and a tail of smaller items. ADR 055 moves from Proposed to Accepted once that work settles its open questions.
 
 Directions *not* scheduled (the agent model, multi-component applications, the generator's second output target, the classifier extraction, and portability as a nightly property) are in [`parked.md`](parked.md), with the reason each is held back.
 
@@ -145,7 +124,7 @@ The pool runs as a uWSGI `attach-daemon`, nginx speaks FastCGI to it, and the re
 
 ### Headline 4: in part
 
-A recipe sets its Node version with `[build].node-version`. npm and pnpm are pinned server-wide and reconciled on every install (2026-09-14, 10-06). `--with rust|clojure|elixir` installs those toolchains on request (2026-10-05).
+A recipe sets its Node version with `[build].node-version`. npm and pnpm are pinned server-wide and reconciled on every install (2026-09-14, 10-06). `--with rust|clojure|elixir` installs those toolchains on request (2026-10-05). The rest moved to 0.9 on 2026-10-19.
 
 ### Roles and the sign-in gate (2026-09-25)
 
