@@ -7,7 +7,7 @@ languages: [go]
 databases: [postgres]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -32,11 +32,11 @@ An app that creates its own administrator at first start from injected environme
 
 ## What the platform gained
 
-No platform change; a pattern: where an application creates its administrator at first start from environment variables, the credential mapping *is* the bootstrap, and it has to be right before the first start.
+No platform change; a pattern: where an application creates its administrator at first start from environment variables, the credential mapping *is* the bootstrap, so it has to be right before the first start.
 
 ## Deployment variants
 
-A single binary configured entirely through environment variables: `DATABASE_URL` and little else. **Native** builds from source with make; the **Nix** variants take nixpkgs' package and compile from source respectively, which makes this the cleanest side-by-side of the two Nix strategies in the corpus.
+Miniflux is a single binary configured entirely through environment variables: `DATABASE_URL` and little else. **Native** builds from source with make; the **Nix** variants take nixpkgs' package and compile from source respectively, which makes this the cleanest side-by-side of the two Nix strategies in the corpus.
 
 ## Verification
 

@@ -141,7 +141,7 @@ We *aim* to support a wide range of operating systems, including:
 - **Linux**: Ubuntu, Debian, Archlinux, Rocky, Alma, Fedora, NixOS, Guix...
 - **BSD**: FreeBSD, OpenBSD, NetBSD.
 
-We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress, and we welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.builds](.builds) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
+We run CI tests on the SourceHut platform, which supports a wide range of open source distributions and operating systems. This is a work in progress. We welcome contributions to fix issues with the current tests or to expand the list of supported OS. See: [.builds](.builds) for the CI scripts, and https://builds.sr.ht/~sfermigier/ for current build status.
 
 ## Development and Contribution
 
@@ -283,13 +283,13 @@ Generative AI is been used for specific tasks in this project:
 - Reviewing documentation for consistency and correct English.
 - Large-scale refactorings, when standard tools
 
-Tools we use include the ([letscode coding agent](https://github.com/abilian/letscode)), which we developed as a side-project to this project, and its plugins; a dedicated, soon to be published, security audit tool; and Claude and Pi, two popular coding agents, one of them Open Source. LLM we use include Devstral (from Mistral), Deepseek (Deepseek), GLM (Z.ai) and Opus (Anthropic).
+Tools we use include the ([letscode coding agent](https://github.com/abilian/letscode)), which we developed as a side-project to this project, and its plugins; and Claude and Pi, two popular coding agents, one of them Open Source. LLM we use include Devstral (from Mistral), Deepseek (Deepseek), GLM (Z.ai) and Opus (Anthropic).
 
 A human drives and verifies all of these tasks.
 
 ## What's the story behind the name?
 
-"Hop3" (or more precisely "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something.
+"Hop3" (spelled out, "Hop^3" or "Hop cubed") is a pun on "Hop, hop, hop!" which is a French expression used to encourage quick action or to hurry someone up. It's akin to saying "Let's go!" or "Hurry up!" in English. It can also convey a sense of enthusiasm or encouragement to get moving or to proceed with something.
 
 ## Links / References
 

@@ -7,7 +7,7 @@ languages: [php]
 databases: [mysql]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -26,7 +26,9 @@ Nothing new. It is the control that says the common path is boring: `getenv()` c
 
 ## What broke
 
-Nothing that was WordPress's doing. It reads its configuration through `getenv()` in `wp-config.php`, which makes it unusually clean to express in every build path, and the template variant needed nothing the others did not. The one failure was ordering, and it was ours: the Docker variant started Apache before MySQL was accepting connections and returned a 500. A wait loop fixed it.
+Nothing that broke was WordPress's doing. It reads its configuration through `getenv()` in `wp-config.php`, which makes it unusually clean to express in every build path. The template variant needed nothing the others did not. The one failure was ours, an ordering problem: the Docker variant started Apache before MySQL was accepting connections and returned a 500. A wait loop fixed it.
+
+**The template variant had no probe account until 2026-10-18.** Its `[probe].create` ran `php scripts/probe-user.php`, a script only the native recipe shipped. The deploy went on past the failure, and the variant's check signed in as the operator instead. Since 2026-10-17 a test run fails an app whose probe account was not created, which is how it was found; the variant now ships the script.
 
 ## What the platform gained
 

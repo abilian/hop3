@@ -7,7 +7,7 @@ languages: [php]
 databases: [mysql]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -26,7 +26,7 @@ This application has no user-creation CLI. Its installer is a browser wizard, so
 
 ## What broke
 
-**Matomo 5 has no installation CLI.** Its Installation plugin is a browser wizard, and there is no console command for it or for creating a superuser. The app was once listed as a permanent deferral for that reason. The headless installer written for it performs the same steps the wizard performs, each guarded separately so it is idempotent *and* resumable: a run that created the schema and then failed skips the schema on the next deploy and goes on. A check that asked only "do the tables exist?" would declare a half-installed database finished.
+**Matomo 5 has no installation CLI.** Its Installation plugin is a browser wizard. No console command runs it or creates a superuser. The app was once listed as a permanent deferral for that reason. The headless installer written for it performs the same steps the wizard performs, each guarded separately so it is idempotent *and* resumable: a run that created the schema and then failed skips the schema on the next deploy and goes on. A check that asked only "do the tables exist?" would declare a half-installed database finished.
 
 **Installing is not enough.** The schema the installer writes is not necessarily at the code's version. Until `console core:update` has run, Matomo answers every request with a 302 to `?module=CoreUpdater`, including the login page a check posts to.
 

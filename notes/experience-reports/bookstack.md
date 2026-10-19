@@ -7,7 +7,7 @@ languages: [php]
 databases: [mysql]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -38,7 +38,7 @@ BookStack runs Laravel under Nix, where PHP's `__DIR__` resolves symlinks and la
 
 ## Deployment variants
 
-**Native** downloads the release and runs `composer install`; **Docker** builds from `debian:bookworm-slim`; **Nix** copies the tree writable (PHP resolves `__DIR__` through symlinks into the store) and generates `.env` from the addon's variables. The template variant uses `php-app` with `needs-writable-dir`.
+**Native** downloads the release and runs `composer install`. **Docker** builds from `debian:bookworm-slim`. **Nix** copies the tree writable (PHP resolves `__DIR__` through symlinks into the store) and generates `.env` from the addon's variables. The template variant uses `php-app` with `needs-writable-dir`.
 
 ## Verification
 

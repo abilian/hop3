@@ -7,7 +7,7 @@ languages: [php]
 databases: [mysql]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -28,7 +28,7 @@ It is the plainest PHP application in the set, with no composer and no build ste
 
 **It was served out of the read-only store**, so it could not write its database, its config or its uploads, and had no account anyone could sign in as.
 
-**A PHP warning killed the session.** Kanboard's default log driver writes to a file and warns *to the response* when it cannot: output ahead of the headers, which suppresses `Set-Cookie`. The login POST then has no session to carry, so Kanboard reports that as **"The username is required"**: an application-level message describing a transport-level failure. Pinning `LOG_DRIVER = stderr` is the fix. The working variants had it all along.
+**A PHP warning killed the session.** Kanboard's default log driver writes to a file and warns *to the response* when it cannot: output ahead of the headers, which suppresses `Set-Cookie`. The login POST then arrives without a session, so Kanboard reports that as **"The username is required"**: an application-level message describing a transport-level failure. Pinning `LOG_DRIVER = stderr` is the fix. The working variants had it all along.
 
 **There is no `cli user:reset-password` subcommand.** The call to one sat inside a `|| true` and did nothing, leaving the shipped `admin`/`admin` in place. The password has to be written through Kanboard's own container.
 

@@ -19,7 +19,7 @@ Hop3 ships a documentation site as a first-class artefact. Community engagement 
 The documentation is built with MkDocs (Material theme) and published at [hop3.cloud](https://hop3.cloud/) and [abilian.github.io/hop3](https://abilian.github.io/hop3/). It contains:
 
 - **User-facing reference** under `docs/src/`: the user guide, installation guide, CLI reference, and `hop3.toml` reference.
-- **Developer documentation**: the plugin-development guide, an architecture overview, the testing guide, and package-level `CLAUDE.md` files.
+- **Developer documentation**: the plugin-development guide, an architecture overview, and the testing guide.
 - **Tutorials** across multiple programming languages under `docs/src/tutorials/`. Tutorials are exercised as executable tests via the **Validoc** custom-markdown system, so documentation drift is caught in CI.
 - **CLI and testing cheat sheets** under `docs/src/reference/`.
 - **Blog** for release announcements and conference talks.

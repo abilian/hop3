@@ -9,7 +9,7 @@
 
 The app **Catalog** ([ADR 031](./031-project-terminology.md)) is a curated, self-hostable collection of installable app specs. Its content must come from a central source **we control**, from a directory that sits beside the code only while it is under development.
 
-Today `CatalogService` resolves its data dir by walking seven parents up from `__file__`. That works in a dev checkout and **fails silently in production**: hop3-server runs from a wheel under `/home/hop3/venv`, the walk lands in `site-packages`, and the directory doesn't exist. The loader then marks itself loaded with zero apps: a real box serves an empty catalog and calls it success. That silent-empty fallback is exactly what CLAUDE.md forbids, and closing it is the concrete trigger for this ADR.
+Today `CatalogService` resolves its data dir by walking seven parents up from `__file__`. That works in a dev checkout and **fails silently in production**: hop3-server runs from a wheel under `/home/hop3/venv`, the walk lands in `site-packages`, and the directory doesn't exist. The loader then marks itself loaded with zero apps: a real box serves an empty catalog and calls it success. 
 
 Two constraints shape the design:
 
@@ -147,4 +147,3 @@ Authenticity is **necessary but not sufficient**: a verified spec is still attac
 - YunoHost `catalog.json` + per-app git; Helm `index.yaml` + per-chart `.tgz`: closest analogues.
 - Debian APT: "sign the index, the index hashes the artifacts."
 - [minisign](https://jedisct1.github.io/minisign/): Ed25519 detached signatures.
-

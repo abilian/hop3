@@ -7,7 +7,7 @@ languages: [python]
 databases: []
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -26,9 +26,9 @@ Authentication with no user store: an account is a line in an htpasswd file, so 
 
 ## What broke
 
-**It served every calendar and address book to anyone who asked.** `[auth] type` was `${RADICALE_AUTH_TYPE:-none}` and nothing ever set it otherwise, so the deployed server authenticated nobody. Every instrument the project had reported it green, because a server that authenticates nobody answers every request successfully. The only assertion that could catch it did: *a wrong password returned 200, not 401*.
+**It served every calendar and address book to anyone who asked.** `[auth] type` was `${RADICALE_AUTH_TYPE:-none}` and nothing ever set it otherwise, so the deployed server checked no credentials. Every instrument the project had reported it green, because a server that checks no credentials answers every request successfully. The only assertion that could catch it did: *a wrong password returned 200, not 401*.
 
-The config was also written once and left alone, so a deployment that had ever run open stayed open for the rest of its life. It is rewritten on every start now, and the auth type is spelled out where no environment can switch it off.
+The config was also written once and left alone, so a deployment that had ever run open stayed open for the rest of its life. It is rewritten on every start now. The auth type is spelled out where no environment can switch it off.
 
 **There is no signed-in screenshot to take.** Radicale authenticates over HTTP Basic and its `.web` interface renders identically whether or not a credential was sent. The two screenshots were once byte-identical and were being counted as two.
 
@@ -38,7 +38,7 @@ The screenshot harness no longer photographs a page it has not signed into.
 
 ## Deployment variants
 
-Radicale is available as a top-level nixpkgs package. The **Nix** variants wrap it without a build step. Storage is file-based and the app needs no addon. Accounts are lines in an htpasswd file (there is no user CLI), so `create` writes a bcrypt hash directly, which is why the derivation puts a `python3` carrying bcrypt on the app's PATH in its own right.
+Radicale is available as a top-level nixpkgs package. The **Nix** variants wrap it without a build step. Storage is file-based and the app needs no addon. Accounts are lines in an htpasswd file (there is no user CLI), so `create` writes a bcrypt hash directly, which is why the derivation puts a `python3` with bcrypt on the app's PATH in its own right.
 
 ## Verification
 

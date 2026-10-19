@@ -7,7 +7,7 @@ languages: [go]
 databases: [postgres]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -34,11 +34,11 @@ Two toolchains in one derivation: a Vue frontend built offline from a committed 
 
 ## What the platform gained
 
-`go-frontend-pnpm`, and the `${pkg}` binding it shares with the forges. Anything exported inside the generated wrapper is invisible to `before-run` and to `create`.
+The platform gained `go-frontend-pnpm` and the `${pkg}` binding it shares with the forges. Anything exported inside the generated wrapper is invisible to `before-run` and to `create`.
 
 ## Deployment variants
 
-The only recipe here that builds two toolchains into one derivation: the Vue frontend is built offline from a committed pnpm lockfile and copied into `frontend/dist` before the Go compile, because Vikunja `go:embed`s it. **Nix (hand-crafted)** takes nixpkgs' package instead: the same 0.24.6, differently built, with the binary named `vikunja` where the source build produces `api`.
+It is the only recipe here that builds two toolchains into one derivation: the Vue frontend is built offline from a committed pnpm lockfile and copied into `frontend/dist` before the Go compile, because Vikunja `go:embed`s it. **Nix (hand-crafted)** takes nixpkgs' package instead: the same 0.24.6, differently built, with the binary named `vikunja` where the source build produces `api`.
 
 ## Verification
 

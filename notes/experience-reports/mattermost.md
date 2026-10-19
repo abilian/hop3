@@ -7,7 +7,7 @@ languages: [go]
 databases: [postgres]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -22,7 +22,7 @@ Open source team collaboration platform.
 
 ## What this app exercised
 
-A nixpkgs derivation does not carry the tools its application's documentation assumes.
+A nixpkgs derivation does not ship the tools its application's documentation assumes.
 
 ## What broke
 
@@ -30,7 +30,9 @@ A nixpkgs derivation does not carry the tools its application's documentation as
 
 **`SiteURL` pinned to localhost** left the webapp loading against an origin the visitor does not have. The REST check (a POST to `/api/v4/users/login`) passed throughout, so the failure was visible only to a browser.
 
-**Its assets live beside the binary**, which under Nix means the read-only store; they have to be linked into the writable working directory before the server starts.
+**Its web client lives apart from the binary.** Mattermost finds its templates, fonts and translations beside its executable, which under Nix resolves into the store. The web client is another nixpkgs output, at the package's top level, and has to be linked into the working directory, under a `client/` that stays writable for plugins.
+
+**The Nix variants served no web client from their import until 2026-10-18.** Both linked the assets from `share/mattermost/`, which the package does not have. Nothing was linked. Every page answered `open .../client/root.html: no such file or directory`. The REST ping and the REST sign-in passed throughout; the browser harness's images showed the error line. Each recipe now links the client entry by entry and stops the deploy if `root.html` is missing, and a validation checks that `/login` serves the client.
 
 ## What the platform gained
 
@@ -38,11 +40,11 @@ A nixpkgs derivation does not carry the tools its application's documentation as
 
 ## Deployment variants
 
-**Nix (hand-crafted)** wraps nixpkgs' `mattermost` and pulls `mmctl` in as a second package; **Nix (template-generated)** does the same through `[nix.let-extra]`. Both link the shipped assets into the working directory, since Mattermost resolves them relative to its binary.
+**Nix (hand-crafted)** wraps nixpkgs' `mattermost` and pulls `mmctl` in as a second package; **Nix (template-generated)** does the same through `[nix.let-extra]`. Both link the package's web client into `client/`; the other assets are found through the binary's path.
 
 ## Verification
 
-`apps/mattermost/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, and confirms a wrong password is refused.
+`apps/mattermost/check.py` signs in with the `[probe]` account, which Hop3 owns and rotates, and confirms a wrong password is refused. It does so over the REST API, which passes without a web client, so a validation also checks that `/login` serves the client's page, and `hop3-test run --screenshots` signs in with a browser. A fresh browser is first sent to a "View in Desktop App / View in Browser" page, which the harness clicks through.
 
 ## Reproduce
 
@@ -53,7 +55,7 @@ hop3 app check --app mattermost
 
 ## Open
 
-- **nix, nix-gen:** no screenshot. The browser harness finds no password field at `/login` within 15 s; with `SiteURL` corrected, the "open in the app or the browser" interstitial it knew how to click through no longer appears, so that route's output remains undiagnosed. The sign-in itself is verified over the REST API.
+Nothing open. Every variant is photographed signed in (2026-10-18).
 
 ## Screenshots
 

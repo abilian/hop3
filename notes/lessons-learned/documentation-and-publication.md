@@ -61,7 +61,7 @@ docs/blog/posts/2026-06-testing-testlab.md: malformed YAML frontmatter: mapping 
 A value containing ': ' must be quoted, e.g. description: "The Test Lab: making it legible".
 ```
 
-This is the [fail-loud doctrine](../../CLAUDE.md) extended by one clause: an error that does not identify *which input* it rejected has failed loud at the wrong thing.
+This is the "fail-loud doctrine" extended by one clause: an error that does not identify *which input* it rejected has failed loud at the wrong thing.
 
 ## Report writing: what a review pass actually finds
 

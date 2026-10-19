@@ -7,7 +7,7 @@ languages: [php]
 databases: []
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -26,7 +26,7 @@ A PHP application that resolves its own public URL from `$_SERVER`, which is wro
 
 ## What broke
 
-**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and an *omitted* CSRF token all produced identical responses: a form that inspects its input returns different errors for different failures; this one returned none. The cause: Paheko routes on the submit control's name (`$form->runIf('login', …)`) and the check posted only the form's hidden fields. A browser sends the button it clicked. The check omitted it, so `runIf` never matched.
+**The login form was never processed.** The sign-in POST returned 200 with the form re-rendered and no error text. A correct password, a wrong password, and an *omitted* CSRF token all produced identical responses: a form that inspects its input returns different errors for different failures; this one returned none. The cause was routing: Paheko routes on the submit control's name (`$form->runIf('login', …)`) and the check posted only the form's hidden fields. A browser sends the button it clicked. The check omitted it, so `runIf` never matched.
 
 **It advertised itself over plain HTTP.** Paheko resolves its own public URL from `$_SERVER`, and behind Hop3 the proxy that terminates TLS reaches it over HTTP; it rendered `data-url="http://…"` on an HTTPS deployment. `HOP3_PUBLIC_URL` is injected for exactly this and the recipe was not using it. Fixing it did not fix the sign-in. It was a real defect and a wrong hypothesis at the same time.
 
@@ -40,7 +40,7 @@ The checking library's form handling: `form_fields` now sends the submit control
 
 ## Deployment variants
 
-Every variant takes the upstream *release* archive: only it carries the vendored KD2 framework. SQLite, no addon.
+Every variant takes the upstream *release* archive: only it contains the vendored KD2 framework. SQLite, no addon.
 
 ## Verification
 

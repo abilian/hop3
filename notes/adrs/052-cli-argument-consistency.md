@@ -35,7 +35,7 @@ The following are all *present in the code today* (surveyed flag-by-flag).
 
 **A latent correctness bug.** `hop3-deploy` applies a value-flag only when it differs from the argparse default. So with `HOP3_SSH_USER=deploy` in the environment, `--ssh-user root` on the command line is silently ignored (it equals the default). The same footgun affects `--branch`, `--admin-user`, `--admin-email`, `--docker-image`, `--docker-container`. Explicit input losing to ambient input is exactly the failure mode the main CLI's resolver was built to prevent.
 
-**Help and structure drift.** `hop3-install` doesn't use argparse subparsers: it string-matches `sys.argv[1]` and rewrites `argv[0]`, so `hop3-install server --help` reports its `prog` as `install-server.py` and the top-level help is hand-written. `hop3-test`'s docstring and CLAUDE.md still advertise `apps`, `show`, `hetzner`, and `multi-distro` subcommands that no longer exist (merged into `cloud` or deleted). `list --show` overloads one subcommand into two modes.
+**Help and structure drift.** `hop3-install` doesn't use argparse subparsers: it string-matches `sys.argv[1]` and rewrites `argv[0]`, so `hop3-install server --help` reports its `prog` as `install-server.py` and the top-level help is hand-written. `hop3-test`'s docstring still advertise `apps`, `show`, `hetzner`, and `multi-distro` subcommands that no longer exist (merged into `cloud` or deleted). `list --show` overloads one subcommand into two modes.
 
 **Two commands one keystroke apart mean opposite things.** `hop3 deploy` (the client verb) deploys an **app** to a running server; `hop3-deploy` (the installer tool) deploys the **server itself** (the whole platform) onto a machine. The names are a hyphen apart and read as synonyms, but they operate at opposite levels; a developer reaching for one trivially invokes the other.
 
@@ -126,7 +126,7 @@ There is no single arg-spec module imported by every tool. `hop3-testing` depend
 - `hop3-test` keeps Click and defines matching options with its own small alias helper; it does not import the installer's definitions.
 - The main `hop3` CLI is the source of the vocabulary; it already conforms.
 
-**Contract tests at the coupling boundaries** catch drift between the tools: chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab passes to `hop3-test`. Documentation (help strings, CLAUDE.md, `docs/`) is checked against the lexicon so phantom commands and stale feature lists can't recur.
+**Contract tests at the coupling boundaries** catch drift between the tools: chiefly the Test Lab ↔ engine contract, which pins the exact flags the Lab passes to `hop3-test`. Documentation (help strings, `docs/`) is checked against the lexicon so phantom commands and stale feature lists can't recur.
 
 `hop3-install` keeps its current subcommand dispatch rather than moving to argparse subparsers: `prog` reading `install-server.py` is *correct* for the bundled standalone (`curl | python3` runs a file of that name). Where the `hop3-install server --help` program name matters, set `prog` explicitly.
 
@@ -179,12 +179,12 @@ hop3-install server --from local --path /src --with mysql,redis,s3 --domain x   
 
 - One mental model. `--host`/`--docker`, `--from`, `--with`, `-v/-q`, `--json`, `--yes` mean the same thing in every tool; muscle memory transfers.
 - A correctness fix (D7) lands as part of the cleanup.
-- Help, CLAUDE.md, and docs derive from one spec, so they stop drifting.
+- Help and docs derive from one spec, so they stop drifting.
 - Migration cost: flags and env vars are renamed. Mitigated by back-compat aliases (Migration) so no invocation breaks on the first release.
 - The installer stays dependency-free; only its *spelling* changes.
 
 ## Migration
 
-Old names remain accepted as **deprecated aliases** for one release, each emitting a one-line stderr deprecation notice pointing at the new spelling: the renamed binary (`hop3-deploy` → `hop3-deploy-server`), flags (`--ssh-user` → `--user`, `--ssh-key` → `--identity`, `--local` → `--from local`, `--deploy-from git` → `--from git`), the changed `--branch` default (`devel` → `main`), and env vars (`HOP3_PYPI_VERSION` → `HOP3_VERSION`, etc.). The alias table lives beside the shared spec. Makefile targets and `docs/` examples move to the new spelling in the same change. The phantom `hop3-test` subcommands are removed from the docstring and CLAUDE.md immediately (they don't exist, so there's nothing to alias). Aliases are dropped in the following release.
+Old names remain accepted as **deprecated aliases** for one release, each emitting a one-line stderr deprecation notice pointing at the new spelling: the renamed binary (`hop3-deploy` → `hop3-deploy-server`), flags (`--ssh-user` → `--user`, `--ssh-key` → `--identity`, `--local` → `--from local`, `--deploy-from git` → `--from git`), the changed `--branch` default (`devel` → `main`), and env vars (`HOP3_PYPI_VERSION` → `HOP3_VERSION`, etc.). The alias table lives beside the shared spec. Makefile targets and `docs/` examples move to the new spelling in the same change. The phantom `hop3-test` subcommands are removed from the docstring immediately (they don't exist, so there's nothing to alias). Aliases are dropped in the following release.
 
 The `hop3-test cloud`/`matrix` commands are the one exception to the deprecated-alias rule. The image sweep becomes a *flag* (`run --images`, D9), so there is nothing to alias and both are removed outright. The sole automated consumer (the Test Lab, [ADR 044](./044-nightly-test-lab.md)) shells `hop3-test run`, never `cloud`/`matrix`, so nothing breaks.

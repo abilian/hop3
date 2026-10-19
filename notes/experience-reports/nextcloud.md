@@ -7,7 +7,7 @@ languages: [php]
 databases: [mysql]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -28,9 +28,9 @@ The heaviest PHP dependency surface in the corpus (extensions, a cron worker, ba
 
 **It answered `GET /login` with 400 because it was never installed**: the writable tree was materialised when the app started, which is after `before-run`, so a correctly ported bootstrap ran in a directory that did not yet hold the application.
 
-**`occ user:add` takes no `--email`.** The recipe passed one, the command failed, and the failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. `admin.create` has since begun reporting its full command output.
+**`occ user:add` takes no `--email`.** The recipe passed one and the command failed. The failure was invisible from the outside: Hop3 had already generated and displayed a credential for an account that did not exist. `admin.create` has since begun reporting its full command output.
 
-**It keeps a hidden password input in its signed-in markup**, which had the screenshot harness call a successful sign-in a refusal. A person looking at the image counts only *visible* fields.
+**It keeps a hidden password input in its signed-in markup**, which made the screenshot harness report a successful sign-in as refused. A person looking at the image counts only *visible* fields.
 
 ## What the platform gained
 

@@ -7,7 +7,7 @@ languages: [go]
 databases: [postgres]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -22,7 +22,7 @@ Self-hosted Git service.
 
 ## What this app exercised
 
-A Go source build with a JavaScript frontend, and an app whose own CLI must be reachable to create the administrator. It is the first consumer of `go-static-dirs` for source assets that are not the compiled frontend.
+Gitea pairs a Go source build with a JavaScript frontend and needs its own CLI reachable to create the administrator. It is the first consumer of `go-static-dirs` for source assets that are not the compiled frontend.
 
 ## What broke
 
@@ -32,9 +32,9 @@ A Go source build with a JavaScript frontend, and an app whose own CLI must be r
 
 **`ROOT_URL` was `http://localhost`.** That value lands in clone URLs, redirects and OAuth callbacks.
 
-**Two traps are Gitea's own**, shared with Forgejo: `admin` is a reserved username it refuses, and `admin user create` prints the refusal while **exiting 0**. Verifying the account exists is the only reliable check.
+**Two traps are Gitea's own**, shared with Forgejo: `admin` is a reserved username it refuses, and `admin user create` prints its error while **exiting 0**. Verifying the account exists is the only reliable check.
 
-**Open registration shipped in every Nix variant.** `DISABLE_REGISTRATION = true` lives in the native recipes' shell scripts, and no Nix variant carries a `scripts/` directory. Both Nix builds therefore put an internet-facing forge online on which the first visitor could register. It is now declared in the config each variant generates, and a `GET /user/sign_up` on a deployed instance answers with the disabled notice.
+**Open registration shipped in every Nix variant.** `DISABLE_REGISTRATION = true` lives in the native recipes' shell scripts, under a `scripts/` directory no Nix variant has. Both Nix builds therefore put an internet-facing forge online on which the first visitor could register. It is now declared in the config each variant generates. A `GET /user/sign_up` on a deployed instance answers with the disabled notice.
 
 The sign-in bar does not catch this: an application with open registration signs in perfectly, refuses a wrong password, and passes every check in the corpus. Reading the native recipe beside the Nix one found it, the same method that closed the last four failures. It is the clearest evidence that the bar is a floor.
 

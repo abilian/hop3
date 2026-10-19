@@ -7,7 +7,7 @@ languages: [node]
 databases: []
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -29,10 +29,10 @@ An app that authenticates over socket.io, so its check drives the app's own bund
 **The smoke test accused a working application for a week.** It reported "the credential Hop3 generated was refused" while the credential signed in through a browser without trouble. The probe drives the app's own bundled socket.io client through node. Every wait in it resolved on its own timeout:
 
 - the connect wait resolved whether or not a socket opened;
-- the next wait left `offered` as `null`, and the check asked only whether it was `'setup'`: `null` is not `'setup'`, so *"the server offers a login, not its setup wizard"* passed **without a socket ever being opened**;
-- the login then timed out; the check rendered the timeout's `false` as a refusal.
+- the next wait left `offered` as `null` while the check asked only whether it was `'setup'`: `null` is not `'setup'`, so *"the server offers a login, not its setup wizard"* passed **without a socket ever being opened**;
+- the login then timed out; the check rendered the timeout's `false` as refused credentials.
 
-Three silent fallbacks stacked into an accusation. Making them fail loudly also fixed the probe: it had been emitting `login` before the server announced `loginRequired`, and a wait that must succeed cannot race ahead of that announcement.
+Three silent fallbacks stacked into an accusation. Making them fail loudly also fixed the probe: it had been emitting `login` before the server announced `loginRequired`. A wait that must succeed cannot race ahead of that announcement.
 
 **The probe account was created only when the admin was.** `createProbeUser()` sat after an early `return` in the branch that creates the administrator, so any instance with an existing user row got no probe, undetectably, because nothing verified it.
 

@@ -7,7 +7,7 @@ languages: [php]
 databases: [postgres]
 in_catalog: true
 report_status: final
-last_verified: 2026-07-31
+last_verified: 2026-10-18
 verified_bar: authenticated
 
 variants:
@@ -22,7 +22,7 @@ Open source ERP and CRM for small and medium businesses.
 
 ## What this app exercised
 
-An application that ships **no installer CLI at all**. It was listed as a permanent deferral for that reason, and the question it forced (can a browser wizard be driven headlessly, or is a whole class of business software out of reach?) is the one it was kept for.
+An application that ships **no installer CLI at all**. It was listed as a permanent deferral for that reason. It was kept for the question it forced: can a browser wizard be driven headlessly, or is a whole class of business software out of reach?
 
 ## What broke
 
@@ -34,7 +34,7 @@ Dolibarr ships **no installer CLI**, only a browser wizard, which is why it was 
 
 ## What the platform gained
 
-Nothing in the platform; the answer was a technique. Driving a browser wizard's steps through the PHP CLI is now the pattern for any application that ships no installer, and Matomo uses it too. Both apps were permanent deferrals before it.
+Nothing in the platform; the answer was a technique. Driving a browser wizard's steps through the PHP CLI is now the pattern for any application that ships no installer. Matomo uses it too. Both apps were permanent deferrals before it.
 
 ## Deployment variants
 

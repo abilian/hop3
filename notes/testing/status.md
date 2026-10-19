@@ -1,28 +1,29 @@
 # Hop3 Test Status
 
-**Last updated:** 2026-10-17.
+**Last updated:** 2026-10-18.
 
-The *structure* is [ADR 043](../adrs/043-unified-testing-architecture.md) and [`strategy.md`](strategy.md); the *commands* are [`cheat-sheet.md`](cheat-sheet.md) and the quick reference in `CLAUDE.md`. This file records where the suites stand today, and nothing more. Every number on it is reproducible by the command beside it. If you are reading it more than a few weeks after the date above, re-run the commands before trusting the numbers.
+The *structure* is [ADR 043](../adrs/043-unified-testing-architecture.md) and [`strategy.md`](strategy.md); the *commands* are [`cheat-sheet.md`](cheat-sheet.md). This file records where the suites stand today, and nothing more. Every number on it is reproducible by the command beside it. If you are reading it more than a few weeks after the date above, re-run the commands before trusting the numbers.
 
 **Reading a run since 2026-10-05.** Four changes in how a run decides:
 
-- A server deploy that carried past a ⚠ fails the run, unless the warning is on `TOLERATED_DEPLOY_WARNINGS` with its reason (`notes/installer-fail-loud-audit.md`).
+- A server deploy that went on past a ⚠ fails the run, unless the warning is on `TOLERATED_DEPLOY_WARNINGS` with its reason (`notes/installer-fail-loud-audit.md`).
 - The server is installed with what the selected apps declare: their addons and the runtime their builder needs (`nix`, `docker`). Nothing is installed by default.
 - On the Docker target, Docker-built apps are left out before the deploy, each named: the container cannot run Docker. Most `-docker` recipes declare no test targets, so a Docker-target run now lists them as skipped; they run against a server with `--host`.
 - A run that includes an app declaring email selects the `catch` backend, and the mail lands in Mailpit (`190-flask-email` checks the path).
 
 **Since 2026-10-05.**
 
-- **The executable tutorials run again.** They could not pass on the Docker target from June to October, unnoticed, for three stacked reasons: the test domain carried the SSH user (`hop3@<ip>.sslip.io`), a target named by hostname got a domain sslip.io cannot resolve, and every tutorial checked `http://`, which the platform redirects. A tutorial also now gets the server its `hop3.toml` asks for (Nix, its addons). On the Docker target, validoc now runs inside the container, like on a server: it used to run on the developer's machine, which needed every toolchain there and sent the tutorial's `curl` to the Docker host instead of the container's nginx.
+- **The executable tutorials run again.** They could not pass on the Docker target from June to October, unnoticed, for three stacked reasons: the test domain included the SSH user (`hop3@<ip>.sslip.io`), a target named by hostname got a domain sslip.io cannot resolve, and every tutorial checked `http://`, which the platform redirects. A tutorial also now gets the server its `hop3.toml` asks for (Nix, its addons). On the Docker target, validoc now runs inside the container, like on a server: it used to run on the developer's machine, which needed every toolchain there and sent the tutorial's `curl` to the Docker host, where the container's nginx was the target.
 - **New fixtures:** one per local-source nix-gen template (`apps/test-apps-nix-gen/`), and `200-flask-rootd-refused`, which checks that an app cannot call hop3-rootd.
 - **A review of everything since 0.7** (`devel` against `main`) found 42 problems; all are fixed, each with a regression test.
 - **Docker runs go to the daemon the Docker context names**, a remote machine included: `DOCKER_CONTEXT=<name>` or `docker context use <name>`. The run prints the daemon on its first line, Docker picks the host ports, and a lock allows one e2e session per client machine ([`../../docs/src/developers/testing.md`](../../docs/src/developers/testing.md), "Which Docker daemon").
 - **`--recipes published` tests what an operator installs**: the recipes come from the server's signed catalog, each app is installed with `hop3 catalog install`, then upgraded. Its first runs found that a rebuild without new source ran the build again on the previous build's output (limesurvey, vikunja), that a PostgreSQL restore replayed the dump over the live database and reported success, and that a build command waiting for input hung until the client's 300 s timeout.
+- **`--screenshots` signs in to each app with a real browser** (`hop3-test run --host <server> --screenshots`, Playwright through `uv run --with playwright`). An app whose sign-in only a browser can drive is reported as not verified in a run without one, and fails a run with one if the browser cannot sign in. Its first runs found Mattermost's two Nix variants serving no web client since their import, with the REST check green throughout, and WordPress's template variant never creating its probe account.
 - **PHP apps are checked through nginx on a Docker target too.** A second, client-side checker for containers read 4096 characters of the body and followed redirects before matching the status. Every php-fpm recipe whose marker sits low on the page, or whose `/` answers 302, failed on Docker and passed on a server.
 
 ## The layers
 
-Three, decided by what a test *needs* (Docker, root, host mutation). Complexity plays no part in the decision. `c_system/` and `d_e2e/` are gone: the first dissolved into the other two, the second was renamed `c_e2e/`.
+There are three, decided by what a test *needs* (Docker, root, host mutation). Complexity plays no part in the decision. `c_system/` and `d_e2e/` are gone: the first dissolved into the other two, the second was renamed `c_e2e/`.
 
 | Layer | Directory | Docker | hop3-server | Command |
 |-------|-----------|--------|------------|---------|
@@ -34,7 +35,7 @@ Three, decided by what a test *needs* (Docker, root, host mutation). Complexity 
 
 | Suite | Result | Time | Command |
 |-------|--------|------|---------|
-| Fast tier, all packages | 6638 passed, 1 skipped | ~60 s | `make test-fast` |
+| Fast tier, all packages | 6687 passed, 1 skipped (2026-10-18) | ~3 min | `make test-fast` |
 | Executable tutorials, Docker target | 35 of 35 (2026-10-15), after validoc moved into the container | | `hop3-test run --docker --clean --from local docs/tutorials/` |
 | Executable tutorials, remote target | 28 of 35, then the seven failures fixed (2026-10-06) | ~35 min | `hop3-test run --host <server> --from local docs/tutorials/` |
 | Integration, hop3-server | 586 passed, 22 skipped | ~42 s | `uv run pytest packages/hop3-server/tests/b_integration` |
@@ -42,14 +43,15 @@ Three, decided by what a test *needs* (Docker, root, host mutation). Complexity 
 | App catalog, remote target | **162 of 162**, over three runs | ~5 h | `hop3-test run --host <server> --with all` |
 | App catalog, Docker, golden + beta | 49 of 54, then the five failures (the PHP checker above) 5 of 5 after the fix (2026-10-14) | 1 h 50 m | `hop3-test run --docker --clean --from local --with nix --status golden --status beta` |
 | Published catalog, Docker, golden + beta | **54 of 54** (2026-10-16, run 1279), each installed with `hop3 catalog install` and upgraded | 2 h 13 m | `hop3-test run --docker --clean --from local --recipes published --with all` |
+| Published catalog, remote target, golden + beta, with a browser | **54 of 54** (2026-10-18, run 1293); 48 photographed signed in, the other six being the variants of the three apps under Known gaps | 1 h 37 m | `uv run --with playwright hop3-test run --host <server> --recipes published --with all --screenshots` |
 
-The integration skips are opt-in by design and each names a resource the harness does not provision: a live Garage node (`HOP3_TEST_GARAGE_ADMIN`), and the procfs-reading tests, which are Linux-only and skip on a developer's Mac.
+The integration skips are opt-in by design and each names a resource the harness does not provision: a live Garage node (`HOP3_TEST_GARAGE_ADMIN`). The procfs-reading tests are Linux-only and skip on a developer's Mac.
 
 The c_e2e layer reached **no skips** during the 0.7.3 gate, which is the bar it is held to. A skip whose reason is not a resource we cannot provision is a hole pretending to be coverage. Getting there found seven platform faults.
 
 ## The last full catalog run
 
-**2026-09-21, against 0.7.5's tree, in three parts.** The first run of the catalog that gates anything: one server build, one committed tree, nobody editing underneath it.
+**2026-09-21, against 0.7.5's tree, in three parts.** It was the first run of the catalog that gates anything: one server build, one committed tree, and no one editing underneath it.
 
 | Run | Scope | Result | Time |
 |-----|-------|--------|------|
@@ -57,9 +59,9 @@ The c_e2e layer reached **no skips** during the 0.7.3 gate, which is the bar it 
 | 1176 | golden + beta | 52 / 54 | 1 h 05 m |
 | 1177 | the two failures, re-checked alone | 2 / 2 | 4 m |
 
-**All ten migrated PHP recipes passed** — bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, paheko, wordpress — the first run of them against the php-fpm fixes. **Thirty Nix apps built on an empty store**, which had not happened since August and is what blocker #38 exists to keep happening.
+**All ten migrated PHP recipes passed** (bookstack, dolibarr, easy-appointments, invoice-ninja, kanboard, limesurvey, matomo, nextcloud, paheko, wordpress), the first run of them against the php-fpm fixes. **Thirty Nix apps built on an empty store**, which had not happened since August and is what blocker #38 exists to keep happening.
 
-Both failures in run 1176 were outside the platform, and both passed on re-run:
+Both failures in run 1176 were outside the platform. Both passed on re-run:
 
 | Failure | Cause |
 |---------|-------|
@@ -72,12 +74,12 @@ Two apps passed on a re-run rather than in the sweep. Neither is a code defect a
 
 ### The run before it, and how its two failures were found
 
-2026-09-14 evening, 161 app tests, 5 h 26 m. **159 passed, 2 failed.** The two were the same shape: a `contains` marker that names no page the app serves.
+The run on 2026-09-14 evening took 5 h 26 m over 161 app tests. **159 passed, 2 failed.** The two were the same shape: a `contains` marker that names no page the app serves.
 
 | Failure | What it serves | Fix |
 |---------|----------------|-----|
-| invoice-ninja-nix | `/` returns 200 with Laravel's react shell; the recipe asserted a 302 to `/setup`, which is what Invoice Ninja answers with *no* database | marker corrected to the native variant's |
-| xwiki-nix | `/xwiki/bin/view/Main/` returns 302 to the distribution wizard, whose page is XWiki's own; the validation allowed only 200 and 202 | 302 added, the body assertion carries the proof |
+| invoice-ninja-nix | `/` returns 200 with Laravel's react shell; the recipe expected a 302 to `/setup`, which is what Invoice Ninja answers with *no* database | marker corrected to the native variant's |
+| xwiki-nix | `/xwiki/bin/view/Main/` returns 302 to the distribution wizard, whose page is XWiki's own; the validation allowed only 200 and 202 | 302 added, the body check holds the proof |
 
 Both were named by the deploy's own output. Reading the app would have missed them. That change made the run catch what the previous two had missed: the failure path now asks the app what it serves before it says anything about workers or timeouts. invoice-ninja-nix had been failing for two runs against a diagnosis that pointed at the wrong subsystem entirely.
 
@@ -87,14 +89,15 @@ Five of the eight were the platform's fault. Three could only have been found by
 
 ## Known gaps
 
-- **The last full remote catalog run predates most of 0.8.** Golden and beta passed on Docker on 2026-10-14, against the 0.8 tree; the alpha tier, a cold Nix store and a systemd host have not run since 2026-09-21. A blank-slate remote run is the release gate ([`../plans/plan-0.8.md`](../plans/plan-0.8.md), "Before tagging").
+- **The alpha tier and a cold Nix store have not run since 2026-09-21.** Golden and beta passed on a remote server on 2026-10-18, installed from the published catalog, which is the run 0.8's release gate asks for ([`../plans/plan-0.8.md`](../plans/plan-0.8.md), "Before tagging").
+- **Three applications are photographed at their sign-in page only.** Invoice Ninja draws its form on a Flutter canvas, and Radicale's HTTP Basic interface renders the same signed in or out. Uptime Kuma is declared as signing in over socket.io, but its sign-in page is an HTML form and a browser speaks socket.io itself, so that declaration is untested.
 - **The tutorial suite has no scheduled run**, which is how it stayed broken for four months ([`../todo.md`](../todo.md)).
 - **rootd's caller check has run on the Docker target only**, where the process ancestry decides. Its systemd path (the `uwsgi-hop3.service` cgroup and `hop3.slice`) is unit-tested and has not run on a systemd host.
 - **A warm Nix store hides an app that cannot build.** `directus-nixgen` passed nine runs between 2026-08-24 and 2026-09-16 and failed on 2026-09-21 with `reused 0, downloaded 1267`: its dependency-fetch derivation was rebuilt for the first time since August, and `pnpm fetch` died compiling `isolated-vm@5.0.3`. Nix short-circuits a fixed-output derivation whose path already exists, so neither the catalog run nor `hop3-tools nix check-reproducible` re-enters that step once it has succeeded once. Every nix-gen app has the same hiding place. `make test-nix-cold` is the answer: `--clean` removes Hop3 and leaves `/nix`, so only an OS rebuild empties the store. Run it on a schedule, because a warm store makes the cheap gates say nothing.
-- **The two php-fpm platform fixtures are the cheap check**, and the catalog run is the only layer that exercises the runtime against real applications. `apps/test-apps-procfile/060-php-hello` and `070-php-public` cover it in seconds; the fourteen migrated recipes went through a full run on 2026-09-21.
-- **A feature can ship with a green suite and never have run.** php-fpm shipped on 2026-09-11 with seven defects the suite could not see, because every recipe's own `[run].start` overrode the new worker and the tests asserted the shape of a command string rather than that a pool came up. Any new code path behind a precedence rule has zero users on the day it ships; its fixture has to exist before it does.
+- **The two php-fpm platform fixtures are the cheap check.** The catalog run is the only layer that exercises the runtime against real applications. `apps/test-apps-procfile/060-php-hello` and `070-php-public` cover it in seconds; the fourteen migrated recipes went through a full run on 2026-09-21.
+- **A feature can ship with a green suite and never have run.** php-fpm shipped on 2026-09-11 with seven defects the suite could not see, because every recipe's own `[run].start` overrode the new worker and the tests checked the shape of a command string, which says nothing about whether a pool came up. Any new code path behind a precedence rule has zero users on the day it ships; its fixture has to exist before it does.
 
-- **Two client machines aimed at one Docker daemon share a container.** On one client machine, `hop3-test` and the pytest e2e fixtures take one lock and a second session stops with the holder's command line; the host ports are Docker's choice. The container names are still fixed, so a second client tears the first's container down. One client per daemon. The installer's own c_e2e backends do not take the lock yet.
+- **Two client machines aimed at one Docker daemon share a container.** `hop3-test` and the pytest e2e fixtures take one lock per client machine, so a second session stops with the holder's command line. The host ports are Docker's choice. The container names are still fixed, so a second client tears the first's container down. One client per daemon. The installer's own c_e2e backends do not take the lock yet.
 - **The e2e image build fails intermittently on apt**, before any test runs. Seen once, under the two-session conditions above; re-confirm on a quiet machine before chasing it.
 - **uWSGI failed to link once while installing hop3-server on a remote daemon** (2026-10-14, "error linking uWSGI", no linker message, no OOM). The same build by hand in that container succeeded, and so did the next two runs. If it recurs, keep the container and capture the linker's own output.
 - **53 recipes assert nothing at start**, because their content assertion sits on a path the healthcheck does not probe. Tracked in [`../plans/plan-0.7.x.md`](../plans/plan-0.7.x.md) §4.

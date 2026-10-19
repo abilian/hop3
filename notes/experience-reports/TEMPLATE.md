@@ -79,8 +79,8 @@ had to be worked around and why.
 ## Verification
 
 Describe what was checked and how, at the bar named in the metadata. For a catalog app
-this is its `check.py`: which account it signs in as, what it asserts once
-signed in, and anything it deliberately does not cover.
+this is its `check.py`: the account it signs in as, the checks it makes once
+signed in, and the cases it leaves out.
 
 ## Reproduce
 

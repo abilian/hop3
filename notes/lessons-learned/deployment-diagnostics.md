@@ -165,7 +165,7 @@ The moment your own evidence contradicts a hypothesis, drop the hypothesis. Duri
 Two rules:
 
 - **A user-initiated action must not be gated behind an unrelated background-feature toggle.** Clicking "Start" enqueued the work; whether the *nightly cron* is enabled is irrelevant to whether that manual build runs. Decouple them: the dispatcher runs whenever the app serves for real; only the nightly *enqueue* is gated.
-- **A `pending`/`queued` state that nothing can advance is a silent lie** (CLAUDE.md "fail loud"). Either make it run, or surface *why* it can't (no worker available) where the user looks. Never leave it sitting with a `-` detail.
+- **A `pending`/`queued` state that nothing can advance is a silent lie** ("fail loud"). Either make it run, or surface *why* it can't (no worker available) where the user looks. Never leave it sitting with a `-` detail.
 
 ## Match the process manager's words
 

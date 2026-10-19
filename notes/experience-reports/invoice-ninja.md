@@ -34,7 +34,7 @@ A Laravel application whose UI is a Flutter canvas, so nothing a selector can re
 
 ## What the platform gained
 
-The screenshot harness's `unsupported` declaration: a way to say this application cannot be driven by a browser, and why. It isn't a gap. Radicale uses it for a different reason.
+The screenshot harness gained its `unsupported` declaration, a way to say this application cannot be driven by a browser, and why. It isn't a gap. Radicale uses it for a different reason.
 
 ## Deployment variants
 
