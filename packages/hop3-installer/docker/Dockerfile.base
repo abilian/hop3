@@ -43,8 +43,20 @@ RUN apt-get install -q -y --no-install-recommends \
 # Layer 5: Web and database servers (may change with new features)
 RUN apt-get install -q -y --no-install-recommends \
     nginx \
-    postgresql \
-    postgresql-contrib
+    postgresql
+
+# Layers 5b and 5c: what the installer itself installs on Ubuntu 24.04, so a
+# fresh container does not download it again (13 of a 17.5-minute deploy). The
+# installer's apt calls still run and find it installed. The lists are derived
+# from the installer's code; tests/a_unit/test_docker_image_packages.py fails
+# when they drift, and the image must hold nothing the installer does not.
+COPY packages/hop3-installer/docker/noble-packages.txt /tmp/
+RUN apt-get update -q \
+    && xargs -a /tmp/noble-packages.txt apt-get install -q -y --no-install-recommends
+
+# Go and the .NET SDKs, installed with their recommends as the installer does.
+COPY packages/hop3-installer/docker/noble-packages-with-recommends.txt /tmp/
+RUN xargs -a /tmp/noble-packages-with-recommends.txt apt-get install -q -y
 
 # Layer 6: Process management and utilities
 RUN apt-get install -q -y --no-install-recommends \

@@ -19,6 +19,18 @@ from .utils.backends import ssh_host_available, ssh_raw_host
 # Container name used by hop3-deploy
 DEPLOY_CONTAINER = "hop3-dev"
 
+# A fresh --docker --local deploy takes about 4 min on a cached image. When the
+# image's package lists change, the deploy rebuilds it first, which measured
+# 17 min on 2026-10-22. The limit catches a hang, with room for a slower mirror.
+DEPLOY_TIMEOUT = 40 * 60
+
+
+def _text(output: str | bytes | None) -> str:
+    """Captured output as text: TimeoutExpired can carry bytes even with text=True."""
+    if isinstance(output, bytes):
+        return output.decode(errors="replace")
+    return output or ""
+
 
 @pytest.mark.e2e
 @pytest.mark.slow
@@ -70,15 +82,22 @@ class TestDeployer:
             host = ssh_raw_host()
             deploy_args = ["hop3-deploy-server", "--host", host, "--local", "--clean"]
 
-        # Run hop3-deploy
-        result = subprocess.run(  # ty: ignore[no-matching-overload]
-            deploy_args,
-            capture_output=True,
-            text=True,
-            timeout=600,  # 10 minutes max
-            check=False,
-            env={**os.environ, "HOP3_NONINTERACTIVE": "1"},
-        )
+        try:
+            result = subprocess.run(  # ty: ignore[no-matching-overload]
+                deploy_args,
+                capture_output=True,
+                text=True,
+                timeout=DEPLOY_TIMEOUT,
+                check=False,
+                env={**os.environ, "HOP3_NONINTERACTIVE": "1"},
+            )
+        except subprocess.TimeoutExpired as e:
+            # The output is the only record of the step it was stuck in.
+            pytest.fail(
+                f"hop3-deploy-server did not finish in {DEPLOY_TIMEOUT}s; "
+                f"its output up to then:\nstdout: {_text(e.stdout)}\n"
+                f"stderr: {_text(e.stderr)}"
+            )
 
         # Check deployment succeeded
         assert result.returncode == 0, (
