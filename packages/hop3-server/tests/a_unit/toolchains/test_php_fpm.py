@@ -11,11 +11,12 @@ attach-daemon so the Emperor stays the only process manager (ADR 023).
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 import pytest
 
 from hop3.lib import Abort
 from hop3.run.fastcgi import FCGI_PING_PATH
-from hop3.toolchains import php_fpm
 from hop3.toolchains.php_fpm import (
     POOL_CONFIG_NAME,
     POOL_TEMPLATE_NAME,
@@ -25,6 +26,9 @@ from hop3.toolchains.php_fpm import (
     render_pool_config,
     web_command,
 )
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 class TestTheDocumentRootIsNotAlwaysTheProjectRoot:
@@ -165,19 +169,39 @@ class TestRenderingThePool:
         assert "__HOP3_PORT__" not in rendered
 
 
-class TestFindingTheBinary:
-    def test_a_versioned_name_is_accepted(self, monkeypatch) -> None:
-        """Debian ships php-fpm8.3; the unversioned name is often absent."""
-        monkeypatch.setattr(
-            php_fpm.shutil,
-            "which",
-            lambda name: "/usr/sbin/php-fpm8.3" if name == "php-fpm8.3" else None,
-        )
-        assert php_fpm_binary() == "/usr/sbin/php-fpm8.3"
+def _on_path(monkeypatch, tmp_path, *names: str) -> Path:
+    for name in names:
+        binary = tmp_path / name
+        binary.write_text("#!/bin/sh\n")
+        binary.chmod(0o755)
+    monkeypatch.setenv("PATH", f"{tmp_path}:{tmp_path / 'absent'}")
+    return tmp_path
 
-    def test_no_php_fpm_aborts_at_build_time(self, monkeypatch) -> None:
+
+class TestFindingTheBinary:
+    def test_a_versioned_name_is_accepted(self, monkeypatch, tmp_path) -> None:
+        """Debian ships php-fpm8.3; the unversioned name is often absent."""
+        bin_dir = _on_path(monkeypatch, tmp_path, "php-fpm8.3")
+        assert php_fpm_binary() == str(bin_dir / "php-fpm8.3")
+
+    def test_a_version_no_list_named_is_found(self, monkeypatch, tmp_path) -> None:
+        """Ubuntu 26.04 ships php-fpm8.5; the list of known versions ended at 8.4."""
+        bin_dir = _on_path(monkeypatch, tmp_path, "php-fpm8.5")
+        assert php_fpm_binary() == str(bin_dir / "php-fpm8.5")
+
+    def test_the_highest_version_wins(self, monkeypatch, tmp_path) -> None:
+        bin_dir = _on_path(
+            monkeypatch, tmp_path, "php-fpm8.10", "php-fpm8.9", "php-fpm"
+        )
+        assert php_fpm_binary() == str(bin_dir / "php-fpm8.10")
+
+    def test_the_unversioned_name_is_the_fallback(self, monkeypatch, tmp_path) -> None:
+        bin_dir = _on_path(monkeypatch, tmp_path, "php-fpm")
+        assert php_fpm_binary() == str(bin_dir / "php-fpm")
+
+    def test_no_php_fpm_aborts_at_build_time(self, monkeypatch, tmp_path) -> None:
         """Not as a vassal crash-looping five minutes later."""
-        monkeypatch.setattr(php_fpm.shutil, "which", lambda name: None)
+        _on_path(monkeypatch, tmp_path)
         with pytest.raises(Abort) as excinfo:
             php_fpm_binary()
         assert "php-fpm" in str(excinfo.value)

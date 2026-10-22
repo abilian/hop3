@@ -18,15 +18,14 @@ at startup.
 
 from __future__ import annotations
 
+import os
+import re
 import shutil
-from typing import TYPE_CHECKING
+from pathlib import Path
 
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.path import is_confined_to
 from hop3.run.fastcgi import FCGI_PING_PATH
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 __all__ = [
     "POOL_CONFIG_NAME",
@@ -55,23 +54,20 @@ _FRONT_CONTROLLER_DIRS = ("public", "web", "htdocs", "www")
 
 #: php-fpm binaries are versioned on Debian (`php-fpm8.3`), with the unversioned
 #: name sometimes absent even though the package is installed.
-_BINARY_CANDIDATES = (
-    "php-fpm8.4",
-    "php-fpm8.3",
-    "php-fpm8.2",
-    "php-fpm8.1",
-    "php-fpm",
-)
+_VERSIONED_BINARY = re.compile(r"php-fpm(\d+)\.(\d+)")
 
 
 def php_fpm_binary() -> str:
     """
     The php-fpm executable to run, or abort saying what is missing.
 
-    A PHP app with no php-fpm cannot be served, and the failure has to land
-    here rather than as a crash-looping vassal five minutes later.
+    The highest versioned one on PATH, else `php-fpm`. A list of known versions
+    fell behind the distribution: Ubuntu 26.04 ships `php-fpm8.5`, and the
+    list stopped at 8.4. A PHP app with no php-fpm cannot be served, and the
+    failure has to land here rather than as a crash-looping vassal five
+    minutes later.
     """
-    found = next((p for c in _BINARY_CANDIDATES if (p := shutil.which(c))), None)
+    found = _highest_versioned_binary() or shutil.which("php-fpm")
     if not found:
         abort_with_diagnosis(
             Diagnosis(
@@ -79,7 +75,7 @@ def php_fpm_binary() -> str:
                 action="locate php-fpm",
                 reason=(
                     "no php-fpm binary is on PATH, so the application cannot "
-                    f"be served (looked for: {', '.join(_BINARY_CANDIDATES)})"
+                    "be served (looked for php-fpm and php-fpm<version>)"
                 ),
                 hint=(
                     "Install it on the server — the Hop3 installer does this "
@@ -89,6 +85,20 @@ def php_fpm_binary() -> str:
             )
         )
     return found
+
+
+def _highest_versioned_binary() -> str | None:
+    versions: dict[tuple[int, int], str] = {}
+    for directory in os.get_exec_path():
+        try:
+            entries = list(Path(directory).iterdir())
+        except OSError:
+            continue  # ken: a PATH entry that does not exist holds no binary
+        for entry in entries:
+            match = _VERSIONED_BINARY.fullmatch(entry.name)
+            if match and os.access(entry, os.X_OK):
+                versions.setdefault((int(match[1]), int(match[2])), str(entry))
+    return versions[max(versions)] if versions else None
 
 
 def document_root(
