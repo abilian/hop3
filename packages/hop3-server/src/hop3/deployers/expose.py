@@ -187,8 +187,11 @@ def expose_addon(
     try:
         db_session.flush()
     except IntegrityError:
-        # Lost an allocation race; the unique constraint is the backstop.
+        # Lost an allocation race; the unique constraint is the backstop. Any
+        # other constraint is not a race, and its own message names it.
         db_session.rollback()
+        if repo.find_active(public_port, "tcp") is None:
+            raise
         abort_with_diagnosis(
             Diagnosis(
                 component="Addon",

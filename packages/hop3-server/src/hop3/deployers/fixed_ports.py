@@ -155,9 +155,9 @@ def claim_fixed_ports(
         except IntegrityError:
             db_session.rollback()
             holder = repo.find_active(number, protocol)
-            _abort_conflict(
-                number, protocol, holder.app_name if holder else "another app"
-            )
+            if holder is None:
+                raise  # not a race: the constraint names itself
+            _abort_conflict(number, protocol, holder.app_name)
         log(
             f"Claimed fixed port {number}/{protocol} for '{app.name}'",
             level=2,

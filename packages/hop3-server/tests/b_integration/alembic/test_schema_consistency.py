@@ -51,6 +51,9 @@ if TYPE_CHECKING:
 # Tables that are an artifact of the comparison, not part of the app schema.
 _IGNORED_TABLES = {"alembic_version"}
 
+# Tables a migration creates with its own DDL. Each needs nothing else's FK.
+MIGRATION_CREATED_TABLES = ("port_claim", "ban", "network", "app_admin_credential")
+
 
 def _sqlite_affinity(type_repr: str) -> str:
     """
@@ -147,14 +150,15 @@ def migrated_engine() -> Iterator[Engine]:
     Reproduces what a deployed server actually does: a create_all'd schema is
     adopted (stamp the base revision) and then ``upgrade head`` runs. The delta
     migrations are idempotent, so this lands the schema at head exactly as a
-    migrated server would. ``port_claim`` is dropped first so the migration's
-    own ``op.create_table`` runs for real — that is the table whose hand-written
-    DDL must match the ORM, and where the drift bug lived.
+    migrated server would. The tables a migration creates are dropped first so
+    each migration's own ``op.create_table`` runs for real: that hand-written
+    DDL must match the ORM, and is where the drift bugs lived.
     """
     engine = create_engine("sqlite:///:memory:")
     BigIntAuditBase.metadata.create_all(engine)
     with engine.connect() as conn:
-        conn.exec_driver_sql("DROP TABLE port_claim")
+        for table in MIGRATION_CREATED_TABLES:
+            conn.exec_driver_sql(f"DROP TABLE {table}")
         cfg = _alembic_config(conn)
         base = ScriptDirectory.from_config(cfg).get_bases()[0]
         command.stamp(cfg, base)
@@ -232,3 +236,63 @@ def test_port_claim_is_actually_built_by_migration(migrated_engine: Engine) -> N
     columns = set(_columns(insp, "port_claim"))
 
     assert {"id", "app_id", "number", "protocol", "app_name"} <= columns
+
+
+def test_primary_keys_match_exactly(
+    create_all_engine: Engine, migrated_engine: Engine
+) -> None:
+    """
+    The id column's declared type matches, beyond its affinity.
+
+    On SQLite only ``INTEGER PRIMARY KEY`` aliases the rowid and is assigned on
+    insert; ``BIGINT PRIMARY KEY`` has the same affinity and is not. Three
+    migrations created ``BIGINT`` ids, and every insert into those tables
+    failed on a migrated server, which ``hop3 addon expose`` reported as a port
+    taken by a concurrent operation.
+    """
+    fresh_insp = inspect(create_all_engine)
+    upgraded_insp = inspect(migrated_engine)
+
+    for table in sorted(_user_tables(fresh_insp)):
+        for column in _primary_key(fresh_insp, table):
+            assert _declared_type(fresh_insp, table, column) == _declared_type(
+                upgraded_insp, table, column
+            ), f"primary-key type drift in {table}.{column}"
+
+
+def test_a_server_migrated_with_bigint_ids_gets_them_repaired(
+    migrated_engine: Engine,
+) -> None:
+    """The repair rebuilds each broken table, keeps its rows, and inserts work."""
+    with migrated_engine.connect() as conn:
+        for table in ("port_claim", "ban", "network"):
+            ddl = conn.exec_driver_sql(
+                "SELECT sql FROM sqlite_master WHERE name = ?", (table,)
+            ).scalar_one()
+            conn.exec_driver_sql(f"DROP TABLE {table}")
+            conn.exec_driver_sql(ddl.replace("id INTEGER", "id BIGINT", 1))
+        conn.exec_driver_sql(
+            "INSERT INTO port_claim (id, created_at, updated_at, number, protocol,"
+            " app_name, source) VALUES (7, 'now', 'now', 28303, 'tcp', 'kept', 'any')"
+        )
+        cfg = _alembic_config(conn)
+        command.stamp(cfg, "a7c3e9d51f20")
+        command.upgrade(cfg, "head")
+        conn.exec_driver_sql(
+            "INSERT INTO port_claim (created_at, updated_at, number, protocol,"
+            " app_name, source) VALUES ('now', 'now', 24591, 'tcp', 'new', 'any')"
+        )
+        rows = conn.exec_driver_sql(
+            "SELECT id, app_name FROM port_claim ORDER BY id"
+        ).all()
+        insp = inspect(conn)
+        types = {t: _declared_type(insp, t, "id") for t in ("ban", "network")}
+
+    assert [tuple(row) for row in rows] == [(7, "kept"), (8, "new")]
+    assert types == {"ban": "INTEGER", "network": "INTEGER"}
+
+
+def _declared_type(inspector: Inspector, table: str, column: str) -> str:
+    return next(
+        str(c["type"]) for c in inspector.get_columns(table) if c["name"] == column
+    )

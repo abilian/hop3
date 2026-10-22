@@ -9,6 +9,7 @@ from __future__ import annotations
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from hop3.deployers import expose
 from hop3.deployers.expose import (
@@ -178,6 +179,33 @@ def test_expose_rolls_back_firewall_when_proxy_fails():
 
     # The opened firewall rule is removed on rollback.
     assert ("firewall.remove_rule", {"rule_id": "r1"}) in calls
+
+
+def _expose_with_failing_flush(holder: object) -> None:
+    repo = MagicMock()
+    repo.find_by_addon.return_value = None
+    repo.find_active.return_value = holder
+    session = MagicMock()
+    session.flush.side_effect = IntegrityError(
+        "INSERT", {}, Exception("NOT NULL constraint failed: port_claim.id")
+    )
+    with (
+        patch.object(expose, "PortClaimRepository", return_value=repo),
+        patch.object(expose, "get_addon", return_value=_addon_returning(PG_URL)),
+        patch.object(expose, "allocate_public_port", return_value=54312),
+    ):
+        expose_addon("postgres", "mydb", source="any", host="h", db_session=session)
+
+
+def test_a_port_taken_meanwhile_is_reported_as_a_race():
+    with pytest.raises(Abort, match="concurrent operation"):
+        _expose_with_failing_flush(holder=MagicMock())
+
+
+def test_any_other_constraint_surfaces_as_itself():
+    """A migrated SQLite port_claim could not assign ids: it read as a race."""
+    with pytest.raises(IntegrityError, match=r"port_claim\.id"):
+        _expose_with_failing_flush(holder=None)
 
 
 # --- unexpose_addon -------------------------------------------------------

@@ -44,7 +44,10 @@ def upgrade() -> None:
         return
     op.create_table(
         "ban",
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        # INTEGER on SQLite, so the id aliases the rowid and is assigned on insert.
+        sa.Column(
+            "id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("app_id", sa.BigInteger(), nullable=False),

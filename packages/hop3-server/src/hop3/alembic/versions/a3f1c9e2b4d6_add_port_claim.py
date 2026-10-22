@@ -45,7 +45,10 @@ def upgrade() -> None:
     # server and a fresh-install (create_all) server get an identical schema.
     op.create_table(
         "port_claim",
-        sa.Column("id", sa.BigInteger(), nullable=False),
+        # INTEGER on SQLite, so the id aliases the rowid and is assigned on insert.
+        sa.Column(
+            "id", sa.BigInteger().with_variant(sa.Integer(), "sqlite"), nullable=False
+        ),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("app_id", sa.BigInteger(), nullable=False),
