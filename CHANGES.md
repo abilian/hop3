@@ -136,6 +136,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **`hop3 nix eject --app <app> > hop3.nix` prints the generated expression.** It wrote the file into the server's copy of the source, which the next deploy replaces. Save it in your project and remove the `[nix]` section from `hop3.toml`: a build refuses an app that has both, which the command used to say it would ignore.
 - **`hop3 nix eject` ejects.** Every invocation printed the command's help and did nothing.
 - **A slow or failing server is no longer reported as a missing credential.** Before a destructive command, the CLI checks its credential with the server, and any failure of that check, a timeout included, became "No credential for ...", exit 4, and the advice to log in again: a destroy sent while the server was still busy with an upgrade said so. Only a refused credential is now an authentication error; a timeout or a server error is reported as itself. A read timeout, which no handler recognised, now says the server did not answer in time. These messages are printed on stderr.
+- **`hop3 logout` signs out after a login.** A login records the server as the default context, and the commands the CLI handles itself looked only for the default server older versions wrote: since 0.7.4, `hop3 logout` answered "Not logged in" and kept the token, and `hop3 login --token` or `--browser` without `--url` found no server.
 
 ### Server installation and updates
 

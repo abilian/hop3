@@ -192,9 +192,13 @@ class Config:
         Priority:
         1. HOP3_API_URL environment variable
         2. The resolved context's server (``_active_server``)
-        3. The configured default server (project-less commands)
-        4. Legacy config.toml context (one-release read fallback)
-        5. Developer mode default (localhost:8000)
+        3. The default context's server (``[cli].default_context``), what a
+           login records; the commands handled before ``main`` resolves a
+           context (logout, login without ``--url``) have only this
+        4. The legacy default server (``[cli].default_server``)
+        5. Legacy config.toml context (one-release read fallback)
+
+        ``HOP3_DEV_MODE`` (localhost:8000) outranks all of them.
         """
         if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
             return self.get("api_url", "http://localhost:8000")
@@ -202,17 +206,15 @@ class Config:
         if "HOP3_API_URL" in os.environ:
             return os.environ["HOP3_API_URL"]
 
-        if self._active_server:
-            return self._active_server
-
-        if default := self.get_default_server():
-            return default
-
-        context = self.get_current_context()
-        if context and context.api_url:
-            return context.api_url
-
-        return None
+        default_context = self.get_default_context()
+        legacy = self.get_current_context()
+        return (
+            self._active_server
+            or (self.get_context_server(default_context) if default_context else None)
+            or self.get_default_server()
+            or (legacy.api_url if legacy else None)
+            or None
+        )
 
     def get_api_token(self) -> str | None:
         """

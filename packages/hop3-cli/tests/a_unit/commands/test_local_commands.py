@@ -33,7 +33,7 @@ from hop3_cli.commands.local.login_cmd import (
     _verify_token,
 )
 from hop3_cli.commands.local.ssh_ops import validate_ssh_target
-from hop3_cli.config import DEFAULT_CONTEXT_NAME, Config
+from hop3_cli.config import DEFAULT_CONTEXT_NAME, Config, get_config
 from hop3_cli.core import credential_store as cs
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.rich_printer import RichPrinter
@@ -712,6 +712,37 @@ class TestHandleLogin:
         client_instance.rpc.assert_called_once_with("cli", ["auth", "logout"])
         assert cs.get_token("https://test.com") is None
         assert "Logged out" in capsys.readouterr().out
+
+    def test_logout_after_login_finds_the_server(
+        self, temp_config, mock_printer, capsys
+    ):
+        """
+        A login records a default context, which logout must find.
+
+        A login writes `[contexts.default]` and `[cli].default_context`, never
+        the retired `default_server`, and `get_api_url` read only the latter:
+        logout after any login said "Not logged in" and left the token.
+        """
+        with patch(
+            "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
+        ):
+            handle_login_token(
+                ["--token", _FAKE_JWT_TEST, "--url", "https://test.com"],
+                temp_config,
+                mock_printer,
+            )
+        # The logout is another process: it reads only what the login saved.
+        saved = get_config(temp_config.config_file)
+        assert saved.get_default_server() is None
+
+        client_instance = MagicMock()
+        client_cm = MagicMock()
+        client_cm.__enter__.return_value = client_instance
+        with patch("hop3_cli.rpc.Client", return_value=client_cm):
+            handle_logout([], saved, mock_printer)
+
+        client_instance.rpc.assert_called_once_with("cli", ["auth", "logout"])
+        assert cs.get_token("https://test.com") is None
 
     def test_login_token_success(self, temp_config, mock_printer, capsys):
         """Test successful token-based login."""
