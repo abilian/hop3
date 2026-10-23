@@ -1750,11 +1750,11 @@ hop3 addon redis info <name>                     # Server INFO (diagnostics)
 
 # S3
 hop3 addon s3 credentials <name>
-hop3 addon s3 dump <name>                         # Manifest (credentials + metadata)
+hop3 addon s3 dump <name>                         # Archive the objects (tar)
 hop3 addon s3 restore <name> <path>               # ⚠️ overwrites
 hop3 addon s3 clone <source> <new-name>           # Copy data into a new addon
-hop3 addon s3 export <name> > dump                # Stream a dump to your machine
-hop3 addon s3 import <name> --confirm=<name> < dump   # Load a dump
+hop3 addon s3 export <name> > dump.tar            # Stream a dump to your machine
+hop3 addon s3 import <name> --confirm=<name> < dump.tar   # Load a dump
 ```
 
 **Available verbs by type:**
@@ -1777,10 +1777,10 @@ hop3 addon s3 import <name> --confirm=<name> < dump   # Load a dump
 **Notes:**
 - `credentials` prints the addon's connection variables (`DATABASE_URL`, `REDIS_URL`, `S3_*`, …); treat the output as sensitive.
 - `restore` and `redis flush` are destructive and prompt for confirmation (bypass with `-y` / `--confirm=<name>`).
-- `dump` writes to the server's backup area and reports the path; redis/s3 `restore` are not available yet.
+- `dump` writes to the server's backup area (`/home/hop3/backups/<type>/`) and reports the path. `restore` takes a path **on the server**, inside `/home/hop3/backups`, and refuses any other: to load a dump from your machine, use `import`. An s3 dump is a tar of the bucket's objects with their content types; its restore writes every object back, then deletes the ones the dump does not hold. An s3 dump from before 0.8 holds no objects, and its restore is refused.
 - `query` runs the statement as the addon's own (least-privilege) database user, confined to that addon's database. A SELECT renders as a table; other statements report the affected row count. The SQL/command is passed via `--command "…"`.
-- `clone` creates a brand-new addon and loads a dump of the source into it (it refuses if the target already exists). Postgres/mysql only, since it builds on `restore`.
-- `export` streams a dump to the client's **stdout** (redirect to a file); `import` reads a dump from the client's **stdin**. Because `import` overwrites data *and* stdin is the dump (so it can't prompt), pass `--confirm=<name>` or `--yes` with it. Postgres/mysql only.
+- `clone` creates a brand-new addon and loads a dump of the source into it (it refuses if the target already exists). It builds on `restore`.
+- `export` streams a dump to the client's **stdout** (redirect to a file); `import` reads a dump from the client's **stdin**. Because `import` overwrites data *and* stdin is the dump (so it can't prompt), pass `--confirm=<name>` or `--yes` with it. A PostgreSQL dump needs no `OWNER TO` lines: a dump taken with `pg_dump --no-owner`, or on another platform, is given to the addon's user.
 - `ps` / `locks` / `settings` (postgres, mysql) and `redis info` are read-only diagnostics. The SQL ones run as the superuser so they see the whole database, and render as tables; `redis info` returns the server's INFO text.
 
 ## Web Application Firewall (WAF)

@@ -5,14 +5,19 @@
 """
 Tests for the S3Addon class.
 
-Uses a stub backend to avoid needing a real MinIO/Garage server.
-The backend protocol is the right unit of isolation.
+Uses a stub backend to avoid needing a real Garage server, and an in-memory
+S3 API behind httpx for the objects backup and restore move. The same
+operations run against a real node in b_integration/test_s3_garage_integration.
 """
 
 from __future__ import annotations
 
+import tarfile
+import urllib.parse
+import xml.sax.saxutils
 from dataclasses import dataclass, field
 
+import httpx
 import pytest
 
 from hop3.plugins.s3.backend import BackendError, S3Credentials
@@ -171,22 +176,126 @@ def test_info_includes_backend_and_bucket(hop3_root, backend):
     assert info["bucket_info"]["size"] == "0"
 
 
-def test_backup_writes_manifest(hop3_root, backend):
+class FakeS3:
+    """An in-memory S3 API: list (one page), get, put and delete."""
+
+    def __init__(self) -> None:
+        self.objects: dict[tuple[str, str], tuple[bytes, str]] = {}
+        self.fail_get = False
+
+    def handler(self, request: httpx.Request) -> httpx.Response:
+        bucket, _, key = (
+            urllib.parse.unquote(request.url.path).lstrip("/").partition("/")
+        )
+        if request.method == "GET" and not key:
+            keys = sorted(k for b, k in self.objects if b == bucket)
+            contents = "".join(
+                f"<Contents><Key>{xml.sax.saxutils.escape(k)}</Key></Contents>"
+                for k in keys
+            )
+            return httpx.Response(
+                200,
+                content=f"<ListBucketResult>{contents}"
+                "<IsTruncated>false</IsTruncated></ListBucketResult>",
+            )
+        if request.method == "GET":
+            if self.fail_get:
+                return httpx.Response(500, text="disk on fire")
+            body, content_type = self.objects[bucket, key]
+            return httpx.Response(
+                200, content=body, headers={"content-type": content_type}
+            )
+        if request.method == "PUT":
+            self.objects[bucket, key] = (
+                request.read(),
+                request.headers["content-type"],
+            )
+            return httpx.Response(200)
+        if request.method == "DELETE":
+            self.objects.pop((bucket, key), None)
+            return httpx.Response(204)
+        return httpx.Response(405)
+
+    def bucket(self, bucket: str) -> dict[str, tuple[bytes, str]]:
+        return {k: v for (b, k), v in self.objects.items() if b == bucket}
+
+
+@pytest.fixture
+def s3(monkeypatch) -> FakeS3:
+    fake = FakeS3()
+    client = httpx.Client(transport=httpx.MockTransport(fake.handler))
+    monkeypatch.setattr(httpx, "request", client.request)
+    monkeypatch.setattr(httpx, "stream", client.stream)
+    return fake
+
+
+OBJECTS = {
+    "index.html": (b"<h1>hi</h1>", "text/html"),
+    "a b+c%.txt": (b"awkward", "text/plain"),
+    "folder/": (b"", "application/x-directory"),
+    "deep/" + "x" * 120: (b"long", "application/octet-stream"),
+}
+
+
+def test_a_restore_gives_back_exactly_the_backup(hop3_root, backend, s3):
     addon = S3Addon(addon_name="myapp", backend=backend)
     addon.create()
+    for key, value in OBJECTS.items():
+        s3.objects[addon.bucket_name, key] = value
+    backup = addon.backup()
 
-    backup_path = addon.backup()
-    assert backup_path.exists()
-    assert backup_path.name.startswith("myapp_")
-    assert backup_path.suffix == ".json"
+    s3.objects.pop((addon.bucket_name, "index.html"))
+    s3.objects[addon.bucket_name, "added-later"] = (b"x", "text/plain")
+    addon.restore(backup)
 
-    # The backup should omit the secret key
-    import json  # ruff:ignore[import-outside-top-level]
+    assert s3.bucket(addon.bucket_name) == OBJECTS
 
-    data = json.loads(backup_path.read_text())
-    assert data["addon_name"] == "myapp"
-    assert data["bucket"] == "hop3-myapp"
-    assert data["backend"] == "stub"
-    assert data["credentials"]["access_key"] == "stub-hop3-myapp"
-    # Secret key must NOT be in the backup manifest
-    assert "secret_key" not in data["credentials"]
+
+def test_a_failed_backup_leaves_no_archive(hop3_root, backend, s3):
+    addon = S3Addon(addon_name="myapp", backend=backend)
+    addon.create()
+    s3.objects[addon.bucket_name, "f"] = (b"x", "text/plain")
+    s3.fail_get = True
+
+    with pytest.raises(BackendError, match="disk on fire"):
+        addon.backup()
+
+    assert list((hop3_root / "backups" / "s3").iterdir()) == []
+
+
+def test_a_manifest_from_before_0_8_is_refused(hop3_root, backend, s3):
+    addon = S3Addon(addon_name="myapp", backend=backend)
+    addon.create()
+    s3.objects[addon.bucket_name, "keep"] = (b"live", "text/plain")
+    legacy = hop3_root / "backups" / "s3" / "old.json"
+    legacy.parent.mkdir(parents=True)
+    legacy.write_text('{"addon_name": "myapp"}')
+
+    with pytest.raises(ValueError, match="holds none of its objects"):
+        addon.restore(legacy)
+
+    assert s3.bucket(addon.bucket_name) == {"keep": (b"live", "text/plain")}
+
+
+def test_an_archive_holding_more_than_objects_is_refused(hop3_root, backend, s3):
+    addon = S3Addon(addon_name="myapp", backend=backend)
+    addon.create()
+    archive = hop3_root / "backups" / "s3" / "odd.tar"
+    archive.parent.mkdir(parents=True)
+    with tarfile.open(archive, "w") as tar:
+        link = tarfile.TarInfo("link")
+        link.type = tarfile.SYMTYPE
+        link.linkname = "/etc/passwd"
+        tar.addfile(link)
+
+    with pytest.raises(ValueError, match="not an S3 object backup"):
+        addon.restore(archive)
+
+
+def test_a_restore_reads_only_from_the_backup_tree(hop3_root, backend, tmp_path):
+    addon = S3Addon(addon_name="myapp", backend=backend)
+    addon.create()
+    outside = tmp_path.parent / "elsewhere.tar"
+
+    with pytest.raises(ValueError, match="outside the backup directory"):
+        addon.restore(outside)

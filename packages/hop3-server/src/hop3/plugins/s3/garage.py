@@ -18,21 +18,17 @@ Two protocols are involved and they are not interchangeable:
 - The **S3 API** (port 3900, SigV4) is the only way to delete objects. Garage
   refuses to remove a bucket that still holds any — 409 from the admin API,
   "Bucket is not empty" from its CLI, and there is no force flag — so emptying
-  a bucket before dropping it has to go through S3 itself. `mc rb --force` used
-  to do this for MinIO; that tool is MinIO's, and keeping it as a dependency of
-  the Garage path would mean the replacement still needed the thing it replaced.
+  a bucket before dropping it has to go through S3 itself (`s3api`). `mc rb
+  --force` used to do this for MinIO; that tool is MinIO's, and keeping it as a
+  dependency of the Garage path would mean the replacement still needed the
+  thing it replaced.
 
 Every endpoint and status code here was verified against a real Garage v1.1.0.
 """
 
 from __future__ import annotations
 
-import datetime as dt
-import hashlib
-import hmac
 import os
-import urllib.parse
-import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
@@ -42,10 +38,9 @@ import httpx
 from hop3.lib.logging import server_log
 
 from .backend import BackendError, S3Credentials
+from .s3api import S3Client
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
-
     from hop3.lib.types import Json, JsonDict
 
 __all__ = ["GARAGE_ADMIN_TOKEN_FILE", "GarageBackend"]
@@ -58,11 +53,6 @@ GARAGE_ADMIN_TOKEN_FILE = "/etc/hop3/garage-admin-token"
 GARAGE_REGION = "garage"
 
 _TIMEOUT = 15.0
-
-#: S3 caps a single ListObjectsV2 page at 1000 keys.
-_LIST_PAGE = 1000
-
-_EMPTY_SHA256 = hashlib.sha256(b"").hexdigest()
 
 
 def _as_dict(value: Json, what: str) -> JsonDict:
@@ -266,7 +256,7 @@ class GarageBackend:
             "keys": str(len(keys) if isinstance(keys, list) else 0),
         }
 
-    # --- S3 API (only for emptying a bucket) -------------------------------
+    # --- emptying a bucket, over the S3 API ---------------------------------
 
     def _empty_bucket(self, bucket: str) -> None:
         """
@@ -296,8 +286,9 @@ class GarageBackend:
                     "permissions": {"read": True, "write": True, "owner": True},
                 },
             )
-            for object_key in self._list_objects(bucket, access_key, secret_key):
-                self._delete_object(bucket, object_key, access_key, secret_key)
+            purger = S3Client(self.endpoint, GARAGE_REGION, access_key, secret_key)
+            for object_key in purger.list_keys(bucket):
+                purger.delete(bucket, object_key)
         finally:
             # A cleanup that raises inside `finally` would replace the real
             # failure with its own, so the caller would be told the key could
@@ -312,122 +303,3 @@ class GarageBackend:
                     bucket=bucket,
                     error=str(cleanup_error),
                 )
-
-    def _list_objects(
-        self, bucket: str, access_key: str, secret_key: str
-    ) -> Iterator[str]:
-        """Every object key in the bucket, following continuation tokens."""
-        token: str | None = None
-        while True:
-            query = {"list-type": "2", "max-keys": str(_LIST_PAGE)}
-            if token:
-                query["continuation-token"] = token
-            body = self._s3("GET", f"/{bucket}", query, access_key, secret_key).content
-            root = ET.fromstring(body)
-            namespace = (
-                {"s3": root.tag.split("}")[0].strip("{")} if "}" in root.tag else {}
-            )
-            prefix = "s3:" if namespace else ""
-            for contents in root.findall(f"{prefix}Contents", namespace):
-                element = contents.find(f"{prefix}Key", namespace)
-                if element is not None and element.text:
-                    yield element.text
-            truncated = root.find(f"{prefix}IsTruncated", namespace)
-            if truncated is None or truncated.text != "true":
-                return
-            next_token = root.find(f"{prefix}NextContinuationToken", namespace)
-            if next_token is None or not next_token.text:
-                return
-            token = next_token.text
-
-    def _delete_object(
-        self, bucket: str, key: str, access_key: str, secret_key: str
-    ) -> None:
-        # The raw key: `_s3` percent-encodes once, for both the URL it sends
-        # and the signature it computes over. Encoding here as well produced
-        # a request whose path said `a%2Bb.txt` and whose signature covered
-        # `a%252Bb.txt`, which Garage rejected as "Invalid signature" — so an
-        # object whose key held a space or a `+` could not be deleted, and
-        # the bucket holding it could not be dropped.
-        self._s3("DELETE", f"/{bucket}/{key}", {}, access_key, secret_key)
-
-    def _s3(
-        self,
-        method: str,
-        path: str,
-        query: dict[str, str],
-        access_key: str,
-        secret_key: str,
-    ) -> httpx.Response:
-        """
-        A SigV4-signed request to Garage's S3 API.
-
-        Only two operations need this (list and delete), and both send no body,
-        so the signature covers the empty-payload hash. Path-style addressing
-        is used because Garage is reached by IP on a loopback port, where a
-        virtual-host style bucket name has nowhere to live.
-        """
-        # One encoding, used twice. SigV4 signs the encoded path, and the
-        # server recomputes the signature from the path it received: if the
-        # two spellings differ by so much as an escape, it is a 403.
-        encoded_path = urllib.parse.quote(path, safe="/~")
-        url = f"{self.endpoint.rstrip('/')}{encoded_path}"
-        host = urllib.parse.urlsplit(self.endpoint).netloc
-        now = dt.datetime.now(dt.UTC)
-        amz_date = now.strftime("%Y%m%dT%H%M%SZ")
-        date_stamp = now.strftime("%Y%m%d")
-
-        canonical_query = "&".join(
-            f"{urllib.parse.quote(k, safe='')}={urllib.parse.quote(v, safe='')}"
-            for k, v in sorted(query.items())
-        )
-        canonical_headers = (
-            f"host:{host}\n"
-            f"x-amz-content-sha256:{_EMPTY_SHA256}\n"
-            f"x-amz-date:{amz_date}\n"
-        )
-        signed_headers = "host;x-amz-content-sha256;x-amz-date"
-        # canonical_headers already ends in a newline; SigV4 wants a blank
-        # line between the header block and the signed-header list, so the
-        # explicit newline after it is load-bearing.
-        canonical_request = (
-            f"{method}\n{encoded_path}\n{canonical_query}\n"
-            f"{canonical_headers}\n{signed_headers}\n{_EMPTY_SHA256}"
-        )
-        scope = f"{date_stamp}/{GARAGE_REGION}/s3/aws4_request"
-        request_hash = hashlib.sha256(canonical_request.encode()).hexdigest()
-        to_sign = f"AWS4-HMAC-SHA256\n{amz_date}\n{scope}\n{request_hash}"
-        signing_key = _signing_key(secret_key, date_stamp)
-        signature = hmac.new(signing_key, to_sign.encode(), hashlib.sha256).hexdigest()
-
-        headers = {
-            "Host": host,
-            "x-amz-content-sha256": _EMPTY_SHA256,
-            "x-amz-date": amz_date,
-            "Authorization": (
-                f"AWS4-HMAC-SHA256 Credential={access_key}/{scope}, "
-                f"SignedHeaders={signed_headers}, Signature={signature}"
-            ),
-        }
-        try:
-            response = httpx.request(
-                method, url, params=query, headers=headers, timeout=_TIMEOUT
-            )
-        except httpx.HTTPError as e:
-            msg = f"Garage S3 API at {self.endpoint} is unreachable: {e}"
-            raise BackendError(msg) from e
-        if response.status_code >= httpx.codes.BAD_REQUEST:
-            msg = (
-                f"Garage S3 {method} {path} returned "
-                f"{response.status_code}: {response.text.strip()[:300]}"
-            )
-            raise BackendError(msg)
-        return response
-
-
-def _signing_key(secret_key: str, date_stamp: str) -> bytes:
-    """The SigV4 derived signing key: date, region, service, terminator."""
-    key = f"AWS4{secret_key}".encode()
-    for part in (date_stamp, GARAGE_REGION, "s3", "aws4_request"):
-        key = hmac.new(key, part.encode(), hashlib.sha256).digest()
-    return key

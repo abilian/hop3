@@ -70,6 +70,12 @@ The admin token is published to the `hop3` user in its own file at `/etc/hop3/ga
 
 Garage listens on 3900 (S3), 3901 (RPC) and 3903 (admin), all bound to loopback. MinIO's 9000 and 9001 are freed. Applications receive an endpoint in their injected credentials, never a hardcoded port, so the change does not reach them.
 
+### Backup and restore
+
+A bucket's backup is a tar of its objects, each with its content type in a PAX header, read with the application's own key. It goes wherever the addon's other dumps go: `hop3 addon s3 dump` and `export`, `clone`, and an app backup. Restore reads the whole archive before touching the bucket, writes every object back, and only then deletes the objects the archive does not hold. A restore that stops part-way leaves the bucket's objects plus part of the archive's, never fewer than it had, and can be run again. A bucket swap would make it atomic; MinIO has no counterpart to Garage's aliases, and a restore that depends on the backend is a cost against it.
+
+The object operations are a small SigV4 client over httpx (`s3api`), shared with the purge that empties a bucket before Garage will drop it. Both run against the server's own store, so no S3 SDK joins the server's dependencies.
+
 ## Consequences
 
 An existing server with MinIO-provisioned buckets keeps them: nothing deletes MinIO or its data. `HOP3_S3_BACKEND=minio` continues to address it as long as the operator keeps that MinIO running. No migration path from MinIO data to Garage exists, and none is planned: the two are independent object stores, and copying between them is an `rclone`/`mc mirror` operation an operator can run with credentials from both. A server that wants to move should be treated as a data migration.
@@ -80,7 +86,6 @@ Hop3 now ships a pinned download from a project-run URL rather than a distributi
 
 - **Should the addon also accept a remote S3 endpoint?** Useful independently of which server is bundled, and a way to make the bundled store optional.
 - **Multi-node Garage.** Garage's reason for existing is replication across sites. Hop3 configures one node with `replication_factor = 1`. Nothing here forecloses more, but nothing exercises it either.
-- **Backup integration.** Garage holds application data. The server backup story currently covers PostgreSQL, MySQL, Redis and Docker volumes. Buckets are not in it.
 
 ## References
 

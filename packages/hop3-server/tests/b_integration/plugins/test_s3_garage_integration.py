@@ -33,7 +33,12 @@ import uuid
 
 import pytest
 
+from hop3.config import HopConfig
+from hop3.plugins.addons import generic_cli
+from hop3.plugins.s3 import cli as s3_cli
+from hop3.plugins.s3.backend import S3Credentials
 from hop3.plugins.s3.garage import GarageBackend
+from hop3.plugins.s3.s3 import S3Addon
 
 ADMIN = os.environ.get("HOP3_TEST_GARAGE_ADMIN")
 S3_ENDPOINT = os.environ.get("HOP3_TEST_GARAGE_S3", "http://127.0.0.1:3900")
@@ -163,7 +168,7 @@ class TestTheLifecycleTheAddonDependsOn:
         Listing pages, and the page is consumed while its objects are being
         deleted. Driven with a tiny page size rather than a thousand objects.
         """
-        monkeypatch.setattr("hop3.plugins.s3.garage._LIST_PAGE", 2)
+        monkeypatch.setattr("hop3.plugins.s3.s3api._LIST_PAGE", 2)
         name = f"hop3-it-{uuid.uuid4().hex[:10]}"
         backend.create_bucket(name)
         creds = backend.create_access_key(name)
@@ -181,3 +186,133 @@ class TestTheLifecycleTheAddonDependsOn:
         backend.delete_bucket(name)
         backend.delete_access_key(creds.access_key)
         backend.delete_access_key(creds.access_key)
+
+
+# --- the addon's backup and restore, against the same node ----------------
+
+
+@pytest.fixture
+def hop3_root(tmp_path, monkeypatch):
+    monkeypatch.setenv("HOP3_ROOT", str(tmp_path))
+    monkeypatch.setattr(generic_cli, "HOP3_ROOT", tmp_path)
+    HopConfig.reset_instance()
+    yield tmp_path
+    HopConfig.reset_instance()
+
+
+@pytest.fixture
+def make_addon(backend, hop3_root):
+    """S3 addons on the node, destroyed however the test ends."""
+    made: list[S3Addon] = []
+
+    def make() -> S3Addon:
+        addon = S3Addon(addon_name=f"it-{uuid.uuid4().hex[:10]}", backend=backend)
+        addon.create()
+        made.append(addon)
+        return addon
+
+    yield make
+    for addon in made:
+        addon.destroy()
+
+
+def app_client(addon: S3Addon):
+    """The client the app itself would use, from its injected env."""
+    env = addon.get_connection_details()
+    return s3_client(
+        S3Credentials(
+            access_key=env["S3_ACCESS_KEY"],
+            secret_key=env["S3_SECRET_KEY"],
+            endpoint=env["S3_ENDPOINT"],
+            region=env["S3_REGION"],
+        )
+    )
+
+
+def bucket_contents(addon: S3Addon) -> dict[str, tuple[bytes, str]]:
+    client = app_client(addon)
+    listing = client.list_objects_v2(Bucket=addon.bucket_name).get("Contents", [])
+    out = {}
+    for entry in listing:
+        obj = client.get_object(Bucket=addon.bucket_name, Key=entry["Key"])
+        out[entry["Key"]] = (obj["Body"].read(), obj["ContentType"])
+    return out
+
+
+#: Keys that need encoding, a folder marker, a key past tar's 100-character
+#: name field, and an object larger than one read chunk.
+OBJECTS = {
+    "index.html": (b"<h1>hello</h1>", "text/html"),
+    "with space+plus%.txt": (b"awkward", "text/plain"),
+    "sub/dir/файл.json": (b'{"a": 1}', "application/json"),
+    "folder/": (b"", "application/x-directory"),
+    "deep/" + "x" * 120 + ".bin": (b"long name", "application/octet-stream"),
+    "big.bin": (bytes(range(256)) * 12_000, "application/octet-stream"),
+}
+
+
+def put_objects(addon: S3Addon, objects) -> None:
+    client = app_client(addon)
+    for key, (body, content_type) in objects.items():
+        client.put_object(
+            Bucket=addon.bucket_name, Key=key, Body=body, ContentType=content_type
+        )
+
+
+class TestTheAddonBacksUpAndRestoresObjects:
+    """
+    An S3 backup used to be a JSON manifest of the bucket's metadata, and its
+    restore read it and discarded it: `restore`, `clone` and `import` all
+    reported success and put back no object.
+    """
+
+    def test_a_restore_gives_back_exactly_the_backup(self, make_addon) -> None:
+        addon = make_addon()
+        put_objects(addon, OBJECTS)
+        backup = addon.backup()
+
+        client = app_client(addon)
+        client.delete_object(Bucket=addon.bucket_name, Key="index.html")
+        client.put_object(Bucket=addon.bucket_name, Key="big.bin", Body=b"changed")
+        client.put_object(Bucket=addon.bucket_name, Key="added-later", Body=b"x")
+
+        addon.restore(backup)
+
+        assert bucket_contents(addon) == OBJECTS
+
+    def test_a_clone_copies_the_objects(self, make_addon) -> None:
+        source, target = make_addon(), make_addon()
+        put_objects(source, OBJECTS)
+
+        target.restore(source.backup())
+
+        assert bucket_contents(target) == OBJECTS
+
+    def test_import_loads_an_export_from_the_client(
+        self, make_addon, monkeypatch
+    ) -> None:
+        source, target = make_addon(), make_addon()
+        put_objects(source, OBJECTS)
+        monkeypatch.setattr(generic_cli, "get_addon", lambda t, n: source)
+        exported = next(
+            item
+            for item in s3_cli.AddonS3ExportCmd().call(source.addon_name)
+            if item["t"] == "blob"
+        )
+
+        monkeypatch.setattr(generic_cli, "get_addon", lambda t, n: target)
+        s3_cli.AddonS3ImportCmd().call(target.addon_name, import_data=exported["data"])
+
+        assert bucket_contents(target) == OBJECTS
+
+    def test_a_manifest_from_before_0_8_is_refused(self, make_addon, hop3_root) -> None:
+        addon = make_addon()
+        put_objects(addon, {"keep.txt": (b"live", "text/plain")})
+        legacy = hop3_root / "backups" / "s3" / "old.json"
+        legacy.parent.mkdir(parents=True, exist_ok=True)
+        legacy.write_text('{"addon_name": "x", "bucket": "hop3-x"}')
+
+        with pytest.raises(ValueError, match="holds none of its objects"):
+            addon.restore(legacy)
+
+        assert bucket_contents(addon) == {"keep.txt": (b"live", "text/plain")}

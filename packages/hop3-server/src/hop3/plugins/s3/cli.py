@@ -28,11 +28,11 @@ _GENERIC = AddonCliSpec(
     label="S3",
     article="an",
     example="mybucket",
-    dump_suffix=".dump",
-    dump_filename="dump",
-    dump_contents="manifest (credentials + bucket metadata)",
-    export_contents="manifest + bucket data",
-    restore_target="the addon's current bucket contents / manifest",
+    dump_suffix=".tar",
+    dump_filename="dump.tar",
+    dump_contents="objects, as a tar",
+    export_contents="the bucket's objects, as a tar",
+    restore_target="the objects in the addon's bucket",
     clone_example=("prod-bucket", "staging-bucket"),
 )
 
@@ -56,12 +56,12 @@ class AddonS3Cmd(NamespaceCommand):
     S3 addon operations: credentials, dump/restore, and clone.
 
     Work with one S3 (object storage) instance: show its credentials, dump or
-    restore its manifest, or clone it. Create an instance with
+    restore its objects, or clone it. Create an instance with
     'hop3 addon create s3 <name>'.
 
     Examples:
         hop3 addon s3 credentials myfiles               # Access key + bucket
-        hop3 addon s3 dump myfiles                        # Dump the manifest
+        hop3 addon s3 dump myfiles                        # Archive the objects
         hop3 addon s3 clone myfiles myfiles-copy          # Copy its data
     """
 
