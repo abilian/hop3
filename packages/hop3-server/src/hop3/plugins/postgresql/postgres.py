@@ -318,6 +318,73 @@ def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) ->
         conn.close()
 
 
+# What a restore, run as the admin, leaves the admin owning in the database:
+# (ALTER keyword, name already quoted by its reg* cast). System schemas and
+# extension members stay put; a serial or identity sequence follows its table.
+_ADMIN_OWNED_OBJECTS = """
+WITH user_ns AS (
+    SELECT oid, nspname FROM pg_namespace
+    WHERE nspname <> 'information_schema' AND nspname NOT LIKE 'pg\\_%'
+)
+SELECT 'SCHEMA', quote_ident(n.nspname) FROM user_ns n
+JOIN pg_namespace s ON s.oid = n.oid
+WHERE pg_get_userbyid(s.nspowner) = current_user
+  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_namespace'::regclass
+                  AND d.objid = n.oid AND d.deptype = 'e')
+UNION ALL
+SELECT CASE c.relkind WHEN 'S' THEN 'SEQUENCE' WHEN 'v' THEN 'VIEW'
+                      WHEN 'm' THEN 'MATERIALIZED VIEW' WHEN 'f' THEN 'FOREIGN TABLE'
+                      ELSE 'TABLE' END,
+       c.oid::regclass::text
+FROM pg_class c JOIN user_ns n ON n.oid = c.relnamespace
+WHERE pg_get_userbyid(c.relowner) = current_user
+  AND c.relkind IN ('r', 'p', 'v', 'm', 'S', 'f')
+  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass
+                  AND d.objid = c.oid AND d.deptype IN ('e', 'a', 'i'))
+UNION ALL
+SELECT CASE p.prokind WHEN 'p' THEN 'PROCEDURE' WHEN 'a' THEN 'AGGREGATE'
+                      ELSE 'FUNCTION' END,
+       p.oid::regprocedure::text
+FROM pg_proc p JOIN user_ns n ON n.oid = p.pronamespace
+WHERE pg_get_userbyid(p.proowner) = current_user
+  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_proc'::regclass
+                  AND d.objid = p.oid AND d.deptype = 'e')
+UNION ALL
+SELECT 'TYPE', t.oid::regtype::text
+FROM pg_type t JOIN user_ns n ON n.oid = t.typnamespace
+WHERE pg_get_userbyid(t.typowner) = current_user
+  AND (t.typtype IN ('e', 'd', 'r')
+       OR (t.typtype = 'c'
+           AND (SELECT relkind FROM pg_class WHERE oid = t.typrelid) = 'c'))
+  AND NOT EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_type'::regclass
+                  AND d.objid = t.oid AND d.deptype = 'e')
+"""
+
+
+def _give_admin_objects_to(admin: PostgresAdmin, *, db_name: str, db_user: str) -> None:
+    """
+    Give the app's user everything the admin created in ``db_name``.
+
+    A dump taken with ``--no-owner``, or on another server, carries no
+    ``OWNER TO`` this server can use: loaded as the admin, its tables were the
+    admin's, the restore reported success, and the app got "permission
+    denied" on its own data.
+    """
+    conn = psycopg2.connect(**admin.get_connection_params(dbname=db_name))
+    conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)
+    try:
+        with conn.cursor() as cursor:
+            cursor.execute(_ADMIN_OWNED_OBJECTS)
+            for kind, name in cursor.fetchall():
+                cursor.execute(
+                    sql.SQL("ALTER {} {} OWNER TO {}").format(
+                        sql.SQL(kind), sql.SQL(name), sql.Identifier(db_user)
+                    )
+                )
+    finally:
+        conn.close()
+
+
 def _admin_execute(admin: PostgresAdmin, *statements: sql.Composable) -> None:
     """Run ``statements`` in order as the admin, outside a transaction."""
     conn = psycopg2.connect(**admin.get_connection_params())
@@ -794,8 +861,8 @@ class PostgresAddon:
         "restored" database mixed the two.
 
         It runs as the admin, so the dump can create the extensions the app
-        used; its `OWNER TO` statements give every object back to the app's
-        user.
+        used; every object the admin is left owning (all of them, for a dump
+        without `OWNER TO`) is then given to the app's user.
         """
         # Confine the caller-supplied path to the backup tree: this value
         # comes straight from RPC and reaches a file-reading sink below.
@@ -841,7 +908,8 @@ class PostgresAddon:
         ]
         try:
             subprocess.run(cmd, check=True, env=env)
-        except subprocess.CalledProcessError:
+            _give_admin_objects_to(admin, db_name=staging, db_user=self.db_user)
+        except (subprocess.CalledProcessError, psycopg2.Error):
             _admin_execute(
                 admin,
                 sql.SQL("DROP DATABASE IF EXISTS {} WITH (FORCE)").format(

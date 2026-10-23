@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from hop3.core.backup import resolve_backup_file
 from hop3.plugins.addons import generic_cli
 from hop3.plugins.mysql import cli as mysql_cli
 from hop3.plugins.postgresql import cli as pg_cli
@@ -270,20 +271,42 @@ def test_export_streams_dump_as_blob(monkeypatch, tmp_path):
     assert base64.b64decode(blob["data"]) == b"SELECT 1;\n"
 
 
-def test_import_restores_decoded_dump_and_is_destructive(monkeypatch):
-    seen = {}
+class _ConfinedImporter:
+    """
+    Reads the dump the way the real addons do: only from the backup tree.
 
-    class _Importer:
-        def restore(self, path):
-            seen["content"] = Path(path).read_bytes()
+    A stub that read any path hid that `import` staged its dump in /tmp,
+    which every real `restore` refused.
+    """
 
-    _patch_get_addon(monkeypatch, pg_cli, lambda t, n: _Importer())
+    def __init__(self, backup_root: Path) -> None:
+        self.backup_root = backup_root
+        self.content = b""
 
-    assert pg_cli.AddonPostgresImportCmd.destructive is True
-    payload = base64.b64encode(b"CREATE TABLE t();").decode()
-    pg_cli.AddonPostgresImportCmd().call("mydb", import_data=payload)
+    def restore(self, path: Path) -> None:
+        self.content = resolve_backup_file(path, self.backup_root).read_bytes()
 
-    assert seen["content"] == b"CREATE TABLE t();"
+
+IMPORT_COMMANDS = [
+    pg_cli.AddonPostgresImportCmd,
+    mysql_cli.AddonMysqlImportCmd,
+    redis_cli.AddonRedisImportCmd,
+    s3_cli.AddonS3ImportCmd,
+]
+
+
+@pytest.mark.parametrize("cmd", IMPORT_COMMANDS, ids=lambda c: c.__name__)
+def test_import_restores_the_dump_from_the_backup_tree(cmd, monkeypatch, tmp_path):
+    monkeypatch.setattr(generic_cli, "HOP3_ROOT", tmp_path)
+    importer = _ConfinedImporter(tmp_path / "backups")
+    monkeypatch.setattr(generic_cli, "get_addon", lambda t, n: importer)
+
+    assert cmd.destructive is True
+    cmd().call("mine", import_data=base64.b64encode(b"DUMP").decode())
+
+    assert importer.content == b"DUMP"
+    # The staged dump does not outlive the import.
+    assert [p for p in (tmp_path / "backups").rglob("*") if p.is_file()] == []
 
 
 def test_import_without_data_returns_error():
@@ -326,22 +349,6 @@ def test_redis_clone_creates_target_and_copies_data(monkeypatch):
     assert "summary" in _types(out)
 
 
-def test_redis_import_restores_decoded_dump_and_is_destructive(monkeypatch):
-    seen = {}
-
-    class _Importer:
-        def restore(self, path):
-            seen["content"] = Path(path).read_bytes()
-
-    _patch_get_addon(monkeypatch, redis_cli, lambda t, n: _Importer())
-
-    assert redis_cli.AddonRedisImportCmd.destructive is True
-    payload = base64.b64encode(b"REDISDUMP").decode()
-    redis_cli.AddonRedisImportCmd().call("mycache", import_data=payload)
-
-    assert seen["content"] == b"REDISDUMP"
-
-
 def test_redis_export_streams_dump_as_blob(monkeypatch, tmp_path):
     dump = tmp_path / "d.rdb"
     dump.write_bytes(b"\x00rdb\x00")
@@ -365,22 +372,6 @@ def test_s3_restore_calls_restore_and_is_destructive(monkeypatch):
     s3_cli.AddonS3RestoreCmd().call("mybucket", "/tmp/bucket.dump")
 
     assert ("restore", Path("/tmp/bucket.dump")) in fake.calls
-
-
-def test_s3_import_restores_decoded_dump(monkeypatch):
-    seen = {}
-
-    class _Importer:
-        def restore(self, path):
-            seen["content"] = Path(path).read_bytes()
-
-    _patch_get_addon(monkeypatch, s3_cli, lambda t, n: _Importer())
-
-    assert s3_cli.AddonS3ImportCmd.destructive is True
-    s3_cli.AddonS3ImportCmd().call(
-        "mybucket", import_data=base64.b64encode(b"S3DUMP").decode()
-    )
-    assert seen["content"] == b"S3DUMP"
 
 
 def test_missing_args_is_a_usage_error_not_a_crash():

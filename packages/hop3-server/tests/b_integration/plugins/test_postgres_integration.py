@@ -20,6 +20,7 @@ Run with: pytest tests/b_integration/plugins/test_postgres_integration.py -v
 
 from __future__ import annotations
 
+import base64
 import shutil
 import subprocess
 import uuid
@@ -30,6 +31,8 @@ import psycopg2.extensions
 import pytest
 
 import hop3.plugins.postgresql.postgres as pg_module
+from hop3.plugins.addons import generic_cli
+from hop3.plugins.postgresql import cli as pg_cli
 from hop3.plugins.postgresql.admin import PostgresAdmin
 from hop3.plugins.postgresql.postgres import PostgresAddon
 
@@ -400,3 +403,61 @@ def test_a_dump_that_fails_leaves_the_live_database_alone(
         postgres_addon.restore(broken)
 
     assert _app_sql(postgres_addon, "SELECT value FROM answers") == [("live",)]
+
+
+# A `pg_dump --no-owner` dump, as one taken on another platform usually is.
+_DUMP_WITHOUT_OWNERS = b"""
+CREATE TYPE public.mood AS ENUM ('ok', 'bad');
+CREATE TABLE public.answers (id SERIAL PRIMARY KEY, value TEXT, mood public.mood);
+INSERT INTO public.answers (value, mood) VALUES ('imported', 'ok');
+CREATE VIEW public.ok_answers AS SELECT value FROM public.answers WHERE mood = 'ok';
+CREATE FUNCTION public.answer_count() RETURNS bigint
+    LANGUAGE sql AS 'SELECT count(*) FROM public.answers';
+"""
+
+
+def test_import_loads_a_dump_streamed_from_the_client(
+    postgres_addon, tmp_path, monkeypatch
+):
+    """
+    `addon postgres import` staged the upload in /tmp, which `restore` refuses:
+    the command could never succeed, and a stubbed `restore` hid it.
+    """
+    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(generic_cli, "HOP3_ROOT", tmp_path)
+    postgres_addon.create()
+
+    pg_cli.AddonPostgresImportCmd().call(
+        postgres_addon.addon_name,
+        import_data=base64.b64encode(_DUMP_WITHOUT_OWNERS).decode(),
+    )
+
+    assert _app_sql(postgres_addon, "SELECT value FROM ok_answers") == [("imported",)]
+    assert list((tmp_path / "backups" / "postgres").iterdir()) == []
+
+
+def test_a_dump_without_owners_is_given_to_the_app_user(
+    postgres_addon, tmp_path, monkeypatch
+):
+    """
+    Loaded as the admin, a dump without `OWNER TO` left every object the
+    admin's: the restore succeeded and the app got "permission denied".
+    """
+    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    postgres_addon.create()
+    dump = tmp_path / "backups" / "postgres" / "foreign.sql"
+    dump.parent.mkdir(parents=True)
+    dump.write_bytes(_DUMP_WITHOUT_OWNERS)
+
+    postgres_addon.restore(dump)
+
+    # Everything the app does to its own data: write (and the serial's
+    # sequence with it), read a view, call a function, change the schema.
+    _app_sql(
+        postgres_addon,
+        "INSERT INTO answers (value, mood) VALUES ('later', 'bad')",
+        "ALTER TABLE answers ADD COLUMN note TEXT",
+        "ALTER TYPE mood ADD VALUE 'meh'",
+        "CREATE OR REPLACE VIEW ok_answers AS SELECT value, note FROM answers",
+    )
+    assert _app_sql(postgres_addon, "SELECT answer_count()") == [(2,)]

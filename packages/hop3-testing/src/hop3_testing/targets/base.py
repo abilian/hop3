@@ -250,13 +250,16 @@ class DeploymentTarget(ABC):
         env["HOP3_NO_INPUT"] = "1"
         return env
 
-    def run_command(self, *args: str, timeout: int = 300) -> CommandResult:
+    def run_command(
+        self, *args: str, timeout: int = 300, stdin: str | None = None
+    ) -> CommandResult:
         """
         Run a hop3 command on the target.
 
         Args:
             *args: Command and arguments (e.g., "backup", "create", "my-app")
             timeout: Command timeout in seconds
+            stdin: Piped to the command, as `hop3 addon <type> import` reads it
 
         Returns:
             CommandResult with success status and output
@@ -275,6 +278,7 @@ class DeploymentTarget(ABC):
             text=True,
             check=False,
             timeout=timeout,
+            input=stdin,
         )
 
         return CommandResult(

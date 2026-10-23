@@ -351,6 +351,44 @@ def index():
                     f"the restored database does not hold the row: {back!r}"
                 )
 
+    def test_import_loads_a_dump_from_the_client(self, deployment_target, tmp_path):
+        """
+        `hop3 addon postgres import` through the CLI, as a user runs it.
+
+        It staged the upload in /tmp, which restore refuses, so it failed on
+        every call; and a dump without `OWNER TO` came back owned by the
+        admin, so the app could not write it. The app writes it here.
+        """
+        app_dir = create_flask_app(tmp_path, "import-pg", requirements=_PG_REQS)
+
+        app = AppSource(name="import-pg", path=app_dir)
+        with DeploymentSession(app, deployment_target) as session:
+            session.deploy()  # Raises DeploymentError on failure
+            with _addon(deployment_target, session.app_name, "postgres") as addon:
+                result = deployment_target.run_command(
+                    "addon",
+                    "postgres",
+                    "import",
+                    addon,
+                    f"--confirm={addon}",
+                    stdin=(
+                        "CREATE TABLE answers (id SERIAL PRIMARY KEY, v TEXT);\n"
+                        "INSERT INTO answers (v) VALUES ('imported');\n"
+                    ),
+                )
+                assert result.success, f"import failed: {result.stderr}"
+
+                _sql(
+                    deployment_target,
+                    session.app_name,
+                    "INSERT INTO answers (v) VALUES ('written-by-the-app')",
+                )
+                rows = _sql(
+                    deployment_target, session.app_name, "SELECT v FROM answers"
+                )
+                assert "imported" in rows, rows
+                assert "written-by-the-app" in rows, rows
+
     def test_backup_and_restore_app_with_mysql(self, deployment_target):
         """
         A MySQL dump holds the row, logs no access error, and restores it.

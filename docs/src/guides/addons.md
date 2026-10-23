@@ -82,6 +82,11 @@ hop3 addon postgres restore my-database <path>    # psql restore (prompts)
 hop3 addon mysql dump legacy-db
 hop3 addon redis dump my-cache
 hop3 addon redis restore my-cache <path>
+# <path> is on the server, under /home/hop3/backups (where `dump` writes)
+
+# Export / import — a dump to or from your machine, over stdout / stdin
+hop3 addon postgres export my-database > dump.sql
+hop3 addon postgres import my-database --confirm=my-database < dump.sql
 
 # Postgres extensions (allow-listed)
 hop3 addon postgres extensions my-database postgis pgvector
