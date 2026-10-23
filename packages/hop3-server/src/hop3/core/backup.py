@@ -464,8 +464,20 @@ class BackupManager:
 
         Raises:
             FileNotFoundError: if the directory or its manifest is missing.
-            ValueError: if the manifest's checksums don't validate.
+            ValueError: if the directory is outside the backup tree, or the
+                manifest's checksums don't validate.
         """
+        # Addon restores read only from the backup tree. A backup registered
+        # from elsewhere would restore the source, data and env, then abort
+        # at its first addon: refuse it here, before anything is touched.
+        backup_root = HopConfig.get_instance().BACKUP_ROOT.resolve()
+        if not is_under(backup_dir.resolve(), backup_root):
+            msg = (
+                f"Backup directory is outside the backup tree: {backup_dir}. "
+                f"Move it under {backup_root}/apps/<app>/ and register it there."
+            )
+            raise ValueError(msg)
+
         if not backup_dir.exists() or not backup_dir.is_dir():
             msg = f"Backup directory not found: {backup_dir}"
             raise FileNotFoundError(msg)

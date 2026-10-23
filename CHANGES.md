@@ -111,6 +111,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A PostgreSQL restore gives back the dump, or fails and changes nothing.** The dump was replayed over the live database: its CREATE statements failed on the tables already there, while `psql` went on and exited 0. The restored database mixed the backup with what it was meant to replace. That is the database an upgrade's rollback left. The dump now loads into a fresh database, in one transaction that stops at the first error, and replaces the live one only once it loaded.
 - **An app with an email addon can be backed up, and so upgraded.** The email addon refused to be backed up because it holds no data. That failed every backup of such an app, along with every upgrade, whose snapshot is a backup. The backup records the addon by name, without its settings; a restore checks it is still configured, and names the command that re-creates it otherwise.
+- **`hop3 backup register` refuses a directory outside the backup tree.** A backup registered from elsewhere restored the app's source, data and environment, then stopped at its first addon, whose restore reads only from `/home/hop3/backups`. The app was left half restored.
 - **A MySQL backup no longer logs an access error.** `mysqldump` dumps tablespaces by default, which needs the server-wide PROCESS privilege the app's user does not have; it said so on every backup, and every upgrade's snapshot. Dumps now leave tablespaces out.
 
 ### Catalog

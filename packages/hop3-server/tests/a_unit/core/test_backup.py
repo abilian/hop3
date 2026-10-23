@@ -12,6 +12,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.backup import BackupManager, BackupManifest, format_size
 
 
@@ -399,3 +400,40 @@ def test_restore_addons_fails_loud_when_addon_restore_raises(tmp_path, monkeypat
     manager = create_backup_manager_with_mocks()
     with pytest.raises(RuntimeError, match="addon restore failed"):
         manager._restore_addons(None, tmp_path, _addon_manifest())
+
+
+@pytest.fixture
+def backup_root(tmp_path, monkeypatch) -> pathlib.Path:
+    root = tmp_path / "backups"
+    (root / "apps" / "a" / "b").mkdir(parents=True)
+    cfg = HopConfig.get_instance()
+    monkeypatch.setattr(type(cfg), "BACKUP_ROOT", property(lambda self: root))
+    return root
+
+
+def test_register_refuses_a_backup_outside_the_backup_tree(tmp_path, backup_root):
+    # Registered from elsewhere, its restore overwrote source, data and env,
+    # then aborted at the first addon, which reads only from the backup tree.
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    manager = create_backup_manager_with_mocks()
+    with pytest.raises(ValueError, match="outside the backup tree"):
+        manager.register_existing_backup(outside)
+    manager.backup_repo.add.assert_not_called()
+
+
+def test_register_refuses_a_symlink_out_of_the_backup_tree(tmp_path, backup_root):
+    outside = tmp_path / "elsewhere"
+    outside.mkdir()
+    link = backup_root / "apps" / "a" / "link"
+    link.symlink_to(outside)
+    manager = create_backup_manager_with_mocks()
+    with pytest.raises(ValueError, match="outside the backup tree"):
+        manager.register_existing_backup(link)
+
+
+def test_register_accepts_a_backup_inside_the_backup_tree(backup_root):
+    # Past the containment check, it goes on to read the manifest.
+    manager = create_backup_manager_with_mocks()
+    with pytest.raises(FileNotFoundError, match="Manifest not found"):
+        manager.register_existing_backup(backup_root / "apps" / "a" / "b")
