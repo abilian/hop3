@@ -299,6 +299,10 @@ def _reconcile() -> int:
     return 0
 
 
+#: What a root-run system installer creates files with: 0644 and 0755.
+INSTALL_UMASK = 0o022
+
+
 def main() -> int:
     """
     Main entry point.
@@ -331,6 +335,12 @@ def main() -> int:
         print_error("This installer must be run as root")
         print_detail("Use: sudo python3 install-server.py")
         return 1
+
+    # The installer's own umask, never the caller's. `docker exec` can hand it
+    # 0000: every file it then created without a chmod was world-writable, and
+    # Redis's init script, finding its pidfile so, did not start Redis yet
+    # exited 0.
+    os.umask(INSTALL_UMASK)
 
     # Detect distro
     distro = detect_distro()

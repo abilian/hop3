@@ -37,3 +37,32 @@ def test_reconcile_runs_no_install_step(monkeypatch):
     reconcile.assert_called_once()
     critical.assert_not_called()
     configure.assert_not_called()
+
+
+def test_the_installer_sets_its_own_umask(monkeypatch):
+    """
+    `docker exec` handed the installer umask 0000. Redis's init script then
+    created its pidfile world-writable, start-stop-daemon refused it, and the
+    script exited 0 with Redis down; every file the installer created without
+    a chmod was world-writable too.
+    """
+    monkeypatch.setattr(sys, "argv", ["install-server.py", "--reconcile"])
+    seen = {}
+
+    def reconcile():
+        seen["umask"] = installer.os.umask(0)
+        installer.os.umask(seen["umask"])
+        return 0
+
+    previous = installer.os.umask(0)
+    try:
+        with (
+            patch.object(installer.os, "geteuid", return_value=0),
+            patch.object(installer, "detect_distro", return_value="debian"),
+            patch.object(installer, "_reconcile", reconcile),
+        ):
+            assert installer.main() == 0
+    finally:
+        installer.os.umask(previous)
+
+    assert seen["umask"] == 0o022
