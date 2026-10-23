@@ -38,6 +38,14 @@ TR-03 §9.5 calls this the substantive open item in the CLI: the resolution chai
 
 The target and transport half is done (ADR 042, fourth revision; see [plan-0.8.md](plan-0.8.md#done)).
 
+The context model was redesigned on 2026-10-23 (ADR 042, fifth revision; the review and the reasoning are in [cli-context-review.md](../cli-context-review.md)). Each step ships alone:
+
+- [ ] **One resolver** for every command and message: a selection that names nothing aborts, every server-reaching command prints where it goes and why, `--why` shows the full trace, and `cli.md` and the cheat sheet are corrected against it. Could go into an 0.8.x.
+- [ ] **Contexts global-only**: `context add` records a server and nothing else, `context unset`, a global `rename`, a login no longer changes the current context.
+- [ ] **The binding**: `hop3 context use` binds the checkout inside a project and sets the global context outside one, asking first; an unbound project refuses every server-reaching command; `server` in `hop3.toml` is refused with the replacing command.
+- [ ] **Protected servers**: the mark on the server, the selection source sent with each invocation, the typed app name.
+- [ ] Decide the ADR's two open questions (what keys the per-deployment blocks, sections or overlay files) before the binding step.
+
 ### Catalog: one core behind two front-ends
 
 - [ ] **Extract `hop3-catalog-core`**: models, loader, taxonomy, policy, and the view-model both renderers consume. Pure Python, no web framework. `packages/hop3-marketplace` depends on the whole of `hop3-server` (Litestar, SQLAlchemy, the plugin manager) to render static HTML today. `hop3-server` keeps everything about fetching, verifying and installing (trust and state); the new package is presentation. The server feature table (catalog versioning, 0.8) stays in hop3-server.

@@ -1,10 +1,10 @@
 # How the CLI picks its server: a review of `hop3 context`
 
-Input for the 0.8 discussion of `hop3 context`, which is hard to use. This note maps what the code does today: the commands, the order that decides which server a command goes to, where the state lives, where the docs disagree, and the confusion that results. It proposes no redesign beyond one line per problem.
+Input for the discussion of `hop3 context`, which is hard to use. Sections 1 to 6 map what the code does today: the commands, the order that decides which server a command goes to, where the state lives, where the docs disagree, and the confusion that results. Section 7 names the root cause, and section 8 records the design agreed from it, now in ADR 042.
 
 Paths are relative to `packages/hop3-cli/src/hop3_cli/`. The findings come from reading the code (2026-10-23). Only the logout bug (5.1) was reproduced in a test and fixed; the others need a test before anyone relies on them.
 
-## 1. What chooses the target
+## 1. What chooses the server
 
 **Global flags** (`commands/flags.py`), stripped from argv wherever they appear: `--context`/`-c <name>`, `--app`/`-a <name>`, `--via-ssh`, `--why`. `--context=x` is not parsed. There is no `--server` flag.
 
@@ -100,10 +100,48 @@ Paths are relative to `packages/hop3-cli/src/hop3_cli/`. The findings come from 
 ## 6. What b623d2c2 changed (2026-10-17)
 
 - `context use --global <name>`, and `context use` outside a project, set `default_context`.
-- `login --context <name>` without a target signs in over the SSH route that context records.
+- `login --context <name>` without an address signs in over the SSH route that context records.
 - `ssh_target_from_address` moved to `core/ssh_target.py`.
 - `cli.md`, the `notes/` copy of ADR 042, and the tests were updated.
 
-## 7. Where to start
+## 7. The root cause: one word for two things
 
-Most of section 5 comes from one gap: the CLI has no single answer to "which server will this command reach, and why". Three functions answer it (`get_api_url`, `_wire_active_server`, `get_current_context_name`), at different points in `main`, and they disagree. A single resolver, run before any command dispatches, used by every command and every message, and refusing a selection it cannot resolve, would remove 5.1, 5.2 and 5.4 and give `--why` its context trace. The renaming in 5.6 and the login side effect in 5.5 are interface decisions to take on top of it.
+A global context (`config.toml`) is a **connection to a server**: an address, and a token in the credential store. A project context (`hop3.toml`) is a **deployment of this project**: which server, under which app name, with which domains and environment. `staging` and `prod` of one project may share a server; one server holds many projects' deployments. Calling both "context" is what makes the commands behave differently depending on the directory (`context use` writes one of two files, `add` accepts `--app` in one scope only, `rename` works in one scope only), makes the resolution chain five steps long, and splits the answer to "where does this command go" across three functions that disagree (5.4).
+
+### How other CLIs do it
+
+| | Docker | hcloud | Kamal | Compose |
+|---|---|---|---|---|
+| Concept | context: an endpoint and its TLS material | context: an API token | destination: a variant of the project's deploy config | the project's files |
+| Defined in | `~/.docker/contexts/` | `~/.config/hcloud/cli.toml` | `config/deploy.<dest>.yml`, merged over `deploy.yml` | `compose.yaml`, plus `-f` overlays |
+| Selected by | `--context` > `DOCKER_CONTEXT` > `context use` | `--context` > `HCLOUD_CONTEXT` > `context use` | `-d <dest>` on each command | `-f`, `COMPOSE_FILE` |
+| Per directory | no (an `.envrc` setting `DOCKER_HOST` does it, unseen) | no (same, with `HCLOUD_TOKEN`) | yes, by the files the project commits | yes |
+
+Docker and hcloud have one scope and one pointer, which is why they are easy to grasp; per-directory selection is left to the shell, where nobody sees it. Kamal puts the per-project part in the project, under its own name, and makes the user name the destination on each command. Hop3 needs both halves, with the per-project half visible.
+
+
+## 8. Outcome: contexts are servers, checkouts are bound
+
+Agreed on 2026-10-23 and recorded as the fifth revision of [ADR 042](adrs/042-cli-context-model.md), which holds the full design. In short:
+
+- `hop3.toml` is the app, read implicitly like `pyproject.toml`, and never says where it is deployed.
+- A context is a server you can reach, global and personal, as in Docker and hcloud.
+- What is local is the **binding**: `.hop3-local.toml`, gitignored, written only by `hop3 context use` inside a project. Outside a project, the same command sets the global current context. It asks before writing, naming the scope, the file and the address (`-y` skips the question).
+- Where a command goes: `-c` > `HOP3_CONTEXT` > the binding (in a project) > the global current context (outside one). In a project with no binding, every command that reaches a server is refused.
+- Every such command prints one line saying where it goes and why.
+- A protected server, marked on the server, takes a change only when `-c` or `HOP3_CONTEXT` named it, and with the app's name typed.
+
+Two questions stay open in the ADR: whether the per-deployment blocks of `hop3.toml` (`app`, `domains`, `env`) are keyed by context name or by server address, and whether they are sections or overlay files.
+
+Getting there, two earlier proposals were dropped. Selecting the environment in `hop3.toml` (a `[targets]` section with a `default-target`) costs a commit for each switch, many a day. Separate `use` and `bind` verbs are two verbs for one act, once `use` names its scope before writing.
+
+### Order of work
+
+Each step ships alone, and the first fixes bugs without changing the interface. Progress is tracked in [plan-0.9-plus.md](plans/plan-0.9-plus.md).
+
+1. **One resolver** for every command and message, refusing a selection that names nothing (5.2, 5.4), with the line of rule C and a full `--why`; the docs drift of section 4 fixed against it.
+2. **Contexts global-only**: `context add` without `--app`/`--domain`/`--env`, `unset`, global `rename`, logins that no longer switch the current context (5.5), the dead code and messages of 5.3 and 5.8 removed.
+3. **The binding**: `context use` by location with its question and `--global`, the refusal in an unbound project, the single-context fallback removed, `server` refused in `hop3.toml`.
+4. **Protected servers**: the server-side mark, the selection source sent with each invocation, the typed confirmation.
+
+This changes the CLI surface and the `hop3.toml` schema, so it belongs in 0.9. Step 1 alone could go into an 0.8.x.

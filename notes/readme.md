@@ -8,7 +8,7 @@ Developer-facing notes for Hop3. The entries below cover what lives where.
 - [`nix-runtime-dispositions.md`](./nix-runtime-dispositions.md): how each Nix template disposes of its runtime.
 - [`questions.md`](./questions.md): open architectural questions (pointer to relevant ADRs).
 - [`installer-fail-loud-audit.md`](./installer-fail-loud-audit.md): 105 warning sites in the installer and deployer, about 74 of them failures the install continued past; the patterns, the plan, and the gate that keeps it fixed.
-- [`cli-context-review.md`](./cli-context-review.md): how the CLI picks the server a command reaches (commands, resolution order, state, docs drift), and the confusion around `hop3 context`; input for the 0.8 discussion.
+- [`cli-context-review.md`](./cli-context-review.md): how the CLI picks the server a command reaches (commands, resolution order, state, docs drift), and the confusion around `hop3 context`, and the design agreed from it (ADR 042, fifth revision): contexts are servers, checkouts are bound.
 - [`readiness-and-non-http-backends.md`](./readiness-and-non-http-backends.md): why the readiness gate speaks FastCGI at php-fpm, and what replaces that.
 - [`process-runner-alternatives.md`](./process-runner-alternatives.md): pre-ADR survey of existing process runners that could replace uWSGI (ADR 023), against what uWSGI does for Hop3 today.
 - [`todo.md`](./todo.md): engineering tasks captured day to day, before they graduate to a plan.
