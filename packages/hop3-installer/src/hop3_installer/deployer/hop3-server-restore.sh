@@ -102,6 +102,30 @@ svc_start() {
     if [ "$PM" = systemd ]; then systemctl start "$1"
     else supervisorctl start "$1" >/dev/null 2>&1 || supervisorctl status "$1" | grep -q RUNNING; fi
 }
+# The file Redis saves to, from its config (Debian /etc/redis/redis.conf,
+# Fedora /etc/redis.conf); read there because a stopped Redis cannot say.
+redis_dump_path() {
+    local conf dir file
+    for conf in /etc/redis/redis.conf /etc/redis.conf; do [ -f "$conf" ] && break; done
+    [ -f "$conf" ] || fail "Redis has no config at /etc/redis/redis.conf or /etc/redis.conf"
+    dir="$(awk '$1 == "dir" { print $2 }' "$conf" | tr -d '"' | tail -1)"
+    file="$(awk '$1 == "dbfilename" { print $2 }' "$conf" | tr -d '"' | tail -1)"
+    case "$dir" in /*) ;; *) fail "Redis's dir in $conf is '$dir', not an absolute path" ;; esac
+    echo "$dir/${file:-dump.rdb}"
+}
+# Redis is no supervisor program: without systemd it runs from its init
+# script, as the installer starts it. Debian names it redis-server, Fedora redis.
+redis_start() {
+    local name
+    for name in redis-server redis; do
+        if [ "$PM" = systemd ]; then
+            systemctl cat "$name" >/dev/null 2>&1 && { systemctl start "$name"; return; }
+        elif [ -x "/etc/init.d/$name" ]; then
+            "/etc/init.d/$name" start; return
+        fi
+    done
+    fail "no Redis service (redis-server or redis) to start"
+}
 svc_restart() {
     # Best effort for services the box may not manage (rootd, nginx on a
     # container); the server check at the end is what decides success.
@@ -183,12 +207,22 @@ if want redis; then
     command -v redis-cli >/dev/null || fail "redis-cli not installed; cannot restore the Redis dump"
     REDIS_AUTH=()
     [ -s /etc/hop3/redis-pass ] && REDIS_AUTH=(-a "$(cat /etc/hop3/redis-pass)" --no-auth-warning)
-    REDIS_DIR="$(redis-cli "${REDIS_AUTH[@]}" CONFIG GET dir 2>/dev/null | sed -n 2p)"
-    [ -n "$REDIS_DIR" ] || fail "Redis is not answering; cannot find its data directory"
-    svc_stop redis-server
-    cp "$SNAPSHOT/redis-dump.rdb" "$REDIS_DIR/dump.rdb" && chown redis:redis "$REDIS_DIR/dump.rdb"
-    svc_start redis-server || fail "Redis did not start after the restore"
-    ok "Redis"
+    REDIS_DUMP="$(redis_dump_path)"
+    # Stopped first: a running Redis writes its own dump over the restored one.
+    # Asked to, since an init script finds it by a pidfile it may not have
+    # written, and reports success without one. The wait below decides.
+    timeout 10 redis-cli "${REDIS_AUTH[@]}" shutdown >/dev/null 2>&1 || true
+    for _ in $(seq 30); do pgrep -x redis-server >/dev/null || break; sleep 1; done
+    ! pgrep -x redis-server >/dev/null || fail "Redis is still running 30 s after redis-cli shutdown"
+    [ -f "$REDIS_DUMP" ] && mv "$REDIS_DUMP" "$REDIS_DUMP.pre-restore-$STAMP"
+    cp "$SNAPSHOT/redis-dump.rdb" "$REDIS_DUMP" && chown redis:redis "$REDIS_DUMP" || fail "writing $REDIS_DUMP"
+    redis_start || fail "Redis did not start after the restore"
+    for _ in $(seq 30); do
+        redis-cli "${REDIS_AUTH[@]}" ping 2>/dev/null | grep -q PONG && break
+        sleep 1
+    done
+    redis-cli "${REDIS_AUTH[@]}" ping 2>/dev/null | grep -q PONG || fail "Redis started but does not answer after 30 s"
+    ok "Redis ($REDIS_DUMP)"
 else
     skip "Redis"
 fi

@@ -47,6 +47,17 @@ done
 ok()   { printf '  ok    %s\n' "$*"; }
 skip() { printf '  skip  %s\n' "$*"; }
 fail() { printf '  FAIL  %s\n' "$*" >&2; exit 1; }
+# The file Redis saves to, from its config (Debian /etc/redis/redis.conf,
+# Fedora /etc/redis.conf); read there because a stopped Redis cannot say.
+redis_dump_path() {
+    local conf dir file
+    for conf in /etc/redis/redis.conf /etc/redis.conf; do [ -f "$conf" ] && break; done
+    [ -f "$conf" ] || fail "Redis has no config at /etc/redis/redis.conf or /etc/redis.conf"
+    dir="$(awk '$1 == "dir" { print $2 }' "$conf" | tr -d '"' | tail -1)"
+    file="$(awk '$1 == "dbfilename" { print $2 }' "$conf" | tr -d '"' | tail -1)"
+    case "$dir" in /*) ;; *) fail "Redis's dir in $conf is '$dir', not an absolute path" ;; esac
+    echo "$dir/${file:-dump.rdb}"
+}
 # Fail unless $DEST has room for directory $1, naming the flag ($2) that avoids it.
 need_room() {
     local need_kb free_kb
@@ -177,26 +188,45 @@ fi
 
 # --- 5. Backing services ------------------------------------------------------
 echo "[5/6] backing services"
-if command -v pg_dumpall >/dev/null && sudo -u postgres psql -Atqc 'select 1' >/dev/null 2>&1; then
+# A database that runs and does not answer stops the backup; a stopped one is
+# named, since its databases are then missing from the snapshot.
+if ! command -v pg_dumpall >/dev/null; then
+    skip "PostgreSQL (not installed)"
+elif timeout 30 sudo -u postgres psql -Atqc 'select 1' >/dev/null 2>&1; then
     sudo -u postgres pg_dumpall --clean --if-exists | gzip > "$DEST/postgres-all.sql.gz" || fail "pg_dumpall"
     ok "postgres-all.sql.gz ($(sudo -u postgres psql -Atqc "select count(*) from pg_database where not datistemplate") databases)"
+elif pgrep -x postgres >/dev/null; then
+    fail "PostgreSQL is running but not answering (sudo -u postgres psql -c 'select 1')"
 else
-    skip "PostgreSQL (not installed or not answering)"
+    skip "PostgreSQL is stopped: its databases are NOT in this snapshot; start it and re-run to include them"
 fi
-if command -v mysqldump >/dev/null && mysql -e 'select 1' >/dev/null 2>&1; then
+if ! command -v mysqldump >/dev/null; then
+    skip "MySQL/MariaDB (not installed)"
+elif timeout 30 mysql -e 'select 1' >/dev/null 2>&1; then
     mysqldump --all-databases --single-transaction --routines --events --triggers | gzip > "$DEST/mysql-all.sql.gz" || fail "mysqldump"
     ok "mysql-all.sql.gz"
+elif pgrep -x 'mysqld|mariadbd' >/dev/null; then
+    fail "MySQL/MariaDB is running but refuses root's socket login (mysql -e 'select 1')"
 else
-    skip "MySQL/MariaDB (not installed or root socket login refused)"
+    skip "MySQL/MariaDB is not running (or only its client is installed): no MySQL databases in this snapshot"
 fi
 if command -v redis-cli >/dev/null; then
     REDIS_AUTH=()
     [ -s /etc/hop3/redis-pass ] && REDIS_AUTH=(-a "$(cat /etc/hop3/redis-pass)" --no-auth-warning)
-    if redis-cli "${REDIS_AUTH[@]}" ping 2>/dev/null | grep -q PONG; then
+    if timeout 10 redis-cli "${REDIS_AUTH[@]}" ping 2>/dev/null | grep -q PONG; then
         redis-cli "${REDIS_AUTH[@]}" --rdb "$DEST/redis-dump.rdb" >/dev/null 2>&1 || fail "redis-cli --rdb"
         ok "redis-dump.rdb"
+    elif pgrep -x redis-server >/dev/null; then
+        fail "Redis is running but not answering (redis-cli ping); it may save at any moment, so its dump cannot be copied"
     else
-        skip "Redis installed but not answering"
+        # Stopped: its last save is at rest and copied as it is.
+        REDIS_DUMP="$(redis_dump_path)"
+        if [ -f "$REDIS_DUMP" ]; then
+            cp -p "$REDIS_DUMP" "$DEST/redis-dump.rdb" || fail "copying $REDIS_DUMP"
+            ok "redis-dump.rdb (Redis is stopped: its last save, $(date -r "$REDIS_DUMP" '+%F %T'))"
+        else
+            skip "Redis is stopped and has never saved ($REDIS_DUMP is missing): it holds no data"
+        fi
     fi
 else
     skip "Redis (not installed)"
