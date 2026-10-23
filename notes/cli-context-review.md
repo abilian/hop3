@@ -131,17 +131,17 @@ Agreed on 2026-10-23 and recorded as the fifth revision of [ADR 042](adrs/042-cl
 - Every such command prints one line saying where it goes and why.
 - A protected server, marked on the server, takes a change only when `-c` or `HOP3_CONTEXT` named it, and with the app's name typed.
 
-Two questions stay open in the ADR: whether the per-deployment blocks of `hop3.toml` (`app`, `domains`, `env`) are keyed by context name or by server address, and whether they are sections or overlay files.
+The per-deployment differences (`app`, `domains`, `env`) stay as `[contexts.<name>]` sections of `hop3.toml`, keyed by context name, without the `server` key (decided 2026-10-23). A team names its contexts alike, and a context matching none of a project's blocks is refused.
 
 Getting there, two earlier proposals were dropped. Selecting the environment in `hop3.toml` (a `[targets]` section with a `default-target`) costs a commit for each switch, many a day. Separate `use` and `bind` verbs are two verbs for one act, once `use` names its scope before writing.
 
 ### Order of work
 
-Each step ships alone, and the first fixes bugs without changing the interface. Progress is tracked in [plan-0.9-plus.md](plans/plan-0.9-plus.md).
+Each step ships alone, and the first fixes bugs without changing the interface. Progress is tracked in [plan-0.8.md](plans/plan-0.8.md).
 
 1. **One resolver** for every command and message, refusing a selection that names nothing (5.2, 5.4), with the line of rule C and a full `--why`; the docs drift of section 4 fixed against it.
 2. **Contexts global-only**: `context add` without `--app`/`--domain`/`--env`, `unset`, global `rename`, logins that no longer switch the current context (5.5), the dead code and messages of 5.3 and 5.8 removed.
 3. **The binding**: `context use` by location with its question and `--global`, the refusal in an unbound project, the single-context fallback removed, `server` refused in `hop3.toml`.
 4. **Protected servers**: the server-side mark, the selection source sent with each invocation, the typed confirmation.
 
-This changes the CLI surface and the `hop3.toml` schema, so it belongs in 0.9. Step 1 alone could go into an 0.8.x.
+It goes into 0.8.0 (decided 2026-10-23).

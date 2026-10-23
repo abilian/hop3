@@ -7,11 +7,12 @@
 
 This file reads in time order: what is left to do first, with what it takes to do it; the decisions those tasks rest on; then what is done, briefly, at the end.
 
-## Status, 2026-10-18
+## Status, 2026-10-23
 
 - **Release gate:** the catalog is published under `catalog/v1/`. A run of the published catalog (2026-10-18) and the tutorial suite (2026-10-18) pass on a remote server. Left: the full catalog run on a blank-slate server, `make test-e2e` on a quiet machine, the HTTPS login path, and SF's review of the release notes.
+- **Added on 2026-10-23:** the CLI context model (ADR 042, fifth revision), [below](#the-cli-context-model-adr-042-fifth-revision). It changes the server (the protected-server mark), so the release runs come after it.
 - **Headlines:** php-fpm (2) and local-source builds (3) are done. Per-app UID separation (1) ships its first two steps and rootd's caller check; per-app users move to 0.9. Installer composability (4) ships in part; the rest moves to 0.9.
-- **Scope:** the second tier moved to 0.9 (2026-10-13, [below](#decided-the-second-tier-moves-to-09-2026-10-13)), and so did the rest of 0.8's open work (2026-10-19, [below](#decided-the-remaining-open-work-moves-to-09-2026-10-19)). 0.8 tags on its release checks alone.
+- **Scope:** the second tier moved to 0.9 (2026-10-13, [below](#decided-the-second-tier-moves-to-09-2026-10-13)), and so did the rest of 0.8's open work (2026-10-19, [below](#decided-the-remaining-open-work-moves-to-09-2026-10-19)). 0.8 tags on its release checks and the context model.
 
 ## Before tagging
 
@@ -33,6 +34,17 @@ In order. An item names how to run it and what finishes it.
   - [x] `check-catalog.py` and `shoot-catalog.py` deleted from the catalog repository (2026-10-17); `redeploy-and-check.py` runs `hop3-test` in their place. The catalog README's promotion rule names the published run with `--screenshots` (2026-10-18).
   - Tests: selection from a stub catalog listing; the deploy command a published run issues; a `--status alpha` request refused with the reason.
 - [x] **A run of the published catalog** (2026-10-18, run 1293): `uv run --with playwright hop3-test run --host <server> --recipes published --with all --screenshots` passed 54 of 54, golden and beta, each installed with `hop3 catalog install`, upgraded and checked again; 48 photographed signed in. The run before it failed wordpress-nixgen, whose probe script the recipe had never shipped. Its images showed mattermost's two Nix variants serving no web client since their import, with the REST check green. Both were fixed in the catalog and published before run 1293.
+
+### The CLI context model (ADR 042, fifth revision)
+
+Agreed on 2026-10-23 ([decision below](#decided-the-context-model-goes-into-08-2026-10-23)); the review and the reasoning are in [`../cli-context-review.md`](../cli-context-review.md). Each step ships alone, in this order.
+
+- [x] **The ADR's two open questions** (2026-10-23): the per-deployment blocks stay `[contexts.<name>]` sections of `hop3.toml`, keyed by context name; a context matching none of a project's blocks is refused.
+- [ ] **One resolver** for every command and message: a selection that names nothing aborts, every server-reaching command prints where it goes and why, `--why` shows the full trace, and `cli.md` and the cheat sheet are corrected against it.
+- [ ] **Contexts global-only**: `context add` records a server and nothing else, `context unset`, a global `rename`, a login no longer changes the current context.
+- [ ] **The binding**: `hop3 context use` binds the checkout inside a project and sets the global context outside one, asking first; an unbound project refuses every server-reaching command; `server` in `hop3.toml` is refused with the replacing command; a context matching none of a project's `[contexts.*]` blocks is refused.
+- [ ] **Protected servers**: the mark on the server, the selection source sent with each invocation, the typed app name.
+- [ ] **`CHANGES.md`**: the behaviour change for checkouts that relied on the global context, and the new commands.
 
 ### Runs
 
@@ -69,6 +81,10 @@ In order. An item names how to run it and what finishes it.
 **A run of the published catalog is a flag on `hop3-test run`**, not a second runner: `check-catalog.py` and the harness drifted before (the probe credential, the check port).
 
 Built; [ADR 049](../adrs/049-catalog-distribution.md#versioning) records the design.
+
+## Decided: the context model goes into 0.8 (2026-10-23)
+
+SF moved the redesign of `hop3 context` into 0.8. It changes the CLI surface and the `hop3.toml` schema, and the protected-server mark changes the server, so the blank-slate catalog run and the tutorial run come after it.
 
 ## Decided: per-app users in 0.9 (2026-10-11)
 

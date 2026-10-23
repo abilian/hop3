@@ -73,7 +73,25 @@ The app may differ between deployments in three things only: where it goes and w
 - `env` merges **over** top-level `[env]`, key by key.
 - `app` names the instance; without it, the app is `[metadata].id`.
 
-What the per-deployment blocks are keyed by is open (see Open questions).
+The blocks are sections of `hop3.toml`, keyed by context name:
+
+```toml
+[metadata]
+id = "myapp"
+
+[contexts.demo]
+app = "myapp-demo"
+[contexts.demo.domains]
+list = ["demo.myapp.com"]
+[contexts.demo.env]
+LOG_LEVEL = "debug"
+
+[contexts.prod]
+[contexts.prod.domains]
+list = ["myapp.com", "www.myapp.com"]
+```
+
+`hop3 deploy` in a checkout bound to `demo` deploys `myapp-demo` with its domains and env, to whatever server the developer's `demo` context names. The name is the only link between the block and a context, so a team names its contexts alike (`dev`, `demo`, `prod`), and the file holds no address. In a project that declares blocks, a context matching none of them is refused, naming the declared ones: otherwise a typo would deploy the base configuration under the base name. A project without blocks deploys its base configuration to any context.
 
 ### Protection belongs to the server
 
@@ -142,7 +160,7 @@ The binding sits next to the `hop3.toml` it belongs to, so it cannot leak in fro
 
 ## Migration
 
-- **Project `[contexts.<name>]` blocks with `server` or `bootstrap`.** Refused with the command that replaces them: `hop3 context add <name> --server <address>` and the key removed from `hop3.toml`. No `hop3.toml` in this repository or in the catalog declares `[contexts]`.
+- **Project `[contexts.<name>]` blocks with `server` or `bootstrap`.** Those two keys are refused, with the command that replaces them: `hop3 context add <name> --server <address>`, and the key removed from `hop3.toml`. The rest of the block (`app`, `domains`, `env`) keeps its meaning. No `hop3.toml` in this repository or in the catalog declares `[contexts]`.
 - **Checkouts that relied on the global current context.** Refused after the upgrade, with the refusal of the binding section as the fix. `CHANGES.md` states the change.
 - **The single-context fallback** (one `[contexts.*]` block selected without a binding) goes: it is a selection nobody made.
 - `.hop3-local.toml` keeps its format; its legacy `[current].context` key is still read for one release.
@@ -171,17 +189,11 @@ Pre-1.0: one breaking release, no compatibility shim.
 - A context carries two addresses; an operator who reads only `server` will not see how renewal happens.
 - A server with no admin domain keeps the SSH tunnel for everything, so the privilege reduction lands only where TLS is configured.
 
-## Open questions
-
-1. **What keys the per-deployment blocks in `hop3.toml`.**
-   - *The context name* (`[contexts.demo] app = "myapp-demo"`). It buys distinct deployments on one server (staging and prod on one box), and keeps today's section with its `server` key removed. It costs shared vocabulary: teammates must name their contexts alike for the blocks to apply, and a context matching no block, in a project that declares blocks, must be refused (or a typo deploys the base configuration under the base name).
-   - *The server address*. It buys a key nobody has to agree on. It costs writing the server into `hop3.toml`, which rule A excludes, it cannot tell two deployments on one server apart, and one server has several spellings (`https://`, `ssh://`).
-   - What decides: whether teams accept shared context names, and whether a project ever runs two deployments on one server.
-2. **Sections or overlay files.** Per-deployment blocks as sections of `hop3.toml` keep one file and reuse the existing merge. Overlay files (`hop3.<name>.toml`, merged over `hop3.toml`) show each deployment as its own file, which a review rule or CODEOWNERS can guard, at the cost of a second place to look and a merge rule to document. What decides: whether a team needs to guard prod's configuration separately in review. An overlay file could later be read as one more block, so starting with sections closes no door.
-
 ## Rejected alternatives
 
 - **Selecting the environment in `hop3.toml`** (`default-target`, or a per-environment file chosen there). Every switch is a commit, many a day.
+- **Keying the per-deployment blocks by server address.** It writes the server into `hop3.toml`, which rule A excludes; it cannot tell two deployments on one server apart; and one server has several spellings (`https://`, `ssh://`).
+- **Overlay files (`hop3.<name>.toml`, merged over `hop3.toml`), for now.** They show each deployment as its own file, which a review rule or CODEOWNERS can guard, at the cost of a second place to look and a merge rule to document. No team has asked to guard prod's configuration separately; an overlay file could later be read as one more block, so sections close no door.
 - **Contexts at two scopes, project and global (the third and fourth revisions).** One word for a connection and a deployment; the commands behaved differently per directory.
 - **Falling back to the global current context inside an unbound project.** The context selected in another terminal reaches this project unannounced.
 - **Separate `use` and `bind` verbs.** Two verbs for one act; `use` asking before it writes, and naming its scope, shows the same thing.
