@@ -118,25 +118,69 @@ def test_mysql_prefers_mysql_then_mariadb():
     assert controlled.call_args[0] == ("start", "mysql", "mariadb")
 
 
+def _result(returncode: int = 0, stdout: str = ""):
+    return type("R", (), {"returncode": returncode, "stdout": stdout, "stderr": ""})()
+
+
 def test_redis_restart_goes_through_the_helper():
     """`systemctl restart redis-server` with check=False was a no-op here."""
     with (
         patch.object(redis, "control_service") as controlled,
         patch.object(redis, "_write_redis_config", return_value=None),
-        patch.object(redis, "has_systemd", return_value=False),
-        patch.object(
-            redis,
-            "run_cmd",
-            return_value=type(
-                "R", (), {"returncode": 0, "stdout": "PONG", "stderr": ""}
-            )(),
-        ),
+        patch.object(redis, "has_systemd", return_value=True),
+        patch.object(redis, "run_cmd", return_value=_result(stdout="PONG")),
     ):
         redis.configure_redis()
 
     assert ("restart", "redis-server", "redis") in [
         c.args for c in controlled.call_args_list
     ]
+
+
+def test_redis_without_systemd_is_shut_down_by_asking_it():
+    """
+    An init script's stop finds Redis by its pidfile and reports success
+    without one, so a "restart" left the old Redis serving the old config.
+    """
+    calls: list = []
+    running = iter([0, 1])  # pgrep: still there once, then gone
+
+    def run(cmd, *_a, **_kw):
+        calls.append(cmd)
+        if cmd[0] == "pgrep":
+            return _result(next(running))
+        return _result(stdout="PONG")
+
+    with (
+        patch.object(redis, "control_service", side_effect=lambda *a: calls.append(a)),
+        patch.object(redis, "_write_redis_config", return_value=None),
+        patch.object(redis, "has_systemd", return_value=False),
+        patch.object(redis, "run_cmd", side_effect=run),
+        patch.object(redis.time, "sleep"),
+    ):
+        redis.configure_redis()
+
+    shutdown = calls.index(["redis-cli", "SHUTDOWN"])
+    start = calls.index(("start", "redis-server", "redis"))
+    assert shutdown < start
+    assert ("restart", "redis-server", "redis") not in calls
+
+
+def test_a_redis_that_survives_its_shutdown_stops_the_install():
+    def run(cmd, *_a, **_kw):
+        return _result(0, "NOAUTH Authentication required.")
+
+    with (
+        patch.object(redis, "control_service") as controlled,
+        patch.object(redis, "_write_redis_config", return_value=None),
+        patch.object(redis, "has_systemd", return_value=False),
+        patch.object(redis, "run_cmd", side_effect=run),
+        patch.object(redis.time, "sleep"),
+        pytest.raises(InstallStepError, match="NOAUTH"),
+    ):
+        redis.configure_redis()
+
+    controlled.assert_not_called()
 
 
 def test_redis_that_cannot_restart_stops_the_install():
@@ -167,6 +211,7 @@ def test_redis_is_given_time_to_listen_after_a_restart():
         patch.object(redis, "control_service"),
         patch.object(redis, "_write_redis_config", return_value=None),
         patch.object(redis, "has_systemd", return_value=False),
+        patch.object(redis, "_shutdown_redis"),
         patch.object(redis, "run_cmd", side_effect=ping),
         patch.object(redis.time, "sleep"),
     ):

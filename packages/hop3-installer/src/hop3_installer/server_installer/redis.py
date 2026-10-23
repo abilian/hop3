@@ -179,9 +179,39 @@ def configure_redis() -> None:
     # unit under its Debian or Fedora name.
     if has_systemd():
         control_service("enable", *_REDIS_SERVICE_NAMES)
-    control_service("restart", *_REDIS_SERVICE_NAMES)
+        control_service("restart", *_REDIS_SERVICE_NAMES)
+    else:
+        _shutdown_redis()
+        control_service("start", *_REDIS_SERVICE_NAMES)
     _await_redis_pong(password)
     print_success("Redis configured and running")
+
+
+def _shutdown_redis() -> None:
+    """
+    Stop a running Redis by asking it, and wait until it has exited.
+
+    An init script stops Redis by its pidfile and reports success when there is
+    none, so a Redis started without one (by the package's postinst, on the
+    Docker target) kept running through every "restart": the new one failed
+    to bind beside it, the restart still exited 0, and the PING that followed
+    was answered by the old Redis, which never read the config written above.
+    ``SHUTDOWN`` saves first. It authenticates with the persisted password,
+    which a Redis that has none ignores.
+
+    Raises:
+        InstallStepError: Redis still runs after its shutdown.
+    """
+    password = REDIS_PASS_FILE.read_text().strip() if REDIS_PASS_FILE.exists() else ""
+    env = {"REDISCLI_AUTH": password} if password else None
+    shutdown = run_cmd(["redis-cli", "SHUTDOWN"], check=False, env=env)
+    for _ in range(_PING_ATTEMPTS):
+        if run_cmd(["pgrep", "-x", "redis-server"], check=False).returncode != 0:
+            return
+        time.sleep(_PING_DELAY)
+    reply = (shutdown.stdout or shutdown.stderr or "").strip() or "no reply"
+    msg = f"Redis is still running after redis-cli SHUTDOWN ({reply}); stop it, then re-run the installer"
+    raise InstallStepError(msg)
 
 
 #: An init script returns at fork, before Redis listens: a single PING right

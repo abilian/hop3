@@ -149,6 +149,7 @@ def test_redis_ping_authenticates_when_a_password_is_set(monkeypatch):
     monkeypatch.setattr(redis, "_write_redis_config", lambda: "s3cret")
     monkeypatch.setattr(redis, "has_systemd", lambda: False)
     monkeypatch.setattr(redis, "control_service", lambda *_a: True)
+    monkeypatch.setattr(redis, "_shutdown_redis", lambda: None)
     monkeypatch.setattr(redis, "run_cmd", run)
 
     redis.configure_redis()
