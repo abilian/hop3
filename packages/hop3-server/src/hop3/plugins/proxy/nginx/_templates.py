@@ -152,6 +152,11 @@ server {
 }
 """
 
+# `$uri/` sends a directory asked for without its slash to the slashed URL
+# (301), so the relative links of its index.html resolve inside it; serving
+# `$uri/index.html` in place resolved them against the parent. The redirect is
+# relative: an absolute one names the port nginx listens on, which a client
+# behind a port mapping cannot reach.
 HOP3_INTERNAL_NGINX_STATIC_MAPPING = """
   location $static_url {
       sendfile on;
@@ -160,7 +165,8 @@ HOP3_INTERNAL_NGINX_STATIC_MAPPING = """
       directio 8m;
       aio threads;
       root $static_path;
-      try_files $uri $uri/index.html $uri.html =404;
+      absolute_redirect off;
+      try_files $uri $uri/ $uri.html =404;
   }
 """
 

@@ -14,6 +14,7 @@ proxy now gets the same requests, sent to its own ports by hostname:
 * the redirect to HTTPS by default, and the app over HTTPS;
 * a PHP app on its php-fpm pool, where the proxy speaks FastCGI, and the
   paths under its tree the proxy must never answer;
+* a static app, whose directories are served under their slash;
 * a WAF-enabled app, where the proxy can front the WAF.
 
 Where a proxy cannot do something, the deploy must be refused before anything
@@ -49,8 +50,11 @@ PHP_FIXTURE = (
     Path(__file__).parents[4] / "apps" / "test-apps-procfile" / "060-php-hello"
 )
 
+STATIC_FIXTURE = PHP_FIXTURE.with_name("000-static")
+
 #: What each proxy declares it can do (``BaseProxy`` capabilities).
 SPEAKS_FASTCGI = {"nginx": True, "caddy": True, "traefik": False}
+SERVES_FILES = {"nginx": True, "caddy": True, "traefik": False}
 FRONTS_WAF = {"nginx": True, "caddy": False, "traefik": False}
 
 #: Written into files the proxy must never serve; absent from every answer.
@@ -95,6 +99,16 @@ def https_get(info: dict[str, Any], host: str, path: str = "/") -> tuple[int, st
     )
     body, _, status = result.output.decode(errors="replace").rpartition("\n")
     return int(status), body
+
+
+def https_head(info: dict[str, Any], host: str, path: str) -> tuple[int, str]:
+    """Status and Location of a GET over TLS, the redirect not followed."""
+    result = info["container"].exec_run(
+        f"curl -sk -o /dev/null --resolve {host}:443:127.0.0.1 "
+        f"-w '%{{http_code}} %header{{location}}' 'https://{host}{path}'"
+    )
+    status, _, location = result.output.decode(errors="replace").partition(" ")
+    return int(status), location.strip()
 
 
 def eventually(probe: Callable[[], Any], accept: Callable[[Any], bool]) -> Any:
@@ -239,6 +253,45 @@ class TestProxies:
             200,
             True,
         )
+
+    def test_a_directory_is_served_under_its_slash(self, proxied, tmp_path, request):
+        """
+        `/docs` redirects to `/docs/`, where its index.html's relative links
+        resolve inside it; serving the index at `/docs` resolved them against
+        the parent.
+        """
+        proxy = proxied["proxy"]
+        host = f"static-{proxy}.test.local"
+        request.node.hop3_container = proxied["container"]
+        request.node.hop3_app = "static"
+        app_dir = tmp_path / "static"
+        shutil.copytree(STATIC_FIXTURE, app_dir)
+        (app_dir / "ENV").write_text(f"HOST_NAME={host}\n")
+        (app_dir / "public" / "docs").mkdir()
+        (app_dir / "public" / "docs" / "index.html").write_text(
+            '<a href="page.html">the docs index</a>\n'
+        )
+        init_git_repo(app_dir)
+
+        result = deploy_app_dir(proxied, app_dir, "static")
+
+        if not SERVES_FILES[proxy]:
+            refused(result, f"and {proxy} serves no files")
+            return
+        deployed(result)
+        status, body = eventually(
+            lambda: https_get(proxied, host, "/docs/"),
+            lambda answer: answer[0] == 200,
+        )
+        assert (status, "the docs index" in body) == (200, True)
+        # Relative, so a client behind a port mapping can follow it.
+        for path, location in (("/docs", "/docs/"), ("/docs?x=1", "/docs/?x=1")):
+            assert https_head(proxied, host, path) in {
+                (301, location),
+                (308, location),
+            }, path
+        status, _ = https_get(proxied, host, "/")
+        assert status == 200
 
     def test_a_waf_enabled_app(self, proxied, test_app_dir, request):
         proxy = proxied["proxy"]

@@ -82,12 +82,14 @@ CADDY_ACME_CHALLENGE = """
     }
 """
 
-# Static file serving configuration
+# Static file serving configuration. `{path}/` lets file_server redirect a
+# directory asked for without its slash (308, relative, prefix kept), as the
+# nginx mapping does.
 HOP3_INTERNAL_CADDY_STATIC_MAPPING = """
     handle_path $static_url* {
         root * $static_path
         file_server
-        try_files {path} {path}/index.html {path}.html
+        try_files {path} {path}/ {path}.html
     }
 """
 
