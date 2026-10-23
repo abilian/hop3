@@ -47,6 +47,13 @@ done
 ok()   { printf '  ok    %s\n' "$*"; }
 skip() { printf '  skip  %s\n' "$*"; }
 fail() { printf '  FAIL  %s\n' "$*" >&2; exit 1; }
+# Fail unless $DEST has room for directory $1, naming the flag ($2) that avoids it.
+need_room() {
+    local need_kb free_kb
+    need_kb=$(du -sk "$1" | cut -f1)
+    free_kb=$(df -Pk "$DEST" | awk 'NR==2 {print $4}')
+    [ "$free_kb" -gt "$need_kb" ] || fail "not enough space in $DEST for $1 ($((need_kb/1024)) MB needed, $((free_kb/1024)) MB free); use --dest${2:+ or $2}"
+}
 
 [ "$(id -u)" -eq 0 ] || fail "run as root (it reads files only root can read)"
 
@@ -148,6 +155,7 @@ for path in \
     /etc/nginx/nginx.conf /etc/nginx/sites-available/hop3 /etc/nginx/conf.d /etc/letsencrypt \
     /etc/systemd/system/hop3-server.service /etc/systemd/system/hop3-rootd.service \
     /etc/systemd/system/hop3-rootd.socket /etc/systemd/system/uwsgi-hop3.service \
+    /etc/garage.toml /etc/systemd/system/garage.service \
     /etc/supervisor/conf.d /etc/nix/nix.conf; do
     [ -e "$path" ] && echo "$path" >> "$CONF_LIST"
 done
@@ -162,9 +170,7 @@ if [ "$SKIP_APPS" -eq 1 ]; then
 elif [ ! -d "$HOP3_ROOT/apps" ]; then
     skip "no apps tree at $HOP3_ROOT/apps"
 else
-    NEED_KB=$(du -sk "$HOP3_ROOT/apps" | cut -f1)
-    FREE_KB=$(df -Pk "$DEST" | awk 'NR==2 {print $4}')
-    [ "$FREE_KB" -gt "$NEED_KB" ] || fail "not enough space in $DEST for the apps tree ($((NEED_KB/1024)) MB needed, $((FREE_KB/1024)) MB free); use --dest or --skip-apps"
+    need_room "$HOP3_ROOT/apps" --skip-apps
     tar czf "$DEST/apps.tar.gz" -C "$HOP3_ROOT" apps || fail "archiving $HOP3_ROOT/apps"
     ok "apps.tar.gz ($(du -h "$DEST/apps.tar.gz" | cut -f1))"
 fi
@@ -194,6 +200,37 @@ if command -v redis-cli >/dev/null; then
     fi
 else
     skip "Redis (not installed)"
+fi
+GARAGE_CONF=/etc/garage.toml
+GARAGE_DIR=/var/lib/garage
+SNAPSHOTS="$GARAGE_DIR/meta/snapshots"
+if [ -f "$GARAGE_CONF" ]; then
+    command -v garage >/dev/null || fail "Garage is configured ($GARAGE_CONF) but the garage binary is not on PATH"
+    [ -d "$GARAGE_DIR" ] || fail "Garage is configured but its data directory $GARAGE_DIR is missing"
+    need_room "$GARAGE_DIR"
+    if garage -c "$GARAGE_CONF" status >/dev/null 2>&1; then
+        # The metadata is a live SQLite database, so Garage writes a consistent
+        # copy of it. Data blocks never change once written; archiving them
+        # after the copy means every block the copy refers to is there.
+        BEFORE=""
+        [ -d "$SNAPSHOTS" ] && BEFORE="$(ls -1 "$SNAPSHOTS" | tail -1)"
+        garage -c "$GARAGE_CONF" meta snapshot >/dev/null 2>&1 || fail "garage meta snapshot"
+        SNAP="$(ls -1 "$SNAPSHOTS" | tail -1)"
+        [ -n "$SNAP" ] && [ "$SNAP" != "$BEFORE" ] || fail "garage meta snapshot wrote no new snapshot in $SNAPSHOTS"
+        cp "$SNAPSHOTS/$SNAP/db.sqlite" "$DEST/garage-meta.sqlite"
+        rm -rf "${SNAPSHOTS:?}/$SNAP"
+        tar czf "$DEST/garage.tar.gz" -C / --exclude='var/lib/garage/meta/db.sqlite*' \
+            --exclude=var/lib/garage/meta/snapshots var/lib/garage || fail "archiving $GARAGE_DIR"
+        ok "garage.tar.gz, garage-meta.sqlite ($(du -h "$DEST/garage.tar.gz" | cut -f1))"
+    elif pgrep -x garage >/dev/null; then
+        fail "Garage is running but not answering (garage -c $GARAGE_CONF status); its files are in use, so they cannot be copied"
+    else
+        # Stopped: its files are at rest and archived as they are.
+        tar czf "$DEST/garage.tar.gz" -C / var/lib/garage || fail "archiving $GARAGE_DIR"
+        ok "garage.tar.gz (Garage is stopped: archived at rest, $(du -h "$DEST/garage.tar.gz" | cut -f1))"
+    fi
+else
+    skip "Garage (not installed)"
 fi
 if command -v docker >/dev/null && docker info >/dev/null 2>&1; then
     docker ps -a --format '{{.Names}}\t{{.Image}}\t{{.Status}}' > "$DEST/docker-containers.txt"
@@ -231,6 +268,7 @@ Config and secrets: tar xzf config.tar.gz -C / (paths are absolute; see config-f
 Apps tree: tar xzf apps.tar.gz -C $HOP3_ROOT (then systemctl restart uwsgi-hop3).
 PostgreSQL: gunzip -c postgres-all.sql.gz | sudo -u postgres psql
 MySQL: gunzip -c mysql-all.sql.gz | mysql
+Garage (S3): systemctl stop garage; tar xzf garage.tar.gz -C /; if garage-meta.sqlite is here, cp it to /var/lib/garage/meta/db.sqlite and remove db.sqlite-wal and db.sqlite-shm there; systemctl start garage
 Redis: systemctl stop redis-server; cp redis-dump.rdb <redis dir>/dump.rdb; chown redis:redis; systemctl start redis-server
 Docker volumes: docker run --rm -v <vol>:/v -v $DEST/docker-volumes:/in busybox tar xzf /in/<vol>.tar.gz -C /v
 

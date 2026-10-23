@@ -4,10 +4,12 @@
 
 from __future__ import annotations
 
+import re
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 
 from hop3_installer.deployer.restore import (
+    COMPONENTS,
     REMOTE_SCRIPT,
     SERVER_SCRIPT,
     main,
@@ -97,3 +99,11 @@ def test_the_script_exit_code_is_the_exit_code(capsys):
 def test_main_refuses_without_yes(capsys):
     assert main(["--host", "h", "--snapshot", "x"]) == 2
     assert "--yes" in capsys.readouterr().out
+
+
+def test_only_offers_the_components_the_script_restores():
+    """A component the script restores and `--only` does not name is unreachable."""
+    script = SERVER_SCRIPT.read_text()
+    restored = re.findall(r"^        ([\w-]+)\) has ", script, re.MULTILINE)
+    assert restored == list(COMPONENTS)
+    assert f"--only {','.join(COMPONENTS)}]" in script

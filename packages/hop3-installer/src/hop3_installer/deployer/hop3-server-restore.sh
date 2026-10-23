@@ -11,7 +11,7 @@
 # again, refusing to report success unless the server answers.
 #
 # Usage (on the server, as root):
-#   hop3-server-restore.sh SNAPSHOT_DIR --yes [--only db,config,apps,postgres,mysql,redis,docker-volumes]
+#   hop3-server-restore.sh SNAPSHOT_DIR --yes [--only db,config,apps,postgres,mysql,redis,garage,docker-volumes]
 #
 # Every replaced file keeps a copy beside it, suffixed .pre-restore-<stamp>,
 # so a restore that turns out to be the wrong one can itself be undone.
@@ -77,6 +77,7 @@ want() {
         postgres) has postgres-all.sql.gz ;;
         mysql) has mysql-all.sql.gz ;;
         redis) has redis-dump.rdb ;;
+        garage) has garage.tar.gz ;;
         docker-volumes) has docker-volumes ;;
         *) fail "unknown component in --only: $1" ;;
     esac
@@ -112,7 +113,7 @@ STAMP="$(date +%Y%m%d-%H%M%S)"
 echo "[2/5] stopping services"
 svc_stop hop3-server && ok "hop3-server stopped"
 STOPPED_APPS=0
-if want apps || want db || want postgres || want mysql || want redis; then
+if want apps || want db || want postgres || want mysql || want redis || want garage; then
     svc_stop "$UWSGI_SVC" && ok "app processes stopped ($UWSGI_SVC)"
     STOPPED_APPS=1
 fi
@@ -190,6 +191,28 @@ if want redis; then
     ok "Redis"
 else
     skip "Redis"
+fi
+
+if want garage; then
+    command -v garage >/dev/null || fail "Garage is not installed; install the server with --with s3, then re-run with --only garage"
+    GARAGE_DIR=/var/lib/garage
+    svc_stop garage
+    [ -d "$GARAGE_DIR" ] && mv "$GARAGE_DIR" "$GARAGE_DIR.pre-restore-$STAMP"
+    tar xzf "$SNAPSHOT/garage.tar.gz" -C / || fail "extracting garage.tar.gz"
+    if has garage-meta.sqlite; then
+        # A snapshot of a running Garage holds its metadata as a consistent copy.
+        cp "$SNAPSHOT/garage-meta.sqlite" "$GARAGE_DIR/meta/db.sqlite"
+        rm -f "$GARAGE_DIR/meta/db.sqlite-wal" "$GARAGE_DIR/meta/db.sqlite-shm"
+    fi
+    svc_start garage || fail "Garage did not start after the restore"
+    for _ in $(seq 1 15); do
+        garage -c /etc/garage.toml status >/dev/null 2>&1 && break
+        sleep 2
+    done
+    garage -c /etc/garage.toml status >/dev/null 2>&1 || fail "Garage did not answer within 30 s after the restore; the previous tree is at $GARAGE_DIR.pre-restore-$STAMP"
+    ok "Garage (previous kept as $GARAGE_DIR.pre-restore-$STAMP)"
+else
+    skip "Garage"
 fi
 
 if want docker-volumes; then

@@ -28,6 +28,17 @@ from hop3_installer.deployer.backup import (
 #: The server-side script, shipped inside this package next to this module.
 SERVER_SCRIPT = Path(__file__).with_name("hop3-server-restore.sh")
 REMOTE_SCRIPT = "/usr/local/sbin/hop3-server-restore.sh"
+#: What the script can restore, each by itself with `--only`.
+COMPONENTS = (
+    "db",
+    "config",
+    "apps",
+    "postgres",
+    "mysql",
+    "redis",
+    "garage",
+    "docker-volumes",
+)
 
 
 def remote_snapshot_path(snapshot: str) -> str:
@@ -113,7 +124,7 @@ def build_parser() -> argparse.ArgumentParser:
     )
     parser.add_argument(
         "--only",
-        help="Comma-separated components: db,config,apps,postgres,mysql,redis,docker-volumes",
+        help=f"Comma-separated components: {','.join(COMPONENTS)}",
     )
     parser.add_argument(
         "--yes", action="store_true", help="Confirm: this replaces the server's state"
