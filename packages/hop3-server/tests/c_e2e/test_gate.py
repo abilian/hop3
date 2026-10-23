@@ -84,7 +84,7 @@ class Browser:
         headers: dict[str, str] | None = None,
         jar: bool = True,
     ) -> tuple[int, dict[str, str], str]:
-        cmd = ["curl", "-sk", "-D", "-", "--max-time", "20"]
+        cmd = ["curl", "-sSk", "-D", "-", "--max-time", "20"]
         for host in (ADMIN, NOTES, WIKI):
             cmd += ["--resolve", f"{host}:443:127.0.0.1"]
         if jar:
@@ -95,10 +95,20 @@ class Browser:
             cmd += ["--data", ""]
             for key, value in form.items():
                 cmd += ["--data-urlencode", f"{key}={value}"]
-        output = self.container.exec_run([*cmd, url]).output.decode(errors="replace")
+        result = self.container.exec_run([*cmd, url], demux=True)
+        stdout, stderr = (part or b"" for part in result.output)
+        output = stdout.decode(errors="replace")
+        if not output.startswith("HTTP"):
+            # No answer at all: curl's error and the server's state are the
+            # only record of why (a timeout, a refused or reset connection).
+            pytest.fail(
+                f"no HTTP response from {url}: curl exited {result.exit_code}, "
+                f"{(stderr.decode(errors='replace') or '(no error text)').strip()}\n"
+                f"{_server_state({'container': self.container})}"
+            )
         head, _, body = output.partition("\r\n\r\n")
         lines = head.split("\r\n")
-        status = int(lines[0].split()[1]) if lines[0].startswith("HTTP") else 0
+        status = int(lines[0].split()[1])
         fields = dict(line.split(": ", 1) for line in lines[1:] if ": " in line)
         return status, {k.lower(): v for k, v in fields.items()}, body
 
@@ -370,7 +380,8 @@ class TestAccessGate:
 
 SERVER_STATE = (
     "supervisorctl status; tail -n 30 /var/log/supervisor/supervisord.log "
-    "/var/log/supervisor/hop3-server.log /var/log/supervisor/hop3-server_err.log"
+    "/var/log/supervisor/hop3-server.log /var/log/supervisor/hop3-server_err.log "
+    "/var/log/nginx/error.log"
 )
 
 
