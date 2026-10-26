@@ -148,6 +148,12 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
 
 
 @pytest.fixture(scope="session")
+def repo_root() -> Path:
+    """This checkout's root, where `demos/` and `apps/` live."""
+    return Path(__file__).resolve().parent
+
+
+@pytest.fixture(scope="session")
 def catalog_apps() -> Path:
     """
     The sibling catalog checkout's ``apps/``.

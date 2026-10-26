@@ -12,7 +12,12 @@ refuses rather than producing an image nobody can rebuild.
 
 from __future__ import annotations
 
+from typing import TYPE_CHECKING
+
 from hop3.plugins.docker.builder import unpinned_base_images
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 DIGEST = "sha256:020c0d20b9880058cbe785a9db107156c3c75c2ac944a6aa7ab59f2add76a7bd"
 
@@ -45,17 +50,38 @@ def test_lowercase_from_and_as_are_handled():
     assert unpinned_base_images(dockerfile) == []
 
 
-def test_the_shipped_corpus_is_fully_pinned(catalog_apps):
-    """Regression guard: every Dockerfile in the docker variant stays pinned."""
-    root = catalog_apps / "alpha"
+def test_platform_flag_is_not_the_image():
+    dockerfile = f"FROM --platform=$BUILDPLATFORM rust:1@{DIGEST} AS build\n"
+    assert unpinned_base_images(dockerfile) == []
+    assert unpinned_base_images("FROM --platform=linux/amd64 rust:1\n") == ["rust:1"]
+
+
+def _offenders(dockerfiles: list[Path]) -> dict[str, list[str]]:
     # Fail rather than skip: a guard that quietly finds nothing to check is
     # indistinguishable from a guard that passes.
-    assert root.is_dir(), f"app corpus not found at {root}"
-    dockerfiles = list(root.glob("*/Dockerfile"))
-    assert dockerfiles, f"no Dockerfiles under {root}"
-    offenders = {
-        df.parent.name: bad
+    assert dockerfiles, "no Dockerfiles found"
+    return {
+        str(df): bad
         for df in dockerfiles
         if (bad := unpinned_base_images(df.read_text()))
     }
-    assert offenders == {}, f"unpinned base images: {offenders}"
+
+
+def test_the_shipped_corpus_is_fully_pinned(catalog_apps):
+    """Regression guard: every catalog Dockerfile still served stays pinned."""
+    assert catalog_apps.is_dir(), f"app corpus not found at {catalog_apps}"
+    dockerfiles = [
+        df
+        for df in catalog_apps.glob("*/*/Dockerfile")
+        if df.parent.parent.name != "retired"
+    ]
+    assert _offenders(dockerfiles) == {}
+
+
+def test_the_demos_and_fixtures_are_pinned(repo_root):
+    """The demos deploy through the same builder; demo02 failed on a tag."""
+    dockerfiles = [
+        *repo_root.glob("demos/demo*/app/Dockerfile"),
+        *repo_root.glob("apps/*/*/Dockerfile"),
+    ]
+    assert _offenders(dockerfiles) == {}

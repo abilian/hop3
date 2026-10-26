@@ -115,7 +115,8 @@ def unpinned_base_images(dockerfile: str) -> list[str]:
         line = raw.strip()
         if not line.upper().startswith("FROM "):
             continue
-        parts = line.split()
+        # `FROM --platform=… image` puts flags before the image
+        parts = [part for part in line.split() if not part.startswith("--")]
         image = parts[1]
         # `FROM x AS builder` declares a stage that later FROMs may reference
         if len(parts) >= 4 and parts[2].upper() == "AS":

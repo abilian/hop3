@@ -65,3 +65,20 @@ def test_version_pinning_alone_is_not_hashed():
 
 def test_empty_file_is_not_considered_hashed():
     assert not requirements_are_hashed("# nothing here\n")
+
+
+def test_the_demos_and_fixtures_are_pinned(repo_root):
+    """The toolchain refuses an unpinned file; demo07 met that on a deploy."""
+    files = [
+        *repo_root.glob("demos/demo*/app/requirements.txt"),
+        *(
+            f
+            for f in repo_root.glob("apps/*/*/requirements.txt")
+            if f.parent.parent.name != "test-apps-nix"  # Nix builds skip pip
+        ),
+    ]
+    assert files, "no requirements.txt found"
+    offenders = {
+        str(f): bad for f in files if (bad := unpinned_requirements(f.read_text()))
+    }
+    assert offenders == {}
