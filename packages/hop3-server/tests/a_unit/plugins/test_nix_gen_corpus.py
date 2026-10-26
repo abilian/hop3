@@ -5,7 +5,8 @@
 Every committed nix-gen recipe must still generate a valid expression.
 
 The per-template tests pin behaviour against synthetic specs; this pins it
-against the corpus we actually ship. It is the half of the reproducibility gate
+against the recipes we actually ship: this repo's fixtures and demos on every
+run, and the catalog's with ``--catalog`` (``make test-catalog``). It is the half of the reproducibility gate
 that needs no Nix daemon and no server, so it runs on every push, while
 ``make gate-nix`` (rebuild + deploy) runs where a warm store exists.
 
@@ -18,7 +19,7 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
 import tomllib
@@ -27,49 +28,64 @@ from hop3.plugins.build.nix.gen.registry import generate, get_template
 from hop3.plugins.build.nix.gen.templates.base import ejected
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
+if TYPE_CHECKING:
+    from pathlib import Path
+
 # apps/test-apps-nix holds hand-written hop3.nix files, which this test has
 # nothing to say about; apps/test-apps-nix-gen holds the small templated
-# fixtures that mirror them.
-#: Relative to the repo root, like the fixture path beside it — the suite runs
-#: from there. NOT the `catalog_recipe` fixture: these feed `params=` below,
-#: which pytest evaluates at collection time, before any fixture exists.
-CORPUS_ROOTS = (
-    Path("../hop3-catalog/apps/beta"),
-    Path("../hop3-catalog/apps/alpha"),
-    Path("apps/test-apps-nix-gen"),
-)
-#: The demos deploy through the same templates; demo22 kept a retired key.
-DEMO_RECIPES = "demos/demo*/app/hop3.toml"
+# fixtures that mirror them. The demos deploy through the same templates
+# (demo22 kept a retired key). Globs from the repo root.
+REPO_RECIPES = ("apps/test-apps-nix-gen/*/hop3.toml", "demos/demo*/app/hop3.toml")
+#: The catalog's, from its apps/; checked only with --catalog.
+CATALOG_RECIPES = ("beta/*/hop3.toml", "alpha/*/hop3.toml")
 
 
-def _recipes() -> list[Path]:
-    tomls = [
-        *(toml for root in CORPUS_ROOTS for toml in root.glob("*/hop3.toml")),
-        *Path().glob(DEMO_RECIPES),
-    ]
+def _nix_gen_dirs(root: Path, patterns: tuple[str, ...]) -> list[Path]:
     return sorted(
         toml_file.parent
-        for toml_file in tomls
+        for pattern in patterns
+        for toml_file in root.glob(pattern)
         if "template" in (tomllib.loads(toml_file.read_text()).get("nix") or {})
     )
 
 
-RECIPES = _recipes()
+def pytest_generate_tests(metafunc: pytest.Metafunc) -> None:
+    """
+    One ``recipe`` per nix-gen recipe: this repo's, and the catalog's with
+    ``--catalog``. Found here rather than at import, where neither the repo
+    root nor the option is known.
+    """
+    if "recipe" not in metafunc.fixturenames:
+        return
+    root = metafunc.config.rootpath
+    params = [
+        pytest.param(d, id=str(d.relative_to(root)))
+        for d in _nix_gen_dirs(root, REPO_RECIPES)
+    ]
+    if (catalog := metafunc.config.getoption("--catalog")) is not None:
+        apps = catalog.resolve() / "apps"
+        params += [
+            pytest.param(
+                d, id=f"catalog/{d.relative_to(apps)}", marks=pytest.mark.catalog
+            )
+            for d in _nix_gen_dirs(apps, CATALOG_RECIPES)
+        ]
+    metafunc.parametrize("recipe", params, scope="module")
 
 
-def test_the_corpus_is_not_empty():
+def test_the_corpus_is_not_empty(pytestconfig):
     """A sweep that found nothing to sweep must not report success."""
-    assert RECIPES, f"no nix-gen recipe under {[str(r) for r in CORPUS_ROOTS]}"
+    root = pytestconfig.rootpath
+    assert _nix_gen_dirs(root, REPO_RECIPES), f"no nix-gen recipe for {REPO_RECIPES}"
 
 
-@pytest.fixture(scope="module", params=RECIPES, ids=str)
-def expression(request) -> tuple[Path, str]:
-    app_dir = request.param
-    config = tomllib.loads((app_dir / "hop3.toml").read_text())
+@pytest.fixture(scope="module")
+def expression(recipe: Path) -> tuple[Path, str]:
+    config = tomllib.loads((recipe / "hop3.toml").read_text())
     spec = app_spec_from_config(
-        config["nix"], config.get("metadata") or {}, app_dir.name
+        config["nix"], config.get("metadata") or {}, recipe.name
     )
-    return app_dir, generate(spec)
+    return recipe, generate(spec)
 
 
 def test_recipe_generates(expression):
@@ -120,11 +136,7 @@ def test_generated_expression_parses_as_nix(expression, tmp_path):
 STATIC_ROOT_MARKER = "$HOP3_GO_FRONTEND"
 
 
-def _recipes_serving_a_go_static_root() -> list[Path]:
-    return [d for d in RECIPES if STATIC_ROOT_MARKER in (d / "hop3.toml").read_text()]
-
-
-def test_a_go_static_root_also_ships_its_source_assets():
+def test_a_go_static_root_also_ships_its_source_assets(catalog_apps):
     """
     gitea and forgejo are the same codebase and drifted apart.
 
@@ -135,7 +147,11 @@ def test_a_go_static_root_also_ships_its_source_assets():
     registering a cron task — "translation is missing for task update_mirrors".
     gitea hit it; forgejo hit the identical failure weeks later.
     """
-    serving = _recipes_serving_a_go_static_root()
+    serving = [
+        d
+        for d in _nix_gen_dirs(catalog_apps, CATALOG_RECIPES)
+        if STATIC_ROOT_MARKER in (d / "hop3.toml").read_text()
+    ]
     assert serving, "no recipe serves a Go static root — has the wiring changed?"
     missing = [
         d.name

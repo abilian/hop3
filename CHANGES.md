@@ -185,6 +185,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### For contributors: the test harness
 
+- **The test suites run in a checkout with no catalog beside it.** The tests that read the hop3-catalog recipes are marked `catalog` and run with `make test-catalog` (`pytest --catalog=<checkout>`); elsewhere they are deselected, and pytest's summary counts them. The two tests that used a catalog recipe as example input read a frozen copy instead.
 - **A command run in a test container keeps its output against a remote Docker daemon.** Over `ssh://`, docker-py reads an exec's output from the bare SSH channel, and an output that arrived with the response headers stayed in paramiko's buffer. A curl that had answered then read as "no HTTP response", at random, in the gate and proxy e2e tests. The harness's Docker client now reads that buffer first.
 - **`hop3-test` installs the runtime the selected apps are built with.** A Nix-built app brings `--with nix` and a Docker-built one `--with docker`, as their addons already brought theirs, now that nothing is installed by default. On the Docker target, which cannot run Docker, Docker-built apps are left out before the deploy, each with the reason.
 - **`hop3-test` fails a server deploy that went on past a warning.** Each ⚠ line the installer or the deployer prints fails the run, unless an allowlist entry says why it is safe to continue. Such lines sat unread in every run log for weeks. Among them were two bugs and an install that failed on every Ubuntu 24.04 server.

@@ -150,6 +150,7 @@ markers = [
     "e2e: End-to-end tests that deploy to a real target (Docker/SSH).",
     "needs_docker: Test requires a Docker daemon (a subset of e2e).",
     "slow: Slow tests (substantial setup); informational label.",
+    "catalog: Reads the hop3-catalog checkout; runs only with --catalog (make test-catalog).",
 ]
 
 [tool.coverage.report]

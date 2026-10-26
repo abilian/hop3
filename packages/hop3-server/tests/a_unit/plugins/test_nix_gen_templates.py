@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import json
 import re
+from pathlib import Path
 from typing import Any
 
 import pytest
@@ -41,6 +42,9 @@ from hop3.plugins.build.nix.gen.templates.node_pnpm_install import (
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
 
 from .conftest import spec_for
+
+#: Frozen copies of catalog recipes, used as realistic input.
+RECIPES = Path(__file__).parent / "recipes"
 
 # --- prebuilt-binary ---
 
@@ -1565,7 +1569,6 @@ def test_committed_lockfiles_match_their_pinned_pnpm(catalog_apps):
     until they moved to the catalog; the glob then matched nothing and the
     `checked` guard below is what said so, instead of a green vacuous pass.
     """
-    assert catalog_apps.is_dir(), f"app corpus not found at {catalog_apps}"
     mismatches = {}
     checked = 0
     # `<status>/<app>/hop3.toml` — maturity decides the directory (ADR 059).
@@ -1807,10 +1810,8 @@ class TestRubyBundler:
         """The default gem config applies untouched, as bundlerEnv's default."""
         assert "gemConfig" not in generate(self._spec())
 
-    def test_the_real_redmine_recipe_generates(self, catalog_recipe):
-        config = tomllib.loads(
-            (catalog_recipe("redmine-nixgen") / "hop3.toml").read_text()
-        )
+    def test_the_real_redmine_recipe_generates(self):
+        config = tomllib.loads((RECIPES / "redmine-nixgen.toml").read_text())
         spec = app_spec_from_config(config["nix"], config["metadata"], "redmine")
         output = generate(spec)
         assert "pkgs.ruby_3_3" in output  # the template default, in 6.1's range

@@ -6,6 +6,8 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 import click
 import pytest
 import tomllib
@@ -18,6 +20,9 @@ from hop3_tooling.nix_repro import (
 )
 
 from hop3.plugins.build.nix.gen.toml_adapter import app_spec_from_config
+
+#: Frozen copies of catalog recipes, used as realistic input.
+RECIPES = Path(__file__).parent / "recipes"
 
 
 def test_clean_rebuild_is_reproducible():
@@ -115,14 +120,12 @@ def test_pin_override_requires_both_halves():
         _pin_override("a" * 40, None)
 
 
-def test_pin_override_replaces_whatever_the_recipe_declares(catalog_recipe):
+def test_pin_override_replaces_whatever_the_recipe_declares():
     """
     etherpad pins itself to a 25.05 rev. A corpus-wide bump has to override
     that too, or the run silently measures two different nixpkgs.
     """
-    config = tomllib.loads(
-        (catalog_recipe("etherpad-nixgen") / "hop3.toml").read_text()
-    )
+    config = tomllib.loads((RECIPES / "etherpad-nixgen.toml").read_text())
     spec = app_spec_from_config(config["nix"], config.get("metadata") or {}, "etherpad")
     assert spec.nixpkgs_rev  # the recipe carries its own pin
 

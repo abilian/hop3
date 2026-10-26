@@ -1,7 +1,7 @@
 .PHONY: all develop test test-fast lint secrets-scan clean doc format build serve
 .PHONY: testlab-serve testlab-prune testlab-schedule testlab-run
 .PHONY: deploy deploy-docker clean-server clean-and-deploy
-.PHONY: test-e2e test-cov test-demos test-tutorials
+.PHONY: test-e2e test-cov test-demos test-tutorials test-catalog
 .PHONY: test-installer build-installers test-apps test-app test-nix
 
 # For tests, set HOP3_DEV_HOST in your environment
@@ -175,6 +175,17 @@ test:
 	  packages/hop3-marketplace/tests \
 	  packages/hop3-tooling/tests \
 	  docs/tests
+	@echo ""
+
+## Catalog contract — the tests that read the hop3-catalog checkout (ADR 059):
+## its recipes are pinned and render with this server. Deselected elsewhere.
+CATALOG ?= ../hop3-catalog
+test-catalog:
+	@echo "--> Catalog contract tests against $(CATALOG)"
+	uv run pytest -m catalog --catalog=$(CATALOG) \
+	  packages/hop3-server/tests/a_unit \
+	  packages/hop3-testing/tests \
+	  packages/hop3-tooling/tests
 	@echo ""
 
 ## Docker e2e — backups, git-push, real deploys (needs Docker). Part of the check gate.

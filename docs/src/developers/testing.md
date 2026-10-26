@@ -77,6 +77,7 @@ make test-app APP=../hop3-catalog/apps/golden/gitea
 | `make test` | Check tier: unit + integration, all packages, no Docker | ~30s |
 | `make test-e2e` | The Docker e2e layer (`c_e2e`): real deploys, backups, git-push | ~10min |
 | `make test-cov` | Coverage on the in-process layers (unit + integration) | ~1min |
+| `make test-catalog` | The catalog contract: every recipe in `../hop3-catalog` (or `CATALOG=<dir>`) is pinned and renders with this server | ~10s |
 | `make test-apps` | Deploy the real-app catalog on Docker (`hop3-test`) | ~5min |
 | `uv run hop3-test list` | List available app/demo/tutorial tests | instant |
 | `uv run hop3-test run --docker --mode nightly` | Full app/demo/tutorial matrix on Docker + HTML report | long |
@@ -284,6 +285,10 @@ test-logs/
         ├── uwsgi.log
         └── hop3-server.log
 ```
+
+### Tests that read the catalog
+
+The app recipes live in the separate hop3-catalog repository (ADR 059), so this repository's suites do not read it: a fresh checkout runs them with nothing beside it. A test that does read the catalog, through the `catalog_apps` or `catalog_recipe` fixture, is marked `catalog` and is deselected unless pytest is given `--catalog=<checkout>`; `make test-catalog` gives it. Write the option with `=`: as a separate argument, the path moves pytest's rootdir. A test that only needs a realistic recipe as input keeps a frozen copy beside it (`tests/.../recipes/<app>.toml`) instead.
 
 ## Continuous Integration
 

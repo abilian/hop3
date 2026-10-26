@@ -5,7 +5,7 @@
 """
 Root pytest conftest.
 
-Three responsibilities, all cross-package:
+Four responsibilities, all cross-package:
 
 1. **Tier markers from the directory layer (ADR 043).** The fast / integration
    / e2e split is encoded by where a test lives, not by hand-applied decorators
@@ -20,7 +20,14 @@ Three responsibilities, all cross-package:
    at a real box, colliding with live ``hop3-test`` runs. Those vars are now
    taboo for pytest — stripped for the whole session so nothing can read them.
 
-3. **Nothing in the workspace is optional.** ``pytest.importorskip`` fails
+3. **The catalog is a separate repository, read only on request.** Tests that
+   read the hop3-catalog checkout (through ``catalog_apps``/``catalog_recipe``,
+   or a recipe parameter marked ``catalog``) run only with
+   ``--catalog=<checkout>``, and are deselected without it, so a fresh
+   checkout's suite depends on nothing outside it. ``make test-catalog`` runs
+   them; given a path that holds no catalog, the run stops.
+
+4. **Nothing in the workspace is optional.** ``pytest.importorskip`` fails
    instead of skipping, because a skipped import here is a test file that
    silently left a green run (``_import_or_fail``). Skips for a resource the
    harness cannot provision (``systemctl`` on macOS, a MySQL server) stay
@@ -75,6 +82,18 @@ def pytest_addoption(parser: pytest.Parser) -> None:
             "redirect a pytest run at a real box."
         ),
     )
+    group.addoption(
+        "--catalog",
+        action="store",
+        default=None,
+        type=Path,
+        metavar="CHECKOUT",
+        help=(
+            "Run the tests marked `catalog` against this hop3-catalog checkout. "
+            "Write --catalog=../hop3-catalog: given as a separate argument, the "
+            "path moves pytest's rootdir. Without it they are deselected."
+        ),
+    )
 
 
 _real_importorskip = pytest.importorskip
@@ -86,6 +105,16 @@ def pytest_configure(config: pytest.Config) -> None:
     for var in _TABOO_REMOTE_TARGET_VARS:
         os.environ.pop(var, None)
     _session_patch.setattr(pytest, "importorskip", _import_or_fail)
+    catalog = config.getoption("--catalog")
+    if catalog is not None and not (catalog / "apps").is_dir():
+        msg = f"--catalog {catalog}: no apps/ there; give a hop3-catalog checkout."
+        raise pytest.UsageError(msg)
+
+
+def catalog_apps_dir(config: pytest.Config) -> Path | None:
+    """The ``apps/`` of the ``--catalog`` checkout, or None without one."""
+    catalog = config.getoption("--catalog")
+    return None if catalog is None else catalog.resolve() / "apps"
 
 
 def pytest_unconfigure(config: pytest.Config) -> None:
@@ -128,15 +157,25 @@ def remote_ssh_host(request: pytest.FixtureRequest) -> str | None:
     return request.config.getoption("--ssh-host")
 
 
-def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+_CATALOG_FIXTURES = frozenset({"catalog_apps", "catalog_recipe"})
+
+
+def pytest_collection_modifyitems(
+    config: pytest.Config, items: list[pytest.Item]
+) -> None:
     """
     Tag each collected test with its tier marker, derived from its path.
 
     - ``c_e2e`` / ``c_system`` -> ``e2e`` + ``needs_docker`` (real deploy, Docker)
     - ``b_integration``        -> ``integration``           (in-process, real DB)
     - everything else          -> ``fast``                  (a_unit + flat unit)
+
+    A test that reads the catalog is also marked ``catalog``, and deselected
+    unless ``--catalog`` names a checkout.
     """
     for item in items:
+        if _CATALOG_FIXTURES & set(getattr(item, "fixturenames", ())):
+            item.add_marker("catalog")
         path = str(getattr(item, "path", "") or item.fspath)
         if "/c_e2e/" in path or "/c_system/" in path:
             item.add_marker("e2e")
@@ -146,6 +185,14 @@ def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
         else:
             item.add_marker("fast")
 
+    if config.getoption("--catalog") is None:
+        kept, deselected = [], []
+        for item in items:
+            (deselected if item.get_closest_marker("catalog") else kept).append(item)
+        if deselected:
+            config.hook.pytest_deselected(items=deselected)
+            items[:] = kept
+
 
 @pytest.fixture(scope="session")
 def repo_root() -> Path:
@@ -154,16 +201,18 @@ def repo_root() -> Path:
 
 
 @pytest.fixture(scope="session")
-def catalog_apps() -> Path:
+def catalog_apps(request: pytest.FixtureRequest) -> Path:
     """
-    The sibling catalog checkout's ``apps/``.
+    The ``apps/`` of the catalog checkout given with ``--catalog``.
 
     Corpus regressions read real recipes, and the recipes live in the catalog
-    repository now. One fixture rather than a constant per test file: four of
-    them had grown, each counting ``Path(__file__).parents[N]`` to a different
-    depth, which is a fact about where a file sits rather than about the corpus.
+    repository (ADR 059). A test that requests this is marked ``catalog`` and
+    runs only when ``--catalog`` is given, so the directory always exists here.
     """
-    return Path(__file__).resolve().parent.parent / "hop3-catalog" / "apps"
+    apps = catalog_apps_dir(request.config)
+    if apps is None:
+        pytest.fail("catalog_apps without --catalog: the test was not deselected")
+    return apps
 
 
 @pytest.fixture(scope="session")
