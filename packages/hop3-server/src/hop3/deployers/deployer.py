@@ -1310,10 +1310,17 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
 
     wsgi_kinds = {"python", "buildpack", "virtualenv"}
 
-    # Check for uWSGI "no workers" mode (WSGI module not configured)
-    if artifact_kind in wsgi_kinds and (
-        "operational mode: no-workers" in log_text
-        or ("no app loaded" in log_text and "loading" not in log_text)
+    # Check for uWSGI "no workers" mode (WSGI module not configured). A Python
+    # app started by its own server (`gunicorn app:app`) runs in no-workers mode
+    # with an attach-daemon; its crash is the daemon's, diagnosed below.
+    daemon_spawned = "[uwsgi-daemons] spawning" in log_text
+    if (
+        artifact_kind in wsgi_kinds
+        and not daemon_spawned
+        and (
+            "operational mode: no-workers" in log_text
+            or ("no app loaded" in log_text and "loading" not in log_text)
+        )
     ):
         log_diagnosis(
             Diagnosis(

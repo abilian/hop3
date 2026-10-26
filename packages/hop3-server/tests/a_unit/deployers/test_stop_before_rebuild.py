@@ -18,6 +18,7 @@ first deploy stays a no-op.
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -109,3 +110,27 @@ def test_extract_app_error_none_when_clean() -> None:
 def test_extract_app_error_finds_missing_binary() -> None:
     line = "sh: 1: exec: _build/prod/rel/hop3_tuto_phoenix/bin/hop3_tuto_phoenix: not found"
     assert _extract_app_error(["starting", line, "[uwsgi-daemons] throttling"]) == line
+
+
+def test_a_crashing_daemon_is_not_blamed_on_a_missing_wsgi_module(
+    monkeypatch,
+) -> None:
+    """demo13: gunicorn was not installed, and the diagnosis named the WSGI module."""
+    diagnoses = []
+    monkeypatch.setattr(deployer_mod, "log_diagnosis", diagnoses.append)
+    monkeypatch.setattr(
+        deployer_mod.BuildArtifact, "load", lambda path: SimpleNamespace(kind="python")
+    )
+    app = SimpleNamespace(app_path=Path("/nonexistent"))
+    lines = [
+        "*** Operational MODE: no-workers ***",
+        '[uwsgi-daemons] spawning "sh -c "exec gunicorn app:app"" (uid: 1000 gid: 1000)',
+        "sh: 1: exec: gunicorn: not found",
+        '[uwsgi-daemons] throttling "sh -c "exec gunicorn app:app"" for 1 seconds',
+    ]
+
+    deployer_mod._diagnose_failure(app, lines)
+
+    [diagnosis] = diagnoses
+    assert "gunicorn: not found" in diagnosis.reason
+    assert "no-workers" not in diagnosis.reason
