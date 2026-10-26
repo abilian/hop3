@@ -22,11 +22,11 @@ import time
 from contextlib import suppress
 from typing import TYPE_CHECKING, Any, cast
 
-import docker
 from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
 from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 
 from hop3_testing.diagnostics import DiagnosticCollector
+from hop3_testing.docker_client import DockerClient
 
 from .base import DeploymentTarget, TargetInfo
 from .config import DeploymentConfig, DockerConfig
@@ -49,6 +49,7 @@ from .machine_lock import DockerTargetHold, hold_docker_target
 if TYPE_CHECKING:
     from pathlib import Path
 
+    import docker
     from docker.models.containers import Container
 
 
@@ -152,8 +153,9 @@ class DockerTarget(DeploymentTarget):
 
         print(f"Docker daemon: {pin_docker_endpoint().url}")
         # paramiko for an ssh:// daemon, docker-py's default: over the `ssh`
-        # binary (use_ssh_client) exec_run never returns.
-        self._client = docker.from_env()
+        # binary (use_ssh_client) exec_run never returns. Ours keeps an exec's
+        # output, which docker-py alone drops at random over ssh://.
+        self._client = DockerClient.from_env()
 
         # Determine the mode
         if self.docker_config.reuse_container:

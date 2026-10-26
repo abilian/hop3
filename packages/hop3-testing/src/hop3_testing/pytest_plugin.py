@@ -57,8 +57,9 @@ def docker_client(
     The session holds the machine's Docker-target lock, the one `hop3-test`
     takes: a second session would tear down the containers this one uses.
     """
-    import docker
     from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
+
+    from hop3_testing.docker_client import DockerClient
 
     cfg_dir = tmp_path_factory.mktemp("docker-config")
     write_docker_config(cfg_dir, Path.home() / ".docker")
@@ -70,8 +71,9 @@ def docker_client(
         endpoint = pin_docker_endpoint()
         print(f"Docker daemon: {endpoint.url}")
         # paramiko for an ssh:// daemon, docker-py's default: over the `ssh`
-        # binary (use_ssh_client) exec_run never returns.
-        client = docker.from_env()
+        # binary (use_ssh_client) exec_run never returns. Ours keeps an exec's
+        # output, which docker-py alone drops at random over ssh://.
+        client = DockerClient.from_env()
         client.ping()  # connectivity check
         yield client
         client.close()
