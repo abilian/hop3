@@ -38,13 +38,18 @@ CORPUS_ROOTS = (
     Path("../hop3-catalog/apps/alpha"),
     Path("apps/test-apps-nix-gen"),
 )
+#: The demos deploy through the same templates; demo22 kept a retired key.
+DEMO_RECIPES = "demos/demo*/app/hop3.toml"
 
 
 def _recipes() -> list[Path]:
+    tomls = [
+        *(toml for root in CORPUS_ROOTS for toml in root.glob("*/hop3.toml")),
+        *Path().glob(DEMO_RECIPES),
+    ]
     return sorted(
         toml_file.parent
-        for root in CORPUS_ROOTS
-        for toml_file in root.glob("*/hop3.toml")
+        for toml_file in tomls
         if "template" in (tomllib.loads(toml_file.read_text()).get("nix") or {})
     )
 
@@ -57,7 +62,7 @@ def test_the_corpus_is_not_empty():
     assert RECIPES, f"no nix-gen recipe under {[str(r) for r in CORPUS_ROOTS]}"
 
 
-@pytest.fixture(scope="module", params=RECIPES, ids=lambda p: p.name)
+@pytest.fixture(scope="module", params=RECIPES, ids=str)
 def expression(request) -> tuple[Path, str]:
     app_dir = request.param
     config = tomllib.loads((app_dir / "hop3.toml").read_text())

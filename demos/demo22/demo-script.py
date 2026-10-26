@@ -3,9 +3,9 @@
 """Demo 22: Flask App via Templated Nix.
 
 Deploys a real Flask web app through the python-venv [nix] template (the
-"templated Nix" path applied to a framework app): the dependencies are
-pip-installed into a Nix-built virtualenv and the local app.py is run under
-gunicorn — no hand-written Nix expression.
+"templated Nix" path applied to a framework app): the dependencies come from
+a hash-pinned lockfile into a Nix-built virtualenv and the local app.py is run
+under gunicorn — no hand-written Nix expression.
 
 Complements demo21 (templated Nix wrapping a stock package) by showing the
 templated path for an application with its own source code.
@@ -25,7 +25,7 @@ TITLE = "Demo 22: Flask App via Templated Nix (python-venv)"
 DESCRIPTION = """
 Demonstrates the templated Nix builder for a framework app:
   - a Flask app (home page + /api/info JSON endpoint) with local app.py
-  - the python-venv [nix] template pip-installs Flask + gunicorn into a Nix venv
+  - the python-venv [nix] template builds a Nix venv from a hash-pinned lockfile
   - gunicorn runs the local app.py — no hand-written Nix expression
 """
 

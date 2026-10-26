@@ -1,6 +1,6 @@
-# A Flask app deployed via the python-venv [nix] template (templated Nix — no
-# hand-written Nix). Flask + gunicorn are pip-installed into a Nix-built
-# virtualenv; the local app.py is run under gunicorn.
+# A Flask app deployed via the python-venv Nix template (templated Nix, no
+# hand-written Nix). Flask + gunicorn come from a hash-pinned lockfile into a
+# Nix-built virtualenv; the local app.py is run under gunicorn.
 [metadata]
 id = "demo22-flask-nix"
 version = "0.1.0"
@@ -12,10 +12,20 @@ description = "A Flask web app deployed via the python-venv Nix template."
 builder = "nix"
 
 [nix]
-# python-venv: pip-install the dependencies into a Nix-built virtualenv and run
-# the local app.py (app:app) under gunicorn. No hand-written Nix expression.
+# python-venv: a virtualenv built from the lockfile, with this directory
+# installed beside it, run under gunicorn. No hand-written Nix expression.
 template = "python-venv"
-runtime-package = "python3"
-pip-packages = ['flask', 'gunicorn']
+pip-local-source = true
+# Regenerate with: uv pip compile --generate-hashes --python-version 3.12 \
+#   --exclude-newer 2026-09-01 requirements.in -o requirements.txt
+pip-requirements = "requirements.txt"
+# The hash of every file the lockfile names, once downloaded. Same lockfile
+# as the nix-gen-flask tutorial, so the same hash.
+pip-deps-hash = "sha256-+ILV5A5KTzX5dXcJatxIDptExr6D/bmcDRaOUzudIfU="
+# MarkupSafe ships per-architecture wheels; built from source, the hash holds
+# on x86 and ARM alike.
+pip-source-packages = ["markupsafe"]
+pip-build-requires = ["setuptools==84.0.0"]
+runtime-package = "python312"
 exec-target = "gunicorn"
-exec-args = ['app:app', '--bind', '0.0.0.0:${PORT:-8080}', '--pythonpath', '.']
+exec-args = ['app:app', '--bind', '0.0.0.0:${PORT:-8080}']
