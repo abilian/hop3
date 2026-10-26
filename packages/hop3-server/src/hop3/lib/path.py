@@ -17,7 +17,7 @@ __all__ = [
 ]
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
     from pathlib import Path
 
 
@@ -25,7 +25,7 @@ REJECTED_SUFFIX = ".rejected"
 
 
 @contextmanager
-def restore_on_failure(path: Path) -> Iterator[None]:
+def restore_on_failure(path: Path) -> Generator[None, None, None]:
     """Undo writes to ``path`` if the block raises, keeping the rejected copy.
 
     A candidate config has to be on disk while it is judged: `nginx -t` reads

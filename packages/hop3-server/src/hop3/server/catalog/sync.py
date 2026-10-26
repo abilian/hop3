@@ -43,7 +43,7 @@ from typing import TYPE_CHECKING
 from .verify import verify_minisign, verify_tree_against_index
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
     from http.client import HTTPMessage
     from typing import IO
 
@@ -87,7 +87,7 @@ class _HTTPSOnlyRedirectHandler(urllib.request.HTTPRedirectHandler):
 
 
 @contextlib.contextmanager
-def _exclusive_lock(state_root: Path) -> Iterator[None]:
+def _exclusive_lock(state_root: Path) -> Generator[None, None, None]:
     """
     Hold an exclusive, non-blocking lock for the publish critical section.
 

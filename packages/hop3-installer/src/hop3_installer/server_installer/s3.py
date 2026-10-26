@@ -31,7 +31,7 @@ import secrets
 import shutil
 import subprocess
 import time
-from collections.abc import Iterator
+from collections.abc import Generator
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -357,7 +357,7 @@ def _initialise_layout() -> None:
 
 
 @contextlib.contextmanager
-def _garage_running() -> Iterator[bool]:
+def _garage_running() -> Generator[bool, None, None]:
     """
     Ensure a Garage node is up for the duration of the block.
 

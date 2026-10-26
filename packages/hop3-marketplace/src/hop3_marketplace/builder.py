@@ -29,7 +29,7 @@ from hop3.server.catalog.taxonomy import build_categories, build_tags
 from .renderer import copy_static, generate_search_index, render_site
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 
 #: Served alongside the site, produced by a different step (`make stage`), and
@@ -42,7 +42,7 @@ PRESERVED = ("catalog",)
 
 
 @contextmanager
-def _preserved(output_dir: Path) -> Iterator[None]:
+def _preserved(output_dir: Path) -> Generator[None, None, None]:
     """Carry directories we do not own across the render that replaces them."""
     held = [name for name in PRESERVED if (output_dir / name).is_dir()]
     if not held:

@@ -38,7 +38,7 @@ from rich.progress import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Callable, Iterator
+    from collections.abc import Callable, Generator
 
 # Under this, the upload is over before a bar would earn its space.
 MIN_BODY_BYTES_FOR_PROGRESS: Final = 2 * 1024 * 1024
@@ -64,7 +64,7 @@ class ProgressBody(io.BytesIO):
 
 
 @contextlib.contextmanager
-def upload_body(data: bytes) -> Iterator[bytes | ProgressBody]:
+def upload_body(data: bytes) -> Generator[bytes | ProgressBody, None, None]:
     """
     Yield the POST body, wrapped in a progress bar when one is worth drawing.
 

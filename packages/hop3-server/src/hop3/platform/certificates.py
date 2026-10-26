@@ -4,7 +4,7 @@
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import re
 import shlex
 import shutil
@@ -146,7 +146,7 @@ class Certificate:
     def get_crt(self) -> str:
         return self.crt_file.read_text()
 
-    def not_after(self) -> datetime.datetime | None:
+    def not_after(self) -> dt.datetime | None:
         """Expiry instant (UTC) of the stored cert, or None if absent/unreadable."""
         if not self.crt_file.exists():
             return None
@@ -164,18 +164,18 @@ class Certificate:
         value = value.strip()
         for fmt in ("%b %d %H:%M:%S %Y %Z", "%b %d %H:%M:%S %Y"):
             try:
-                parsed = datetime.datetime.strptime(value, fmt)  # ruff:ignore[call-datetime-strptime-without-zone]
+                parsed = dt.datetime.strptime(value, fmt)  # ruff:ignore[call-datetime-strptime-without-zone]
             except ValueError:
                 continue
-            return parsed.replace(tzinfo=datetime.timezone.utc)
+            return parsed.replace(tzinfo=dt.timezone.utc)
         return None
 
-    def days_until_expiry(self, *, now: datetime.datetime | None = None) -> int | None:
+    def days_until_expiry(self, *, now: dt.datetime | None = None) -> int | None:
         """Whole days until the stored cert expires (negative if already expired)."""
         expiry = self.not_after()
         if expiry is None:
             return None
-        now = now or datetime.datetime.now(datetime.timezone.utc)
+        now = now or dt.datetime.now(dt.timezone.utc)
         return (expiry - now).days
 
     def is_self_signed(self) -> bool:

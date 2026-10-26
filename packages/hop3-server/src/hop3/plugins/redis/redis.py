@@ -37,7 +37,7 @@ from hop3.plugins.addons import (
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
 # Addon type identifier for secrets storage
 ADDON_TYPE = "redis"
@@ -506,7 +506,7 @@ class RedisAddon:
 
 
 @contextlib.contextmanager
-def _db_number_lock() -> Iterator[None]:
+def _db_number_lock() -> Generator[None, None, None]:
     """
     Hold the lock that makes a db-number claim atomic.
 

@@ -15,7 +15,7 @@ and rate-limited to query on a page load.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import socket
 from contextlib import suppress
 from dataclasses import dataclass, field
@@ -39,14 +39,14 @@ _PRIVATE_PREFIXES = (
 @dataclass(frozen=True)
 class DomainHealth:
     domain: str
-    registration_expiry: datetime.date | None = None
+    registration_expiry: dt.date | None = None
     registration_days_left: int | None = None
     resolves: bool | None = None  # does it resolve to any address?
     points_here: bool | None = (
         None  # resolves to one of this server's IPs? (None=unknown)
     )
     resolved_ips: tuple[str, ...] = ()
-    checked_at: datetime.datetime | None = None
+    checked_at: dt.datetime | None = None
     notes: tuple[str, ...] = field(default_factory=tuple)
 
 
@@ -54,10 +54,10 @@ def check_domain(
     domain: str,
     *,
     server_ips: frozenset[str] = frozenset(),
-    now: datetime.datetime | None = None,
+    now: dt.datetime | None = None,
 ) -> DomainHealth:
     """Probe one domain's registration expiry (WHOIS) and DNS — never raises."""
-    now = now or datetime.datetime.now(datetime.UTC)
+    now = now or dt.datetime.now(dt.UTC)
     notes: list[str] = []
 
     expiry = _whois_expiry(domain)
@@ -118,7 +118,7 @@ def server_ips() -> frozenset[str]:
     return frozenset(ips)
 
 
-def _whois_expiry(domain: str) -> datetime.date | None:
+def _whois_expiry(domain: str) -> dt.date | None:
     try:
         data = whois.whois(domain)
     except Exception:
@@ -126,9 +126,9 @@ def _whois_expiry(domain: str) -> datetime.date | None:
     expiry = getattr(data, "expiration_date", None) if data else None
     if isinstance(expiry, list):
         expiry = next((e for e in expiry if e), None)
-    if isinstance(expiry, datetime.datetime):
+    if isinstance(expiry, dt.datetime):
         return expiry.date()
-    if isinstance(expiry, datetime.date):
+    if isinstance(expiry, dt.date):
         return expiry
     return None
 

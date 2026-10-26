@@ -16,7 +16,7 @@ import click
 import tomllib
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     from hop3.plugins.build.nix.gen.spec import AppSpec
     from hop3.plugins.build.nix.gen.templates.base import ReproTier, Template
@@ -522,7 +522,7 @@ def _generated_expression(app_dir: Path, pin: tuple[str, str] | None = None) -> 
 
 
 @contextmanager
-def _materialized_nix(app_dir: Path, expression: str) -> Iterator[None]:
+def _materialized_nix(app_dir: Path, expression: str) -> Generator[None, None, None]:
     """
     Write a generated hop3.nix for the duration of a build, then restore.
 

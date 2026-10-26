@@ -17,7 +17,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any, assert_never
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     from .commands.flags import CliFlags
     from .core.resolution import AppResolution, ContextResolution
@@ -923,7 +923,7 @@ def _app_flag_value(cli_args: list[str]) -> str | None:
 
 
 @contextmanager
-def _transport_errors_reported(client: Client) -> Iterator[None]:
+def _transport_errors_reported(client: Client) -> Generator[None, None, None]:
     """Report a failure to reach the server as what it is, and exit."""
     try:
         yield

@@ -32,7 +32,7 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterator
+    from collections.abc import AsyncIterator, Generator
 
 # Stream registry
 _streams: dict[str, DeploymentStream] = {}
@@ -295,7 +295,7 @@ def get_current_stream() -> DeploymentStream | None:
 
 
 @contextmanager
-def stream_context(stream: DeploymentStream) -> Iterator[DeploymentStream]:
+def stream_context(stream: DeploymentStream) -> Generator[DeploymentStream, None, None]:
     """
     Context manager to set the current stream for logging.
 

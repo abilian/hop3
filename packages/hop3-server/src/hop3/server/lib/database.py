@@ -12,13 +12,13 @@ from typing import TYPE_CHECKING
 from hop3.orm import get_session_factory
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from collections.abc import Generator
 
     from sqlalchemy.orm import Session
 
 
 @contextmanager
-def get_session() -> Iterator[Session]:
+def get_session() -> Generator[Session, None, None]:
     """
     Get a database session as a context manager.
 

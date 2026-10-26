@@ -10,7 +10,7 @@ check_domain is best-effort and must never raise: WHOIS/DNS failures degrade to
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import socket
 from types import SimpleNamespace
 
@@ -23,11 +23,11 @@ from hop3.platform.domain_health import (
     set_domain_health,
 )
 
-NOW = datetime.datetime(2026, 1, 1, tzinfo=datetime.UTC)
+NOW = dt.datetime(2026, 1, 1, tzinfo=dt.UTC)
 
 
-def _dt(year: int, month: int, day: int) -> datetime.datetime:
-    return datetime.datetime(year, month, day, tzinfo=datetime.UTC)
+def _dt(year: int, month: int, day: int) -> dt.datetime:
+    return dt.datetime(year, month, day, tzinfo=dt.UTC)
 
 
 def _addrinfo(*ips):
@@ -58,7 +58,7 @@ def test_healthy_domain(monkeypatch):
     _whois(monkeypatch, expiry=_dt(2026, 6, 1))
     _dns(monkeypatch, "203.0.113.5")
     h = check_domain("edrix.eu", server_ips=frozenset({"203.0.113.5"}), now=NOW)
-    assert h.registration_expiry == datetime.date(2026, 6, 1)
+    assert h.registration_expiry == dt.date(2026, 6, 1)
     assert h.registration_days_left == 151
     assert h.resolves is True
     assert h.points_here is True
@@ -107,7 +107,7 @@ def test_expiration_date_list_takes_first(monkeypatch):
     )
     _dns(monkeypatch, "203.0.113.5")
     h = check_domain("edrix.eu", now=NOW)
-    assert h.registration_expiry == datetime.date(2026, 6, 1)
+    assert h.registration_expiry == dt.date(2026, 6, 1)
 
 
 def test_private_server_ip_makes_points_here_unknown(monkeypatch):

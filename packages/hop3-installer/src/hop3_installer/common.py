@@ -14,7 +14,7 @@ All code uses only the Python standard library.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import itertools
 import os
 import re
@@ -859,7 +859,5 @@ def make_build_info(
         # Module-qualified: the single-file bundler rewrites
         # ``from datetime import datetime`` to ``import datetime``, so the bare
         # name would resolve to the module in the bundled installer.
-        "deployed_at": datetime.datetime.now(datetime.UTC).isoformat(
-            timespec="seconds"
-        ),
+        "deployed_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
     }

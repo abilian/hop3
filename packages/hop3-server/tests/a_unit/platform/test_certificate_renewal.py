@@ -11,7 +11,7 @@ know when a cert is due, and re-issue only when needed.
 
 from __future__ import annotations
 
-import datetime
+import datetime as dt
 import subprocess
 
 import pytest
@@ -55,7 +55,7 @@ def test_not_after_parses_real_cert(store):
     _make_self_signed(store, "a.example.com", 90)
     expiry = Certificate("a.example.com").not_after()
     assert expiry is not None
-    delta_days = (expiry - datetime.datetime.now(datetime.UTC)).days
+    delta_days = (expiry - dt.datetime.now(dt.UTC)).days
     assert 88 <= delta_days <= 90
 
 
@@ -66,7 +66,7 @@ def test_days_until_expiry(store):
 
 def test_days_until_expiry_negative_when_expired(store):
     _make_self_signed(store, "a.example.com", 90)
-    future = datetime.datetime.now(datetime.UTC) + datetime.timedelta(days=100)
+    future = dt.datetime.now(dt.UTC) + dt.timedelta(days=100)
     assert Certificate("a.example.com").days_until_expiry(now=future) < 0
 
 
