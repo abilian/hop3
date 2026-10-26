@@ -97,7 +97,12 @@ def https_get(info: dict[str, Any], host: str, path: str = "/") -> tuple[int, st
         f"curl -sk --path-as-is --resolve {host}:443:127.0.0.1 "
         f"-w '\\n%{{http_code}}' https://{host}{path}"
     )
-    body, _, status = result.output.decode(errors="replace").rpartition("\n")
+    output = result.output.decode(errors="replace")
+    body, _, status = output.rpartition("\n")
+    assert status.isdigit(), (
+        f"no status from curl on https://{host}{path}: "
+        f"exit {result.exit_code}, output {output[:300]!r}"
+    )
     return int(status), body
 
 
@@ -107,7 +112,12 @@ def https_head(info: dict[str, Any], host: str, path: str) -> tuple[int, str]:
         f"curl -sk -o /dev/null --resolve {host}:443:127.0.0.1 "
         f"-w '%{{http_code}} %header{{location}}' 'https://{host}{path}'"
     )
-    status, _, location = result.output.decode(errors="replace").partition(" ")
+    output = result.output.decode(errors="replace")
+    status, _, location = output.partition(" ")
+    assert status.isdigit(), (
+        f"no status from curl on https://{host}{path}: "
+        f"exit {result.exit_code}, output {output[:300]!r}"
+    )
     return int(status), location.strip()
 
 

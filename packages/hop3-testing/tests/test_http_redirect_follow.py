@@ -14,6 +14,7 @@ content behind it (`contains = "Kanboard"`).
 
 from __future__ import annotations
 
+from functools import partial
 from types import SimpleNamespace
 from typing import Any
 
@@ -64,3 +65,24 @@ def test_followed_body_is_captured_for_a_307_entry_redirect():
     assert out["passed"] is True
     assert "Easy!Appointments" in out["details"]["body_preview"]
     assert "-L" in next(c for c in calls if "-o /dev/null" not in c)
+
+
+def test_a_wrong_redirect_says_where_it_points():
+    """xwiki answered 302 to an empty page, and the report showed only the code."""
+
+    def exec_run(cmd: str):
+        if "%{redirect_url}" in cmd:
+            return (0, "http://127.0.0.1:5000/xwiki/bin/distribution/", "")
+        return (0, "", "")
+
+    fake = SimpleNamespace(target=SimpleNamespace(exec_run=exec_run))
+    fake._diagnostic_body = partial(DeploymentSession._diagnostic_body, fake)
+    fake._redirect_location = partial(DeploymentSession._redirect_location, fake)
+    result: dict[str, Any] = {"passed": False, "message": "", "details": {}}
+
+    DeploymentSession._report_mismatch(fake, result, "http://x/", 302, [200, 202])
+
+    assert result["message"] == (
+        "HTTP 302 (expected 200 or 202) from http://x/"
+        "\n  Location: http://127.0.0.1:5000/xwiki/bin/distribution/"
+    )

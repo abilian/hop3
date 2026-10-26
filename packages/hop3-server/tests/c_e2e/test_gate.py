@@ -103,7 +103,8 @@ class Browser:
             # only record of why (a timeout, a refused or reset connection).
             pytest.fail(
                 f"no HTTP response from {url}: curl exited {result.exit_code}, "
-                f"{(stderr.decode(errors='replace') or '(no error text)').strip()}\n"
+                f"{(stderr.decode(errors='replace') or '(no error text)').strip()}, "
+                f"stdout {output[:300]!r}\n"
                 f"{_server_state({'container': self.container})}"
             )
         head, _, body = output.partition("\r\n\r\n")

@@ -554,9 +554,7 @@ class DeploymentSession:
                             return result
                         result["details"]["body_preview"] = body
                         if not body:
-                            result["details"]["headers"] = self._response_headers(
-                                url
-                            )
+                            result["details"]["headers"] = self._response_headers(url)
                         result["passed"] = True
                         result["message"] = f"HTTP {status_code} from {url}"
                         self.console.success(
@@ -568,13 +566,7 @@ class DeploymentSession:
                         time.sleep(1)
                         continue
 
-                    body_text = self._diagnostic_body(url)
-                    result["details"]["body_preview"] = body_text
-                    body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
-                    result["message"] = (
-                        f"HTTP {status_code} (expected {_format_expected(expected_status)}) "
-                        f"from {url}{body_hint}"
-                    )
+                    self._report_mismatch(result, url, status_code, expected_status)
                     return result
 
                 # curl failed (connection refused, etc.): app still starting
@@ -600,6 +592,40 @@ class DeploymentSession:
             f"-o /dev/null -D - '{url}'"
         )
         return (out or err or "").strip()
+
+    def _report_mismatch(
+        self,
+        result: dict[str, Any],
+        url: str,
+        status_code: int,
+        expected_status: int | Iterable[int],
+        curl_args: str = "",
+    ) -> None:
+        """
+        Say what came back instead: the page, and where a redirect pointed.
+
+        A 302 whose target answers with an empty page left the report with
+        nothing but the status (xwiki after a redeploy).
+        """
+        body_text = self._diagnostic_body(url, curl_args)
+        result["details"]["body_preview"] = body_text
+        hint = ""
+        if 300 <= status_code < 400:
+            hint += f"\n  Location: {self._redirect_location(url, curl_args)}"
+        if body_text:
+            hint += f"\n  Body: {body_text[:300]}"
+        result["message"] = (
+            f"HTTP {status_code} (expected {_format_expected(expected_status)}) "
+            f"from {url}{hint}"
+        )
+
+    def _redirect_location(self, url: str, curl_args: str = "") -> str:
+        """Where ``url`` redirects, unfollowed."""
+        _code, out, err = self.target.exec_run(
+            f"curl -sS {curl_args} --max-time {BODY_FETCH_TIMEOUT} "
+            f"-o /dev/null -w '%{{redirect_url}}' '{url}'"
+        )
+        return (out or err or "(none)").strip()
 
     def _diagnostic_body(self, url: str, curl_args: str = "") -> str:
         """The body shown beside a wrong status: the page, or why it is missing."""
@@ -677,12 +703,8 @@ class DeploymentSession:
                         time.sleep(1)
                         continue
 
-                    body_text = self._diagnostic_body(url, resolve)
-                    result["details"]["body_preview"] = body_text
-                    body_hint = f"\n  Body: {body_text[:300]}" if body_text else ""
-                    result["message"] = (
-                        f"HTTP {status_code} (expected {_format_expected(expected_status)}) "
-                        f"from {url}{body_hint}"
+                    self._report_mismatch(
+                        result, url, status_code, expected_status, resolve
                     )
                     return result
 
