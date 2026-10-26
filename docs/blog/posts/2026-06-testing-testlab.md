@@ -12,19 +12,19 @@ tags:
 
 # The Test Lab: Making the Nightly Suite Legible
 
-Running the whole test suite every night is only the first half of the job. The full matrix (real apps, demos, tutorials, platform e2e, across distros, on real cloud servers) produces a *mountain* of pass/fail data and diagnostic logs. If that data lands in a write-only file nobody can query, the suite is a tree falling in an empty forest. The point of testing is the *finding*, and a finding only counts if someone sees it the next morning.
+Running the whole test suite every night is only the first half of the job. The full matrix (real apps, demos, tutorials, platform e2e, across distros, on real cloud servers) produces a *mountain* of pass/fail data and diagnostic logs. If that data lands in a write-only file that cannot be queried, the suite is a tree falling in an empty forest. The point of testing is the *finding*. A finding only counts if someone sees it the next morning.
 
-So Hop3 has a dedicated application for exactly this: **`hop3-testlab`**, specified in [ADR 044](/developers/adrs/044-nightly-test-lab/). It's the consumer that makes a nightly run *actionable*: green/red at a glance, every log for every failure one click away, trends over time, and a scheduler that gets it done before breakfast.
+So Hop3 has a dedicated application for exactly this: **`hop3-testlab`**, specified in [ADR 044](/developers/adrs/044-nightly-test-lab/). It's the consumer that makes a nightly run *actionable*: green/red at a glance, all the logs for each failure one click away, trends over time, and a scheduler that gets it done before breakfast.
 
 ## Why a whole app for it
 
-[ADR 043](/developers/adrs/043-unified-testing-architecture/) did the hard part: it made the nightly data *exist and be uniform*, via the shared diagnostic bundle that every runner emits. But it left the data inert: a single-file SQLite store with no query API, a static report blind to trends, no scheduler, no way to browse a failed test's full logs, no flakiness view, no way to re-run from a UI.
+[ADR 043](/developers/adrs/043-unified-testing-architecture/) did the hard part: it made the nightly data *exist and be uniform*, via the shared diagnostic bundle that each runner emits. But it left the data inert: a single-file SQLite store with no query API and a static report blind to trends. Scheduling, browsing a failed test's full logs, a flakiness view and re-running from a UI were all missing.
 
-It also lands squarely on the project ethos: *packaging apps is system-validation work; each app is a deliberate probe of the platform's edges.* The nightly suite is the instrument; the Test Lab is the readout that turns each failure into a visible platform backlog item.
+It also lands squarely on the project ethos: *packaging apps is system-validation work; each app is a probe of the platform's edges.* The nightly suite is the instrument; the Test Lab is the readout that turns each failure into a visible platform backlog item.
 
 ## One engine, two front-ends
 
-The cardinal rule that keeps the CLI and the dashboard from ever diverging: **the Test Lab does not shell out to the `hop3-test` CLI and parse its text.** It imports the [test runner](2026-06-testing-runner.md)'s functional core, the orchestrator, the `DeploymentTarget` abstraction, the catalog scanner, and the shared `collect_diagnostic_bundle`, *as a library*, and writes structured results to a shared store.
+One cardinal rule keeps the CLI and the dashboard from ever diverging: **the Test Lab does not shell out to the `hop3-test` CLI and parse its text.** It imports the [test runner](2026-06-testing-runner.md)'s functional core, the orchestrator, the `DeploymentTarget` abstraction, the catalog scanner, and the shared `collect_diagnostic_bundle`, *as a library*, and writes structured results to a shared store.
 
 The consequence is that the CLI and the web app are two thin shells over the **same** engine and the **same** store. A developer's manual `hop3-test run` and a scheduled nightly run produce *identical, comparable* data; a manual run even shows up in the dashboard automatically, tagged with its provenance (`scheduled-nightly`, `cli:<user>`, `web:<user>`), git SHA, branch, and target distro.
 
@@ -52,7 +52,7 @@ flowchart LR
 | Component | Role | Stack |
 |-----------|------|-------|
 | **Web service** | dashboard + JSON API: browse runs, tests, logs, trends; trigger ad-hoc runs | Litestar + Advanced Alchemy + Dishka, server-rendered + HTMX |
-| **Scheduler** | kicks off the nightly run on a timer; enforces the 6-hour budget | APScheduler / systemd timer |
+| **Scheduler** | starts the nightly run on a timer; enforces the 6-hour budget | APScheduler / systemd timer |
 | **Runner** | provision pool → deploy → run suites → collect bundles → persist → teardown | reuses `hop3-testing` as a library |
 | **Datastore** | queryable results + trends | PostgreSQL |
 | **Artifact store** | per-test diagnostic bundles | filesystem volume now, object storage later |
@@ -70,7 +70,7 @@ It then **remote-controls Hetzner**: the runner provisions a *pool* of ephemeral
 A nightly result is only trustworthy if it doesn't depend on what ran before it. So a Test Lab run starts from a blank slate: for cloud targets, a full **OS rebuild of the throwaway server**, the Hop3 install included. The constraint therefore has sharp edges:
 
 - It needs a registered SSH key and a **dedicated, disposable** server to rebuild; the rebuild **wipes the box**, so it must never point at anything you care about.
-- If it can't reach a true blank slate, it **aborts loudly**, refusing to run against leftover state. (A silent "SKIPPED" against a dirty server is the cardinal sin the whole testing rework was meant to kill.)
+- If it can't reach a true blank slate, it **aborts with an error**, refusing to run against leftover state. (A silent "SKIPPED" against a dirty server is the cardinal sin the whole testing rework was meant to kill.)
 - Trigger logs land in `~/.hop3/testlab-logs/` so a run that dies during provisioning still leaves a breadcrumb.
 
 ## What you see in the morning
@@ -85,7 +85,7 @@ Every bundle is keyed by `(run_id, test_id)` (so two apps' logs can never overwr
 
 ## Finishing overnight
 
-The hard constraint is **under six hours**, reliably. Serial real deploys of the whole catalog won't fit on one server, and the deploy path is largely serial *per* server (concurrent deploys to one host interfere). So the primary lever is horizontal: a **pool** of Hetzner targets with the catalog **sharded** across them, scaling out until the wall-clock fits the budget.
+The hard constraint is **under six hours**, reliably. Serial real deploys of the whole catalog won't fit on one server. The deploy path is largely serial *per* server (concurrent deploys to one host interfere). So the primary lever is horizontal: a **pool** of Hetzner targets with the catalog **sharded** across them, scaling out until the wall-clock fits the budget.
 
 ## Driving it
 
@@ -103,7 +103,7 @@ A manual `run` writes to the same store as the scheduler, so it shows up in the 
 
 ## Where it sits
 
-The Test Lab is the apex of the pyramid in [the testing overview](2026-06-how-hop3-is-tested.md): the **nightly** tier given a home. Below it, the [test runner](2026-06-testing-runner.md) provides the engine, the [demos](2026-06-testing-demos.md) and [validoc tutorials](2026-06-testing-validoc.md) provide much of the catalog, and the shared diagnostic bundle from [ADR 043](/developers/adrs/043-unified-testing-architecture/) provides the data. The Lab's job is to make sure that, every morning, the night's findings are impossible to miss.
+The Test Lab is the apex of the pyramid in [the testing overview](2026-06-how-hop3-is-tested.md): the **nightly** tier given a home. Below it, the [test runner](2026-06-testing-runner.md) provides the engine. The [demos](2026-06-testing-demos.md) and [validoc tutorials](2026-06-testing-validoc.md) provide much of the catalog. The shared diagnostic bundle from [ADR 043](/developers/adrs/043-unified-testing-architecture/) provides the data. The Lab's job is to make sure that, every morning, the night's findings are impossible to miss.
 
 ---
 

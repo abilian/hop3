@@ -9,7 +9,7 @@ tags:
 
 # Separating Build and Run: The BuildArtifact Pattern
 
-When we started Hop3, build and run were tightly coupled. The Python toolchain would create a virtualenv, and the uWSGI deployer knew to look for `venv/bin/python`. This worked until we wanted to support Docker builds, Nix builds, or running apps on different machines than they were built on.
+When we started Hop3, build and run were tightly coupled. The Python toolchain would create a virtualenv; the uWSGI deployer knew to look for `venv/bin/python`. This worked until we wanted to support Docker builds, Nix builds, or running apps on different machines than they were built on.
 
 We needed to separate concerns: **build** produces an artifact, **run** consumes it.
 

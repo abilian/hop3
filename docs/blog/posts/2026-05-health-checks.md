@@ -9,7 +9,7 @@ tags:
 
 # Knowing When Things Break (Before Users Tell You)
 
-Here's how you find out your PaaS is broken: a user emails saying "the app is down." You check the logs. The database connection pool exhausted itself three hours ago. The app has been returning 500 errors ever since. Nobody noticed.
+Here's how you find out your PaaS is broken: a user emails saying "the app is down." You check the logs. The database connection pool exhausted itself three hours ago. The app has been returning 500 errors ever since, and no alert fired.
 
 Hop3's health checks exist to shorten that gap. The goal is one command that tells you whether the platform underneath your apps is actually working.
 
@@ -48,7 +48,7 @@ The severity legend is `✓` ok, `⚠` warning, `✗` failure. Optional services
 
 ## Each Service Knows Its Own Health
 
-There's no monolithic health checker that knows about everything. Each plugin contributes its own health check, discovered through the `get_health_checks()` hook.
+There's no monolithic health checker that knows about everything. Each plugin contributes a health check for the service it provides, discovered through the `get_health_checks()` hook.
 
 The PostgreSQL addon knows how to verify PostgreSQL is working:
 
@@ -79,7 +79,7 @@ class PostgresHealthCheck:
             )
 ```
 
-When we add a new addon (say, MongoDB) it ships with its own health check. There's no central list to update: the plugin system handles discovery. `system status` runs every registered check and renders the results.
+When we add a new addon (say, MongoDB) it ships with a health check. There's no central list to update: the plugin system handles discovery. `system status` runs every registered check and renders the results.
 
 ## A Simple Protocol
 
@@ -101,13 +101,13 @@ class HealthCheck(Protocol):
     def check(self) -> HealthCheckResult: ...
 ```
 
-A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. The one nuance worth its own field: a check can set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That mechanism turns an unreachable Redis into a yellow warning on an otherwise green board.
+A check reports `passed`, and severity is derived from it: `passed=True` renders as `ok`, `passed=False` as `fail`. A check can also set `severity` explicitly to override that default. An optional service that's unreachable returns `passed=False` but `severity="warn"`; the result is unacceptable from the check's point of view, yet the operator can still ship. That mechanism turns an unreachable Redis into a yellow warning on an otherwise green board.
 
 `is_configured()` is the other half of keeping the report accurate: a check that doesn't apply to this server says so, and is skipped, so it never generates a spurious failure.
 
 ## Reporting at Startup
 
-The same addon checks run when the server starts. If PostgreSQL isn't accepting connections, or Redis is configured but unreachable, the failure is logged with a pointed message (*apps using this service will fail to deploy*) so the problem surfaces in the logs before the first deploy hits it.
+The server runs the same addon checks when it starts. If PostgreSQL isn't accepting connections, or a configured Redis is unreachable, the failure is logged with a pointed message (*apps using this service will fail to deploy*) so the problem surfaces in the logs before the first deploy hits it.
 
 ```python
 def verify_addon_health() -> dict[str, HealthCheckResult]:
@@ -145,7 +145,7 @@ def health():
     return "OK", 200
 ```
 
-A better one that checks the dependencies your app can't run without:
+A better one checks the dependencies your app can't run without:
 
 ```python
 @app.route("/health")
@@ -168,7 +168,7 @@ For automation, `system status` speaks JSON:
 hop3 system status --json
 ```
 
-This emits the same identity, per-section items, and overall severity as a structured document. Feed it to a dashboard or an external monitor. And for the shell-script case, the command sets its exit code from the worst severity it found:
+This emits the same identity, per-section items, and overall severity as a structured document. Feed it to a dashboard or an external monitor. For shell scripts, the command sets its exit code from the worst severity it found:
 
 ```bash
 hop3 system status --quiet
@@ -185,7 +185,7 @@ Zero means everything's OK; non-zero means there's at least a warning. `--quiet`
 
 The checks above are the foundation. The direction we're building toward (designed in [ADR 029](https://github.com/abilian/hop3/blob/main/notes/adrs/029-reconciliation-health-checks.md), not yet shipped) turns this from a tool you run into a platform that watches itself:
 
-- **Continuous reconciliation.** A background watchdog that periodically compares each app's recorded state against its actual process state, so a process that dies overnight is detected in seconds, before a user files a ticket. Hop3 already has the state-sync primitive (`App.sync_state()`); today it runs when you view the dashboard or issue a lifecycle command, not on a timer.
+- **Continuous reconciliation.** A background watchdog that periodically compares each app's recorded state against the actual process state, so a process that dies overnight is detected in seconds, before a user files a ticket. Hop3 already has the state-sync primitive (`App.sync_state()`); today it runs when you view the dashboard or issue a lifecycle command, not on a timer.
 - **Restart policies.** Per-app `on_failure` / `always` / `never` policies, with exponential backoff and a cap, so transient crashes recover automatically without flapping forever.
 - **An event log.** An immutable audit trail of state changes, health results, and restarts: the history you wish you had when something broke at 3 AM.
 - **Certificate-expiry monitoring.** Today the certificate check reports whether a real certificate is configured at all (self-signed vs. Let's Encrypt). Tracking days-until-expiry, and warning before a renewal silently fails, is the natural next step.

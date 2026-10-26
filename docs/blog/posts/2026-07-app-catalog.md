@@ -10,17 +10,17 @@ tags:
 
 # An App Catalog for Self-Hosting
 
-Hop3 0.7 ships an **app catalog**: twenty real self-hosted applications you can browse in the dashboard and install by pressing a button. You give one a name and a domain, and Hop3 does the rest: it creates your admin account and signs in to check it worked before the deploy reports success.
+Hop3 0.7 ships an **app catalog**: twenty real self-hosted applications you can browse in the dashboard and install by pressing a button. You give one a name and a domain. Hop3 does the rest: it creates your admin account and signs in to check it worked before the deploy reports success.
 
-The catalog replaces the setup guide. Every serious self-hosted application ships one, and they tend to be thorough, well written, and roughly a morning's work. Nextcloud's is representative: a database and a user for it; a particular set of PHP extensions; a `php.ini` whose memory limit and upload size are not the defaults; a reverse proxy that sets the right headers, or the app builds every URL wrong and the login loops; a cron job, or background jobs quietly stop; a TLS certificate. Then you get to create the admin account.
+The catalog replaces the setup guide. Serious self-hosted applications ship one. These guides tend to be thorough, well written, and roughly a morning's work. Nextcloud's is representative: a database and a user for it; a particular set of PHP extensions; a `php.ini` whose memory limit and upload size are not the defaults; a reverse proxy that sets the right headers, or the app builds its URLs wrong and the login loops; a cron job, or background jobs stop; a TLS certificate. Then you get to create the admin account.
 
-None of that is any one application being difficult. It is what connecting a web application to a machine actually involves, and it is why so many people who want to self-host end up not self-hosting.
+None of that is any one application being difficult. It is what connecting a web application to a machine actually involves. That cost is why so many people who want to self-host end up not self-hosting.
 
 ## What that looks like
 
 The catalog is a section of the Hop3 web dashboard. It lists applications with a description, an icon, and what they need. You pick one, give it a name and a domain, and press install.
 
-Hop3 then does the list above. It provisions the database and the cache the app declares and injects the connection details. It installs the runtime and the extensions. It configures the reverse proxy, including the headers that make an app behind a proxy build correct URLs. That is the single most common way a self-hosted install ends up broken in a way that looks like the app's fault. It requests a certificate. It runs the application's own first-run bootstrap, **generates an admin credential and stores it**, and starts the app.
+Hop3 then does the list above. It provisions the database and the cache the app declares and injects the connection details. It installs the runtime and the extensions. It configures the reverse proxy, including the headers that make an app behind a proxy build correct URLs. That is the single most common way a self-hosted install ends up broken in a way that looks like the app's fault. It requests a certificate. It runs the application's first-run bootstrap, **generates an admin credential and stores it**, and starts the app.
 
 Then it signs in, to check.
 
@@ -30,15 +30,15 @@ The applications in the catalog are real ones people actually run: Nextcloud, Wo
 
 ## Why you can trust it
 
-It started with an application that passed every check we had while being unusable.
+It started with an application that passed all our checks while being unusable.
 
-**Bugsink** is an error tracker. It deployed cleanly. It returned HTTP 200. Its login page rendered. Every automated validation was green, and we advertised it as working.
+**Bugsink** is an error tracker. It deployed cleanly. It returned HTTP 200. Its login page rendered. Every automated validation was green. We advertised it as working.
 
-It threw a 500 the moment anyone actually signed in. Bugsink runs two processes, a web app and a background worker with its own separate queue database, and the second one was never wired up. Everything before the login worked. Everything after it did not.
+It threw a 500 the moment anyone actually signed in. Bugsink runs two processes: a web app and a background worker with a separate queue database. The worker was never wired up. Everything before the login worked. Everything after it did not.
 
-The lesson generalises past that one app. A status code tells you a web server answered. Behind a 200 can sit a placeholder page, a generic error page, a maintenance notice, or another app's content served through a misconfigured vhost. We had been treating "the port responds" as "the app runs", and those are different claims.
+The lesson generalises past that one app. A status code tells you a web server answered. Behind a 200 can sit a placeholder page, a generic error page, a maintenance notice, or another app's content served through a misconfigured vhost. We had been treating "the port responds" as if it meant "the app runs".
 
-So the bar moved. **Every application in the catalog ships a smoke test that signs in through the app's own authentication**, using the credential Hop3 generated, and confirms that a wrong password is refused. A login form that accepts anything is not a passing test, and without checking it you cannot distinguish a working sign-in from a broken one that happens to redirect.
+So the bar moved. **Every application in the catalog ships a smoke test that signs in through the app's own authentication**, using the credential Hop3 generated, and confirms that a wrong password is refused. A login form that accepts anything is not a passing test. Without the wrong-password check you cannot distinguish a working sign-in from a broken one that happens to redirect.
 
 The check is required in order to publish to the catalog. It runs at the end of **every** deploy, including deploys started from the dashboard, and on demand:
 
@@ -48,9 +48,9 @@ hop3 app check --app myapp
 
 An app that no longer signs in is a failed deploy.
 
-## Verification that survives you
+## Verification that outlasts you
 
-There is an obvious problem with a platform holding an app's admin password: you are going to change it. You should change it. And then the smoke test is signing in with a credential that no longer works, and starts failing for a reason that has nothing to do with the app.
+There is an obvious problem with a platform holding an app's admin password: you are going to change it. You should change it. Once you do, the smoke test is signing in with a credential that no longer works and starts failing for a reason that has nothing to do with the app.
 
 So an application can declare a **probe account**, a separate, non-privileged account that Hop3 owns and whose password Hop3 rotates:
 
@@ -67,12 +67,12 @@ The catalog is content fetched from a network, which makes it a supply chain. It
 
 ## What it took to get here
 
-Every one of the catalog applications was installed by hand, one at a time, through the dashboard, by someone reporting what a first-time operator actually sees. Every failure was traced to a platform defect and fixed in the platform itself.
+Each catalog application was installed by hand, one at a time, through the dashboard, by someone reporting what a first-time operator actually sees. Each failure was traced to a platform defect and fixed in the platform itself.
 
 - **HTTPS is now the default.** Plain HTTP redirects. Three applications could not be logged into at all over the HTTP vhost, because they set `Secure` cookies, the browser correctly declined to send them back, and the login silently looped. That looks exactly like a wrong password.
-- **PHP's built-in server got more than one worker.** It is single-threaded, so any application that makes a request to itself while installing deadlocks against its own only worker. Nextcloud's installer does exactly this. Ten of the catalog apps sit on that runtime.
+- **PHP's built-in server got more than one worker.** It is single-threaded, so any application that makes a request to itself while installing deadlocks against its only worker. Nextcloud's installer does exactly this. Ten of the catalog apps sit on that runtime.
 - **A failed install can be retried.** Installing from the catalog recorded the app before deploying it, so a failed deploy left an app that could be neither used nor reinstalled: every retry refused with "already exists".
-- **`hop3 app credentials` stopped showing passwords for accounts that were never created.** The credential is generated up front; if the application's own bootstrap then failed, the password was still presented as though it worked.
+- **`hop3 app credentials` stopped showing passwords for accounts that were never created.** The credential is generated up front; if the application's bootstrap then failed, the password was still presented as though it worked.
 
 Each of those would have hit a real operator. Packaging applications is how we find them. The apps are the instrument; a defect that only shows up in real software is why we use real software.
 
@@ -85,8 +85,8 @@ hop3 catalog list
 hop3 catalog install nextcloud --app cloud --domain cloud.example.com
 ```
 
-The dashboard is the primary way in, and the CLI is the same operation for people who prefer a terminal.
+The dashboard is the primary way in; the CLI offers the same operation to people who prefer a terminal.
 
 ---
 
-*Design records: [ADR 049](/developers/adrs/049-catalog-distribution/) for catalog distribution and signing, [ADR 056](/developers/adrs/056-app-admin-credentials/) for generated admin credentials. Getting started: the [app catalog guide](/guides/app-catalog/).*
+*Design records: [ADR 049](/developers/adrs/049-catalog-distribution/) for catalog distribution and signing, [ADR 056](/developers/adrs/056-app-admin-credentials/) for generated admin credentials. To get started, read the [app catalog guide](/guides/app-catalog/).*

@@ -13,7 +13,7 @@ Remember the first time you deployed something to Heroku? `git push heroku main`
 
 The difference: your code runs on your own server, with the same simplicity and full control.
 
-Let's deploy a Flask app from scratch. An application with a database, custom domain, and SSL, on a server you own.
+Let's deploy a Flask app from scratch, with a database, a custom domain, and SSL, on a server you own.
 
 ## What You'll Need
 
@@ -106,7 +106,7 @@ Create a `Procfile` (yes, like Heroku):
 web: gunicorn app:app -b 0.0.0.0:$PORT
 ```
 
-And a `hop3.toml` for Hop3-specific configuration:
+Finally, create a `hop3.toml` for Hop3-specific configuration:
 
 ```toml
 [metadata]
@@ -116,7 +116,7 @@ id = "myapp"
 path = "/health"
 ```
 
-All told, about 30 lines across four files.
+All told, the app takes about 30 lines across four files.
 
 ## The Moment of Truth
 
@@ -223,7 +223,7 @@ flask-sqlalchemy>=3.0
 psycopg2-binary>=2.9
 ```
 
-And tell Hop3 to create the database tables on deploy. Update `hop3.toml`:
+Then tell Hop3 to create the database tables on deploy. Update `hop3.toml`:
 
 ```toml
 [metadata]
@@ -325,7 +325,7 @@ Look for `DATABASE_URL` in the output.
 
 ## Quick Reference
 
-Commands you'll use constantly:
+You'll use these commands constantly:
 
 ```bash
 hop3 deploy myapp              # Deploy changes

@@ -165,7 +165,7 @@ def install_uwsgi():
     subprocess.run([str(venv_pip), "install", "uwsgi"])
 ```
 
-This sidesteps fragile per-distro plugin detection entirely: the base package lists no longer carry a system `uwsgi` at all, and every distribution ends up with the same interpreter and the same uWSGI build.
+This sidesteps fragile per-distro plugin detection entirely: the base package lists no longer include a system `uwsgi` at all. Every distribution ends up with the same interpreter and the same uWSGI build.
 
 ### Problem 3: Backports for Debian Stable
 

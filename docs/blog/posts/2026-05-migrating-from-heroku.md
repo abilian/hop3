@@ -32,7 +32,7 @@ Hop3 was designed with Heroku workflows in mind:
 
 Your `Procfile` works unchanged. Your deployment workflow stays the same.
 
-One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`), and you always target the app with the `--app` flag. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
+The syntax differs in one way: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`), and you always target the app with the `--app` flag. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -177,7 +177,7 @@ Heroku uses buildpacks; Hop3 uses toolchains. Most apps work unchanged. Differen
 | `heroku/ruby` | `ruby` (auto-detected) |
 | Multi-buildpack | Use `[build]` section |
 
-For multi-language apps (e.g., Python + Node for assets):
+A multi-language app (e.g., Python + Node for assets) declares the extra step in `[build]`:
 
 ```toml
 [build]

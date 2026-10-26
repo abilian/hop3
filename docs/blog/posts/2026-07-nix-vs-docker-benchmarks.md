@@ -23,39 +23,39 @@ Across twenty applications and four build strategies, the median deploy came out
 
 The Nix paths land within 12–18% of a native build and are roughly **1.4–1.5× faster than Docker**. That is the opposite of what most people expect, including us.
 
-These are **preliminary** figures. The matrix has been run twice, a week apart, each time on a host rebuilt from a blank operating system, so the medians above are replicated; but each individual cell is still a single sample, and there are no confidence intervals. That is enough to establish an ordering and not enough to make a claim about any one application. The harness, the protocol, and the raw data are in the repository.
+These are **preliminary** figures. The matrix has been run twice, a week apart, each time on a host rebuilt from a blank operating system, so the medians above are replicated. Each individual cell is still a single sample, with no confidence intervals. That is enough to establish an ordering and not enough to make a claim about any one application. The harness, the protocol, and the raw data are in the repository.
 
 The second run put the numbers at 106 s native, 101 s nix, 122 s nix-gen and 166 s docker. Everything moved by 4–8% in both directions.
 
 ## What was measured
 
-An 80-cell matrix: twenty applications (the ones in Hop3's catalog: real software with databases and background workers) each deployed under four strategies.
+The matrix had 80 cells: twenty applications (the ones in Hop3's catalog: real software with databases and background workers) each deployed under four strategies.
 
-The corpus was read from a `protocol.yaml` committed before the run, so the app set could not be quietly adjusted afterwards to make a number look better. The target was a dedicated box, blank-slated by a full OS rebuild. A `docker system prune` leaves the cache warm, and a warm cache is exactly the thing that makes a benchmark like this meaningless. Everything runs through a `hop3-bench` harness and lands as JSONL in the repository; the tables in this post are regenerated from that data by a script.
+The corpus was read from a `protocol.yaml` committed before the run, so the app set could not be adjusted afterwards to make a number look better. The target was a dedicated box, blank-slated by a full OS rebuild. A `docker system prune` leaves the cache warm. A warm cache is exactly what makes a benchmark like this meaningless. Everything runs through a `hop3-bench` harness and lands as JSONL in the repository; the tables in this post are regenerated from that data by a script.
 
 71 of 80 cells completed. Of the nine that did not, six were applications with no recipe for that strategy and three were genuine failures, all in the applications themselves. Docker was the only strategy with all twenty.
 
 ## Why Nix comes out ahead
 
-Two mechanisms.
+Two mechanisms explain it.
 
-**Docker rebuilds; Nix substitutes.** A Docker deploy pulls a base image and executes the build steps in the Dockerfile. Layer caching helps on a second deploy of the same app, but the first deploy on a fresh box does the whole thing. A Nix build resolves a derivation graph and fetches whatever it can from a binary cache. For a Python or Node app, that means most of the closure (the interpreter, the compiler toolchain, the system libraries) arrives pre-built from the cache.
+**Docker rebuilds; Nix substitutes.** A Docker deploy pulls a base image and executes the build steps in the Dockerfile. Layer caching helps on a redeploy of the same app, but the first deploy on a fresh box does the whole thing. A Nix build resolves a derivation graph and fetches whatever it can from a binary cache. For a Python or Node app, that means most of the closure (the interpreter, the compiler toolchain, the system libraries) arrives pre-built from the cache.
 
-**The store is shared; images are not.** Deploy a second Django app and Docker builds a second image with its own copy of Python. Nix realises the second app's closure against a store that already contains that Python; only what differs between the two apps adds to the store. On a box running several apps on similar stacks (the whole premise of a single-server PaaS) that saving is proportionally larger.
+**The store is shared; images are not.** Deploy another Django app and Docker builds another image with its own copy of Python. Nix realises the new app's closure against a store that already contains that Python; only what differs between the two apps adds to the store. On a box running several apps on similar stacks (the whole premise of a single-server PaaS) that saving is proportionally larger.
 
 ## The result that actually matters
 
-Reproducibility is why Nix is in Hop3 at all, and we can now measure it.
+Reproducibility is why Nix is in Hop3 at all. We can now measure it.
 
-**Thirty of thirty template-generated recipes rebuild bit-for-bit identical.** Build twice, compare store paths, they match.
+**Thirty of thirty template-generated recipes rebuild bit-for-bit identical.** Built twice, their store paths match.
 
 Getting there took most of a year and three distinct fixes:
 
-- **Pinning.** Every generated and hand-written expression now imports a specific nixpkgs commit through `fetchTarball` with its hash. `<nixpkgs>` and `NIX_PATH` are never consulted, so two builds on different days on different hosts resolve the same package set. An app that needs something newer than the global pin can override it for itself, and the override is rejected loudly on templates that cannot honour it; never silently ignored.
+- **Pinning.** Every generated and hand-written expression now imports a specific nixpkgs commit through `fetchTarball` with its hash. `<nixpkgs>` and `NIX_PATH` are never consulted, so two builds on different days on different hosts resolve the same package set. An app that needs something newer than the global pin can override it for itself. Templates that cannot honour the override reject it with an error and never ignore it silently.
 - **Sandbox purity.** The Python, pnpm and Composer paths used to set `__noChroot`, which is Nix's escape hatch for "this build needs the network". They do not any more: each vendors its dependency set into a fixed-output derivation from a committed lockfile, then builds offline in the sandbox.
-- **No floating dependencies.** The old `pip-packages` key let a recipe name unversioned dependencies. It was retired, and a recipe that still carries it is now rejected by name: a build that resolves "whatever PyPI has today" is not reproducible regardless of sandbox purity.
+- **No floating dependencies.** The old `pip-packages` key let a recipe name unversioned dependencies. It was retired. A recipe that still uses it is now rejected by name: a build that resolves "whatever PyPI has today" is not reproducible regardless of sandbox purity.
 
-The claim is **scoped to x86_64** deliberately. A vendored dependency set is resolved per platform; supporting a second architecture means vendoring a second set. [ADR 058](/developers/adrs/058-build-reproducibility-model/) sets out the tiers, and each template declares which one it is in, in code.
+The claim is **scoped to x86_64**. A vendored dependency set is resolved per platform; supporting another architecture means vendoring another set. [ADR 058](/developers/adrs/058-build-reproducibility-model/) sets out the tiers. Each template declares its tier in code.
 
 ## The control plane
 
@@ -65,7 +65,7 @@ What the platform costs you when it is doing nothing: Hop3's control plane sits 
 
 The first way we measured control-plane memory was the cgroup's `memory.current`, which is the obvious thing to read and what most tooling reports. It gave a number that moved by roughly **8×** depending on when we looked, because `memory.current` includes page cache. Run a deploy, read the file, and the "control plane" appears to have grown by a gigabyte. That gigabyte is page cache: the kernel caching files it will drop the moment anything needs the memory.
 
-Proportional set size does not have that problem, so the figures here are PSS, taken on a freshly rebuilt box before anything warmed the cache, and the cgroup readings are kept as a separate series. A benchmark whose value depends on how warm the machine was is not a benchmark.
+Proportional set size does not have that problem, so the figures here are PSS, taken on a freshly rebuilt box before anything warmed the cache. The cgroup readings are kept as a separate series. A benchmark whose value depends on how warm the machine was is not a benchmark.
 
 ## What would make this final
 
@@ -79,4 +79,4 @@ Until those land, every figure remains preliminary.
 
 ---
 
-*Data and harness: `notes/benchmarks/` and the `hop3-bench` tooling in the [Hop3 repository](https://github.com/abilian/hop3). Reproducibility model: [ADR 058](/developers/adrs/058-build-reproducibility-model/). Nix integration: [ADR 006](/developers/adrs/006-nix-integration/) and [ADR 008](/developers/adrs/008-nix-builders-2/).*
+*Data and harness: `notes/benchmarks/` and the `hop3-bench` tooling in the [Hop3 repository](https://github.com/abilian/hop3). [ADR 058](/developers/adrs/058-build-reproducibility-model/) describes the reproducibility model. [ADR 006](/developers/adrs/006-nix-integration/) and [ADR 008](/developers/adrs/008-nix-builders-2/) describe the Nix integration.*

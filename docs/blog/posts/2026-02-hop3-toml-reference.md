@@ -9,9 +9,9 @@ tags:
 
 # Designing hop3.toml: Configuration That Makes Sense
 
-When we started building Hop3, we faced a familiar dilemma: how do you configure a deployment without drowning in YAML? Heroku and Piku use environment variables and Procfiles. Kubernetes uses... well, a lot of YAML. We wanted something in between: expressive enough to handle real applications, simple enough to understand at a glance.
+When we started building Hop3, we faced a familiar dilemma: how do you configure a deployment without drowning in YAML? Heroku and Piku use environment variables and Procfiles. Kubernetes uses a lot of YAML. We wanted something in between: expressive enough to handle real applications, simple enough to understand at a glance.
 
-We chose TOML. It's readable, it has proper data types, and it doesn't have YAML's indentation pitfalls. It let us design a configuration that mirrors how developers think about their apps: "here's my app, here's how to build it, here's how to run it."
+We chose TOML. It's readable, has proper data types, and avoids YAML's indentation pitfalls. It let us design a configuration that mirrors how developers think about their apps: "here's my app, here's how to build it, here's how to run it."
 
 ## The Basic Shape
 
@@ -41,7 +41,7 @@ path = "/health"
 type = "postgres"
 ```
 
-Each section handles one concern. Build commands stay separate from runtime configuration. Environment variables aren't scattered across files. Everything in one place.
+Each section handles one concern. Build commands stay separate from runtime configuration. Environment variables aren't scattered across files. The whole configuration lives in one file.
 
 ## `[metadata]`: Who Is This App?
 
@@ -152,7 +152,7 @@ PORT = "8000"           # Correct
 # PORT = 8000           # Wrong - this is a TOML integer, not a string
 ```
 
-Some variables are special. `HOST_NAME` configures your domain for the reverse proxy and SSL. `PORT` is auto-injected; don't set it yourself. `DATABASE_URL` gets injected when you attach database addons.
+Some variables are special. `HOST_NAME` configures your domain for the reverse proxy and SSL. Hop3 injects `PORT` automatically, so don't set it yourself. `DATABASE_URL` gets injected when you attach database addons.
 
 ## `[static]`: Let Nginx Handle the Heavy Lifting
 
@@ -231,7 +231,7 @@ paths = ["uploads/", "data/"]   # Directories to include
 exclude = ["*.tmp", "cache/*"]  # Patterns to exclude
 ```
 
-Backups include your specified paths, database dumps, and environment configuration. Everything you need to restore from scratch.
+Backups include your specified paths, database dumps, and environment configuration: everything you need to restore from scratch.
 
 ### `[docker]`
 
@@ -258,7 +258,7 @@ container = 9090
 public = false          # Internal only
 ```
 
-For apps that expose multiple ports. The default configuration handles most cases automatically.
+This section serves apps that expose multiple ports. The default configuration handles most cases automatically.
 
 ## Putting It All Together
 

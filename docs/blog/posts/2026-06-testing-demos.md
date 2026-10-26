@@ -12,13 +12,13 @@ tags:
 
 # The Demos: One Artifact, Three Jobs
 
-Most projects keep demos and tests in separate worlds. Demos are pretty, hand-curated, and rot quietly; tests are green and unreadable. Hop3 refuses the split. A demo here is **three things at once**, and is never treated as dead code:
+Most projects keep demos and tests in separate worlds. Demos are pretty, hand-curated, and rot unnoticed; tests are green and unreadable. Hop3 refuses the split. A demo here is **three things at once**, and is never treated as dead code:
 
 - **Teaching**: a readable, runnable walk-through of how a feature works.
 - **Demonstration**: what you show in a screencast or to an evaluator.
 - **Test**: run in CI to catch regressions end-to-end.
 
-That decision is recorded in [ADR 043](/developers/adrs/043-unified-testing-architecture/) (v0.3): *a demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression.* The demo engine is kept precisely because removing any one of those three jobs would make the others worse.
+That decision is recorded in [ADR 043](/developers/adrs/043-unified-testing-architecture/) (v0.3): *a demo is simultaneously an educational walkthrough, a live demonstration, and a test, so a broken demo is a first-class regression.* The demo engine is kept because removing any one of those three jobs would make the others worse.
 
 ## Capabilities first
 
@@ -26,7 +26,7 @@ There's a clean division of labour with the [test runner](2026-06-testing-runner
 
 > Demos showcase **capabilities**: builders, toolchains, addons, scaling, backups, the CLI surface, each deploying a *tiny* sample app to exercise one feature. Real third-party applications (WordPress, Gitea, Miniflux) live in the **real-apps catalog**, packaged in multiple variants with content-checked validations.
 
-A demo's app is deliberately small and boring. The point is the platform edge it pokes at.
+A demo's app is small and boring. The point is the platform edge it pokes at.
 
 ## What a demo looks like
 
@@ -49,7 +49,7 @@ def run(ctx: DemoContext) -> None:
     cleanup_app(ctx, APP_NAME, f"https://{host}")       # honours --keep
 ```
 
-The verification is **content-checked**. `test_app_via_curl` asserts that the *body* contains app-specific text; a `200` can be a placeholder, an error page, or *another app's content* leaking through a misconfigured proxy. A green status code proves almost nothing on a PaaS.
+The verification is **content-checked**: `test_app_via_curl` checks that the *body* contains app-specific text; a `200` can be a placeholder, an error page, or *another app's content* leaking through a misconfigured proxy. A green status code proves almost nothing on a PaaS.
 
 ## Running and inspecting them
 
@@ -71,7 +71,7 @@ python demos/demo.py list -v
 
 ### Capability tags and feature filters
 
-Every demo carries **namespaced capability tags**, computed from its `hop3.toml` (builder, toolchain, addons) plus anything the script declares: `builder:docker`, `toolchain:go`, `addon:postgres`, `extra:backup`. You can slice the suite by them:
+Every demo has **namespaced capability tags**, computed from its `hop3.toml` (builder, toolchain, addons) plus anything the script declares: `builder:docker`, `toolchain:go`, `addon:postgres`, `extra:backup`. You can slice the suite by them:
 
 ```bash
 python demos/demo.py run --select toolchain:python --skip extra:backup
@@ -99,7 +99,7 @@ Because a demo is also a test, the launcher has to be *boringly reliable*.
 - **App-scoped commands take the target as a `--app` flag** (per [ADR 036](/developers/adrs/036-cli-ergonomics/)). The demos are also the first place CLI-ergonomics regressions get caught, because they exercise the command surface the way a user would.
 - **Clean failure output.** In quiet mode each demo is one line (`demo10 (PostgreSQL Addon)... FAIL`) with the actionable cause and a log pointer underneath. The raw multi-line command dump stays out of the progress flow.
 
-All of this exists because a test harness that deploys real apps to real servers has to fail *loudly and legibly* when the platform misbehaves.
+All of this exists because a test harness that deploys real apps to real servers has to fail *visibly and legibly* when the platform misbehaves.
 
 ## How they run in CI
 
@@ -107,7 +107,7 @@ The [test runner](2026-06-testing-runner.md) exercises each demo *in place*: a m
 
 ## Writing a good one
 
-If you add a demo, the conventions that matter (learned the hard way) are: import `lib` *inside* `run()` (the launcher sets up `sys.path` first); always `--app <name>`; tear down whatever you create so re-runs are reproducible and apps don't coexist by accident; and verify *content* (a `200` proves almost nothing). Existing demos make good templates: `demo01` is the simplest, and there's a broad "CLI surface tour" demo that exercises as much of the command surface as possible in one go.
+If you add a demo, a few conventions matter (learned the hard way). Import `lib` *inside* `run()` (the launcher sets up `sys.path` first); always pass `--app <name>`; tear down whatever you create so re-runs are reproducible and apps don't coexist by accident; and verify *content* (a `200` proves almost nothing). Existing demos make good templates: `demo01` is the simplest, and there's a broad "CLI surface tour" demo that exercises as much of the command surface as possible in one go.
 
 ---
 

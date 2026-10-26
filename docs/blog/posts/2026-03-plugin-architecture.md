@@ -69,7 +69,7 @@ class PythonToolchain(LanguageToolchain):
         return self._make_build_artifact(kind="python")
 ```
 
-Current toolchains: Python, Node.js, Ruby, Go, Rust, PHP, Java, Clojure, Static, Generic.
+Hop3 currently ships these toolchains: Python, Node.js, Ruby, Go, Rust, PHP, Java, Clojure, Static, Generic.
 
 ### 3. Deployers
 
@@ -89,7 +89,7 @@ class UWSGIDeployer:
         ...
 ```
 
-Current deployers: uWSGI, Static, Docker Compose.
+Hop3 currently ships three deployers: uWSGI, Static and Docker Compose.
 
 ### 4. Addons
 
@@ -109,7 +109,7 @@ class PostgreSQLAddon:
         return {"DATABASE_URL": credential.connection_url}
 ```
 
-Current addons: PostgreSQL, MySQL, Redis.
+Hop3 currently ships three addons: PostgreSQL, MySQL and Redis.
 
 ### 5. Proxy Plugins
 
@@ -127,7 +127,7 @@ class NginxProxy:
         ...
 ```
 
-Current proxies: Nginx, Caddy, Traefik.
+Hop3 currently ships three proxies: Nginx, Caddy and Traefik.
 
 ### 6. OS Implementations
 
@@ -145,7 +145,7 @@ class DebianOS:
         return "systemd"
 ```
 
-Current: Debian family (Ubuntu, Debian), Red Hat family (Fedora, Rocky, AlmaLinux), Arch, BSD, macOS.
+Hop3 currently supports the Debian family (Ubuntu, Debian), Red Hat family (Fedora, Rocky, AlmaLinux), Arch, BSD, macOS.
 
 ## Hook Specifications
 

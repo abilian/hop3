@@ -148,10 +148,10 @@ def _validate_member(member: tarfile.TarInfo, target_dir: Path) -> None:
         raise tarfile.TarError(f"Attempted path traversal: {name!r}")
 ```
 
-Protection against:
+The extractor guards against three attacks:
 - **Tar slip**: paths escaping the destination (`../../../etc/passwd`) are rejected on the resolved path, so they don't escape even through symlinked parents.
 - **Link attacks**: symlink and hardlink entries are refused outright.
-- **Decompression bombs**: extraction aborts once the running uncompressed total crosses a configurable limit (`HOP3_MAX_EXTRACTED_SIZE`), and once the member count crosses `HOP3_MAX_ARCHIVE_MEMBERS`; neither trusts the archive's own headers.
+- **Decompression bombs**: extraction aborts once the running uncompressed total crosses a configurable limit (`HOP3_MAX_EXTRACTED_SIZE`) or the member count crosses `HOP3_MAX_ARCHIVE_MEMBERS`. Neither limit trusts the archive's own headers.
 
 ### Input Sanitization
 
@@ -171,11 +171,11 @@ def validate_app_name(name: str) -> str:
     return name
 ```
 
-The constraint is deliberately tight: a name that's safe as a filesystem path segment and as a Docker Compose service identifier can't carry a `..`, a leading dash, or a shell metacharacter. The same module validates env-var keys and hostnames the same way.
+The constraint is tight: a name that's safe as a filesystem path segment and as a Docker Compose service identifier can't contain a `..`, a leading dash, or a shell metacharacter. The same module validates env-var keys and hostnames the same way.
 
 ### Security-Focused Tests
 
-None of this can quietly regress. Each guard has its own test that asserts the *rejection*, not just the happy path:
+None of this can regress unnoticed. Each guard has a test that checks the *rejection*:
 
 ```python
 def test_rejects_path_traversal():
@@ -193,9 +193,9 @@ def test_rejects_link_entries():
 
 ## What We Shipped, and What We Deferred
 
-The findings above are all addressed in the current codebase: command injection is closed by list-based execution, auth endpoints are rate-limited, token lifetime is down to a day, and the bearer-token scheme match is case-insensitive. Alongside those fixes, the audit drew a clear line around what we deliberately have *not* built yet.
+The findings above are all addressed in the current codebase: command injection is closed by list-based execution, auth endpoints are rate-limited, and token lifetime is down to a day. The bearer-token scheme match is case-insensitive. Alongside those fixes, the audit drew a clear line around what we have *not* built yet.
 
-Multi-factor authentication is the largest of these. Its design is written down in [ADR 012](https://github.com/abilian/hop3/blob/main/notes/adrs/012-mfa.md) (TOTP first, hardware tokens layered on later), but it is deferred. The intended deployment pattern already gives operators a second factor in practice: the CLI reaches the server over an SSH tunnel, so RPC access is gated by the operator's SSH key on the host. MFA hardens the password-login path on top of that, and we'll adopt the ADR's design when account-level MFA becomes a requirement. Until it ships, it stays on paper.
+Multi-factor authentication is the largest of these. Its design is written down in [ADR 012](https://github.com/abilian/hop3/blob/main/notes/adrs/012-mfa.md) (TOTP first, hardware tokens layered on later), but it is deferred. The intended deployment pattern already gives operators a second factor in practice: the CLI reaches the server over an SSH tunnel, so RPC access is gated by the operator's SSH key on the host. MFA hardens the password-login path on top of that. We'll adopt the ADR's design when account-level MFA becomes a requirement. Until it ships, it stays on paper.
 
 Two more hardening items remain on the roadmap: a structured audit log of security-relevant events, and CSRF protection for the dashboard's session-cookie flows.
 
@@ -215,7 +215,7 @@ subprocess.run(["command", user_input])
 
 ### 2. Security Defaults Matter
 
-A long-lived token and an unthrottled login endpoint are ordinary oversights: defaults nobody revisited. Tightening the token lifetime and adding per-IP rate limiting cost little, and both now ship out of the box. The secure choice is the one users get for free.
+A long-lived token and an unthrottled login endpoint are ordinary oversights: defaults that went unreviewed. Tightening the token lifetime and adding per-IP rate limiting cost little, and both now ship out of the box. The secure choice is the one users get for free.
 
 ### 3. Test Security Explicitly
 

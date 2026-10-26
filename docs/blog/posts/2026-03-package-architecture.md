@@ -47,7 +47,7 @@ packages/
 
 ### hop3-server
 
-The core platform that runs on your deployment server.
+hop3-server is the core platform that runs on your deployment server.
 
 **Entry point**: `hop3-server serve`
 
@@ -64,7 +64,7 @@ The core platform that runs on your deployment server.
 
 ### hop3-cli
 
-A thin client for developers to interact with Hop3 servers.
+hop3-cli is a thin client that developers use to interact with Hop3 servers.
 
 **Entry point**: `hop3` or `hop`
 
@@ -80,7 +80,7 @@ A thin client for developers to interact with Hop3 servers.
 
 ### hop3-installer
 
-Tools for installing Hop3, with minimal dependencies.
+hop3-installer holds the tools for installing Hop3, with minimal dependencies.
 
 **Entry points**:
 - `hop3-install` - Production installer for end users
@@ -92,7 +92,7 @@ Tools for installing Hop3, with minimal dependencies.
 
 ### hop3-tui
 
-A terminal UI built with Textual for keyboard-driven server management.
+hop3-tui is a terminal UI built with Textual for keyboard-driven server management.
 
 **Entry point**: `hop3-tui`
 
@@ -177,7 +177,7 @@ dependencies = [
 ]
 ```
 
-Production packages don't carry test baggage.
+Production packages don't pull in test dependencies.
 
 ### 4. Simpler CI
 

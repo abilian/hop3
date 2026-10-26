@@ -13,7 +13,7 @@ A single typo in a configuration file can cause hours of debugging. Users report
 
 ## The Problem
 
-Hop3 uses `hop3.toml` for application configuration:
+Hop3 reads an application's configuration from `hop3.toml`:
 
 ```toml
 [metadata]
@@ -57,7 +57,7 @@ class RunSection(BaseModel):
     # ... other valid fields
 ```
 
-Now when you use an invalid field:
+Now an invalid field produces this:
 
 ```toml
 [run]

@@ -11,7 +11,7 @@ tags:
 
 Authentication in a PaaS is tricky. You're protecting access to applications, databases, secrets, and server configuration. Get it wrong and someone deploys crypto miners to your infrastructure. Get it too right and developers can't do their jobs.
 
-Kubernetes punts to external identity providers. Heroku has a global account system. Neither fits our single-server model. We needed something that works standalone, uses existing infrastructure, and doesn't require a PhD in OAuth to set up.
+Kubernetes delegates to external identity providers. Heroku has a global account system. Neither fits our single-server model. We needed something that works standalone, uses existing infrastructure, and doesn't require a PhD in OAuth to set up.
 
 ## The Guiding Ideas
 
@@ -25,7 +25,7 @@ Before writing code, we established some principles:
 
 ## SSH: The Obvious Choice
 
-When we looked at how developers would actually use Hop3, the CLI dominated. And for CLI access, SSH is already solved: the protocol handles authentication, encryption, and key management without any help from us.
+When we looked at how developers would actually use Hop3, the CLI dominated. For CLI access, SSH is already solved: the protocol handles authentication, encryption, and key management without any help from us.
 
 ```bash
 hop3 app list
@@ -86,7 +86,7 @@ def create_token(username: str, scopes: list[str], expires_hours: int = 24) -> s
 
 Tokens are signed with HMAC-SHA256, expire after 24 hours by default (configurable via `HOP3_TOKEN_EXPIRY_HOURS`), and include a unique identifier (`jti`) so we can revoke them if needed.
 
-Why JWT instead of session cookies? Simplicity. JWTs are self-contained: the server doesn't need to look anything up to validate them. This matters when you want to add API access or multiple server instances later.
+We picked JWT over session cookies for simplicity. JWTs are self-contained: the server doesn't need to look anything up to validate them. This matters when you want to add API access or multiple server instances later.
 
 ## The Magic Link Trick
 
@@ -127,7 +127,7 @@ def hash_password(password: str) -> str:
     ).decode("utf-8")
 ```
 
-We use bcrypt at cost factor 12 (ADR 014), deliberately slow per guess. That tunable work factor makes offline brute-force against a leaked hash impractical, and it can be raised as hardware gets faster.
+We use bcrypt at cost factor 12 (ADR 014), which is slow per guess by design. That tunable work factor makes offline brute-force against a leaked hash impractical. We can raise it as hardware gets faster.
 
 ## Protecting Secrets
 
@@ -176,18 +176,18 @@ def validate_token(token: str) -> dict:
     return payload
 ```
 
-Revoked tokens are stored in the database, each row carrying the token's original `expires_at`. The timestamp keeps the list bounded: once a revoked token would have expired on its own, its blacklist entry is safe to prune.
+Revoked tokens are stored in the database, each row holding the token's original `expires_at`. The timestamp keeps the list bounded: once a revoked token would have expired on its own, its blacklist entry is safe to prune.
 
 ## Authorization Scopes
 
-Tokens carry scopes that limit their capabilities:
+Tokens contain scopes that limit their capabilities:
 
 ```python
 # Scopes accepted on the general bearer-auth path
 VALID_SCOPES = {"authenticated", "admin", "user"}
 ```
 
-The `magic_link` scope is deliberately *not* in this set. Magic-link tokens are validated by a separate single-use path, never by the general bearer check: otherwise a redeemable magic link could act as a five-minute bearer token for any RPC command. Keeping the scopes apart makes that guarantee enforceable.
+The `magic_link` scope is *not* in this set. Magic-link tokens are validated by a separate single-use path, never by the general bearer check: otherwise a redeemable magic link could act as a five-minute bearer token for any RPC command. Keeping the scopes apart makes that guarantee enforceable.
 
 The general scopes encode capability per token: `admin` for administrative privileges, `authenticated`/`user` for routine operations. The same mechanism extends to scoped tokens as the policy surface grows: deployment-only CI, read-only monitoring.
 
@@ -196,7 +196,7 @@ The general scopes encode capability per token: `admin` for administrative privi
 - **No MFA**: Multi-factor auth is designed and deferred to a future release (ADR 012). Today the second factor is the operator's SSH key on the host (CLI access goes CLI → SSH tunnel → RPC), plus per-IP rate limiting on the web login and magic-link endpoints. TOTP gating JWT issuance is the planned first step.
 - **Manual key rotation**: There's no automated rotation policy. Rotating `HOP3_SECRET_KEY` invalidates issued JWTs and sessions; stored addon credentials can be re-encrypted afterward with `hop3 admin reencrypt-credentials`. Automated rotation is planned (ADR 011).
 
-Rate limiting on the auth endpoints is already in place: a per-IP sliding-window counter (five attempts per minute) guards both password login and magic-link redemption. It's deliberately in-memory and single-server; multi-server deployments will need a Redis-backed limiter.
+Rate limiting on the auth endpoints is already in place: a per-IP sliding-window counter (five attempts per minute) guards both password login and magic-link redemption. It's in-memory and single-server by design; multi-server deployments will need a Redis-backed limiter.
 
 ## The Practical Details
 

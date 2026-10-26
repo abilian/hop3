@@ -16,7 +16,7 @@ Documentation rots faster than code, and tutorials rot fastest of all. A tutoria
 
 The moment a flag changes, an output format shifts, or a default moves, the promise breaks silently, because nothing executes a tutorial except a frustrated newcomer.
 
-Hop3's answer is **validoc**: tutorials are Markdown files whose code blocks are *executed and asserted* against a real Hop3 server. The document is the test. [ADR 043](/developers/adrs/043-unified-testing-architecture/) calls it a "literate-test substrate," and it's one of Hop3's three test runners, responsible for executing documentation against a live server.
+Hop3's answer is **validoc**: tutorials are Markdown files whose code blocks are *executed and checked* against a real Hop3 server. The document is the test. [ADR 043](/developers/adrs/043-unified-testing-architecture/) calls it a "literate-test substrate," and it's one of Hop3's three test runners, responsible for executing documentation against a live server.
 
 ## The idea: literate tests
 
@@ -48,7 +48,7 @@ hop3 deploy --app hop3-tuto-fiber
 ```
 ````
 
-When validoc runs this file, it *actually* creates the project, *actually* installs Fiber, and *actually* deploys the app against a freshly-provisioned Hop3 server. If `hop3 deploy --app …` ever stops working the way the tutorial says, the tutorial fails in CI, loudly, the same night. The reader's promise is now a regression test.
+When validoc runs this file, it *actually* creates the project, *actually* installs Fiber, and *actually* deploys the app against a freshly-provisioned Hop3 server. If `hop3 deploy --app …` ever stops working the way the tutorial says, the tutorial fails in CI the same night. The reader's promise is now a regression test.
 
 The `id`, `dir`, and `timeout` attributes are the only ceremony: they name the step (for diagnostics), pin a working directory across blocks, and bound a slow build.
 
@@ -73,7 +73,7 @@ So the tutorial runner *counts* the fences in each file and flags "scanned a fil
 
 validoc tutorials are driven through the same single deploy-and-verify path as everything else (one of the consolidations in [ADR 043](/developers/adrs/043-unified-testing-architecture/)).
 
-The `TutorialTestRunner` discovers tutorials, provisions a real Hop3 server via the `DeploymentTarget` abstraction, runs each tutorial's blocks in order, and, like every other runner that touches a real server, collects the shared diagnostic bundle on failure: nginx logs, the app's journal, the HTTP exchange, and the silent-502 proxy probe. A tutorial that deploys an app and then can't reach it produces exactly the same one-line classifier (`proxy-502`, `build-failure`, …) as a demo or a real-app test.
+The `TutorialTestRunner` discovers tutorials, provisions a real Hop3 server via the `DeploymentTarget` abstraction, and runs each tutorial's blocks in order. Like every other runner that touches a real server, it collects the shared diagnostic bundle on failure: nginx logs, the app's journal, the HTTP exchange, and the silent-502 proxy probe. A tutorial that deploys an app and then can't reach it produces exactly the same one-line classifier (`proxy-502`, `build-failure`, …) as a demo or a real-app test.
 
 This replaced a one-off `scripts/run-all-tutorials.py` that stood up its own server and verified apps its own way: the fourth parallel copy of deploy-and-verify that the unification set out to delete.
 

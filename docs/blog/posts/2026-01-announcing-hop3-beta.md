@@ -107,7 +107,7 @@ The CLI (`hop3`) runs on your development machine. It communicates with `hop3-se
 
 ### Install the Server
 
-On a fresh Ubuntu/Debian server:
+Run this on a fresh Ubuntu/Debian server:
 
 ```bash
 curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -

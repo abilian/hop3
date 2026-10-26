@@ -18,22 +18,24 @@ The firewall and the WAF answer different questions. The **network firewall** ([
 
 ## Choosing an engine
 
-The rules were never in question. The OWASP Core Rule Set is the standard answer for Layer 7, it is expressed in SecLang. The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecurity, which is C. Both are good software. **The process model.** Hop3 is Python end to end: the server, the CLI, the toolchains, and an installer written against the standard library alone so it can bootstrap a machine with nothing on it. Introducing a Go binary or a C library means a second build and runtime story running alongside the first: cross-compilation for every architecture, a packaging path per distribution, an independent upgrade cadence, and a failure mode ("the binary won't load on this host") that the platform would need new diagnostics to handle.
+The rules were never in question. The OWASP Core Rule Set, expressed in SecLang, is the standard answer for Layer 7. The mature options are [Coraza](https://coraza.io/), which is Go, and libmodsecurity, which is C. Both are good software.
 
-**Ownership.** Hop3 exists so people can own their infrastructure, and a platform that cannot fix its own security engine has a soft spot in that argument. Rule engines have bugs, CRS integrations drift, and false positives block legitimate requests to somebody's production app. So we wrote LeWAF, and released it on its own as a standalone project. It speaks SecLang and ships the CRS's 681 rules.
+**The process model.** Hop3 is Python end to end: the server, the CLI, the toolchains, and an installer written against the standard library alone so it can bootstrap a machine with nothing on it. Introducing a Go binary or a C library means a second build and runtime story running alongside the first. That story brings cross-compilation for every architecture, a packaging path per distribution, an independent upgrade cadence, and a failure mode ("the binary won't load on this host") that the platform would need new diagnostics to handle.
+
+**Ownership.** Hop3 exists so people can own their infrastructure. A platform that cannot fix its own security engine has a soft spot in that argument. Rule engines have bugs, CRS integrations drift, and false positives block legitimate requests to somebody's production app. So we wrote LeWAF and released it as a standalone project. It speaks SecLang and ships the CRS's 681 rules.
 
 Coraza remains available. It sits behind the same `WafEngine` interface ([ADR 050](/developers/adrs/050-waf-l7-lewaf/) §6) as a future alternative for operators who want a non-Python engine at higher throughput.
 
 ## What LeWAF is
 
-A standalone project, usable outside Hop3:
+LeWAF is a standalone project, usable outside Hop3:
 
 - a **SecLang parser**, so existing ModSecurity rule sets load;
 - the **OWASP Core Rule Set**, bundled;
 - **framework integrations** for Flask, FastAPI, Starlette and Django, if you want it in-process;
 - a **standalone reverse-proxy mode** (`lewaf-proxy`), which is how Hop3 uses it.
 
-Python ≥ 3.12, Apache-2.0, on PyPI.
+It requires Python ≥ 3.12, is licensed Apache-2.0, and is on PyPI.
 
 ## How Hop3 deploys it
 
@@ -65,29 +67,29 @@ path = "/admin"
 allow = ["office"]
 ```
 
-Named networks (`hop3 network`) resolve to addresses, the gates become SecLang, and the result is validated **before** it is committed. A policy that would not compile is rejected at deploy time with the offending rule named.
+Named networks (`hop3 network`) resolve to addresses and the gates become SecLang. The result is validated **before** it is committed. A policy that would not compile is rejected at deploy time with the offending rule named.
 
 ## Bans, without a cron job
 
 Blocking a single malicious request is the easy half. An attacker who is probing will send thousands.
 
-LeWAF's audit stream feeds a scorer inside hop3-server. Requests that trip rules accumulate a score against their source; past a threshold, the source is banned and the ban is recorded in the database. Reconciliation runs in-process roughly every minute: no external scheduler, no state that survives only in memory. You can see and clear bans:
+LeWAF's audit stream feeds a scorer inside hop3-server. Requests that trip rules accumulate a score against their source; past a threshold, the source is banned and the ban is recorded in the database. Reconciliation runs in-process roughly every minute: no external scheduler, no state held only in memory. You can see and clear bans:
 
 ```bash
 hop3 waf bans list
 hop3 waf bans clear <ip>
 ```
 
-Bans are currently Layer 7: the request is rejected by the proxy. Pushing them down to `nft`, so a banned address never completes a TCP handshake, is a deliberate later step: it means handing ban decisions to the privileged daemon, and that deserves its own design round.
+Bans are currently Layer 7: the request is rejected by the proxy. Pushing them down to `nft`, so a banned address never completes a TCP handshake, is a later step: it means handing ban decisions to the privileged daemon, and that deserves its own design round.
 
 ## How we know it works
 
-Two Docker end-to-end tests that exercise the full proxy chain (nginx → lewaf-proxy → uWSGI):
+Two Docker end-to-end tests exercise the full proxy chain (nginx → lewaf-proxy → uWSGI):
 
-- **CRS blocking**: SQL injection, XSS, path traversal and RCE payloads through `nginx → lewaf-proxy → uWSGI`, asserting each is rejected.
-- **The ban loop**: enough tripping requests to cross the threshold, then asserting the source is banned, the ban is recorded, and reconciliation applies it.
+- **CRS blocking**: SQL injection, XSS, path traversal and RCE payloads through `nginx → lewaf-proxy → uWSGI`, checking that each is rejected.
+- **The ban loop**: enough tripping requests to cross the threshold, then checking that the source is banned, the ban is recorded, and reconciliation applies it.
 
-There is also a false-positive pass. It matters more: a WAF that blocks legitimate traffic gets switched off, and then protects nothing. File uploads and JSON bodies are the usual casualties, which is why body inspection can be skipped per route.
+There is also a false-positive pass. It matters more: a WAF that blocks legitimate traffic gets switched off and then protects nothing. File uploads and JSON bodies are the usual casualties, which is why body inspection can be skipped per route.
 
 ## What this costs
 

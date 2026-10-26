@@ -12,11 +12,11 @@ tags:
 
 # The Test Runner: Why `hop3-test` Exists
 
-pytest is a wonderful tool for testing *code*. Testing *a catalog of seventy real applications, each deployed to a real server across several Linux distributions and checked for what they actually serve over HTTPS,* is a different job, and the one `hop3-test` exists to do.
+pytest is a wonderful tool for testing *code*. Testing *a catalog of seventy real applications, each deployed to a real server across several Linux distributions and checked for what they actually serve over HTTPS,* is a different job, the one `hop3-test` exists to do.
 
 ## Why a dedicated runner
 
-Two reasons, one structural and one historical.
+There are two reasons, one structural and one historical.
 
 **The structural reason: the tests are data.** A platform test says "take *this app directory*, deploy it to *this target*, and assert the homepage contains *this text* and returns *this status*." Multiply that over a catalog of apps (Flask, Django, Rails, Go, Node, PHP, static sites…), each often packaged in several variants (native, Docker, Nix), across several targets (Docker, SSH, cloud) and distros. The result is a *data-driven* matrix discovered from configuration: a shape pytest's collection model handles awkwardly. Each app declares its own test contract right in its `hop3.toml`:
 
@@ -32,7 +32,7 @@ path = "/"
 status = 200
 ```
 
-Everything else is *derived*: the test's name from `[metadata].id`, its category from `[build].builder`, its backing services from `[[addons]]`, its base healthcheck from `[healthcheck]`. Apps without a `hop3.toml` (Procfile-only fixtures, demos, tutorials, negative-test cases) carry the same contract in a standalone `test.toml`. The runner *scans* this catalog and turns it into a test plan you can filter by priority, tier, and capability tag on the fly.
+Everything else is *derived*: the test's name from `[metadata].id`, category from `[build].builder`, backing services from `[[addons]]`, base healthcheck from `[healthcheck]`. Apps without a `hop3.toml` (Procfile-only fixtures, demos, tutorials, negative-test cases) keep the same contract in a standalone `test.toml`. The runner *scans* this catalog and turns it into a test plan you can filter by priority, tier, and capability tag on the fly.
 
 **The historical reason: deploy-and-verify had been written four times.** This is the finding that triggered the whole testing rework ([ADR 043](/developers/adrs/043-unified-testing-architecture/)). Four separate code paths (the runner, the pytest Docker fixtures, the demo harness, and a tutorial script) *each* stood up a server and verified an app *independently*, all over the one real `hop3-deploy` primitive. Four copies meant four places for a bug to hide, four diagnostic stories (with inverted coverage: the richest collector was wired only to the cloud path), and no single source of truth for "is this app reachable?". The fix was to make `hop3-test` own the **one** deploy-and-verify path, so every test surface (CLI, dashboard, CI, nightly) exercises the same code.
 
