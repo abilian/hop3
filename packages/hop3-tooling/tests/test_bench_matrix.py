@@ -10,6 +10,7 @@ from pathlib import Path
 
 import pytest
 from click.testing import CliRunner
+from hop3_tooling import catalog
 from hop3_tooling.bench.cli import main
 from hop3_tooling.bench.matrix import (
     SERVER_ID_ENVVAR,
@@ -95,7 +96,7 @@ class TestParseVariants:
             parse_variants("nix,bogus")
 
 
-def test_recipe_dir_resolves_through_the_catalog():
+def test_recipe_dir_resolves_through_the_catalog(catalog_apps, monkeypatch):
     """
     The variant is the id suffix, and the directory is the recipe's maturity.
 
@@ -104,6 +105,7 @@ def test_recipe_dir_resolves_through_the_catalog():
     `golden`, `beta` and `alpha` as it earns or loses a status, so the location
     has to be looked up rather than constructed.
     """
+    monkeypatch.setattr(catalog, "default_catalog_apps", lambda: catalog_apps)
     found = recipe_dir(Path("/repo"), "nix-gen", "gitea")
     assert found.name == "gitea-nixgen"
     assert found.parent.name in {"golden", "beta", "alpha", "broken", "retired"}

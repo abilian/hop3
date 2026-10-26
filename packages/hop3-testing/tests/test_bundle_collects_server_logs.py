@@ -21,6 +21,7 @@ So the branch is on PID 1, and a section that comes back empty says so.
 from __future__ import annotations
 
 import ast
+import os
 import subprocess
 from pathlib import Path
 
@@ -75,12 +76,18 @@ def test_an_empty_result_is_reported_as_a_gap(tmp_path):
     Running it where no logs exist must say the log could not be collected.
 
     Silence here is indistinguishable from a healthy server, and that is
-    precisely the confusion this section exists to prevent.
+    precisely the confusion this section exists to prevent. Under systemd the
+    collector asks journalctl, so a stub stands in for it: the host's journal
+    may hold a real hop3-server's log.
     """
     command = _journal_command()
+    journalctl = tmp_path / "journalctl"
+    journalctl.write_text("#!/bin/sh\necho '-- No entries --'\n")
+    journalctl.chmod(0o755)
+    env = {**os.environ, "PATH": f"{tmp_path}:{os.environ['PATH']}"}
 
     result = subprocess.run(
-        ["bash", "-c", command], capture_output=True, text=True, check=False
+        ["bash", "-c", command], capture_output=True, text=True, check=False, env=env
     )
 
     assert "could not be collected" in result.stdout

@@ -57,7 +57,7 @@ def test_nothing_listening_stops_the_install():
         mailpit._await_mailpit_smtp()
 
 
-def test_an_archive_without_the_binary_is_refused():
+def test_an_archive_without_the_binary_is_refused(tmp_path):
     """A missing member raised KeyError, which the installer did not catch."""
     buffer = io.BytesIO()
     with tarfile.open(fileobj=buffer, mode="w:gz") as tar:
@@ -71,6 +71,8 @@ def test_an_archive_without_the_binary_is_refused():
 
     arch = mailpit._mailpit_arch()
     with (
+        # Not the host's: one already installed there skips the download.
+        patch.object(mailpit, "MAILPIT_BIN", tmp_path / "mailpit"),
         patch.object(mailpit, "run_cmd", side_effect=fake_curl),
         patch.dict(
             mailpit.MAILPIT_SHA256, {arch: mailpit.hashlib.sha256(archive).hexdigest()}

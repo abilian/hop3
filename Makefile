@@ -185,6 +185,7 @@ test-catalog:
 	uv run pytest -m catalog --catalog=$(CATALOG) \
 	  packages/hop3-server/tests/a_unit \
 	  packages/hop3-testing/tests \
+	  packages/hop3-testlab/tests \
 	  packages/hop3-tooling/tests
 	@echo ""
 

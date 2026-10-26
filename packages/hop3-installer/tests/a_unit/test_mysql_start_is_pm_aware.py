@@ -137,6 +137,12 @@ def test_redis_restart_goes_through_the_helper():
     ]
 
 
+@pytest.fixture(autouse=True)
+def redis_pass_file(tmp_path, monkeypatch):
+    """The password file is the test's: the host's may be a real, unreadable one."""
+    monkeypatch.setattr(redis, "REDIS_PASS_FILE", tmp_path / "redis-pass")
+
+
 def test_redis_without_systemd_is_shut_down_by_asking_it():
     """
     An init script's stop finds Redis by its pidfile and reports success
