@@ -268,19 +268,6 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
     build_artifact.save(artifact_path)
     log(f"Build artifact saved to: {artifact_path}", level=2)
 
-    # --- 3.9. Run the recipe's own build steps ---
-    # [build].build runs AFTER the toolchain (so compiled assets can rely on
-    # installed dependencies) and before after-build. This was parsed and never
-    # executed for a long time: eleven catalog apps declared build commands that
-    # silently did nothing, and only survived because their toolchain happened to
-    # do the equivalent. A declared step that does not run is a lie.
-    _run_hook(
-        "build",
-        app_config.build_steps,
-        app.src_path,
-        path_prepend=build_artifact.runtime.path_prepend,
-    )
-
     # --- 4. Run Postbuild Hook ---
     # Pass path_prepend from the build artifact so postbuild commands can
     # find binaries from the virtualenv (e.g., "python manage.py collectstatic")
@@ -1500,6 +1487,7 @@ def _enforce_builder_resource_support(
     """
     hop3_config = app_config.hop3_config
     _reject_volumes_on_docker(builder_name, hop3_config.volumes)
+    _reject_build_off_local(builder_name, hop3_config.build_commands)
     _apply_limits(app, hop3_config, builder_name, context)
 
 
@@ -1565,6 +1553,33 @@ def _reject_volumes_on_docker(builder_name: str, volumes: list[dict[str, Any]]) 
             "the native or nix builder, or remove the [[volumes]] declaration."
         )
         raise ValueError(msg)
+
+
+def _reject_build_off_local(builder_name: str, build_commands: list[str]) -> None:
+    """
+    Abort the deploy if [build].build is declared under a non-local builder.
+
+    The toolchain runs ``[build].build`` in place of its own install, and only
+    the local builder runs a toolchain. A Docker build happens in the
+    Dockerfile and a Nix build in its derivation, so the command would never
+    run: refuse rather than ignore it.
+    """
+    if builder_name == "local" or not build_commands:
+        return
+    abort_with_diagnosis(
+        Diagnosis(
+            component="Builder",
+            action="run [build].build",
+            reason=(
+                f"the {builder_name} builder runs no toolchain, so "
+                f"`{' && '.join(build_commands)}` would never run"
+            ),
+            hint=(
+                "Move the step into the Dockerfile or the Nix derivation, or use "
+                "[build].before-build / after-build, which run for every builder."
+            ),
+        )
+    )
 
 
 def _prepare_source_for_build(

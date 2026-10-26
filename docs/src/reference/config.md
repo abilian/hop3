@@ -75,11 +75,14 @@ Controls how your application is built and prepared for deployment.
 # Builder to use: "auto", "local", "docker", or "nix"
 builder = "local"
 
-# Commands to run during build
-build = ["npm run build", "make"]
+# Commands that replace the toolchain's own install (local builder only)
+build = ["npm ci", "npm run build"]
 
-# Commands to run before build
-before-build = "npm ci"
+# Commands to run before the build
+before-build = "./fetch-assets.sh"
+
+# Commands to run after the build
+after-build = "python manage.py collectstatic --noinput"
 
 # Test commands (smoke tests)
 test = "npm test"
@@ -98,8 +101,9 @@ pip-install = ["setuptools", "wheel"]
   - `"docker"`: Build and run using Docker (requires Dockerfile)
   - `"nix"`: Build with Nix (hand-crafted `hop3.nix` or a generated `[nix]` template — see [`[nix]`](#nix-template-based-nix-builds))
 - `toolchain` (string): Force a specific language toolchain (`python`, `node`, `ruby`, `go`, `rust`, `static`, …), overriding auto-detection. Rarely needed — toolchains are normally detected from project files.
-- `build` (string | array): Main build commands
-- `before-build` (string | array): Pre-build commands (maps to Procfile `prebuild`)
+- `build` (string | array): Commands that build the app in place of the toolchain's own install: a Python app declaring one gets no `pip install`, a Node app no `npm install`. Only the local builder runs a toolchain, so a Docker or Nix app declaring `build` is refused; its build belongs in the Dockerfile or the derivation.
+- `before-build` (string | array): Commands run before the build, for every builder (maps to Procfile `prebuild`)
+- `after-build` (string | array): Commands run after the build, with the app's dependencies installed and on `PATH`, for every builder (maps to Procfile `postbuild`). Use it to add a step, such as compiling assets, to the toolchain's install.
 - `test` (string | array): Test commands to run after build
 - `packages` (array): System packages required for building
 - `pip-install` (array): Python packages to install during build

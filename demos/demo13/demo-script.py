@@ -72,7 +72,7 @@ def run(ctx: DemoContext) -> None:
     print_blank()
     print_info("Build lifecycle hooks:")
     print_info("  1. before-build: Runs BEFORE pip install")
-    print_info("  2. build: Runs AFTER pip install (asset compilation)")
+    print_info("  2. after-build: Runs AFTER pip install (asset compilation)")
     print_info("  3. before-run: Runs BEFORE app starts (migrations)")
     print_blank()
     pause(ctx.pause_between_steps)

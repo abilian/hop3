@@ -59,6 +59,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Apps and deploys
 
+- **`[build].build` runs once.** The toolchain runs it in place of its own install, and the deploy then ran it a second time. A Docker or Nix app declaring it is refused, since neither runs a toolchain; `before-build` and `after-build` run for every builder.
 - **`[[volumes]]` has a `scratch` type**, for directories an app writes that must not be kept: a framework's compiled templates or bootstrap cache. It lives outside `src/`, is reset to what the build leaves there whenever a deploy replaces `src/`, and is never backed up.
 - **The deploy that first declares a volume keeps what the app had already written there.** Declaring `[[volumes]]` for data an app kept in `src/` used to delete that data: the deploy replaced `src/` before linking the new, empty volume. The old tree is now set aside until the volumes are linked. An empty volume is filled from it first, then from what the build produced.
 - **Volumes are linked after the build, before the app starts.** They used to be linked before the build, where a `before-build` that unpacks the application and moves its directories into place collided with them.

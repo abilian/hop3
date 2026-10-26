@@ -13,9 +13,10 @@ version = "1.0.0"
 # Use for: installing build dependencies, running linters, etc.
 before-build = "python3 scripts/pre_build.py"
 
-# Post-build command (runs after main build)
-# Note: hop3.toml uses 'build' for post-build commands
-build = "python3 scripts/post_build.py"
+# Post-build hook: runs AFTER the dependencies are installed
+# Use for: compiling assets, generating static files
+# (`build` would replace the toolchain's own install, not follow it)
+after-build = "python3 scripts/post_build.py"
 
 [run]
 # Start command
