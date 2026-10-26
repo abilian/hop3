@@ -187,10 +187,20 @@ class SshTunnel:
     def _build_argv(self, target: str, local_port: int) -> list[str]:
         """The exact ``ssh`` command line — every value a separate argv element."""
         forward = f"{_LOOPBACK}:{local_port}:{_LOOPBACK}:{self._remote_port}"
+        ssh, *base = ssh_base_argv(self._settings, port=self._ssh_port)
         # Unattended and fail-loud on top of the shared base: no prompt for a
         # passphrase, a lost forward is an exit, a few missed keepalives too.
+        #
+        # ControlPath=none: the tunnel owns its connection. Under the common
+        # `ControlMaster auto` + `ControlPersist`, the ssh of a `hop3 login` a
+        # moment before stays up as a master; an `ssh -N -L` reaching it hands
+        # the forward to that master and exits 0 with nothing on stderr, so the
+        # tunnel "failed" while a forward the CLI cannot stop stayed open. ssh
+        # keeps the first value of an option, so it goes ahead of the base's.
         return [
-            *ssh_base_argv(self._settings, port=self._ssh_port),
+            ssh,
+            "-o", "ControlPath=none",
+            *base,
             "-N",
             "-o", "ExitOnForwardFailure=yes",
             "-o", "BatchMode=yes",

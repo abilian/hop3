@@ -106,6 +106,7 @@ def test_build_argv_minimal() -> None:
     argv = _tunnel(local_port=55000)._build_argv("root@host.example.com", 55000)
     assert argv == [
         "ssh",
+        "-o", "ControlPath=none",
         "-o", "StrictHostKeyChecking=accept-new",
         "-o", "ConnectTimeout=10",
         "-o", "ServerAliveInterval=15",
@@ -128,6 +129,18 @@ def test_build_argv_with_key_and_nonstandard_port() -> None:
     assert argv[argv.index("-p") + 1] == "2222"
     # The validated target is always the final argument.
     assert argv[-1] == "root@host.example.com"
+
+
+def test_the_tunnel_never_rides_a_shared_connection() -> None:
+    """
+    A `hop3 login` left a ControlPersist master; the next tunnel handed its
+    forward to it and exited 0, which read as a failed tunnel. ssh keeps the
+    first value of an option, so the CLI's must precede the user's.
+    """
+    settings = SshSettings(options=("ControlPath=~/.ssh/cm-%r@%h:%p",))
+    argv = _tunnel(settings=settings)._build_argv("root@host.example.com", 55000)
+    paths = [v for v in argv if v.startswith("ControlPath=")]
+    assert paths[0] == "ControlPath=none"
 
 
 def test_default_ssh_port_omits_dash_p() -> None:
