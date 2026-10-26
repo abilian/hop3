@@ -244,8 +244,8 @@ def _ctx_config(api_url: str) -> Config:
     """
     return Config(
         data={
-            "current_context": "prod",
-            "contexts": {"prod": {"api_url": api_url, "api_token": "tok"}},
+            "cli": {"default_context": "prod"},
+            "contexts": {"prod": {"server": api_url}},
         }
     )
 

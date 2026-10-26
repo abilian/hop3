@@ -151,6 +151,14 @@ Visit `http://localhost:5000` — you should see "Hello from Nix!".
 
 ## Step 5: Deploy to Hop3
 
+Sign in to your server if you have not yet (`hop3 login root@your-server.example.com`). Then, from the project directory, bind this checkout to it. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
+
+```bash skip
+hop3 context use default   # bind this checkout to the server you logged into
+```
+
+Deploy:
+
 ```bash
 hop3 deploy --app nix-flask-demo
 ```

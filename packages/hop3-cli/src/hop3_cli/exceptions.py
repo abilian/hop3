@@ -21,3 +21,12 @@ class DeploymentError(CliError):
 
 class ConfigError(CliError):
     """Raised when the CLI configuration cannot be loaded (e.g. malformed TOML)."""
+
+
+class TargetError(CliError):
+    """
+    Raised when no server can be chosen for this command (ADR 042).
+
+    Carries the refusal and the command that fixes it. Raised only when a
+    command needs a server, so commands that never reach one still run.
+    """

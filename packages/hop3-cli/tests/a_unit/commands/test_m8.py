@@ -12,6 +12,7 @@ from unittest.mock import patch
 
 import pytest
 from hop3_cli.commands.local import completion_cmd
+from hop3_cli.config import Config
 from hop3_cli.core.alias_registry import load_user_aliases_with_diagnostics
 from hop3_cli.main import run_command_from_args
 from hop3_cli.rpc.responses import _app_not_found_suggestion
@@ -127,26 +128,7 @@ def test_no_input_flag_sets_env(monkeypatch: pytest.MonkeyPatch) -> None:
     def fake_load_config():
         captured["no_input"] = is_no_input()
 
-        class _Stub:
-            def is_configured(self):
-                return False
-
-            def is_authenticated(self):
-                return False
-
-            def set_context_override(self, _):
-                pass
-
-            def get_current_context_name(self):
-                return None
-
-            def get_current_context(self):
-                return None
-
-            def get_api_url(self):
-                return None
-
-        return _Stub()
+        return Config(data={})
 
     with (
         patch("hop3_cli.main.load_config", side_effect=fake_load_config),

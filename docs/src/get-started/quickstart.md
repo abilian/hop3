@@ -107,14 +107,23 @@ With your application code and configuration ready, you can now deploy it.
 
     See [Signing In](./authentication.md) for the web dashboard, several servers, and what to do when you can't get in.
 
-2.  **Deploy the Application:**
-    From inside your `hello-hop3` project directory, run the deploy command:
+2.  **Bind this checkout to the server:**
+    From inside your `hello-hop3` project directory, tell Hop3 which server this checkout deploys to. The login recorded the server as the context `default`:
+
+    ```bash
+    hop3 context use default
+    ```
+
+    It asks before writing, then records the choice in `.hop3-local.toml` (gitignored). Until a checkout is bound, commands that reach a server are refused inside it, so a deploy never lands on a server you did not pick.
+
+3.  **Deploy the Application:**
+    Still in the project directory, run the deploy command:
 
     ```bash
     hop3 deploy --app hello-hop3
     ```
 
-    When you run this from inside the project directory, Hop3 resolves the app from context, so a bare `hop3 deploy` works too.
+    Inside the project directory, Hop3 reads the app name from `hop3.toml`, so a bare `hop3 deploy` works too. The first line of output says where the deploy goes: `→ default (…), bound in this checkout`.
 
     You will see output from Hop3 as it:
     -   Uploads your application code.

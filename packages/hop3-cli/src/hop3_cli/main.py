@@ -51,24 +51,25 @@ from .core.deploy_preview import (
     domain_target_warnings,
     render_plan,
 )
-from .core.hop3_toml import first_hop3_toml
 from .core.project_guard import check_project_mismatch
 from .core.resolution import (
+    format_context_trace,
     format_trace,
     resolve_app,
     resolve_context,
 )
-from .core.ssh_target import is_ssh_address
+from .core.target import check_project_blocks, resolve_target
 from .core.workspace_guard import check_workspace_dependency
-from .exceptions import AuthenticationError, CliError
+from .exceptions import AuthenticationError, CliError, TargetError
 from .exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from .rpc import Client, handle_response
+from .rpc.errors import PROTECTED_NEEDS_CONFIRMATION, PROTECTED_NEEDS_EXPLICIT
 from .ui import (
     RichPrinter,
     err,
     show_unauthenticated_message,
-    show_unconfigured_message,
 )
+from .ui.prompts import is_no_input
 
 logger.remove()
 
@@ -121,6 +122,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
     config = load_config()
 
     _apply_flag_overrides(config, flags)
+    # ADR 042: decide where this invocation goes, once, before anything
+    # dispatches. A refusal is recorded and raised only by a command that
+    # needs a server, so `hop3 context use` still runs in an unbound checkout.
+    context_resolution = _wire_target(flags, config)
 
     if flags.verbosity >= 2:
         _print_debug_info(printer, cli_args, config, flags)
@@ -134,14 +139,10 @@ def run_command_from_args(cli_args: list[str]) -> None:
         cli_args = _apply_aliases(cli_args, config, printer, flags)
 
     # `tunnel` is dispatched locally (it forwards a port from THIS machine) but
-    # it still connects to the configured server for the addon endpoint. The
-    # main server wiring below runs *after* local dispatch, so without this an
-    # explicit `--context` — or an ambient project context — would be ignored
-    # and tunnel would silently hit the default server. Wire its target the same
-    # way every other connecting command does (resolve-or-abort on an explicit
-    # `--context`), before it dispatches.
-    if cli_args[:1] == ["tunnel"] and not flags.why:
-        _wire_active_server(flags, config, resolve_context(cli_context=flags.context))
+    # it connects to the server for the addon endpoint, so it says where.
+    wants_help = bool({"--help", "-h"} & set(cli_args))
+    if cli_args[:1] == ["tunnel"] and not flags.why and not wants_help:
+        _reach_target(config, flags)
 
     # Handle local commands (init, config) that don't need server
     if is_local_command(cli_args):
@@ -156,23 +157,17 @@ def run_command_from_args(cli_args: list[str]) -> None:
     if serve_offline_help(cli_args, config):
         return
 
-    # ADR 042: compute resolutions once, then reuse them for app injection,
-    # the project-mismatch guard, and the deploy preview. Avoids running
-    # the git subprocess twice.
-    context_resolution, app_resolution = _compute_resolutions(cli_args, flags, config)
-    _wire_active_server(flags, config, context_resolution)
+    app_resolution = _compute_app_resolution(cli_args, flags, context_resolution)
 
     if flags.why:
         # Always print the resolution trace to stderr, regardless of verbosity
         # or json_output setting. `--why` is an explicit user request for
-        # diagnostic output and shouldn't be gated. ``_compute_resolutions``
-        # guarantees app_resolution is non-None whenever flags.why is True
-        # (see its early-return condition); the assert narrows for pyrefly.
-        assert app_resolution is not None
-        print(format_trace(app_resolution), file=sys.stderr)
+        # diagnostic output and shouldn't be gated.
+        _print_why(config, context_resolution, app_resolution)
         sys.exit(ExitCode.SUCCESS)
 
     cli_args = _inject_resolved_app(cli_args, flags, app_resolution, printer)
+    _reach_target(config, flags)
     # `app shell` is the one command that never goes over RPC: it needs a
     # terminal, so the CLI opens it over ssh itself, with the app resolved
     # like any other app-scoped command.
@@ -180,14 +175,14 @@ def run_command_from_args(cli_args: list[str]) -> None:
     _check_project_mismatch(cli_args, flags, app_resolution)
     _check_workspace_dependency(cli_args, flags)
     cli_args = _forward_dry_run(cli_args, flags)
-    _handle_deploy_preview(cli_args, flags, config, app_resolution, context_resolution)
+    _handle_deploy_preview(cli_args, flags, config, app_resolution)
     _update_printer_scope(printer, config, cli_args)
     _check_prerequisites(cli_args, config, printer, flags)
 
     if flags.verbosity >= 2:
         printer.print_debug("Executing RPC command...")
 
-    deploy_override = _context_deploy_override(cli_args, context_resolution)
+    deploy_override = _context_deploy_override(cli_args, config)
     extra_args = _get_extra_args_safe(
         cli_args,
         flags.verbosity,
@@ -209,6 +204,7 @@ def _apply_flag_overrides(config: Config, flags: CliFlags) -> None:
         config.set_context_override(flags.context)
     if flags.app:
         config.set_app_override(flags.app)
+    config.set_assume_yes(flags.skip_confirm)
 
 
 def _exit_no_app_resolved(
@@ -273,67 +269,45 @@ def _apply_aliases(
     return rewritten
 
 
-def _context_server(name: str | None, config: Config) -> str | None:
+def _wire_target(flags: CliFlags, config: Config) -> ContextResolution:
+    """Resolve this invocation's target (ADR 042) and record it on the config."""
+    resolution = resolve_context(
+        flags.context, default_context=config.get_default_context()
+    )
+    try:
+        config.set_target(resolve_target(resolution, config))
+    except TargetError as e:
+        config.set_target_error(e)
+    return resolution
+
+
+def _reach_target(config: Config, flags: CliFlags) -> None:
     """
-    Resolve a context NAME to its server address (ADR 042).
+    About to reach the server: refuse without a target, else say where (rule C).
 
-    ``--context`` is the one selector for every command. A name resolves
-    **project-first, then global**: the nearest project ``hop3.toml
-    [contexts.<name>].server``, else the user-level ``config.toml
-    [contexts.<name>].server``. Returns None when ``name`` is unset or names no
-    context with a server.
+    The line goes to stderr, so it never mixes into output a script parses;
+    ``--quiet`` silences it.
     """
-    return _context_address(name, config, "server")
-
-
-def _context_bootstrap(name: str | None, config: Config) -> str | None:
-    """
-    Resolve a context NAME to its ``ssh://`` bootstrap route, if it has one.
-
-    Same project-first chain as ``_context_server``: one resolution order for
-    both addresses, so a project context cannot end up talking to one server
-    and renewing against another. A context whose ``server`` is itself
-    ``ssh://`` bootstraps through that.
-    """
-    if address := _context_address(name, config, "bootstrap"):
-        return address
-    # An ssh:// server bootstraps through itself. `Config.get_context_bootstrap`
-    # already applies that to a global context, so this covers the project one.
-    server = _context_server(name, config)
-    return server if is_ssh_address(server) else None
-
-
-def _context_address(name: str | None, config: Config, key: str) -> str | None:
-    """One key of a context, project hop3.toml first, then global config.toml."""
-    if not name:
-        return None
-    path, data = first_hop3_toml(Path.cwd(), Path.home())
-    if path is not None and isinstance(data, dict):
-        block = (data.get("contexts") or {}).get(name)
-        if isinstance(block, dict) and isinstance(block.get(key), str):
-            if block[key]:
-                return block[key]
-    if key == "server":
-        return config.get_context_server(name)
-    return config.get_context_bootstrap(name)
-
-
-def _resolve_active_server(
-    context_resolution: ContextResolution | None, config: Config
-) -> str | None:
-    """Server for the ambiently-selected context (.hop3-local.toml / single-context)."""
-    return _context_server(getattr(context_resolution, "context", None), config)
-
-
-def _wire_active_server(
-    flags: CliFlags,
-    config: Config,
-    context_resolution: ContextResolution | None,
-) -> None:
-    """Resolve this invocation's target, then apply the `--via-ssh` rescue."""
-    _wire_resolved_target(flags, config, context_resolution)
+    target = config.require_target()
+    if not flags.quiet:
+        print(target.describe(), file=sys.stderr)
     if flags.via_ssh:
         _force_bootstrap_route(config)
+
+
+def _print_why(
+    config: Config,
+    context_resolution: ContextResolution,
+    app_resolution: AppResolution | None,
+) -> None:
+    """The ``--why`` trace: how the context, the server and the app were chosen."""
+    print(format_context_trace(context_resolution), file=sys.stderr)
+    try:
+        print(f"  {config.require_target().describe()}", file=sys.stderr)
+    except TargetError as e:
+        print(f"  refused: {e}", file=sys.stderr)
+    if app_resolution is not None:
+        print(format_trace(app_resolution), file=sys.stderr)
 
 
 def _force_bootstrap_route(config: Config) -> None:
@@ -358,175 +332,19 @@ def _force_bootstrap_route(config: Config) -> None:
     config.set_active_server(f"ssh://{target}")
 
 
-def _wire_resolved_target(
-    flags: CliFlags,
-    config: Config,
-    context_resolution: ContextResolution | None,
-) -> None:
+def _compute_app_resolution(
+    cli_args: list[str], flags: CliFlags, context_resolution: ContextResolution
+) -> AppResolution | None:
     """
-    Set this invocation's active server — the one connection target (ADR 042).
+    Resolve the app for an app-scoped command, or for ``--why``; else None.
 
-    ``--context <name>`` is the single selector for *every* command, app-bound or
-    not (`hop3 deploy --context prod` and `hop3 apps --context prod` alike). It
-    resolves project-first then global; an explicit ``--context`` MUST resolve, or
-    the command aborts loud — it never silently retargets a different instance.
-    With no ``--context``, the active server comes from the ambient project
-    context, then the default global context, then the sole known server.
-    """
-    if flags.context and not flags.why:
-        server = _require_context_server(flags.context, config)
-        _abort_if_env_url_shadows_context(flags.context, server, config)
-        config.set_active_server(server)
-        config.set_active_bootstrap(_context_bootstrap(flags.context, config))
-        return
-    ambient_name = getattr(context_resolution, "context", None)
-    if active_server := _resolve_active_server(context_resolution, config):
-        config.set_active_server(active_server)
-        config.set_active_bootstrap(_context_bootstrap(ambient_name, config))
-        return
-    if ambient := _resolve_ambient_server(config):
-        config.set_active_server(ambient)
-        config.set_active_bootstrap(
-            _context_bootstrap(config.get_default_context(), config)
-        )
-
-
-def _require_context_server(name: str, config: Config) -> str:
-    """
-    Resolve an explicit ``--context <name>`` to a server, or exit loud (ADR 042).
-
-    ``--context`` is honoured for every command; it must name a context that
-    resolves to a server — a project ``[contexts.<name>]`` (hop3.toml) or a global
-    one (config.toml). We never silently fall back to a different server. The error
-    lists what IS defined (project + global) and how to define this name.
-    """
-    if server := _context_server(name, config):
-        return server
-
-    path, data = first_hop3_toml(Path.cwd(), Path.home())
-    known: list[str] = []
-    if path is not None and isinstance(data, dict):
-        project = sorted(data.get("contexts") or {})
-        known.append(f"project {path}: {', '.join(project) or '(none)'}")
-    glob = sorted(config.list_global_contexts())
-    known.append(f"global: {', '.join(glob) or '(none)'}")
-    print(
-        f"Error: context {name!r} is not defined.\n"
-        f"  Known contexts — {'; '.join(known)}\n"
-        f"  Define it with:            hop3 context add {name} --server <addr>\n"
-        f"  or while authenticating:   hop3 login --context {name} --ssh <target>",
-        file=sys.stderr,
-    )
-    sys.exit(ExitCode.RESOLUTION_ERROR)
-
-
-def _env_override_url(config: Config) -> str | None:
-    """
-    The connection URL ``get_api_url()`` takes from the environment, ahead of
-    any resolved context — ``HOP3_DEV_MODE``'s localhost, then ``HOP3_API_URL``.
-    None when no env override is in play.
-    """
-    import os  # ruff:ignore[import-outside-top-level]
-
-    if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
-        return config.get("api_url", "http://localhost:8000")
-    return os.environ.get("HOP3_API_URL")
-
-
-def _abort_if_env_url_shadows_context(
-    name: str, context_server: str, config: Config
-) -> None:
-    """
-    An explicit ``--context`` must not be silently overridden by an ambient
-    ``HOP3_API_URL`` / ``HOP3_DEV_MODE`` (which ``get_api_url`` consults first).
-    Connecting to the env URL while the operator asked for ``name`` would ignore
-    their explicit selection and target a different server — abort loud rather
-    than retarget invisibly (audit 2026-06 C1).
-    """
-    env_url = _env_override_url(config)
-    if not env_url:
-        return
-
-    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
-
-    if credential_store.canonicalize(env_url) == credential_store.canonicalize(
-        context_server
-    ):
-        return
-
-    print(
-        f"Error: --context {name!r} targets {context_server}, but "
-        f"HOP3_API_URL / HOP3_DEV_MODE overrides the connection to {env_url}.\n"
-        f"  Connecting there would silently ignore your explicit --context.\n"
-        f"  Unset the env override, or drop --context to use the env URL.",
-        file=sys.stderr,
-    )
-    sys.exit(ExitCode.RESOLUTION_ERROR)
-
-
-def _effective_default_context(config: Config) -> str | None:
-    """
-    The default context name iff it's what selected the active server.
-
-    Shown in the deploy preview when no context was explicitly resolved, so the
-    operator sees which context (not just which server) the deploy targets.
-    Returns None when the active server came from elsewhere (HOP3_API_URL, the
-    legacy default_server, or a sole known server), so the preview never names a
-    context that isn't actually in play.
-    """
-    default = config.get_default_context()
-    if default and _context_server(default, config) == config.get_api_url():
-        return default
-    return None
-
-
-def _resolve_ambient_server(config: Config) -> str | None:
-    """
-    Server for a project-less command with no ``--context`` (ADR 042).
-
-    Chain: the **default context** (`[cli].default_context` → its server) → the
-    legacy unnamed default-server → the *sole* entry in the credential store →
-    None. None means "ambiguous or empty" — the prerequisite check then reports it
-    (server-aware via ``known_servers``).
-    """
-    if server := _context_server(config.get_default_context(), config):
-        return server
-    if default := config.get_default_server():
-        return default
-    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
-
-    known = credential_store.known_servers()
-    return known[0] if len(known) == 1 else None
-
-
-def _compute_resolutions(
-    cli_args: list[str], flags: CliFlags, config: Config
-) -> tuple[ContextResolution | None, AppResolution | None]:
-    """
-    Run the context+app resolvers (or no-op when not needed).
-
-    Returns ``(context_resolution, app_resolution)``. The app resolution is None
-    when the command is not app-scoped and ``--why`` wasn't requested.
-
-    ADR 042: the context IS the server (one noun), so there is no separate
-    server resolution; the app resolves CWD-only.
+    The selected context supplies app source #5 (``[contexts.<sel>].app``),
+    trusted per how the context was selected.
     """
     scoped, _ = is_app_scoped(cli_args)
     if scoped or flags.why:
-        context_resolution = resolve_context(cli_context=flags.context)
-        # ADR 042 r2: the resolved context supplies app source #5
-        # ([contexts.<sel>].app), trusted per the context's selection provenance.
-        app_resolution = resolve_app(cli_app=flags.app, context=context_resolution)
-        return context_resolution, app_resolution
-
-    # Every command that reaches this point connects to a server, the no-auth
-    # ones (`help`, `auth get-token`) included: local commands and offline help
-    # were dispatched above. So each must honor $HOP3_CONTEXT / the
-    # .hop3-local.toml pin / a sole project context, never fall through to the
-    # legacy default server (audit 2026-06 C2). Gating this on "requires
-    # authentication" sent `hop3 app logs --help` to a retired default_server
-    # while `hop3 app logs` reached the default context's server.
-    return resolve_context(cli_context=flags.context), None
+        return resolve_app(cli_app=flags.app, context=context_resolution)
+    return None
 
 
 def _inject_resolved_app(
@@ -723,7 +541,6 @@ def _handle_deploy_preview(
     flags: CliFlags,
     config: Config,
     app_resolution: AppResolution | None,
-    context_resolution: ContextResolution | None,
 ) -> None:
     """
     ADR 042 §Deploy preview: ``hop3 deploy`` prints a plan and exits when
@@ -741,14 +558,14 @@ def _handle_deploy_preview(
     if app_resolution is None or not app_resolution.resolved:
         return
 
-    context_name = context_resolution.context if context_resolution else None
+    target = config.require_target()
     source_path = _deploy_source_path(cli_args)
     plan = build_plan(
         source_path=source_path,
-        context=context_name,
+        context=target.context,
         app=app_resolution.app or "",
         server=config.get_api_url(),
-        default_context=None if context_name else _effective_default_context(config),
+        context_source=target.source.value,
     )
     domain_warnings = domain_target_warnings(plan.domains, config.get_api_url())
 
@@ -835,9 +652,7 @@ def _print_debug_info(
         printer.print_debug(f"Context: {context_name}")
 
 
-def _context_deploy_override(
-    cli_args: list[str], context_resolution: ContextResolution | None
-) -> bytes | None:
+def _context_deploy_override(cli_args: list[str], config: Config) -> bytes | None:
     """
     Context-flattened hop3.toml bytes for a `hop3 deploy` upload (ADR 042 r2 §E1).
 
@@ -863,10 +678,13 @@ def _context_deploy_override(
     )
 
     raw = read_hop3_toml(own)
-    ctx = getattr(context_resolution, "context", None)
-    if "contexts" not in raw and not ctx:
+    if "contexts" not in raw:
         return None  # nothing to merge or strip — upload the file as-is
-    effective = flatten_for_context(raw, ctx)
+    target = config.require_target()
+    # The source may be another directory than the one the target was
+    # resolved in (`hop3 deploy ../other`): its blocks follow the same rule.
+    check_project_blocks(own, target.context)
+    effective = flatten_for_context(raw, target.context)
     return toml.dumps(effective).encode("utf-8")
 
 
@@ -905,11 +723,6 @@ def _check_prerequisites(
     # Skip all checks for commands that don't require authentication
     if not requires_authentication(cli_args):
         return
-
-    # Check if CLI is configured
-    if not config.is_configured():
-        show_unconfigured_message(cli_args)
-        sys.exit(ExitCode.AUTH_ERROR)
 
     # Check authentication - try auto-auth via SSH if not authenticated
     if not config.is_authenticated():
@@ -1037,6 +850,16 @@ def _execute_rpc_command(
                     if isinstance(k, str) and v is not None
                 }
                 response = client.rpc("cli", cli_args, **validated_extra_args)
+                if kind := _protected_kind(response):
+                    # Remembered, so `hop3 context use` can say so.
+                    config.mark_context_protected(config.require_target().context)
+                # ponytail: the refused call is resent whole, so a deploy to a
+                # protected server uploads its archive twice; learn the mark
+                # up front (it is cached on the context) if that ever matters.
+                if kind == PROTECTED_NEEDS_CONFIRMATION:
+                    _confirm_protected_change(cli_args, config)
+                    client.protected_confirmed = True
+                    response = client.rpc("cli", cli_args, **validated_extra_args)
 
                 # Get tunnel port if using SSH tunnel (for streaming support)
                 tunnel_port = None
@@ -1051,6 +874,52 @@ def _execute_rpc_command(
         except Exception as e:
             err(f"Error while executing command:\n{e}")
             sys.exit(ExitCode.GENERAL_ERROR)
+
+
+def _protected_kind(response: object) -> str | None:
+    """The protected-server refusal ``response`` carries (ADR 042, D), if any."""
+    if not isinstance(response, Error) or not isinstance(response.data, dict):
+        return None
+    kind = response.data.get("kind")
+    if kind in {PROTECTED_NEEDS_CONFIRMATION, PROTECTED_NEEDS_EXPLICIT}:
+        return kind
+    return None
+
+
+def _confirm_protected_change(cli_args: list[str], config: Config) -> None:
+    """
+    Ask for the app's name, typed, before changing a protected server.
+
+    The server sent the question only because the command named the server
+    explicitly (``-c`` or ``HOP3_CONTEXT``), so ``--yes`` may answer it: a CI
+    job names its target in its own script. Without a terminal, refuse.
+    """
+    target = config.require_target()
+    if config.assume_yes():
+        return
+    app = _app_flag_value(cli_args)
+    expected = app or target.context
+    what = f"the app's name ({app})" if app else f"the context's name ({expected})"
+    if is_no_input() or not sys.stdin.isatty():
+        err(
+            f"{target.context} ({target.server}) is protected: confirm by typing "
+            f"{what}, or re-run with --yes."
+        )
+        sys.exit(ExitCode.CONFIRMATION_DECLINED)
+    typed = input(
+        f"{target.context} ({target.server}) is protected. Type {what} to confirm: "
+    )
+    if typed.strip() != expected:
+        err("That does not match; nothing was changed.")
+        sys.exit(ExitCode.CONFIRMATION_DECLINED)
+
+
+def _app_flag_value(cli_args: list[str]) -> str | None:
+    """The value of the ``--app`` the CLI injected or the user typed, if any."""
+    for i, arg in enumerate(cli_args[:-1]):
+        if arg in {"--app", "-a"}:
+            return cli_args[i + 1]
+    return None
 
 
 @contextmanager

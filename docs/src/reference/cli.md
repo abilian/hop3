@@ -10,7 +10,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 > Key changes from 0.4.x:
 >
 > - Commands use spaces, not colons: `hop3 env set` (was `hop3 config:set`).
-> - Implicit `--app` resolution chain with sticky context (`hop3 use <app>`).
+> - Implicit `--app` resolution chain, with a per-directory app pin (`hop3 use <app>`).
 > - Alias mechanism: `hop3 apps`, `hop3 addons`, `hop3 plugins`, `hop3 whoami` are built-in aliases (`env` is a real command group, with `config` as its back-compat alias).
 > - Did-you-mean suggestions on typos for both commands and app names.
 - `hop3 help --all --json` emits the whole command tree as data (see [Machine-readable help](#machine-readable-help)).
@@ -95,19 +95,19 @@ All commands support these global flags (per ADR 036 D6). Flags may appear befor
 ### Interaction
 
 - **`-y, --yes`** - Skip confirmation prompts entirely (auto-confirm destructive operations).
-- **`--force`** - Override all safety checks. Coarser than `--yes`: required for `app destroy` / `context remove` when dependent resources exist, and bypasses preview and attached-resource warnings.
+- **`--force`** - Override all safety checks. Coarser than `--yes`: bypasses the project-mismatch guard, the preview and attached-resource warnings.
 - **`--confirm=<name>`** - Scriptable alternative to the interactive typed-name prompt. Pass the resource name you're acknowledging; the command runs without prompting *and* preserves other safety checks (context warnings, attached-addon detection). Use in preference to `--force` when you only want to skip the typed-name prompt. Example: `hop3 app destroy --app myapp --confirm=myapp`.
 - **`--no-input`** - Refuse to prompt. If input would be required, the command fails with a one-line instruction naming the flag or env var to use instead. For automation/CI where stdin isn't a terminal. Sets `HOP3_NO_INPUT=1` so prompt-bearing helpers propagate the choice.
 
 ### Context and App Selection
 
-- **`-c, --context <name>`** - Select the target context for this command: the **one selector** for every command, app-bound or not (ADR 042). Resolves project-first (`hop3.toml [contexts.<name>]`) then global (`config.toml [contexts.<name>]`); an explicit `--context` that resolves to nothing aborts loud. There is no `--server` flag.
+- **`-c, --context <name>`** - The context (server) for this command, ahead of `HOP3_CONTEXT`, the checkout's binding and the global current context (ADR 042, see [Where a command goes](#where-a-command-goes)). A name that matches no context aborts. There is no `--server` flag.
 - **`-a, --app <name>`** - Target app explicitly. Always a flag, never positional (D5). If not set, the resolver walks the D7 chain (see [App Resolution](#app-resolution) below).
 - **`--via-ssh`** - Send this one command through the context's SSH bootstrap route instead of its everyday address. The rescue path, for when the everyday route is what broke: an expired certificate, a stopped proxy, DNS pointing elsewhere. Refuses when the target has no recorded SSH route; it never falls back to the ordinary route in silence.
 
 ### Diagnostics
 
-- **`--why`** - Print the resolution trace to stderr **and exit** (diagnostic-only; the command is NOT executed). Shows which source supplied `--app`, `--context`, and (if applicable) what the alias resolver did. Safe to use with destructive commands: `hop3 deploy --why` reports the trace without deploying.
+- **`--why`** - Print the resolution trace to stderr **and exit** (diagnostic-only; the command is NOT executed). Shows how the context was chosen, the server it names (or why there is none), and which source supplied the app. Safe to use with destructive commands: `hop3 deploy --why` reports the trace without deploying.
 - **`--no-alias`** - Bypass alias resolution. `hop3 --no-alias apps` treats `apps` as a literal command, skipping the built-in alias expansion to `app list`.
 
 ### Verbosity
@@ -179,11 +179,11 @@ App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 env set`) d
    ancestor up to `$HOME`. Put it in a project repo and every `hop3` invocation
    from within picks up the right app.
 4. **`hop3.toml [cli].app`** - same search path as `.hop3-app`, lower priority.
-5. **`hop3.toml [metadata].id`** - the project's canonical name (same value
+5. **`hop3.toml [contexts.<name>].app`** - the app's name in the selected
+   context's block (see [What differs per deployment](#what-differs-per-deployment)).
+6. **`hop3.toml [metadata].id`** - the project's canonical name (same value
    the server uses). The "I'm physically standing in this project" fallback,
-   used when no higher-priority source (`.hop3-app`, `[cli].app`) is set in
-   this directory tree.
-6. **Git remote named `hop3`** - reserved for future use.
+   used when no higher-priority source is set in this directory tree.
 
 Set `--why` on any app-scoped command to see the trace:
 
@@ -207,362 +207,185 @@ without needing `--app` or a positional argument.
 
 ## Context Management
 
-A **context** is a named target; the `--context <name>` flag is **the one selector for every command** (ADR 042), app-bound or not. A context exists at two scopes:
+A **context** is a server you can reach: a name, an address, and the SSH route that renews its token. Contexts are yours: they live in `~/.config/hop3-cli/config.toml`, and a login creates one. `hop3.toml` describes the app and never says where it is deployed (ADR 042).
 
-- **Project.** Declared in your project's committed `hop3.toml` under `[contexts.<name>]`: a full deploy environment, a non-secret bundle of `server` (a literal address like `ssh://root@host`), `app` (the app *instance* name for that environment), domains, and non-secret env. One codebase, many environments: each a distinct app instance, often on a different server.
-- **Global.** Declared in your per-developer `config.toml` as `[contexts.<name>].server`: just a name bound to a server address. It exists so project-less commands can target a server by name (`hop3 app list --context devel`), exactly like an in-project deploy.
+What is local is the **binding**: which context a checkout uses. It is written by `hop3 context use` into `.hop3-local.toml`, beside the project's `hop3.toml`, and gitignored. Switching a checkout from `dev` to `demo` touches no committed file.
 
-`--context <name>` resolves **project-first, then global**: the nearest `hop3.toml [contexts.<name>]`, else `config.toml [contexts.<name>]`. An explicit `--context` that resolves to nothing aborts loud; it never retargets a different instance in silence. There is no `--server` flag: naming the target is the context's job.
+### Where a command goes
 
-A context is **not** a server-connection record: bearer tokens never live in `hop3.toml` or `config.toml`. They live in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), populated by `hop3 auth login`/`hop3 init`.
-
-### Why Use Contexts?
-
-- **Multi-environment**: Express `devel` / `staging` / whatever else you run as distinct app instances in one committed file, shared with your team.
-- **One selector everywhere**: `--context` targets both app-bound commands (`hop3 deploy --context devel`) and project-less ones (`hop3 app list --context devel`); nothing to remember about which flag applies where.
-- **Safety**: A context names its own app (`myapp-devel` vs `myapp-dev`), so deploys go where you mean, as surfaced by the deploy preview and the project-mismatch guard.
-- **No secrets in the repo**: contexts carry only addresses and non-secret config; tokens and secret env stay out of `hop3.toml` and `config.toml`.
-
-### Context Priority
-
-The CLI resolves which context *name* to use by checking these sources in order, stopping at the first that supplies one:
+The CLI chooses the context in this order, stopping at the first that supplies one:
 
 | Priority | Source | Scope |
 |----------|--------|-------|
-| 1 (highest) | `--context <name>` / `-c <name>` flag | Single command |
-| 2 | `HOP3_CONTEXT` environment variable | Current shell |
-| 3 | `.hop3-local.toml [local].context` (written by `hop3 context use`, gitignored) | Per project checkout |
-| 4 (lowest) | Single-context fallback (project: exactly one `[contexts.*]` in `hop3.toml`) / `[cli].default_context` (project-less) | Per project / per developer |
+| 1 (highest) | `--context <name>` / `-c <name>` | One command |
+| 2 | `HOP3_CONTEXT` (an `.envrc` or `.env` may set it), or the context `env` that `HOP3_API_URL` / `HOP3_DEV_MODE` names | Current shell |
+| 3 | Inside a project: the checkout's binding (`hop3 context use`) | One checkout |
+| 4 (lowest) | Outside a project: the global current context (`[cli].default_context`) | Per developer |
 
-The chosen name then resolves to a context **project-first, then global**. If nothing supplies a context, app-scoped commands report *"no context; run `hop3 context use <name>` or pass `--context`"*; project-less commands fall back through `[cli].default_context` → the legacy unnamed `[cli].default_server` → the sole known server.
+A project is a directory with a `hop3.toml` at or above where you stand. **Inside a project with no binding, every command that reaches a server is refused**, unless `-c` or `HOP3_CONTEXT` names the context; the global current context is never used there. The refusal names the fix:
 
-### `hop3 context add`
-
-Add a context. The scope follows where you stand: inside a project it adds a
-deploy environment (`[contexts.<name>]`) to the committed `hop3.toml`; outside a
-project (or with `--global`/`-g`) it adds a **global** context (a named server)
-to your per-developer `config.toml`. Contexts are **non-secret** in both files:
-the server is a literal address, never a token.
-
-**Usage:**
-```bash
-hop3 context add <name> --server <addr> [--app <app>] [--domain <d>]... [--env K=V]...
-hop3 context add <name> --server <addr> [--global]   # global: server only
+```
+Error: this checkout (/home/me/myapp) is not bound to a context.
+  Bind it:              hop3 context use <name>   (known: dev, demo, prod)
+  or for one command:   hop3 -c <name> ...
 ```
 
-**Arguments / options:**
-- `name` - Context name (e.g., "devel", "staging")
-- `--server <addr>` - Target server address (required), e.g. `ssh://root@host`
-- `--app <app>` - App instance name (project only; inherits `[metadata].id`)
-- `--domain <host>` - Hostname for this environment (project only, repeatable)
-- `--env KEY=VALUE` - Non-secret env override (project only, repeatable)
-- `--global` / `-g` - Force the global scope (`config.toml`), even inside a project. A global context is just a named server; `--app` / `--domain` / `--env` are project-only and rejected here.
+A name resolves or aborts, whichever step supplied it: a `HOP3_CONTEXT` or a binding naming a removed context stops the command. `--context` and a different `HOP3_API_URL` together are refused too.
 
-**Examples:**
-```bash
-# Two environments in this project's hop3.toml
-hop3 context add devel   --server ssh://root@devel.example.com   --app myapp-devel
-hop3 context add staging --server ssh://root@staging.example.com --app myapp-staging --domain staging.myapp.com
+Every command that reaches a server prints, on stderr, where it goes and why:
 
-# A global named server (run outside a project, or with --global inside one),
-# so `hop3 app list --context devel` works with no project:
-hop3 context add devel --server ssh://root@devel.example.com
-hop3 context add devel --server ssh://root@devel.example.com --global
+```
+→ demo (https://demo.example.com), bound in this checkout
 ```
 
-**Notes:**
-- Inside a project, writes the committed `hop3.toml`; commit it to share the environment with your team. Outside a project (or with `--global`), writes the per-developer `config.toml` (secret-free).
-- To *log in* to a server (store its token), use `hop3 auth login`; `hop3 auth login --context devel --ssh root@host` also names the global context and makes it the default. To *select* a project environment for this checkout, use `hop3 context use <name>`.
-- Secrets never go here: set per-environment secrets server-side with `hop3 env set`.
+`--quiet` silences the line; `--why` prints the full trace.
 
-### `hop3 context list`
+### What differs per deployment
 
-List contexts at the current scope. Inside a project it lists the `[contexts.*]` declared in the nearest `hop3.toml`, marking the one selected for this checkout. Outside a project (or with `--global`) it lists the **global** contexts from `config.toml`, marking the default.
-
-**Usage:**
-```bash
-hop3 context list
-```
-
-**Example Output (in a project):**
-```
-Contexts in /home/me/project/hop3.toml:
-
-    devel
-      server: ssh://root@devel.example.com
-      app:    myapp
-      domains: myapp.com
-  * staging
-      server: ssh://root@staging.example.com
-      app:    myapp-staging
-    dev
-      server: ssh://root@dev.example.com
-
-Selected (this checkout): staging
-```
-
-**Example Output (project-less, global):**
-```
-Global contexts (config.toml):
-
-  * devel
-      server: ssh://root@devel.example.com
-    staging
-      server: ssh://root@staging.example.com
-
-Default context: devel
-Select one with `--context <name>` on any command.
-```
-
-**Notes:**
-- In a project, `*` indicates the context selected for this checkout (via `.hop3-local.toml`).
-- Outside a project, `*` indicates the default context (`[cli].default_context`).
-- Pass `--global` to list the global contexts even from inside a project tree.
-
-### `hop3 context show`
-
-Show one context, by name or the one currently selected. Inside a project it reads the project `hop3.toml` block; outside a project (or with `--global`) it reads the global context from `config.toml` (where, with no name, it shows the default context).
-
-**Usage:**
-```bash
-hop3 context show [<name>]
-```
-
-**Example Output (project):**
-```
-Context: devel
-  server:  ssh://root@devel.example.com
-  app:     myapp
-  domains: myapp.com, www.myapp.com
-  env:     LOG_LEVEL
-```
-
-**Example Output (project-less, global):**
-```
-Context: devel (default)  [global]
-  server:  ssh://root@devel.example.com
-```
-
-**Possible selection sources** (highest to lowest):
-- `--context <name>` / `-c <name>` - Set via command line
-- `HOP3_CONTEXT environment variable` - Set in current shell
-- `.hop3-local.toml [local].context` - Pinned for this checkout (`hop3 context use`)
-- Single-context fallback (project) / `[cli].default_context` (project-less)
-
-### `hop3 context use`
-
-Pin a context for this checkout, or set the global default target. Inside a project it writes a gitignored `.hop3-local.toml`, never the committed `hop3.toml`.
-
-**Usage:**
-```bash
-hop3 context use <name>
-hop3 context use --global <name>
-```
-
-**Arguments:**
-- `name` - Name of a context declared in this project's `hop3.toml`, or, with `--global` or outside a project, a global context in `config.toml`
-
-Run `hop3 context use <name>` from inside a project directory (a tree containing `hop3.toml`). It writes `[local].context = "<name>"` to `.hop3-local.toml` (item 3 of the [Context Priority](#context-priority) chain). The file is local and not committed; each checkout chooses its own environment.
-
-With `--global`, or outside a project, `use` sets `[cli].default_context` in `config.toml` instead: the target of project-less commands. It says so when the environment (`HOP3_CONTEXT`, `HOP3_API_URL`) outranks it in the current shell.
-
-**Examples:**
-```bash
-# Stand in the project tree and select a declared context
-cd my-staging-project/
-hop3 context use staging        # writes .hop3-local.toml [local].context = "staging"
-
-# Now any hop3 command in this directory tree targets the staging environment
-hop3 deploy
-
-# Make a global context the default target again
-hop3 context use --global prod
-```
-
-**Best Practice:**
-
-For one-off commands against another environment, prefer the per-command flag or the env var over re-pinning:
-```bash
-# One command against another environment, without changing this checkout's selection:
-hop3 --context devel deploy
-
-# Or point a whole terminal session at it:
-export HOP3_CONTEXT=devel
-```
-
-### `hop3 context remove`
-
-Remove a context at the current scope: a `[contexts.<name>]` block from the project's `hop3.toml` inside a project, or a global context from `config.toml` outside one (or with `--global`).
-
-**Usage:**
-```bash
-hop3 context remove <name>
-```
-
-**Example:**
-```bash
-hop3 context remove old-staging
-```
-
-**Notes:**
-- In a project, edits the committed `hop3.toml`; commit the change to share it with your team. Outside a project, edits the per-developer `config.toml` (and clears `[cli].default_context` if it pointed here).
-- Does not affect the actual server, only the context declaration
-- If this checkout still selects the removed project context (via `.hop3-local.toml`), re-point it with `hop3 context use <other>`
-
-### `hop3 context rename`
-
-Rename a `[contexts.<old>]` block to `[contexts.<new>]` in the project's `hop3.toml`.
-
-**Usage:**
-```bash
-hop3 context rename <old> <new>
-```
-
-**Notes:**
-- Edits the committed `hop3.toml`; commit the change to share it
-- If this checkout selected the old name, its `.hop3-local.toml` pin is re-pointed to the new name automatically
-
-### Using Contexts
-
-#### Per-Command Context
-
-Use `--context` flag for one-off commands:
-```bash
-# Deploy to another environment without changing your current context
-hop3 --context devel deploy --app myapp
-
-# Check staging logs while working on devel
-hop3 --context staging app logs --app myapp
-```
-
-#### Per-Shell Context
-
-Set environment variable for your terminal session:
-```bash
-# This terminal now targets the devel context
-export HOP3_CONTEXT=devel
-
-# All commands use it
-hop3 app list
-hop3 app status --app myapp
-```
-
-#### Per-Project Context (ADR 042)
-
-Stand in the project directory and run `hop3 context use <name>`; the project-scoped verb writes `.hop3-local.toml` and auto-gitignores it:
-```bash
-cd my-staging-project/
-hop3 context use staging
-# Writes .hop3-local.toml with [local].context = "staging"
-# Adds .hop3-local.toml to .gitignore if it isn't already
-
-# Now any hop3 command in this directory uses staging
-hop3 deploy --app myapp
-```
-
-The legacy single-line `.hop3-context` file (and its `--local` flag) was retired in ADR 042 Step 7. Stale `.hop3-context` files have no effect; re-run `hop3 context use <name>` to migrate to `.hop3-local.toml`.
-
-### Destructive-operation safety
-
-Destructive verbs (`app destroy`, `config set`, …) always require confirmation:
-there is no per-context "protected" flag in ADR 042 (a context is non-secret
-config, not a managed connection). Two layers guard you:
-
-- The **deploy preview** shows the resolved app, server and domains before a
-  deploy, so you can see exactly where it's going.
-- The **project-mismatch guard** refuses a destructive op when the resolved app
-  doesn't match the project you're standing in *and* the app came from a non-
-  CWD-rooted source (an ambient `$HOP3_CONTEXT`, an ancestor overlay); pass
-  `--force` to override.
-
-**Example:**
-```bash
-$ hop3 app destroy --app myapp
-
-WARNING: This will permanently destroy the app 'myapp'.
-Type 'myapp' to confirm: myapp
-✓ App 'myapp' destroyed.
-```
-
-### Environment Variables
-
-| Variable | Description |
-|----------|-------------|
-| `HOP3_CONTEXT` | Override the current context for this shell |
-| `HOP3_SSH_KEY` | Private key for every `ssh` the CLI spawns: the `ssh://` tunnel, `hop3 tunnel`, `hop3 app shell`, the `hop3 login` bootstrap, and `--via-ssh`. Default: ssh's own keys and config. |
-| `HOP3_SSH_PORT` | SSH port when the server address has none (`ssh://root@host`). A port in the address, or in a `hop3 login root@host:2222` target, wins. |
-| `HOP3_SSH_OPTIONS` | Extra `ssh -o` values, whitespace-separated, for every `ssh` the CLI spawns: `"ProxyJump=bastion UserKnownHostsFile=/path"`. |
-
-**Example `.bashrc` setup:**
-```bash
-# Production alias with explicit context
-alias hop3-devel='HOP3_CONTEXT=devel hop3'
-alias hop3-staging='HOP3_CONTEXT=staging hop3'
-
-# Or set default for specific terminal profiles
-# In your "Production Terminal" profile:
-export HOP3_CONTEXT=devel
-```
-
-### Files and where things live (ADR 042)
-
-A context lives at two scopes: a **project** environment in your committed `hop3.toml`, and a **global** named server in your per-developer `config.toml`. Both files are secret-free; tokens live in a separate credential store. The four files that matter:
-
-| File | Scope | Holds | Secret? |
-|------|-------|-------|---------|
-| `hop3.toml` | committed, shared | **project** `[contexts.<name>]` environments (`server`, `app`, domains, env) + base app config | no |
-| `~/.config/hop3-cli/credentials.toml` | per-developer | bearer tokens keyed by server address | **yes** (local) |
-| `~/.config/hop3-cli/config.toml` | per-developer | CLI preferences + **global** `[contexts.<name>].server` (named servers) + `[cli].default_context` | no |
-| `.hop3-local.toml` (gitignored) | per-checkout | `[local].context`, the project environment this checkout targets | no |
-
-**Contexts in `hop3.toml`** (committed, no secrets):
+The app may differ between deployments in three things: its name there, its domains and its environment. These live in `hop3.toml`, in a block keyed by **context name**, merged over the base configuration:
 
 ```toml
 [metadata]
 id = "myapp"
 
-[contexts.staging]
-server = "ssh://root@staging.example.com"
-app    = "myapp-staging"
-[contexts.staging.domains]
-list = ["staging.myapp.com"]
-[contexts.staging.env]
+[contexts.demo]
+app = "myapp-demo"
+[contexts.demo.domains]
+list = ["demo.myapp.com"]
+[contexts.demo.env]
 LOG_LEVEL = "debug"
 
-[contexts.devel]
-server = "ssh://root@devel.example.com"
-app    = "myapp"
-[contexts.devel.domains]
+[contexts.prod]
+[contexts.prod.domains]
 list = ["myapp.com", "www.myapp.com"]
-[contexts.devel.env]
-LOG_LEVEL = "warning"
 ```
 
-**Credential store** (`~/.config/hop3-cli/credentials.toml`): local, per-developer, secret. Bearer tokens keyed by the *canonical* server address. Written only by `hop3 auth login` / `hop3 init`, created `0o600` (parent dir `0o700`); you never edit it by hand:
+A checkout bound to `demo` deploys `myapp-demo` with its domains and env, to the server *your* `demo` context names. So a team names its contexts alike (`dev`, `demo`, `prod`). In a project that declares blocks, a context matching none of them is refused; a project without blocks deploys its base configuration to any context. `domains` replaces the top-level `[domains]`; `env` merges over `[env]` key by key. A block never carries `server` or `bootstrap`: the CLI and the server refuse them, naming the `hop3 context add` that replaces them.
 
-```toml
-[servers."ssh://root@devel.example.com:22"]
-token = "eyJ..."
+### `hop3 context`
 
-[servers."ssh://root@staging.example.com:22"]
-token = "eyJ..."
+Bare, it shows where a command run here goes, and why, then the known contexts.
+
+### `hop3 context add`
+
+Name a server. A login does it too.
+
+```bash
+hop3 context add <name> --server <address> [--bootstrap ssh://user@host]
 ```
 
-**Global config** (`~/.config/hop3-cli/config.toml`): secret-free. Local preferences plus **global contexts** (named servers) and the default context used by project-less commands (`hop3 app list`). The token still lives only in the credential store:
+- `--server` - The address every command connects to, e.g. `https://hop3.example.com` or `ssh://root@host`.
+- `--bootstrap` - The `ssh://` route used only to renew an expired token. It lets an `https://` server renew unattended; omit it when the server is itself `ssh://`.
+
+`--app`, `--domain` and `--env` are refused: they belong in the project's `[contexts.<name>]` block.
+
+### `hop3 context list` / `hop3 context show`
+
+`list` shows every context; `*` marks the one a command here would use, and the global current context is labelled. `show [<name>]` shows one context's addresses and, inside a project, its `[contexts.<name>]` block.
+
+```
+$ hop3 context list
+  * demo         https://demo.example.com
+    dev          https://dev.example.com  (global current context)
+    prod         https://hop3.example.com
+
+Here: demo (https://demo.example.com), bound in this checkout
+```
+
+### `hop3 context use`
+
+```bash
+hop3 context use <name>
+hop3 context use --global <name>
+```
+
+Inside a project, `use` binds this checkout to the context; outside one, it sets the global current context. `--global` sets the global current context from inside a project. It asks before writing, naming the scope, the file and the address:
+
+```
+$ hop3 context use demo
+Bind this checkout (/home/me/myapp) to 'demo' (https://demo.example.com)? [y/N] y
+Bound /home/me/myapp to 'demo', in .hop3-local.toml (not committed).
+```
+
+`-y` / `--yes` skips the question; without a terminal and without `--yes`, it refuses. Inside a project whose `hop3.toml` declares blocks, a context matching none of them is refused here already.
+
+### `hop3 context unset`
+
+```bash
+hop3 context unset [--global]
+```
+
+Removes this checkout's binding, or (outside a project, or with `--global`) the global current context. Same scope rule, same question.
+
+### `hop3 context remove` / `hop3 context rename`
+
+```bash
+hop3 context remove <name>
+hop3 context rename <old> <new>
+```
+
+Both edit `config.toml` only. `rename` carries the global current context and this checkout's binding along, and says when the project's `hop3.toml` has a block under the old name (blocks follow the name, so rename it there too, or keep the old name). `remove` says when this checkout is still bound to the removed context.
+
+### Using contexts
+
+```bash
+# Once per checkout
+cd myapp && hop3 context use demo
+hop3 deploy                          # → demo (…), bound in this checkout
+
+# One command elsewhere
+hop3 -c prod app logs --app myapp
+
+# One shell, or one directory through direnv
+export HOP3_CONTEXT=prod
+```
+
+### Destructive-operation safety
+
+- The **deploy preview** shows the context, the server, the app and the domains before a deploy.
+- The **project-mismatch guard** refuses a guarded command when the resolved app does not match the project you stand in and the app came from the environment (an exported `HOP3_APP` or `HOP3_CONTEXT`); `--force` overrides it.
+- Destructive commands ask for the resource's name, typed.
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `HOP3_CONTEXT` | The context for this shell (rank 2) |
+| `HOP3_API_URL` | A server address for this shell, as the context `env` (rank 2); for CI |
+| `HOP3_API_TOKEN` | The token to send, instead of the stored one |
+| `HOP3_SSH_KEY` | Private key for every `ssh` the CLI spawns: the `ssh://` tunnel, `hop3 tunnel`, `hop3 app shell`, the `hop3 login` bootstrap, and `--via-ssh`. Default: ssh's own keys and config. |
+| `HOP3_SSH_PORT` | SSH port when the server address has none (`ssh://root@host`). A port in the address, or in a `hop3 login root@host:2222` target, wins. |
+| `HOP3_SSH_OPTIONS` | Extra `ssh -o` values, whitespace-separated, for every `ssh` the CLI spawns: `"ProxyJump=bastion UserKnownHostsFile=/path"`. |
+
+### Files and where things live (ADR 042)
+
+| File | Scope | Holds | Secret? |
+|------|-------|-------|---------|
+| `hop3.toml` | committed, shared | the app: base config and per-deployment `[contexts.<name>]` blocks (`app`, domains, env) | no |
+| `~/.config/hop3-cli/config.toml` | per-developer | contexts (`server`, `bootstrap`), `[cli].default_context`, preferences, aliases | no |
+| `~/.config/hop3-cli/credentials.toml` | per-developer | bearer tokens keyed by server address | **yes** (local) |
+| `.hop3-local.toml` (gitignored) | per-checkout | `[local].context`: the binding | no |
+
+**Contexts** (`~/.config/hop3-cli/config.toml`):
 
 ```toml
 [cli]
-default_context = "devel"                        # used by `hop3 app list` etc. with no --context
-# default_server = "ssh://root@host"             # legacy unnamed fallback (lower priority)
+default_context = "dev"     # the global current context, used outside a project
 
-[contexts.devel]
-server = "ssh://root@devel.example.com"           # a named server — `--context devel` anywhere
+[contexts.dev]
+server = "https://dev.example.com"
+bootstrap = "ssh://root@dev.example.com"
 
-[contexts.staging]
-server = "ssh://root@staging.example.com"
+[contexts.prod]
+server = "https://hop3.example.com"
 ```
 
-So `hop3 app list --context devel` targets the named server with no project; a bare `hop3 app list` targets `[cli].default_context`.
+**Credential store** (`~/.config/hop3-cli/credentials.toml`): bearer tokens keyed by the canonical server address, written only by `hop3 auth login` / `hop3 init`, created `0o600`; you never edit it by hand:
+
+```toml
+[servers."https://hop3.example.com"]
+token = "eyJ..."
+```
 
 ## Authentication Commands
 

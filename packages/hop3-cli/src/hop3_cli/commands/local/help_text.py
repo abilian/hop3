@@ -19,18 +19,17 @@ INIT_HELP = """Usage: hop3 init --ssh <user@server> [options]
 Bootstrap a new Hop3 server with a custom admin user.
 
 NOTE: For most cases, you don't need this command anymore!
-Authenticate once over SSH, then declare your deploy environment:
+Authenticate once over SSH; the login records the server as a context:
 
-  hop3 login root@my-server.com
-  hop3 context add dev --server ssh://root@my-server.com --app myapp
-  hop3 apps  # uses the resolved context
+  hop3 login root@my-server.com --context dev
+  hop3 context use dev   # inside a project: bind this checkout to it
 
 Use 'init' only if you want to create a specific admin user with
 a custom username, email, and password.
 
 Options:
   --ssh <user@server>    SSH target for the server (required)
-  --context <name>       Suggest a hop3.toml context name for this server
+  --context <name>       Record the server as this context (default: "default")
   --username <name>      Admin username (prompted if not provided)
   --email <email>        Admin email (prompted if not provided)
   --url <url>            Server URL (inferred from SSH target if not provided)
@@ -54,18 +53,17 @@ Subcommands:
   get <key>         Get a settings value
 
 Keys:
-  server (api_url)  Server URL (e.g., https://my-server.com)
-  token (api_token) API authentication token
   ssl_cert          Path to trusted certificate file (for self-signed certs)
   verify_ssl        Verify SSL certificates (true/false, default: true)
 
 Examples:
   hop3 settings show
-  hop3 settings set server https://my-server.com
-  hop3 settings set token eyJhbGciOiJI...
   hop3 settings set ssl_cert ~/server.crt  # Trust a specific certificate
   hop3 settings set verify_ssl false       # Disable SSL verification (less secure)
-  hop3 settings get server
+  hop3 settings get ssl_cert
+
+The server and its token are not settings: `hop3 login` records them, as a
+context (see `hop3 context --help`).
 """
 
 
@@ -102,7 +100,8 @@ here, the dashboard's own form in the browser.
 Options:
   <user>@<host>          Mint a CLI token over SSH (a bare host means root@)
   --browser [<target>]   Print a one-time link for the web dashboard
-  --context <name>       Name this server, and make it the default target
+  --context <name>       Record the server as this context (else "default");
+                         it becomes the global context only if none is set
   --username <name>      Specific user (optional, defaults to auto-select)
   --url <url>            Server URL (HTTP API; pair with --token for token auth)
   --token <token>        Use a pre-generated API token
@@ -143,49 +142,46 @@ of `--browser`; both still work.
 
 CONTEXT_HELP = """Usage: hop3 context <subcommand> [args]
 
-A context is a named target — the one selector for every command. Select one with
-`--context <name>` (or `-c`); it resolves project-first, then global. Two scopes:
+A context is a server you can reach: a name, an address, and the SSH route
+that renews its token. Contexts are yours, in ~/.config/hop3-cli/config.toml;
+hop3.toml never says where the app is deployed.
 
-  Global   ~/.config/hop3-cli/config.toml — just a named server, so commands like
-           `hop3 apps --context prod` work with no project. Defined outside a
-           project (or with --global).
-  Project  the committed hop3.toml — a deploy environment: server + app + domains
-           + env. Defined inside a project.
+Where a command goes, highest first:
+  1. --context / -c <name>
+  2. HOP3_CONTEXT (an .envrc or .env may set it), or HOP3_API_URL
+  3. inside a project: the context this checkout is bound to
+  4. outside a project: the global current context
+Inside a project with no binding, every command that reaches a server is
+refused. Each such command prints where it goes and why.
 
-Quick start (project-less — manage your servers by name):
-  hop3 login --context prod --ssh root@prod.example.com   # name + authenticate
-  hop3 apps --context prod                                # target it anywhere
+Quick start:
+  hop3 login root@hop3.example.com --context prod   # sign in, name it
+  cd myapp && hop3 context use prod                  # bind this checkout
+  hop3 deploy
 
-Quick start (in a project — per-environment deploys):
-  hop3 context add prod --server ssh://root@prod.example.com --app myapp
-  hop3 context use prod        # pin this checkout to prod
-  hop3 deploy                  # deploys the selected environment
-
-Subcommands (operate on the current scope; --global forces global):
-  (bare)              Show contexts at the current scope
-  list                List contexts (global outside a project, else project)
-  show [<name>]       Show one context
-  add <name> [opts]   Define a context (global = named server; project = full)
+Subcommands:
+  (bare)              Where a command here goes, and the known contexts
+  list                List contexts
+  show [<name>]       Show one context, and its [contexts.<name>] block here
+  add <name> --server <address> [--bootstrap ssh://…]
+                      Name a server (a login does it too)
   remove <name>       Remove a context
-  rename <old> <new>  Rename a project context
-  use <name>          Pin a PROJECT context for THIS checkout (.hop3-local.toml)
-  use --global <name> Make a GLOBAL context the default target (config.toml)
+  rename <old> <new>  Rename a context
+  use <name>          Inside a project, bind this checkout (.hop3-local.toml,
+                      not committed); outside one, set the global context
+  use --global <name> Set the global context from inside a project
+  unset [--global]    Remove the binding, or the global context
+`use` and `unset` ask first; -y / --yes skips the question.
 
-Add options:
-  --server <addr>   Target server address (required), e.g. ssh://root@host
-  --global, -g      Define a global (named-server) context in config.toml
-  --app <name>      App instance name        (project context only)
-  --domain <host>   Hostname (repeatable)    (project context only)
-  --env KEY=VALUE   Non-secret env override  (project context only)
+What differs per deployment lives in hop3.toml, keyed by context name:
+  [contexts.prod]
+  app = "myapp"
+  [contexts.prod.domains]
+  list = ["myapp.com"]
+A context that matches none of a project's blocks is refused there.
 
-Context selection (highest to lowest):
-  1. --context flag
-  2. HOP3_CONTEXT environment variable
-  3. .hop3-local.toml [local].context  (per-checkout, project)
-  4. single-context fallback (project) / default global context (project-less)
-
-No secrets anywhere: a context's server is a literal address; the token lives in
-the credential store; per-env secrets are set server-side with `hop3 env set`.
+No secrets anywhere: the token lives in the credential store; per-app
+secrets are set server-side with `hop3 env set`.
 """
 
 

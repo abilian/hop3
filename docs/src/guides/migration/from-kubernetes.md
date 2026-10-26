@@ -57,7 +57,7 @@ admin account and stores your API token:
 hop3 init --ssh root@your-server.com
 ```
 
-If you've used `kubectl` contexts to switch between clusters, this will feel familiar — Hop3 has the same notion of named server contexts, and `hop3 server use` is the equivalent of `kubectl config use-context`.
+If you've used `kubectl` contexts to switch between clusters, this will feel familiar: Hop3 has the same notion of named server contexts. One difference: inside a project, `hop3 context use <name>` binds that checkout only, so a context selected in another terminal never redirects a deploy. Outside a project it sets the global current context, like `kubectl config use-context`.
 
 ## Step 2: Export Your Kubernetes Configuration
 
@@ -360,7 +360,7 @@ That bumps the number of web and worker processes on the server — vertical hea
 | StatefulSet / DB operator | `hop3 addon create postgres <name>` |
 | `kubectl apply -f pvc.yaml` | `[[volumes]]` in `hop3.toml` |
 | `Ingress` + cert-manager | `hop3 domain add <host> --app web` |
-| `kubectl config use-context` | `hop3 server use <name>` |
+| `kubectl config use-context` | `hop3 context use <name>` |
 
 ## Cost and Lock-In
 

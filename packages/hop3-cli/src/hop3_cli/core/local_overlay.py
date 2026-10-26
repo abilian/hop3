@@ -114,6 +114,16 @@ def read_overlay(cwd: Path | None = None, home: Path | None = None) -> LocalOver
     return LocalOverlay(path=path, data=data)
 
 
+def read_binding(project_dir: Path) -> str | None:
+    """
+    The context this checkout is bound to (ADR 042), or None.
+
+    Only the overlay beside the project's ``hop3.toml`` counts: a binding
+    belongs to one checkout, so one in a parent directory never applies.
+    """
+    return read_overlay(cwd=project_dir, home=project_dir).current_context
+
+
 def write_overlay(
     updates: dict[str, Any],
     *,

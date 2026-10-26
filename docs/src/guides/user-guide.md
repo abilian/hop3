@@ -201,6 +201,11 @@ hop3 init --ssh root@hop3.example.com
 # Or login to an existing setup
 hop3 auth login --ssh root@hop3.example.com
 
+# Inside a project: bind this checkout to the server (once per checkout;
+# a login without --context names the server "default")
+cd myapp/
+hop3 context use default
+
 # Verify connection
 hop3 auth whoami
 hop3 system status
@@ -218,7 +223,7 @@ hop3 app list
 # Create a new app from a git repository (then deploy it)
 hop3 app create https://github.com/user/myapp.git --app myapp
 
-# Deploy from local directory
+# Deploy from local directory (bound with `hop3 context use` above)
 cd myapp/
 hop3 deploy --app myapp
 
@@ -570,7 +575,10 @@ hop3 deploy --app myapp --quiet -y
 ### Environment Variables
 
 ```bash
-# Override server URL
+# Pick the context (server) for this shell
+export HOP3_CONTEXT=prod
+
+# Or point at a server address directly (the context `env`; for CI)
 export HOP3_API_URL="https://hop3.example.com"
 
 # Override token
@@ -587,6 +595,7 @@ export HOP3_DEBUG=1
 | Browse ready-made apps | `hop3 catalog list` |
 | Install a catalog app | `hop3 catalog install <id>` |
 | Start a hop3.toml | `hop3 scaffold` |
+| Bind a checkout to a server | `hop3 context use <name>` |
 | Create new app | `hop3 app create <repo-url> --app <name>` |
 | Verify it works | `hop3 app check --app <name>` |
 | Get admin credentials | `hop3 app credentials --app <name>` |

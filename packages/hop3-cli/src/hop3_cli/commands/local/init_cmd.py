@@ -34,9 +34,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
     if parsed is None:
         return  # Help was shown
 
-    ssh_target, username, email, server_url, password_stdin, auto_yes, context_name = (
-        parsed
-    )
+    ssh_target, username, email, server_url, password_stdin, auto_yes = parsed
 
     # Infer the server URL from the SSH target if still unknown.
     if not server_url:
@@ -64,21 +62,20 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    # ADR 042 r2: persist the token in the per-server credential store and set
-    # this server as the default target. config.toml stays secret-free; deploy
-    # environments ("contexts") are declared per-project via `hop3 context add`.
+    # ADR 042: the token goes to the credential store, the server to the
+    # context `--context` names (parsed globally), else `default`.
     record_server_login(config, server_url, token)
-    _print_init_success(username, server_url, context_name)
+    _print_init_success(username, server_url)
 
 
 def _parse_init_args(
     args: list[str],
-) -> tuple[str, str | None, str | None, str | None, bool, bool, str | None] | None:
+) -> tuple[str, str | None, str | None, str | None, bool, bool] | None:
     """
     Parse arguments for init command.
 
     Returns:
-        Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes, context_name)
+        Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes)
         or None if help was shown
     """
     ssh_target = None
@@ -87,7 +84,6 @@ def _parse_init_args(
     server_url = None
     password_stdin = False
     auto_yes = False
-    context_name = None
 
     i = 0
     while i < len(args):
@@ -103,9 +99,6 @@ def _parse_init_args(
             i += 2
         elif arg == "--url" and i + 1 < len(args):
             server_url = args[i + 1]
-            i += 2
-        elif arg == "--context" and i + 1 < len(args):
-            context_name = args[i + 1]
             i += 2
         elif arg == "--password-stdin":
             password_stdin = True
@@ -134,7 +127,6 @@ def _parse_init_args(
         server_url,
         password_stdin,
         auto_yes,
-        context_name,
     )
 
 
@@ -175,22 +167,10 @@ def _gather_init_credentials(
     return username, email, password
 
 
-def _print_init_success(
-    username: str,
-    server_url: str,
-    context_name: str | None = None,
-) -> None:
+def _print_init_success(username: str, server_url: str) -> None:
     """Print success message after init."""
     print(f"\nAdmin user '{username}' created successfully.")
     print(f"Token stored for {server_url}")
-    if context_name:
-        # `--context` no longer writes a config.toml connection (ADR 042 r2):
-        # contexts are deploy environments declared in the app's hop3.toml.
-        print(
-            f"\nTo deploy to this server as context '{context_name}', declare it in\n"
-            f"your app's hop3.toml:\n"
-            f"  hop3 context add {context_name} --server {server_url}"
-        )
     print("\nYou're all set! Try:")
     print("  hop3 apps           # List applications")
     print("  hop3 auth whoami    # Check current user")

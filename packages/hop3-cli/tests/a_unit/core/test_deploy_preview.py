@@ -357,26 +357,16 @@ def test_render_plan_full() -> None:
     assert "Env vars: API_KEY, DEBUG" in out
 
 
-def test_render_plan_default_context_shown_when_unresolved() -> None:
-    """
-    No explicit context resolves, but a default one selects the server:
-    show it (marked) instead of "(none)" so the operator sees the real target.
-    """
+def test_render_plan_says_why_the_context_was_chosen() -> None:
     out = render_plan(
-        _plan(context=None, default_context="prod", server="https://api.example.com")
+        _plan(
+            context="prod",
+            context_source="bound in this checkout",
+            server="https://api.example.com",
+        )
     )
-    assert "Context:  prod (default)" in out
+    assert "Context:  prod (bound in this checkout)" in out
     assert "Server:   https://api.example.com" in out
-
-
-def test_render_plan_explicit_context_wins_over_default() -> None:
-    """
-    An explicitly resolved context is shown plain (no "(default)" marker),
-    even if a default_context field is also populated.
-    """
-    out = render_plan(_plan(context="staging", default_context="prod"))
-    assert "Context:  staging" in out
-    assert "(default)" not in out
 
 
 def test_render_plan_dirty_git_emits_warning() -> None:

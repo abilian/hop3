@@ -8,7 +8,10 @@ from __future__ import annotations
 
 import pytest
 from hop3_cli.commands.help import serve_offline_help
+from hop3_cli.config import Config
+from hop3_cli.core.resolution import resolve_context
 from hop3_cli.core.suggest import read_cached_names
+from hop3_cli.core.target import Target, resolve_target
 
 
 class FakeConfig:
@@ -18,13 +21,17 @@ class FakeConfig:
     def is_configured(self) -> bool:
         return self._configured
 
+    def require_target(self) -> Target:
+        """What a CLI with no context at all answers."""
+        return resolve_target(resolve_context(None), Config(data={}))
+
 
 def test_bare_help_is_answered_without_a_server(capsys):
     assert serve_offline_help(["help"], FakeConfig(configured=False)) is True
 
     out = capsys.readouterr().out
-    assert "Not connected to a server yet" in out
-    assert "hop3 login root@" in out
+    assert "not connected to a server yet" in out
+    assert "hop3 login <user>@<host>" in out
     for command in ("deploy", "app", "env", "context"):
         assert command in out
 

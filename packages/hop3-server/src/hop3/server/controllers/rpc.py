@@ -21,6 +21,7 @@ from hop3 import config
 from hop3.commands import Command
 from hop3.commands._errors import CommandFailedError
 from hop3.core.plugins import get_plugin_manager
+from hop3.core.roles import Role
 from hop3.lib import format_diagnosis
 from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
@@ -63,6 +64,15 @@ RPC_ERROR_RATE_LIMITED = -32002
 # Signed in, but the account's role is below the command's (ADR 061). Distinct
 # from -32001 so a client can tell "sign in" from "ask an admin".
 RPC_ERROR_FORBIDDEN = -32003
+
+# ADR 042, rule D: the context sources the CLI reports that name the server
+# explicitly (`--context`, `HOP3_CONTEXT`, `HOP3_API_URL`); the others are a
+# checkout's binding and the global current context.
+EXPLICIT_CONTEXT_SOURCES = frozenset({"flag", "env", "env_url"})
+#: ``error.data.kind`` of a change refused because nothing named the server.
+PROTECTED_NEEDS_EXPLICIT = "protected_needs_explicit_target"
+#: ``error.data.kind`` of a change that waits for the typed confirmation.
+PROTECTED_NEEDS_CONFIRMATION = "protected_needs_confirmation"
 RPC_ERROR_INTERNAL = -32603
 
 # Mapping of repository types to their classes for dependency injection
@@ -441,10 +451,12 @@ class RPCController(Controller):
                 data=unknown.data,
             )
 
-        # Authorize: the caller's account, read now, must hold the command's role
+        # Authorize: the caller's account, read now, must hold the command's
+        # role; and a protected server takes changes only from an explicit
+        # selection (ADR 042, rule D).
         if refusal := self._check_authorization(
             request, command_class, display_name, request_id
-        ):
+        ) or self._check_protection(command_class, display_name, params, request_id):
             return refusal
 
         # Prepare arguments and execute
@@ -714,6 +726,61 @@ class RPCController(Controller):
                 "hint": hint,
             },
         )
+
+    def _check_protection(
+        self,
+        command_class: type[Command],
+        display_name: str,
+        params: JsonDict,
+        request_id: object,
+    ) -> Response | None:
+        """
+        Refuse a change to a protected server reached by accident (ADR 042, D).
+
+        The CLI sends ``context_source``, the step of its resolution that chose
+        this server, and ``protected_confirmed`` once the operator typed the
+        app's name. Checked here rather than in the client, so a stale or
+        edited client configuration cannot get around it. Read-only commands,
+        and the unauthenticated ones a sign-in needs, are never refused.
+        """
+        if not config.PROTECTED or not requires_authentication(command_class):
+            return None
+        if not command_class.min_role.includes(Role.DEPLOYER):
+            return None
+
+        source = params.get("context_source")
+        if source not in EXPLICIT_CONTEXT_SOURCES:
+            server_log.warning(
+                "RPC call refused: protected server",
+                command=display_name,
+                context_source=source,
+            )
+            hint = "hop3 -c <context> … or export HOP3_CONTEXT=<context>"
+            return self._build_error_response(
+                code=RPC_ERROR_FORBIDDEN,
+                message=(
+                    f"This server is protected: 'hop3 {display_name}' changes it, "
+                    "so name the server for this command ("
+                    f"{hint}). A checkout's binding or the global context never "
+                    "selects it for a change. A CLI older than 0.8 does not say "
+                    "how it chose the server: upgrade it."
+                ),
+                request_id=request_id,
+                status_code=403,
+                data={"kind": PROTECTED_NEEDS_EXPLICIT, "hint": hint},
+            )
+        if params.get("protected_confirmed") is not True:
+            return self._build_error_response(
+                code=RPC_ERROR_FORBIDDEN,
+                message=(
+                    f"This server is protected: 'hop3 {display_name}' needs the "
+                    "app's name typed to confirm (or --yes)."
+                ),
+                request_id=request_id,
+                status_code=403,
+                data={"kind": PROTECTED_NEEDS_CONFIRMATION},
+            )
+        return None
 
     def _check_rate_limit(
         self,

@@ -172,8 +172,9 @@ def ssh_endpoint(config: Config, *, what: str = "Tunnel") -> SshEndpoint:
         current = f"the current server is '{api_url}'" if api_url else "none is set"
         print(
             f"{what} needs an SSH server connection, but {current}. "
-            "Configure an ssh:// server (e.g. "
-            "`hop3 settings set server ssh://root@host`).",
+            "Send it through the context's SSH route with --via-ssh, or use a "
+            "context whose server is ssh:// (`hop3 context add <name> --server "
+            "ssh://root@host`).",
             file=sys.stderr,
         )
         sys.exit(ExitCode.USAGE_ERROR)

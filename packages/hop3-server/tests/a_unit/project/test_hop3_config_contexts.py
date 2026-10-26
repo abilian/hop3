@@ -3,11 +3,12 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Tests for `[contexts.*]` in hop3.toml (ADR 042, 2nd revision).
+Tests for `[contexts.*]` in hop3.toml (ADR 042).
 
-A context is a non-secret deploy environment (server address, app, domains,
-env). The schema *accepts* it (so committed files validate and git-push), the
-deployer *ignores* it, and a committed-credential tripwire keeps it secret-free.
+A block holds what differs when the app is deployed through the context of
+that name (app, domains, env), never a server address. The schema *accepts* it
+(so committed files validate and git-push), the deployer *ignores* it, and a
+committed-credential tripwire keeps it secret-free.
 """
 
 from __future__ import annotations
@@ -22,7 +23,6 @@ VALID = """
 id = "myapp"
 
 [contexts.dev]
-server = "ssh://root@dev.example.com"
 app = "myapp-dev"
 [contexts.dev.domains]
 list = ["myapp.dev.example.com"]
@@ -30,7 +30,6 @@ list = ["myapp.dev.example.com"]
 LOG_LEVEL = "debug"
 
 [contexts.prod]
-server = "ssh://root@prod.example.com"
 app = "myapp"
 [contexts.prod.domains]
 list = ["myapp.com"]
@@ -53,7 +52,7 @@ def _reject(content: str, needle: str) -> None:
 
 def test_secret_in_context_env_rejected():
     _reject(
-        '[metadata]\nid="a"\n[contexts.prod]\nserver="ssh://root@h"\n'
+        '[metadata]\nid="a"\n[contexts.prod]\n'
         '[contexts.prod.env]\nSTRIPE = "sk_live_abc123"\n',
         "credential",
     )
@@ -66,16 +65,17 @@ def test_secret_in_top_level_env_rejected():
     )
 
 
-def test_credential_in_server_address_rejected():
+@pytest.mark.parametrize("key", ["server", "bootstrap"])
+def test_an_address_is_refused_with_what_replaces_it(key):
     _reject(
-        '[metadata]\nid="a"\n[contexts.prod]\nserver="ssh://root:hunter2@h"\n',
-        "credential",
+        f'[metadata]\nid="a"\n[contexts.prod]\n{key}="ssh://root@h"\n',
+        "hop3 context add",
     )
 
 
 def test_wildcard_host_in_context_domains_rejected():
     _reject(
-        '[metadata]\nid="a"\n[contexts.prod]\nserver="ssh://root@h"\n'
+        '[metadata]\nid="a"\n[contexts.prod]\n'
         '[contexts.prod.domains]\nlist = ["_", "myapp.com"]\n',
         "catch-all",
     )
@@ -86,30 +86,22 @@ def test_context_env_hostname_and_domains_mutually_exclusive():
     # ("myapp.com" is not secret-shaped, so it clears the credential tripwire and
     # reaches validate_domains_vs_env_hostname as intended.)
     _reject(
-        '[metadata]\nid="a"\n[contexts.prod]\nserver="ssh://root@h"\n'
+        '[metadata]\nid="a"\n[contexts.prod]\n'
         '[contexts.prod.domains]\nlist = ["myapp.com"]\n'
         '[contexts.prod.env]\nHOST_NAME = "myapp.com"\n',
         "HOST_NAME",
     )
 
 
-def test_default_is_reserved_for_the_global_context():
-    """
-    A project `[contexts.default]` would shadow the global one for the checkout.
-
-    `default` is what a login writes when the operator names no context, and a
-    project context resolves before a global one — so committing this name
-    silently retargets everyone who stands in this directory.
-    """
-    _reject(
-        '[metadata]\nid="a"\n[contexts.default]\nserver="ssh://root@h"\n',
-        "reserved",
-    )
+def test_a_block_named_default_is_accepted():
+    """`default` is the context a nameless login records; a block may follow it."""
+    cfg = Hop3Config.from_str('[metadata]\nid="a"\n[contexts.default]\napp="a-x"\n')
+    assert cfg.app_id == "a"
 
 
 def test_invalid_context_name_rejected():
     _reject(
-        '[metadata]\nid="a"\n[contexts."has space"]\nserver="ssh://root@h"\n',
+        '[metadata]\nid="a"\n[contexts."has space"]\napp="a"\n',
         "Invalid context name",
     )
 
@@ -124,6 +116,6 @@ def test_non_secret_connection_url_without_creds_allowed():
 
 def test_context_app_inherits_when_absent():
     cfg = Hop3Config.from_str(
-        '[metadata]\nid="myapp"\n[contexts.prod]\nserver="ssh://root@h"\n'
+        '[metadata]\nid="myapp"\n[contexts.prod]\n[contexts.prod.env]\nA = "1"\n'
     )
     assert cfg.app_id == "myapp"

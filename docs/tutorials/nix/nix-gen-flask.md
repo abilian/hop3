@@ -119,6 +119,12 @@ Only one step of the build can reach the network: it downloads the files the loc
 hop3 init --ssh root@your-server.example.com
 ```
 
+From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
+
+```bash skip
+hop3 context use default   # bind this checkout to the server you logged into
+```
+
 ### Deploy
 
 ```bash exec id=deploy dir=hop3-tuto-nix-gen-flask timeout=900

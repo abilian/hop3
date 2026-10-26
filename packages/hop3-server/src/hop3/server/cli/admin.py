@@ -71,9 +71,8 @@ class AdminCreate(Command):
         # Non-interactive (reads password from stdin)
         echo "secretpass" | hop3-server admin:create admin admin@example.com --password-stdin
 
-    The generated API token should be saved and used to configure the CLI:
-        hop3 settings set server https://your-server.com
-        hop3 settings set token <token>
+    The generated API token signs the CLI in:
+        hop3 login --token <token> --url https://your-server.com
     """
 
     name = "admin:create"

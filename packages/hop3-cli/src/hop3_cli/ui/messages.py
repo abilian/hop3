@@ -18,48 +18,6 @@ def _say(text: str) -> None:
     print(text, file=sys.stderr)
 
 
-def show_unconfigured_message(cli_args: list[str]) -> None:
-    """
-    Show helpful setup instructions when CLI is not configured.
-
-    Args:
-        cli_args: The command-line arguments (for context)
-    """
-    from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
-
-    # ADR 042: if the operator is logged into servers but none is selected for
-    # this command (e.g. two known, no default context), guide them to name one
-    # and select it with --context rather than running `hop3 init` from scratch.
-    known = credential_store.known_servers()
-    if known:
-        _say("No context selected for this command.\n")
-        _say("You're logged into these servers:")
-        for server in known:
-            _say(f"  - {server}")
-        _say("\nName one as a context, then select it by name:")
-        _say("  hop3 context add prod --server <addr>   # name a server")
-        _say("  hop3 <command> --context prod           # target it")
-        _say("\nLog in naming the context to set it as the default target:")
-        _say("  hop3 login --context prod --ssh root@your-server.com")
-        return
-
-    _say("Hop3 CLI is not configured.\n")
-    _say("To get started, connect to your Hop3 server:\n")
-    _say("  hop3 init --ssh root@your-server.com\n")
-    _say("This will:")
-    _say("  - Create an admin user on the server")
-    _say("  - Save the server URL and authentication token")
-    _say("  - Configure SSL certificate trust\n")
-    _say("If you already have a user account:")
-    _say("  hop3 login root@your-server.com\n")
-    _say("Or configure manually:")
-    _say("  hop3 settings set server https://your-server.com")
-    _say("  hop3 settings set token <your-api-token>\n")
-    _say("For developers running a local server:")
-    _say("  export HOP3_DEV_MODE=true")
-    _say("  hop3 help")
-
-
 def show_unauthenticated_message(config: Config) -> None:
     """
     Say which server has no credential, and how to get one for *that* server.

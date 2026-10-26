@@ -173,6 +173,7 @@ class TestSshTransport:
             return subprocess.run(
                 ["hop3", *args],
                 env=env,
+                cwd=tmp_path,  # no hop3.toml above: the global context applies
                 capture_output=True,
                 text=True,
                 check=False,
@@ -282,6 +283,7 @@ class TestHttpsIsTheEverydayTransport:
         result = subprocess.run(
             ["hop3", "login", f"{ssh_target.user}@{ssh_target.host}"],
             env=env,
+            cwd=tmp_path,
             capture_output=True,
             text=True,
             check=False,
@@ -308,7 +310,8 @@ class TestHttpsIsTheEverydayTransport:
         del env["HOP3_API_URL"]
         login = subprocess.run(
             ["hop3", "login", f"{ssh_target.user}@{ssh_target.host}"],
-            env=env, capture_output=True, text=True, check=False, timeout=120,
+            env=env, cwd=tmp_path,
+            capture_output=True, text=True, check=False, timeout=120,
         )  # fmt: skip
         assert login.returncode == 0, login.stdout + login.stderr
 
@@ -318,7 +321,8 @@ class TestHttpsIsTheEverydayTransport:
 
         result = subprocess.run(
             ["hop3", "apps"],
-            env=env, capture_output=True, text=True, check=False, timeout=120,
+            env=env, cwd=tmp_path,
+            capture_output=True, text=True, check=False, timeout=120,
         )  # fmt: skip
         assert result.returncode == 0, result.stdout + result.stderr
         assert credentials.exists(), "a fresh token was minted and stored"

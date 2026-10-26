@@ -15,7 +15,7 @@ This package handles all user-facing output and input:
 from __future__ import annotations
 
 from .console import err
-from .messages import show_unauthenticated_message, show_unconfigured_message
+from .messages import show_unauthenticated_message
 from .prompts import confirm, show_destructive_warning, type_to_confirm
 from .rich_printer import RichPrinter
 
@@ -25,6 +25,5 @@ __all__ = [
     "err",
     "show_destructive_warning",
     "show_unauthenticated_message",
-    "show_unconfigured_message",
     "type_to_confirm",
 ]

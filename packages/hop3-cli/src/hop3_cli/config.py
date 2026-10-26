@@ -5,14 +5,17 @@ import contextlib
 import dataclasses
 import os
 from pathlib import Path
-from typing import ClassVar, overload
+from typing import TYPE_CHECKING, ClassVar, overload
 
 import toml
 
 from hop3_cli.core import credential_store
 from hop3_cli.core.paths import config_dir
 from hop3_cli.core.ssh_target import is_ssh_address, ssh_target_from_address
-from hop3_cli.exceptions import ConfigError
+from hop3_cli.exceptions import ConfigError, TargetError
+
+if TYPE_CHECKING:
+    from hop3_cli.core.target import Target
 
 # The prefix for all environment variables.
 PREFIX = "HOP3_"
@@ -35,43 +38,22 @@ ENV_CONTEXT_NAME = "env"
 
 
 @dataclasses.dataclass
-class Context:
-    """
-    A legacy config.toml connection record (read-only fallback).
-
-    ADR 042 r2 retired config.toml ``[contexts.*]`` as the connection source:
-    deploy environments now live in the app's committed ``hop3.toml`` and bearer
-    tokens live in the per-server credential store. This class survives only as a
-    one-release *read* fallback so an un-migrated config.toml still resolves a
-    connection until the startup migration drains it. Nothing writes it anymore.
-    """
-
-    name: str
-    api_url: str
-    api_token: str = ""
-
-    @staticmethod
-    def from_dict(name: str, data: dict) -> Context:
-        """Create Context from dictionary (prefers ``url``/``token``)."""
-        return Context(
-            name=name,
-            api_url=data.get("url") or data.get("api_url", ""),
-            api_token=data.get("token") or data.get("api_token", ""),
-        )
-
-
-@dataclasses.dataclass
 class Config:
     data: dict = dataclasses.field(default_factory=dict)
     config_file: Path | None = None
     _context_override: str | None = None  # For --context flag
     _app_override: str | None = None  # For --app flag
-    # ADR 042 r2: the resolved context's server ADDRESS (from hop3.toml
-    # [contexts.<name>].server). When set, the connection (url + token) is
-    # resolved from this address + the per-server token store, not the legacy
-    # config.toml context. Set per-invocation by main.py after context resolution.
+    # The server this invocation connects to: the resolved target's, or the
+    # address a login just signed in to. The token is looked up by it.
     _active_server: str | None = None
     _active_bootstrap: str | None = None
+    # ADR 042: where this invocation goes, and why — or why it can go nowhere.
+    # Set once by main.py before any command dispatches; the refusal is raised
+    # only when a command asks for a server.
+    _target: Target | None = None
+    _target_error: TargetError | None = None
+    # -y / --yes, for the local commands that ask before writing.
+    _assume_yes: bool = False
 
     # These are the ultimate fallbacks if nothing is configured.
     defaults: ClassVar[dict] = {
@@ -87,65 +69,56 @@ class Config:
     }
 
     def is_configured(self) -> bool:
-        """
-        Check if the CLI has a server to talk to.
-
-        Returns True if a server address resolves from:
-        1. Developer mode (HOP3_DEV_MODE=true enables localhost:8000)
-        2. Environment variable (HOP3_API_URL)
-        3. This invocation's resolved context (``_active_server``)
-        4. The named context in play, read from ``[contexts.<name>].server``
-        5. The configured default server (project-less commands)
-        6. Legacy config.toml context (one-release read fallback)
-
-        Step 4 is the one this predicate was missing, and it is where ADR 042
-        r2 put a global context's address. The two steps that used to stand in
-        for it do not cover the early callers: ``_active_server`` is wired
-        *after* local dispatch and offline help, and the legacy ``Context``
-        reads ``url``/``api_url`` keys a migrated config.toml no longer has. So
-        a CLI with three working contexts answered ``hop3 --context prod app
-        --help`` with "Not connected to a server yet" while ``hop3 --context
-        prod system info`` reached the box in the same second — and
-        ``completion refresh``, ``login`` and ``settings show``, all dispatched
-        before the wiring, gave the same wrong answer.
-        """
-        if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
-            return True
-
-        if "HOP3_API_URL" in os.environ:
-            return True
-
-        if self._active_server:
-            return True
-
-        name = self.get_current_context_name()
-        if name and self.get_context_server(name):
-            return True
-
-        if self.get_default_server():
-            return True
-
-        context = self.get_current_context()
-        return bool(context and context.api_url)
+        """Whether this invocation has a server to talk to (ADR 042)."""
+        try:
+            return bool(self.get_api_url())
+        except TargetError:
+            return False
 
     def is_authenticated(self) -> bool:
         """
         Check if the CLI has authentication credentials.
 
-        Returns True if api_token is set via:
-        1. Environment variable (HOP3_API_TOKEN)
-        2. The per-server credential store (active or default server)
-        3. Legacy config.toml context (one-release read fallback)
+        True if ``HOP3_API_TOKEN`` is set, or the credential store holds a
+        token for the server this invocation connects to.
         """
         if os.environ.get("HOP3_API_TOKEN"):
             return True
-
         server = self._resolve_token_server()
-        if server and credential_store.get_token(server):
-            return True
+        return bool(server and credential_store.get_token(server))
 
-        context = self.get_current_context()
-        return bool(context and context.api_token)
+    def set_target(self, target: Target) -> None:
+        """Record where this invocation goes (ADR 042); main.py calls it once."""
+        self._target = target
+        self._target_error = None
+        self.set_active_server(target.server)
+        self.set_active_bootstrap(target.bootstrap)
+
+    def set_target_error(self, error: TargetError) -> None:
+        """Record why this invocation has no server, to raise when one is needed."""
+        self._target = None
+        self._target_error = error
+
+    def get_target(self) -> Target | None:
+        """The resolved target, or None when there is none (or none was wired)."""
+        return self._target
+
+    def require_target(self) -> Target:
+        """The resolved target, or the refusal that explains why there is none."""
+        if self._target is not None:
+            return self._target
+        if self._target_error is not None:
+            raise self._target_error
+        msg = "no context selected: hop3 context use <name>"
+        raise TargetError(msg)
+
+    def set_assume_yes(self, value: bool) -> None:
+        """Record -y / --yes for local commands that confirm before writing."""
+        self._assume_yes = value
+
+    def assume_yes(self) -> bool:
+        """Whether -y / --yes was given."""
+        return self._assume_yes
 
     def set_active_bootstrap(self, address: str | None) -> None:
         """
@@ -177,44 +150,33 @@ class Config:
 
     def set_active_server(self, address: str | None) -> None:
         """
-        Set the resolved-context server address (ADR 042 r2).
+        Set the server this invocation connects to. Pass ``None`` to clear.
 
-        When set, ``get_api_url`` / ``get_api_token`` resolve the connection from
-        this address plus the per-server token store, instead of the legacy
-        config.toml context. Pass ``None`` to clear.
+        ``get_api_url`` returns it, and ``get_api_token`` looks the token up
+        by it in the credential store.
         """
         self._active_server = address or None
 
     def get_api_url(self) -> str | None:
         """
-        Get the API URL if configured, None otherwise.
+        The server this invocation connects to.
 
-        Priority:
-        1. HOP3_API_URL environment variable
-        2. The resolved context's server (``_active_server``)
-        3. The default context's server (``[cli].default_context``), what a
-           login records; the commands handled before ``main`` resolves a
-           context (logout, login without ``--url``) have only this
-        4. The legacy default server (``[cli].default_server``)
-        5. Legacy config.toml context (one-release read fallback)
+        The resolved target's server (``set_target``), or the one a login
+        just signed in to. When main.py found no target, the refusal it
+        recorded is raised here, the first moment a server is needed.
 
-        ``HOP3_DEV_MODE`` (localhost:8000) outranks all of them.
+        A Config that was never wired (the TUI, tests) falls back to the
+        server of ``get_current_context_name``.
+
+        Raises:
+            TargetError: when main.py recorded why there is no target.
         """
-        if os.environ.get("HOP3_DEV_MODE", "").lower() in {"true", "1", "yes"}:
-            return self.get("api_url", "http://localhost:8000")
-
-        if "HOP3_API_URL" in os.environ:
-            return os.environ["HOP3_API_URL"]
-
-        default_context = self.get_default_context()
-        legacy = self.get_current_context()
-        return (
-            self._active_server
-            or (self.get_context_server(default_context) if default_context else None)
-            or self.get_default_server()
-            or (legacy.api_url if legacy else None)
-            or None
-        )
+        if self._active_server:
+            return self._active_server
+        if self._target_error is not None:
+            raise self._target_error
+        name = self.get_current_context_name()
+        return self.get_context_server(name) if name else None
 
     def get_api_token(self) -> str | None:
         """
@@ -223,7 +185,6 @@ class Config:
         Priority:
         1. HOP3_API_TOKEN environment variable (only when non-empty — see below)
         2. The per-server credential store, keyed by the connection's server
-        3. Legacy config.toml context (one-release read fallback)
 
         An *empty* HOP3_API_TOKEN is ignored (treated as unset). The presence
         test used to disagree with ``is_authenticated``'s truthy test, so an
@@ -231,21 +192,10 @@ class Config:
         — a 401 with nothing explaining why a good stored token was ignored
         (audit 2026-06 C4).
         """
-        env_token = os.environ.get("HOP3_API_TOKEN")
-        if env_token:
+        if env_token := os.environ.get("HOP3_API_TOKEN"):
             return env_token
-
         server = self._resolve_token_server()
-        if server:
-            token = credential_store.get_token(server)
-            if token:
-                return token
-
-        context = self.get_current_context()
-        if context and context.api_token:
-            return context.api_token
-
-        return None
+        return credential_store.get_token(server) if server else None
 
     def _resolve_token_server(self) -> str | None:
         """
@@ -422,89 +372,28 @@ class Config:
 
     def get_current_context_name(self) -> str | None:
         """
-        Get the name of the current context.
+        The context this invocation uses: the resolved target's (ADR 042).
 
-        Priority (ADR 042 §Resolution chains, post-Step-7):
-        1. Context override (--context flag)
-        2. HOP3_CONTEXT environment variable
-        3. ``env`` — the target `HOP3_API_URL` / `HOP3_DEV_MODE` names
-        4. ``[cli].default_context`` — what a login persists
-        5. ``[cli].current_context`` in the global config file (legacy)
-        6. None if no contexts configured
-
-        Step 3 used to be missing, so this disagreed with the resolver that
-        actually picks the connection (``_resolve_ambient_server`` reads
-        ``default_context``): after ``hop3 login --context prod`` this returned
-        None, and the destructive-command warning — the one thing that tells you
-        which server you are about to act on — printed nothing at all.
-
-        Per-project context selection goes through ``.hop3-local.toml
-        [local].context`` (read by ``hop3_cli.core.resolution.resolve_context``,
-        not by this method). The legacy ``.hop3-context`` one-liner was retired
-        in Step 7.
+        A Config that was never wired (the TUI, tests) answers with the same
+        chain outside a project: ``--context``, ``HOP3_CONTEXT``, ``env``, the
+        global current context.
         """
-        # 1. Check override from --context flag
+        if self._target is not None:
+            return self._target.context
+        if self._target_error is not None:
+            return None
         if self._context_override:
             return self._context_override
-
-        # 2. Check environment variable
-        env_context = os.environ.get("HOP3_CONTEXT")
-        if env_context:
+        if env_context := os.environ.get("HOP3_CONTEXT"):
             return env_context
-
-        # 3. The environment's own target, when it has one. It outranks the
-        # stored default because `get_api_url` connects there.
         if self.env_context_server():
             return ENV_CONTEXT_NAME
+        return self.get_default_context()
 
-        # 4. What `hop3 login` persists; 5. the legacy pointer.
-        return self.get_default_context() or self._read_current_context_pointer()
-
-    # ---- current-context pointer (ADR 042: [cli].current_context) ----------
-
-    def _read_current_context_pointer(self) -> str | None:
-        """
-        The persisted current-context name.
-
-        Canonical location is ``[cli].current_context``; the legacy top-level
-        ``current_context`` is read as a one-release fallback (downgrade window).
-        """
-        cli = self.data.get("cli")
-        if isinstance(cli, dict) and isinstance(cli.get("current_context"), str):
-            return cli["current_context"]
-        val = self.data.get("current_context")
-        return val if isinstance(val, str) else None
-
-    def get_default_server(self) -> str | None:
-        """
-        The default-server address for project-less commands (ADR 042 r2).
-
-        Stored at ``[cli].default_server`` in config.toml. The legacy *unnamed*
-        default target for project-less commands, used when no ``--context`` and no
-        ``[cli].default_context`` resolve a server. Prefer a named default context.
-        """
-        cli = self.data.get("cli")
-        if isinstance(cli, dict) and isinstance(cli.get("default_server"), str):
-            return cli["default_server"] or None
-        return None
-
-    def set_default_server(self, address: str | None) -> None:
-        """Set (or clear) the default-server address. Persists immediately."""
-        cli = self.data.get("cli")
-        if not isinstance(cli, dict):
-            cli = {}
-            self.data["cli"] = cli
-        if address:
-            cli["default_server"] = address
-        else:
-            cli.pop("default_server", None)
-        self.save()
-
-    # ---- global contexts (ADR 042: named, project-less, secret-free) --------
-    # A *global* context names a server you can select project-lessly with
-    # ``--context <name>`` (e.g. `hop3 apps --context prod`). It lives in
-    # config.toml as ``[contexts.<name>].server`` — an address only; the token
-    # stays in the credential store, so config.toml is still secret-free.
+    # ---- contexts (ADR 042: global, personal, secret-free) ------------------
+    # A context is a server you can reach. It lives in config.toml as
+    # ``[contexts.<name>]`` with a ``server`` and an optional ``bootstrap``;
+    # the token stays in the credential store, so config.toml is secret-free.
 
     def get_context_server(self, name: str) -> str | None:
         """Server address for a global context, or None if it isn't defined."""
@@ -568,7 +457,7 @@ class Config:
         return server if is_ssh_address(server) else None
 
     def remove_global_context(self, name: str) -> bool:
-        """Drop a global context. Returns True if it existed. Persists."""
+        """Drop a context. Returns True if it existed. Persists."""
         contexts = self.data.get("contexts")
         if isinstance(contexts, dict) and name in contexts:
             del contexts[name]
@@ -578,6 +467,37 @@ class Config:
                 self.save()
             return True
         return False
+
+    def mark_context_protected(self, name: str) -> None:
+        """
+        Remember that context ``name`` names a protected server. Persists.
+
+        Learned from the server's refusal, and used only to warn ahead of
+        time (``hop3 context use``): the server enforces the rule itself.
+        """
+        contexts = self.data.get("contexts")
+        block = contexts.get(name) if isinstance(contexts, dict) else None
+        if isinstance(block, dict) and not block.get("protected"):
+            block["protected"] = True
+            self.save()
+
+    def is_context_protected(self, name: str) -> bool:
+        """Whether a server refused a change through ``name`` as protected."""
+        contexts = self.data.get("contexts")
+        block = contexts.get(name) if isinstance(contexts, dict) else None
+        return isinstance(block, dict) and block.get("protected") is True
+
+    def rename_context(self, old: str, new: str) -> None:
+        """Rename a context, and the global current context with it. Persists."""
+        contexts = self.data.get("contexts")
+        if not isinstance(contexts, dict) or old not in contexts:
+            msg = f"context {old!r} is not defined"
+            raise ConfigError(msg)
+        contexts[new] = contexts.pop(old)
+        if self.get_default_context() == old:
+            self.set_default_context(new)  # also saves
+        else:
+            self.save()
 
     def list_global_contexts(self) -> dict[str, str]:
         """
@@ -616,18 +536,6 @@ class Config:
         else:
             cli.pop("default_context", None)
         self.save()
-
-    def get_current_context(self) -> Context | None:
-        """Get the current context object."""
-        name = self.get_current_context_name()
-        if not name:
-            return None
-
-        contexts = self.data.get("contexts", {})
-        if name not in contexts:
-            return None
-
-        return Context.from_dict(name, contexts[name])
 
     def update_context_token(self, token: str) -> None:
         """

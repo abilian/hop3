@@ -75,11 +75,3 @@ def test_an_unknown_context_name_does_not_count() -> None:
 def test_an_empty_config_is_still_unconfigured() -> None:
     """The offline-help path has to keep working for a first-run CLI."""
     assert Config(data={}).is_configured() is False
-
-
-def test_the_legacy_url_context_still_counts() -> None:
-    """The one-release read fallback for an un-migrated config.toml."""
-    config = Config(data={"contexts": {"old": {"url": "https://legacy"}}})
-    config.set_context_override("old")
-
-    assert config.is_configured() is True

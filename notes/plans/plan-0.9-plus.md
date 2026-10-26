@@ -40,6 +40,8 @@ The target and transport half is done (ADR 042, fourth revision; see [plan-0.8.m
 
 The context model, redesigned on 2026-10-23 (ADR 042, fifth revision), moved into 0.8: see [plan-0.8.md](plan-0.8.md#the-cli-context-model-adr-042-fifth-revision).
 
+- [ ] **The TUI on a protected server.** It reports no context source and asks for no typed confirmation, so a protected server refuses every change it sends. It needs the CLI's half of ADR 042's rule D: the source of its context, and the confirmation in its UI.
+
 ### Catalog: one core behind two front-ends
 
 - [ ] **Extract `hop3-catalog-core`**: models, loader, taxonomy, policy, and the view-model both renderers consume. Pure Python, no web framework. `packages/hop3-marketplace` depends on the whole of `hop3-server` (Litestar, SQLAlchemy, the plugin manager) to render static HTML today. `hop3-server` keeps everything about fetching, verifying and installing (trust and state); the new package is presentation. The server feature table (catalog versioning, 0.8) stays in hop3-server.

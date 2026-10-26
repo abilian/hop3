@@ -17,9 +17,11 @@ import tarfile
 from pathlib import Path
 from types import SimpleNamespace
 
+import pytest
 import tomllib
 from hop3_cli.commands.arguments import generate_archive
 from hop3_cli.core.deploy_preview import build_plan, flatten_for_context
+from hop3_cli.exceptions import TargetError
 from hop3_cli.main import _context_deploy_override
 
 # ---- flatten_for_context ----
@@ -108,21 +110,31 @@ def test_generate_archive_substitutes_hop3_toml(tmp_path):
 # ---- _context_deploy_override (the main.py wiring) ----
 
 
+def _targeting(name: str) -> SimpleNamespace:
+    """A config whose target is the context ``name``."""
+    return SimpleNamespace(require_target=lambda: SimpleNamespace(context=name))
+
+
 def test_deploy_override_flattens_for_context():
     Path("hop3.toml").write_text(
-        '[metadata]\nid="m"\n[env]\nA="1"\n[contexts.prod]\nserver="s"\n'
-        '[contexts.prod.env]\nA="2"\n'
+        '[metadata]\nid="m"\n[env]\nA="1"\n[contexts.prod]\n[contexts.prod.env]\nA="2"\n'
     )
-    ov = _context_deploy_override(["deploy"], SimpleNamespace(context="prod"))
+    ov = _context_deploy_override(["deploy"], _targeting("prod"))
     assert ov is not None
     eff = tomllib.loads(ov.decode())
     assert "contexts" not in eff
     assert eff["env"] == {"A": "2"}
 
 
+def test_deploy_override_refuses_a_context_matching_no_block():
+    Path("hop3.toml").write_text('[metadata]\nid="m"\n[contexts.prod]\napp="m-prod"\n')
+    with pytest.raises(TargetError, match="matches none of the"):
+        _context_deploy_override(["deploy"], _targeting("dev"))
+
+
 def test_deploy_override_none_for_non_deploy():
-    assert _context_deploy_override(["apps"], SimpleNamespace(context="prod")) is None
+    assert _context_deploy_override(["apps"], _targeting("prod")) is None
 
 
 def test_deploy_override_none_without_hop3_toml():
-    assert _context_deploy_override(["deploy"], SimpleNamespace(context="prod")) is None
+    assert _context_deploy_override(["deploy"], _targeting("prod")) is None

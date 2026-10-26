@@ -3,10 +3,15 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Tests for `hop3 context` — deploy environments in hop3.toml (ADR 042 r2).
+Tests for `hop3 context` (ADR 042).
+
+A context is a server, global and personal, in config.toml; `hop3 context`
+never edits hop3.toml. `use` and `unset` act on this checkout's binding inside
+a project, on the global current context outside one (or with `--global`),
+and ask first.
 
 The conftest autouse fixture chdir's into an isolated tmp dir, so `Path.cwd()`
-is empty until a test writes a hop3.toml there.
+is not a project until a test writes a hop3.toml there.
 """
 
 from __future__ import annotations
@@ -15,287 +20,220 @@ from pathlib import Path
 
 import pytest
 import tomllib
+from hop3_cli.commands.flags import CliFlags
 from hop3_cli.commands.local.context_cmd import (
     context_add,
     context_list,
     context_remove,
     context_rename,
     context_show,
+    context_unset,
     context_use,
 )
 from hop3_cli.config import Config
+from hop3_cli.core.local_overlay import read_binding
+from hop3_cli.exit_codes import ExitCode
+from hop3_cli.main import _wire_target
+
+DEV = "https://dev.example.com"
+PROD = "https://prod.example.com"
 
 
-def _cfg(app: str | None = None) -> Config:
-    """A real Config rooted in the isolated cwd (so global writes/saves work)."""
-    config = Config(data={}, config_file=Path.cwd() / "config.toml")
-    config.set_app_override(app)
+@pytest.fixture
+def config() -> Config:
+    """Two contexts, `dev` the global current one; -y given."""
+    cfg = Config(data={}, config_file=Path.cwd() / "config.toml")
+    cfg.set_context_server("dev", DEV)
+    cfg.set_context_server("prod", PROD)
+    cfg.set_default_context("dev")
+    cfg.set_assume_yes(True)
+    return cfg
+
+
+def _project(toml: str = '[metadata]\nid = "myapp"\n') -> Path:
+    (Path.cwd() / "hop3.toml").write_text(toml)
+    return Path.cwd()
+
+
+def _wired(config: Config) -> Config:
+    """Resolve the target as main.py does before dispatching."""
+    _wire_target(CliFlags(), config)
     return config
 
 
-def _write_toml(text: str) -> Path:
-    p = Path.cwd() / "hop3.toml"
-    p.write_text(text)
-    return p
+# ---- add / remove / rename: config.toml only ------------------------------
 
 
-def _contexts() -> dict:
-    return tomllib.loads((Path.cwd() / "hop3.toml").read_text()).get("contexts", {})
+def test_add_records_a_server_and_nothing_else(tmp_path, capsys):
+    cfg = Config(data={}, config_file=tmp_path / "config.toml")
+    _project()
+    before = (Path.cwd() / "hop3.toml").read_text()
+    context_add(["qa", "--server", "https://qa.example.com"], cfg)
+    assert cfg.get_context_server("qa") == "https://qa.example.com"
+    assert (Path.cwd() / "hop3.toml").read_text() == before, "hop3.toml untouched"
+    assert "hop3 context use qa" in capsys.readouterr().out
 
 
-# ---- add ----
-
-
-def test_add_writes_block_no_secret(capsys):
-    _write_toml('[metadata]\nid = "myapp"\n')
-    context_add(
-        ["prod", "--server", "ssh://root@prod.example.com", "--domain", "myapp.com"],
-        _cfg(),
-    )
-    block = _contexts()["prod"]
-    assert block["server"] == "ssh://root@prod.example.com"
-    assert block["domains"]["list"] == ["myapp.com"]  # unified [domains].list shape
-    assert "token" not in (Path.cwd() / "hop3.toml").read_text().lower()
-    out = capsys.readouterr().out
-    assert "Added [contexts.prod]" in out
-    assert "commit" in out.lower()
-
-
-def test_add_app_from_override():
-    _write_toml('[metadata]\nid = "myapp"\n')
-    context_add(["prod", "--server", "ssh://root@h"], _cfg(app="myapp-prod"))
-    assert _contexts()["prod"]["app"] == "myapp-prod"
-
-
-def test_add_env_pairs():
-    _write_toml('[metadata]\nid = "myapp"\n')
-    context_add(
-        ["prod", "--server", "ssh://root@h", "--env", "LOG_LEVEL=warning"], _cfg()
-    )
-    assert _contexts()["prod"]["env"] == {"LOG_LEVEL": "warning"}
-
-
-def test_add_requires_server(capsys):
-    _write_toml('[metadata]\nid = "myapp"\n')
+@pytest.mark.parametrize("flag", ["--domain", "--env"])
+def test_add_refuses_what_belongs_to_the_project(config, capsys, flag):
     with pytest.raises(SystemExit):
-        context_add(["prod"], _cfg())
+        context_add(["qa", "--server", "https://qa", flag, "x"], config)
+    assert "hop3.toml" in capsys.readouterr().err
+
+
+def test_add_refuses_an_app(config, capsys):
+    config.set_app_override("myapp")
+    with pytest.raises(SystemExit):
+        context_add(["qa", "--server", "https://qa"], config)
+    assert '[contexts.qa] app = "…"' in capsys.readouterr().err
+
+
+def test_add_requires_a_server(config, capsys):
+    with pytest.raises(SystemExit):
+        context_add(["qa"], config)
     assert "--server" in capsys.readouterr().err
 
 
-def test_add_global_when_no_project(capsys):
-    # No hop3.toml here: `context add` defines a GLOBAL context (named server)
-    # so `hop3 apps --context prod` works project-lessly. (ADR 042 unified model.)
-    config = _cfg()
-    context_add(["prod", "--server", "ssh://root@h"], config)
-    assert config.get_context_server("prod") == "ssh://root@h"
-    assert not (Path.cwd() / "hop3.toml").exists()  # nothing written to a project file
+def test_add_refuses_a_duplicate_and_reserved_names(config, capsys):
+    with pytest.raises(SystemExit):
+        context_add(["prod", "--server", "https://x"], config)
+    with pytest.raises(SystemExit):
+        context_add(["env", "--server", "https://x"], config)
+    with pytest.raises(SystemExit):
+        context_add(["bad name", "--server", "https://x"], config)
+
+
+def test_remove_says_when_this_checkout_was_bound_to_it(config, capsys):
+    project = _project()
+    (project / ".hop3-local.toml").write_text('[local]\ncontext = "prod"\n')
+    context_remove(["prod"], config)
+    assert config.get_context_server("prod") is None
+    assert "still bound to 'prod'" in capsys.readouterr().out
+
+
+def test_rename_carries_the_global_context_and_the_binding(config, capsys):
+    project = _project('[metadata]\nid = "a"\n[contexts.dev]\napp = "a-dev"\n')
+    (project / ".hop3-local.toml").write_text('[local]\ncontext = "dev"\n')
+    context_rename(["dev", "staging"], config)
+    assert config.get_context_server("staging") == DEV
+    assert config.get_default_context() == "staging"
+    assert read_binding(project) == "staging"
+    assert "rename the block too" in capsys.readouterr().out
+
+
+# ---- list / show ----------------------------------------------------------
+
+
+def test_list_marks_where_a_command_here_goes(config, capsys):
+    context_list(_wired(config))
     out = capsys.readouterr().out
-    assert "global context 'prod'" in out
-    assert "--context prod" in out
+    assert f"* dev          {DEV}  (global current context)" in out
+    assert f"  prod         {PROD}" in out
+    assert "Here: dev" in out
 
 
-def test_add_global_rejects_project_only_fields(capsys):
-    # A global context is just a named server; project-only fields must not be
-    # silently dropped — they error.
-    with pytest.raises(SystemExit):
-        context_add(["prod", "--server", "ssh://root@h", "--domain", "x.com"], _cfg())
-    assert "global context" in capsys.readouterr().err
+def test_list_in_an_unbound_project_says_so(config, capsys):
+    _project()
+    context_list(_wired(config))
+    assert "not bound to a context" in capsys.readouterr().out
 
 
-def test_add_force_global_inside_project(capsys):
-    # --global writes config.toml even when a project hop3.toml is present.
-    _write_toml('[metadata]\nid = "myapp"\n')
-    config = _cfg()
-    context_add(["prod", "--server", "ssh://root@h", "--global"], config)
-    assert config.get_context_server("prod") == "ssh://root@h"
-    assert "prod" not in _contexts()  # not written to the project file
-
-
-def test_add_duplicate_rejected(capsys):
-    _write_toml('[metadata]\nid = "myapp"\n[contexts.prod]\nserver = "ssh://root@h"\n')
-    with pytest.raises(SystemExit):
-        context_add(["prod", "--server", "ssh://root@h"], _cfg())
-    assert "already exists" in capsys.readouterr().err
-
-
-def test_add_invalid_name(capsys):
-    _write_toml('[metadata]\nid = "myapp"\n')
-    with pytest.raises(SystemExit):
-        context_add(["has space", "--server", "ssh://root@h"], _cfg())
-    assert "Invalid context name" in capsys.readouterr().err
-
-
-def test_add_preserves_comments():
-    _write_toml('# my project\n[metadata]\nid = "myapp"  # the app\n')
-    context_add(["prod", "--server", "ssh://root@h"], _cfg())
-    text = (Path.cwd() / "hop3.toml").read_text()
-    assert "# my project" in text  # tomlkit round-trip keeps comments
-    assert "# the app" in text
-
-
-# ---- list / show ----
-
-
-def test_list(capsys):
-    _write_toml(
-        '[metadata]\nid="myapp"\n'
-        '[contexts.dev]\nserver="ssh://root@dev"\napp="myapp-dev"\n'
-        '[contexts.prod]\nserver="ssh://root@prod"\n'
-    )
-    context_list(_cfg())
+def test_show_includes_the_projects_block(config, capsys):
+    _project('[metadata]\nid = "a"\n[contexts.prod]\napp = "a-prod"\n')
+    context_show(["prod"], config)
     out = capsys.readouterr().out
-    assert "dev" in out
-    assert "prod" in out
-    assert "ssh://root@dev" in out
+    assert f"server:     {PROD}" in out
+    assert "app:      a-prod" in out
 
 
-def test_show(capsys):
-    _write_toml(
-        '[metadata]\nid="myapp"\n[contexts.prod]\nserver="ssh://root@prod"\napp="myapp"\n'
-    )
-    context_show(["prod"], _cfg())
-    out = capsys.readouterr().out
-    assert "Context: prod" in out
-    assert "ssh://root@prod" in out
+def test_show_unknown(config, capsys):
+    with pytest.raises(SystemExit) as exc:
+        context_show(["nope"], config)
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
+    assert "known: dev, prod" in capsys.readouterr().err
 
 
-def test_show_unknown(capsys):
-    _write_toml('[metadata]\nid="myapp"\n')
-    with pytest.raises(SystemExit):
-        context_show(["nope"], _cfg())
-    assert "not found" in capsys.readouterr().err
+# ---- use / unset ----------------------------------------------------------
 
 
-# ---- remove / rename ----
-
-
-def test_remove(capsys):
-    _write_toml('[metadata]\nid="myapp"\n[contexts.prod]\nserver="ssh://root@h"\n')
-    context_remove(["prod"], _cfg())
-    assert "prod" not in _contexts()
-    assert "Removed" in capsys.readouterr().out
-
-
-def test_rename(capsys):
-    _write_toml(
-        '[metadata]\nid="myapp"\n[contexts.old]\nserver="ssh://root@h"\napp="a"\n'
-    )
-    context_rename(["old", "new"])
-    ctxs = _contexts()
-    assert "old" not in ctxs
-    assert ctxs["new"] == {"server": "ssh://root@h", "app": "a"}
-
-
-# ---- use (writes the gitignored per-checkout pin) ----
-
-
-def test_use_writes_overlay(capsys):
-    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
-    context_use(["dev"], _cfg())
-    overlay = tomllib.loads((Path.cwd() / ".hop3-local.toml").read_text())
-    assert overlay["local"]["context"] == "dev"  # ADR 042 r2 renamed [current]->[local]
-    out = capsys.readouterr().out
-    assert "not committed" in out.lower()
-
-
-def test_use_unknown_context(capsys):
-    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
-    with pytest.raises(SystemExit):
-        context_use(["nope"], _cfg())
-    assert "not found" in capsys.readouterr().err
-
-
-def test_use_global_sets_the_default_context(capsys):
-    """A test run once left the default on a removed container; a login was the only way back."""
-    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-    config.set_context_server("gone", "http://container:32000")
-    config.set_default_context("gone")
-
-    context_use(["--global", "prod"], config)
-
-    assert Config.from_toml_file(Path.cwd() / "config.toml").get_default_context() == (
-        "prod"
-    )
-    assert not (Path.cwd() / ".hop3-local.toml").exists()
-    assert "ssh://root@prod" in capsys.readouterr().out
-
-
-def test_use_outside_a_project_is_global():
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-
+def test_use_inside_a_project_binds_the_checkout(config, capsys):
+    project = _project()
     context_use(["prod"], config)
+    assert read_binding(project) == "prod"
+    assert config.get_default_context() == "dev", "the global context is untouched"
+    assert "Bound" in capsys.readouterr().out
 
+
+def test_use_outside_a_project_sets_the_global_context(config):
+    context_use(["prod"], config)
     assert config.get_default_context() == "prod"
 
 
-def test_use_global_refuses_an_unknown_context(capsys):
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-
-    with pytest.raises(SystemExit):
-        context_use(["--global", "nope"], config)
-
-    assert config.get_default_context() is None
-    assert "prod" in capsys.readouterr().err
-
-
-def test_use_global_says_when_the_environment_outranks_it(capsys, monkeypatch):
-    monkeypatch.setenv("HOP3_API_URL", "http://elsewhere:8000")
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-
+def test_use_global_inside_a_project_leaves_the_binding(config, capsys):
+    project = _project()
     context_use(["--global", "prod"], config)
+    assert config.get_default_context() == "prod"
+    assert read_binding(project) is None
+    assert "its binding still decides" in capsys.readouterr().out
 
-    assert "outranks it" in capsys.readouterr().err
+
+def test_use_refuses_an_unknown_context(config, capsys):
+    with pytest.raises(SystemExit) as exc:
+        context_use(["nope"], config)
+    assert exc.value.code == ExitCode.RESOLUTION_ERROR
 
 
-def test_use_global_context_name_redirects(capsys):
-    """
-    A name that exists only as a GLOBAL context must not dead-end on the
-    project file — it names the global context and points at the right
-    mechanism (regression for the misleading 'not found in <cwd>/hop3.toml').
-    """
-    _write_toml('[metadata]\nid="myapp"\n[contexts.dev]\nserver="ssh://root@dev"\n')
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")  # global, not in project
+def test_use_refuses_a_context_matching_no_block(config, capsys):
+    _project('[metadata]\nid = "a"\n[contexts.prod]\napp = "a-prod"\n')
+    with pytest.raises(SystemExit):
+        context_use(["dev"], config)
+    assert "matches none of the" in capsys.readouterr().err
+
+
+def test_use_asks_naming_the_scope_and_the_address(config, monkeypatch):
+    project = _project()
+    config.set_assume_yes(False)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: True)
+    asked: list[str] = []
+    monkeypatch.setattr(
+        "builtins.input", lambda question: asked.append(question) or "n"
+    )
     with pytest.raises(SystemExit) as exc:
         context_use(["prod"], config)
-    assert exc.value.code == 2
-    err = capsys.readouterr().err
-    assert "global context" in err
-    assert "hop3 context use --global prod" in err
+    assert exc.value.code == ExitCode.CONFIRMATION_DECLINED
+    assert asked == [f"Bind this checkout ({project}) to 'prod' ({PROD})? [y/N] "]
+    assert read_binding(project) is None, "a no writes nothing"
 
 
-# ---- global contexts (project-less) ----
+def test_use_without_a_terminal_refuses_unless_yes(config, monkeypatch, capsys):
+    _project()
+    config.set_assume_yes(False)
+    monkeypatch.setattr("sys.stdin.isatty", lambda: False)
+    with pytest.raises(SystemExit) as exc:
+        context_use(["prod"], config)
+    assert exc.value.code == ExitCode.CONFIRMATION_DECLINED
+    assert "--yes" in capsys.readouterr().err
 
 
-def test_list_global_when_no_project(capsys):
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-    config.set_context_server("dev", "ssh://root@dev")
-    config.set_default_context("prod")
-    context_list(config)
-    out = capsys.readouterr().out
-    assert "Global contexts" in out
-    assert "ssh://root@prod" in out
-    assert "Default context: prod" in out
+def test_unset_removes_the_binding(config):
+    project = _project()
+    context_use(["prod"], config)
+    context_unset([], config)
+    assert read_binding(project) is None
+    assert not (project / ".hop3-local.toml").exists()
 
 
-def test_show_global_when_no_project(capsys):
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-    context_show(["prod"], config)
-    out = capsys.readouterr().out
-    assert "[global]" in out
-    assert "ssh://root@prod" in out
+def test_unset_keeps_the_overlays_other_keys(config):
+    project = _project()
+    (project / ".hop3-local.toml").write_text(
+        '[local]\ncontext = "prod"\n[other]\nkey = "v"\n'
+    )
+    context_unset([], config)
+    assert tomllib.loads((project / ".hop3-local.toml").read_text()) == {
+        "other": {"key": "v"}
+    }
 
 
-def test_remove_global_when_no_project(capsys):
-    config = _cfg()
-    config.set_context_server("prod", "ssh://root@prod")
-    context_remove(["prod"], config)
-    assert config.get_context_server("prod") is None
-    assert "Removed global context" in capsys.readouterr().out
+def test_unset_outside_a_project_clears_the_global_context(config):
+    context_unset([], config)
+    assert config.get_default_context() is None

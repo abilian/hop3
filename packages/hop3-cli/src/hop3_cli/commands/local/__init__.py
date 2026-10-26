@@ -65,7 +65,7 @@ __all__ = [
 LOCAL_COMMANDS_INFO = {
     "aliases": "List all effective aliases (built-in, plugin, user).",
     "completion": "Generate shell completion scripts.",
-    "context": "Manage deploy environments (hop3.toml [contexts.*]).",
+    "context": "Manage contexts (servers) and the one this checkout uses.",
     "init": "Initialize connection to a Hop3 server via SSH.",
     "login": "Authenticate to a server (alias of `auth login`).",
     "logout": "Log out and clear the local token (alias of `auth logout`).",

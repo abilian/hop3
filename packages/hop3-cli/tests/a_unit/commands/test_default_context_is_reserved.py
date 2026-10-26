@@ -3,22 +3,18 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-`default` is the global context, and an unnamed login will not repoint it.
+An unnamed login will not repoint the `default` context.
 
-Two rules, one reason: an unnamed login cannot tell "I replaced my server" from
-"I have two servers now", and quietly answering with the first is how `hop3
-apps` starts reporting on the wrong machine.
-
-- A *project* `[contexts.default]` would shadow the global one for everyone in
-  that checkout, since project contexts resolve first.
-- A second, different address logged in without `--context` is refused, not
-  taken over. The same address is a token refresh and passes through.
+An unnamed login cannot tell "I replaced my server" from "I have two servers
+now", and quietly answering with the first is how `hop3 apps` starts
+reporting on the wrong machine. A second, different address logged in without
+`--context` is refused, not taken over. The same address is a token refresh
+and passes through.
 """
 
 from __future__ import annotations
 
 import pytest
-from hop3_cli.commands.local.context_cmd import refuse_reserved_project_name
 from hop3_cli.commands.local.login_cmd import (
     record_server_login,
     refuse_unnamed_retarget,
@@ -34,20 +30,6 @@ def config_with_default(address: str, **cli) -> Config:
     return Config(
         data={"contexts": {DEFAULT_CONTEXT_NAME: {"server": address}}, "cli": cli}
     )
-
-
-class TestProjectNameIsReserved:
-    def test_default_is_refused(self, capsys):
-        with pytest.raises(SystemExit) as excinfo:
-            refuse_reserved_project_name(DEFAULT_CONTEXT_NAME)
-        assert excinfo.value.code == 2
-        err = capsys.readouterr().err
-        assert "reserved" in err
-        assert "shadow" in err
-
-    @pytest.mark.parametrize("name", ["prod", "dev", "default-eu", "staging"])
-    def test_other_names_pass(self, name):
-        refuse_reserved_project_name(name)  # must not raise
 
 
 class TestUnnamedRetargetIsRefused:

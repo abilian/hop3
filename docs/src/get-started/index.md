@@ -13,7 +13,7 @@ Learn how to install Hop3 on your server and set up the CLI on your local machin
 
 SSH access to your server is your credential, for both the CLI and the web dashboard.
 
-- [Signing In](authentication.md) - `hop3 login <user>@<host>`, `hop3 login --browser`, and what to do when you can't get in
+- [Signing In](authentication.md) - `hop3 login <user>@<host>`, `hop3 login --browser`, binding a project with `hop3 context use`, and what to do when you can't get in
 
 ## Quick Start
 

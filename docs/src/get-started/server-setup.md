@@ -143,6 +143,13 @@ Then sign the local CLI in with a token you printed that way:
 hop3 auth login --token <paste-token-here> --url https://your-server.com
 ```
 
+Either way the server is recorded as a context, named `default` unless you pass `--context <name>`. Before deploying from a project directory, bind the checkout to it once:
+
+```bash
+cd myapp
+hop3 context use default
+```
+
 **[Signing In](authentication.md)** covers the whole picture: which credential each surface holds, why the Web UI needs HTTPS, how to name several servers, and what to do when you cannot get in.
 
 ### For Automation (CI/CD)

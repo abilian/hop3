@@ -331,6 +331,12 @@ The following steps require a Hop3 server.
 hop3 init --ssh root@your-server.example.com
 ```
 
+From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
+
+```bash skip
+hop3 context use default   # bind this checkout to the server you logged into
+```
+
 ### Initialize the Git Repository
 
 Hop3 deploys the committed contents of a Git repository. Ignore `node_modules` (it's rebuilt on the server, and its symlinks can't be archived) and commit:

@@ -412,54 +412,45 @@ verify   = "app-cli user show hop3probe"   # optional but recommended: proves th
 | `email` | string | no | A literal address, when the app requires one. Never the operator's: the account is Hop3's and receives nothing. |
 | `create` | string | **yes** | Idempotent create-if-absent command; receives `HOP3_PROBE_*` in its env and must exit non-zero if the account does not end up existing. |
 
-### `[contexts.<name>]` - Deploy Environments
+### `[contexts.<name>]` - Per-Deployment Settings
 
-A **context** is a named target, and `--context <name>` is the one CLI selector for every command. A context exists at two scopes, and `[contexts.<name>]` appears in **two files**:
-
-- In the **committed `hop3.toml`** (documented here): a full deploy environment — `devel`, `staging`, and whatever else you run — each a distinct app instance, usually on a different server, with its own domains and non-secret configuration. One codebase, many environments.
-- In the per-developer **`config.toml`**: a *global* context, the same block pared to just `server = "<addr>"` — a name bound to a server address, so project-less commands (`hop3 app list --context devel`) can target a server by name. Server-only, no `app`/`domains`/`env`.
-
-`--context <name>` resolves **project-first, then global**. Neither file holds a secret: the `server` is always a literal address, and the bearer token lives only in the credential store (see below). See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model.
+A **context** is a server you can reach: a name and an address, kept in your own `~/.config/hop3-cli/config.toml` and created by a login or by `hop3 context add`. `hop3.toml` never says where the app is deployed. What it can say is how the app differs from one deployment to the next: its name there, its domains and its environment. Each `[contexts.<name>]` block holds those differences for the context of that **name**, merged over the base configuration. See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model, and the [CLI reference](cli.md#context-management) for how a command picks its context.
 
 ```toml
 [metadata]
 id = "myapp"
 
-[contexts.devel]
-server = "ssh://root@devel.example.com"   # literal address of the target server
-app    = "myapp"                          # app instance for this environment
-[contexts.devel.domains]
-list = ["myapp.com", "www.myapp.com"]
-[contexts.devel.env]
-LOG_LEVEL = "warning"
-
-[contexts.dev]
-server = "ssh://root@dev.example.com"
-app    = "myapp-dev"
-[contexts.dev.domains]
-list = ["myapp.dev.example.com"]
-[contexts.dev.env]
+[contexts.demo]
+app = "myapp-demo"                        # app instance for this deployment
+[contexts.demo.domains]
+list = ["demo.myapp.com"]
+[contexts.demo.env]
 LOG_LEVEL = "debug"
+
+[contexts.prod]
+[contexts.prod.domains]
+list = ["myapp.com", "www.myapp.com"]
 ```
 
-Deploy a specific environment with `hop3 deploy --context devel`. (When `hop3.toml` declares exactly one context, it is selected automatically.)
+A checkout bound to `demo` (`hop3 context use demo`) deploys `myapp-demo` with its domains and env, to the server *your* `demo` context names; `hop3 -c prod deploy` deploys `myapp` to `myapp.com`. Since a block is found by name, a team names its contexts alike (`dev`, `demo`, `prod`).
 
 **Fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `server` | string | yes | **Literal address** of the target Hop3 instance, e.g. `ssh://root@devel.example.com`. Never a symbolic name, and never a credential — the bearer token lives in the local credential store (see below). An address that embeds credentials (`scheme://user:password@…`, or a `token=`/`password=` query param) is a hop3.toml validation error. |
-| `app` | string | no | App instance name for this environment. Inherits `[metadata].id` when omitted. |
-| `[contexts.<name>.domains]` | table | no | Hostnames for this environment — **same shape as the top-level [`[domains]`](#domains-application-hostnames)** (a `list = [...]` table, with the same RFC-1123 / catch-all rules). When present, the context's domains **replace** the top-level `[domains]` on deploy; when absent, the top-level domains are inherited unchanged. |
-| `[contexts.<name>.env]` | table | no | Per-environment **non-secret** env overrides. These **merge over** the top-level `[env]`, key by key, on deploy. |
+| `app` | string | no | App instance name for this deployment. Inherits `[metadata].id` when omitted. |
+| `[contexts.<name>.domains]` | table | no | Hostnames for this deployment, **same shape as the top-level [`[domains]`](#domains-application-hostnames)** (a `list = [...]` table, with the same RFC-1123 / catch-all rules). When present, they **replace** the top-level `[domains]` on deploy; when absent, the top-level domains are inherited unchanged. |
+| `[contexts.<name>.env]` | table | no | Per-deployment **non-secret** env overrides. These **merge over** the top-level `[env]`, key by key, on deploy. |
 
 **Notes:**
 
-- **Context names** must match `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$` — start with a letter or digit, then letters / digits / `-` / `_`, up to 64 characters. (They appear unquoted on the CLI and as TOML keys, so they are kept shell-friendly.)
-- **Resolution and flattening happen client-side, on deploy.** The CLI selects the context (via `--context`, `$HOP3_CONTEXT`, `.hop3-local.toml`, or the single-context fallback), computes the effective config — the context's `app`, its `domains` (replacing the top-level) and `env` (merged over the top-level) — and applies it. Every `[contexts.*]` block is then **stripped from the uploaded file**, so what the server validates and deploys is the flattened result (preview == deploy). The deployer never interprets `[contexts.*]`.
-- **No secrets here** — see the zero-secrets rule below. A context's `[env]` is scanned by the same committed-credential tripwire as the top-level `[env]`; per-environment secrets are set server-side per app with `hop3 env set`.
-- Within a single context, declaring both `domains` and a `HOST_NAME` in that context's `[env]` is a validation error — use one or the other (mirroring the top-level rule).
-- These blocks can be hand-written or managed with `hop3 context add` / `remove` / `rename`; `hop3 context use <name>` selects an environment for the current checkout. See the [CLI reference](cli.md) for the verbs.
+- **A block never carries `server` or `bootstrap`.** Where the app goes is the context's business, in your `config.toml`; the CLI and the server both refuse these keys in `hop3.toml` and name the `hop3 context add` that replaces them.
+- **Matching.** In a project that declares blocks, a context matching none of them is refused (by `hop3 context use` already, and by every command). A project without blocks deploys its base configuration to any context.
+- **Context names** must match `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`: start with a letter or digit, then letters, digits, `-` or `_`, up to 64 characters. (They appear unquoted on the CLI and as TOML keys, so they are kept shell-friendly.)
+- **Resolution and flattening happen client-side, on deploy.** The CLI selects the context (`-c`, `$HOP3_CONTEXT`, or the checkout's binding in `.hop3-local.toml`), computes the effective config (the block's `app`, its `domains` replacing the top-level ones, its `env` merged over the top-level one) and applies it. Every `[contexts.*]` block is then **stripped from the uploaded file**, so what the server validates and deploys is the flattened result (preview == deploy). The deployer never interprets `[contexts.*]`.
+- **No secrets here**: see the zero-secrets rule below. A block's `[env]` is scanned by the same committed-credential tripwire as the top-level `[env]`; per-deployment secrets are set server-side per app with `hop3 env set`.
+- Within a single block, declaring both `domains` and a `HOST_NAME` in its `[env]` is a validation error: use one or the other (mirroring the top-level rule).
+- These blocks are hand-written. `hop3 context show <name>` displays the block for that context; `hop3 context rename` warns when a block still uses the old name.
 
 ### Zero secrets in `hop3.toml`
 
@@ -475,7 +466,7 @@ Because each context targets a distinct app instance (`myapp` vs `myapp-dev`), p
 
 ### Where bearer tokens live (not in `hop3.toml`)
 
-The bearer token used to *talk to* a server is **not** in `hop3.toml` (it is shared) — nor in `config.toml`. It lives in the per-server **credential store** at `~/.config/hop3-cli/credentials.toml` (file mode `0o600`, keyed by canonical server address), written by `hop3 auth login` / `hop3 init`. A context's `server` field names the address; the CLI looks up that address's token in the credential store at deploy time. The credential store is documented more fully in the [CLI reference](cli.md).
+The bearer token used to *talk to* a server is **not** in `hop3.toml` (it is shared) — nor in `config.toml`. It lives in the per-server **credential store** at `~/.config/hop3-cli/credentials.toml` (file mode `0o600`, keyed by canonical server address), written by `hop3 auth login` / `hop3 init`. The context's `server` (in your `config.toml`) names the address; the CLI looks up that address's token in the credential store at deploy time. The credential store is documented more fully in the [CLI reference](cli.md).
 
 ### `[port]` - Port Configuration
 

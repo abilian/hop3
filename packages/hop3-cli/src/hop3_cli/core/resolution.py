@@ -5,8 +5,8 @@
 """
 Implicit resolution for app and context (ADR 036 §D7, ADR 042).
 
-Two things resolve through layered chains, each via a dedicated function (the
-context IS the server — one noun — so there is no third "server" chain):
+Two things resolve through layered chains, each via a dedicated function. The
+context name resolves here; ``core.target`` turns it into a server.
 
 App resolution (extended from ADR 036 §D7 by ADR 042):
 
@@ -20,21 +20,18 @@ App resolution (extended from ADR 036 §D7 by ADR 042):
 
     Source 5 is *conditionally trusted*: the wrong-app footgun is held off not by
     banning a context app, but by trusting it only when the context selection was
-    CWD-rooted (explicit `--context` / in-tree `.hop3-local.toml`). An ambient
-    selection (`$HOP3_CONTEXT` / ancestor overlay / single-context fallback) still
-    resolves the app, but marks it ``CONTEXT_APP_AMBIENT`` so the project-mismatch
+    CWD-rooted (explicit `--context`, or this checkout's binding). An ambient
+    selection (`$HOP3_CONTEXT`, `HOP3_API_URL`) still resolves the app, but marks it ``CONTEXT_APP_AMBIENT`` so the project-mismatch
     guard fires on a foreign app. (Git-remote source folded into #1 by the caller.)
 
-Context resolution (ADR 042 §Resolution chains):
+Context resolution (ADR 042, rule B):
 
     1. `--context <name>` flag
-    2. `$HOP3_CONTEXT` env var
-    3. `.hop3-local.toml [local].context`
-    4. Single-[contexts.*]-block-fallback (one declared context → use it)
-    5. None (operations fall back to the [metadata].id-only path)
-
-The context IS the server (one noun) — there is no separate server-resolution
-chain, and git-remote-driven resolution is dropped (ADR 042 revised).
+    2. `$HOP3_CONTEXT`, or `env` when `HOP3_API_URL` / `HOP3_DEV_MODE` is set
+    3. inside a project, the checkout's binding (`.hop3-local.toml` beside
+       its `hop3.toml`); a project with no binding resolves to nothing, and
+       every command that reaches a server refuses
+    4. outside a project, the global current context (`[cli].default_context`)
 
 Each resolver returns both the resolved value and a structured trace, so
 callers can show provenance (e.g., via `--why`) or error helpfully.
@@ -48,7 +45,9 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from hop3_cli.config import ENV_CONTEXT_NAME
 from hop3_cli.core.hop3_toml import first_hop3_toml
+from hop3_cli.core.local_overlay import LOCAL_OVERLAY_FILENAME, read_binding
 
 
 class AppSource(enum.Enum):
@@ -73,10 +72,9 @@ class AppSource(enum.Enum):
     CLI_APP = "cli_app"  # source #4: hop3.toml [cli].app
     # Source #5: the selected context's [contexts.<sel>].app (ADR 042 r2). Split
     # by the *context selection's* provenance: CONTEXT_APP when the context was
-    # chosen by a CWD-rooted signal (explicit --context / in-tree
-    # .hop3-local.toml) — trusted; CONTEXT_APP_AMBIENT when chosen by an ambient
-    # signal ($HOP3_CONTEXT / ancestor overlay / single-context fallback) — NOT
-    # trusted, so the project-mismatch guard still fires on a foreign app.
+    # chosen by a CWD-rooted signal (explicit --context, or this checkout's
+    # binding) — trusted; CONTEXT_APP_AMBIENT when chosen by the environment —
+    # NOT trusted, so the project-mismatch guard still fires on a foreign app.
     CONTEXT_APP = "context_app"
     CONTEXT_APP_AMBIENT = "context_app_ambient"
     METADATA_ID = "metadata_id"  # source #6: hop3.toml [metadata].id
@@ -109,30 +107,28 @@ def is_cwd_rooted(kind: AppSource) -> bool:
 
 class ContextSource(enum.Enum):
     """
-    How the current context was selected (ADR 042 r2).
+    Which step of rule B (ADR 042) selected the context.
 
-    Decides whether a context-derived app (``AppSource.CONTEXT_APP``) is trusted
-    by the project-mismatch guard. A context chosen by a *CWD-rooted* signal —
-    an explicit ``--context`` or a ``.hop3-local.toml`` *inside* the project tree
-    — is trusted; one chosen by an *ambient* signal (``$HOP3_CONTEXT`` exported
-    globally, a ``.hop3-local.toml`` inherited from an *ancestor* directory, or
-    the single-context fallback) is not — preventing an exported
-    ``$HOP3_CONTEXT=prod`` from silently retargeting every checkout.
+    Each value is the phrase the CLI prints after the context's name, so the
+    line every command shows says why it goes where it goes. The selection
+    also decides whether the context's ``app`` is trusted by the
+    project-mismatch guard: a context named on the command line or bound in
+    this checkout was chosen for this project; one taken from the environment
+    may have been exported for another.
     """
 
-    FLAG = "flag"  # --context (explicit)
-    ENV = "env"  # $HOP3_CONTEXT (ambient)
-    OVERLAY_INTREE = "overlay_intree"  # .hop3-local.toml at/below the project root
-    OVERLAY_ANCESTOR = (
-        "overlay_ancestor"  # .hop3-local.toml above the project (ambient)
-    )
-    SINGLE_FALLBACK = "single_fallback"  # the sole declared context, auto-selected
-    UNRESOLVED = "unresolved"
+    FLAG = "from --context"
+    ENV = "from HOP3_CONTEXT"
+    ENV_URL = "from HOP3_API_URL"
+    BINDING = "bound in this checkout"
+    GLOBAL = "the global context"
+    UNBOUND = "this checkout is not bound"
+    UNRESOLVED = "no context selected"
 
 
 _CWD_ROOTED_CONTEXT_SOURCES: frozenset[ContextSource] = frozenset({
     ContextSource.FLAG,
-    ContextSource.OVERLAY_INTREE,
+    ContextSource.BINDING,
 })
 
 
@@ -165,14 +161,14 @@ class AppResolution:
 
 @dataclass(frozen=True)
 class ContextResolution:
-    """Result of resolving the current project context (ADR 042)."""
+    """Result of resolving the context name (ADR 042, rule B)."""
 
     context: str | None
     source: str
     trace: tuple[str, ...] = ()
-    # How the context was selected — gates whether a context-derived app is
-    # trusted by the project-mismatch guard (ADR 042 r2).
     kind: ContextSource = ContextSource.UNRESOLVED
+    # The nearest hop3.toml, when the command runs inside a project.
+    project: Path | None = None
 
     @property
     def resolved(self) -> bool:
@@ -266,103 +262,6 @@ def resolve_app(
     return AppResolution(
         app=None, source="(unresolved)", trace=tuple(trace), kind=AppSource.UNRESOLVED
     )
-
-
-def _try_flag_or_env(
-    cli_value: str | None,
-    env: dict[str, str],
-    flag_name: str,
-    env_name: str,
-    trace: list[str],
-) -> ContextResolution | None:
-    """
-    Sources #1 and #2 dispatcher for resolve_context.
-
-    Returns a ContextResolution when the flag or env var supplies a value,
-    None otherwise. Appends a trace entry whether each source hit or missed.
-    Extracted to keep ``resolve_context``'s return-count below the lint
-    ceiling.
-    """
-    if cli_value:
-        trace.append(f"flag: {flag_name} {cli_value!r}")
-        return ContextResolution(
-            context=cli_value,
-            source=f"{flag_name} flag",
-            trace=tuple(trace),
-            kind=ContextSource.FLAG,
-        )
-    trace.append(f"flag {flag_name}: (not given)")
-
-    env_ctx = (env.get(env_name) or "").strip()
-    if env_ctx:
-        trace.append(f"${env_name}: {env_ctx!r}")
-        return ContextResolution(
-            context=env_ctx,
-            source=f"${env_name}",
-            trace=tuple(trace),
-            kind=ContextSource.ENV,
-        )
-    trace.append(f"${env_name}: (not set)")
-    return None
-
-
-def _try_local_overlay(
-    cwd: Path, home: Path, trace: list[str]
-) -> ContextResolution | None:
-    """
-    Source #3 dispatcher: read ``.hop3-local.toml [local].context``.
-
-    Returns a ContextResolution on hit, None on miss (caller continues to
-    the git-remote/declared-context sources). Either way, appends a trace
-    entry. Extracted from ``resolve_context`` to keep that function's
-    branch count below the lint ceiling.
-    """
-    # Imported lazily so the resolver stays cheap when the file isn't there.
-    from hop3_cli.core.local_overlay import (  # ruff:ignore[import-outside-top-level]
-        read_overlay,
-    )
-
-    overlay = read_overlay(cwd=cwd, home=home)
-    if overlay.current_context:
-        kind = _classify_overlay(overlay.path, cwd, home)
-        trace.append(
-            f".hop3-local.toml ({overlay.path}) [local].context: "
-            f"{overlay.current_context!r} (selection: {kind.value})"
-        )
-        return ContextResolution(
-            context=overlay.current_context,
-            source=f".hop3-local.toml at {overlay.path}",
-            trace=tuple(trace),
-            kind=kind,
-        )
-    if overlay.path is None:
-        trace.append(".hop3-local.toml: (not found)")
-    else:
-        trace.append(f".hop3-local.toml ({overlay.path}) [local].context: (not set)")
-    return None
-
-
-def _classify_overlay(
-    overlay_path: Path | None, cwd: Path, home: Path
-) -> ContextSource:
-    """
-    Classify a ``.hop3-local.toml`` selection as in-tree or ancestor.
-
-    In-tree (trusted) iff the overlay sits at or below the *project root* — the
-    directory of the nearest hop3.toml at/above CWD. An overlay above that root
-    is an inherited *ancestor* override (ambient, untrusted); without a project
-    hop3.toml there is no context-derived app at all, so we treat it as ancestor.
-    """
-    if overlay_path is None:
-        return ContextSource.OVERLAY_ANCESTOR
-    proj_path, _ = first_hop3_toml(cwd, home)
-    if proj_path is None:
-        return ContextSource.OVERLAY_ANCESTOR
-    proj_dir = proj_path.parent.resolve()
-    overlay_dir = overlay_path.parent.resolve()
-    if proj_dir == overlay_dir or proj_dir in overlay_dir.parents:
-        return ContextSource.OVERLAY_INTREE
-    return ContextSource.OVERLAY_ANCESTOR
 
 
 def _search_dotfile(
@@ -508,19 +407,27 @@ def format_trace(resolution: AppResolution) -> str:
 # Context resolution (ADR 042)
 # =============================================================================
 
+_TRUTHY = frozenset({"true", "1", "yes"})
+
 
 def resolve_context(
     cli_context: str | None,
     *,
+    default_context: str | None = None,
     cwd: Path | None = None,
     env: dict[str, str] | None = None,
     home: Path | None = None,
 ) -> ContextResolution:
     """
-    Resolve the current project context per ADR 042 §Resolution chains.
+    Choose the context NAME per rule B of ADR 042.
+
+    Names only: whether the name is defined, and which server it names, is
+    ``core.target.resolve_target``'s job.
 
     Args:
         cli_context: Context name passed via ``--context`` (highest priority).
+        default_context: The global current context (``[cli].default_context``),
+            used only outside a project.
         cwd: Directory to start looking from (defaults to process CWD).
         env: Environment mapping (defaults to os.environ); mainly for testing.
         home: User home directory (defaults to $HOME); mainly for testing.
@@ -531,53 +438,61 @@ def resolve_context(
     home = home or Path.home()
 
     trace: list[str] = []
-
-    # Sources 1 & 2: explicit flag / env var.
-    flag_env_resolution = _try_flag_or_env(
-        cli_context, env, "--context", "HOP3_CONTEXT", trace
+    project, _ = first_hop3_toml(cwd, home)
+    name, kind = _select_from_shell(cli_context, env, trace) or _select_from_disk(
+        project, default_context, trace
     )
-    if flag_env_resolution is not None:
-        return flag_env_resolution
-
-    # Source 3: .hop3-local.toml [local].context (ADR 042 §File layout).
-    # The legacy .hop3-context one-liner is retired (Step 7); users with a
-    # stale .hop3-context get nothing from it and must re-run
-    # ``hop3 context use <name>`` to write a fresh .hop3-local.toml.
-    overlay_resolution = _try_local_overlay(cwd, home, trace)
-    if overlay_resolution is not None:
-        return overlay_resolution
-
-    # Source 4: single-[contexts.*]-block-fallback.
-    declared = _declared_context_names(cwd, home)
-    if len(declared) == 1:
-        only = declared[0]
-        trace.append(f"hop3.toml [contexts.*]: exactly one ({only!r})")
-        return ContextResolution(
-            context=only,
-            source="single declared context (hop3.toml)",
-            trace=tuple(trace),
-            kind=ContextSource.SINGLE_FALLBACK,
-        )
-    if declared:
-        trace.append(
-            f"hop3.toml [contexts.*]: {len(declared)} declared ({', '.join(declared)})"
-        )
-    else:
-        trace.append("hop3.toml [contexts.*]: (none declared)")
-
-    # Source 5: unresolved — the [metadata].id-only path takes over.
-    return ContextResolution(context=None, source="(unresolved)", trace=tuple(trace))
+    return ContextResolution(
+        context=name,
+        source=kind.value,
+        trace=tuple(trace),
+        kind=kind,
+        project=project,
+    )
 
 
-def _declared_context_names(start: Path, stop_at: Path) -> list[str]:
-    """
-    Return the context names declared in the nearest hop3.toml, in order.
+def _select_from_shell(
+    cli_context: str | None, env: dict[str, str], trace: list[str]
+) -> tuple[str, ContextSource] | None:
+    """Steps 1 and 2 of rule B: ``--context``, then the environment."""
+    if cli_context:
+        trace.append(f"--context: {cli_context!r}")
+        return cli_context, ContextSource.FLAG
+    trace.append("--context: (not given)")
 
-    Walks upward like ``_resolve_from_hop3_toml``. Returns ``[]`` when no
-    hop3.toml is found or no [contexts.*] block is declared.
-    """
-    _, data = first_hop3_toml(start, stop_at)
-    contexts = data.get("contexts", {})
-    if isinstance(contexts, dict):
-        return [k for k, v in contexts.items() if isinstance(v, dict)]
-    return []
+    if env_ctx := (env.get("HOP3_CONTEXT") or "").strip():
+        trace.append(f"$HOP3_CONTEXT: {env_ctx!r}")
+        return env_ctx, ContextSource.ENV
+    trace.append("$HOP3_CONTEXT: (not set)")
+
+    if env.get("HOP3_API_URL") or env.get("HOP3_DEV_MODE", "").lower() in _TRUTHY:
+        trace.append("$HOP3_API_URL / $HOP3_DEV_MODE: set")
+        return ENV_CONTEXT_NAME, ContextSource.ENV_URL
+    trace.append("$HOP3_API_URL / $HOP3_DEV_MODE: (not set)")
+    return None
+
+
+def _select_from_disk(
+    project: Path | None, default_context: str | None, trace: list[str]
+) -> tuple[str | None, ContextSource]:
+    """Steps 3 and 4 of rule B: the checkout's binding, or the global context."""
+    if project is not None:
+        overlay = project.parent / LOCAL_OVERLAY_FILENAME
+        if binding := read_binding(project.parent):
+            trace.append(f"binding ({overlay}): {binding!r}")
+            return binding, ContextSource.BINDING
+        trace.append(f"binding ({overlay}): (none)")
+        return None, ContextSource.UNBOUND
+
+    if default_context:
+        trace.append(f"global current context: {default_context!r}")
+        return default_context, ContextSource.GLOBAL
+    trace.append("global current context: (none)")
+    return None, ContextSource.UNRESOLVED
+
+
+def format_context_trace(resolution: ContextResolution) -> str:
+    """Render a context resolution trace for ``--why``."""
+    lines = ["[context]", *(f"  {entry}" for entry in resolution.trace)]
+    lines.append(f"  -> {resolution.context or '(none)'} ({resolution.source})")
+    return "\n".join(lines)

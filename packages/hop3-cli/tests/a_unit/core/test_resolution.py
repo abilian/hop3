@@ -346,16 +346,22 @@ def test_why_flag_prints_trace_and_exits_without_running(
 # =============================================================================
 
 
+def _project(path: Path) -> Path:
+    (path / "hop3.toml").write_text('[metadata]\nid = "a"\n')
+    return path
+
+
 def test_resolve_context_flag_wins(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """--context flag beats every other source."""
     monkeypatch.setenv("HOP3_CONTEXT", "from-env")
-    (tmp_path / ".hop3-local.toml").write_text('[current]\ncontext = "from-file"\n')
+    _project(tmp_path)
+    (tmp_path / ".hop3-local.toml").write_text('[local]\ncontext = "from-file"\n')
     r = resolve_context(cli_context="from-flag", cwd=tmp_path, home=tmp_path)
     assert r.resolved
     assert r.context == "from-flag"
-    assert "flag" in r.source.lower()
+    assert r.source == "from --context"
 
 
 def test_resolve_context_env_beats_overlay(
@@ -363,53 +369,40 @@ def test_resolve_context_env_beats_overlay(
 ) -> None:
     """HOP3_CONTEXT env var beats .hop3-local.toml."""
     monkeypatch.setenv("HOP3_CONTEXT", "from-env")
-    (tmp_path / ".hop3-local.toml").write_text('[current]\ncontext = "from-file"\n')
+    _project(tmp_path)
+    (tmp_path / ".hop3-local.toml").write_text('[local]\ncontext = "from-file"\n')
     r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
     assert r.context == "from-env"
 
 
-def test_resolve_context_overlay_used_when_no_flag_or_env(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """``.hop3-local.toml`` is the per-project context carrier (ADR 042)."""
-    monkeypatch.delenv("HOP3_CONTEXT", raising=False)
+def test_resolve_context_binding_used_when_no_flag_or_env(tmp_path: Path) -> None:
+    """``.hop3-local.toml`` beside hop3.toml is the checkout's binding."""
+    _project(tmp_path)
     (tmp_path / ".hop3-local.toml").write_text('[current]\ncontext = "local-ctx"\n')
     r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
-    assert r.context == "local-ctx"
-    assert ".hop3-local.toml" in r.source
+    assert r.context == "local-ctx"  # the legacy [current] key is still read
+    assert r.source == "bound in this checkout"
 
 
-def test_resolve_context_single_block_fallback(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """When exactly one [contexts.*] block exists, the resolver picks it."""
-    monkeypatch.delenv("HOP3_CONTEXT", raising=False)
-    (tmp_path / "hop3.toml").write_text('[contexts.only]\nserver = "s"\napp = "a"\n')
-    r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
-    assert r.context == "only"
-    assert "single" in r.source.lower()
+def test_an_overlay_outside_a_project_is_not_a_binding(tmp_path: Path) -> None:
+    (tmp_path / ".hop3-local.toml").write_text('[local]\ncontext = "x"\n')
+    r = resolve_context(None, default_context="dev", cwd=tmp_path, home=tmp_path)
+    assert r.context == "dev"
+    assert r.source == "the global context"
 
 
-def test_resolve_context_multiple_blocks_unresolved(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """Two declared contexts and no signal → unresolved, with trace breadcrumb."""
-    monkeypatch.delenv("HOP3_CONTEXT", raising=False)
-    (tmp_path / "hop3.toml").write_text(
-        '[contexts.dev]\nserver = "s"\n[contexts.prod]\nserver = "s"\n'
-    )
+def test_declared_blocks_select_nothing(tmp_path: Path) -> None:
+    """A project's [contexts.*] blocks never choose a context by themselves."""
+    (tmp_path / "hop3.toml").write_text('[contexts.only]\napp = "a"\n')
+    r = resolve_context(cli_context=None, default_context="dev", cwd=tmp_path)
+    assert not r.resolved
+    assert r.source == "this checkout is not bound"
+
+
+def test_resolve_context_unresolved_when_nothing(tmp_path: Path) -> None:
     r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
     assert not r.resolved
-    assert "dev" in "\n".join(r.trace)
-    assert "prod" in "\n".join(r.trace)
-
-
-def test_resolve_context_unresolved_when_nothing(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.delenv("HOP3_CONTEXT", raising=False)
-    r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
-    assert not r.resolved
+    assert r.source == "no context selected"
 
 
 def test_context_resolution_dataclass_is_frozen() -> None:
@@ -428,17 +421,6 @@ def test_resolve_app_trace_breadcrumb_for_git_remote_source(
     assert "git remote app" in trace
 
 
-def test_resolve_context_uses_hop3_local_overlay(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """`.hop3-local.toml [local].context` is consulted as source #3a."""
-    monkeypatch.delenv("HOP3_CONTEXT", raising=False)
-    (tmp_path / ".hop3-local.toml").write_text('[local]\ncontext = "dev"\n')
-    r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
-    assert r.context == "dev"
-    assert ".hop3-local.toml" in r.source
-
-
 def test_resolve_context_stale_legacy_dotfile_ignored(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
@@ -454,15 +436,11 @@ def test_resolve_context_stale_legacy_dotfile_ignored(
     assert r.context is None
 
 
-def test_resolve_context_overlay_without_current_section_skipped(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+def test_an_overlay_without_a_binding_leaves_the_checkout_unbound(
+    tmp_path: Path,
 ) -> None:
-    """An overlay file lacking [local].context falls through to next source."""
-    monkeypatch.delenv("HOP3_CONTEXT", raising=False)
+    _project(tmp_path)
     (tmp_path / ".hop3-local.toml").write_text('[other]\nkey = "value"\n')
     r = resolve_context(cli_context=None, cwd=tmp_path, home=tmp_path)
-    # No further source resolves; trace shows the overlay was inspected.
     assert r.context is None
-    trace = "\n".join(r.trace)
-    assert ".hop3-local.toml" in trace
-    assert "(not set)" in trace
+    assert ".hop3-local.toml" in "\n".join(r.trace)

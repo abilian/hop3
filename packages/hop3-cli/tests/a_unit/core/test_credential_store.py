@@ -14,7 +14,6 @@ from __future__ import annotations
 import stat
 
 import pytest
-from hop3_cli.config import Config
 from hop3_cli.core import credential_store as cs
 from hop3_cli.core.paths import config_dir
 
@@ -134,16 +133,3 @@ def test_group_world_readable_result_aborts_loud(monkeypatch):
     # And the leaky write must not have left a readable token behind.
     monkeypatch.undo()
     assert not target.is_file() or stat.S_IMODE(target.stat().st_mode) & 0o077 == 0
-
-
-# ---- Config default-server pointer ----
-
-
-def test_default_server_roundtrip(tmp_path):
-    cfg = Config(data={}, config_file=tmp_path / "config.toml")
-    assert cfg.get_default_server() is None
-    cfg.set_default_server("ssh://root@prod")
-    assert cfg.get_default_server() == "ssh://root@prod"
-    assert cfg.data["cli"]["default_server"] == "ssh://root@prod"
-    cfg.set_default_server(None)
-    assert cfg.get_default_server() is None

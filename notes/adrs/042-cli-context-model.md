@@ -95,7 +95,11 @@ list = ["myapp.com", "www.myapp.com"]
 
 ### Protection belongs to the server
 
-A server is marked protected once, on the server, so the mark covers everyone who reaches it, from any checkout and any machine, without each person flagging it in their own config. The CLI sends the step of B that selected the context with each invocation ([ADR 047](./047-cli-invocation-context.md)), and the server refuses a mutating command on a protected server when that step is a binding or the global current context. Enforcement on the server means a stale or edited client configuration cannot bypass it.
+A server is marked protected once, on the server (`PROTECTED = true` in `hop3-server.toml`), so the mark covers everyone who reaches it, from any checkout and any machine, without each person flagging it in their own config. The CLI sends the step of B that selected the context with each call (`context_source`), and the server refuses a command above the viewer role when that step is a binding or the global current context, or when the source is missing (a CLI older than this revision). A command named explicitly is answered with a request for confirmation; the CLI asks for the app's name, typed (the context's name for a command without an app), and sends the call again with `protected_confirmed`. Enforcement on the server means a stale or edited client configuration cannot bypass it.
+
+The role is the measure of "changes something" because every command already declares one ([ADR 061](./061-standard-roles-and-rpc-authorization.md)). It also catches the few admin commands that only read (`user list`), which then need the same explicit selection.
+
+The CLI remembers the mark on the context once a server has answered with it, and `hop3 context use` mentions it before binding a checkout to that context. The mark it remembers only warns; the server decides.
 
 ### File layout
 
@@ -156,7 +160,7 @@ The binding sits next to the `hop3.toml` it belongs to, so it cannot leak in fro
 - `hop3 context unset`: remove the binding, or the global current context, by the same scope rule and with the same question.
 - `hop3 login <user>@<host> [--context <name>]`: authenticate to a server, store its token, and create or update the context. With `--context <name>` and no target, it signs in again through the SSH route that context records. `hop3 login --browser [<target>]` mints a credential for the browser instead.
 
-`--yes` skips a confirmation. `--force` overrides a safety check; it means something else and is not accepted in place of `--yes`.
+`--yes` skips a confirmation. `--force` overrides a safety check, and implies `--yes` as everywhere in the CLI.
 
 ## Migration
 

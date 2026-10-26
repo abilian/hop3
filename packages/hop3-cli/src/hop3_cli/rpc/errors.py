@@ -34,3 +34,11 @@ def server_error(body: object) -> tuple[str, str]:
         message if isinstance(message, str) else "",
         kind if isinstance(kind, str) else "",
     )
+
+
+#: ``error.data.kind`` of a change to a protected server that nothing named
+#: (ADR 042, rule D): a checkout's binding or the global context chose it.
+PROTECTED_NEEDS_EXPLICIT = "protected_needs_explicit_target"
+#: ``error.data.kind`` of a change to a protected server that waits for the
+#: operator to type the app's name.
+PROTECTED_NEEDS_CONFIRMATION = "protected_needs_confirmation"

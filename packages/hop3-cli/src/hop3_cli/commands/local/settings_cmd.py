@@ -11,6 +11,8 @@ import sys
 from typing import TYPE_CHECKING
 
 from hop3_cli.commands.local.help_text import print_settings_help
+from hop3_cli.exceptions import TargetError
+from hop3_cli.exit_codes import ExitCode
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
@@ -73,10 +75,10 @@ def settings_show(config: Config, printer: RichPrinter) -> None:
             print(f"  {key} = {value}")
 
     # Show configuration status
-    print(f"\nConfigured: {config.is_configured()}")
-    if not config.is_configured():
-        print("\nTo configure, run:")
-        print("  hop3 init --ssh root@your-server.com")
+    try:
+        print(f"\nServer: {config.require_target().describe()}")
+    except TargetError as e:
+        print(f"\nServer: none: {e}")
 
 
 def settings_set(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -88,30 +90,20 @@ def settings_set(args: list[str], config: Config, printer: RichPrinter) -> None:
     key = args[0]
     value = args[1]
 
-    # Normalize key aliases
-    if key == "server":
-        key = "api_url"
-    if key == "token":
-        key = "api_token"
-
-    # Connection details are no longer settings (ADR 042 r2). The server address
-    # belongs to a deploy environment declared in hop3.toml (`hop3 context add
-    # <name> --server <addr>`), and the bearer token belongs to the per-server
-    # credential store, written only by `hop3 login`. Setting them here creates a
-    # competing record with no defined winner — warn (loudly) and point at the
-    # canonical commands. Still written so existing scripts don't break.
-    if key in {"api_url", "api_token"}:
+    # The server and its token are not settings (ADR 042): nothing reads the
+    # keys this used to write, so writing them would only pretend to work.
+    if key in {"server", "api_url", "token", "api_token"}:
         canonical = (
-            "hop3 context add <name> --server <addr>"
-            if key == "api_url"
-            else "hop3 login  (writes the per-server credential store)"
+            "hop3 context add <name> --server <address>"
+            if key in {"server", "api_url"}
+            else "hop3 login --token <token> --url <address>"
         )
         print(
-            f"warning: 'hop3 settings set {key}' is deprecated — connection "
-            f"details are owned by 'hop3 context' / 'hop3 login' (ADR 042). "
-            f"Use: {canonical}",
+            f"Error: {key!r} is not a setting: the server and its token are a "
+            f"context's, recorded by `hop3 login`.\n  Use: {canonical}",
             file=sys.stderr,
         )
+        sys.exit(ExitCode.USAGE_ERROR)
 
     # Convert boolean-like values for verify_ssl
     if key == "verify_ssl":
@@ -131,12 +123,6 @@ def settings_get(args: list[str], config: Config, printer: RichPrinter) -> None:
         sys.exit(1)
 
     key = args[0]
-    # Handle aliases
-    if key == "server":
-        key = "api_url"
-    if key == "token":
-        key = "api_token"
-
     try:
         value = config[key]
         print(value)

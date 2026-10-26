@@ -1213,12 +1213,6 @@ class AccessSection(BaseModel):
 # (hop3_cli.commands.local.context_cmd._CONTEXT_NAME_RE).
 _CONTEXT_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$")
 
-# `default` names the global context a login writes when the operator names
-# none. A project context resolves BEFORE a global one, so a committed
-# `[contexts.default]` would silently shadow every reader's own default target
-# for as long as they stood in that checkout. Reserved for the global scope.
-RESERVED_GLOBAL_CONTEXT = "default"
-
 # Committed-credential tripwire (ADR 042, 2nd revision). hop3.toml is secret-free
 # by convention; this backs the convention with a LOUD refusal when an obvious
 # secret is committed. Best-effort known-shapes, not a proof — high-entropy
@@ -1236,7 +1230,6 @@ _SECRET_PREFIXES = (
     "ASIA",
 )
 _CREDS_IN_URL = re.compile(r"^[a-zA-Z][a-zA-Z0-9+.\-]*://[^/@\s]*:[^/@\s]+@")
-_SECRET_QUERY = re.compile(r"[?&](token|password|secret|api_key)=", re.IGNORECASE)
 
 
 def _secret_reason(value: str) -> str | None:
@@ -1391,34 +1384,19 @@ class CliSection(BaseModel):
 
 class ContextSection(BaseModel):
     """
-    A single ``[contexts.<name>]`` block — one deploy environment (ADR 042 r2).
+    A single ``[contexts.<name>]`` block (ADR 042).
 
-    A "context" is a (server, app, domains, env) bundle answering "where does
-    *this* project go for environment ``<name>``?". Multiple contexts express the
-    dev / staging / prod story for one codebase. Carries NO secrets: ``server``
-    is a literal address (the token lives in the CLI's per-server store), and a
-    committed-credential tripwire rejects secret-shaped values. Resolved
-    CLIENT-SIDE; the deployer ignores ``[contexts.*]``.
+    What differs for this app when it is deployed through the context
+    ``<name>``: the app's name there, its domains, its environment. The block
+    never says where the app is deployed: a context is a server in each
+    developer's own CLI configuration, and the block applies to whichever
+    server that context names. Carries NO secrets: a committed-credential
+    tripwire rejects secret-shaped values. Resolved CLIENT-SIDE; the deployer
+    ignores ``[contexts.*]``.
     """
 
     model_config = ConfigDict(extra="forbid", populate_by_name=True)
 
-    server: str = Field(
-        description=(
-            "Literal address of the target Hop3 instance, e.g. "
-            "ssh://root@prod.example.com. Never a symbolic name, never credentials."
-        ),
-    )
-    bootstrap: str | None = Field(
-        default=None,
-        description=(
-            "SSH target used ONLY to mint tokens, e.g. ssh://root@prod.example.com. "
-            "Everyday traffic goes to `server`; when that is an https:// address "
-            "the client still needs an SSH route to renew an expired token, and "
-            "this is it. Omit when `server` is itself ssh:// — it bootstraps "
-            "through that."
-        ),
-    )
     app: str | None = Field(
         default=None,
         description="App instance name for this environment; inherits [metadata].id when absent.",
@@ -1437,32 +1415,6 @@ class ContextSection(BaseModel):
             "server-side via `hop3 env set`, never here."
         ),
     )
-
-    @field_validator("bootstrap")
-    @classmethod
-    def validate_bootstrap(cls, v: str | None) -> str | None:
-        """An SSH route, held to the same no-credentials rule as ``server``."""
-        if v is None:
-            return None
-        if not v.startswith("ssh://"):
-            msg = f"Context.bootstrap must be an ssh:// address, got {v!r}."
-            raise ValueError(msg)
-        return cls.validate_server(v)
-
-    @field_validator("server")
-    @classmethod
-    def validate_server(cls, v: str) -> str:
-        if not v or v != v.strip():
-            msg = "Context.server must be a non-empty address without surrounding whitespace."
-            raise ValueError(msg)
-        if _CREDS_IN_URL.match(v) or _SECRET_QUERY.search(v):
-            msg = (
-                f"Context.server {v!r} embeds a credential. The address must be "
-                "secret-free (no `user:password@`, no `token=`/`password=` "
-                "params); the token is stored locally, never in committed config."
-            )
-            raise ValueError(msg)
-        return v
 
     @field_validator("app")
     @classmethod
@@ -1783,10 +1735,10 @@ class Hop3TomlSchema(BaseModel):
     contexts: dict[str, ContextSection] | None = Field(
         default=None,
         description=(
-            "Per-project deploy environments (ADR 042, 2nd revision). Each "
-            "[contexts.<name>] bundles (server, app, domains, env) for one "
-            "environment — dev/staging/prod. Non-secret; resolved client-side; "
-            "ignored by the deployer."
+            "What differs per deployment (ADR 042), keyed by context name: "
+            "each [contexts.<name>] holds the app's name, domains and env when "
+            "it is deployed through that context. Never a server address. "
+            "Non-secret; resolved client-side; ignored by the deployer."
         ),
     )
     cli: CliSection | None = Field(
@@ -1899,6 +1851,31 @@ class Hop3TomlSchema(BaseModel):
                 raise ValueError(msg)
         return v
 
+    @field_validator("contexts", mode="before")
+    @classmethod
+    def _refuse_a_context_address(cls, v: object) -> object:
+        """
+        ``server`` and ``bootstrap`` moved to the CLI's contexts (ADR 042).
+
+        Named, rather than left to ``extra="forbid"``, so the refusal says
+        what replaces them.
+        """
+        if not isinstance(v, dict):
+            return v
+        for name, block in v.items():
+            if not isinstance(block, dict):
+                continue
+            for key in ("server", "bootstrap"):
+                if key in block:
+                    msg = (
+                        f"[contexts.{name}] no longer takes {key!r}: hop3.toml does "
+                        "not say where the app is deployed. Record the server as a "
+                        f"context of your own (`hop3 context add {name} --server "
+                        f"<address>`) and remove {key!r} from the block."
+                    )
+                    raise ValueError(msg)
+        return v
+
     @field_validator("contexts")
     @classmethod
     def _validate_context_names(
@@ -1910,14 +1887,6 @@ class Hop3TomlSchema(BaseModel):
                     msg = (
                         f"Invalid context name {name!r}. Names start with a "
                         "letter or digit, then letters/digits/'-'/'_', max 64 chars."
-                    )
-                    raise ValueError(msg)
-                if name == RESERVED_GLOBAL_CONTEXT:
-                    msg = (
-                        f"{name!r} is reserved for the global context a login "
-                        "writes when no name is given. A project context of that "
-                        "name would shadow it for everyone in this checkout. "
-                        "Pick another name."
                     )
                     raise ValueError(msg)
         return v

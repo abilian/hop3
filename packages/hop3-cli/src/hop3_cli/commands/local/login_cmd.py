@@ -237,18 +237,7 @@ def _ensure_server_configured(config: Config) -> None:
     if config.is_configured():
         return
 
-    print("Server not configured.", file=sys.stderr)
-    print("\nTo configure, use one of:", file=sys.stderr)
-    print(
-        "  hop3 init --ssh root@your-server.com  # First-time setup",
-        file=sys.stderr,
-    )
-    print(
-        "  hop3 login root@your-server.com      # If you have SSH access",
-        file=sys.stderr,
-    )
-    print("  hop3 settings set server https://your-server.com", file=sys.stderr)
-    sys.exit(1)
+    config.require_target()  # raises the refusal that says why there is none
 
 
 def _parse_username_arg(args: list[str]) -> str | None:
@@ -499,7 +488,9 @@ def _get_ssh_target_from_config(config: Config) -> str | None:
     return None
 
 
-def refuse_unnamed_retarget(config: Config, server_url: str) -> None:
+def refuse_unnamed_retarget(
+    config: Config, server_url: str, name: str = DEFAULT_CONTEXT_NAME
+) -> None:
     """
     Refuse to repoint the `default` context at a different server, unasked.
 
@@ -510,7 +501,7 @@ def refuse_unnamed_retarget(config: Config, server_url: str) -> None:
 
     Re-logging the same address is a token refresh and passes through.
     """
-    if config.get_context_override():
+    if name != DEFAULT_CONTEXT_NAME or config.get_context_override():
         return
     current = config.get_context_server(DEFAULT_CONTEXT_NAME)
     if not current or current == server_url:
@@ -552,20 +543,22 @@ def record_server_login(
     config: Config, server_url: str, token: str, *, bootstrap: str | None = None
 ) -> None:
     """
-    ADR 042: stash the token + set this server as the default target.
+    ADR 042: store the token, and create or update the context it belongs to.
 
     This is the *only* place a login persists credentials: the token goes to the
     per-server credential store (keyed by canonical address); config.toml stays
-    secret-free. When the user named the login with ``--context <name>``, the
-    server is recorded as that **global context** (so `--context <name>` selects
-    it project-lessly) and becomes the default context. Otherwise it sets the
-    unnamed default server. Either way the change is surfaced, so a login never
-    silently retargets `hop3 apps` & friends.
+    secret-free. The context is the one ``--context`` names, else the one this
+    invocation targets when the login is for its server, else ``default``.
+
+    Authenticating never changes where commands go: the login makes its
+    context the global current context only when there is none, and otherwise
+    prints the command that would.
     """
     if not server_url:
         return
 
-    refuse_unnamed_retarget(config, server_url)
+    context_name = _login_context_name(config, server_url)
+    refuse_unnamed_retarget(config, server_url, context_name)
 
     from hop3_cli.core import credential_store  # ruff:ignore[import-outside-top-level]
 
@@ -598,15 +591,12 @@ def record_server_login(
             file=sys.stderr,
         )
 
-    # Every target is a named context. The unnamed `[cli].default_server` this
-    # used to write resolves BELOW every context, so an operator who had one
-    # was told the login succeeded and then had every command go elsewhere.
-    context_name = config.get_context_override() or DEFAULT_CONTEXT_NAME
     # Read what it was BEFORE writing, or the comparison below always matches.
     previous_context = config.get_default_context()
     previous_server = config.get_context_server(context_name)
     config.set_context_server(context_name, server_url, bootstrap=bootstrap)
-    config.set_default_context(context_name)
+    if not previous_context:
+        config.set_default_context(context_name)
     # The context is on disk now, but this process resolved its connection
     # before the login wrote it, so everything after this point in the same
     # invocation still sees the pre-login answer. `refresh_caches_after_login`
@@ -617,14 +607,34 @@ def record_server_login(
     # Only what changed. A repeat login of the same target says nothing extra;
     # a switch of the current context, or a context that now points somewhere
     # else, is exactly what an operator must not discover by surprise later.
-    if previous_context != context_name:
-        print(f"  context {context_name!r} is now the default target")
+    if not previous_context:
+        print(f"  context {context_name!r} is now the global current context")
+    elif previous_context != context_name:
+        print(
+            f"  context {context_name!r} recorded; the global current context "
+            f"stays {previous_context!r}. Use it: hop3 context use {context_name}"
+        )
     if previous_server and previous_server != server_url:
         print(f"  context {context_name!r}: {previous_server} -> {server_url}")
 
     # Now that there is a server to ask, fill the caches shell completion and
     # the offline command list read from (ADR 036 M9.3).
     refresh_caches_after_login(config)
+
+
+def _login_context_name(config: Config, server_url: str) -> str:
+    """The context a login for ``server_url`` records its server under."""
+    if override := config.get_context_override():
+        return override
+    target = config.get_target()
+    # `env` is the environment's own target, never a stored context.
+    if (
+        target is not None
+        and target.context != ENV_CONTEXT_NAME
+        and target.server == server_url
+    ):
+        return target.context
+    return DEFAULT_CONTEXT_NAME
 
 
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:

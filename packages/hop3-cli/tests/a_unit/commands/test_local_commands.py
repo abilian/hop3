@@ -35,6 +35,7 @@ from hop3_cli.commands.local.login_cmd import (
 from hop3_cli.commands.local.ssh_ops import validate_ssh_target
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, Config, get_config
 from hop3_cli.core import credential_store as cs
+from hop3_cli.exceptions import TargetError
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.rich_printer import RichPrinter
 from jsonrpcclient import Ok
@@ -310,29 +311,21 @@ class TestSettingsCommands:
 
     def test_settings_set(self, temp_config, mock_printer, capsys):
         """Test setting a settings value."""
-        settings_set(["api_url", "https://new-server.com"], temp_config, mock_printer)
+        settings_set(["ssl_cert", "/etc/ssl/server.crt"], temp_config, mock_printer)
 
         # Verify it was saved
-        assert temp_config.data["api_url"] == "https://new-server.com"
+        assert temp_config.data["ssl_cert"] == "/etc/ssl/server.crt"
 
-    def test_settings_set_alias(self, temp_config, mock_printer, capsys):
-        """Test setting settings using alias."""
-        settings_set(["server", "https://alias-test.com"], temp_config, mock_printer)
-
-        # 'server' should be converted to 'api_url'
-        assert temp_config.data["api_url"] == "https://alias-test.com"
-
-    def test_settings_set_connection_key_warns_deprecated(
-        self, temp_config, mock_printer, capsys
+    @pytest.mark.parametrize("key", ["server", "api_url", "token", "api_token"])
+    def test_the_server_and_token_are_not_settings(
+        self, temp_config, mock_printer, capsys, key
     ):
-        """api_url/api_token are owned by `hop3 context` now — warn but still save."""
-        settings_set(["api_token", "secret-token-value"], temp_config, mock_printer)
-
-        captured = capsys.readouterr()
-        assert "deprecated" in captured.err.lower()
-        assert "hop3 context" in captured.err
-        # Still written for back-compat.
-        assert temp_config.data["api_token"] == "secret-token-value"
+        """Nothing reads these keys: writing one would only pretend to work."""
+        with pytest.raises(SystemExit) as exc:
+            settings_set([key, "value"], temp_config, mock_printer)
+        assert exc.value.code == ExitCode.USAGE_ERROR
+        assert "hop3 " in capsys.readouterr().err
+        assert key not in temp_config.data
 
     def test_settings_set_non_connection_key_does_not_warn(
         self, temp_config, mock_printer, capsys
@@ -668,11 +661,9 @@ class TestHandleLogin:
         assert full in capsys.readouterr().out
 
     def test_login_password_unconfigured(self, temp_config, mock_printer):
-        """Test password login fails when server not configured."""
-        # Config is empty, so server is not configured
-        with pytest.raises(SystemExit) as exc_info:
+        """Password login with no server refuses, saying how to sign in."""
+        with pytest.raises(TargetError, match="no context selected"):
             handle_login([], temp_config, mock_printer)
-        assert exc_info.value.code == 1
 
     def test_auth_login_dispatches_to_local_handler(self, temp_config, mock_printer):
         """`hop3 auth login ...` runs the rich local handler, not an RPC call."""
@@ -697,9 +688,10 @@ class TestHandleLogin:
 
     def test_logout_revokes_and_clears_token(self, temp_config, mock_printer, capsys):
         """Logout revokes the token server-side and clears it from the store."""
-        # ADR 042 r2: the token lives in the per-server store, keyed by the
-        # default server — not in a config.toml context.
-        temp_config.set_default_server("https://test.com")
+        # The token lives in the per-server store, keyed by the global
+        # current context's server.
+        temp_config.set_context_server(DEFAULT_CONTEXT_NAME, "https://test.com")
+        temp_config.set_default_context(DEFAULT_CONTEXT_NAME)
         cs.set_token("https://test.com", _FAKE_JWT_USER)
 
         client_instance = MagicMock()
@@ -733,7 +725,6 @@ class TestHandleLogin:
             )
         # The logout is another process: it reads only what the login saved.
         saved = get_config(temp_config.config_file)
-        assert saved.get_default_server() is None
 
         client_instance = MagicMock()
         client_cm = MagicMock()
@@ -767,8 +758,11 @@ class TestHandleLogin:
     def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
         """Test token login uses the existing default server when no --url given."""
         mock_token = _FAKE_JWT_TEST
-        # Pre-configure the default server (no --url on the command line).
-        temp_config.set_default_server("https://existing-server.com")
+        # Pre-configure the global context (no --url on the command line).
+        temp_config.set_context_server(
+            DEFAULT_CONTEXT_NAME, "https://existing-server.com"
+        )
+        temp_config.set_default_context(DEFAULT_CONTEXT_NAME)
 
         with patch(
             "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"

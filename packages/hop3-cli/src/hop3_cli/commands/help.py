@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from hop3_cli.core.aliases import CORE_ALIASES
 from hop3_cli.core.app_scope import run_passthrough_index
 from hop3_cli.core.suggest import load_cached_commands
+from hop3_cli.exceptions import TargetError
 
 from .local import LOCAL_COMMANDS_INFO
 from .local.completion_cmd import FALLBACK_COMMANDS
@@ -94,8 +95,10 @@ def serve_offline_help(cli_args: list[str], config: Config) -> bool:
     names = sorted({name.split()[0] for name in cached or FALLBACK_COMMANDS})
 
     print("hop3 — deploy and manage applications on your own server\n")
-    print("Not connected to a server yet, so this is the built-in command list.")
-    print("Connect with:  hop3 login root@<your-server>")
+    try:
+        config.require_target()
+    except TargetError as e:
+        print(f"No server for this command, so this is the built-in command list:\n{e}")
     print("Then `hop3 help` shows the full help for that server's commands.\n")
     print("Commands:")
     for row in _in_columns(names, per_row=6):

@@ -167,6 +167,20 @@ class HopConfig:
         return self._config_loader.get_str("ADMIN_DOMAIN", "")
 
     @property
+    def PROTECTED(self) -> bool:
+        """
+        Whether this server takes changes only from an explicit selection.
+
+        ADR 042, rule D: on a protected server a command that changes
+        something (any command above the viewer role) runs only when the CLI
+        chose this server from ``--context`` or the environment, never from a
+        checkout's binding or the global current context, and after the
+        operator typed the app's name. Set ``PROTECTED = true`` in
+        ``hop3-server.toml`` on a production server.
+        """
+        return self._config_loader.get_bool("PROTECTED", default=False)
+
+    @property
     def EXPOSE_DEFAULT_SOURCE(self) -> str:
         """
         Default firewall source scope for ``hop3 addon expose`` (CIDR / 'any').

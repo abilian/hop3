@@ -158,20 +158,19 @@ hop3 help              # Show help
 
 ## Configuration
 
-Under ADR 042 the CLI's on-disk state is split in two: a **secret-free** `config.toml` for local preferences and **global** contexts, and a **per-server credential store** (`credentials.toml`) for bearer tokens. A *context* (the one target selector) exists at two scopes: a **project** environment in the committed `hop3.toml`, and a **global** named server in `config.toml`. `--context <name>` resolves project-first, then global.
+Under ADR 042 the CLI's on-disk state is split in three: a **secret-free** `config.toml` for local preferences and contexts, a **per-server credential store** (`credentials.toml`) for bearer tokens, and a per-checkout **binding** (`.hop3-local.toml`, gitignored) naming the context a checkout uses. A *context* is a server you can reach, and lives only in `config.toml`; the committed `hop3.toml` never says where the app is deployed.
 
 ### Config File (`config.toml`)
 
-Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the exact path is platform-specific) and honoring `$HOP3_CONFIG_DIR`. It holds local preferences, the **global** `[contexts.<name>].server` blocks (named servers, address-only) and `[cli].default_context`, plus an optional legacy `[cli].default_server` (and `[cli].current_context`, read-only for one release); it holds no bearer tokens.
+Location: `~/.config/hop3-cli/config.toml`, resolved via `platformdirs` (so the exact path is platform-specific) and honoring `$HOP3_CONFIG_DIR`. It holds local preferences, the `[contexts.<name>]` blocks (`server`, optional `bootstrap`) and `[cli].default_context` (the global current context, used outside a project); it holds no bearer tokens.
 
 ```toml
 [cli]
-default_context = "devel"                       # target for bare project-less commands
-# default_server = "ssh://root@host"            # legacy unnamed fallback (lower priority)
-# current_context = "devel"                     # legacy, read-only fallback
+default_context = "devel"                       # the global current context, used outside a project
 
 [contexts.devel]
-server = "ssh://root@hop3.example.com"          # a named server — `--context devel` anywhere
+server = "https://hop3.example.com"             # the address every command connects to
+bootstrap = "ssh://root@hop3.example.com"       # used only to renew the token
 ```
 
 The file is written atomically (tmpfile + `os.replace`) and `chmod 0600` defensively, even though it carries no secrets.
@@ -187,13 +186,15 @@ token = "eyJ..."
 
 This file is invisible plumbing: `hop3 auth login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. It is created file-mode `0o600` with parent dir `0o700`, and the store **aborts loudly** rather than ever leaving it group/world-readable (Hop3's "errors are never silent" rule). See `core/credential_store.py`.
 
-### Contexts (the one target selector)
+### Contexts and the binding
 
-A *context* is a named target, and `--context <name>` is the single selector for every command, app-bound or not. It exists at two scopes: a **project** environment declared under `[contexts.<name>]` in the committed `hop3.toml` (server address, app instance name, domains, env), and a **global** named server in `config.toml` (`[contexts.<name>].server`, address-only) for project-less use. Both are non-secret: the `server` is a literal address. `--context` resolves project-first, then global; an explicit `--context` that resolves to nothing aborts loud (it never silently retargets). There is no `--server` flag. Contexts are managed with `hop3 context add|use|list|show|remove|rename` (see `commands/local/context_cmd.py`, which operates on the project scope inside a project and the global scope outside one, or with `--global`); the per-checkout project selection is pinned in the gitignored `.hop3-local.toml`.
+A *context* is a named server: `server`, plus an optional `bootstrap` `ssh://` route used only to mint a token. It never holds an app, domains or environment; those per-deployment differences live in the project's `hop3.toml`, under `[contexts.<name>]` blocks keyed by context name and holding only `app`, `domains` and `env` (a `server` or `bootstrap` there is refused). Contexts are managed with `hop3 context add|use|unset|list|show|remove|rename` (see `commands/local/context_cmd.py`).
+
+`main.py` resolves the target once per invocation, in two steps. `core/resolution.py:resolve_context` picks the context *name* by rule B of ADR 042: `--context`, then `HOP3_CONTEXT` (or the context `env` for `HOP3_API_URL` / `HOP3_DEV_MODE`), then, inside a project, the checkout's binding from `.hop3-local.toml`, and, outside a project, `[cli].default_context`. Inside a project with no binding the result is `UNBOUND`, never the global context. `core/target.py:resolve_target` then turns the name into a `Target` (context, server, bootstrap, source) or a `TargetError` that names the fix (`hop3 context use <name>`); a name that resolves to nothing aborts, whichever step supplied it. `Target.describe()` is the `→ <context> (<server>), <why>` line each server-reaching command prints on stderr. There is no `--server` flag and no single-context fallback.
 
 ### Config Class
 
-`Config` wraps the parsed TOML `data` dict and resolves the connection with a fixed priority. The active server is wired per-invocation by `main.py`: an explicit `--context` must resolve project-first then global (`_require_context_server`), else the ambient project context, else the default global context (`[cli].default_context`) / legacy `[cli].default_server` / the sole known server (`_resolve_ambient_server`). The API URL then resolves as: `HOP3_API_URL` env → the resolved context's server (`_active_server`) → `[cli].default_server` → legacy `config.toml` context (read fallback) → dev-mode default. The token comes from the credential store keyed by the active/default server, or from `HOP3_API_TOKEN`.
+`Config` wraps the parsed TOML `data` dict. `main.py` records the resolved target with `set_target` (or the refusal with `set_target_error`, raised the first time a server is needed); `get_api_url` returns the target's server, and the token comes from the credential store keyed by that same address, or from `HOP3_API_TOKEN`.
 
 ```python
 @dataclass
@@ -201,11 +202,12 @@ class Config:
     data: dict = field(default_factory=dict)
     config_file: Path | None = None
 
+    def set_target(self, target: Target) -> None: ...
+    def require_target(self) -> Target: ...
     def get_api_url(self) -> str | None: ...
     def get_api_token(self) -> str | None: ...   # reads the credential store
-    def get_context_server(self, name: str) -> str | None: ...  # global context -> address
-    def get_default_context(self) -> str | None: ...
-    def get_default_server(self) -> str | None: ...  # legacy unnamed fallback
+    def get_context_server(self, name: str) -> str | None: ...  # context -> address
+    def get_default_context(self) -> str | None: ...  # the global current context
 ```
 
 ### Environment Variables
@@ -298,14 +300,14 @@ password path goes through the server's `auth get-token` primitive:
 2. CLI forwards the credentials as cli(["auth", "get-token", user, pass])
 3. Server verifies them and returns a JWT token
 4. CLI saves the token to the per-server credential store (credentials.toml)
-   and records the server as the default target
+   and records the server as a context
 5. Subsequent requests include: Authorization: Bearer <token>
 ```
 
 `hop3 auth get-token <user> --password-file -` exposes that same primitive
 directly, for scripts that want to capture a token without saving config.
 
-`hop3 auth login --ssh <target>` obtains the token over SSH and stores it the same way: in the per-server credential store, keyed by the canonical server address, with the server set as the project-less default. With `--context <name>`, the server is also recorded as a global context in `config.toml` and set as `[cli].default_context` (still secret-free, since only the address is written). `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. The local `hop3 init` and `hop3 auth login` commands rely on that retry.
+`hop3 auth login --ssh <target>` obtains the token over SSH and stores it the same way: in the per-server credential store, keyed by the canonical server address. The server is recorded as a context in `config.toml` (named by `--context`, else `default`; still secret-free, since only the address is written), and becomes `[cli].default_context` only when no global current context is set; otherwise the login prints the `hop3 context use <name>` that would switch. `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. The local `hop3 init` and `hop3 auth login` commands rely on that retry.
 
 ## Development Notes
 
@@ -333,4 +335,4 @@ pytest --cov hop3_cli tests src
 - [ ] Interactive mode (REPL)
 - [ ] Richer progress reporting for long-running deploys
 
-Multi-server support and shell completion already exist (project and global contexts selected by the one `--context` flag, plus the `completion` command, respectively).
+Multi-server support and shell completion already exist (contexts, bound per checkout with `hop3 context use` or chosen per command with `--context`, and the `completion` command, respectively).

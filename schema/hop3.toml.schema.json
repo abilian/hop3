@@ -374,7 +374,7 @@
     },
     "ContextSection": {
       "additionalProperties": false,
-      "description": "A single ``[contexts.<name>]`` block \u2014 one deploy environment (ADR 042 r2).\n\nA \"context\" is a (server, app, domains, env) bundle answering \"where does\n*this* project go for environment ``<name>``?\". Multiple contexts express the\ndev / staging / prod story for one codebase. Carries NO secrets: ``server``\nis a literal address (the token lives in the CLI's per-server store), and a\ncommitted-credential tripwire rejects secret-shaped values. Resolved\nCLIENT-SIDE; the deployer ignores ``[contexts.*]``.",
+      "description": "A single ``[contexts.<name>]`` block (ADR 042).\n\nWhat differs for this app when it is deployed through the context\n``<name>``: the app's name there, its domains, its environment. The block\nnever says where the app is deployed: a context is a server in each\ndeveloper's own CLI configuration, and the block applies to whichever\nserver that context names. Carries NO secrets: a committed-credential\ntripwire rejects secret-shaped values. Resolved CLIENT-SIDE; the deployer\nignores ``[contexts.*]``.",
       "properties": {
         "app": {
           "anyOf": [
@@ -388,19 +388,6 @@
           "default": null,
           "description": "App instance name for this environment; inherits [metadata].id when absent.",
           "title": "App"
-        },
-        "bootstrap": {
-          "anyOf": [
-            {
-              "type": "string"
-            },
-            {
-              "type": "null"
-            }
-          ],
-          "default": null,
-          "description": "SSH target used ONLY to mint tokens, e.g. ssh://root@prod.example.com. Everyday traffic goes to `server`; when that is an https:// address the client still needs an SSH route to renew an expired token, and this is it. Omit when `server` is itself ssh:// \u2014 it bootstraps through that.",
-          "title": "Bootstrap"
         },
         "domains": {
           "anyOf": [
@@ -427,16 +414,8 @@
           "default": null,
           "description": "Non-secret env overrides; merge over top-level [env]. Secrets go server-side via `hop3 env set`, never here.",
           "title": "Env"
-        },
-        "server": {
-          "description": "Literal address of the target Hop3 instance, e.g. ssh://root@prod.example.com. Never a symbolic name, never credentials.",
-          "title": "Server",
-          "type": "string"
         }
       },
-      "required": [
-        "server"
-      ],
       "title": "ContextSection",
       "type": "object"
     },
@@ -1696,7 +1675,7 @@
         }
       ],
       "default": null,
-      "description": "Per-project deploy environments (ADR 042, 2nd revision). Each [contexts.<name>] bundles (server, app, domains, env) for one environment \u2014 dev/staging/prod. Non-secret; resolved client-side; ignored by the deployer.",
+      "description": "What differs per deployment (ADR 042), keyed by context name: each [contexts.<name>] holds the app's name, domains and env when it is deployed through that context. Never a server address. Non-secret; resolved client-side; ignored by the deployer.",
       "title": "Contexts"
     },
     "deploy": {

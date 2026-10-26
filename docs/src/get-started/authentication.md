@@ -23,7 +23,15 @@ It asks the server for an API token over SSH and stores it, creating an admin ac
 Signed in to https://your-server.com as admin  (context 'default')
 ```
 
-From then on `hop3 apps`, `hop3 deploy` and the rest work against that server.
+From then on `hop3 apps` and the rest work against that server. Inside a project (a directory with a `hop3.toml`), bind the checkout to it once before the first deploy:
+
+```bash
+cd myapp
+hop3 context use default
+hop3 deploy
+```
+
+See [Choosing where a project deploys](#choosing-where-a-project-deploys) below.
 
 A bare hostname means `root@`: the line above shows the address it resolved to, so you can see the substitution.
 
@@ -94,25 +102,35 @@ sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:reset-password admin
 
 ## Naming your servers
 
-Every target has a name. A login that names none records `default`:
+Every server you log into is recorded as a **context**: a name for the server, in your own `~/.config/hop3-cli/config.toml`. A login that names none records `default`:
 
 ```bash
 hop3 login root@dev.example.com                    # context 'default'
 hop3 login --context prod root@prod.example.com    # context 'prod'
 
-hop3 apps                    # the current target — here, prod
-hop3 apps --context default  # the other one
+hop3 apps                    # outside a project: the global current context, here 'default'
+hop3 apps -c prod            # the other one, for this command
 ```
 
-`--context <name>` records the server under that name and makes it current, so you only pass the flag when you want a different one.
+The first login makes its context the global current context. A later login records its context and leaves the current one alone; it prints the `hop3 context use prod` that would switch. Signing in never changes where your commands go.
 
 A second server logged in *without* a name is refused: "I replaced my server" and "I have two now" look identical from the CLI's side. Guessing wrong sends your next `hop3 destroy` to the wrong machine. Name it, or drop the old one first; the error says both.
 
-`hop3 context` lists what you have. Run `hop3 context --help` for the project-scoped form, where a context also carries the app, its domains and its environment.
+`hop3 context` shows where a command run here goes, and why, then lists what you have.
 
-### Two names are taken
+### Choosing where a project deploys
 
-`default` is the global target a nameless login writes, so a *project* context cannot use it: a committed `[contexts.default]` would shadow it for everyone working in that checkout.
+Inside a project, the global current context is never used. Each checkout is bound to a context, once, with `hop3 context use`:
+
+```bash
+cd myapp
+hop3 context use prod      # asks first; -y skips the question
+hop3 deploy                # → prod (https://prod.example.com), bound in this checkout
+```
+
+The binding is written to `.hop3-local.toml`, beside the project's `hop3.toml`, and gitignored. Until a checkout is bound, every command that reaches a server is refused there, with the `hop3 context use <name>` to run. `-c <name>` or `HOP3_CONTEXT` still choose for one command or one shell. The [CLI reference](../reference/cli.md#context-management) has the full rules; what differs per deployment (the app name, domains, env) goes in `hop3.toml`, under [`[contexts.<name>]`](../reference/config.md#contextsname-per-deployment-settings).
+
+### One name is taken
 
 `env` is the target your shell declares. If `HOP3_API_URL` is set, commands go there, ahead of anything stored. It is listed and named like any other context, so the override is visible.
 
@@ -142,7 +160,8 @@ Every account holds one role: `admin`, `deployer`, `viewer` or `member` (the def
 | HTTPS is down but SSH works | Certificate expired, proxy stopped, DNS wrong | `hop3 apps --via-ssh` for one command |
 | The dashboard login bounces back to itself | Plain HTTP, `Secure` cookie dropped | Give the server a domain and a certificate |
 | The magic link says it is invalid | Used already, or older than 5 minutes | Generate another with `hop3 login --browser` |
-| `hop3 apps` answers about the wrong server | `HOP3_API_URL` is exported, or the current context is not the one you meant | `hop3 context` to see where it goes; `unset HOP3_API_URL`, or pass `--context <name>` |
+| `hop3 apps` answers about the wrong server | `HOP3_API_URL` is exported, or the context chosen here is not the one you meant | `hop3 context` to see where it goes and why; `unset HOP3_API_URL`, `hop3 context use <name>`, or pass `-c <name>` |
+| "this checkout is not bound to a context" | You are inside a project that has no binding yet | `hop3 context use <name>` (after a plain `hop3 login`, the name is `default`) |
 | You have the password but not SSH | Nothing is broken | `hop3 login` prompts for username and password |
 
 The old spellings still work: `hop3 login --ssh <target>` for the positional form, `--web` for `--browser`, and `hop3 auth login` for `hop3 login`.

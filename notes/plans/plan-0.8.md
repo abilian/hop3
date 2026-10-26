@@ -40,11 +40,12 @@ In order. An item names how to run it and what finishes it.
 Agreed on 2026-10-23 ([decision below](#decided-the-context-model-goes-into-08-2026-10-23)); the review and the reasoning are in [`../cli-context-review.md`](../cli-context-review.md). Each step ships alone, in this order.
 
 - [x] **The ADR's two open questions** (2026-10-23): the per-deployment blocks stay `[contexts.<name>]` sections of `hop3.toml`, keyed by context name; a context matching none of a project's blocks is refused.
-- [ ] **One resolver** for every command and message: a selection that names nothing aborts, every server-reaching command prints where it goes and why, `--why` shows the full trace, and `cli.md` and the cheat sheet are corrected against it.
-- [ ] **Contexts global-only**: `context add` records a server and nothing else, `context unset`, a global `rename`, a login no longer changes the current context.
-- [ ] **The binding**: `hop3 context use` binds the checkout inside a project and sets the global context outside one, asking first; an unbound project refuses every server-reaching command; `server` in `hop3.toml` is refused with the replacing command; a context matching none of a project's `[contexts.*]` blocks is refused.
-- [ ] **Protected servers**: the mark on the server, the selection source sent with each invocation, the typed app name.
-- [ ] **`CHANGES.md`**: the behaviour change for checkouts that relied on the global context, and the new commands.
+- [x] **One resolver** for every command and message: a selection that names nothing aborts, every server-reaching command prints where it goes and why, `--why` shows the full trace, and `cli.md` and the cheat sheet are corrected against it.
+- [x] **Contexts global-only**: `context add` records a server and nothing else, `context unset`, a global `rename`, a login no longer changes the current context.
+- [x] **The binding**: `hop3 context use` binds the checkout inside a project and sets the global context outside one, asking first; an unbound project refuses every server-reaching command; `server` in `hop3.toml` is refused with the replacing command; a context matching none of a project's `[contexts.*]` blocks is refused.
+- [x] **Protected servers**: the mark on the server, the selection source sent with each invocation, the typed app name.
+- [x] **`CHANGES.md`**: the behaviour change for checkouts that relied on the global context, and the new commands.
+- [ ] **A run on a protected server**: set `PROTECTED = true` on a test server, then check that a binding-selected `hop3 env set` is refused, that `hop3 -c <name> env set` asks for the app's name, and that a read-only command passes. Unit and integration tests cover each half; no end-to-end run has yet.
 
 ### Runs
 

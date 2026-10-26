@@ -75,11 +75,8 @@ class DeployPlan:
     # the server). Resolved by the caller from the active/ambient server, so the
     # preview names the real target, not just the context label.
     server: str | None = None
-    # When no context was explicitly resolved, the default context that selected
-    # ``server`` (``[cli].default_context``). Display-only: the upload still
-    # flattens on ``context`` so preview == deploy. None when the server came
-    # from elsewhere (env var, default_server, sole known server).
-    default_context: str | None = None
+    # Why ``context`` was chosen ("bound in this checkout", ...), display-only.
+    context_source: str | None = None
     # Path of an ancestor hop3.toml that EXISTS but isn't being packaged
     # (the deploy archive root is ``source_path``, so the ancestor's
     # domains/addons/env won't make it to the server). Surfaces as a
@@ -93,7 +90,7 @@ def build_plan(
     context: str | None,
     app: str,
     server: str | None = None,
-    default_context: str | None = None,
+    context_source: str | None = None,
     home: Path | None = None,
     git_runner: Callable[[list[str], Path], str | None] | None = None,
 ) -> DeployPlan:
@@ -126,8 +123,7 @@ def build_plan(
             preview matches the upload exactly.
         app: Resolved app name.
         server: The address the deploy will connect to (display-only).
-        default_context: The default context that selected ``server`` when no
-            context was explicitly resolved (display-only).
+        context_source: Why the context was chosen (display-only).
         home: Upper bound for the ancestor-walk diagnostic (defaults to
             ``Path.home()``).
         git_runner: Test seam.
@@ -165,7 +161,7 @@ def build_plan(
         addons=tuple(addons),
         env_keys=tuple(env_keys),
         server=server,
-        default_context=default_context,
+        context_source=context_source,
         ancestor_hop3_toml=ancestor,
     )
 
@@ -180,10 +176,10 @@ def render_plan(plan: DeployPlan) -> str:
     """
     lines = ["About to deploy:"]
     lines.append(f"  Source:   {plan.source_path} ({plan.git.descriptor})")
-    if plan.context:
+    if plan.context and plan.context_source:
+        lines.append(f"  Context:  {plan.context} ({plan.context_source})")
+    elif plan.context:
         lines.append(f"  Context:  {plan.context}")
-    elif plan.default_context:
-        lines.append(f"  Context:  {plan.default_context} (default)")
     else:
         lines.append("  Context:  (none)")
     lines.append(f"  Server:   {plan.server or '(none)'}")

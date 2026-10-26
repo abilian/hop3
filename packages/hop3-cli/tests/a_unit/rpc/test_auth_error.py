@@ -18,8 +18,8 @@ def _make_config(api_url: str = "http://localhost:8000") -> Config:
     """Create a Config with context-based configuration."""
     return Config(
         data={
-            "contexts": {"default": {"api_url": api_url, "api_token": ""}},
-            "current_context": "default",
+            "contexts": {"default": {"server": api_url}},
+            "cli": {"default_context": "default"},
         }
     )
 

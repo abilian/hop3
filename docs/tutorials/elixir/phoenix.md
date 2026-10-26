@@ -441,6 +441,12 @@ Initial Phoenix application
 hop3 init --ssh root@your-server.example.com
 ```
 
+From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
+
+```bash skip
+hop3 context use default   # bind this checkout to the server you logged into
+```
+
 ### Set Environment Variables
 
 `SECRET_KEY_BASE` is generated for you on the first deploy (declared in `hop3.toml` `[env]`), so there's no secret to generate or set by hand. Just point the app at its public host:

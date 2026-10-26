@@ -91,7 +91,7 @@ Hop3 keeps one `hop3.toml` per app and no per-environment variants. Differences 
 hop3 env set --app myapp LOG_LEVEL=info
 ```
 
-To deploy the same project to more than one server, use contexts (`--context <name>`) and keep a single configuration file. See the [CLI reference](../reference/cli.md).
+To deploy the same project to more than one server, use contexts and keep a single configuration file: bind each checkout with `hop3 context use <name>`, or pick one per command with `-c <name>`. What differs per deployment (app name, domains, env) goes in a `[contexts.<name>]` block. See the [CLI reference](../reference/cli.md#context-management).
 
 ## Verify
 

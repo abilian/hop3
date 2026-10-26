@@ -7,7 +7,7 @@ Tests for the main.py wiring of ADR 042 §D14 + §Deploy preview.
 
 Covers the integration of `_check_project_mismatch`, `_forward_dry_run`,
 `_handle_deploy_preview`, `_deploy_source_path`, `_matches_guarded_prefix`,
-and `_compute_resolutions` (context + app only — ADR 042).
+and `_compute_app_resolution`.
 """
 
 from __future__ import annotations
@@ -18,11 +18,12 @@ from unittest.mock import patch
 import pytest
 from hop3_cli.commands.flags import CliFlags, parse_flags
 from hop3_cli.config import Config
-from hop3_cli.core.resolution import AppSource
+from hop3_cli.core.resolution import AppSource, ContextSource, resolve_context
+from hop3_cli.core.target import Target
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.main import (
     _check_project_mismatch,
-    _compute_resolutions,
+    _compute_app_resolution,
     _deploy_source_path,
     _forward_dry_run,
     _handle_deploy_preview,
@@ -244,6 +245,14 @@ def test_deploy_source_skips_flag_positionals() -> None:
 # ============================================================================
 
 
+def _targeted() -> Config:
+    config = Config(data={})
+    config.set_target(
+        Target("dev", "https://dev.example.com", None, ContextSource.FLAG)
+    )
+    return config
+
+
 def test_dry_run_for_deploy_prints_plan_and_exits(tmp_path: Path, capsys) -> None:
     with (
         patch("hop3_cli.main._deploy_source_path", return_value=tmp_path),
@@ -252,14 +261,14 @@ def test_dry_run_for_deploy_prints_plan_and_exits(tmp_path: Path, capsys) -> Non
         _handle_deploy_preview(
             ["deploy", "myapp"],
             _flags(dry_run=True),
-            Config(data={}),
+            _targeted(),
             _Resolution("myapp", "$HOP3_APP"),
-            None,
         )
     assert exc.value.code == ExitCode.SUCCESS
     captured = capsys.readouterr()
     assert "About to deploy:" in captured.out
     assert "App:      myapp" in captured.out
+    assert "Context:  dev (from --context)" in captured.out
 
 
 def test_dry_run_for_non_deploy_does_not_short_circuit(tmp_path: Path) -> None:
@@ -272,7 +281,6 @@ def test_dry_run_for_non_deploy_does_not_short_circuit(tmp_path: Path) -> None:
         _flags(dry_run=True),
         Config(data={}),
         _Resolution("myapp", "$HOP3_APP"),
-        None,
     )  # must not raise
 
 
@@ -282,31 +290,23 @@ def test_preview_no_op_when_app_unresolved() -> None:
         _flags(dry_run=True),
         Config(data={}),
         _Resolution(None),
-        None,
     )  # must not raise
 
 
 # ============================================================================
-# _compute_resolutions — context + app only (no server chain, no git-remote)
+# _compute_app_resolution
 # ============================================================================
 
 
-def test_compute_resolutions_returns_context_and_app(
-    tmp_path: Path, monkeypatch
-) -> None:
-    """
-    ADR 042: `_compute_resolutions` returns a 2-tuple `(context, app)`.
-
-    There is no server resolution and no git-remote inference; the app
-    resolves CWD-only. The call must complete without git/server work.
-    """
-    for var in ("HOP3_CONTEXT", "HOP3_APP"):
-        monkeypatch.delenv(var, raising=False)
-
-    config = Config(data={"contexts": {}})
+def test_app_resolves_for_an_app_scoped_command(tmp_path: Path) -> None:
     flags, _ = parse_flags(["deploy", "myapp"])
-    _ctx, app = _compute_resolutions(["deploy", "myapp"], flags, config)
+    app = _compute_app_resolution(["deploy", "myapp"], flags, resolve_context(None))
     assert app is not None  # app-scoped → resolver ran (returns an AppResolution)
+
+
+def test_no_app_for_a_command_that_is_not_app_scoped() -> None:
+    flags, _ = parse_flags(["apps"])
+    assert _compute_app_resolution(["apps"], flags, resolve_context(None)) is None
 
 
 # ============================================================================

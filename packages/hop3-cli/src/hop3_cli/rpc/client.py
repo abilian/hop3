@@ -116,6 +116,9 @@ class Client:
     tunnel: SshTunnel | None = None
 
     api_url_override: str | None = None
+    # ADR 042, rule D: set once the operator typed the app's name for a
+    # protected server; sent with each call.
+    protected_confirmed: bool = False
 
     def __post_init__(self) -> None:
         """Initialize the SSH tunnel only if the scheme is ssh."""
@@ -265,9 +268,14 @@ class Client:
         self, method: str, cli_args: list[str], **extra_args: object
     ) -> Response:
         """Execute the actual RPC call."""
+        target = self.config.get_target()
         args = {
             "cli_args": cli_args,
             "extra_args": extra_args,
+            # How the CLI chose this server (ADR 042, rule D), so a protected
+            # server can refuse a change nobody named it for.
+            "context_source": target.source.name.lower() if target else None,
+            "protected_confirmed": self.protected_confirmed,
         }
         json_request = request(method, args)
 

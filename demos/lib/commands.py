@@ -53,6 +53,12 @@ _CLI_STEERING_ENV_VARS = (
 # into — nor clobbers them with its throwaway localhost context.
 _DEMO_CLI_CONFIG_HOME = Path(__file__).resolve().parent.parent / ".cli-home"
 
+# The context the demo's `hop3 login` records: it names none, so the CLI writes
+# `default`. Deploys run from the app dir, inside a project, where the CLI uses
+# only a binding or a context named for it (ADR 042); naming it in the
+# environment is the visible, per-run choice.
+_DEMO_CLI_CONTEXT = "default"
+
 
 @cache
 def _hermetic_cli_cwd() -> str:
@@ -78,17 +84,19 @@ def _hermetic_cli_cwd() -> str:
 def cli_env() -> dict[str, str]:
     """Return the environment for local `hop3` CLI calls.
 
-    Two adjustments over the inherited environment:
+    Three adjustments over the inherited environment:
 
     - drop the steering vars (see ``_CLI_STEERING_ENV_VARS``) that would
       override the demo's logged-in context;
     - point ``XDG_CONFIG_HOME`` at a demo-private dir so the CLI reads/writes
-      an isolated config (see ``_DEMO_CLI_CONFIG_HOME``).
+      an isolated config (see ``_DEMO_CLI_CONFIG_HOME``);
+    - name the context the demo's login records (``_DEMO_CLI_CONTEXT``).
     """
     env = dict(os.environ)
     for var in _CLI_STEERING_ENV_VARS:
         env.pop(var, None)
     env["XDG_CONFIG_HOME"] = str(_DEMO_CLI_CONFIG_HOME)
+    env["HOP3_CONTEXT"] = _DEMO_CLI_CONTEXT
     return env
 
 
