@@ -201,6 +201,7 @@ nav = [
     { "Blog" = [
         { "All Posts" = "blog/index.md" },
         { "2026" = [
+            { "Hop3 0.8 Released" = "blog/posts/2026-10-hop3-080-release.md" },
             { "Hop3 0.7 Released" = "blog/posts/2026-07-hop3-070-release.md" },
             { "An App Catalog for Self-Hosting" = "blog/posts/2026-07-app-catalog.md" },
             { "A Preliminary Benchmark: Nix Deploys Faster Tha..." = "blog/posts/2026-07-nix-vs-docker-benchmarks.md" },

@@ -71,7 +71,9 @@
     "R31-runon/adr060-three-ways-list": "NOT exempted, recorded as a judgement: ADR 060:53 'Three ways to empty a bucket were available: keep `mc`, which …, so …; add `boto3`, roughly 15 MB …; or sign the two required S3 requests directly.' is a serial list whose items carry their own commas, which rule 31 names as its exemption.",
     "R34-verbless/report-taglines-and-leads-batch": "The remaining experience-report taglines (bugsink, isso, keycloak, miniflux, radicale) and 'What this app exercised' leads (bugsink, invoice-ninja, isso, paheko, vikunja), recorded one pattern each under the series judgements R34-verbless/report-tagline and R34-verbless/report-section-lead.",
     "R31-runon/ngi-funding-statement": "README.md: the NLnet / NGI0 Commons Fund acknowledgement is the funder's standard wording (fund, programme, DG CONNECT, grant agreement number), reproduced as funded projects are asked to. Not ours to split for style; same class as R12-inflated/next-generation-internet.",
-    "R34-verbless/slogan": "'Your code, your data, your rules.' is Hop3's slogan, kept verbatim wherever it appears; a slogan is a label, which rule 34 exempts."
+    "R34-verbless/slogan": "'Your code, your data, your rules.' is Hop3's slogan, kept verbatim wherever it appears; a slogan is a label, which rule 34 exempts.",
+    "R39-overused/refused+refuses": "Hop3's word for input validation rejecting a request, from the fail-loud doctrine; the platform's own error messages use it, so the changelog names each check by the word the user sees.",
+    "R39-overused/probe": "The `[probe]` section of hop3.toml and the probe account it declares: a term of art, not a register word."
   },
   "allowlist": {
     "R33-taboo": [
@@ -201,6 +203,11 @@
       "|-------|",
       "conflict detection is db-based",
       "freshness beyond monotonic serial"
+    ],
+    "R39-overused": [
+      "refused",
+      "refuses",
+      "probe"
     ]
   }
 }
