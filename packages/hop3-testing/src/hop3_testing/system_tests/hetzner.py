@@ -347,19 +347,8 @@ class HetznerManager:
             response.action.id, timeout=timeout, action_name="rebuild"
         )
 
-        # Update SSH known_hosts with new host key
-        server_ip = self.get_server_ip()
-        if self.verbose and self.console:
-            self.console.print(f"    Updating SSH known_hosts for {server_ip}")
-
-        # Find any hostname aliases that resolve to this IP
-        aliases = self._ssh_key_manager.find_hostnames_for_ip(server_ip)
-        if self.verbose and self.console and aliases:
-            self.console.print(f"    Found aliases: {', '.join(aliases)}")
-
-        # Update known_hosts for IP and all aliases
-        self._ssh_key_manager.update_host_key(server_ip, additional_hosts=aliases)
-
+        # The new host key is read by wait_for_ssh_ready, once SSH answers:
+        # read here, right after the rebuild, the scan found no server.
         return self.get_server_info()
 
     def reset_server(

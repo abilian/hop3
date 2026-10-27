@@ -17,6 +17,10 @@ from typing import Self
 import paramiko
 
 
+class HostKeyError(RuntimeError):
+    """A host's SSH key could not be read into known_hosts."""
+
+
 @dataclass
 class SSHConnectionInfo:
     """Information about an SSH connection."""
@@ -88,7 +92,7 @@ class SSHKeyManager:
             return result.stdout.strip()
         return None
 
-    def add_host_key(self, host: str, port: int = 22) -> bool:
+    def add_host_key(self, host: str, port: int = 22) -> None:
         """
         Scan and add a host's key to known_hosts.
 
@@ -98,8 +102,9 @@ class SSHKeyManager:
             host: Hostname or IP address.
             port: SSH port number.
 
-        Returns:
-            True if key was added successfully.
+        Raises:
+            HostKeyError: ssh-keyscan failed or returned no key. Reported as
+                False, it was ignored, and the next ssh failed on the old key.
         """
         # Ensure .ssh directory exists
         self.known_hosts_path.parent.mkdir(mode=0o700, parents=True, exist_ok=True)
@@ -110,7 +115,7 @@ class SSHKeyManager:
         # No shell: this used to interpolate host and port into a command
         # string with `>> {path} 2>/dev/null`, which meant a host containing a
         # space or a shell character produced something other than the intended
-        # command. A failing keyscan also reported nothing but False.
+        # command.
         result = subprocess.run(
             ["ssh-keyscan", "-p", str(port), "-t", "ed25519,rsa", host],
             capture_output=True,
@@ -119,20 +124,19 @@ class SSHKeyManager:
         )
         if result.returncode != 0 or not result.stdout.strip():
             reason = result.stderr.strip() or "ssh-keyscan returned no host key"
-            print(f"Could not read the host key for {host}:{port}: {reason}")
-            return False
+            msg = f"Could not read the host key for {host}:{port}: {reason}"
+            raise HostKeyError(msg)
 
         keys = result.stdout if result.stdout.endswith("\n") else result.stdout + "\n"
         with self.known_hosts_path.open("a") as f:
             f.write(keys)
-        return True
 
     def update_host_key(
         self,
         host: str,
         port: int = 22,
         additional_hosts: list[str] | None = None,
-    ) -> bool:
+    ) -> None:
         """
         Remove old key and add new key for a host.
 
@@ -141,8 +145,8 @@ class SSHKeyManager:
             port: SSH port number.
             additional_hosts: Additional hostnames/aliases to update.
 
-        Returns:
-            True if key was updated successfully.
+        Raises:
+            HostKeyError: a key could not be read, for the host or an alias.
         """
         # Remove old keys for primary host and all aliases
         self.remove_host_key(host)
@@ -150,15 +154,12 @@ class SSHKeyManager:
             self.remove_host_key(alias)
 
         # Add new key for primary host
-        success = self.add_host_key(host, port)
+        self.add_host_key(host, port)
 
         # For aliases, we need to scan them separately since they may resolve
         # to the same IP but need their own entries
-        if success and additional_hosts:
-            for alias in additional_hosts:
-                self.add_host_key(alias, port)
-
-        return success
+        for alias in additional_hosts or []:
+            self.add_host_key(alias, port)
 
     def find_hostnames_for_ip(self, ip_address: str) -> list[str]:
         """

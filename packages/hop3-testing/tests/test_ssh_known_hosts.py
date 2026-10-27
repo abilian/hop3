@@ -8,7 +8,7 @@ Tests for known_hosts maintenance.
 `add_host_key` used to build a shell command string with the host and port
 interpolated into it and `>> known_hosts 2>/dev/null` appended, so a host with a
 shell character in it did something other than what was intended and a failing
-scan reported only False.
+scan reported only False, which nothing checked.
 """
 
 from __future__ import annotations
@@ -16,7 +16,7 @@ from __future__ import annotations
 import subprocess
 
 import pytest
-from hop3_testing.util.ssh import SSHKeyManager
+from hop3_testing.util.ssh import HostKeyError, SSHKeyManager
 
 
 @pytest.fixture
@@ -35,7 +35,8 @@ def test_the_scanned_key_is_appended(manager, monkeypatch):
         subprocess, "run", lambda *a, **kw: _completed(stdout="host ssh-ed25519 AAA\n")
     )
 
-    assert manager.add_host_key("example.com") is True
+    manager.add_host_key("example.com")
+
     assert manager.known_hosts_path.read_text() == "host ssh-ed25519 AAA\n"
 
 
@@ -56,15 +57,15 @@ def test_the_host_is_an_argument_not_a_command(manager, monkeypatch):
     assert all(isinstance(part, str) for part in seen[0])
 
 
-def test_a_failed_scan_says_why(manager, monkeypatch, capsys):
+def test_a_failed_scan_says_why(manager, monkeypatch):
     monkeypatch.setattr(
         subprocess,
         "run",
         lambda *a, **kw: _completed(stderr="Connection timed out", returncode=1),
     )
 
-    assert manager.add_host_key("unreachable.example") is False
-    assert "Connection timed out" in capsys.readouterr().out
+    with pytest.raises(HostKeyError, match="Connection timed out"):
+        manager.add_host_key("unreachable.example")
     # Nothing half-written: a failed scan must not leave an entry.
     assert not manager.known_hosts_path.exists()
 
@@ -73,7 +74,8 @@ def test_an_empty_scan_is_a_failure_not_an_empty_entry(manager, monkeypatch):
     """rc=0 with no key on stdout used to append nothing and report success."""
     monkeypatch.setattr(subprocess, "run", lambda *a, **kw: _completed(stdout="\n"))
 
-    assert manager.add_host_key("silent.example") is False
+    with pytest.raises(HostKeyError, match="no host key"):
+        manager.add_host_key("silent.example")
 
 
 def test_a_key_without_a_trailing_newline_does_not_join_the_next_line(
