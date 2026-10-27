@@ -180,8 +180,14 @@ class StateSyncService:
             self._handle_timeout(app)
             return True
 
-        # Normal sync - check actual status and update if needed
-        return app.sync_state()
+        # Normal sync - check actual status and update if needed. An app whose
+        # status cannot be read fails on its own, without holding up the others.
+        try:
+            return app.sync_state()
+        except RuntimeError as e:
+            app.transition_state(AppStateEnum.FAILED, f"Status unavailable: {e}")
+            log(f"App '{app.name}' status unavailable: {e}", level=1, fg="red")
+            return True
 
     def _is_timed_out(self, app: App) -> bool:
         """

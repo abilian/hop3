@@ -606,3 +606,10 @@ def test_start_error_points_at_the_build_log():
 
     assert "build-logs" in str(exc_info.value)
     assert "never-built-2" in str(exc_info.value)
+
+
+def test_an_unknown_runtime_is_an_error_not_a_stopped_app():
+    """Read as STOPPED, it made `hop3 status` call a running app CRASHED."""
+    app = App(name="myapp", runtime="nosuch")
+    with pytest.raises(RuntimeError, match="Deployer 'nosuch' not found"):
+        app.probe_status()

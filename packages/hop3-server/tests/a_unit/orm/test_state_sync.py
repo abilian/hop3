@@ -377,3 +377,26 @@ def test_start_service_wires_the_configured_timeout(monkeypatch) -> None:
         assert service.timeout == 137.0
     finally:
         stop_state_sync_service()
+
+
+def test_an_app_whose_status_cannot_be_read_fails_alone():
+    """
+    An unknown runtime used to read as STOPPED: a STOPPING app was recorded as
+    stopped, and `hop3 status` called a running one CRASHED. It now raises, so
+    the app is marked FAILED with the reason, and the other apps still sync.
+    """
+    broken = MagicMock(run_state=AppStateEnum.STARTING, state_changed_at=None)
+    broken.name = "broken"
+    broken.sync_state.side_effect = RuntimeError("Deployer 'nosuch' not found")
+    healthy = MockApp("healthy", AppStateEnum.STARTING)
+    healthy._sync_state_returns = True
+    service = _service(MagicMock())
+
+    with patch("hop3.server.state_sync.AppRepository") as repo:
+        repo.return_value.list_transitional.return_value = [broken, healthy]
+        assert service.sync_transitional_apps(MagicMock()) == 2
+
+    broken.transition_state.assert_called_once_with(
+        AppStateEnum.FAILED, "Status unavailable: Deployer 'nosuch' not found"
+    )
+    assert healthy._sync_state_called

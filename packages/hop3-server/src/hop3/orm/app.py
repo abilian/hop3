@@ -235,15 +235,13 @@ class App(BigIntAuditBase):
 
         Returns the actual state based on whether worker processes exist.
         This is used to sync the database state with reality.
+
+        Raises:
+            RuntimeError: no deployer serves the app's runtime. This used to
+                read as STOPPED, so `hop3 status` called a running app CRASHED.
         """
-        try:
-            strategy = get_deployer_by_name(self, self.runtime)
-            is_running = strategy.check_status()
-            return AppStateEnum.RUNNING if is_running else AppStateEnum.STOPPED
-        except (ValueError, RuntimeError) as e:
-            # Unknown runtime or error checking status - log and return STOPPED
-            log(f"Error checking status for app '{self.name}': {e}", fg="red")
-            return AppStateEnum.STOPPED
+        strategy = get_deployer_by_name(self, self.runtime)
+        return AppStateEnum.RUNNING if strategy.check_status() else AppStateEnum.STOPPED
 
     def sync_state(self) -> bool:
         """
