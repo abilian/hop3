@@ -143,9 +143,9 @@ def is_help_command(cli_args: list[str]) -> bool:
     return len(cli_args) == 1 or cli_args == ["help", "--all"]
 
 
-def append_feedback_footer(result: list[dict]) -> list[dict]:
+def with_feedback_footer(result: list[dict]) -> list[dict]:
     """
-    Append a feedback link to the end of the help output (ADR 036 D11, G7).
+    The help output with a feedback link added at the end (ADR 036 D11, G7).
 
     The feedback URL is an ADR-mandated last line of the top-level help output
     so users always have a visible channel for reporting issues.
@@ -172,9 +172,9 @@ def emit_status_line(config: Config) -> None:
     print(f"\nActive context: {context_name}", file=sys.stderr)
 
 
-def append_local_commands_full_help(result: list[dict]) -> list[dict]:
+def with_local_commands_full_help(result: list[dict]) -> list[dict]:
     """
-    Append the full help for client-side (local) commands.
+    The help output with the full help for client-side (local) commands added.
 
     Used for `hop3 help --all -v`: the server renders the full help for every
     *server* command, but local commands (init, login, settings, ...) are

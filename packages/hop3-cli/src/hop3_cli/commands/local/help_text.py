@@ -9,7 +9,7 @@ This module is the single source of truth for the long-form help of every
 command handled by the CLI itself (never sent to the server). Each command's
 handler prints the matching constant for its ``--help`` output, and
 ``hop3 help --all -v`` aggregates them all (see
-``hop3_cli.commands.help.append_local_commands_full_help``).
+``hop3_cli.commands.help.with_local_commands_full_help``).
 """
 
 from __future__ import annotations

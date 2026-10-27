@@ -27,7 +27,7 @@ import pytest
 from hop3_cli.commands.flags import parse_flags
 from hop3_cli.commands.local import is_local_command
 from hop3_cli.core.aliases import CORE_ALIASES
-from hop3_cli.core.app_scope import APP_SCOPED_COMMANDS, is_app_scoped
+from hop3_cli.core.app_scope import APP_SCOPED_COMMANDS, app_scope_depth
 
 pytest.importorskip("hop3.commands.app", reason="hop3-server is not installed")
 
@@ -176,7 +176,7 @@ def _invocation_problem(line: str) -> str | None:
     rest = argv[consumed:]
     if issubclass(target, NamespaceCommand) and rest:
         return f"no `{' '.join(target.name)} {rest[0]}` command"
-    if flags.app and not is_app_scoped(argv)[0]:
+    if flags.app and not app_scope_depth(argv):
         return "the client refuses --app for this command"
     return _server_problem(target, rest, flags.app, line)
 

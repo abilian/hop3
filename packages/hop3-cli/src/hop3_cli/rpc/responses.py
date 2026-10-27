@@ -14,11 +14,11 @@ from typing import TYPE_CHECKING, assert_never
 from jsonrpcclient import Error, Ok
 
 from hop3_cli.commands.help import (
-    append_feedback_footer,
-    append_local_commands_full_help,
     emit_status_line,
     inject_local_commands_into_help,
     is_help_command,
+    with_feedback_footer,
+    with_local_commands_full_help,
 )
 from hop3_cli.commands.local.completion_cmd import read_apps_cache
 from hop3_cli.core.suggest import (
@@ -122,10 +122,10 @@ def handle_ok_response(
         # injecting local one-liners we append the *full* help for local
         # commands, keeping the document a complete reference.
         if printer.verbose and cli_args == ["help", "--all"]:
-            result = append_local_commands_full_help(result)
+            result = with_local_commands_full_help(result)
         else:
             result = inject_local_commands_into_help(result)
-        result = append_feedback_footer(result)
+        result = with_feedback_footer(result)
         printer.print(result)
         emit_status_line(config)
     elif _is_streaming_response(result):

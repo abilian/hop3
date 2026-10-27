@@ -18,7 +18,7 @@ from hop3_cli.commands.local.shell_cmd import (
     ssh_argv,
 )
 from hop3_cli.config import Config
-from hop3_cli.core.app_scope import is_app_scoped
+from hop3_cli.core.app_scope import app_scope_depth
 from hop3_cli.core.ssh_target import SshEndpoint, SshSettings
 from hop3_cli.exit_codes import ExitCode
 
@@ -33,8 +33,8 @@ def test_both_spellings_are_intercepted_and_app_scoped() -> None:
     assert shell_command_args(["app", "shell", "--app", "x"]) == ["--app", "x"]
     assert shell_command_args(["ssh", "--app", "x"]) == ["--app", "x"]
     assert shell_command_args(["app", "run", "--app", "x", "ls"]) is None
-    assert is_app_scoped(["app", "shell"]) == (True, 2)
-    assert is_app_scoped(["ssh"]) == (True, 1)
+    assert app_scope_depth(["app", "shell"]) == 2
+    assert app_scope_depth(["ssh"]) == 1
 
 
 def test_remote_command_as_hop3_rides_the_forced_command() -> None:

@@ -19,8 +19,8 @@ actionable message, rather than let it quietly install the wrong code. The
 escape hatch is explicit: pin the sibling to a released version (``==``) to opt
 into the PyPI release on purpose, or pass ``--force``.
 
-Detection is pure and best-effort: any unreadable/odd pyproject yields "no
-problem" so the guard never blocks a deploy on its own parsing quirks.
+Detection is pure and best-effort: any unreadable/odd pyproject yields no
+issue, so the guard never blocks a deploy on its own parsing quirks.
 """
 
 from __future__ import annotations
@@ -45,27 +45,24 @@ _EXACT_PIN_RE = re.compile(r"===?")
 @dataclass(frozen=True)
 class WorkspaceDepIssue:
     """
-    Result of the workspace-dependency check.
+    A workspace member that would deploy without its siblings' source.
 
     Attributes:
-        is_problem: True iff the guard should fire.
         app_dir: The deploy source directory that was inspected.
         siblings: Names of the in-workspace packages it depends on (unpinned).
         workspace_root: The directory holding the workspace ``pyproject.toml``.
         message: A formatted multi-line refusal ready to print to stderr.
-            Empty when ``is_problem`` is False.
     """
 
-    is_problem: bool
-    app_dir: Path | None = None
-    siblings: tuple[str, ...] = ()
-    workspace_root: Path | None = None
-    message: str = ""
+    app_dir: Path
+    siblings: tuple[str, ...]
+    workspace_root: Path
+    message: str
 
 
-def check_workspace_dependency(
+def find_workspace_dependency_issue(
     source_dir: Path, *, home: Path | None = None
-) -> WorkspaceDepIssue:
+) -> WorkspaceDepIssue | None:
     """
     Detect an isolated deploy of a uv-workspace member with an internal dep.
 
@@ -74,9 +71,9 @@ def check_workspace_dependency(
         home: Upper bound for the upward search (defaults to ``Path.home()``).
 
     Returns:
-        ``WorkspaceDepIssue(is_problem=True, ...)`` only when ``source_dir`` is
-        a strict member of an enclosing uv workspace AND depends on another
-        member of that workspace without an exact-version pin.
+        The issue when ``source_dir`` is a strict member of an enclosing uv
+        workspace AND depends on another member of that workspace without an
+        exact-version pin; None otherwise.
     """
     home = (home or Path.home()).resolve()
     source_dir = source_dir.resolve()
@@ -84,11 +81,11 @@ def check_workspace_dependency(
     src_data = _read_toml(source_dir / "pyproject.toml")
     if not src_data:
         # No pyproject (or unreadable) -> nothing to reason about.
-        return WorkspaceDepIssue(is_problem=False)
+        return None
 
     found = _find_enclosing_workspace(source_dir, home)
     if found is None:
-        return WorkspaceDepIssue(is_problem=False)
+        return None
     workspace_root, member_dirs = found
 
     member_names = _member_package_names(member_dirs)
@@ -103,11 +100,10 @@ def check_workspace_dependency(
             offenders.append(name)
 
     if not offenders:
-        return WorkspaceDepIssue(is_problem=False)
+        return None
 
     siblings = tuple(dict.fromkeys(offenders))  # de-dupe, keep order
     return WorkspaceDepIssue(
-        is_problem=True,
         app_dir=source_dir,
         siblings=siblings,
         workspace_root=workspace_root,

@@ -19,13 +19,13 @@ from .arguments import generate_archive, get_extra_args, pack_repository
 from .destructive import confirm_destructive_action, is_destructive_command
 from .flags import CliFlags, parse_flags
 from .help import (
-    append_feedback_footer,
-    append_local_commands_full_help,
     emit_status_line,
     handle_help_flags,
     inject_local_commands_into_help,
     is_help_command,
     serve_offline_help,
+    with_feedback_footer,
+    with_local_commands_full_help,
 )
 from .local import (
     LOCAL_COMMANDS,
@@ -38,8 +38,6 @@ __all__ = [
     "LOCAL_COMMANDS",
     "LOCAL_COMMANDS_INFO",
     "CliFlags",
-    "append_feedback_footer",
-    "append_local_commands_full_help",
     "confirm_destructive_action",
     "emit_status_line",
     "generate_archive",
@@ -53,4 +51,6 @@ __all__ = [
     "pack_repository",
     "parse_flags",
     "serve_offline_help",
+    "with_feedback_footer",
+    "with_local_commands_full_help",
 ]

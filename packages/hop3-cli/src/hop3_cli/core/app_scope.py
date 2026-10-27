@@ -233,17 +233,13 @@ EXPLICIT_APP_COMMANDS: set[tuple[str, ...]] = _EXPLICIT_ONLY
 _MAX_DEPTH = max((len(t) for t in APP_SCOPED_COMMANDS), default=1)
 
 
-def is_app_scoped(cli_args: list[str]) -> tuple[bool, int]:
+def app_scope_depth(cli_args: list[str]) -> int:
     """
-    Check if the command in cli_args is app-scoped.
+    How many tokens of cli_args name an app-scoped command, or 0 if none do.
 
-    Returns (True, n_consumed) where n_consumed is the number of tokens that
-    form the command name. Returns (False, 0) if the command is not app-scoped
-    (or is empty).
+    The longest prefix wins: `config set FOO=bar` is `("config", "set")`.
     """
-    if not cli_args:
-        return False, 0
     for n in range(min(len(cli_args), _MAX_DEPTH), 0, -1):
         if tuple(cli_args[:n]) in APP_SCOPED_COMMANDS:
-            return True, n
-    return False, 0
+            return n
+    return 0

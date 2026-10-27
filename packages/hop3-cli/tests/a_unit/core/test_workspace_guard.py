@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hop3_cli.core.workspace_guard import check_workspace_dependency
+from hop3_cli.core.workspace_guard import find_workspace_dependency_issue
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -35,9 +35,9 @@ def test_fires_on_unpinned_sibling(tmp_path):
     """Deploying app-a alone, which depends on sibling app-b unpinned, fires."""
     app_a = _make_workspace(tmp_path, ["app-b"])
 
-    issue = check_workspace_dependency(app_a, home=tmp_path)
+    issue = find_workspace_dependency_issue(app_a, home=tmp_path)
 
-    assert issue.is_problem
+    assert issue is not None
     assert issue.siblings == ("app-b",)
     assert issue.workspace_root == tmp_path.resolve()
     assert "app-b" in issue.message
@@ -47,31 +47,31 @@ def test_fires_on_unpinned_sibling(tmp_path):
 def test_normalizes_names(tmp_path):
     """Underscore/dot variants still match the sibling (PEP 503)."""
     app_a = _make_workspace(tmp_path, ["App_B"])
-    assert check_workspace_dependency(app_a, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(app_a, home=tmp_path) is not None
 
 
 def test_exact_pin_is_allowed(tmp_path):
     """An explicit ``==`` pin opts into the PyPI release on purpose."""
     app_a = _make_workspace(tmp_path, ["app-b==1.2.3"])
-    assert not check_workspace_dependency(app_a, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(app_a, home=tmp_path) is None
 
 
 def test_loose_constraint_still_fires(tmp_path):
     """A non-exact constraint (>=) still resolves to a PyPI release — fires."""
     app_a = _make_workspace(tmp_path, ["app-b>=1.0"])
-    assert check_workspace_dependency(app_a, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(app_a, home=tmp_path) is not None
 
 
 def test_external_dependency_is_ignored(tmp_path):
     """A dep that isn't a workspace member is fine."""
     app_a = _make_workspace(tmp_path, ["requests>=2"])
-    assert not check_workspace_dependency(app_a, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(app_a, home=tmp_path) is None
 
 
 def test_deploying_workspace_root_is_fine(tmp_path):
     """Deploying the workspace root itself ships the siblings — no problem."""
     _make_workspace(tmp_path, ["app-b"])
-    assert not check_workspace_dependency(tmp_path, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(tmp_path, home=tmp_path) is None
 
 
 def test_non_workspace_dir_is_fine(tmp_path):
@@ -79,9 +79,9 @@ def test_non_workspace_dir_is_fine(tmp_path):
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "solo"\ndependencies = ["requests"]\n'
     )
-    assert not check_workspace_dependency(tmp_path, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(tmp_path, home=tmp_path) is None
 
 
 def test_no_pyproject_is_fine(tmp_path):
     """A source dir without a pyproject (e.g. a Procfile app) is never flagged."""
-    assert not check_workspace_dependency(tmp_path, home=tmp_path).is_problem
+    assert find_workspace_dependency_issue(tmp_path, home=tmp_path) is None

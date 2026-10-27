@@ -45,7 +45,7 @@ from .core.alias_registry import (
     load_user_aliases_from_config,
     resolve_aliases,
 )
-from .core.app_scope import EXPLICIT_APP_COMMANDS, RUN_COMMANDS, is_app_scoped
+from .core.app_scope import EXPLICIT_APP_COMMANDS, RUN_COMMANDS, app_scope_depth
 from .core.deploy_preview import (
     build_plan,
     domain_target_warnings,
@@ -59,7 +59,7 @@ from .core.resolution import (
     resolve_context,
 )
 from .core.target import check_project_blocks, resolve_target
-from .core.workspace_guard import check_workspace_dependency
+from .core.workspace_guard import find_workspace_dependency_issue
 from .exceptions import AuthenticationError, CliError, TargetError
 from .exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
 from .rpc import Client, handle_response
@@ -341,8 +341,7 @@ def _compute_app_resolution(
     The selected context supplies app source #5 (``[contexts.<sel>].app``),
     trusted per how the context was selected.
     """
-    scoped, _ = is_app_scoped(cli_args)
-    if scoped or flags.why:
+    if app_scope_depth(cli_args) or flags.why:
         return resolve_app(cli_app=flags.app, context=context_resolution)
     return None
 
@@ -361,8 +360,8 @@ def _inject_resolved_app(
     command that was invoked without an explicit positional, exit with a
     structured "no app resolved" error (ADR 036 D10).
     """
-    scoped, n_consumed = is_app_scoped(cli_args)
-    if not scoped:
+    n_consumed = app_scope_depth(cli_args)
+    if not n_consumed:
         # `parse_flags` stripped any typed `--app`/`-a` into flags.app. For an
         # app-scoped command it's re-injected below; for a command that ISN'T
         # app-scoped there's nowhere to forward it, so dropping it silently would
@@ -489,8 +488,7 @@ def _check_workspace_dependency(cli_args: list[str], flags: CliFlags) -> None:
     if cli_args[:1] != ["deploy"] or flags.force:
         return
 
-    issue = check_workspace_dependency(_deploy_source_path(cli_args))
-    if issue.is_problem:
+    if issue := find_workspace_dependency_issue(_deploy_source_path(cli_args)):
         print(issue.message, file=sys.stderr)
         sys.exit(ExitCode.RESOLUTION_ERROR)
 
@@ -627,8 +625,8 @@ def _update_printer_scope(
     """
     context_name = config.get_current_context_name()
     app_name: str | None = None
-    scoped, n_consumed = is_app_scoped(cli_args)
-    if scoped:
+    n_consumed = app_scope_depth(cli_args)
+    if n_consumed:
         rest = cli_args[n_consumed:]
         for i, tok in enumerate(rest):
             if tok in {"--app", "-a"} and i + 1 < len(rest):

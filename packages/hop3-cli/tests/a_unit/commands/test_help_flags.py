@@ -7,10 +7,10 @@
 from __future__ import annotations
 
 from hop3_cli.commands.help import (
-    append_local_commands_full_help,
     handle_help_flags,
     inject_local_commands_into_help,
     is_help_command,
+    with_local_commands_full_help,
 )
 from hop3_cli.main import requires_authentication
 from hop3_cli.rpc.responses import handle_ok_response
@@ -112,7 +112,7 @@ class TestAppendLocalCommandsFullHelp:
     def test_appends_full_local_help_block(self):
         """Full help (not one-liners) for local commands is appended."""
         result = [{"t": "text", "text": "ALL COMMANDS — FULL HELP\nhop3 deploy — x"}]
-        out = append_local_commands_full_help(result)
+        out = with_local_commands_full_help(result)
 
         # Original server document is preserved untouched as the first item.
         assert out[0] == {
