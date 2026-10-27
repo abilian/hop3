@@ -6,6 +6,7 @@ This directory contains the core packages that make up the Hop3 platform.
 
 | Package | Entry Point | Description |
 |---------|-------------|-------------|
+| **hop3** | `hop3` / `hop` | The name on PyPI: installs hop3-cli, with no code of its own |
 | **hop3-server** | `hop3-server` | Core platform server that orchestrates deployments |
 | **hop3-cli** | `hop3` / `hop` | Command-line client for interacting with Hop3 servers |
 | **hop3-installer** | `hop3-install` / `hop3-deploy-server` | Installation and deployment toolkit |

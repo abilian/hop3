@@ -23,6 +23,7 @@ members = [
     "hop3-testlab",
     "hop3-tooling",
     "hop3-tui",
+    "hop3-workspace",
 ]
 
 [[package]]
@@ -1250,133 +1251,13 @@ wheels = [
 [[package]]
 name = "hop3"
 version = "0.8.0"
-source = { virtual = "." }
+source = { editable = "packages/hop3" }
 dependencies = [
     { name = "hop3-cli" },
-    { name = "hop3-installer" },
-    { name = "hop3-marketplace" },
-    { name = "hop3-rootd" },
-    { name = "hop3-server" },
-    { name = "hop3-testing" },
-    { name = "hop3-testlab" },
-    { name = "hop3-tooling" },
-    { name = "hop3-tui" },
-    { name = "mdx-truly-sane-lists" },
-]
-
-[package.dev-dependencies]
-dev = [
-    { name = "abilian-devtools" },
-    { name = "beartype" },
-    { name = "boto3" },
-    { name = "cyclonedx-bom" },
-    { name = "dead-code-detector" },
-    { name = "docker" },
-    { name = "honcho" },
-    { name = "hop3-server", extra = ["waf"] },
-    { name = "httpx" },
-    { name = "import-linter" },
-    { name = "infer-types" },
-    { name = "lbom" },
-    { name = "libcst" },
-    { name = "md2typst" },
-    { name = "mypy" },
-    { name = "pyinfra" },
-    { name = "pylint" },
-    { name = "pyrefly" },
-    { name = "pytest" },
-    { name = "pytest-asyncio" },
-    { name = "pytest-beartype" },
-    { name = "pytest-xdist" },
-    { name = "python-dotenv" },
-    { name = "reuse" },
-    { name = "ruff" },
-    { name = "sbom4python" },
-    { name = "snoop" },
-    { name = "spdx-tools" },
-    { name = "tach" },
-    { name = "tepyd" },
-    { name = "twine" },
-    { name = "ty" },
-    { name = "types-markdown" },
-    { name = "types-paramiko" },
-    { name = "types-pytz" },
-    { name = "types-pyyaml" },
-    { name = "types-requests" },
-    { name = "types-tabulate" },
-    { name = "types-toml" },
-    { name = "types-urllib3" },
-    { name = "urllib3" },
-    { name = "validoc" },
-    { name = "watchfiles" },
-    { name = "zuban" },
-]
-doc = [
-    { name = "zensical" },
 ]
 
 [package.metadata]
-requires-dist = [
-    { name = "hop3-cli", editable = "packages/hop3-cli" },
-    { name = "hop3-installer", editable = "packages/hop3-installer" },
-    { name = "hop3-marketplace", editable = "packages/hop3-marketplace" },
-    { name = "hop3-rootd", editable = "packages/hop3-rootd" },
-    { name = "hop3-server", editable = "packages/hop3-server" },
-    { name = "hop3-testing", editable = "packages/hop3-testing" },
-    { name = "hop3-testlab", editable = "packages/hop3-testlab" },
-    { name = "hop3-tooling", editable = "packages/hop3-tooling" },
-    { name = "hop3-tui", editable = "packages/hop3-tui" },
-    { name = "mdx-truly-sane-lists", specifier = ">=1.3" },
-]
-
-[package.metadata.requires-dev]
-dev = [
-    { name = "abilian-devtools", specifier = ">=0.7" },
-    { name = "beartype", specifier = ">=0.19.0" },
-    { name = "boto3", specifier = ">=1.35" },
-    { name = "cyclonedx-bom", specifier = ">=5.1.1" },
-    { name = "dead-code-detector", marker = "python_full_version >= '3.12'", specifier = ">=0.5.0" },
-    { name = "docker", specifier = ">=7.1.0" },
-    { name = "honcho", specifier = ">=1.1.0" },
-    { name = "hop3-server", extras = ["waf"], editable = "packages/hop3-server" },
-    { name = "httpx", specifier = ">=0.27.0" },
-    { name = "import-linter", specifier = ">=2.1" },
-    { name = "infer-types", specifier = "~=1.0.0" },
-    { name = "lbom", specifier = ">=0.6" },
-    { name = "libcst", specifier = ">=1.8.6" },
-    { name = "md2typst", marker = "python_full_version >= '3.12'", specifier = ">=0.3.3" },
-    { name = "mypy", specifier = ">=1.19.1" },
-    { name = "pyinfra", specifier = "~=3.0" },
-    { name = "pylint", specifier = ">=4.0.5" },
-    { name = "pyrefly", specifier = ">=0.34.0" },
-    { name = "pytest", specifier = ">=8.4.2" },
-    { name = "pytest-asyncio", specifier = ">=0.23.0" },
-    { name = "pytest-beartype", specifier = ">=0.2.0" },
-    { name = "pytest-xdist", specifier = ">=3.8.0" },
-    { name = "python-dotenv", specifier = ">=1.0.1" },
-    { name = "reuse", specifier = ">=5.0" },
-    { name = "ruff", specifier = "!=0.11.3" },
-    { name = "sbom4python", specifier = ">=0.11.3" },
-    { name = "snoop", specifier = ">=0.6.0" },
-    { name = "spdx-tools", specifier = ">=0.8.3" },
-    { name = "tach", specifier = ">=0.35.0" },
-    { name = "tepyd", specifier = ">=0.7.0" },
-    { name = "twine", specifier = ">=6.2.0" },
-    { name = "ty", specifier = ">=0.0.0a7" },
-    { name = "types-markdown", specifier = ">=3.10.0.20251106" },
-    { name = "types-paramiko", specifier = ">=3.5.0.20240928" },
-    { name = "types-pytz", specifier = ">=2024.2.0.20241003" },
-    { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
-    { name = "types-requests", specifier = ">=2.32.0.20241016" },
-    { name = "types-tabulate", specifier = ">=0.9.0.20240106" },
-    { name = "types-toml", specifier = ">=0.10.8.20240310" },
-    { name = "types-urllib3", specifier = ">=1.26.25.14" },
-    { name = "urllib3" },
-    { name = "validoc", marker = "python_full_version >= '3.12'", specifier = ">=0.1.1" },
-    { name = "watchfiles", specifier = ">=0.24.0" },
-    { name = "zuban", specifier = ">=0.8.2" },
-]
-doc = [{ name = "zensical" }]
+requires-dist = [{ name = "hop3-cli", editable = "packages/hop3-cli" }]
 
 [[package]]
 name = "hop3-cli"
@@ -1715,6 +1596,137 @@ requires-dist = [
     { name = "turbodesk", specifier = ">=0.3.2" },
 ]
 provides-extras = ["dev"]
+
+[[package]]
+name = "hop3-workspace"
+version = "0.8.0"
+source = { virtual = "." }
+dependencies = [
+    { name = "hop3-cli" },
+    { name = "hop3-installer" },
+    { name = "hop3-marketplace" },
+    { name = "hop3-rootd" },
+    { name = "hop3-server" },
+    { name = "hop3-testing" },
+    { name = "hop3-testlab" },
+    { name = "hop3-tooling" },
+    { name = "hop3-tui" },
+    { name = "mdx-truly-sane-lists" },
+]
+
+[package.dev-dependencies]
+dev = [
+    { name = "abilian-devtools" },
+    { name = "beartype" },
+    { name = "boto3" },
+    { name = "cyclonedx-bom" },
+    { name = "dead-code-detector" },
+    { name = "docker" },
+    { name = "honcho" },
+    { name = "hop3-server", extra = ["waf"] },
+    { name = "httpx" },
+    { name = "import-linter" },
+    { name = "infer-types" },
+    { name = "lbom" },
+    { name = "libcst" },
+    { name = "md2typst" },
+    { name = "mypy" },
+    { name = "pyinfra" },
+    { name = "pylint" },
+    { name = "pyrefly" },
+    { name = "pytest" },
+    { name = "pytest-asyncio" },
+    { name = "pytest-beartype" },
+    { name = "pytest-xdist" },
+    { name = "python-dotenv" },
+    { name = "reuse" },
+    { name = "ruff" },
+    { name = "sbom4python" },
+    { name = "snoop" },
+    { name = "spdx-tools" },
+    { name = "tach" },
+    { name = "tepyd" },
+    { name = "twine" },
+    { name = "ty" },
+    { name = "types-markdown" },
+    { name = "types-paramiko" },
+    { name = "types-pytz" },
+    { name = "types-pyyaml" },
+    { name = "types-requests" },
+    { name = "types-tabulate" },
+    { name = "types-toml" },
+    { name = "types-urllib3" },
+    { name = "urllib3" },
+    { name = "validoc" },
+    { name = "watchfiles" },
+    { name = "zuban" },
+]
+doc = [
+    { name = "zensical" },
+]
+
+[package.metadata]
+requires-dist = [
+    { name = "hop3-cli", editable = "packages/hop3-cli" },
+    { name = "hop3-installer", editable = "packages/hop3-installer" },
+    { name = "hop3-marketplace", editable = "packages/hop3-marketplace" },
+    { name = "hop3-rootd", editable = "packages/hop3-rootd" },
+    { name = "hop3-server", editable = "packages/hop3-server" },
+    { name = "hop3-testing", editable = "packages/hop3-testing" },
+    { name = "hop3-testlab", editable = "packages/hop3-testlab" },
+    { name = "hop3-tooling", editable = "packages/hop3-tooling" },
+    { name = "hop3-tui", editable = "packages/hop3-tui" },
+    { name = "mdx-truly-sane-lists", specifier = ">=1.3" },
+]
+
+[package.metadata.requires-dev]
+dev = [
+    { name = "abilian-devtools", specifier = ">=0.7" },
+    { name = "beartype", specifier = ">=0.19.0" },
+    { name = "boto3", specifier = ">=1.35" },
+    { name = "cyclonedx-bom", specifier = ">=5.1.1" },
+    { name = "dead-code-detector", marker = "python_full_version >= '3.12'", specifier = ">=0.5.0" },
+    { name = "docker", specifier = ">=7.1.0" },
+    { name = "honcho", specifier = ">=1.1.0" },
+    { name = "hop3-server", extras = ["waf"], editable = "packages/hop3-server" },
+    { name = "httpx", specifier = ">=0.27.0" },
+    { name = "import-linter", specifier = ">=2.1" },
+    { name = "infer-types", specifier = "~=1.0.0" },
+    { name = "lbom", specifier = ">=0.6" },
+    { name = "libcst", specifier = ">=1.8.6" },
+    { name = "md2typst", marker = "python_full_version >= '3.12'", specifier = ">=0.3.3" },
+    { name = "mypy", specifier = ">=1.19.1" },
+    { name = "pyinfra", specifier = "~=3.0" },
+    { name = "pylint", specifier = ">=4.0.5" },
+    { name = "pyrefly", specifier = ">=0.34.0" },
+    { name = "pytest", specifier = ">=8.4.2" },
+    { name = "pytest-asyncio", specifier = ">=0.23.0" },
+    { name = "pytest-beartype", specifier = ">=0.2.0" },
+    { name = "pytest-xdist", specifier = ">=3.8.0" },
+    { name = "python-dotenv", specifier = ">=1.0.1" },
+    { name = "reuse", specifier = ">=5.0" },
+    { name = "ruff", specifier = "!=0.11.3" },
+    { name = "sbom4python", specifier = ">=0.11.3" },
+    { name = "snoop", specifier = ">=0.6.0" },
+    { name = "spdx-tools", specifier = ">=0.8.3" },
+    { name = "tach", specifier = ">=0.35.0" },
+    { name = "tepyd", specifier = ">=0.7.0" },
+    { name = "twine", specifier = ">=6.2.0" },
+    { name = "ty", specifier = ">=0.0.0a7" },
+    { name = "types-markdown", specifier = ">=3.10.0.20251106" },
+    { name = "types-paramiko", specifier = ">=3.5.0.20240928" },
+    { name = "types-pytz", specifier = ">=2024.2.0.20241003" },
+    { name = "types-pyyaml", specifier = ">=6.0.12.20250915" },
+    { name = "types-requests", specifier = ">=2.32.0.20241016" },
+    { name = "types-tabulate", specifier = ">=0.9.0.20240106" },
+    { name = "types-toml", specifier = ">=0.10.8.20240310" },
+    { name = "types-urllib3", specifier = ">=1.26.25.14" },
+    { name = "urllib3" },
+    { name = "validoc", marker = "python_full_version >= '3.12'", specifier = ">=0.1.1" },
+    { name = "watchfiles", specifier = ">=0.24.0" },
+    { name = "zuban", specifier = ">=0.8.2" },
+]
+doc = [{ name = "zensical" }]
 
 [[package]]
 name = "httpcore"
@@ -4825,7 +4837,6 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/e2/a6/7e3fda49749096cf405e09c4384e348c0f6bfeab44f18d02c1051673dc2e/zensical-0.0.62-cp310-abi3-macosx_10_12_x86_64.whl", hash = "sha256:a1efd661fa3241c10c94c8c2b280ac3924bc988b24d0dbf1b8499994b23e12fb", size = 14220149, upload-time = "2026-09-13T17:16:08.144Z" },
     { url = "https://files.pythonhosted.org/packages/fa/13/c8d22c4c946bf4e6ae29db81f1456fbbc35fcd165ad874e4b919422f7b08/zensical-0.0.62-cp310-abi3-macosx_11_0_arm64.whl", hash = "sha256:c468e81adad37517c03de2dda13568c33d9c36b234c34e2b3a04285846d99bd5", size = 13963505, upload-time = "2026-09-13T17:16:11.529Z" },
     { url = "https://files.pythonhosted.org/packages/19/08/cce44a83dbc1070197e2006178bbf42d59e398ccb39806d3db02c9781790/zensical-0.0.62-cp310-abi3-manylinux_2_17_aarch64.manylinux2014_aarch64.whl", hash = "sha256:4dcc744b1b3f56b85cf23c393a2333dec72e555b263a2fbe3d50ac896cf85468", size = 14238419, upload-time = "2026-09-13T17:16:14.375Z" },
-    { url = "https://files.pythonhosted.org/packages/af/65/586ab984b9197ab6a7ee53dffa77ef00fdb19f8c09d520c39e3c3d7dccb8/zensical-0.0.62-cp310-abi3-manylinux_2_17_armv7l.manylinux2014_armv7l.whl", hash = "sha256:8b04147ac1f109ed3b1fbc74d958323243f35481926765b939638e8933a8bdc6", size = 14262571, upload-time = "2026-09-13T17:16:17.24Z" },
     { url = "https://files.pythonhosted.org/packages/57/ae/3a4aac8181caa1079c93ac996bbc418b749ae76ecd2cf2a67943b90ae277/zensical-0.0.62-cp310-abi3-manylinux_2_17_x86_64.manylinux2014_x86_64.whl", hash = "sha256:6755d7a2d3de424e07a77f68be080b4e54a34fb564c39434322e8427b9402ace", size = 14518577, upload-time = "2026-09-13T17:16:20.248Z" },
     { url = "https://files.pythonhosted.org/packages/5c/03/8de2cc9aecc13b93d4b63c06dec4af95482ab9ce1b586ad8d35d5f56a916/zensical-0.0.62-cp310-abi3-musllinux_1_2_aarch64.whl", hash = "sha256:d2b809aa8aa175f64a362d6a8ab89586ce7dd086b5bf23778f3c3cff68deeae6", size = 14413777, upload-time = "2026-09-13T17:16:23.641Z" },
     { url = "https://files.pythonhosted.org/packages/3d/36/c7ac1e27d2832f8ee524397f47193b73a1d7d78b78e407febd5f97d72e89/zensical-0.0.62-cp310-abi3-musllinux_1_2_x86_64.whl", hash = "sha256:111cb32c405ff3a0e162860f81cf8e041447d795657720c36ba3e1b8ed607928", size = 14747349, upload-time = "2026-09-13T17:16:26.498Z" },

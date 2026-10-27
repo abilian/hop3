@@ -132,6 +132,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Command line
 
+- **`uv tool install hop3` installs the client.** The `hop3` name on PyPI held an unrelated 2024 server (0.1 to 0.2, now yanked) with no `hop3` command, whose `hop3` module overwrote hop3-server's in a shared environment. It is now a package with no code that installs hop3-cli and its `hop3` command.
 - **The SSH tunnel works after `hop3 login` under a shared ssh connection.** With `ControlMaster auto` and `ControlPersist` in `~/.ssh/config`, the login's connection stayed open, and the next command's tunnel handed its forward to it and exited. The command then failed with "ssh exited before the tunnel was ready", while the forward stayed open outside the CLI's control. The tunnel now always opens its own connection.
 - **A context is a server, and a checkout is bound to one (ADR 042).** One word used to name both a server connection (in `config.toml`) and a deploy environment (in `hop3.toml`), so `hop3 context` behaved differently in each directory and three functions disagreed on which context was current. Now:
   - A context lives only in `config.toml`: a name, a `server` and an optional `bootstrap` route. `hop3 context add`, `remove` and `rename` edit nothing else, and `add` refuses `--app`, `--domain` and `--env`.

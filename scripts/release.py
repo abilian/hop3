@@ -24,6 +24,7 @@ from bump_version import workspace_packages
 # because a package in neither list is one nothing checks (which is how
 # hop3-tooling reached 0.7.0 still numbered 0.6.2).
 PACKAGES = [
+    "hop3",
     "hop3-cli",
     "hop3-installer",
     "hop3-rootd",

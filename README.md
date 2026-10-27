@@ -293,7 +293,7 @@ A human drives and verifies all of these tasks.
 
 ## Links / References
 
-- [Hop3 on PyPI](https://pypi.org/project/hop3/)
+- [Hop3 CLI on PyPI](https://pypi.org/project/hop3-cli/)
 - [Hop3 on GitHub](https://github.com/abilian/hop3)
 - [Hop3 on SourceHut](https://git.sr.ht/~sfermigier/hop3) (mirror)
 - [Live Discussion](https://matrix.to/#/#hop3:matrix.org)

@@ -371,6 +371,7 @@ clean-and-deploy:
 ## Build Python packages
 build:
 	@make clean
+	uv build packages/hop3
 	uv build packages/hop3-server
 	uv build packages/hop3-rootd
 	uv build packages/hop3-cli

@@ -1,0 +1,35 @@
+[project]
+name = "hop3"
+version = "0.8.0"
+description = "Hop3, a platform to deploy web apps on your own server: installs the hop3 command"
+authors = [
+    {name = "Stefane Fermigier", email = "sf@abilian.com"},
+]
+license = "Apache-2.0"
+readme = "README.md"
+requires-python = "<4.0,>=3.10"
+# The name people type first. It installs the newest client; the floor is
+# the release this package first shipped in, and needs no bump.
+dependencies = ["hop3-cli>=0.8.0"]
+
+[project.urls]
+Homepage = "https://hop3.cloud"
+Source = "https://github.com/abilian/hop3"
+
+# Declared here as well as in hop3-cli: `uv tool install` and `pipx` expose
+# only the named package's own commands, so without these `uv tool install
+# hop3` would install no `hop3`.
+[project.scripts]
+hop = "hop3_cli.main:main"
+hop3 = "hop3_cli.main:main"
+
+# ----------------------------------------
+
+[build-system]
+requires = ["uv-build>=0.8.4,<0.9.0"]
+build-backend = "uv_build"
+
+# No module of its own: `hop3` is hop3-server's import package, and a second
+# one here would overwrite it in a shared environment (as hop3 0.2 did).
+[tool.uv.build-backend]
+module-name = []
