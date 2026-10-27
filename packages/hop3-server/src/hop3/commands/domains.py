@@ -25,7 +25,7 @@ from hop3.lib.registry import register
 
 from ._base import Command, NamespaceCommand
 from ._helpers import (
-    check_hostname_conflict,
+    find_hostname_conflict,
     get_app,
     parse_hostname_string,
     set_env_var,
@@ -199,7 +199,7 @@ class AddCmd(Command):
                 )
             ]
 
-        conflict = check_hostname_conflict(self.db_session, app_name, added)
+        conflict = find_hostname_conflict(self.db_session, app_name, added)
         if conflict:
             other_app, other_host = conflict
             return [
@@ -307,7 +307,7 @@ class SetCmd(Command):
                 )
             ]
 
-        conflict = check_hostname_conflict(self.db_session, app_name, validated)
+        conflict = find_hostname_conflict(self.db_session, app_name, validated)
         if conflict:
             other_app, other_host = conflict
             return [

@@ -485,7 +485,7 @@ class WatchdogService:
 
     async def _reconcile_app(self, db: "Session", app: App) -> None:
         """Reconcile a single application's state."""
-        actual_running = app.check_actual_status()
+        actual_running = app.probe_status()
         old_state = app.run_state
 
         if app.run_state == AppState.RUNNING and not actual_running:

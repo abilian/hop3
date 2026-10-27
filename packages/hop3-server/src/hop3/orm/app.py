@@ -225,7 +225,7 @@ class App(BigIntAuditBase):
         """Check if app reports as RUNNING in database state."""
         return self.run_state == AppStateEnum.RUNNING
 
-    def check_actual_status(self) -> AppStateEnum:
+    def probe_status(self) -> AppStateEnum:
         """
         Check the actual running status by delegating to the deployment strategy.
 
@@ -255,7 +255,7 @@ class App(BigIntAuditBase):
         Returns:
             True if state was updated, False if no change
         """
-        actual_status = self.check_actual_status()
+        actual_status = self.probe_status()
         current_state = self.run_state
 
         # Only update transitional states
@@ -279,7 +279,7 @@ class App(BigIntAuditBase):
         """
         Wait for the app to reach the expected actual state.
 
-        Polls check_actual_status() until the expected state is reached or timeout.
+        Polls probe_status() until the expected state is reached or timeout.
 
         Args:
             expected_state: The state we're waiting for (RUNNING or STOPPED)
@@ -292,7 +292,7 @@ class App(BigIntAuditBase):
         deadline = time.time() + timeout
 
         while time.time() < deadline:
-            actual_state = self.check_actual_status()
+            actual_state = self.probe_status()
             if actual_state == expected_state:
                 return True
             time.sleep(poll_interval)

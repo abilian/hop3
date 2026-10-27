@@ -96,8 +96,8 @@ def test_certbot_is_wired_for_nginx_only(proxy, available, monkeypatch):
     monkeypatch.setattr(certificates, "ACME_EMAIL", "ops@example.org")
     monkeypatch.setattr(certificates.shutil, "which", lambda _name: "/usr/bin/certbot")
 
-    ok, reason = certificates.CertbotEngine().is_available()
+    reason = certificates.CertbotEngine().unavailable_reason()
 
-    assert ok is available
+    assert (reason is None) is available
     if not available:
         assert "through nginx only" in reason

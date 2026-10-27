@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from hop3.commands._helpers import check_hostname_conflict
+from hop3.commands._helpers import find_hostname_conflict
 from hop3.config import HopConfig
 from hop3.core.artifacts import (
     ARTIFACT_FILENAME,
@@ -911,7 +911,7 @@ def _wait_for_app_start(
     - Clear error messages in logs (missing config, etc.)
 
     Readiness for a web app means *answering HTTP*, not merely a listening
-    socket: ``check_actual_status()`` returns RUNNING as soon as the port is
+    socket: ``probe_status()`` returns RUNNING as soon as the port is
     bound, but a bound socket with a dead/hung worker accepts connections and
     never replies. We additionally require an HTTP response (``_app_serves_http``)
     so a "bound but not serving" app is treated as not-ready and fails loud
@@ -943,7 +943,7 @@ def _wait_for_app_start(
 
     started_at = time.time()
     while time.time() < deadline:
-        actual_state = app.check_actual_status()
+        actual_state = app.probe_status()
         if actual_state == AppStateEnum.RUNNING and _app_serves_http(
             app, healthcheck_path, healthcheck_contains=healthcheck_contains
         ):
@@ -1206,7 +1206,7 @@ def _handle_startup_failure(
     # diagnostic information...", where three start-timeout bumps
     # (120 -> 180 -> 240) were spent on the headline while the answer sat
     # underneath it. A diagnosis nobody reads is a diagnosis nobody made.
-    actual_state = app.check_actual_status()
+    actual_state = app.probe_status()
     diagnosis = _name_the_start_failure(
         app, actual_state, healthcheck_path, healthcheck_contains
     )
@@ -1803,7 +1803,7 @@ def _apply_domains_to_host_name(
             )
         )
 
-    conflict = check_hostname_conflict(db_session, app.name, validated)
+    conflict = find_hostname_conflict(db_session, app.name, validated)
     if conflict:
         other_app, other_host = conflict
         abort_with_diagnosis(

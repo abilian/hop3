@@ -4,7 +4,7 @@
 
 ## The contract today
 
-Hop3 calls an app RUNNING when its port is bound *and* answers HTTP. `check_actual_status()` flips to RUNNING on the bound socket; `_app_serves_http()` (`deployers/deployer.py:618`) then opens a plain HTTP connection to `app.port` and requires a status line before the deploy is allowed to report success. The docstring says why: it was written from an incident. Gunicorn binds its listen socket in the master before forking, so `connect()` succeeds the instant the master is up, including when every worker is dead or hung. A bound socket is not proof of service.
+Hop3 calls an app RUNNING when its port is bound *and* answers HTTP. `probe_status()` flips to RUNNING on the bound socket; `_app_serves_http()` (`deployers/deployer.py:618`) then opens a plain HTTP connection to `app.port` and requires a status line before the deploy is allowed to report success. The docstring says why: it was written from an incident. Gunicorn binds its listen socket in the master before forking, so `connect()` succeeds the instant the master is up, including when every worker is dead or hung. A bound socket is not proof of service.
 
 That contract has an unstated premise: whatever listens on the app's port speaks HTTP. Every backend Hop3 has shipped so far does.
 

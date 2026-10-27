@@ -33,7 +33,7 @@ def _app(
         app_path=Path("/nonexistent/no-artifact"),  # no artifact: speaks HTTP
         log_path=None,
         port=port,
-        check_actual_status=lambda: state,
+        probe_status=lambda: state,
     )
 
 

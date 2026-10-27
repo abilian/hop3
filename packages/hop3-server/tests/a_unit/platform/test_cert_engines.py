@@ -61,7 +61,7 @@ def test_public_fqdn_self_signed_config(monkeypatch):
 
 def test_public_fqdn_certbot_when_available(monkeypatch):
     monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
-    monkeypatch.setattr(CertbotEngine, "is_available", lambda self: (True, ""))
+    monkeypatch.setattr(CertbotEngine, "unavailable_reason", lambda self: None)
     assert isinstance(select_engine("edrix.eu"), CertbotEngine)
 
 
@@ -70,7 +70,7 @@ def test_public_fqdn_certbot_unavailable_raises_loudly(monkeypatch):
     # never silently ship a self-signed (untrusted) cert.
     monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
     monkeypatch.setattr(
-        CertbotEngine, "is_available", lambda self: (False, "certbot is not installed")
+        CertbotEngine, "unavailable_reason", lambda self: "certbot is not installed"
     )
     with pytest.raises(CertificateError, match="certbot is not installed"):
         select_engine("edrix.eu")
@@ -86,15 +86,11 @@ def test_certbot_engine_availability(monkeypatch):
     eng = CertbotEngine()
 
     monkeypatch.setattr(certificates.shutil, "which", lambda _name: None)
-    ok, reason = eng.is_available()
-    assert ok is False
-    assert "certbot" in reason
+    assert "certbot" in eng.unavailable_reason()
 
     monkeypatch.setattr(certificates.shutil, "which", lambda _name: "/usr/bin/certbot")
     monkeypatch.setattr(certificates, "ACME_EMAIL", "")
-    ok, reason = eng.is_available()
-    assert ok is False
-    assert "ACME_EMAIL" in reason
+    assert "ACME_EMAIL" in eng.unavailable_reason()
 
     monkeypatch.setattr(certificates, "ACME_EMAIL", "ops@example.com")
-    assert eng.is_available() == (True, "")
+    assert eng.unavailable_reason() is None

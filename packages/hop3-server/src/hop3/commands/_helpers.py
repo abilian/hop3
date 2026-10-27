@@ -228,7 +228,7 @@ def parse_hostname_string(value: str | None) -> list[str]:
     return [h for h in (value or "").replace(",", " ").split() if h]
 
 
-def check_hostname_conflict(
+def find_hostname_conflict(
     db_session: Session,
     current_app_name: str,
     new_hosts: list[str],

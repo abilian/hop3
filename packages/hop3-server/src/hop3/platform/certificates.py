@@ -449,9 +449,9 @@ class CertEngine:
 
     name: ClassVar[str] = ""
 
-    def is_available(self) -> tuple[bool, str]:
-        """Return ``(ok, reason)`` — whether this engine can issue right now."""
-        return (True, "")
+    def unavailable_reason(self) -> str | None:
+        """Why this engine cannot issue right now, or None when it can."""
+        return None
 
     def issue(self, cert: Certificate, *, force: bool = False) -> None:
         raise NotImplementedError
@@ -467,18 +467,17 @@ class SelfSignedEngine(CertEngine):
 class CertbotEngine(CertEngine):
     name = "certbot"
 
-    def is_available(self) -> tuple[bool, str]:
+    def unavailable_reason(self) -> str | None:
         if not shutil.which("certbot"):
-            return (False, "certbot is not installed")
+            return "certbot is not installed"
         if not ACME_EMAIL:
-            return (False, "ACME_EMAIL is not set")
+            return "ACME_EMAIL is not set"
         if not get_proxy_class().hosts_certbot:
-            reason = (
+            return (
                 f"Hop3 answers certbot's challenge and installs its certificates "
                 f"through nginx only, and this server's proxy is {HOP3_PROXY_TYPE}"
             )
-            return (False, reason)
-        return (True, "")
+        return None
 
     def issue(self, cert: Certificate, *, force: bool = False) -> None:
         cert.generate_with_certbot(force=force)
@@ -512,8 +511,7 @@ def select_engine(domain_name: str) -> CertEngine:
         )
         raise CertificateError(msg)
 
-    ok, reason = engine.is_available()
-    if not ok:
+    if reason := engine.unavailable_reason():
         msg = (
             f"ACME_ENGINE={engine.name!r} cannot issue a certificate for the "
             f"public domain {domain_name!r}: {reason}. Refusing to fall back to an "

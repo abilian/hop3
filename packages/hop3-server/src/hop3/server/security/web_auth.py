@@ -107,7 +107,7 @@ def auth_cookie(token: str) -> Cookie:
     )
 
 
-def clear_auth_cookie() -> Cookie:
+def expired_auth_cookie() -> Cookie:
     """The ``Set-Cookie`` that deletes the web token (logout)."""
     return Cookie(
         key=AUTH_COOKIE,

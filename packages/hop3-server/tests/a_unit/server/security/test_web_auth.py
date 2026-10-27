@@ -20,8 +20,8 @@ from hop3.server.security.web_auth import (
     AUTH_COOKIE,
     WEB_SESSION_EXPIRY_HOURS,
     auth_cookie,
-    clear_auth_cookie,
     current_identity,
+    expired_auth_cookie,
     extract_token,
     issue_web_token,
 )
@@ -89,7 +89,7 @@ def test_auth_cookie_is_httponly_and_long_lived():
 
 
 def test_clear_cookie_expires_immediately():
-    cookie = clear_auth_cookie()
+    cookie = expired_auth_cookie()
     assert cookie.key == AUTH_COOKIE
     assert cookie.value == ""
     assert cookie.max_age == 0

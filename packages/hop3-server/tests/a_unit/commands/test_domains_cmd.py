@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from hop3.commands._helpers import check_hostname_conflict, parse_hostname_string
+from hop3.commands._helpers import find_hostname_conflict, parse_hostname_string
 from hop3.commands.domains import (
     AddCmd,
     ClearCmd,
@@ -214,7 +214,7 @@ def test_clear_noop_when_empty(db_session: Session, test_app: App):
 
 
 # ---------------------------------------------------------------------------
-# regression: _check_hostname_conflict fix
+# regression: find_hostname_conflict fix
 # ---------------------------------------------------------------------------
 
 
@@ -232,7 +232,7 @@ def test_conflict_detection_handles_space_separated_storage(
     ]
     AppRepository(session=db_session).add(other, auto_commit=True)
 
-    conflict = check_hostname_conflict(db_session, "testapp", ["two.com"])
+    conflict = find_hostname_conflict(db_session, "testapp", ["two.com"])
     assert conflict == ("otherapp", "two.com")
 
 
@@ -246,7 +246,7 @@ def test_conflict_detection_handles_comma_separated_storage(
     ]
     AppRepository(session=db_session).add(other, auto_commit=True)
 
-    conflict = check_hostname_conflict(db_session, "testapp", ["three.com"])
+    conflict = find_hostname_conflict(db_session, "testapp", ["three.com"])
     assert conflict == ("otherapp", "three.com")
 
 
@@ -255,7 +255,7 @@ def test_conflict_detection_skips_self(db_session: Session, test_app: App):
     test_app.env_vars.append(EnvVar(name="HOST_NAME", value="mine.com", app=test_app))
     db_session.commit()
 
-    conflict = check_hostname_conflict(db_session, "testapp", ["mine.com"])
+    conflict = find_hostname_conflict(db_session, "testapp", ["mine.com"])
     assert conflict is None
 
 

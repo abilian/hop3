@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING
 
 import tomllib
 
-from hop3.commands._helpers import check_hostname_conflict, parse_hostname_string
+from hop3.commands._helpers import find_hostname_conflict, parse_hostname_string
 from hop3.config import config
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.deployers import make_way_for_new_source
@@ -278,7 +278,7 @@ def _validate_and_check_hosts(
         if host != "_":
             real.append(host)
 
-    conflict = check_hostname_conflict(db_session, app_name, real)
+    conflict = find_hostname_conflict(db_session, app_name, real)
     if conflict is not None:
         other_app, host = conflict
         raise CatalogInstallError([

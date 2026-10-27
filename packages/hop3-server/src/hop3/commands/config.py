@@ -21,7 +21,7 @@ from hop3.project.procfile import Procfile
 
 from ._base import Command, NamespaceCommand
 from ._helpers import (
-    check_hostname_conflict,
+    find_hostname_conflict,
     get_app,
     parse_key_value_settings,
     redact_sensitive_value,
@@ -393,7 +393,7 @@ class SetCmd(Command):
                     errors.append(str(e))
                     del key_values["HOST_NAME"]
                 else:
-                    conflict = check_hostname_conflict(
+                    conflict = find_hostname_conflict(
                         self.db_session, app_name, parsed_hosts
                     )
                     if conflict:

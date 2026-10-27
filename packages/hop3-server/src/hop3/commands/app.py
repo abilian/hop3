@@ -429,7 +429,7 @@ class StatusCmd(Command):
         state_warning = None
 
         if db_state == AppStateEnum.RUNNING:
-            actual_state = app.check_actual_status()
+            actual_state = app.probe_status()
             if actual_state == AppStateEnum.STOPPED:
                 effective_state = "CRASHED"
                 state_warning = "No running processes found (DB state: RUNNING)"
@@ -1153,7 +1153,7 @@ class DebugCmd(Command):
 
     def _get_status_section(self, app: App) -> list[dict[str, Any]]:
         """Get app status information."""
-        actual_state = app.check_actual_status()
+        actual_state = app.probe_status()
         db_state = app.run_state
 
         # Determine effective state

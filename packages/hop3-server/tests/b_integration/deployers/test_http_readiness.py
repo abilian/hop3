@@ -313,7 +313,7 @@ def test_wait_fails_when_bound_but_not_serving(dead_socket_port: int) -> None:
     app = stub_app(
         port=dead_socket_port,
         hostname="localhost",
-        check_actual_status=lambda: AppStateEnum.RUNNING,
+        probe_status=lambda: AppStateEnum.RUNNING,
         get_logs=lambda lines=50: [],
     )
     assert _wait_for_app_start(app, timeout=1.0).started is False
@@ -324,7 +324,7 @@ def test_wait_succeeds_when_app_answers(http_server: tuple[int, list[int]]) -> N
     app = stub_app(
         port=port,
         hostname="localhost",
-        check_actual_status=lambda: AppStateEnum.RUNNING,
+        probe_status=lambda: AppStateEnum.RUNNING,
         get_logs=lambda lines=50: [],
     )
     assert _wait_for_app_start(app, timeout=3.0).started is True

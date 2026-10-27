@@ -26,9 +26,9 @@ from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.tokens import validate_magic_token, validate_token
 from hop3.server.security.web_auth import (
     auth_cookie,
-    clear_auth_cookie,
     cookie_would_be_dropped,
     current_identity,
+    expired_auth_cookie,
     issue_web_token,
 )
 
@@ -278,7 +278,7 @@ class AuthController(Controller):
         token = request.cookies.get(AUTH_COOKIE)
         if token:
             revoke_jwt(token, reason="web_logout")
-        return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
+        return Redirect(path="/auth/login", cookies=[expired_auth_cookie()])
 
     @get("/profile", guards=[RoleGuard(Role.MEMBER)], sync_to_thread=False)
     def profile(self, request: Request) -> Template | Redirect:
@@ -297,7 +297,7 @@ class AuthController(Controller):
         if not username:
             # No valid credential — shouldn't happen past the guard, but clear
             # any stale cookie and send them back to login.
-            return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
+            return Redirect(path="/auth/login", cookies=[expired_auth_cookie()])
 
         # Get user from database
         with get_session() as db_session:
@@ -307,7 +307,7 @@ class AuthController(Controller):
 
             if not user:
                 # Credential names an unknown user — clear it.
-                return Redirect(path="/auth/login", cookies=[clear_auth_cookie()])
+                return Redirect(path="/auth/login", cookies=[expired_auth_cookie()])
 
             ctx = {
                 "user": {
