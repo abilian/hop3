@@ -20,6 +20,8 @@ import tempfile
 from pathlib import Path
 
 from hop3_installer.common import (
+    APT_LOCK_FLAGS,
+    APT_NONINTERACTIVE_ENV,
     CommandError,
     InstallStepError,
     Spinner,
@@ -27,9 +29,6 @@ from hop3_installer.common import (
     print_success,
     run_cmd,
 )
-
-# Local copy (deps_common imports this module → importing back would cycle).
-_APT_ENV = {"DEBIAN_FRONTEND": "noninteractive", "NEEDRESTART_MODE": "a"}
 
 # Preseed so postfix installs without prompting and without a working MTA
 # config — Hop3 owns main.cf, written later by the rootd op.
@@ -55,13 +54,21 @@ def _pre_stage_debian() -> None:
         f.write(_DEBCONF_PRESEED)
         seed_path = f.name
     try:
-        run_cmd(["debconf-set-selections", seed_path], env=_APT_ENV)
+        run_cmd(["debconf-set-selections", seed_path], env=APT_NONINTERACTIVE_ENV)
         with Spinner("Installing Postfix + opendkim (email relay)..."):
             # opendkim/opendkim-tools back the direct backend's DKIM signing;
             # they stay inert until `server email backend direct` configures them.
             result = run_cmd(
-                ["apt-get", "install", "-y", "postfix", "opendkim", "opendkim-tools"],
-                env=_APT_ENV,
+                [
+                    "apt-get",
+                    "install",
+                    "-y",
+                    *APT_LOCK_FLAGS,
+                    "postfix",
+                    "opendkim",
+                    "opendkim-tools",
+                ],
+                env=APT_NONINTERACTIVE_ENV,
                 check=False,
             )
     finally:

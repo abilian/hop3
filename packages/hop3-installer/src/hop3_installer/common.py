@@ -264,6 +264,23 @@ class InstallStepError(Exception):
     """An install step that cannot complete; the message says why."""
 
 
+# DEBIAN_FRONTEND=noninteractive alone does NOT suppress needrestart's whiptail
+# "which services should be restarted?" dialog on Ubuntu 24.04 (Launchpad
+# #1941716) -- that prompt reads the controlling terminal and blocks the whole
+# install forever. NEEDRESTART_MODE=a makes needrestart restart services
+# automatically, no prompt. Applied to EVERY apt invocation on the Debian family.
+APT_NONINTERACTIVE_ENV = {
+    "DEBIAN_FRONTEND": "noninteractive",
+    "NEEDRESTART_MODE": "a",
+}
+
+# A freshly-booted cloud image runs apt-daily / unattended-upgrades on first
+# boot, holding /var/lib/dpkg/lock-frontend for minutes. These flags make
+# apt-get wait (bounded) for the lock instead of failing instantly or hanging
+# unbounded, and are appended to every apt-get command.
+APT_LOCK_FLAGS = ["-o", "DPkg::Lock::Timeout=600"]
+
+
 def run_cmd(
     cmd: list[str],
     *,

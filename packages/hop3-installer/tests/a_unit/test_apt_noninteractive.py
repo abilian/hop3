@@ -16,8 +16,11 @@ stdin so any stray stdin-reading prompt fails fast.
 
 from __future__ import annotations
 
+import ast
 import subprocess
+from pathlib import Path
 
+import hop3_installer
 from hop3_installer import common
 from hop3_installer.common import DistroInfo
 from hop3_installer.server_installer.deps_common import (
@@ -66,3 +69,24 @@ def test_run_cmd_feeds_eof_on_stdin(monkeypatch):
     monkeypatch.setattr(common.subprocess, "run", _fake_run)
     common.run_cmd(["echo", "hi"])
     assert captured.get("stdin") is subprocess.DEVNULL
+
+
+def test_every_apt_get_command_waits_for_the_lock():
+    """
+    The email step's `apt-get install` had no lock timeout and failed at once
+    on a lock held by the previous step's apt, with nothing left to install.
+    """
+    missing = []
+    for source in Path(hop3_installer.__file__).parent.rglob("*.py"):
+        for node in ast.walk(ast.parse(source.read_text())):
+            if not (
+                isinstance(node, ast.List)
+                and node.elts
+                and isinstance(node.elts[0], ast.Constant)
+                and node.elts[0].value == "apt-get"
+            ):
+                continue
+            starred = [e.value for e in node.elts if isinstance(e, ast.Starred)]
+            if not any(getattr(v, "id", None) == "APT_LOCK_FLAGS" for v in starred):
+                missing.append(f"{source.name}:{node.lineno}")
+    assert not missing, f"apt-get without APT_LOCK_FLAGS: {missing}"

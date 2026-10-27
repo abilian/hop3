@@ -12,6 +12,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from hop3_installer.common import (
+    APT_LOCK_FLAGS,
+    APT_NONINTERACTIVE_ENV,
     CommandError,
     InstallStepError,
     Spinner,
@@ -36,22 +38,6 @@ from .user import run_as_hop3, run_as_hop3_shell
 # =============================================================================
 # Non-interactive apt (Debian/Ubuntu)
 # =============================================================================
-
-# DEBIAN_FRONTEND=noninteractive alone does NOT suppress needrestart's whiptail
-# "which services should be restarted?" dialog on Ubuntu 24.04 (Launchpad
-# #1941716) -- that prompt reads the controlling terminal and blocks the whole
-# install forever. NEEDRESTART_MODE=a makes needrestart restart services
-# automatically, no prompt. Applied to EVERY apt invocation on the Debian family.
-APT_NONINTERACTIVE_ENV = {
-    "DEBIAN_FRONTEND": "noninteractive",
-    "NEEDRESTART_MODE": "a",
-}
-
-# A freshly-booted cloud image runs apt-daily / unattended-upgrades on first
-# boot, holding /var/lib/dpkg/lock-frontend for minutes. These flags make
-# apt-get wait (bounded) for the lock instead of failing instantly or hanging
-# unbounded, and are appended to every apt-get command.
-APT_LOCK_FLAGS = ["-o", "DPkg::Lock::Timeout=600"]
 
 # A package-list install must never remove a package to resolve a conflict:
 # apt does it silently and exits 0. With this flag it stops and lists them.
