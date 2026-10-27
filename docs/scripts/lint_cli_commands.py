@@ -48,10 +48,17 @@ Usage:
 from __future__ import annotations
 
 import difflib
+import os
 import re
 import sys
+import tempfile
 from dataclasses import dataclass
 from pathlib import Path
+
+# Importing hop3 loads $HOP3_ROOT/hop3-server.toml. This tool reads no server,
+# and on a machine that also runs Hop3 that file is the live one, unreadable.
+_ROOT = tempfile.TemporaryDirectory(prefix="hop3-tool-")
+os.environ["HOP3_ROOT"] = _ROOT.name
 
 # ADR 036 D3/D12: three levels is the guideline, four the hard ceiling. Mirrors
 # `_MAX_COMMAND_DEPTH` in the RPC dispatcher.
