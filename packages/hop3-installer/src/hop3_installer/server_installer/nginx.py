@@ -72,9 +72,16 @@ NGINX_HTTP_SETTINGS_PATH = Path("/etc/nginx/conf.d/hop3-http.conf")
 #: `hop3-tuto-nix-gen-flask.135.181.203.156.sslip.io` failed `nginx -t` with
 #: "could not build server_names_hash", and so did the deploy. 256 holds the
 #: longest name DNS allows (253 characters).
+#:
+#: `client_max_body_size` is for the admin domain, where `hop3 deploy` uploads
+#: its archive: its vhost set none, so nginx's 1 MB default refused archives
+#: hop3-server accepts (`request_max_body_size` in `hop3/server/asgi.py`, 200
+#: MB). Set here, it reaches servers whose vhost an update does not rewrite.
+#: App vhosts set their own (`[proxy] max-body-size`), which takes precedence.
 NGINX_HTTP_SETTINGS = """\
 # Written by the Hop3 installer.
 server_names_hash_bucket_size 256;
+client_max_body_size 200m;
 """
 
 

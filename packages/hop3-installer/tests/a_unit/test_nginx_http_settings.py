@@ -27,6 +27,22 @@ def test_the_bucket_holds_the_longest_legal_hostname():
     assert int(match.group(1)) > MAX_HOSTNAME_LENGTH
 
 
+#: hop3-server's `request_max_body_size`, in bytes.
+SERVER_UPLOAD_LIMIT = 200 * 1024 * 1024
+
+
+def test_the_admin_domain_accepts_what_hop3_server_accepts():
+    """
+    A 27 MB deploy archive was refused by nginx's 1 MB default.
+
+    hop3-server accepts the archive; the platform vhost sets no limit of its
+    own and inherits this one.
+    """
+    match = re.search(r"client_max_body_size (\d+)m;", nginx.NGINX_HTTP_SETTINGS)
+    assert match
+    assert int(match.group(1)) * 1024 * 1024 >= SERVER_UPLOAD_LIMIT
+
+
 def test_the_settings_are_written_where_http_includes_them(tmp_path, monkeypatch):
     target = tmp_path / "conf.d" / "hop3-http.conf"
     monkeypatch.setattr(nginx, "NGINX_HTTP_SETTINGS_PATH", target)

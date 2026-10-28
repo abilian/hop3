@@ -290,7 +290,7 @@ def handle_error_response(
 
     # Add helpful hints for specific error codes (ADR 036 D10 — did-you-mean).
     if code == HTTP_PAYLOAD_TOO_LARGE:  # 413 — deploy archive too big
-        clean_message = _payload_too_large_message()
+        clean_message = _payload_too_large_message(clean_message)
     else:
         suggestion = _structured_suggestion(data) or _scraped_suggestion(
             code, clean_message
@@ -362,8 +362,30 @@ def _scraped_suggestion(code: int, message: str) -> str | None:
     return _app_not_found_suggestion(message)
 
 
-def _payload_too_large_message() -> str:
-    """Actionable diagnostic for an HTTP 413 on deploy (archive too large)."""
+#: nginx signs its own error pages; hop3-server's 413 is JSON.
+NGINX_ERROR_PAGE_MARK = "<center>nginx"
+
+
+def _payload_too_large_message(detail: str) -> str:
+    """
+    Actionable diagnostic for an HTTP 413 on deploy (archive too large).
+
+    nginx and hop3-server each enforce a limit, and the remedy differs. nginx's
+    page names it, so the message says which one refused: a 27 MB archive
+    refused by nginx's 1 MB default was told that "the limit is 200 MB".
+    """
+    if NGINX_ERROR_PAGE_MARK in detail:
+        return (
+            "Deploy archive rejected by nginx on the server, before it reached "
+            "hop3-server (HTTP 413).\n"
+            "\n"
+            "hop3-server accepts up to 200 MB; nginx refused the archive at its own "
+            "client_max_body_size, which defaults to 1 MB.\n"
+            "Updating the server (hop3-deploy-server, or the install one-liner) "
+            "sets the admin domain's limit to 200 MB.\n"
+            "\n"
+            "Run 'hop3 deploy --dry-run' to see the archive's size."
+        )
     return (
         "Deploy archive rejected by the server: it's too large (HTTP 413).\n"
         "\n"

@@ -122,6 +122,26 @@ def test_413_replaces_raw_http_error_with_actionable_diagnostic(capsys) -> None:
     assert "Client Error: Payload Too Large for url" not in combined
 
 
+NGINX_413_PAGE = (
+    "HTTP 413 error: 413 Client Error: Request Entity Too Large for url: ...\n"
+    "Response: <html>\r\n<head><title>413 Request Entity Too Large</title></head>"
+    "\r\n<body>\r\n<center><h1>413 Request Entity Too Large</h1></center>\r\n"
+    "<hr><center>nginx/1.24.0 (Ubuntu)</center>\r\n</body>\r\n</html>"
+)
+
+
+def test_a_413_from_nginx_names_nginx_and_its_limit(capsys) -> None:
+    """A 27 MB archive refused by nginx's 1 MB default was told "200 MB"."""
+    with pytest.raises(SystemExit):
+        handle_error_response(413, NGINX_413_PAGE)
+
+    out = capsys.readouterr()
+    combined = out.out + out.err
+    assert "rejected by nginx" in combined
+    assert "client_max_body_size" in combined
+    assert "[build].ignore" not in combined
+
+
 def test_a_refused_role_exits_5_with_the_servers_hint(capsys) -> None:
     """ADR 061: "ask an admin" is exit 5, and the fix is in the message."""
     message = (

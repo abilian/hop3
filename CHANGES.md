@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A deploy over HTTPS accepts an archive up to 200 MB.** The admin domain's nginx vhost set no `client_max_body_size`, so nginx refused any archive over its 1 MB default with a 413, before it reached hop3-server, which accepts 200 MB. The CLI then said the limit was 200 MB. The installer now sets 200 MB in `/etc/nginx/conf.d/hop3-http.conf`, a file each update reconciles. When nginx refuses an archive, the CLI now says so. Deploys through an SSH tunnel never went through nginx.
+
 ## [0.8.0] - 2026-10-27
 
 ### Highlights
