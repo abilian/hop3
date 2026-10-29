@@ -16,6 +16,8 @@ dependencies = [
     # nix-gen lives in hop3-server; `nix vendor-hash` generates an expression
     # with a placeholder hash to learn the real one.
     "hop3-server",
+    # every ssh the tools spawn starts from hop3-cli's SshSettings/ssh_base_argv
+    "hop3-cli",
 ]
 
 [project.scripts]
@@ -24,6 +26,7 @@ hop3-bench = "hop3_tooling.bench.cli:main"
 
 [tool.uv.sources]
 hop3-server = { workspace = true }
+hop3-cli = { workspace = true }
 
 [build-system]
 requires = ["uv-build>=0.8.4,<0.9.0"]

@@ -368,7 +368,7 @@ def _run_image_sweep(
     help="Also copy every image into this directory (implies --screenshots)",
 )
 @click.pass_context
-def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-statements]
+def system_test(
     ctx: click.Context,
     app_names: tuple[str, ...],
     target_type: str | None,
@@ -424,17 +424,7 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
       hop3-test run --provider hetzner --images all               # Sweep every image
       hop3-test run --list-images                                 # Available cloud images
     """
-    # ADR 052 D9/D2/D3 deprecated spellings (still work; notice guides migration).
-    if ctx.info_name == "system":
-        warn_deprecated("system", "run", kind="command")
-    for old, new in (
-        ("--deploy-from", "--from"),
-        ("--ssh-key", "--identity"),
-        ("--ssh", "--host"),
-    ):
-        if any(tok == old or tok.startswith(f"{old}=") for tok in sys.argv[1:]):
-            warn_deprecated(old, new)
-
+    _warn_deprecated_spellings(ctx)
     verbose = ctx.obj["verbose"]
 
     # Accept both the repeatable form (--with nix --with redis) and the
@@ -474,6 +464,115 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         )
         return
 
+    target_type, host = _resolve_target(
+        target_type,
+        host,
+        provider=provider,
+        server_id=server_id,
+        image=image,
+        verbose=verbose,
+    )
+    if reuse:
+        deploy_from = "none"
+
+    root = ctx.obj["root"]
+    shot_settings = _screenshot_settings(
+        screenshots or screenshots_to is not None, screenshots_to, target_type, root
+    )
+    tests, select, statuses, left_out = _select_tests(
+        ctx,
+        app_names,
+        root=root,
+        mode=mode,
+        target_type=target_type,
+        statuses=statuses,
+        covers=covers,
+        recipes=recipes,
+    )
+    selection = _show_plan(
+        tests,
+        select,
+        root=root,
+        target_type=target_type,
+        host=host,
+        deploy_from=deploy_from,
+        clean=clean,
+        features=features,
+        mode=mode,
+        app_names=app_names,
+        statuses=statuses,
+        covers=covers,
+    )
+    deployment, available_features = _deployment_config(
+        tests,
+        deploy_from=deploy_from,
+        branch=branch,
+        clean=clean,
+        verbose=verbose,
+        features=features,
+    )
+    target_obj = _make_target(
+        target_type,
+        host,
+        port=port,
+        user=user,
+        ssh_key=ssh_key,
+        deployment=deployment,
+        reuse_container=deploy_from == "none",
+    )
+
+    # Run tests
+    start_msg = (
+        "Connecting to existing server..."
+        if deploy_from == "none"
+        else "Deploying Hop3 via hop3-deploy..."
+    )
+    run_tests(
+        ctx,
+        tests,
+        target_obj,
+        keep=keep,
+        redeploy=not no_redeploy,
+        fail_fast=fail_fast,
+        report=report,
+        quiet=quiet,
+        debug=debug,
+        narrate=narrate,
+        logs_dir=logs_dir,
+        start_message=start_msg,
+        mode_label="system" if deploy_from != "none" else "reuse",
+        selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
+        available_features=available_features,
+        left_out=left_out,
+        select=select,
+        screenshots=shot_settings,
+        selection=selection,
+    )
+
+
+def _warn_deprecated_spellings(ctx: click.Context) -> None:
+    """ADR 052 D9/D2/D3 deprecated spellings (still work; notice guides migration)."""
+    if ctx.info_name == "system":
+        warn_deprecated("system", "run", kind="command")
+    for old, new in (
+        ("--deploy-from", "--from"),
+        ("--ssh-key", "--identity"),
+        ("--ssh", "--host"),
+    ):
+        if any(tok == old or tok.startswith(f"{old}=") for tok in sys.argv[1:]):
+            warn_deprecated(old, new)
+
+
+def _resolve_target(
+    target_type: str | None,
+    host: str | None,
+    *,
+    provider: str | None,
+    server_id: int | None,
+    image: str | None,
+    verbose: bool,
+) -> tuple[str, str | None]:
+    """Settle ``(target_type, host)``, provisioning a cloud box for --provider."""
     # ADR 052 7b.7: --provider rebuilds a fresh cloud server, then falls through
     # to the normal remote deploy+test (which writes the shared result store, so
     # cloud runs show up in the dashboard and `why`).
@@ -504,20 +603,32 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         click.echo("  hop3-test run --host server.com")
         sys.exit(1)
 
-    if reuse:
-        deploy_from = "none"
-
     # A remote target needs a host (from --host or $HOP3_HOST), e.g. bare --ssh.
     if target_type == "remote" and not host:
         click.echo(
             "Error: remote target needs --host <server> (or $HOP3_HOST)", err=True
         )
         sys.exit(1)
+    return target_type, host
 
-    root = ctx.obj["root"]
-    shot_settings = _screenshot_settings(
-        screenshots or screenshots_to is not None, screenshots_to, target_type, root
-    )
+
+def _select_tests(
+    ctx: click.Context,
+    app_names: tuple[str, ...],
+    *,
+    root: Path,
+    mode: str,
+    target_type: str,
+    statuses: tuple[str, ...],
+    covers: tuple[str, ...],
+    recipes: str,
+) -> tuple[
+    list[TestDefinition],
+    Callable[[DeploymentTarget, list[LeftOut]], list[TestDefinition]] | None,
+    tuple[str, ...],
+    list[LeftOut],
+]:
+    """Resolve the tests to run: ``(tests, select, statuses, left_out)``."""
     select = None
     if recipes == "published":
         if unpublished := sorted(set(statuses) - set(PUBLISHED_STATUSES)):
@@ -564,8 +675,25 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         if not tests and select is None:
             click.echo("No tests remaining: every one is built with Docker", err=True)
             ctx.exit(1)
+    return tests, select, statuses, left_out
 
-    # Show plan
+
+def _show_plan(
+    tests: list[TestDefinition],
+    select: object | None,
+    *,
+    root: Path,
+    target_type: str,
+    host: str | None,
+    deploy_from: str,
+    clean: bool,
+    features: tuple[str, ...],
+    mode: str,
+    app_names: tuple[str, ...],
+    statuses: tuple[str, ...],
+    covers: tuple[str, ...],
+) -> str:
+    """Print the run plan; return the selection line the dashboard records."""
     click.echo(f"\n{'=' * 70}")
     if deploy_from == "none":
         click.echo("Testing against existing Hop3 server")
@@ -603,77 +731,64 @@ def system_test(  # ruff:ignore[complex-structure, too-many-branches, too-many-s
         for t in tests:
             click.echo(f"  - {t.name}")
     click.echo("")
+    return selection
 
+
+def _deployment_config(
+    tests: list[TestDefinition],
+    *,
+    deploy_from: str,
+    branch: str,
+    clean: bool,
+    verbose: bool,
+    features: tuple[str, ...],
+) -> tuple[DeploymentConfig | None, list[str] | None]:
+    """The server deploy (None to reuse one) and the features it will offer."""
     # Auto-provision what the selected apps DECLARE (hop3.toml [[addons]] and
     # [build].builder), so the server is installed with it. The framework
     # installs what the apps need: no manual --with and no silently-skipped app.
     required_addons = required_features_from_tests(tests)
 
-    # Build deployment config
-    deployment: DeploymentConfig | None = None
     available_features = list(features) if features else None
-    if deploy_from != "none":
-        validate_features(required_addons)  # loud abort on an unprovisionable addon
-        deploy_features = merge_features(features, required_addons)
-        newly = [f for f in deploy_features if f not in features]
-        if newly:
-            click.echo(f"Auto-enabling feature(s) the apps require: {', '.join(newly)}")
-        deployment = DeploymentConfig(
-            source=cast("Literal['local', 'git', 'pypi']", deploy_from),
-            branch=branch,
-            clean=clean,
-            verbose=verbose,
-            features=deploy_features,
-        )
-        # available_features must reflect what we PROVISIONED, or the service
-        # filter would skip the very apps we just installed addons for.
-        available_features = deploy_features
+    if deploy_from == "none":
+        return None, available_features
+    validate_features(required_addons)  # loud abort on an unprovisionable addon
+    deploy_features = merge_features(features, required_addons)
+    newly = [f for f in deploy_features if f not in features]
+    if newly:
+        click.echo(f"Auto-enabling feature(s) the apps require: {', '.join(newly)}")
+    deployment = DeploymentConfig(
+        source=cast("Literal['local', 'git', 'pypi']", deploy_from),
+        branch=branch,
+        clean=clean,
+        verbose=verbose,
+        features=deploy_features,
+    )
+    # available_features must reflect what we PROVISIONED, or the service
+    # filter would skip the very apps we just installed addons for.
+    return deployment, deploy_features
 
-    # Create target
-    target_obj: DockerTarget | RemoteTarget
+
+def _make_target(
+    target_type: str,
+    host: str | None,
+    *,
+    port: int,
+    user: str,
+    ssh_key: str | None,
+    deployment: DeploymentConfig | None,
+    reuse_container: bool,
+) -> DockerTarget | RemoteTarget:
+    """Build the Docker or remote target the run deploys to."""
     if target_type == "docker":
         docker_config = DockerConfig(
             container_name="hop3-system-test",
-            reuse_container=deploy_from == "none",
+            reuse_container=reuse_container,
         )
-        target_obj = DockerTarget(docker_config, deployment=deployment)
-    else:
-        assert host is not None
-        remote_config = RemoteConfig(
-            host=host,
-            port=port,
-            user=user,
-            ssh_key=ssh_key,
-        )
-        target_obj = RemoteTarget(remote_config, deployment=deployment)
-
-    # Run tests
-    start_msg = (
-        "Connecting to existing server..."
-        if deploy_from == "none"
-        else "Deploying Hop3 via hop3-deploy..."
-    )
-    run_tests(
-        ctx,
-        tests,
-        target_obj,
-        keep=keep,
-        redeploy=not no_redeploy,
-        fail_fast=fail_fast,
-        report=report,
-        quiet=quiet,
-        debug=debug,
-        narrate=narrate,
-        logs_dir=logs_dir,
-        start_message=start_msg,
-        mode_label="system" if deploy_from != "none" else "reuse",
-        selection_mode=mode,  # smoke/ci/broad/full -> the dashboard "scope"
-        available_features=available_features,
-        left_out=left_out,
-        select=select,
-        screenshots=shot_settings,
-        selection=selection,
-    )
+        return DockerTarget(docker_config, deployment=deployment)
+    assert host is not None
+    remote_config = RemoteConfig(host=host, port=port, user=user, ssh_key=ssh_key)
+    return RemoteTarget(remote_config, deployment=deployment)
 
 
 def describe_selection(

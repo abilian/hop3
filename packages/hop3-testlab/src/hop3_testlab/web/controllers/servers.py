@@ -26,6 +26,9 @@ from litestar.exceptions import ValidationException
 from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
+from sqlalchemy.orm import (
+    Session,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 
 from hop3_testlab.credentials import looks_like_private_key, redact
 from hop3_testlab.repositories import (  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves them
@@ -80,7 +83,10 @@ class ServersController(Controller):
     @post("/")
     @inject
     async def create(
-        self, data: _FORM, servers: FromDishka[ServersRepository]
+        self,
+        data: _FORM,
+        servers: FromDishka[ServersRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         name = (data.get("name") or "").strip()
         target_id = (data.get("target_id") or "").strip()
@@ -88,24 +94,33 @@ class ServersController(Controller):
             servers.create(
                 name=name, target_id=target_id, kind=(data.get("kind") or "ssh").strip()
             )
+            session.commit()
         return Redirect(path="/servers", status_code=HTTP_303_SEE_OTHER)
 
     @post("/{server_id:int}/toggle")
     @inject
     async def toggle(
-        self, server_id: FromPath[int], servers: FromDishka[ServersRepository]
+        self,
+        server_id: FromPath[int],
+        servers: FromDishka[ServersRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         server = servers.get(server_id)
         if server is not None:
             servers.update(server_id, enabled=not server.enabled)
+            session.commit()
         return Redirect(path="/servers", status_code=HTTP_303_SEE_OTHER)
 
     @post("/{server_id:int}/delete")
     @inject
     async def delete(
-        self, server_id: FromPath[int], servers: FromDishka[ServersRepository]
+        self,
+        server_id: FromPath[int],
+        servers: FromDishka[ServersRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         servers.delete(server_id)
+        session.commit()
         return Redirect(path="/servers", status_code=HTTP_303_SEE_OTHER)
 
     # --- Cloud credentials --------------------------------------------------
@@ -113,7 +128,10 @@ class ServersController(Controller):
     @post("/credentials")
     @inject
     async def create_credential(
-        self, data: _FORM, credentials: FromDishka[CredentialsRepository]
+        self,
+        data: _FORM,
+        credentials: FromDishka[CredentialsRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         """
         Store a provider credential (API token + optional SSH key) in the DB.
@@ -155,6 +173,7 @@ class ServersController(Controller):
             ssh_key_name=(data.get("ssh_key_name") or "").strip() or None,
             private_key=private_key or None,
         )
+        session.commit()
         return Redirect(path="/servers", status_code=HTTP_303_SEE_OTHER)
 
     @post("/credentials/{credential_id:int}/delete")
@@ -163,6 +182,8 @@ class ServersController(Controller):
         self,
         credential_id: FromPath[int],
         credentials: FromDishka[CredentialsRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         credentials.delete(credential_id)
+        session.commit()
         return Redirect(path="/servers", status_code=HTTP_303_SEE_OTHER)

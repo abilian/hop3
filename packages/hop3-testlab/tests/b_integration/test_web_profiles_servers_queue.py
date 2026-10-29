@@ -231,3 +231,21 @@ def test_queue_log_view_handles_missing_log():
         r = client.get(f"/queue/{rid}/log")
     assert r.status_code == 200
     assert "No engine log" in r.text
+
+
+def test_profile_create_rejects_an_unknown_mode():
+    """A profile naming no known mode is refused when saved, not when run."""
+    with TestClient(app=create_app()) as client:
+        r = client.post(
+            "/profiles",
+            data={
+                "name": "typo",
+                "source_url": "https://example.org/catalog.git",
+                "source_ref": "main",
+                "mode": "brod",
+            },
+            follow_redirects=False,
+        )
+        assert r.status_code == 400
+    with _session() as s:
+        assert ProfilesRepository(s).list_all() == []

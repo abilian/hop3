@@ -15,7 +15,7 @@ import time
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, ClassVar, Literal, Self
 
 import httpx
 
@@ -57,6 +57,9 @@ class DeployResult:
     logs: str = ""
     duration: float = 0.0
     error: str | None = None
+
+
+TargetKind = Literal["docker", "ssh"]
 
 
 @dataclass
@@ -118,6 +121,11 @@ class DeploymentTarget(ABC):
     A deployment target represents a Hop3 server where applications can be
     deployed and tested. This could be a Docker container, a VM, or a remote server.
     """
+
+    #: How the harness reaches this target, for the run family and the bundle:
+    #: "docker" (a local container) or "ssh" (a server, provisioned or not).
+    #: Every concrete target sets it; there is no default to fall back on.
+    kind: ClassVar[TargetKind]
 
     def __init__(self, config: dict[str, Any] | None = None):
         """

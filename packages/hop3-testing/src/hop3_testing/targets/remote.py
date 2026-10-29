@@ -87,6 +87,8 @@ class RemoteTarget(DeploymentTarget):
             result = target.exec_run("hop3 apps")
     """
 
+    kind = "ssh"
+
     def __init__(
         self,
         config: RemoteConfig,

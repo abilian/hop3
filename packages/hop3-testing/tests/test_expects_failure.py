@@ -137,6 +137,8 @@ class _FakeTarget:
     _collect_runtime_logs, which we monkeypatch.
     """
 
+    kind = "docker"
+
 
 def _negative_test_def() -> TestDefinition:
     return TestDefinition(

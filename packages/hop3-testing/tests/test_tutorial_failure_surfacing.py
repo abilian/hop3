@@ -44,7 +44,11 @@ def _tutorial(tmp_path: Path) -> TestDefinition:
 
 
 def _runner() -> TutorialTestRunner:
-    target = SimpleNamespace(info=TargetInfo(ssh_host="", ssh_port=22))
+    # exec_run answers the failure diagnostics' `hop3 apps` probe.
+    target = SimpleNamespace(
+        info=TargetInfo(ssh_host="", ssh_port=22),
+        exec_run=lambda _cmd: (0, "", ""),
+    )
     return TutorialTestRunner(cast("Any", target))
 
 
@@ -119,6 +123,7 @@ def test_failed_tutorial_collects_target_diagnostics(tmp_path, monkeypatch):
     test.metadata.framework = "flask"  # -> derived app name hop3-tuto-flask
 
     class _Target:
+        kind = "docker"
         info = TargetInfo(ssh_host="", ssh_port=22)
 
         def exec_run(self, _cmd):
@@ -148,6 +153,7 @@ def test_a_failed_tutorial_step_is_named_in_the_bundle(tmp_path, monkeypatch):
     test.metadata.framework = "flask"
 
     class _Target:
+        kind = "docker"
         info = TargetInfo(ssh_host="", ssh_port=22)
 
         def exec_run(self, _cmd):

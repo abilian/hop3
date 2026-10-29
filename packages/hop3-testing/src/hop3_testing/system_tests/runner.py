@@ -22,6 +22,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
 from rich.console import Console
+from rich.markup import escape
 from rich.progress import Progress, SpinnerColumn, TextColumn
 
 from hop3_testing.catalog import Catalog
@@ -569,7 +570,8 @@ class TestRunnerManager:
                 self._ssh_conn = SSHConnection(info)
                 if not self._ssh_conn.connect(timeout=30):
                     self.console.print(
-                        "  [yellow]Could not connect for diagnostics[/yellow]"
+                        "  [yellow]Could not connect for diagnostics:"
+                        f" {escape(str(self._ssh_conn.last_error))}[/yellow]"
                     )
                     return
 

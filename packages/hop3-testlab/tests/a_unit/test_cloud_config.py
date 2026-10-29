@@ -6,6 +6,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 from hop3_testlab.cloud_config import (
     DEFAULT_KEEP_RUNS,
     load_cloud_config,
@@ -83,3 +84,19 @@ def test_retention_env_fallback_then_default(tmp_path: Path, monkeypatch):
     assert load_retention(tmp_path / "nope.toml") == 5
     monkeypatch.delenv("TESTLAB_LOG_RETENTION_RUNS", raising=False)
     assert load_retention(tmp_path / "nope.toml") == DEFAULT_KEEP_RUNS
+
+
+@pytest.mark.parametrize("bad", ['"thirty"', "0", "-3", "true", "2.5"])
+def test_retention_rejects_an_invalid_keep_runs(tmp_path: Path, monkeypatch, bad):
+    """An unreadable keep_runs is an error naming key and value, never a default."""
+    monkeypatch.delenv("TESTLAB_LOG_RETENTION_RUNS", raising=False)
+    cfg_file = tmp_path / "config.toml"
+    cfg_file.write_text(f"[retention]\nkeep_runs = {bad}\n")
+    with pytest.raises(ValueError, match=r"\[retention\]\.keep_runs"):
+        load_retention(cfg_file)
+
+
+def test_retention_rejects_an_invalid_env_value(tmp_path: Path, monkeypatch):
+    monkeypatch.setenv("TESTLAB_LOG_RETENTION_RUNS", "lots")
+    with pytest.raises(ValueError, match=r"TESTLAB_LOG_RETENTION_RUNS.*'lots'"):
+        load_retention(tmp_path / "nope.toml")

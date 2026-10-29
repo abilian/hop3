@@ -28,6 +28,7 @@ from typing import TYPE_CHECKING
 import httpx
 
 from .credentials import Credential, read_generated_credential
+from .ssh import ssh_argv
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -351,13 +352,17 @@ def limesurvey_db_check(host, app_name, cred) -> list[tuple[str, bool, str]]:
     stored bcrypt hash directly: the generated password must verify, and the old
     default must not. Requires SSH (root@host) to the box.
     """
+    # The script travels on ssh's stdin and the passwords are set by bash
+    # builtins inside it, so neither ever appears on a command line (local or
+    # remote ``/proc/<pid>/cmdline``). ``runuser`` keeps the environment.
     remote = (
         f"cd /home/hop3/apps/{app_name}/src 2>/dev/null || {{ echo NOAPP; exit 0; }}\n"
-        f"sudo -u hop3 env GEN={shlex.quote(cred.password)} "
-        f"OLD={shlex.quote(LIMESURVEY_OLD_DEFAULT)} php -r {shlex.quote(_LIMESURVEY_PHP)}"
+        f"export GEN={shlex.quote(cred.password)}\n"
+        f"export OLD={shlex.quote(LIMESURVEY_OLD_DEFAULT)}\n"
+        f"exec runuser -u hop3 -- php -r {shlex.quote(_LIMESURVEY_PHP)}\n"
     )
     proc = subprocess.run(
-        ["ssh", "-o", "ConnectTimeout=10", f"root@{host}", "bash -s"],
+        ssh_argv(f"root@{host}", "bash -s"),
         input=remote,
         capture_output=True,
         text=True,

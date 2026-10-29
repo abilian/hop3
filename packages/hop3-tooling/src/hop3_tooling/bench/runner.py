@@ -16,6 +16,7 @@ import shlex
 import subprocess
 
 from hop3_tooling.bench.probes import BenchError, Runner
+from hop3_tooling.ssh import ssh_argv
 
 _NIX_FLAKES = "experimental-features = nix-command flakes"
 
@@ -33,16 +34,11 @@ def ssh_runner(host: str, user: str = "root") -> Runner:
     """Run commands over SSH on ``user@host`` (BatchMode: never prompt)."""
 
     def run(cmd: str) -> str:
-        ssh = [
-            "ssh",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "ConnectTimeout=15",
-            f"{user}@{host}",
-            f"export NIX_CONFIG={shlex.quote(_NIX_FLAKES)}; {cmd}",
-        ]
-        return _exec(ssh)
+        return _exec(
+            ssh_argv(
+                f"{user}@{host}", f"export NIX_CONFIG={shlex.quote(_NIX_FLAKES)}; {cmd}"
+            )
+        )
 
     return run
 

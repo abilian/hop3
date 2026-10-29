@@ -153,15 +153,20 @@ def load_retention(path: Path | None = None) -> int:
     """
     data = _load_data(path)
 
+    key = "[retention].keep_runs"
     raw = data.get("retention", {}).get("keep_runs")
     if isinstance(raw, str):
         raw = _resolve_ref(raw, dict(os.environ)) or None
     if raw is None:
-        raw = os.environ.get("TESTLAB_LOG_RETENTION_RUNS")
-    try:
-        return int(raw) if raw else DEFAULT_KEEP_RUNS
-    except (TypeError, ValueError):
+        key = "$TESTLAB_LOG_RETENTION_RUNS"
+        raw = os.environ.get("TESTLAB_LOG_RETENTION_RUNS") or None
+    if raw is None:
         return DEFAULT_KEEP_RUNS
+    text = str(raw).strip()
+    if isinstance(raw, bool) or not text.isdigit() or int(text) < 1:
+        msg = f"Testlab can't read {key}: {raw!r} is not a positive integer"
+        raise ValueError(msg)
+    return int(text)
 
 
 @dataclass(frozen=True)

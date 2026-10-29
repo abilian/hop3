@@ -16,6 +16,7 @@ from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
+from hop3_testing.util.ssh import SSHProbe
 from hop3_testlab import worker
 from hop3_testlab.cloud_config import CloudConfig
 
@@ -139,12 +140,14 @@ def test_wait_ssh_command_ready_gives_up():
         assert worker._wait_ssh_command_ready("h", None, attempts=2, delay=0) is False
 
 
-def test_rebuild_raises_if_ssh_never_ready():
+def test_rebuild_raises_if_ssh_never_ready_and_says_why():
     manager = MagicMock()
-    manager.wait_for_ssh_ready.return_value = False
+    manager.wait_for_ssh_ready.return_value = SSHProbe(
+        ok=False, error="TimeoutError: timed out connecting to 203.0.113.7:22"
+    )
     with (
         patch("hop3_testing.system_tests.hetzner.HetznerManager", return_value=manager),
-        pytest.raises(RuntimeError),
+        pytest.raises(RuntimeError, match=r"timed out connecting to 203\.0\.113\.7:22"),
     ):
         worker._rebuild_blank_slate(_cfg("hop3-ci"), "203.0.113.7")
 

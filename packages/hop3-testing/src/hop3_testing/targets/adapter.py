@@ -28,6 +28,8 @@ class ContainerTarget(DeploymentTarget):
     (nginx error.log, journalctl) work, matching ``DockerCommandRunner``.
     """
 
+    kind = "docker"
+
     def __init__(self, container: Any, *, user: str = "root") -> None:
         self._container = container
         self._user = user

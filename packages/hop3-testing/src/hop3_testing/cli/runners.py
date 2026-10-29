@@ -249,7 +249,7 @@ def _order_run(
     Returns ``(mode, target_type, ordered_tests)``: the family identifiers used
     for both the failure lookup and the recorded run, plus the ordered list.
     """
-    target_type = "ssh" if "Remote" in type(target).__name__ else "docker"
+    target_type = target.kind
     ordered = _order_failed_first(
         tests, store, mode=mode, target_type=target_type, console=console
     )
@@ -577,7 +577,7 @@ def _emit_startup_diagnostics(
         bundle = collect_diagnostic_bundle(
             target,
             app="deploy",
-            target_kind="ssh" if "Remote" in type(target).__name__ else "docker",
+            target_kind=target.kind,
             classifier_hint="startup-failure",
             deploy_logs=str(error),
         )

@@ -12,10 +12,13 @@ Dishka is attached after construction via ``setup_dishka`` (same as hop3-server)
 from __future__ import annotations
 
 import hashlib
+import logging
 from pathlib import Path
+from typing import TYPE_CHECKING
 
+import anyio.to_thread
 from dishka.integrations.litestar import setup_dishka
-from litestar import Litestar
+from litestar import Litestar, Response
 from litestar.config.csrf import CSRFConfig
 from litestar.datastructures import Cookie
 from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
@@ -28,6 +31,10 @@ from litestar.template.config import TemplateConfig
 from hop3_testlab.cloud_config import load_schedule
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.di import create_async_container
+from hop3_testlab.di.providers import (
+    current_request_session,
+    roll_back_if_uncommitted,
+)
 from hop3_testlab.scheduler import build_background_scheduler
 from hop3_testlab.web.controllers import (
     AuthController,
@@ -44,6 +51,12 @@ from hop3_testlab.web.controllers import (
 )
 
 TEMPLATES_DIR = Path(__file__).parent / "templates"
+
+
+if TYPE_CHECKING:
+    from litestar.types import Scope
+
+logger = logging.getLogger(__name__)
 
 
 def _handle_unauthorized(_request, _exc) -> Redirect:
@@ -93,6 +106,32 @@ def _on_shutdown(app: Litestar) -> None:
     scheduler = getattr(app.state, "scheduler", None)
     if scheduler is not None:
         scheduler.shutdown(wait=False)
+
+
+UNSAVED_CHANGE_MESSAGE = (
+    "The change was not saved: the Test Lab answered before committing it, "
+    "and rolled it back. This is a bug; the server log names the page."
+)
+
+
+async def refuse_uncommitted_writes(response: Response) -> Response:
+    """Answer an error, not the handler's success, when writes are pending."""
+    session = current_request_session()
+    if session is None:
+        return response
+    if not await anyio.to_thread.run_sync(roll_back_if_uncommitted, session):
+        return response
+    logger.error("A handler answered without committing its database writes")
+    return Response(
+        content=UNSAVED_CHANGE_MESSAGE, status_code=500, media_type="text/plain"
+    )
+
+
+async def roll_back_on_exception(_exc: Exception, _scope: Scope) -> None:
+    """Roll back the request's session when its handler raised."""
+    session = current_request_session()
+    if session is not None:
+        await anyio.to_thread.run_sync(session.rollback)
 
 
 def create_app() -> Litestar:
@@ -148,6 +187,8 @@ def create_app() -> Litestar:
         },
         on_startup=[_on_startup],
         on_shutdown=[_on_shutdown],
+        after_request=refuse_uncommitted_writes,
+        after_exception=[roll_back_on_exception],
         debug=config.DEBUG,
     )
     setup_dishka(container=create_async_container(), app=app)

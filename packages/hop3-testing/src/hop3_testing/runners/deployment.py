@@ -194,14 +194,6 @@ def _app_node_modules(app_name: str) -> str:
     return f"/home/hop3/apps/{app_name}/src/node_modules"
 
 
-def _target_kind(target: DeploymentTarget) -> str:
-    """Map a target to the bundle's ``target_kind`` ("docker"/"ssh"/"hetzner")."""
-    name = type(target).__name__
-    if "Remote" in name:
-        return "ssh"
-    return "docker"
-
-
 def _collect_runtime_logs(target: DeploymentTarget, app_name: str | None) -> str:
     """
     Best-effort app-side runtime logs (gunicorn/app stderr, migrate
@@ -992,7 +984,7 @@ class DeploymentTestRunner:
             session.app_name,
             deploy_logs=deploy_logs,
             expected_port=expected_port,
-            target_kind=_target_kind(self.target),
+            target_kind=self.target.kind,
             force_persist=True,
             failure=failure,
         )

@@ -110,8 +110,11 @@ def _rebuild_blank_slate(cfg: CloudConfig, host: str) -> None:
         f"with {cfg.hetzner_image} ..."
     )
     manager.rebuild_server(image=cfg.hetzner_image, timeout=600)
-    if not manager.wait_for_ssh_ready(timeout=300):
-        msg = "Blank-slate rebuild: SSH never became ready after rebuild"
+    probe = manager.wait_for_ssh_ready(timeout=300)
+    if not probe:
+        msg = (
+            f"Blank-slate rebuild: SSH never became ready after rebuild: {probe.error}"
+        )
         raise RuntimeError(msg)
     # The rebuild reinstalls the OS, so the box now presents a NEW SSH host key on
     # the same IP. The deployer's ssh uses StrictHostKeyChecking=accept-new, which
@@ -275,12 +278,14 @@ def _canonical_scope(name: str) -> str:
     """
     Resolve a scope name through the mode aliases to its canonical mode name
     (so a renamed mode like nightly→broad records under the new name). An unknown
-    name falls back to ``broad`` so the engine's ``--mode`` Choice accepts it.
+    name is an error: recording it as ``broad`` would run and label a suite
+    nobody asked for.
     """
     try:
         return get_mode_config(name).name
-    except ValueError:
-        return "broad"
+    except ValueError as e:
+        msg = f"Testlab can't run: unknown selection mode {name!r} ({e})"
+        raise ValueError(msg) from e
 
 
 def run_blockers(target_id: str, apps: list[str] | None) -> str | None:

@@ -191,9 +191,12 @@ def _wait_for_http_ready(
 
 
 def _run_login_with_retry(
-    config_cmd: str, timeout: float = 120.0, interval: float = 3.0
+    argv: list[str], secret: str, timeout: float = 120.0, interval: float = 3.0
 ) -> subprocess.CompletedProcess:
     """Run a `hop3 login` command, retrying on connection failures.
+
+    The secret goes on stdin, never into ``argv`` or a shell line: any local
+    user reads ``/proc/<pid>/cmdline``.
 
     The login is the definitive readiness test: it must reach the server
     over HTTP. The server may be momentarily unreachable just after first
@@ -207,8 +210,8 @@ def _run_login_with_retry(
     deadline = time.time() + timeout
     while True:
         result = subprocess.run(
-            config_cmd,
-            shell=True,
+            argv,
+            input=secret,
             capture_output=True,
             text=True,
             check=False,
@@ -326,22 +329,26 @@ def configure_cli(ctx: DemoContext) -> bool:
 
         if api_token:
             # Use token-based login (more reliable than password)
-            login_url = f"{server_url}?token={api_token}"
-            config_cmd = f'hop3 login "{login_url}"'
+            argv = ["hop3", "login", "--token", "-", "--url", server_url]
+            secret = api_token
         else:
             # Fallback to password-based login
-            config_cmd = (
-                f"echo '{ctx.admin_password}' | hop3 login "
-                f"--username {ctx.admin_user} "
-                f"--url {server_url} "
-                f"--password-stdin"
-            )
+            argv = [
+                "hop3",
+                "login",
+                "--username",
+                ctx.admin_user,
+                "--url",
+                server_url,
+                "--password-stdin",
+            ]
+            secret = ctx.admin_password
 
         # Retry the login: the server can still be settling right after
         # first boot (initial DB stamp + a supervisor bounce of the services),
         # so a single attempt may hit a brief window where the port is not
         # accepting yet — even though the readiness poll above just saw it up.
-        result = _run_login_with_retry(config_cmd)
+        result = _run_login_with_retry(argv, secret)
         if result.returncode != 0:
             print_error("Failed to configure CLI for Docker")
             if result.stderr:

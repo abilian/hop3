@@ -12,6 +12,7 @@ import traceback
 from pathlib import Path
 
 from rich.console import Console
+from rich.markup import escape
 
 from hop3_testing.util.ssh import is_port_open, verify_ssh_connectivity
 
@@ -224,14 +225,20 @@ def cmd_status(args: argparse.Namespace) -> None:
         console.print()
         console.print("[bold]Connectivity[/bold]")
 
-        if is_port_open(info.ipv4, 22):
+        port = is_port_open(info.ipv4, 22)
+        if port:
             console.print("  SSH Port:   [green]open[/green]")
-            if verify_ssh_connectivity(info.ipv4):
+            auth = verify_ssh_connectivity(info.ipv4)
+            if auth:
                 console.print("  SSH Auth:   [green]ok[/green]")
             else:
-                console.print("  SSH Auth:   [yellow]failed[/yellow]")
+                console.print(
+                    f"  SSH Auth:   [yellow]failed[/yellow] ({escape(str(auth.error))})"
+                )
         else:
-            console.print("  SSH Port:   [red]closed[/red]")
+            console.print(
+                f"  SSH Port:   [red]closed[/red] ({escape(str(port.error))})"
+            )
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")
@@ -267,11 +274,12 @@ def cmd_reset(args: argparse.Namespace) -> None:
         info = manager.rebuild_server(image=args.image)
         console.print("[green]Server rebuilt successfully[/green]")
         console.print("Waiting for SSH...")
-        if manager.wait_for_ssh_ready():
-            console.print("[green]SSH is ready[/green]")
-            console.print(f"  Connect with: ssh root@{info.ipv4}")
-        else:
-            console.print("[yellow]SSH not ready within timeout[/yellow]")
+        probe = manager.wait_for_ssh_ready()
+        if not probe:
+            console.print(f"[red]SSH not ready: {escape(str(probe.error))}[/red]")
+            sys.exit(1)
+        console.print("[green]SSH is ready[/green]")
+        console.print(f"  Connect with: ssh root@{info.ipv4}")
 
     except Exception as e:
         console.print(f"[red]Error: {e}[/red]")

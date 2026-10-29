@@ -22,6 +22,9 @@ from litestar.params import (
 )
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
+from sqlalchemy.orm import (
+    Session,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 
 from hop3_testlab.config import TestlabConfig
 from hop3_testlab.repositories import (  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves them
@@ -105,7 +108,11 @@ class QueueController(Controller):
     @post("/{request_id:int}/cancel")
     @inject
     async def cancel(
-        self, request_id: FromPath[int], queue: FromDishka[BuildQueueRepository]
+        self,
+        request_id: FromPath[int],
+        queue: FromDishka[BuildQueueRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         queue.cancel(request_id)  # a no-op once dispatched
+        session.commit()
         return Redirect(path="/queue", status_code=HTTP_303_SEE_OTHER)

@@ -48,7 +48,11 @@ def _demo_tree(tmp_path: Path) -> TestDefinition:
 
 
 def _runner() -> DemoTestRunner:
-    target = SimpleNamespace(info=TargetInfo(ssh_host="", ssh_port=22))
+    # exec_run answers the failure diagnostics' `hop3 apps` probe.
+    target = SimpleNamespace(
+        info=TargetInfo(ssh_host="", ssh_port=22),
+        exec_run=lambda _cmd: (0, "", ""),
+    )
     return DemoTestRunner(cast("Any", target))
 
 

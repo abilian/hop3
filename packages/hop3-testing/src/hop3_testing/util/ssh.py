@@ -21,6 +21,21 @@ class HostKeyError(RuntimeError):
     """A host's SSH key could not be read into known_hosts."""
 
 
+@dataclass(frozen=True)
+class SSHProbe:
+    """Outcome of a connectivity check: truthy when it passed, else why not."""
+
+    ok: bool
+    error: str | None = None
+
+    def __bool__(self) -> bool:
+        return self.ok
+
+
+def _describe(exc: BaseException) -> str:
+    return f"{type(exc).__name__}: {exc}"
+
+
 @dataclass
 class SSHConnectionInfo:
     """Information about an SSH connection."""
@@ -249,6 +264,7 @@ class SSHConnection:
         """
         self.info = info
         self._client: paramiko.SSHClient | None = None
+        self.last_error: str | None = None
 
     def connect(self, timeout: int = 30) -> bool:
         """
@@ -258,8 +274,9 @@ class SSHConnection:
             timeout: Connection timeout in seconds.
 
         Returns:
-            True if connection succeeded.
+            True if connection succeeded; on failure ``last_error`` says why.
         """
+        self.last_error = None
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -273,8 +290,9 @@ class SSHConnection:
                 key_filename=key_filename,
             )
             return True
-        except Exception:
+        except Exception as e:
             self._client = None
+            self.last_error = f"{self.info.address}:{self.info.port}: {_describe(e)}"
             return False
 
     def close(self) -> None:
@@ -317,7 +335,7 @@ def wait_for_ssh(
     port: int = 22,
     timeout: int = 300,
     interval: int = 10,
-) -> bool:
+) -> SSHProbe:
     """
     Wait for SSH to become available on a host.
 
@@ -328,27 +346,33 @@ def wait_for_ssh(
         interval: Time between connection attempts.
 
     Returns:
-        True if SSH became available, False if timeout.
+        A passing probe once the SSH handshake succeeds; on timeout, a failing
+        probe carrying the last attempt's error.
     """
     deadline = time.time() + timeout
+    last = SSHProbe(ok=False, error=f"no attempt made within {timeout}s")
 
     while time.time() < deadline:
-        if is_port_open(host, port):
+        last = is_port_open(host, port)
+        if last:
             # Port is open, try SSH handshake
             try:
                 transport = paramiko.Transport((host, port))
                 transport.connect()
                 transport.close()
-                return True
-            except Exception:
-                pass
+                return SSHProbe(ok=True)
+            except Exception as e:
+                last = SSHProbe(ok=False, error=f"SSH handshake: {_describe(e)}")
 
         time.sleep(interval)
 
-    return False
+    return SSHProbe(
+        ok=False,
+        error=f"SSH on {host}:{port} not ready after {timeout}s ({last.error})",
+    )
 
 
-def is_port_open(host: str, port: int, timeout: int = 5) -> bool:
+def is_port_open(host: str, port: int, timeout: int = 5) -> SSHProbe:
     """
     Check if a TCP port is open.
 
@@ -358,16 +382,13 @@ def is_port_open(host: str, port: int, timeout: int = 5) -> bool:
         timeout: Connection timeout in seconds.
 
     Returns:
-        True if port is open.
+        A passing probe if the port accepts a connection, else the reason.
     """
     try:
-        sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-        sock.settimeout(timeout)
-        result = sock.connect_ex((host, port))
-        sock.close()
-        return result == 0
-    except Exception:
-        return False
+        with socket.create_connection((host, port), timeout=timeout):
+            return SSHProbe(ok=True)
+    except OSError as e:
+        return SSHProbe(ok=False, error=f"TCP {host}:{port}: {_describe(e)}")
 
 
 def verify_ssh_connectivity(
@@ -375,7 +396,7 @@ def verify_ssh_connectivity(
     user: str = "root",
     port: int = 22,
     timeout: int = 30,
-) -> bool:
+) -> SSHProbe:
     """
     Verify SSH connectivity by running a simple command.
 
@@ -386,17 +407,21 @@ def verify_ssh_connectivity(
         timeout: Connection timeout.
 
     Returns:
-        True if SSH connection works.
+        A passing probe if `echo ok` ran, else the reason.
     """
     info = SSHConnectionInfo(host=host, port=port, user=user)
     conn = SSHConnection(info)
 
     try:
         if not conn.connect(timeout=timeout):
-            return False
-        exit_code, _, _ = conn.run("echo ok", timeout=10)
-        return exit_code == 0
-    except Exception:
-        return False
+            return SSHProbe(ok=False, error=conn.last_error)
+        exit_code, _, stderr = conn.run("echo ok", timeout=10)
+        if exit_code != 0:
+            return SSHProbe(
+                ok=False, error=f"`echo ok` exited {exit_code}: {stderr.strip()}"
+            )
+        return SSHProbe(ok=True)
+    except Exception as e:
+        return SSHProbe(ok=False, error=_describe(e))
     finally:
         conn.close()

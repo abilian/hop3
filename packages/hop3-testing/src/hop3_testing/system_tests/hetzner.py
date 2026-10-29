@@ -16,7 +16,7 @@ from typing import TYPE_CHECKING
 from hcloud import Client
 
 from hop3_testing.exceptions import TestingError
-from hop3_testing.util.ssh import SSHKeyManager, wait_for_ssh
+from hop3_testing.util.ssh import SSHKeyManager, SSHProbe, wait_for_ssh
 
 if TYPE_CHECKING:
     from hcloud.images import Image
@@ -445,7 +445,7 @@ class HetznerManager:
         self,
         timeout: int = 300,
         interval: int = 10,
-    ) -> bool:
+    ) -> SSHProbe:
         """
         Wait for SSH to become available on the server.
 
@@ -456,13 +456,14 @@ class HetznerManager:
             interval: Time between connection attempts.
 
         Returns:
-            True if SSH is ready, False if timeout.
+            A passing probe if SSH is ready, else one carrying the last error.
         """
         server_ip = self.get_server_ip()
 
         # Wait for SSH port to be open and responsive
-        if not wait_for_ssh(server_ip, timeout=timeout, interval=interval):
-            return False
+        probe = wait_for_ssh(server_ip, timeout=timeout, interval=interval)
+        if not probe:
+            return probe
 
         # Find any hostname aliases that resolve to this IP
         aliases = self._ssh_key_manager.find_hostnames_for_ip(server_ip)
@@ -470,7 +471,7 @@ class HetznerManager:
         # Update known_hosts for IP and all aliases
         self._ssh_key_manager.update_host_key(server_ip, additional_hosts=aliases)
 
-        return True
+        return probe
 
     def _find_image(self, name: str) -> Image | None:
         """

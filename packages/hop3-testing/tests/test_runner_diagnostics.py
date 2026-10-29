@@ -7,19 +7,24 @@ A tutorial/demo failure used to be a black box ("Command timed out after 120s"
 and nothing else). collect_failure_diagnostics always snapshots `hop3 apps`
 (name-independent — reveals an app stuck mid-build, or a stranded one holding a
 port) and, when an app name is known, adds runtime logs + the diagnostic bundle.
-It must never raise — diagnostics must not crash the run.
+A step that fails is recorded with its error; a programming error propagates.
 """
 
 from __future__ import annotations
 
+import pytest
 from hop3_testing.runners._diagnostics import (
     collect_failure_diagnostics,
     hop3_apps_snapshot,
-    target_kind,
 )
+from hop3_testing.targets.adapter import ContainerTarget
+from hop3_testing.targets.docker import DockerTarget
+from hop3_testing.targets.remote import RemoteTarget
 
 
 class _Target:
+    kind = "docker"
+
     def __init__(self, apps=(0, "", ""), raises=False):
         self._apps = apps
         self._raises = raises
@@ -29,10 +34,6 @@ class _Target:
             msg = "ssh down"
             raise RuntimeError(msg)
         return self._apps
-
-
-class _RemoteTarget(_Target):
-    pass
 
 
 class _CmdTarget:
@@ -56,9 +57,31 @@ def _boom(*_a, **_k):
     raise RuntimeError(msg)
 
 
-def test_target_kind():
-    assert target_kind(_Target()) == "docker"
-    assert target_kind(_RemoteTarget()) == "ssh"
+def test_every_concrete_target_declares_its_kind():
+    """The kind is declared, not sniffed from the class name ("Remote" in it)."""
+    assert RemoteTarget.kind == "ssh"
+    assert DockerTarget.kind == "docker"
+    assert ContainerTarget.kind == "docker"
+
+
+def test_bundle_records_the_declared_kind(monkeypatch):
+    """A target named nothing like "Remote" still records its declared kind."""
+    seen = {}
+
+    def _fake_bundle(*_a, **kw):
+        seen.update(kw)
+        msg = "stop"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(
+        "hop3_testing.runners._diagnostics.collect_diagnostic_bundle", _fake_bundle
+    )
+
+    class _Server(_Target):
+        kind = "ssh"
+
+    collect_failure_diagnostics(_Server(), "ghost", deploy_logs="x")
+    assert seen["target_kind"] == "ssh"
 
 
 def test_apps_snapshot_included_and_labelled():
@@ -67,8 +90,11 @@ def test_apps_snapshot_included_and_labelled():
     assert "fiber BUILDING" in snap
 
 
-def test_apps_snapshot_empty_when_exec_raises():
-    assert hop3_apps_snapshot(_Target(raises=True)) == ""
+def test_collect_records_an_unreachable_target_instead_of_dropping_it():
+    """The snapshot swallowed the error: an empty section looked like no apps."""
+    logs, bundle = collect_failure_diagnostics(_Target(raises=True), None)
+    assert "=== hop3 apps snapshot FAILED ===\nRuntimeError: ssh down" in logs
+    assert bundle is None
 
 
 def test_apps_snapshot_falls_back_to_filesystem_when_cli_unconfigured():
@@ -110,11 +136,22 @@ def test_collect_with_app_name_adds_runtime_logs_and_bundle(monkeypatch):
     assert bundle == "BUNDLE"
 
 
-def test_collect_never_raises_even_if_collectors_explode(monkeypatch):
+def test_each_failed_step_is_recorded_and_the_others_still_run(monkeypatch):
     monkeypatch.setattr("hop3_testing.runners._diagnostics.collect_runtime_logs", _boom)
     monkeypatch.setattr(
         "hop3_testing.runners._diagnostics.collect_diagnostic_bundle", _boom
     )
     logs, bundle = collect_failure_diagnostics(_Target(apps=(0, "ghost", "")), "ghost")
     assert "ghost" in logs  # apps snapshot still present
-    assert bundle is None  # bundle collection swallowed
+    assert "=== runtime logs FAILED ===\nRuntimeError: boom" in logs
+    assert "=== diagnostic bundle FAILED ===\nRuntimeError: boom" in logs
+    assert bundle is None
+
+
+def test_a_programming_error_in_a_collector_propagates(monkeypatch):
+    def _bug(*_a, **_k):
+        return None.kind  # an AttributeError, like the one the catch-all hid
+
+    monkeypatch.setattr("hop3_testing.runners._diagnostics.collect_runtime_logs", _bug)
+    with pytest.raises(AttributeError):
+        collect_failure_diagnostics(_Target(apps=(0, "ghost", "")), "ghost")

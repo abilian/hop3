@@ -457,3 +457,15 @@ def test_run_once_records_provenance(monkeypatch, tmp_path):
     assert p["apps_ref"] == "devel"  # the apps came from this ref
     assert p["platform_ref"] == "main"  # against this platform ref
     assert "runner_version" in p  # and this engine version
+
+
+def test_run_once_refuses_an_unknown_selection_mode():
+    """An unknown mode is an error, never silently recorded and run as ``broad``."""
+
+    def _must_not_run(_tid, _m, _apps, **_kw):
+        pytest.fail("executor ran with an unknown mode")
+
+    with pytest.raises(ValueError, match="unknown selection mode 'no-such-mode'"):
+        run_once("docker", trigger="t", mode="no-such-mode", executor=_must_not_run)
+    # The lease is released despite the refusal.
+    assert run_once("docker", trigger="t", executor=lambda *_a, **_kw: None) is True

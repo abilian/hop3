@@ -18,13 +18,16 @@ from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
 from dishka.integrations.litestar import inject
-from hop3_testing.selector.modes import list_modes
+from hop3_testing.selector.modes import get_mode_config, list_modes
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
 from litestar.exceptions import NotFoundException, ValidationException
 from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
 from litestar.status_codes import HTTP_303_SEE_OTHER
+from sqlalchemy.orm import (
+    Session,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
+)
 
 from hop3_testlab.repositories import (  # ruff:ignore[typing-only-first-party-import] -- runtime: @inject resolves them
     BuildQueueRepository,
@@ -44,6 +47,11 @@ def _selection_from_form(data: dict) -> dict:
     selection: dict = {}
     mode = (data.get("mode") or "").strip()
     if mode:
+        try:
+            get_mode_config(mode)
+        except ValueError as e:
+            msg = f"Unknown selection mode {mode!r}: {e}"
+            raise ValidationException(msg) from e
         selection["mode"] = mode
     for key in _LIST_RULES:
         raw = (data.get(key) or "").strip()
@@ -205,12 +213,16 @@ class ProfilesController(Controller):
     @post("/")
     @inject
     async def create(
-        self, data: _FORM, profiles: FromDishka[ProfilesRepository]
+        self,
+        data: _FORM,
+        profiles: FromDishka[ProfilesRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         fields = _fields_from_form(data)
         if fields is None:  # blank form
             return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
         profiles.create(**fields)
+        session.commit()
         return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
 
     @post("/{profile_id:int}/edit")
@@ -220,6 +232,7 @@ class ProfilesController(Controller):
         profile_id: FromPath[int],
         data: _FORM,
         profiles: FromDishka[ProfilesRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         if profiles.get(profile_id) is None:
             msg = f"No profile {profile_id}"
@@ -236,12 +249,16 @@ class ProfilesController(Controller):
             msg = f"A profile named {fields['name']!r} already exists"
             raise ValidationException(msg)
         profiles.update(profile_id, **fields)
+        session.commit()
         return Redirect(path=f"/profiles/{profile_id}", status_code=HTTP_303_SEE_OTHER)
 
     @post("/{profile_id:int}/duplicate")
     @inject
     async def duplicate(
-        self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
+        self,
+        profile_id: FromPath[int],
+        profiles: FromDishka[ProfilesRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         """Copy a profile under a fresh name and land on its edit form."""
         src = profiles.get(profile_id)
@@ -256,6 +273,7 @@ class ProfilesController(Controller):
             platform_ref=src.platform_ref,
             selection=dict(src.selection or {}),
         )
+        session.commit()
         return Redirect(
             path=f"/profiles/{copy.id}/edit", status_code=HTTP_303_SEE_OTHER
         )
@@ -267,6 +285,7 @@ class ProfilesController(Controller):
         profile_id: FromPath[int],
         profiles: FromDishka[ProfilesRepository],
         queue: FromDishka[BuildQueueRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         """
         Start a build: **enqueue** (no target — the dispatcher picks a free
@@ -275,12 +294,17 @@ class ProfilesController(Controller):
         if profiles.get(profile_id) is None:
             return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
         queue.enqueue(profile_id, actor="web")
+        session.commit()
         return Redirect(path="/queue?started=1", status_code=HTTP_303_SEE_OTHER)
 
     @post("/{profile_id:int}/delete")
     @inject
     async def delete(
-        self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
+        self,
+        profile_id: FromPath[int],
+        profiles: FromDishka[ProfilesRepository],
+        session: FromDishka[Session],
     ) -> Redirect:
         profiles.delete(profile_id)
+        session.commit()
         return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)

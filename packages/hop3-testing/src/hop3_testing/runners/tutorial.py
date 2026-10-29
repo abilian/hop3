@@ -221,7 +221,8 @@ class TutorialTestRunner:
         # On failure, attach SUT-side diagnostics so a tutorial deploy that
         # failed or timed out isn't a black box. The target's app list is always
         # attached; it reveals an app stuck mid-build or a stranded one holding
-        # a port. This app's runtime logs + diagnostic bundle follow. Never raises.
+        # a port. This app's runtime logs + diagnostic bundle follow; a step that
+        # can't run is recorded in them.
         runtime_logs = ""
         bundle = None
         app_name = _tutorial_app_name(test)

@@ -82,6 +82,8 @@ class DockerTarget(DeploymentTarget):
         )
     """
 
+    kind = "docker"
+
     def __init__(
         self,
         config: DockerConfig | None = None,

@@ -36,6 +36,7 @@ import yaml
 
 from hop3_tooling import catalog
 from hop3_tooling.catalog import find_repo_root
+from hop3_tooling.ssh import ssh_argv
 
 if TYPE_CHECKING:
     from collections.abc import Mapping
@@ -58,14 +59,6 @@ PROTOCOL_PATH = Path("notes/benchmarks/protocol.yaml")
 # Without an operator email every ADR-056 admin-bootstrap app fails to deploy.
 OPERATOR_EMAIL = "bench@hop3.example"
 
-SSH_OPTS = (
-    "-o",
-    "StrictHostKeyChecking=no",
-    "-o",
-    "BatchMode=yes",
-    "-o",
-    "ConnectTimeout=8",
-)
 _SSH_WAIT_TRIES = 30
 _SSH_WAIT_SLEEP = 8
 
@@ -272,7 +265,7 @@ def rebuild_box(server_id: str) -> str:
     for name in {ip, *_hostnames_for(ip)}:
         _run(["ssh-keygen", "-R", name])
     for _ in range(_SSH_WAIT_TRIES):
-        if _run(["ssh", *SSH_OPTS, f"root@{ip}", "true"]).returncode == 0:
+        if _run(ssh_argv(f"root@{ip}", "true")).returncode == 0:
             return ip
         time.sleep(_SSH_WAIT_SLEEP)
 
@@ -310,7 +303,7 @@ def install_hop3(root: Path, ip: str) -> None:
         "/home/hop3/hop3-server.toml; "
         "systemctl restart hop3-server; sleep 5; systemctl is-active hop3-server"
     )
-    proc = _run(["ssh", *SSH_OPTS, f"root@{ip}", remote])
+    proc = _run(ssh_argv(f"root@{ip}", remote))
     if proc.returncode != 0 or "active" not in proc.stdout:
         msg = f"hop3-server is not active on {ip}: {proc.stdout.strip()} {proc.stderr.strip()}"
         raise MatrixError(msg)

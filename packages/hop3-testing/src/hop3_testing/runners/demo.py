@@ -154,8 +154,8 @@ class DemoTestRunner:
         # On failure, snapshot the target's app list so a failed/hung demo isn't
         # a black box. It reveals leftover apps and an app stuck mid-deploy.
         # Demos don't follow a single app-name convention, so per-app logs are
-        # skipped; the name-independent `hop3 apps` snapshot is the value. Never
-        # raises.
+        # skipped; the name-independent `hop3 apps` snapshot is the value (or
+        # the error that kept it from running).
         runtime_logs = ""
         if not passed:
             runtime_logs, _bundle = collect_failure_diagnostics(

@@ -358,7 +358,7 @@ def collect_diagnostics(
                 timestamp=datetime.now(tz=UTC),
                 server_ip=server_ip,
                 output_dir=output_base,
-                errors=["Failed to connect to server"],
+                errors=[f"Failed to connect to server: {conn.last_error}"],
             )
 
         collector = DiagnosticCollector(conn, output_base, console)

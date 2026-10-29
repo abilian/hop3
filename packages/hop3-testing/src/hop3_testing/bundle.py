@@ -133,7 +133,7 @@ class Bundle:
 
     run_id: str
     app: str
-    target_kind: str  # "docker" | "ssh" | "hetzner"
+    target_kind: str  # "docker" | "ssh"
     classifier: Classifier
     headline: str
     sections: dict[str, str] = field(default_factory=dict)

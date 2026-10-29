@@ -75,8 +75,12 @@ def provision_server(
     # and resets the host key; wait_for_ssh_ready updates known_hosts.
     info = manager.rebuild_server(image=config.image, timeout=600)
     console.print(f"  OS rebuilt at {info.ipv4}; waiting for SSH…")
-    if not manager.wait_for_ssh_ready(timeout=300):
-        msg = f"SSH never came up on the rebuilt server {info.ipv4} within 5 minutes"
+    probe = manager.wait_for_ssh_ready(timeout=300)
+    if not probe:
+        msg = (
+            f"SSH never came up on the rebuilt server {info.ipv4} within 5 minutes:"
+            f" {probe.error}"
+        )
         raise ServiceStartError(msg)
     console.print(f"  [green]✓[/] Server ready at {info.ipv4}; deploying Hop3…")
     return info.ipv4

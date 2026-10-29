@@ -5,7 +5,9 @@
 
 from __future__ import annotations
 
+import io
 import subprocess
+import tarfile
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import replace
@@ -37,6 +39,7 @@ from hop3_tooling.nix_repro import (
 )
 
 from . import catalog as catalog_lib, catalog_lint, reports as reports_lib
+from .ssh import ssh_argv
 from .verify import CHECKS, DEFAULT_HOST, run_verification
 
 
@@ -186,30 +189,21 @@ def nix() -> None:
     """Nix-recipe maintenance."""
 
 
-def _ssh_base(host: str) -> list[str]:
-    return [
-        "ssh",
-        "-o",
-        "BatchMode=yes",
-        "-o",
-        "StrictHostKeyChecking=no",
-        f"root@{host}",
-    ]
+def _ssh(
+    host: str, remote_cmd: str, *, check: bool, **kwargs
+) -> subprocess.CompletedProcess:
+    return subprocess.run(ssh_argv(f"root@{host}", remote_cmd), check=check, **kwargs)
 
 
-def _scp_dir(app_dir: Path, host: str, remote_dir: str) -> None:
-    subprocess.run(
-        [
-            "scp",
-            "-q",
-            "-o",
-            "BatchMode=yes",
-            "-o",
-            "StrictHostKeyChecking=no",
-            "-r",
-            f"{app_dir}/.",
-            f"root@{host}:{remote_dir}/",
-        ],
+def _copy_dir(app_dir: Path, host: str, remote_dir: str) -> None:
+    """Copy ``app_dir`` into a fresh ``remote_dir``, as a tar stream over ssh."""
+    archive = io.BytesIO()
+    with tarfile.open(fileobj=archive, mode="w") as tar:
+        tar.add(app_dir, arcname=".")
+    _ssh(
+        host,
+        f"rm -rf {remote_dir} && mkdir -p {remote_dir} && tar -C {remote_dir} -xf -",
+        input=archive.getvalue(),
         check=True,
     )
 
@@ -233,27 +227,21 @@ def _build_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str
     expression references its lockfiles by relative path.
     """
     remote_dir = f"/tmp/hop3-vendor-hash/{app_dir.name}"
-    ssh_base = _ssh_base(host)
-    subprocess.run(
-        [*ssh_base, f"rm -rf {remote_dir} && mkdir -p {remote_dir}"], check=True
-    )
-    _scp_dir(app_dir, host, remote_dir)
+    _copy_dir(app_dir, host, remote_dir)
     try:
-        return subprocess.run(
-            [
-                *ssh_base,
-                (
-                    f"cd {remote_dir} && "
-                    f"export NIX_CONFIG='experimental-features = nix-command flakes'; "
-                    f"nix build --no-link -f hop3.nix package"
-                ),
-            ],
+        return _ssh(
+            host,
+            (
+                f"cd {remote_dir} && "
+                f"export NIX_CONFIG='experimental-features = nix-command flakes'; "
+                f"nix build --no-link -f hop3.nix package"
+            ),
             capture_output=True,
             text=True,
             check=False,
         )
     finally:
-        subprocess.run([*ssh_base, f"rm -rf {remote_dir}"], check=False)
+        _ssh(host, f"rm -rf {remote_dir}", check=False)
 
 
 @nix.command("vendor-hash")
@@ -578,28 +566,22 @@ def _rebuild_locally(nix_file: Path) -> subprocess.CompletedProcess[str]:
 
 def _rebuild_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str]:
     remote_dir = f"/tmp/hop3-repro/{app_dir.name}"
-    ssh_base = _ssh_base(host)
-    subprocess.run(
-        [*ssh_base, f"rm -rf {remote_dir} && mkdir -p {remote_dir}"], check=True
-    )
-    _scp_dir(app_dir, host, remote_dir)
+    _copy_dir(app_dir, host, remote_dir)
     try:
-        return subprocess.run(
-            [
-                *ssh_base,
-                (
-                    f"cd {remote_dir} && "
-                    f"export NIX_CONFIG='experimental-features = nix-command flakes'; "
-                    f"nix build --no-link -f hop3.nix package && "
-                    f"nix build --rebuild --no-link -f hop3.nix package"
-                ),
-            ],
+        return _ssh(
+            host,
+            (
+                f"cd {remote_dir} && "
+                f"export NIX_CONFIG='experimental-features = nix-command flakes'; "
+                f"nix build --no-link -f hop3.nix package && "
+                f"nix build --rebuild --no-link -f hop3.nix package"
+            ),
             capture_output=True,
             text=True,
             check=False,
         )
     finally:
-        subprocess.run([*ssh_base, f"rm -rf {remote_dir}"], check=False)
+        _ssh(host, f"rm -rf {remote_dir}", check=False)
 
 
 if __name__ == "__main__":
