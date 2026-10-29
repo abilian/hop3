@@ -16,6 +16,7 @@ from hop3.core.artifacts import (
     ARTIFACT_FILENAME,
     WEB_WORKER_KINDS,
     BuildArtifact,
+    UnreadableArtifactError,
     load_backend_protocol,
 )
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
@@ -1305,7 +1306,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     artifact_path = app.app_path / ARTIFACT_FILENAME
     try:
         artifact = BuildArtifact.load(artifact_path)
-    except OSError as e:
+    except (OSError, UnreadableArtifactError) as e:
         artifact = None
         log_diagnosis(
             Diagnosis(

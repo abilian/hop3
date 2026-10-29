@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 import pytest
 
 from hop3.commands import _deploy
+from hop3.deployers.build_queue import BuildQueueFullError
 from hop3.orm import App, AppStateEnum, get_session_factory
 from hop3.server.streaming import get_stream
 
@@ -99,6 +100,39 @@ def test_a_failed_deploy_leaves_the_app_failed_with_the_reason(
     state, reason = committed_state(app.id)
     assert state == AppStateEnum.FAILED
     assert "nginx rejected the generated config" in reason
+    assert not get_stream(result["stream_id"]).success
+
+
+class FullQueue:
+    """A build queue with no room left in its wait line."""
+
+    workers = 2
+
+    def submit(self, job: Callable[[], None]) -> int:
+        msg = "Deployer can't start this build: the wait line is full"
+        raise BuildQueueFullError(msg)
+
+
+@pytest.mark.parametrize(
+    ("before", "after"),
+    [
+        # No deploy started, so the running instance was never stopped.
+        (AppStateEnum.RUNNING, AppStateEnum.RUNNING),
+        # Nothing is running (a staged app, or one whose source was replaced).
+        (AppStateEnum.STOPPED, AppStateEnum.FAILED),
+    ],
+)
+def test_a_refused_deploy_fails_only_an_app_that_is_not_serving(
+    file_db, monkeypatch, before, after
+):
+    app = App(name="myapp", run_state=before)
+    file_db.add(app)
+    file_db.commit()
+    monkeypatch.setattr(_deploy, "get_build_queue", FullQueue)
+
+    result = _deploy.deploy_app_streaming(app, file_db)
+
+    assert committed_state(app.id)[0] == after
     assert not get_stream(result["stream_id"]).success
 
 

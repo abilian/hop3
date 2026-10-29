@@ -220,3 +220,14 @@ def test_a_handler_that_raises_after_writing_is_rolled_back_quietly():
 
     assert response.status_code == 500
     assert _stored_apps() == []
+
+
+@pytest.mark.anyio
+async def test_the_scope_forgets_its_session_when_it_ends():
+    """A closed session must not stay the context's "current request session"."""
+    container = create_async_container()
+    async with container() as request:
+        session = await request.get(Session)
+        assert di_providers.current_request_session() is session
+    await container.close()
+    assert di_providers.current_request_session() is None

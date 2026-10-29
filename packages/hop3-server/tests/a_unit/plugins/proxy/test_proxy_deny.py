@@ -38,9 +38,9 @@ def app(tmp_path, monkeypatch) -> App:
 
 
 def built(app: App, **runtime: object) -> App:
-    BuildArtifact(kind="php", app_name=app.name, runtime=RuntimeConfig(**runtime)).save(
-        app.app_path / ARTIFACT_FILENAME
-    )
+    BuildArtifact(
+        kind="php", builder="local", app_name=app.name, runtime=RuntimeConfig(**runtime)
+    ).save(app.app_path / ARTIFACT_FILENAME)
     return app
 
 

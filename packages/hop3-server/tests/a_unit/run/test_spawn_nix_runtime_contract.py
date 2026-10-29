@@ -93,7 +93,9 @@ def test_runtime_json_roundtrip_preserves_all_fields(tmp_path) -> None:
         healthcheck_path="/health",
         healthcheck_timeout=45,
     )
-    src = BuildArtifact(kind="nix", app_name="a", location=_STORE, runtime=runtime)
+    src = BuildArtifact(
+        kind="nix", builder="nix", app_name="a", location=_STORE, runtime=runtime
+    )
     src.save(tmp_path / "BUILD_ARTIFACT.json")
 
     loaded = BuildArtifact.load(tmp_path / "BUILD_ARTIFACT.json")

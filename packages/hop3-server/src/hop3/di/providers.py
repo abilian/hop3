@@ -180,9 +180,14 @@ class AsyncDatabaseProvider(Provider):
     async def get_session(self, config: HopConfig) -> AsyncIterator[Session]:
         """Yield a fresh session; close it in a worker thread on scope exit."""
         session = _open_request_session()
-        _REQUEST_SESSION.set(session)
-        handler_error = yield session
-        await anyio.to_thread.run_sync(_close_request_session, session, handler_error)
+        token = _REQUEST_SESSION.set(session)
+        try:
+            handler_error = yield session
+            await anyio.to_thread.run_sync(
+                _close_request_session, session, handler_error
+            )
+        finally:
+            _REQUEST_SESSION.reset(token)
 
 
 class HopCoreProvider(Provider):

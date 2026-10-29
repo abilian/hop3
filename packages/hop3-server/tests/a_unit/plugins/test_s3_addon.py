@@ -143,6 +143,20 @@ def test_destroy_removes_everything(hop3_root, backend):
     assert not (hop3_root / "addons" / "s3" / "myapp.json").exists()
 
 
+def test_exists_follows_the_credentials_and_the_bucket(hop3_root, backend):
+    addon = S3Addon(addon_name="myapp", backend=backend)
+    assert not addon.exists()
+
+    # A create that failed after the bucket: destroy still has work to do.
+    backend.fail_next = "create_access_key"
+    with pytest.raises(BackendError):
+        addon.create()
+    assert addon.exists()
+
+    addon.destroy()
+    assert not addon.exists()
+
+
 def test_destroy_is_idempotent(hop3_root, backend):
     """Destroy a never-created addon should not raise."""
     addon = S3Addon(addon_name="ghost", backend=backend)

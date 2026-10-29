@@ -75,6 +75,7 @@ class RateLimiter:
     window_seconds: float = 60.0
     _buckets: dict[str, deque[float]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
+    _last_sweep: float = float("-inf")
 
     def check(self, key: str) -> None:
         """
@@ -90,7 +91,9 @@ class RateLimiter:
         cutoff = now - self.window_seconds
 
         with self._lock:
-            self._forget_idle(cutoff)
+            if now - self._last_sweep >= self.window_seconds:
+                self._forget_idle(cutoff)
+                self._last_sweep = now
             bucket = self._buckets.setdefault(key, deque())
             while bucket and bucket[0] < cutoff:
                 bucket.popleft()
@@ -108,8 +111,9 @@ class RateLimiter:
 
         Without this every IP that ever tried kept its bucket for the life of
         the process, so an attacker cycling source addresses grew memory without
-        bound. ponytail: a full scan per check, bounded by the keys active in
-        one window; sweep on a timer if that ever shows in a profile.
+        bound. It runs at most once per window: a scan on every check made each
+        login attempt cost one step per live key, which the same attacker sets.
+        Memory stays bounded by the keys active in the last two windows.
         """
         idle = [k for k, b in self._buckets.items() if not b or b[-1] < cutoff]
         for key in idle:

@@ -254,6 +254,10 @@ class RedisAddon:
             # Also allow writes on replica (fallback if REPLICAOF fails)
             _run_redis_cli(["CONFIG", "SET", "replica-read-only", "no"])
 
+    def exists(self) -> bool:
+        """True if this addon holds a db-number claim (its secrets file)."""
+        return load_addon_secrets(ADDON_TYPE, self.addon_name) is not None
+
     def destroy(self) -> None:
         """
         Decommission this Redis addon.

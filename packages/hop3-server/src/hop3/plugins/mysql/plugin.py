@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 import logging
+from typing import Any, cast
 
 import mysql.connector
 from dishka import Provider, Scope, provide
@@ -28,10 +29,6 @@ class MySQLHealthCheck:
 
     name = "mysql"
 
-    def is_configured(self) -> bool:
-        """Check if MySQL is configured with admin credentials."""
-        return MySQLAdmin.from_config().superuser_password is not None
-
     def check(self) -> HealthCheckResult:
         """Test MySQL connectivity."""
         try:
@@ -48,12 +45,12 @@ class MySQLHealthCheck:
             connection = mysql.connector.connect(**admin.get_connection_params())
             cursor = connection.cursor()
             cursor.execute("SELECT VERSION()")
-            row = cursor.fetchone()
+            # A standard (non-dict) cursor returns a tuple.
+            row = cast("tuple[Any, ...] | None", cursor.fetchone())
             cursor.close()
             connection.close()
 
-            # fetchone() returns a tuple for standard cursor
-            version_str = str(row[0]) if row else "unknown"  # type: ignore[index]  # ty: ignore[invalid-argument-type]
+            version_str = str(row[0]) if row else "unknown"
             return HealthCheckResult(
                 name="MySQL",
                 passed=True,

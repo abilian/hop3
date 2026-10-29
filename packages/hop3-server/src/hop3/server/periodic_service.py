@@ -13,13 +13,14 @@ failed cycle without its traceback.
 from __future__ import annotations
 
 import threading
+from abc import ABC, abstractmethod
 from typing import ClassVar
 
 from hop3.lib import log
 from hop3.lib.logging import server_log
 
 
-class PeriodicService:
+class PeriodicService(ABC):
     """
     Run `run_once` in a daemon thread every ``interval`` seconds.
 
@@ -37,9 +38,9 @@ class PeriodicService:
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
 
+    @abstractmethod
     def run_once(self) -> object:
         """One cycle of the service's work. Public so it is testable alone."""
-        raise NotImplementedError
 
     def start(self) -> None:
         """Start the background thread, unless it already runs."""

@@ -15,7 +15,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from hop3 import config
 from hop3.config import HopConfig
 from hop3.core.roles import Role
 from hop3.deployers import access
@@ -29,7 +28,7 @@ GATED = {"access": {"require": "auth", "role": "viewer", "public-paths": ["/hook
 @pytest.fixture(autouse=True)
 def server(monkeypatch):
     monkeypatch.setattr(
-        type(config.config), "ADMIN_DOMAIN", property(lambda _self: "admin.example.org")
+        HopConfig, "ADMIN_DOMAIN", property(lambda _self: "admin.example.org")
     )
     monkeypatch.setattr(HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: "nginx"))
 
@@ -67,7 +66,7 @@ def test_an_app_without_a_gate_records_none():
 
 
 def test_no_admin_domain(monkeypatch):
-    monkeypatch.setattr(type(config.config), "ADMIN_DOMAIN", property(lambda _s: ""))
+    monkeypatch.setattr(HopConfig, "ADMIN_DOMAIN", property(lambda _s: ""))
 
     with pytest.raises(Abort, match="no admin domain is set"):
         deploy(GATED)

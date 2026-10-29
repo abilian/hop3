@@ -10,6 +10,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from hop3.core.plugins import UnknownAddonTypeError
 from hop3.deployers.addon_provisioning import (
     _addon_failure_guidance,
     _is_db_auth_failure,
@@ -278,12 +279,22 @@ class TestProvisionAddons:
         self, mock_get_addon, mock_app, mock_db_session
     ):
         """An unknown addon type aborts the deploy: the app needs that service."""
-        mock_get_addon.side_effect = RuntimeError("Unknown addon type: foobar")
+        mock_get_addon.side_effect = UnknownAddonTypeError("Unknown addon type: foobar")
 
         addon_configs = [{"type": "foobar"}]
 
         with pytest.raises(Abort, match="Unknown addon type: foobar"):
             provision_addons(mock_app, addon_configs, mock_db_session)
+
+    @patch("hop3.deployers.addon_provisioning.get_addon")
+    def test_provision_does_not_blame_the_type_for_a_constructor_failure(
+        self, mock_get_addon, mock_app, mock_db_session
+    ):
+        """An addon that fails to build is not reported as a wrong `type`."""
+        mock_get_addon.side_effect = RuntimeError("cannot read the addon's state")
+
+        with pytest.raises(RuntimeError, match="cannot read the addon's state"):
+            provision_addons(mock_app, [{"type": "postgres"}], mock_db_session)
 
     @patch("hop3.deployers.addon_provisioning.get_addon")
     def test_provision_aborts_when_the_addon_gives_no_connection_details(

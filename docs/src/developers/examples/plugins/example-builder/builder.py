@@ -42,6 +42,7 @@ class ExampleBuilder:
     """
 
     name = "example-python"
+    fallback = False
 
     def __init__(self, context: DeploymentContext):
         """Initialize builder with deployment context.
@@ -101,6 +102,8 @@ class ExampleBuilder:
             # Return build artifact information
             return BuildArtifact(
                 kind="virtualenv",
+                # Host-built: the uWSGI deployer runs what "local" builders make.
+                builder="local",
                 location=str(venv_path),
                 metadata={
                     "python_version": python_version,

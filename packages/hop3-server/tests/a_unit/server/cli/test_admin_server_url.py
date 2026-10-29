@@ -14,7 +14,7 @@ from __future__ import annotations
 
 import pytest
 
-from hop3.config import config
+from hop3.config import HopConfig
 from hop3.server.cli.admin import AdminServerUrl
 
 
@@ -23,7 +23,7 @@ def admin_domain(monkeypatch):
     """Set (or clear) the server's configured public domain."""
 
     def configure(domain: str):
-        monkeypatch.setattr(type(config), "ADMIN_DOMAIN", property(lambda _s: domain))
+        monkeypatch.setattr(HopConfig, "ADMIN_DOMAIN", property(lambda _s: domain))
 
     return configure
 

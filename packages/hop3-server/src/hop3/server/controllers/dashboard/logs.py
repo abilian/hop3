@@ -55,6 +55,21 @@ async def _create_log_generator(log_dir: Path) -> AsyncIterator[str]:
         yield f"event: error\ndata: Error streaming logs: {e}\n\n"
 
 
+def _find_log_dir(app_repo: AppRepository, app_name: str) -> Path | None:
+    """
+    The log directory of ``app_name``, or None if there is no such app.
+
+    The request scope, and its session, lasts as long as the response: for a
+    stream, as long as the tab stays open. Ending the read transaction here
+    hands the session's pooled connection back before the stream starts, so
+    open log tabs cannot exhaust the pool.
+    """
+    app = app_repo.get_by_name(app_name)
+    log_dir = Path(app.log_path) if app else None
+    app_repo.session.rollback()
+    return log_dir
+
+
 def _sse(line: str) -> str:
     return f"data: {line}\n\n"
 
@@ -153,14 +168,14 @@ class LogsController(Controller):
         self, app_name: FromPath[str], app_repo: FromDishka[AppRepository]
     ) -> Stream | Response:
         """Stream application logs via Server-Sent Events (SSE)."""
-        app = await anyio.to_thread.run_sync(app_repo.get_by_name, app_name)
-        if not app:
+        log_dir = await anyio.to_thread.run_sync(_find_log_dir, app_repo, app_name)
+        if log_dir is None:
             return Response(
                 content="App not found", status_code=404, media_type="text/plain"
             )
 
         return Stream(
-            content=_create_log_generator(Path(app.log_path)),
+            content=_create_log_generator(log_dir),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

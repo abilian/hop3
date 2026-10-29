@@ -121,6 +121,7 @@ class TestGetBuilder:
     def test_auto_detects_first_accepting_builder(self, install_pm, tmp_path):
         class Accepting:
             name = "accepting"
+            fallback = False
 
             def __init__(self, context) -> None:
                 self.context = context
@@ -130,6 +131,7 @@ class TestGetBuilder:
 
         class Rejecting:
             name = "rejecting"
+            fallback = False
 
             def __init__(self, context) -> None:
                 self.context = context
@@ -150,6 +152,7 @@ class TestGetBuilder:
     ):
         class Picky:
             name = "picky"
+            fallback = False
 
             def __init__(self, context) -> None:
                 pass
@@ -177,6 +180,7 @@ class TestGetBuilder:
     ):
         class Exploding:
             name = "exploding"
+            fallback = False
 
             def __init__(self, context) -> None:
                 msg = "boom"
@@ -200,6 +204,7 @@ class TestGetBuilder:
 
         class Local:
             name = "local"
+            fallback = False
 
             def __init__(self, context) -> None:
                 self.context = context
@@ -210,6 +215,7 @@ class TestGetBuilder:
 
         class Docker:
             name = "docker"
+            fallback = False
 
             def __init__(self, context) -> None:
                 self.context = context
@@ -232,6 +238,7 @@ class TestGetBuilder:
     def test_explicit_builder_not_found_raises(self, install_pm, tmp_path):
         class Local:
             name = "local"
+            fallback = False
 
             def __init__(self, context) -> None:
                 pass
@@ -254,6 +261,7 @@ class TestGetBuilder:
     def test_non_dict_hop3_config_falls_back_to_auto_detect(self, install_pm, tmp_path):
         class Accepting:
             name = "accepting"
+            fallback = False
 
             def __init__(self, context) -> None:
                 pass
@@ -274,6 +282,7 @@ class TestGetBuilder:
     ):
         class Accepting:
             name = "accepting"
+            fallback = False
 
             def __init__(self, context) -> None:
                 pass
@@ -319,6 +328,7 @@ class TestGetBuilder:
     ):
         class Crashing:
             name = "crashing"
+            fallback = False
 
             def __init__(self, context) -> None:
                 pass
@@ -363,7 +373,9 @@ class TestGetDeployer:
 
         install_pm(get_deployers=[[Uwsgi]])
         context = make_context(tmp_path)
-        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
+        artifact = BuildArtifact(
+            kind="virtualenv", builder="local", location="/tmp/venv"
+        )
 
         deployer = get_deployer(context, artifact)
 
@@ -382,7 +394,9 @@ class TestGetDeployer:
 
         install_pm(get_deployers=[[Uwsgi]])
         context = make_context(tmp_path)
-        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
+        artifact = BuildArtifact(
+            kind="virtualenv", builder="local", location="/tmp/venv"
+        )
 
         with pytest.raises(Abort) as exc_info:
             get_deployer(context, artifact)
@@ -405,7 +419,7 @@ class TestGetDeployer:
             name = "other"
 
         install_pm(get_deployers=[[Uwsgi], [Other]])
-        artifact = BuildArtifact(kind="python", location="/tmp/venv")
+        artifact = BuildArtifact(kind="python", builder="local", location="/tmp/venv")
 
         with pytest.raises(Abort) as exc_info:
             get_deployer(make_context(tmp_path), artifact)
@@ -443,7 +457,9 @@ class TestGetDeployer:
         context = make_context(
             tmp_path, {"hop3_config": {"deploy": {"deployer": "docker-compose"}}}
         )
-        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
+        artifact = BuildArtifact(
+            kind="virtualenv", builder="local", location="/tmp/venv"
+        )
 
         deployer = get_deployer(context, artifact)
 
@@ -465,7 +481,9 @@ class TestGetDeployer:
         context = make_context(
             tmp_path, {"hop3_config": {"deploy": {"deployer": "nonexistent"}}}
         )
-        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
+        artifact = BuildArtifact(
+            kind="virtualenv", builder="local", location="/tmp/venv"
+        )
 
         with pytest.raises(Abort) as exc_info:
             get_deployer(context, artifact)
@@ -543,7 +561,7 @@ class TestGetDeployerByName:
         (tmp_path / ARTIFACT_FILENAME).write_text("{not json")
         app = types.SimpleNamespace(name="myapp", app_path=tmp_path, src_path=tmp_path)
 
-        with pytest.raises(RuntimeError, match="unreadable build artifact") as e:
+        with pytest.raises(RuntimeError, match="is unreadable") as e:
             get_probe_deployer(app, "uwsgi")
         assert not isinstance(e.value, NeverBuiltError)
 
@@ -561,7 +579,9 @@ def make_built_app(app_path: Path, *, kind: str, location: str):
     src = app_path / "src"
     src.mkdir()
     (src / "hop3.toml").write_text("[docker]\nport = 8080\n")
-    BuildArtifact(kind=kind, location=location).save(app_path / ARTIFACT_FILENAME)
+    BuildArtifact(kind=kind, builder="docker", location=location).save(
+        app_path / ARTIFACT_FILENAME
+    )
     return types.SimpleNamespace(name="myapp", app_path=app_path, src_path=src)
 
 

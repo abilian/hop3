@@ -25,6 +25,7 @@ from hop3 import config as c
 from hop3.core.plugins import get_os_strategy
 from hop3.lib import Abort, echo
 from hop3.lib.registry import register
+from hop3.plugins.oses.base import PID1_COMM, has_systemd
 from hop3.server.catalog.keys import get_catalog_public_key
 from hop3.server.catalog.refresh import refresh_catalog
 from hop3.server.catalog.sync import CatalogSyncError
@@ -35,24 +36,14 @@ if TYPE_CHECKING:
     from argparse import ArgumentParser
 
 
-#: PID 1's name: the process manager that runs hop3-server on this host.
-PID1_COMM = Path("/proc/1/comm")
-
-
 def server_restart_command(pid1_comm: Path = PID1_COMM) -> str:
     """
     The command that restarts hop3-server under this host's process manager.
 
     systemd when it is PID 1, supervisor otherwise (the Docker target has no
-    systemd: `systemctl` there would do nothing). Read from ``/proc/1/comm``,
-    as the installer does, because a systemd package can be installed where
-    systemd is not running.
+    systemd: `systemctl` there would do nothing).
     """
-    try:
-        init = pid1_comm.read_text().strip()
-    except OSError:
-        init = ""
-    if init == "systemd":
+    if has_systemd(pid1_comm):
         return "systemctl restart hop3-server"
     return "supervisorctl restart hop3-server"
 

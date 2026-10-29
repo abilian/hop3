@@ -52,10 +52,21 @@ Builders orchestrate the build process. There are two levels:
 - `accept() -> bool`: Return `True` if this strategy can build the app
 - `build() -> BuildArtifact`: Execute build and return artifact info
 
+**Required attribute**:
+
+- `fallback` (bool): a fallback builder is chosen only when no other builder accepts the app. The local builder is one: any source a toolchain recognises qualifies, so a `Dockerfile` or `hop3.nix` beside it wins.
+
 **Optional attributes**:
 
-- `fallback` (bool, default `False`): a fallback builder is chosen only when no other builder accepts the app. The local builder is one: any source a toolchain recognises qualifies, so a `Dockerfile` or `hop3.nix` beside it wins.
 - `rejection_reason` / `acceptance_reason` (str): set by `accept()`; they appear in the error a deploy prints when no builder, or several, accept.
+
+**The artifact's `builder`** is required, and it decides which deployer runs the artifact, together with `kind`:
+
+- the uWSGI deployer runs artifacts whose `builder` is `local` or `nix`, unless their `kind` is `static`;
+- the Docker deployer runs artifacts whose `kind` is `docker-image`;
+- the static deployer runs artifacts whose `kind` is `static`, whichever builder made them.
+
+The uWSGI set is closed. A new builder whose output runs as processes on the host must set `builder="local"`, as the example below does, or no deployer accepts its artifact and the deploy aborts. The field then records how the artifact runs rather than which plugin built it; the platform does not yet keep those two apart.
 
 **Selection**: `[build].builder` in `hop3.toml` names the builder. Otherwise Hop3 asks every builder. When more than one non-fallback builder accepts, the deploy aborts and names them, and the user sets `[build].builder`. When `accept()` raises, the deploy aborts with the exception: a crashed probe is not a refusal.
 
@@ -70,6 +81,7 @@ class PythonBuildStrategy:
     """Build Python applications using virtualenv."""
 
     name = "python"
+    fallback = False
 
     def __init__(self, context: DeploymentContext):
         self.context = context
@@ -95,6 +107,7 @@ class PythonBuildStrategy:
 
         return BuildArtifact(
             kind="virtualenv",
+            builder="local",  # host-built: the uWSGI deployer runs it
             location=str(venv_path),
             metadata={"python_version": "3.11"}
         )

@@ -141,13 +141,18 @@ class StateSyncService(PeriodicService):
             self._handle_timeout(app)
             return True
 
-        # Normal sync - check actual status and update if needed. An app whose
-        # status cannot be read fails on its own, without holding up the others.
+        # Normal sync - check actual status and update if needed. A probe that
+        # could not ask is no evidence the app failed (a redeploy may be
+        # rewriting its artifact): the state stays, the reason is recorded and
+        # logged, and the timeout decides, naming it. The other apps still sync.
         try:
             return app.sync_state()
         except RuntimeError as e:
-            app.transition_state(AppStateEnum.FAILED, f"Status unavailable: {e}")
-            log(f"App '{app.name}' status unavailable: {e}", level=1, fg="red")
+            reason = f"Status unavailable: {e}"
+            log(f"App '{app.name}' {reason}", level=1, fg="red")
+            if app.error_message == reason:
+                return False
+            app.error_message = reason
             return True
 
     def _is_timed_out(self, app: App) -> bool:
@@ -176,9 +181,11 @@ class StateSyncService(PeriodicService):
         """
         if app.run_state == AppStateEnum.STARTING:
             # Failed to start in time
+            # A probe failure recorded meanwhile is the likely reason: keep it.
+            cause = f" ({app.error_message})" if app.error_message else ""
             app.transition_state(
                 AppStateEnum.FAILED,
-                f"Failed to start within {self.timeout:.0f}s",
+                f"Failed to start within {self.timeout:.0f}s{cause}",
             )
             log(
                 f"App '{app.name}' start timed out after {self.timeout:.0f}s",

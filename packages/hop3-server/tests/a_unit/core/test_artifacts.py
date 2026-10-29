@@ -8,7 +8,9 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from hop3.core.artifacts import BuildArtifact, RuntimeConfig
+import pytest
+
+from hop3.core.artifacts import BuildArtifact, RuntimeConfig, UnreadableArtifactError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -94,7 +96,7 @@ class TestBuildArtifact:
 
     def test_minimal_artifact(self):
         """BuildArtifact should work with minimal required fields."""
-        artifact = BuildArtifact(kind="python")
+        artifact = BuildArtifact(kind="python", builder="local")
         assert artifact.kind == "python"
         assert artifact.builder == "local"  # default
         assert artifact.location == ""  # default
@@ -155,7 +157,7 @@ class TestBuildArtifactSerialization:
 
     def test_to_json(self):
         """BuildArtifact should serialize to JSON correctly."""
-        artifact = BuildArtifact(kind="node", app_name="nodeapp")
+        artifact = BuildArtifact(kind="node", builder="local", app_name="nodeapp")
         json_str = artifact.to_json()
         data = json.loads(json_str)
         assert data["kind"] == "node"
@@ -227,6 +229,7 @@ class TestBuildArtifactSerialization:
         """BuildArtifact should serialize/deserialize before_run commands."""
         original = BuildArtifact(
             kind="python",
+            builder="local",
             app_name="myapp",
             runtime=RuntimeConfig(
                 before_run=[
@@ -245,6 +248,7 @@ class TestBuildArtifactSerialization:
         """BuildArtifact should serialize/deserialize static_paths."""
         original = BuildArtifact(
             kind="node",
+            builder="local",
             app_name="myapp",
             runtime=RuntimeConfig(
                 static_paths={"/static": "dist/static/", "/assets": "public/"},
@@ -260,6 +264,7 @@ class TestBuildArtifactSerialization:
         """BuildArtifact should serialize/deserialize healthcheck config."""
         original = BuildArtifact(
             kind="python",
+            builder="local",
             app_name="myapp",
             runtime=RuntimeConfig(
                 healthcheck_path="/health",
@@ -341,19 +346,25 @@ class TestBuildArtifactFileIO:
         assert artifact is None
 
     def test_load_invalid_json(self, tmp_path: Path):
-        """BuildArtifact.load should return None for invalid JSON."""
+        """An artifact that is not JSON is refused, never read as absent."""
         artifact_path = tmp_path / "invalid.json"
         artifact_path.write_text("not valid json {{{")
-        artifact = BuildArtifact.load(artifact_path)
-        assert artifact is None
+        with pytest.raises(UnreadableArtifactError, match=r"invalid\.json"):
+            BuildArtifact.load(artifact_path)
 
-    def test_load_incomplete_data(self, tmp_path: Path):
-        """BuildArtifact.load should return None for incomplete data."""
+    @pytest.mark.parametrize(
+        "payload",
+        [
+            '{"builder": "local"}',  # missing 'kind'
+            '{"kind": "python"}',  # missing 'builder' (written before it existed)
+        ],
+    )
+    def test_load_incomplete_data(self, tmp_path: Path, payload: str):
+        """An artifact missing a required field is refused, never read as absent."""
         artifact_path = tmp_path / "incomplete.json"
-        # Missing required 'kind' field
-        artifact_path.write_text('{"builder": "local"}')
-        artifact = BuildArtifact.load(artifact_path)
-        assert artifact is None
+        artifact_path.write_text(payload)
+        with pytest.raises(UnreadableArtifactError, match="Redeploy"):
+            BuildArtifact.load(artifact_path)
 
 
 class TestBuildArtifactBackwardsCompatibility:

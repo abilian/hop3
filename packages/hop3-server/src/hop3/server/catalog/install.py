@@ -43,9 +43,6 @@ if TYPE_CHECKING:
 
     from hop3.server.catalog.models import CatalogApp
 
-# Names the platform reserves for its own routes / conventions.
-_RESERVED_NAMES = {"admin", "api", "app", "apps", "dashboard", "hop3", "static", "www"}
-
 
 class CatalogInstallError(Exception):
     """
@@ -104,7 +101,11 @@ def stage_catalog_app(
             f"Catalog app '{app_id}' has no recipe on disk to install"
         ])
 
-    errors = _validate_app_name(app_name)
+    errors: list[str] = []
+    try:
+        validate_app_name(app_name)
+    except InvalidIdentifierError as e:
+        errors.append(str(e) if app_name else "App name is required")
     existing = _existing_app(app_name, db_session)
     if not errors and existing is not None and existing.last_deployed_at is not None:
         # A real name clash: this app deployed successfully at least once, so it
@@ -173,19 +174,6 @@ def _check_server_can_install(catalog_app: CatalogApp, app_id: str) -> None:
             f"then install again."
         )
         raise CatalogInstallError([msg])
-
-
-def _validate_app_name(app_name: str) -> list[str]:
-    """Validate an app name; return a list of error strings (empty = valid)."""
-    if not app_name:
-        return ["App name is required"]
-    try:
-        validate_app_name(app_name)
-    except InvalidIdentifierError as e:
-        return [str(e)]
-    if app_name in _RESERVED_NAMES:
-        return [f"'{app_name}' is a reserved name"]
-    return []
 
 
 def _existing_app(app_name: str, db_session: Session) -> App | None:

@@ -66,6 +66,7 @@ class TestDeploymentStrategySelection:
 
         artifact = BuildArtifact(
             kind="virtualenv",
+            builder="local",
             location=str(tmp_path / "venv"),
             metadata={"python_path": str(tmp_path / "venv" / "bin" / "python")},
         )
@@ -105,6 +106,7 @@ class TestDeploymentStrategySelection:
 
         artifact = BuildArtifact(
             kind="virtualenv",
+            builder="local",
             location=str(tmp_path / "venv"),
             metadata={},
         )
@@ -144,19 +146,25 @@ class TestDeploymentStrategySelection:
         )
 
         # ACT & ASSERT: virtualenv artifact
-        artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv", metadata={})
+        artifact = BuildArtifact(
+            kind="virtualenv", builder="local", location="/tmp/venv", metadata={}
+        )
         deployer = get_deployer(context, artifact)
         assert deployer.name == "uwsgi", (
             "UWSGIDeployer should be selected for virtualenv"
         )
 
         # ACT & ASSERT: node artifact
-        artifact = BuildArtifact(kind="node", location="/tmp/node", metadata={})
+        artifact = BuildArtifact(
+            kind="node", builder="local", location="/tmp/node", metadata={}
+        )
         deployer = get_deployer(context, artifact)
         assert deployer.name == "uwsgi", "UWSGIDeployer should be selected for node"
 
         # ACT & ASSERT: buildpack artifact
-        artifact = BuildArtifact(kind="buildpack", location="/tmp/bp", metadata={})
+        artifact = BuildArtifact(
+            kind="buildpack", builder="local", location="/tmp/bp", metadata={}
+        )
         deployer = get_deployer(context, artifact)
         assert deployer.name == "uwsgi", (
             "UWSGIDeployer should be selected for buildpack"
@@ -196,6 +204,7 @@ class TestDeploymentStrategySelection:
 
         artifact = BuildArtifact(
             kind="virtualenv",
+            builder="local",
             location=str(tmp_path / "venv"),
             metadata={"python_path": "/path/to/python"},
         )
@@ -238,6 +247,7 @@ class TestDeploymentStrategySelection:
         venv_path = tmp_path / "venv"
         artifact = BuildArtifact(
             kind="virtualenv",
+            builder="local",
             location=str(venv_path),
             metadata={
                 "python_path": f"{venv_path}/bin/python",

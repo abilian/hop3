@@ -158,7 +158,10 @@ class AppLauncher:
         Load build artifact from disk if available.
 
         Returns:
-            BuildArtifact if found and valid, None otherwise
+            BuildArtifact if found, None when the app was never built
+
+        Raises:
+            UnreadableArtifactError: the file exists but does not parse
         """
         artifact_path = self.app_path / ARTIFACT_FILENAME
         artifact = BuildArtifact.load(artifact_path)

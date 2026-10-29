@@ -38,7 +38,7 @@ def _app(*, env: dict | None = None, port: int = 0) -> SimpleNamespace:
 
 
 def _artifact(**runtime) -> BuildArtifact:
-    return BuildArtifact(kind="nix", runtime=RuntimeConfig(**runtime))
+    return BuildArtifact(kind="nix", builder="local", runtime=RuntimeConfig(**runtime))
 
 
 # ---- build_app_env ----

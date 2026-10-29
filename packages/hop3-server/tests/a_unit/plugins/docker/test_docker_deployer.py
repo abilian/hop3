@@ -28,6 +28,7 @@ def docker_artifact() -> BuildArtifact:
     """Create a docker-image artifact for testing."""
     return BuildArtifact(
         kind="docker-image",
+        builder="docker",
         location="hop3/test-app:latest",
         metadata={"app_name": "test-app", "exposed_ports": [8080]},
     )
@@ -38,6 +39,7 @@ def non_docker_artifact() -> BuildArtifact:
     """Create a non-docker artifact for testing."""
     return BuildArtifact(
         kind="virtualenv",
+        builder="local",
         location="/path/to/venv",
         metadata={},
     )

@@ -28,10 +28,6 @@ class PostgresHealthCheck:
 
     name = "postgresql"
 
-    def is_configured(self) -> bool:
-        """Check if PostgreSQL is configured with admin credentials."""
-        return PostgresAdmin.from_config().superuser_password is not None
-
     def check(self) -> HealthCheckResult:
         """Test PostgreSQL connectivity."""
         try:

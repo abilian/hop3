@@ -168,6 +168,10 @@ def load_backend_protocol(app_path: Path) -> str:
     return artifact.runtime.backend_protocol if artifact else "http"
 
 
+class UnreadableArtifactError(RuntimeError):
+    """A build artifact file exists but does not parse as an artifact."""
+
+
 @dataclass
 class BuildArtifact:
     """
@@ -176,7 +180,11 @@ class BuildArtifact:
     Produced by the build phase, consumed by the run phase.
     Contains everything needed to run the app.
 
-    Note: builder, app_name, built_at, build_id have defaults for backwards
+    ``builder`` is required: deployers gate on it (``kind`` cannot tell a Nix
+    site from a static one), so a builder that forgot to set it used to be
+    claimed by uWSGI through a ``"local"`` default.
+
+    Note: app_name, built_at, build_id have defaults for backwards
     compatibility during the migration period. New code should always provide
     these values explicitly.
     """
@@ -190,8 +198,8 @@ class BuildArtifact:
     # Additional metadata (toolchain-specific, for debugging/auditing)
     metadata: dict[str, Any] = field(default_factory=dict)
 
-    # Builder used: "local", "nix", "docker" (default for backwards compat)
-    builder: str = "local"
+    # Builder used: "local", "nix", "docker"
+    builder: str = field(kw_only=True)
 
     # Build metadata (defaults for backwards compatibility)
     app_name: str = ""
@@ -233,11 +241,20 @@ class BuildArtifact:
         """
         Load artifact from JSON file.
 
-        Returns None if file doesn't exist or is invalid.
+        Returns None only when the file does not exist (the app was never
+        built). A file that exists but cannot be parsed raises
+        `UnreadableArtifactError`: reading it as "no artifact" would run the
+        app on platform defaults instead of what its build declared.
         """
-        if not path.exists():
+        try:
+            text = path.read_text()
+        except FileNotFoundError:
             return None
         try:
-            return cls.from_json(path.read_text())
-        except (json.JSONDecodeError, TypeError, KeyError):
-            return None
+            return cls.from_json(text)
+        except (json.JSONDecodeError, TypeError, KeyError) as e:
+            msg = (
+                f"Build artifact {path} is unreadable ({e}). "
+                "Redeploy the app to rebuild it."
+            )
+            raise UnreadableArtifactError(msg) from e

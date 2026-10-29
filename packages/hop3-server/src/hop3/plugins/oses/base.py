@@ -22,11 +22,20 @@ from typing import assert_never
 _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_+.@][A-Za-z0-9._+@-]*$")
 
 
-def has_systemd() -> bool:
-    """True if systemd is PID 1 (``/proc/1/comm``); the package alone is no sign."""
+#: PID 1's name: the process manager that runs services on this host.
+PID1_COMM = Path("/proc/1/comm")
+
+
+def has_systemd(pid1_comm: Path = PID1_COMM) -> bool:
+    """
+    True if systemd is PID 1 (``/proc/1/comm``); the package alone is no sign.
+
+    A host without ``/proc/1/comm`` has no systemd. Any other read error
+    raises: "could not read it" is not "systemd is not running".
+    """
     try:
-        return Path("/proc/1/comm").read_text().strip() == "systemd"
-    except OSError:
+        return pid1_comm.read_text().strip() == "systemd"
+    except FileNotFoundError:
         return False
 
 

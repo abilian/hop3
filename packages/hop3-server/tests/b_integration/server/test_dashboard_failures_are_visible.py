@@ -175,6 +175,21 @@ def test_a_flash_for_another_page_is_not_shown(authenticated_client, an_app):
     assert "genuine elsewhere" not in response.text
 
 
+def test_a_long_error_still_fits_in_the_url(authenticated_client):
+    """
+    A command's whole output in the flash pushed the URL past the proxy's
+    request-line limit (414), and the failure was lost. The text is capped.
+    """
+    url = flash_url("/dashboard/backups", ok=False, text="x" * 20_000)
+    location = urlparse(url)
+
+    flash = read_flash(parse_qs(location.query)["flash"][0], location.path)
+
+    assert len(url) < 4096
+    assert flash is not None
+    assert flash["text"].endswith("the full error is in the server log)")
+
+
 def test_polling_the_status_does_not_probe_or_write(
     authenticated_client, an_app, monkeypatch
 ):

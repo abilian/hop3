@@ -40,7 +40,9 @@ def _app(name: str, **limits: object) -> App:
     """An app whose build artifact declares (or omits) [proxy] limits."""
     app = App(name=name)
     app.app_path.mkdir(exist_ok=True, parents=True)
-    artifact = BuildArtifact(kind="python", runtime=RuntimeConfig(**limits))
+    artifact = BuildArtifact(
+        kind="python", builder="local", runtime=RuntimeConfig(**limits)
+    )
     artifact.save(app.app_path / ARTIFACT_FILENAME)
     return app
 

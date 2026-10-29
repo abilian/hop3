@@ -105,6 +105,7 @@ def test_a_fastcgi_backend_gets_php_fastcgi(tmp_path, monkeypatch) -> None:
     monkeypatch.setattr(App, "app_path", property(lambda self: tmp_path))
     BuildArtifact(
         kind="php",
+        builder="local",
         app_name="testapp",
         runtime=RuntimeConfig(backend_protocol="fastcgi"),
     ).save(tmp_path / ARTIFACT_FILENAME)

@@ -221,6 +221,10 @@ class EmailAddon:
             fg="yellow",
         )
 
+    def exists(self) -> bool:
+        """True if a transport (own or inherited) is stored for this addon."""
+        return load_addon_secrets(_TYPE, self.addon_name) is not None
+
     def destroy(self) -> None:
         """Remove the stored transport. Idempotent."""
         delete_addon_secrets(_TYPE, self.addon_name)

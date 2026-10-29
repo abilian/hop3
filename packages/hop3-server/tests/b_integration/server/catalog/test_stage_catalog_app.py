@@ -74,9 +74,9 @@ def test_stage_rejects_unknown_blueprint(rooted) -> None:
         stage_catalog_app("ghost", "myapp", "", session)
 
 
-@pytest.mark.parametrize("name", ["-foo", "foo-", "caf\u00e9", "dashboard"])
+@pytest.mark.parametrize("name", ["-foo", "foo-", "caf\u00e9"])
 def test_stage_applies_the_platform_app_name_rule(rooted, name) -> None:
-    """One rule for app names (``validate_app_name``), plus reserved routes."""
+    """One rule for app names: ``validate_app_name``, the same as every path."""
     session = get_session_factory()()
     with pytest.raises(CatalogInstallError):
         stage_catalog_app("nextcloud", name, "", session)

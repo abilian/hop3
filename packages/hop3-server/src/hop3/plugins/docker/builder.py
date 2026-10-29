@@ -16,7 +16,7 @@ import re
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3 import config as c
 from hop3.core.protocols import BuildArtifact, BuildContext
@@ -233,6 +233,7 @@ class DockerBuilder:
 
     context: BuildContext
     name: str = "docker"
+    fallback: ClassVar[bool] = False
 
     @property
     def source_path(self) -> Path:

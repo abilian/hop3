@@ -11,7 +11,7 @@ from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, cast
 from unittest.mock import MagicMock, patch
 
-from hop3.config import config
+from hop3.config import HopConfig
 from hop3.orm import AppStateEnum
 from hop3.server.state_sync import (
     StateSyncService,
@@ -369,7 +369,7 @@ def test_start_service_wires_the_configured_timeout(monkeypatch) -> None:
     test that compares two values which are both 60.0 passes with the bug in
     place.
     """
-    monkeypatch.setattr(type(config), "APP_START_TIMEOUT", 137.0)
+    monkeypatch.setattr(HopConfig, "APP_START_TIMEOUT", 137.0)
 
     stop_state_sync_service()
     service = start_state_sync_service(cast("Callable[[], Session]", MockSession))
@@ -379,15 +379,23 @@ def test_start_service_wires_the_configured_timeout(monkeypatch) -> None:
         stop_state_sync_service()
 
 
-def test_an_app_whose_status_cannot_be_read_fails_alone():
+class UnreadableApp(MockApp):
+    """An app whose status probe cannot ask (its deployer is unknown)."""
+
+    def sync_state(self) -> bool:
+        msg = "Deployer 'nosuch' not found"
+        raise RuntimeError(msg)
+
+
+def test_an_app_whose_status_cannot_be_read_keeps_its_state():
     """
     An unknown runtime used to read as STOPPED: a STOPPING app was recorded as
-    stopped, and `hop3 status` called a running one CRASHED. It now raises, so
-    the app is marked FAILED with the reason, and the other apps still sync.
+    stopped, and `hop3 status` called a running one CRASHED. Then it was marked
+    FAILED on the first unreadable probe, which a redeploy rewriting the
+    artifact also produces. A probe that could not ask is no evidence: the
+    state stays, the reason is recorded, and the other apps still sync.
     """
-    broken = MagicMock(run_state=AppStateEnum.STARTING, state_changed_at=None)
-    broken.name = "broken"
-    broken.sync_state.side_effect = RuntimeError("Deployer 'nosuch' not found")
+    broken = UnreadableApp("broken", AppStateEnum.STARTING)
     healthy = MockApp("healthy", AppStateEnum.STARTING)
     healthy._sync_state_returns = True
     service = _service(MagicMock())
@@ -395,8 +403,25 @@ def test_an_app_whose_status_cannot_be_read_fails_alone():
     with patch("hop3.server.state_sync.AppRepository") as repo:
         repo.return_value.list_transitional.return_value = [broken, healthy]
         assert service.sync_transitional_apps(MagicMock()) == 2
+        # Already recorded: the next cycle has nothing new to write.
+        assert service.sync_transitional_apps(MagicMock()) == 1
 
-    broken.transition_state.assert_called_once_with(
-        AppStateEnum.FAILED, "Status unavailable: Deployer 'nosuch' not found"
-    )
+    assert broken.run_state == AppStateEnum.STARTING
+    assert broken.error_message == "Status unavailable: Deployer 'nosuch' not found"
     assert healthy._sync_state_called
+
+
+def test_the_timeout_names_the_unreadable_probe():
+    """The probe's reason survives into the FAILED the timeout records."""
+    broken = UnreadableApp(
+        "broken", AppStateEnum.STARTING, datetime.now(UTC) - timedelta(hours=1)
+    )
+    broken.error_message = "Status unavailable: Deployer 'nosuch' not found"
+    service = _service(MagicMock())
+
+    with patch("hop3.server.state_sync.AppRepository") as repo:
+        repo.return_value.list_transitional.return_value = [broken]
+        service.sync_transitional_apps(MagicMock())
+
+    assert broken.run_state == AppStateEnum.FAILED
+    assert "Deployer 'nosuch' not found" in broken.error_message

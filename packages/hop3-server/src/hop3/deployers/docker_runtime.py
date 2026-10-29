@@ -17,7 +17,9 @@ state machine through ``App.transition_state``.
 
 from __future__ import annotations
 
+import contextlib
 import os
+import shutil
 import subprocess
 from typing import TYPE_CHECKING, NoReturn
 
@@ -158,7 +160,12 @@ def stop_docker_compose(app: App) -> None:
             level=2,
             fg="yellow",
         )
-        _docker(app, "kill", *running, action="force-kill its containers")
+        # Not `_docker`: a container that exits between the `ps` and the kill
+        # makes `docker kill` fail, and that is the outcome we wanted. A kill
+        # that hangs is no verdict either. The re-check below decides, and
+        # raises if Docker cannot answer it.
+        with contextlib.suppress(subprocess.TimeoutExpired):
+            run_docker(["docker", "kill", *running], 30)
         running = app_container_ids(app, running_only=True)
     if running:
         msg = (
@@ -385,20 +392,15 @@ def cleanup_orphan_docker_resources(app: App) -> None:
     deploy of that name would fail with an opaque error, and only after
     something else has run. That raises, as does a container that survives
     removal.
-    """
-    name_filter = f"name={app.name}-"
-    action = "list its orphan containers"
-    try:
-        found = run_docker(["docker", "ps", "-aq", "--filter", name_filter], 30)
-    except FileNotFoundError:
-        return  # no Docker on this host: nothing of ours can exist under it
-    except subprocess.TimeoutExpired:
-        _fail(app, action, "`docker ps` did not answer within 30s")
-    if found.returncode != 0:
-        output = (found.stderr or found.stdout or "").strip() or "no output"
-        _fail(app, action, f"`docker ps` exited {found.returncode}: {output}")
 
-    container_ids = found.stdout.split()
+    Containers are selected by Compose project label, never by name: Docker's
+    name filter matches any substring, so destroying ``app`` would remove
+    ``myapp-web-1``.
+    """
+    if shutil.which("docker") is None:
+        return  # no Docker on this host: nothing of ours can exist under it
+
+    container_ids = app_container_ids(app)
     if container_ids:
         log(
             f"Found {len(container_ids)} orphan container(s) for '{app.name}'",
@@ -409,9 +411,8 @@ def cleanup_orphan_docker_resources(app: App) -> None:
     force_cleanup_docker_network(app)
 
     # Verify the effect, not the exit codes.
-    leftover = _docker(app, "ps", "-aq", "--filter", name_filter, action=action)
-    if leftover.stdout.split():
-        ids = leftover.stdout.split()
+    ids = app_container_ids(app)
+    if ids:
         _fail(
             app,
             "remove its orphan containers",

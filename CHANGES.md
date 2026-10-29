@@ -41,6 +41,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **`hop3 login --token` reads the token from stdin (`--token -`), a file (`--token @path`) or a hidden prompt (`--token`).** A token on the command line lands in shell history and in `ps`. The literal form still works, with a warning, and is no longer documented. `hop3-tui --token` takes the same forms, and the admin commands and `hop3-deploy-server` use them.
 - **The JSON-RPC response carries a `Hop3-RPC-Protocol` header**, and a client that sends `params.protocol` with another version is refused with an error saying which side to upgrade.
+- **Apps may be named `admin`, `api`, `app`, `apps`, `dashboard`, `hop3`, `static` or `www`.** The catalog install and the dashboard refused these names while `hop3 app create`, `hop3 deploy` and `git push` accepted them. Nothing in the platform collides with an app of one of these names (vhosts, files, hostnames and routes are all per app), so the list is gone and every path applies the same name rule.
 
 ## [0.8.0] - 2026-10-27
 

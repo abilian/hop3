@@ -406,11 +406,11 @@ class TestPythonInstallVirtualenv:
     def test_uv_lock_takes_the_uv_path(self, tmp_path, monkeypatch):
         tc = self._tc(tmp_path, {"pyproject.toml": "[project]\n", "uv.lock": "\n"})
         _record(tc, monkeypatch)
-        monkeypatch.setattr(tc, "_ensure_uv_installed", lambda: True)
+        monkeypatch.setattr(tc, "_ensure_uv_installed", lambda: "/opt/uv")
         called = []
-        monkeypatch.setattr(tc, "_install_with_uv", lambda: called.append(True))
+        monkeypatch.setattr(tc, "_install_with_uv", called.append)
         tc.install_virtualenv()
-        assert called == [True]
+        assert called == ["/opt/uv"]
 
 
 class TestPythonBuildAndHelpers:
@@ -433,23 +433,23 @@ class TestPythonBuildAndHelpers:
         assert env_vars["PYTHONPATH"] == str(tmp_path / "src" / "src")
         assert artifact.metadata["python_path"].endswith("venv/bin/python")
 
-    def test_find_uv_binary_prefers_path_then_candidates(self, tmp_path, monkeypatch):
+    def test_locate_uv_prefers_path_then_candidates(self, tmp_path, monkeypatch):
         _src(tmp_path)
         tc = PythonToolchain("myapp", tmp_path)
         monkeypatch.setattr(py_mod.shutil, "which", lambda _b: "/usr/bin/uv")
-        assert tc._find_uv_binary() == "/usr/bin/uv"
+        assert tc._locate_uv() == "/usr/bin/uv"
         monkeypatch.setattr(py_mod.shutil, "which", lambda _b: None)
         # Control the install locations too. Without this the fallback found
         # the developer's own ~/.local/bin/uv, so the test passed or failed
         # depending on whose machine it ran on (and on whether another
         # package's conftest had overridden HOME first).
         monkeypatch.setattr(tc, "_uv_candidates", list)
-        assert tc._find_uv_binary() == "uv"  # falls through to the bare name
+        assert tc._locate_uv() is None
 
         found = tmp_path / "uv"
         found.touch()
         monkeypatch.setattr(tc, "_uv_candidates", lambda: [found])
-        assert tc._find_uv_binary() == str(found)
+        assert tc._locate_uv() == str(found)
 
     def test_get_env_sets_python_flags(self, tmp_path):
         _src(tmp_path)
@@ -526,7 +526,7 @@ class TestPythonBuildAndHelpers:
             "run",
             lambda *_a, **_k: pytest.fail("installed uv although it was present"),
         )
-        tc._ensure_uv_installed()
+        assert tc._ensure_uv_installed() == str(found)
 
     def test_missing_venv_aborts_with_a_diagnosis(self, tmp_path, monkeypatch):
         """These preconditions were `assert`s, which `python -O` strips."""

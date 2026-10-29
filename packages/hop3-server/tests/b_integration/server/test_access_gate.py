@@ -19,7 +19,6 @@ from urllib.parse import parse_qs, urlsplit
 import pytest
 from litestar.testing import TestClient
 
-from hop3 import config as config_module
 from hop3.config import HopConfig
 from hop3.core.roles import Role
 from hop3.orm import App
@@ -49,9 +48,7 @@ def _real_auth(monkeypatch):
     monkeypatch.setattr(
         HopConfig, "HOP3_DEBUG", property(lambda _self: True)
     )  # the test client is HTTP
-    monkeypatch.setattr(
-        type(config_module.config), "ADMIN_DOMAIN", property(lambda _self: ADMIN)
-    )
+    monkeypatch.setattr(HopConfig, "ADMIN_DOMAIN", property(lambda _self: ADMIN))
 
 
 @pytest.fixture

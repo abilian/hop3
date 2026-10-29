@@ -12,16 +12,9 @@ from __future__ import annotations
 
 import argparse
 import json
-import os
 import sys
-import tempfile
 from pathlib import Path
 from urllib.parse import urlparse
-
-# Importing hop3 loads $HOP3_ROOT/hop3-server.toml. This tool reads no server,
-# and on a machine that also runs Hop3 that file is the live one, unreadable.
-_ROOT = tempfile.TemporaryDirectory(prefix="hop3-tool-")
-os.environ["HOP3_ROOT"] = _ROOT.name
 
 from hop3.project.json_schema import SCHEMA_URL, build_json_schema
 

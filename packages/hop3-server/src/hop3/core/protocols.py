@@ -109,8 +109,8 @@ class Builder(Protocol):
 
     name: str
     context: DeploymentContext
-    #: Optional (default False). A fallback builder is chosen only when no
-    #: other builder accepts the app; see ``get_builder``.
+    #: A fallback builder is chosen only when no other builder accepts the
+    #: app; see ``get_builder``.
     fallback: ClassVar[bool]
 
     def __init__(self, context: DeploymentContext) -> None:
@@ -251,6 +251,14 @@ class Addon(Protocol):
 
         This should completely remove all resources associated with the addon,
         including data. This operation should be idempotent.
+        """
+
+    def exists(self) -> bool:
+        """
+        Whether the addon instance exists.
+
+        Raises when the backing service cannot be asked: callers act on
+        False by skipping the teardown, so it must be an answer.
         """
 
     def get_connection_details(self) -> dict[str, str]:

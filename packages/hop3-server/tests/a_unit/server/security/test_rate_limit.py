@@ -89,3 +89,18 @@ def test_an_idle_key_is_forgotten():
     limiter.check("192.0.2.1")
 
     assert list(limiter._buckets) == ["192.0.2.1"]
+
+
+def test_idle_keys_are_swept_once_per_window(monkeypatch):
+    """
+    Sweeping on every check made each attempt cost one step per live key, and
+    an attacker cycling source addresses sets how many keys are live.
+    """
+    limiter = RateLimiter(max_requests=5, window_seconds=60.0)
+    sweeps = []
+    monkeypatch.setattr(limiter, "_forget_idle", sweeps.append)
+
+    for i in range(100):
+        limiter.check(f"198.51.100.{i}")
+
+    assert len(sweeps) == 1

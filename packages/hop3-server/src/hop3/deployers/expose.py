@@ -240,7 +240,8 @@ def expose_addon(
         leftover = _rollback_partial(rule_id, claim, db_session)
         rolled_back = (
             f"the rollback left a {leftover}: once rootd works, run "
-            f"`hop3 addon expose {addon_name}` then `hop3 addon unexpose "
+            f"`hop3 addon expose {addon_name} --source {source}` then "
+            f"`hop3 addon unexpose "
             f"{addon_name}`, which sweeps every rule of this addon"
             if leftover
             else "the exposure was rolled back"

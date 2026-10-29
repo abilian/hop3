@@ -102,6 +102,18 @@ class S3Addon:
         credentials = self.backend.create_access_key(self.bucket_name)
         self._save_credentials(credentials)
 
+    def exists(self) -> bool:
+        """
+        True if the addon's credentials or its bucket exist.
+
+        The bucket is asked about too: a create that failed after the bucket
+        and before the credentials left a bucket that destroy must remove. A
+        backend that cannot answer raises.
+        """
+        return self._credentials_path.exists() or (
+            self.bucket_name in self.backend.list_buckets()
+        )
+
     def destroy(self) -> None:
         """
         Destroy the bucket, access key, and stored credentials.

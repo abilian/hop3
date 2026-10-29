@@ -48,17 +48,10 @@ Usage:
 from __future__ import annotations
 
 import difflib
-import os
 import re
 import sys
-import tempfile
 from dataclasses import dataclass
 from pathlib import Path
-
-# Importing hop3 loads $HOP3_ROOT/hop3-server.toml. This tool reads no server,
-# and on a machine that also runs Hop3 that file is the live one, unreadable.
-_ROOT = tempfile.TemporaryDirectory(prefix="hop3-tool-")
-os.environ["HOP3_ROOT"] = _ROOT.name
 
 # ADR 036 D3/D12: three levels is the guideline, four the hard ceiling. Mirrors
 # `_MAX_COMMAND_DEPTH` in the RPC dispatcher.
@@ -179,9 +172,10 @@ class Surface:
 def load_surface() -> Surface:
     """Assemble the command surface. Importing the RPC controller builds the
     dispatch table as a side effect, which is what forces plugin loading."""
-    from hop3.server.controllers.rpc import commands as rpc_commands
     from hop3_cli.commands.local import LOCAL_COMMANDS
     from hop3_cli.core.aliases import CORE_ALIASES
+
+    from hop3.server.controllers.rpc import commands as rpc_commands
 
     names = {name for name in rpc_commands if name}
     names |= {(local,) for local in LOCAL_COMMANDS}

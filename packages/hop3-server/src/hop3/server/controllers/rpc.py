@@ -90,12 +90,18 @@ class ServerBusyError(Exception):
     """The command slot stayed taken for the whole wait."""
 
     def __init__(self, holder: str | None, held_for: float | None) -> None:
-        running = f"'hop3 {holder}'" if holder else "another command"
-        super().__init__(f"server busy: {running} is running")
         #: None between one command's release and the next one's start: the
         #: slot is taken but its holder is not named yet, so no duration.
         self.holder = holder
-        self.held_for = held_for
+        self.held_for = None if held_for is None else round(held_for)
+        super().__init__(f"server busy: {self.running}")
+
+    @property
+    def running(self) -> str:
+        """What holds the slot, in the words the refusal uses."""
+        if self.holder and self.held_for is not None:
+            return f"'hop3 {self.holder}' has been running for {self.held_for}s"
+        return "another command is running"
 
 
 class CommandSlot:
@@ -565,22 +571,16 @@ class RPCController(Controller):
         self, busy: ServerBusyError, display_name: str, request_id: object
     ) -> Response:
         """Say which command holds the slot, so a wait never reads as a hang."""
-        running_for = None if busy.held_for is None else round(busy.held_for)
         server_log.warning(
             "RPC call refused: server busy",
             command=display_name,
             running=busy.holder,
-            running_for=running_for,
-        )
-        running = (
-            f"'hop3 {busy.holder}' has been running for {running_for}s"
-            if busy.holder and running_for is not None
-            else "another command is running"
+            running_for=busy.held_for,
         )
         return self._build_error_response(
             code=RPC_ERROR_SERVER_BUSY,
             message=(
-                f"Server busy: {running} and commands run one at a time. "
+                f"Server busy: {busy.running} and commands run one at a time. "
                 f"'hop3 {display_name}' waited {_COMMAND_SLOT.wait_seconds:.0f}s; "
                 "retry when it finishes."
             ),
@@ -589,7 +589,7 @@ class RPCController(Controller):
             data={
                 "kind": "server_busy",
                 "running": busy.holder,
-                "running_for": running_for,
+                "running_for": busy.held_for,
             },
         )
 

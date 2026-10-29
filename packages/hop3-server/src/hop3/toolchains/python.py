@@ -319,8 +319,7 @@ class PythonToolchain(LanguageToolchain):
         # A uv.lock pins the exact dependency tree, so only uv may install it:
         # pip would ignore the lockfile and resolve something else.
         if (self.src_path / "uv.lock").exists():
-            self._ensure_uv_installed()
-            self._install_with_uv()
+            self._install_with_uv(self._ensure_uv_installed())
             return
 
         # Ensure pip and setuptools are up to date before installing dependencies
@@ -378,16 +377,17 @@ class PythonToolchain(LanguageToolchain):
                 msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
                 raise FileNotFoundError(msg)
 
-    def _ensure_uv_installed(self) -> None:
+    def _ensure_uv_installed(self) -> str:
         """
-        Make uv available, installing it if necessary; abort if that fails.
+        The uv binary, installed if necessary; abort if that fails.
 
         The caller has a uv.lock, which only uv can honour, so there is no
         fallback: a build that silently ignored the lockfile would ship a
         dependency tree nobody locked.
         """
-        if self._locate_uv():
-            return
+        uv_bin = self._locate_uv()
+        if uv_bin is not None:
+            return uv_bin
 
         log("Installing uv package manager...", level=2, fg="yellow")
         command = "curl -LsSf https://astral.sh/uv/install.sh | sh"
@@ -415,6 +415,7 @@ class PythonToolchain(LanguageToolchain):
                 f"the uv installer succeeded but no uv binary is on PATH or at {searched}"
             )
         log(f"uv installed successfully at {uv_bin}", level=2, fg="green")
+        return uv_bin
 
     def _abort_uv_unavailable(self, reason: str) -> NoReturn:
         abort_with_diagnosis(
@@ -435,7 +436,7 @@ class PythonToolchain(LanguageToolchain):
         Where uv is commonly installed, in preference order.
 
         Its own method so a test can control it: reading the real filesystem
-        made `_find_uv_binary`'s fallback depend on whether the developer's
+        made `_locate_uv` depend on whether the developer's
         machine happens to have uv in one of these places.
         """
         return [
@@ -451,13 +452,8 @@ class PythonToolchain(LanguageToolchain):
             return uv_in_path
         return next((str(p) for p in self._uv_candidates() if p.exists()), None)
 
-    def _find_uv_binary(self) -> str:
-        """Find the uv binary, falling back to the bare name for PATH lookup."""
-        return self._locate_uv() or "uv"
-
-    def _install_with_uv(self) -> None:
+    def _install_with_uv(self, uv_bin: str) -> None:
         """Install dependencies using uv sync for exact locked versions."""
-        uv_bin = self._find_uv_binary()
         log(f"Installing from uv.lock using {uv_bin} sync", level=2, fg="green")
         # uv sync installs exact versions from uv.lock into the virtualenv.
         #   --frozen: use lockfile exactly, don't update it

@@ -29,10 +29,6 @@ class RedisHealthCheck:
 
     name = "redis"
 
-    def is_configured(self) -> bool:
-        """Redis needs no configuration: it only has to be running."""
-        return True
-
     def check(self) -> HealthCheckResult:
         """
         Test Redis connectivity.

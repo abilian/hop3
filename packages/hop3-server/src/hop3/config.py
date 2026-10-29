@@ -25,9 +25,9 @@ class HopConfig:
         # In tests: swap the singleton, and every ``c.X`` read follows.
         HopConfig.set_instance(HopConfig(hop3_root=tmp_path))
 
-    ``from hop3.config import APP_ROOT`` (or ``import config``) binds the value
-    once, when the importing module loads: it does not follow a later
-    ``set_instance``.
+    ``from hop3.config import APP_ROOT`` binds the value once, when the
+    importing module loads: it does not follow a later ``set_instance``.
+    ``from hop3.config import config`` binds a proxy that does.
     """
 
     # Class variable for global singleton instance
@@ -586,12 +586,33 @@ __all__ = [  # ruff:ignore[unsorted-dunder-all]
 ]
 
 
+class _LiveConfig:
+    """
+    ``hop3.config.config``: each attribute read goes to the current singleton.
+
+    A dozen modules run ``from hop3.config import config`` when they load.
+    Handing them the singleton built it then, so importing the RPC command
+    table read ``hop3-server.toml``: a tool that reads no server failed on a
+    machine whose live file it cannot read, and the bound object missed a later
+    ``set_instance``. Through this proxy both wait for the first setting read.
+    """
+
+    __slots__ = ()
+
+    def __getattr__(self, name: str) -> object:
+        return getattr(HopConfig.get_instance(), name)
+
+
+_LIVE_CONFIG = _LiveConfig()
+
+
 def __getattr__(name: str) -> object:
     """Serve ``config`` and every upper-case setting from the live singleton."""
-    cfg = HopConfig.get_instance()
     if name == "config":
-        return cfg
-    if name.isupper() and hasattr(cfg, name):
-        return getattr(cfg, name)
+        return _LIVE_CONFIG
+    if name.isupper():
+        cfg = HopConfig.get_instance()
+        if hasattr(cfg, name):
+            return getattr(cfg, name)
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)

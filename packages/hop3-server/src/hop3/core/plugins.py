@@ -275,7 +275,7 @@ def get_builder(context: DeploymentContext) -> Builder:
             reason = getattr(builder, "rejection_reason", "declined")
             rejections.append(f"{name}: {reason}")
 
-    specific = [b for b in accepted if not getattr(b, "fallback", False)]
+    specific = [b for b in accepted if not b.fallback]
     candidates = specific or accepted
     if not candidates:
         abort_with_diagnosis(
@@ -417,16 +417,10 @@ def get_probe_deployer(app: App, runtime_name: str) -> Deployer:
         raise RuntimeError(msg)
 
     artifact_path = app.app_path / ARTIFACT_FILENAME
-    if not artifact_path.exists():
-        msg = f"App '{app.name}' was never built: {artifact_path} does not exist."
-        raise NeverBuiltError(msg)
     artifact = BuildArtifact.load(artifact_path)
     if artifact is None:
-        msg = (
-            f"App '{app.name}' has an unreadable build artifact at "
-            f"{artifact_path}. Redeploy the app to rebuild it."
-        )
-        raise RuntimeError(msg)
+        msg = f"App '{app.name}' was never built: {artifact_path} does not exist."
+        raise NeverBuiltError(msg)
     context = DeploymentContext(
         app_name=app.name,
         source_path=app.src_path,
@@ -434,6 +428,10 @@ def get_probe_deployer(app: App, runtime_name: str) -> Deployer:
         app=app,
     )
     return deployer_class(context, artifact)
+
+
+class UnknownAddonTypeError(RuntimeError):
+    """No loaded addon plugin has the requested type name."""
 
 
 def get_addon(addon_type: str, addon_name: str) -> Addon:
@@ -450,7 +448,7 @@ def get_addon(addon_type: str, addon_name: str) -> Addon:
         An instance of the requested Addon
 
     Raises:
-        RuntimeError: If the requested addon type is not found
+        UnknownAddonTypeError: If the requested addon type is not found
 
     Example:
         addon = get_addon('postgres', 'mydb')
@@ -470,7 +468,7 @@ def get_addon(addon_type: str, addon_name: str) -> Addon:
 
     available_addons = [getattr(cls, "name", "?") for cls in addon_classes]
     msg = f"Addon type '{addon_type}' not found. Available addons: {available_addons}"
-    raise RuntimeError(msg)
+    raise UnknownAddonTypeError(msg)
 
 
 def get_waf_engine(name: str = "lewaf") -> WafEngine:

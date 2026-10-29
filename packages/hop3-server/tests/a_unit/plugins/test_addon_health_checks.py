@@ -17,9 +17,6 @@ import sys
 
 import pytest
 
-from hop3.plugins.mysql.plugin import MySQLHealthCheck
-from hop3.plugins.postgresql.plugin import PostgresHealthCheck
-
 
 @pytest.mark.parametrize(
     ("driver", "plugin_module"),
@@ -40,20 +37,3 @@ def test_a_missing_driver_fails_the_plugin_import(driver, plugin_module):
 
     assert result.returncode != 0
     assert "ImportError" in result.stderr or "ModuleNotFoundError" in result.stderr
-
-
-@pytest.mark.parametrize("check_cls", [PostgresHealthCheck, MySQLHealthCheck])
-def test_is_configured_does_not_swallow_a_broken_config(check_cls, monkeypatch):
-    def broken() -> None:
-        msg = "POSTGRES_PORT is not a number"
-        raise ValueError(msg)
-
-    admin_cls = (
-        "hop3.plugins.postgresql.plugin.PostgresAdmin"
-        if check_cls is PostgresHealthCheck
-        else "hop3.plugins.mysql.plugin.MySQLAdmin"
-    )
-    monkeypatch.setattr(f"{admin_cls}.from_config", broken)
-
-    with pytest.raises(ValueError, match="not a number"):
-        check_cls().is_configured()

@@ -23,7 +23,6 @@ import pytest
 
 from hop3.lib import Abort
 from hop3.orm.app import App
-from hop3.plugins.deploy.uwsgi.deployer import UWSGIDeployer
 
 
 class FakeApp:
@@ -41,7 +40,6 @@ def refusing_guard(monkeypatch) -> list[str]:
         raise Abort(msg)
 
     monkeypatch.setattr("hop3.orm.app.verify_nix_closure", fake)
-    monkeypatch.setattr("hop3.plugins.deploy.uwsgi.deployer.verify_nix_closure", fake)
     return called
 
 
@@ -65,19 +63,3 @@ def test_orm_restart_checks_closure_before_stopping(refusing_guard) -> None:
 
     assert refusing_guard == ["forge"]
     assert not app.stopped, "the app was stopped despite a broken closure"
-
-
-def test_deployer_restart_checks_closure_before_stopping(
-    refusing_guard, monkeypatch
-) -> None:
-    """The uWSGI deployer's own restart is a second path, and needs the same check."""
-    context = type("Ctx", (), {"app": FakeApp()})()
-    deployer = UWSGIDeployer(context=context, artifact=None)
-    stopped: list[bool] = []
-    monkeypatch.setattr(UWSGIDeployer, "stop", lambda self: stopped.append(True))
-
-    with pytest.raises(Abort):
-        deployer.restart()
-
-    assert refusing_guard == ["forge"]
-    assert stopped == [], "the app was stopped despite a broken closure"

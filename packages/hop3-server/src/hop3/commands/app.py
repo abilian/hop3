@@ -991,20 +991,26 @@ class DestroyCmd(Command):
         return []
 
 
-def _teardown_step(label: str, step: Callable[..., object], *args: object) -> list[str]:
+def _teardown_step(
+    label: str, step: Callable[..., list[str] | None], *args: object
+) -> list[str]:
     """
     Run one destroy step; return its leftovers, never raise.
 
     A step either returns the list of what it could not remove, or returns
-    nothing and raises on failure. Both become leftovers here, so one failing
-    step neither stops the others nor goes unreported.
+    None and raises on failure. Both become leftovers here, so one failing
+    step neither stops the others nor goes unreported. The step's type pins
+    that shape, so a step that reports leftovers any other way fails `make
+    lint` rather than counting as a clean teardown.
     """
     try:
         result = step(*args)
     except Exception as e:
         log(f"Teardown step '{label}' failed: {e}", level=1, fg="red")
         return [f"{label}: {e}"]
-    return [f"{label}: {item}" for item in result] if isinstance(result, list) else []
+    if result is None:
+        return []
+    return [f"{label}: {item}" for item in result]
 
 
 @register

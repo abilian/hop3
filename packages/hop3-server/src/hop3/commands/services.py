@@ -1042,10 +1042,7 @@ class AddonDestroyCmd(Command):
             # Get the service strategy
             addon = get_addon(service_type, addon_name)
 
-            # Check if the addon actually exists (hasattr check doesn't narrow type for ty)
-            if hasattr(addon, "exists") and not self._exists(
-                addon, service_type, addon_name
-            ):
+            if not self._exists(addon, service_type, addon_name):
                 return [
                     text(
                         f"Addon '{addon_name}' of type '{service_type}' does not exist."
@@ -1097,7 +1094,7 @@ class AddonDestroyCmd(Command):
         answer, never what an unreachable server looks like.
         """
         try:
-            return addon.exists()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+            return addon.exists()
         except Exception as e:
             abort_with_diagnosis(
                 Diagnosis(

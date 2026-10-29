@@ -36,7 +36,10 @@ def app(tmp_path, monkeypatch) -> App:
 
 def serving(app: App, protocol: str) -> App:
     BuildArtifact(
-        kind="php", app_name=app.name, runtime=RuntimeConfig(backend_protocol=protocol)
+        kind="php",
+        builder="local",
+        app_name=app.name,
+        runtime=RuntimeConfig(backend_protocol=protocol),
     ).save(app.app_path / ARTIFACT_FILENAME)
     return app
 

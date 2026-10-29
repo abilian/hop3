@@ -175,21 +175,56 @@ def test_stop_does_not_report_stopped_when_docker_cannot_answer(
 
 
 def test_orphan_cleanup_is_a_noop_without_a_docker_cli(monkeypatch):
-    def missing(cmd, timeout):
-        raise FileNotFoundError(cmd[0])
-
-    monkeypatch.setattr(docker_runtime, "run_docker", missing)
+    monkeypatch.setattr(docker_runtime.shutil, "which", lambda name: None)
+    docker = FakeDocker()
+    monkeypatch.setattr(docker_runtime, "run_docker", docker)
 
     docker_runtime.cleanup_orphan_docker_resources(App(name="native"))
 
+    assert docker.calls == []
+
 
 def test_orphan_cleanup_raises_when_docker_is_installed_but_failing(monkeypatch):
+    monkeypatch.setattr(docker_runtime.shutil, "which", lambda name: "/bin/docker")
     docker = FakeDocker()
     docker.refuse = {"ps"}
     monkeypatch.setattr(docker_runtime, "run_docker", docker)
 
     with pytest.raises(DockerError, match="ps"):
         docker_runtime.cleanup_orphan_docker_resources(App(name="native"))
+
+
+def test_orphan_cleanup_selects_by_project_label_not_name_substring(monkeypatch):
+    # Docker's `name=` filter matches substrings: destroying `app` with it
+    # force-removed `myapp-web-1`, another app's container.
+    monkeypatch.setattr(docker_runtime.shutil, "which", lambda name: "/bin/docker")
+    docker = FakeDocker()
+    monkeypatch.setattr(docker_runtime, "run_docker", docker)
+
+    docker_runtime.cleanup_orphan_docker_resources(App(name="app"))
+
+    filters = {c[c.index("--filter") + 1] for c in docker.calls if c[1] == "ps"}
+    assert filters == {"label=com.docker.compose.project=app"}
+
+
+def test_stop_reverifies_when_the_kill_fails(monkeypatch, no_compose):
+    # A container that exits between the `ps` and the kill makes `docker kill`
+    # fail; the re-check, not the kill's exit code, decides.
+    app = _app()
+    app.run_state = AppStateEnum.STOPPING
+    docker = FakeDocker(containers={"c1"})
+
+    def kill_fails_after_exit(cmd, timeout):
+        if cmd[1] == "kill":
+            docker.containers.clear()
+            return SimpleNamespace(returncode=1, stdout="", stderr="not running")
+        return docker(cmd, timeout)
+
+    monkeypatch.setattr(docker_runtime, "run_docker", kill_fails_after_exit)
+
+    docker_runtime.stop_docker_compose(app)
+
+    assert app.run_state == AppStateEnum.STOPPED
 
 
 def test_force_cleanup_docker_image_targets_only_the_app_image(monkeypatch):

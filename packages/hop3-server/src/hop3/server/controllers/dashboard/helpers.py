@@ -12,7 +12,10 @@ from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import jwt
+from litestar.response import Redirect
+from litestar.status_codes import HTTP_303_SEE_OTHER
 
+from hop3.lib.logging import server_log
 from hop3.orm import App, AppRepository
 from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
@@ -20,6 +23,8 @@ from hop3.server.security.tokens import get_secret_key
 from hop3.server.streaming import has_active_deploy
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 
@@ -30,10 +35,49 @@ if TYPE_CHECKING:
 FLASH_PARAM = "flash"
 _FLASH_AUDIENCE = "hop3-dashboard-flash"
 _FLASH_TTL_SECONDS = 600
+# The token rides in the URL: an error carrying a command's whole output would
+# push it past the proxy's request-line limit (414), losing the very failure it
+# was meant to show. The full text is in the server log, which every caller
+# writes first.
+_FLASH_TEXT_MAX = 1000
+_FLASH_TRUNCATED = " [...] (truncated; the full error is in the server log)"
+
+
+def run_mutation(
+    db_session: Session, page: str, what: str, do: Callable[[], str], **context: str
+) -> Redirect:
+    """
+    Run one dashboard mutation and report its real outcome on ``page``.
+
+    ``do`` performs it and returns the success banner; ``what`` names it for
+    the failure banner ("restart application 'x'"). These handlers used to
+    ``print()`` the exception and redirect exactly as on success, so a failed
+    restore was indistinguishable from a successful one: the fake success the
+    fail-loud rule forbids. The reason now reaches the operator (a signed
+    flash, so a crafted link cannot fake one) and the log.
+    """
+    try:
+        message = do()
+        db_session.commit()
+    except Exception as e:
+        db_session.rollback()
+        server_log.exception(
+            "Dashboard action failed", action=what, error=str(e), **context
+        )
+        text = f"Failed to {what}: {type(e).__name__}: {e}"
+        return Redirect(
+            path=flash_url(page, ok=False, text=text), status_code=HTTP_303_SEE_OTHER
+        )
+    server_log.info("Dashboard action succeeded", action=what, **context)
+    return Redirect(
+        path=flash_url(page, ok=True, text=message), status_code=HTTP_303_SEE_OTHER
+    )
 
 
 def flash_url(path: str, *, ok: bool, text: str) -> str:
     """``path`` carrying a signed outcome (success or the real error) to show."""
+    if len(text) > _FLASH_TEXT_MAX:
+        text = text[:_FLASH_TEXT_MAX] + _FLASH_TRUNCATED
     payload = {
         "aud": _FLASH_AUDIENCE,
         "path": path,

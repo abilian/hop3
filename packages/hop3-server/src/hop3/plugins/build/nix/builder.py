@@ -13,7 +13,7 @@ import shutil
 import subprocess
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Literal
+from typing import ClassVar, Literal
 
 from hop3 import config as c
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
@@ -56,6 +56,7 @@ class NixBuilder:
     """
 
     name: str = "nix"
+    fallback: ClassVar[bool] = False
 
     def __init__(self, context: BuildContext) -> None:
         """

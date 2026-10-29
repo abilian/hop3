@@ -22,7 +22,7 @@ from hop3.run.reaper import (
     proc_belongs_to_app,
     reap_app_processes,
 )
-from hop3.run.spawn import spawn_app, verify_nix_closure
+from hop3.run.spawn import spawn_app
 from hop3.run.uwsgi.naming import vassal_glob
 
 # Process detection/reaping moved to hop3.run.reaper so the ORM teardown
@@ -163,16 +163,6 @@ class UWSGIDeployer:
     ) -> list[int]:
         """Block until the app's processes are gone; return any survivors."""
         return reap_app_processes(self.app.name, timeout)
-
-    def restart(self) -> None:
-        """Stop the app and deploy it again, from its current settings."""
-        log(f"Restarting '{self.app.name}'...", level=2, fg="blue")
-
-        # Same reason as App._restart_uwsgi: refuse a reclaimed Nix closure
-        # while the app is still running.
-        verify_nix_closure(self.app)
-        self.stop()
-        self.start()
 
     def destroy(self) -> None:
         """Destruction is a superset of stop."""

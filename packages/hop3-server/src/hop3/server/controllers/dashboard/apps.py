@@ -21,7 +21,6 @@ from litestar.enums import RequestEncodingType
 from litestar.exceptions import NotFoundException
 from litestar.params import Body, FromPath
 from litestar.response import Redirect, Template
-from litestar.status_codes import HTTP_303_SEE_OTHER
 from sqlalchemy.orm import Session
 
 from hop3.core.backup import BackupManager
@@ -37,12 +36,12 @@ from hop3.server.streaming import get_stream
 
 from .helpers import (
     FLASH_PARAM,
-    flash_url,
     get_addons_for_app,
     get_app_or_none,
     get_display_state,
     get_worker_count,
     read_flash,
+    run_mutation,
 )
 
 if TYPE_CHECKING:
@@ -81,19 +80,6 @@ BUILDER_OPTIONS = [
         "description": "Go applications",
     },
 ]
-
-
-def _validate_app_name(app_name: str, app_repo: AppRepository) -> list[str]:
-    """Validate app name and return list of errors."""
-    if not app_name:
-        return ["App name is required"]
-    try:
-        validate_app_name(app_name)
-    except InvalidIdentifierError as e:
-        return [str(e)]
-    if app_repo.get_by_name(app_name):
-        return [f"App '{app_name}' already exists"]
-    return []
 
 
 def _parse_env_vars(env_vars_text: str) -> dict[str, str]:
@@ -189,7 +175,13 @@ class AppsController(Controller):
         git_url = data.get("git_url", "").strip()
         env_vars_text = data.get("env_vars", "").strip()
 
-        errors = _validate_app_name(app_name, AppRepository(session=db_session))
+        errors: list[str] = []
+        try:
+            validate_app_name(app_name)
+        except InvalidIdentifierError as e:
+            errors.append(str(e) if app_name else "App name is required")
+        if not errors and AppRepository(session=db_session).get_by_name(app_name):
+            errors.append(f"App '{app_name}' already exists")
         env_vars = _parse_env_vars(env_vars_text)
 
         if errors:
@@ -212,19 +204,27 @@ class AppsController(Controller):
         self, request: Request, app_name: FromPath[str], db_session: FromDishka[Session]
     ) -> Template | Redirect:
         """Display application detail page."""
-        flash = read_flash(request.query_params.get(FLASH_PARAM), request.url.path)
+        flash_token = request.query_params.get(FLASH_PARAM)
         deploy_stream_id = _deploy_stream(request.query_params.get("stream"), app_name)
         return await anyio.to_thread.run_sync(
-            self._detail, db_session, app_name, flash, deploy_stream_id
+            self._detail,
+            db_session,
+            app_name,
+            flash_token,
+            request.url.path,
+            deploy_stream_id,
         )
 
     @staticmethod
     def _detail(
         db_session: Session,
         app_name: str,
-        flash: dict | None,
+        flash_token: str | None,
+        page: str,
         deploy_stream_id: str | None,
     ) -> Template | Redirect:
+        # Reading the flash reads the secret key from disk: off the loop.
+        flash = read_flash(flash_token, page)
         app = get_app_or_none(db_session, app_name)
         if not app:
             return Redirect(path="/dashboard")
@@ -408,40 +408,21 @@ _ACTION_DONE = {
 def _run_app_action(
     db_session: Session, app_name: str, action: str, do: Callable[[App], object]
 ) -> Redirect:
-    """
-    Run one app mutation and report its real outcome to the browser.
-
-    The failure path is the point. These handlers used to `print()` the
-    exception to the server's stdout and redirect exactly as they do on
-    success, so a failed action was indistinguishable from a successful one
-    in the UI and invisible in structured logs — the fake success the
-    project's fail-loud rule forbids. The reason now reaches both the
-    operator (a signed flash) and the log.
-    """
+    """Run one mutation of ``app_name`` and report its real outcome on its page."""
     app = get_app_or_none(db_session, app_name)
     if not app:
         raise NotFoundException(detail=f"No such app: {app_name}")
 
-    page = f"/dashboard/apps/{app_name}"
-    try:
+    def run() -> str:
         do(app)
-        db_session.commit()
-    except Exception as e:
-        db_session.rollback()
-        server_log.exception(
-            "Dashboard app action failed",
-            app_name=app_name,
-            action=action,
-            error=str(e),
-        )
-        text = f"Failed to {action} application '{app_name}': {type(e).__name__}: {e}"
-        return Redirect(
-            path=flash_url(page, ok=False, text=text), status_code=HTTP_303_SEE_OTHER
-        )
+        return _ACTION_DONE[action].format(app=app_name)
 
-    return Redirect(
-        path=flash_url(page, ok=True, text=_ACTION_DONE[action].format(app=app_name)),
-        status_code=HTTP_303_SEE_OTHER,
+    return run_mutation(
+        db_session,
+        f"/dashboard/apps/{app_name}",
+        f"{action} application '{app_name}'",
+        run,
+        app_name=app_name,
     )
 
 

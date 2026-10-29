@@ -13,8 +13,8 @@ Only top-level items count: an indented item belongs to a list or block that
 already started. A list after a heading, a table, an admonition, a fence, an
 HTML line or another item needs no blank line.
 
-    python scripts/lint_lists.py FILE...         report, exit 1 on any finding
-    python scripts/lint_lists.py --fix FILE...   insert the missing blank lines
+    python docs/scripts/lint_lists.py FILE...         report, exit 1 on any finding
+    python docs/scripts/lint_lists.py --fix FILE...   insert the missing blank lines
 """
 
 from __future__ import annotations

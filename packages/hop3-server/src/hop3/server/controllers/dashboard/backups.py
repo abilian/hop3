@@ -16,8 +16,6 @@ freeze every other request (``backup_info`` checksums the whole archive).
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-
 import anyio
 from dishka.integrations.litestar import FromDishka, inject
 from litestar import Controller, Request, get, post
@@ -32,10 +30,7 @@ from hop3.lib.logging import server_log
 from hop3.orm.repositories import BackupRepository
 from hop3.server.guards import RoleGuard
 
-from .helpers import FLASH_PARAM, flash_url, format_size, read_flash
-
-if TYPE_CHECKING:
-    from collections.abc import Callable
+from .helpers import FLASH_PARAM, flash_url, format_size, read_flash, run_mutation
 
 BACKUPS_PAGE = "/dashboard/backups"
 PAGE_SIZE = 50
@@ -69,11 +64,11 @@ class BackupsController(Controller):
         limit: FromQuery[int] = PAGE_SIZE,
     ) -> Template | Redirect:
         """Display one page of backups, most recent first."""
-        flash = read_flash(request.query_params.get(FLASH_PARAM), request.url.path)
+        flash_token = request.query_params.get(FLASH_PARAM)
         offset = max(offset, 0)
         limit = min(max(limit, 1), MAX_PAGE_SIZE)
         return await anyio.to_thread.run_sync(
-            self._list, manager, backup_repo, offset, limit, flash
+            self._list, manager, backup_repo, offset, limit, flash_token
         )
 
     @staticmethod
@@ -82,8 +77,10 @@ class BackupsController(Controller):
         backup_repo: BackupRepository,
         offset: int,
         limit: int,
-        flash: dict | None,
+        flash_token: str | None,
     ) -> Template:
+        # Reading the flash reads the secret key from disk: off the loop.
+        flash = read_flash(flash_token, BACKUPS_PAGE)
         backups = [
             _backup_row(entry)
             for entry in manager.list_backups(app_name=None, limit=limit, offset=offset)
@@ -174,7 +171,11 @@ class BackupsController(Controller):
             return f"Restored backup {backup_id} to {manifest.app_name}"
 
         return await anyio.to_thread.run_sync(
-            _run_backup_action, db_session, backup_id, "restore", _restore
+            run_mutation,
+            db_session,
+            BACKUPS_PAGE,
+            f"restore backup {backup_id}",
+            _restore,
         )
 
     @post(
@@ -196,44 +197,12 @@ class BackupsController(Controller):
             return f"Deleted backup {backup_id}"
 
         return await anyio.to_thread.run_sync(
-            _run_backup_action, db_session, backup_id, "delete", _delete
+            run_mutation,
+            db_session,
+            BACKUPS_PAGE,
+            f"delete backup {backup_id}",
+            _delete,
         )
-
-
-def _run_backup_action(
-    db_session: Session, backup_id: str, action: str, do: Callable[[], str]
-) -> Redirect:
-    """
-    Run one backup mutation and report its real outcome to the browser.
-
-    A failed **restore** used to be pixel-identical to a successful one: the
-    exception went to the server's stdout via `print()` and the browser got the
-    same redirect either way. For an operation whose whole purpose is
-    recovering data, silently reporting success is the worst available failure
-    mode, and the project's fail-loud rule forbids it outright. The outcome
-    travels as a signed flash, so a crafted link cannot fake one.
-    """
-    try:
-        message = do()
-        db_session.commit()
-    except Exception as e:
-        db_session.rollback()
-        server_log.exception(
-            "Dashboard backup action failed",
-            backup_id=backup_id,
-            action=action,
-            error=str(e),
-        )
-        text = f"Failed to {action} backup {backup_id}: {type(e).__name__}: {e}"
-        return Redirect(
-            path=flash_url(BACKUPS_PAGE, ok=False, text=text),
-            status_code=HTTP_303_SEE_OTHER,
-        )
-    server_log.info("Backup action succeeded", backup_id=backup_id, action=action)
-    return Redirect(
-        path=flash_url(BACKUPS_PAGE, ok=True, text=message),
-        status_code=HTTP_303_SEE_OTHER,
-    )
 
 
 def _backup_row(entry: BackupManifest | UnreadableBackup) -> dict:

@@ -19,7 +19,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING, cast
 
 from hop3.core.credentials import get_credential_encryptor
-from hop3.core.plugins import get_addon
+from hop3.core.plugins import UnknownAddonTypeError, get_addon
 from hop3.deployers.env_provisioning import set_env_vars
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.logging import server_log
@@ -340,7 +340,7 @@ def _provision_single_addon(
 
     try:
         addon = get_addon(addon_type, addon_name)
-    except RuntimeError as e:
+    except UnknownAddonTypeError as e:
         abort_with_diagnosis(
             Diagnosis(
                 component="Addon provisioning",

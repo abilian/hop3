@@ -40,6 +40,7 @@ def app(tmp_path, monkeypatch) -> App:
 def write_artifact(app: App, protocol: str) -> None:
     BuildArtifact(
         kind="php",
+        builder="local",
         app_name=app.name,
         runtime=RuntimeConfig(backend_protocol=protocol),
     ).save(app.app_path / ARTIFACT_FILENAME)
@@ -56,7 +57,7 @@ class TestTheProtocolComesFromTheArtifact:
 
     def test_an_artifact_without_the_field_means_http(self, app) -> None:
         (app.app_path / ARTIFACT_FILENAME).write_text(
-            '{"kind": "python", "runtime": {"workers": {"web": "gunicorn app:app"}}}'
+            '{"kind": "python", "builder": "local", "runtime": {"workers": {"web": "gunicorn app:app"}}}'
         )
         assert load_backend_protocol(app.app_path) == "http"
 

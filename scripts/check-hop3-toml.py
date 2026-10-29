@@ -10,16 +10,10 @@ Usage:
 
 from __future__ import annotations
 
-import os
 import sys
-import tempfile
-import tomllib
 from pathlib import Path
 
-# Importing hop3 loads $HOP3_ROOT/hop3-server.toml. This tool reads no server,
-# and on a machine that also runs Hop3 that file is the live one, unreadable.
-_ROOT = tempfile.TemporaryDirectory(prefix="hop3-tool-")
-os.environ["HOP3_ROOT"] = _ROOT.name
+import tomllib
 
 from hop3.project.schema import Hop3TomlValidationError, validate_hop3_toml
 

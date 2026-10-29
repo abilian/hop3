@@ -159,6 +159,7 @@ class MyBuilder:
     """Build strategy for MyFramework applications."""
 
     name = "myframework"
+    fallback = False
 
     def __init__(self, context: DeploymentContext):
         self.context = context
@@ -179,6 +180,7 @@ class MyBuilder:
 
         return BuildArtifact(
             kind="myframework",
+            builder="local",  # host-built: the uWSGI deployer runs it
             location=str(venv_path),
             metadata={"framework_version": "1.0"}
         )

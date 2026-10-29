@@ -29,6 +29,7 @@ def _launcher(*, artifact_env: dict, db_env: dict) -> AppLauncher:
     launcher.virtualenv_path = Path("/home/hop3/apps/myapp/venv")
     launcher.artifact = BuildArtifact(
         kind="elixir",
+        builder="local",
         runtime=RuntimeConfig(env_vars=dict(artifact_env)),
     )
     launcher.app = SimpleNamespace(

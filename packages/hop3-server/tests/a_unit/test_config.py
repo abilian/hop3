@@ -5,6 +5,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from hop3 import config as config_module
 from hop3.config import HopConfig
 from hop3.lib.config import Config
 
@@ -50,3 +51,22 @@ def test_default(monkeypatch):
 
     # Cleanup
     HopConfig.reset_instance()
+
+
+def test_importing_config_builds_no_singleton(tmp_path):
+    """
+    `from hop3.config import config` waits for a read, and follows a swap.
+
+    Binding the singleton at import read `hop3-server.toml` as soon as the RPC
+    command table was imported, so a dev tool that reads no server failed on a
+    machine whose live file it cannot read.
+    """
+    HopConfig.reset_instance()
+    try:
+        live = config_module.config  # what `from hop3.config import config` binds
+
+        assert HopConfig._instance is None
+        HopConfig.set_instance(HopConfig(hop3_root=tmp_path))
+        assert tmp_path == live.HOP3_ROOT
+    finally:
+        HopConfig.reset_instance()
