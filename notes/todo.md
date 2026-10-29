@@ -24,7 +24,7 @@ The release: [`plans/plan-0.8.md`](plans/plan-0.8.md), "To release 0.8". One dec
 
 - **`--` is lost in flag parsing.** `parse_flags` consumes the POSIX end-of-options marker (`_END_OF_FLAGS` in `commands/flags.py`) and records nothing about where it was, so a later pass cannot tell an escaped flag from one of ours: `hop3 apps -- --help` still reads as a request for hop3's own help. The `run` boundary has the same shape and is handled (`app_scope.RunBoundary`, fed by both passes); `--` needs a change to what `parse_flags` returns, which is why it was not folded in with it.
 
-- **`hop3 login --token <token>` puts a secret on argv**, where `ps` can read it for the length of the call. ADR 036 gives `user add`, `user set-password` and `auth get-token` the `KEY=-` / `KEY=@file` / hidden-prompt treatment; the `--token` path never got it. The deployer is a caller (`deployer/deploy.py`, whose own comment at the call notes there is no stdin form to use). Small, and the rewriting machinery already exists in `commands/arguments.py`.
+- **Remove the literal form of `hop3 login --token <token>`.** `--token -`, `--token @path` and the hidden prompt exist, and the CLI, the TUI, the admin commands and `hop3-deploy-server` use them. The literal form still works, with a warning, so a token can still reach `ps` and shell history; the token-in-URL login form is already refused. Refuse the literal form with a hint to `--token -`, after a release that warns.
 
 The items below come out of the 2026-09-25 pass that lined the client's argument handling up with the server's (see "Two Parsers Read One argv" in [`lessons-learned/cli-ergonomics.md`](lessons-learned/cli-ergonomics.md)).
 
@@ -110,6 +110,10 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
   - Two different rules (builder for uWSGI, kind for the others) mean a new deployer has no single convention to follow, and the "deployers accept disjoint artifacts" invariant `get_deployer` relies on holds only by construction.
 
   Options to weigh, none decided: keep the closed set and document `local` as "host processes" (no code, field stays overloaded); split the artifact into `builder` (provenance) and a run-mode field every deployer selects on (touches every builder, every deployer and the artifact format, with a migration or rebuild of artifacts on disk); or let a builder plugin name the deployer for its output (moves the knowledge, couples two plugin types). What decides: the first real external builder, or the next change to the artifact format, whichever comes first.
+
+## Code structure
+
+- **The uncommitted-write tracking of the request session exists twice.** `hop3/di/providers.py` and `hop3_testlab/di/providers.py` each hold about 80 lines that watch a session's connection for writes and roll back or refuse on scope exit. No package can host one copy: hop3-server depends on no other workspace package, and testlab depending on hop3-server, or the server on hop3-testing, is the wrong direction. A fix to either copy goes to the other in the same change until a small shared package exists.
 
 ## Release tooling
 
