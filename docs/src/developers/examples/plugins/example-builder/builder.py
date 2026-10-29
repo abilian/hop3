@@ -10,6 +10,7 @@ It shows the core concepts without the complexity of a production builder.
 
 from __future__ import annotations
 
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -44,7 +45,7 @@ class ExampleBuilder:
     name = "example-python"
     fallback = False
 
-    def __init__(self, context: DeploymentContext):
+    def __init__(self, context: DeploymentContext) -> None:
         """Initialize builder with deployment context.
 
         Args:
@@ -128,8 +129,6 @@ class ExampleBuilder:
 
         # Remove existing virtualenv if it exists
         if venv_path.exists():
-            import shutil
-
             shutil.rmtree(venv_path)
 
         # Create parent directory

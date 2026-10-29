@@ -30,7 +30,6 @@ from hop3.core.protocols import (
     DeploymentInfo,
 )
 from hop3.lib import (
-    Abort,
     Diagnosis,
     abort_with_diagnosis,
     get_free_port,
@@ -504,20 +503,6 @@ services:
             self.context.app.transition_state(AppStateEnum.STOPPED)
 
         log(f"App '{self.app_name}' stopped.", level=2, fg="green")
-
-    def restart(self) -> None:
-        """Restart the application."""
-        log(f"Restarting '{self.app_name}'...", level=2, fg="blue")
-
-        cmd = [*self._get_compose_cmd_base(), "restart"]
-        try:
-            self._run_compose_command(cmd)
-            log(f"App '{self.app_name}' restarted.", level=2, fg="green")
-        except Abort:
-            # Fallback to stop/start
-            log("Restart failed, falling back to stop/start...", level=2, fg="yellow")
-            self.stop()
-            self.start()
 
     def destroy(self) -> None:
         """Destroy the application and clean up resources."""

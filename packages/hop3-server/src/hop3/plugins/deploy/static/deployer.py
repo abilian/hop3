@@ -195,15 +195,6 @@ class StaticDeployer:
         self.app.transition_state(AppStateEnum.STOPPED)
         log(f"Static app '{self.app.name}' stopped.", level=2, fg="green")
 
-    def restart(self) -> None:
-        """Restart the static app (no-op for static files)."""
-        log(f"Restarting static app '{self.app.name}'...", level=2, fg="blue")
-        # For static apps, there's nothing to restart - just ensure it's running
-        if self.app.run_state != AppStateEnum.RUNNING:
-            self.start()
-        else:
-            log(f"Static app '{self.app.name}' already running.", level=2, fg="green")
-
     def destroy(self) -> None:
         """Destroy the static app deployment."""
         self.stop()
