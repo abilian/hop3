@@ -139,6 +139,20 @@ def test_enforce_empty_resolution_removes_stale_leaf(monkeypatch, set_config):
     assert app.limits_detail == ""
 
 
+def test_enforce_aborts_when_the_dropped_cap_cannot_be_removed(monkeypatch, set_config):
+    """Dropping [limits] used to ignore remove's leftovers and report no cap."""
+    set_config()
+    err = nl.RootdError("down")
+    _patch(
+        monkeypatch, pids=[1], client_factory=partial(_StubClient, raise_on_enter=err)
+    )
+    app = _app()
+    app.limits_enforced = "native"
+    with pytest.raises(Abort, match="cgroup leaf of 'myapp'"):
+        nl.enforce_native_limits(app, _cfg({}))
+    assert app.limits_enforced == "native"  # never recorded as uncapped
+
+
 def test_enforce_aborts_on_ceiling_breach_post_start(monkeypatch, set_config):
     # The operator lowered the ceiling between build and post-start; re-resolution
     # now breaches it. Must be a structured abort, not an opaque LimitsError.
@@ -272,13 +286,15 @@ def test_reattach_logs_partial_failure(monkeypatch):
 
 def test_remove_calls_cgroup_remove(monkeypatch):
     _patch(monkeypatch, pids=[], client_factory=_StubClient)
-    nl.remove_native_limits("myapp")
+    assert nl.remove_native_limits("myapp") == []
     assert _StubClient.calls == [("cgroup.remove", {"app_name": "myapp"})]
 
 
-def test_remove_swallows_rootd_error(monkeypatch):
+def test_remove_returns_the_leaf_it_could_not_remove(monkeypatch):
+    """It used to swallow the rootd error: destroy reported a clean teardown."""
     err = nl.RootdError("down")
     _patch(
         monkeypatch, pids=[], client_factory=partial(_StubClient, raise_on_enter=err)
     )
-    nl.remove_native_limits("myapp")  # must not raise
+    leftovers = nl.remove_native_limits("myapp")  # must not raise
+    assert leftovers == ["cgroup leaf of 'myapp' (hop3-rootd cgroup.remove: down)"]

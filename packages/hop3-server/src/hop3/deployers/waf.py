@@ -60,10 +60,8 @@ def _waf_section(app_config: AppConfig) -> WafSection | None:
     return validate_hop3_toml({"waf": raw}).waf
 
 
-def _resolve_networks(db_session: Session | None) -> dict[str, list[str]]:
+def _resolve_networks(db_session: Session) -> dict[str, list[str]]:
     """Operator-defined named networks (name -> CIDRs) for gate conditions."""
-    if db_session is None:
-        return {}
     repo = NetworkRepository(session=db_session)
     return {n.name: list(n.cidrs) for n in repo.get_many()}
 
@@ -74,7 +72,7 @@ def _vassal_name(app_name: str) -> str:
 
 
 def configure_waf_preflight(
-    app: App, app_config: AppConfig, db_session: Session | None
+    app: App, app_config: AppConfig, db_session: Session
 ) -> None:
     """
     Compile + validate the WAF policy and allocate the proxy port (or tear
@@ -83,10 +81,16 @@ def configure_waf_preflight(
     section = _waf_section(app_config)
     if section is None or not section.enabled:
         if app.waf_port:
-            _stop_proxy_vassal(app.name)
-            with suppress(Exception):
-                get_waf_engine().remove_app(app.name)
-            app.waf_port = 0
+            leftovers = teardown_waf(app)
+            if leftovers:
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="WAF",
+                        action=f"tear down the WAF of '{app.name}'",
+                        reason="; ".join(leftovers),
+                        hint="fix the file permissions named above and redeploy",
+                    )
+                )
             log(f"WAF disabled for '{app.name}' — proxy torn down", level=2, fg="blue")
         return
 
@@ -173,18 +177,32 @@ def start_waf_proxy(app: App, app_config: AppConfig) -> None:
     )
 
 
-def teardown_waf(app: App) -> None:
-    """On destroy: stop the proxy vassal and remove its rules (best-effort)."""
-    _stop_proxy_vassal(app.name)
-    with suppress(Exception):
+def teardown_waf(app: App) -> list[str]:
+    """
+    On destroy: stop the proxy vassal and remove its rules.
+
+    Returns what could not be removed (empty when the teardown is complete);
+    each step still runs when an earlier one fails.
+    """
+    leftovers: list[str] = []
+    try:
+        _stop_proxy_vassal(app.name)
+    except OSError as e:
+        leftovers.append(f"WAF proxy vassal of '{app.name}': {e}")
+    try:
         get_waf_engine().remove_app(app.name)
+    except OSError as e:
+        leftovers.append(f"WAF rules/bans/audit files of '{app.name}': {e}")
     app.waf_port = 0
+    for leftover in leftovers:
+        log(f"Could not remove the {leftover}", level=1, fg="red")
+    return leftovers
 
 
 def reconcile_bans(
     app: App,
     app_config: AppConfig,
-    db_session: Session | None,
+    db_session: Session,
     now: datetime | None = None,
 ) -> int:
     """
@@ -200,7 +218,7 @@ def reconcile_bans(
     if section is None or not section.enabled:
         return 0
     bans_cfg = section.bans
-    if bans_cfg is None or not bans_cfg.enabled or db_session is None:
+    if bans_cfg is None or not bans_cfg.enabled:
         return 0
 
     now = now or utcnow()
@@ -266,7 +284,7 @@ def _read_audit(path: Path) -> list[dict]:
     return entries
 
 
-def _exempt_cidrs(db_session: Session | None) -> list[str]:
+def _exempt_cidrs(db_session: Session) -> list[str]:
     """All operator-named-network CIDRs — the ban exemption list (invariant 5)."""
     cidrs: list[str] = []
     for net_cidrs in _resolve_networks(db_session).values():

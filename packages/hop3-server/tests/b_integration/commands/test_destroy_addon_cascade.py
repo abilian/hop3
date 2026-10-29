@@ -206,3 +206,69 @@ def test_destroy_reports_incomplete_when_a_native_process_survives(
     assert "incomplete" in blob or "cleanup warnings" in blob
     assert test_db.query(App).filter_by(name="streamer2").count() == 0
     assert PortClaimRepository(session=test_db).find_active(1935, "tcp") is None
+
+
+def _stub_clean_teardown(monkeypatch) -> None:
+    """Every teardown step succeeds, with no Docker, filesystem or rootd."""
+    monkeypatch.setattr(App, "stop", lambda self: None)
+    monkeypatch.setattr(App, "destroy", lambda self: None)
+    monkeypatch.setattr("hop3.commands.app.teardown_waf", lambda app: [])
+    monkeypatch.setattr("hop3.commands.app.remove_native_limits", lambda name: [])
+
+
+def test_destroy_reports_clean_only_when_nothing_is_left(test_db, monkeypatch):
+    _make_app(test_db, "tidy")
+    _stub_clean_teardown(monkeypatch)
+
+    blob = str(DestroyCmd(db_session=test_db).call("--app", "tidy"))
+
+    assert "has been destroyed" in blob
+    assert "leftover" not in blob
+
+
+def test_destroy_names_every_leftover_a_teardown_step_returns(test_db, monkeypatch):
+    # The WAF files, the cgroup leaf and the firewall rule were each swallowed
+    # by their step, and destroy reported a clean teardown over them.
+    _make_app(test_db, "messy")
+    _stub_clean_teardown(monkeypatch)
+    monkeypatch.setattr(
+        "hop3.commands.app.teardown_waf", lambda app: ["WAF rules of 'messy': EACCES"]
+    )
+    monkeypatch.setattr(
+        "hop3.commands.app.remove_native_limits",
+        lambda name: ["cgroup leaf of 'messy' (rootd down)"],
+    )
+    monkeypatch.setattr(
+        "hop3.commands.app.release_fixed_ports",
+        lambda app, session: ["firewall rule r1 (nft: busy)"],
+    )
+
+    result = DestroyCmd(db_session=test_db).call("--app", "messy")
+
+    errors = [r for r in result if r.get("t") == "error"]
+    assert len(errors) == 1
+    message = str(errors[0])
+    assert "3 leftover(s)" in message
+    assert "WAF rules of 'messy': EACCES" in message
+    assert "cgroup leaf of 'messy' (rootd down)" in message
+    assert "firewall rule r1 (nft: busy)" in message
+    assert test_db.query(App).filter_by(name="messy").count() == 0
+
+
+def test_destroy_reports_a_leaked_addon_as_incomplete(test_db, monkeypatch):
+    # A leaked addon used to be reported only when every other step was clean,
+    # and next to "has been destroyed".
+    _make_app(test_db, "leaky", ("redis", "leaky-redis"))
+    _stub_clean_teardown(monkeypatch)
+
+    def _exploding_get_addon(addon_type: str, addon_name: str):
+        m = MagicMock()
+        m.destroy.side_effect = RuntimeError("redis-cli unreachable")
+        return m
+
+    monkeypatch.setattr("hop3.commands.app.get_addon", _exploding_get_addon)
+
+    blob = str(DestroyCmd(db_session=test_db).call("--app", "leaky"))
+
+    assert "has been destroyed" not in blob
+    assert "redis-cli unreachable" in blob

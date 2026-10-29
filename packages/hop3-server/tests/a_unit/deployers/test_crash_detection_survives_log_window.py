@@ -22,6 +22,8 @@ So compare content, not counts.
 
 from __future__ import annotations
 
+import pytest
+
 from hop3.deployers.deployer import (
     _is_crash_indicator,
     _lines_since,
@@ -105,3 +107,24 @@ def test_the_loader_error_reaches_the_counter_via_throttling():
     """
     assert not _is_crash_indicator("OrbStack ERROR: Dynamic loader not found")
     assert _is_crash_indicator("...throttling for 3 seconds...")
+
+
+class _BrokenApp(_App):
+    def __init__(self, error: Exception) -> None:
+        super().__init__([])
+        self.error = error
+
+    def get_logs(self, lines: int = 50) -> list[str]:
+        raise self.error
+
+
+def test_an_unreadable_log_only_skips_this_poll():
+    seen = ["a", "b"]
+
+    assert _process_new_logs(_BrokenApp(OSError("rotating")), seen) == (seen, 0)
+
+
+def test_a_bug_in_the_scan_is_not_mistaken_for_a_quiet_log():
+    """`except Exception` here turned any bug into "no crash, ever"."""
+    with pytest.raises(TypeError):
+        _process_new_logs(_BrokenApp(TypeError("bug")), [])

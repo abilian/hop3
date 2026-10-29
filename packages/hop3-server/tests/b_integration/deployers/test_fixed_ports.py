@@ -126,7 +126,7 @@ def test_open_then_release_firewall(db_session: Session, monkeypatch):
     assert claim is not None
     assert claim.rule_id == "rule-xyz"
 
-    release_fixed_ports(app, db_session)
+    assert release_fixed_ports(app, db_session) == []  # nothing left behind
     assert _FakeRootd.removed == ["rule-xyz"]
     # Release frees the registry row too, not just the firewall.
     assert repo.find_active(1935, "tcp") is None
@@ -150,6 +150,29 @@ def test_release_frees_port_for_reuse_without_app_delete(db_session: Session):
     freed = repo.find_active(1935, "tcp")
     assert freed is not None
     assert freed.app_id == other.id
+
+
+def test_release_reports_the_firewall_rule_it_could_not_close(
+    db_session: Session, monkeypatch
+):
+    """The close used to be best-effort and silent: destroy reported clean."""
+    app = _app(db_session, "owncast-1")
+    claim_fixed_ports(app, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _FakeRootd)
+    open_fixed_ports(app, db_session)
+
+    class _RefusesRemoval(_FakeRootd):
+        def call(self, op: str, args: dict):
+            if op == "firewall.remove_rule":
+                raise RootdError("nft: rule busy")  # ruff:ignore[raw-string-in-exception, raise-vanilla-args]
+            return super().call(op, args)
+
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _RefusesRemoval)
+    leftovers = release_fixed_ports(app, db_session)
+
+    assert leftovers == ["firewall rule rule-xyz (nft: rule busy)"]
+    # The registry row is freed regardless.
+    assert PortClaimRepository(session=db_session).find_active(1935, "tcp") is None
 
 
 def test_open_degrades_when_rootd_unavailable(db_session: Session, monkeypatch):
@@ -354,3 +377,24 @@ def test_redeploy_with_changed_source_rescopes(db_session: Session, monkeypatch)
 
     open_fixed_ports(app, db_session)
     assert _RecordingRootd.add_args[-1]["source"] == "10.0.0.0/8"  # re-opened narrowed
+
+
+def test_redeploy_aborts_when_a_dropped_port_rule_cannot_be_closed(
+    db_session: Session, monkeypatch
+):
+    """The reconcile used to swallow the rootd error and leave the port open."""
+    _FakeRootd.added.clear()
+    app = _app(db_session, "owncast-1")
+    claim_fixed_ports(app, _cfg((1935, "tcp")), db_session)  # type: ignore[arg-type]
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _FakeRootd)
+    open_fixed_ports(app, db_session)
+
+    class _RefusesRemoval(_FakeRootd):
+        def call(self, op: str, args: dict):
+            if op == "firewall.remove_rule":
+                raise RootdError("nft: rule busy")  # ruff:ignore[raw-string-in-exception, raise-vanilla-args]
+            return super().call(op, args)
+
+    monkeypatch.setattr("hop3.deployers.fixed_ports.LocalRootdClient", _RefusesRemoval)
+    with pytest.raises(Abort, match=r"rule-xyz.*1935/tcp"):
+        claim_fixed_ports(app, _cfg(), db_session)  # type: ignore[arg-type]

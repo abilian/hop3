@@ -9,16 +9,20 @@ import os
 import shutil
 import subprocess
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
+from hop3.core.artifacts import WEB_WORKER_KINDS
 from hop3.core.env import Env
 from hop3.core.events import CreatingVirtualEnv, InstallingVirtualEnv, emit
-from hop3.lib import chdir, log
+from hop3.lib import Diagnosis, abort_with_diagnosis, chdir, log
 
 from ._base import LanguageToolchain
 
 # Lines that are options or includes rather than requirements themselves.
 _NON_REQUIREMENT_PREFIXES = ("#", "-r ", "-c ", "-e ", "-f ", "--")
+
+#: Seconds the uv installer (a download plus a shell script) may take.
+_UV_INSTALL_TIMEOUT = 300
 
 
 def _requirement_lines(text: str) -> list[str]:
@@ -154,6 +158,9 @@ class PythonToolchain(LanguageToolchain):
             env_vars=env_vars,
             path_prepend=path_prepend,
         )
+        wsgi = self._discover_wsgi_module(runtime.workers)
+        if wsgi:
+            runtime.workers["wsgi"] = wsgi
 
         # Return complete BuildArtifact with runtime config
         return self._make_build_artifact(
@@ -163,6 +170,44 @@ class PythonToolchain(LanguageToolchain):
                 "python_path": str(self.virtual_env / "bin" / "python"),
             },
         )
+
+    def _discover_wsgi_module(self, workers: dict[str, str]) -> str | None:
+        """
+        The WSGI module to serve when the app declares no web-facing worker.
+
+        Probes the conventional entry points (``wsgi.py``, ``app.py``, then a
+        Django ``<project>/wsgi.py``). Returns None when a web worker is already
+        declared (Procfile or hop3.toml) or nothing conventional is found.
+        """
+        declared = set(workers)
+        if self.context is not None:
+            declared |= set(
+                self.context.app_config.get("procfile", {}).get("workers", {})
+            )
+        if declared & WEB_WORKER_KINDS:
+            return None
+
+        probes = [("wsgi.py", "wsgi:application"), ("app.py", "app:app")]
+        django = next(
+            (
+                child
+                for child in sorted(self.src_path.iterdir())
+                if child.is_dir() and (child / "wsgi.py").exists()
+            ),
+            None,
+        )
+        if django is not None:
+            probes.append((f"{django.name}/wsgi.py", f"{django.name}.wsgi:application"))
+
+        for file_check, module in probes:
+            if (self.src_path / file_check).exists():
+                log(
+                    f"  Auto-detected WSGI module: {module} (from {file_check})",
+                    level=1,
+                    fg="green",
+                )
+                return module
+        return None
 
     def get_env(self) -> Env:
         # Create an environment with specific settings for Python execution
@@ -257,21 +302,26 @@ class PythonToolchain(LanguageToolchain):
 
         python = self.virtual_env / "bin" / "python"
 
-        assert self.src_path.exists()
-        assert self.virtual_env.exists()
-        assert python.exists()
+        for required in (self.src_path, self.virtual_env, python):
+            if not required.exists():
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="Python toolchain",
+                        action="install dependencies",
+                        reason=f"{required} does not exist",
+                        hint=(
+                            "The virtualenv step did not leave a working venv; "
+                            "check the build log above for the venv creation error"
+                        ),
+                    )
+                )
 
-        # Check for uv.lock first - if present, use uv for exact locked versions
-        uv_lock_file = self.src_path / "uv.lock"
-        if uv_lock_file.exists():
-            if self._ensure_uv_installed():
-                self._install_with_uv()
-                return
-            log(
-                "uv.lock found but uv installation failed, falling back to pip",
-                level=2,
-                fg="yellow",
-            )
+        # A uv.lock pins the exact dependency tree, so only uv may install it:
+        # pip would ignore the lockfile and resolve something else.
+        if (self.src_path / "uv.lock").exists():
+            self._ensure_uv_installed()
+            self._install_with_uv()
+            return
 
         # Ensure pip and setuptools are up to date before installing dependencies
         # This is essential for existing virtualenvs that may lack setuptools
@@ -328,56 +378,57 @@ class PythonToolchain(LanguageToolchain):
                 msg = f"requirements.txt or pyproject.toml not found for '{self.app_name}'"
                 raise FileNotFoundError(msg)
 
-    def _has_uv(self) -> bool:
-        """Check if uv is available on the system."""
-        return shutil.which("uv") is not None
-
-    def _ensure_uv_installed(self) -> bool:
+    def _ensure_uv_installed(self) -> None:
         """
-        Ensure uv is installed, installing it if necessary.
+        Make uv available, installing it if necessary; abort if that fails.
 
-        Returns:
-            True if uv is available (was already installed or installation succeeded)
-            False if installation failed
+        The caller has a uv.lock, which only uv can honour, so there is no
+        fallback: a build that silently ignored the lockfile would ship a
+        dependency tree nobody locked.
         """
-        if self._has_uv():
-            return True
+        if self._locate_uv():
+            return
 
         log("Installing uv package manager...", level=2, fg="yellow")
+        command = "curl -LsSf https://astral.sh/uv/install.sh | sh"
         try:
-            # Install uv using the official installer
             result = subprocess.run(
-                ["sh", "-c", "curl -LsSf https://astral.sh/uv/install.sh | sh"],
+                ["sh", "-c", command],
                 check=False,
                 capture_output=True,
                 text=True,
+                timeout=_UV_INSTALL_TIMEOUT,
             )
-            if result.returncode != 0:
-                log(f"Failed to install uv: {result.stderr}", level=1, fg="red")
-                return False
+        except (subprocess.TimeoutExpired, OSError) as e:
+            self._abort_uv_unavailable(f"`{command}` failed: {e}")
 
-            # Verify installation - uv installs to ~/.local/bin by default
-            # We need to check common locations
-            uv_paths = [
-                Path.home() / ".local" / "bin" / "uv",
-                Path("/usr/local/bin/uv"),
-                Path.home() / ".cargo" / "bin" / "uv",
-            ]
-            for uv_path in uv_paths:
-                if uv_path.exists():
-                    log(f"uv installed successfully at {uv_path}", level=2, fg="green")
-                    return True
+        if result.returncode != 0:
+            output = (result.stderr or result.stdout or "").strip()
+            self._abort_uv_unavailable(
+                f"`{command}` exited with status {result.returncode}: {output[-1500:]}"
+            )
 
-            # Check if it's now in PATH
-            if self._has_uv():
-                log("uv installed successfully", level=2, fg="green")
-                return True
+        uv_bin = self._locate_uv()
+        if uv_bin is None:
+            searched = ", ".join(str(p) for p in self._uv_candidates())
+            self._abort_uv_unavailable(
+                f"the uv installer succeeded but no uv binary is on PATH or at {searched}"
+            )
+        log(f"uv installed successfully at {uv_bin}", level=2, fg="green")
 
-            log("uv installation completed but binary not found", level=1, fg="red")
-            return False
-        except Exception as e:
-            log(f"Error installing uv: {e}", level=1, fg="red")
-            return False
+    def _abort_uv_unavailable(self, reason: str) -> NoReturn:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Python toolchain",
+                action="install dependencies from uv.lock",
+                reason=f"uv is not available for '{self.app_name}': {reason}",
+                hint=(
+                    "Make uv available to the hop3 user (on PATH or in "
+                    "~/.local/bin), or remove uv.lock to install from "
+                    "requirements.txt / pyproject.toml with pip"
+                ),
+            )
+        )
 
     def _uv_candidates(self) -> list[Path]:
         """
@@ -393,19 +444,16 @@ class PythonToolchain(LanguageToolchain):
             Path("/usr/local/bin/uv"),
         ]
 
-    def _find_uv_binary(self) -> str:
-        """Find the uv binary, checking common installation locations."""
-        # Check PATH first
+    def _locate_uv(self) -> str | None:
+        """The uv binary on PATH, else in a common install location, else None."""
         uv_in_path = shutil.which("uv")
         if uv_in_path:
             return uv_in_path
+        return next((str(p) for p in self._uv_candidates() if p.exists()), None)
 
-        for candidate in self._uv_candidates():
-            if candidate.exists():
-                return str(candidate)
-
-        # Fallback - assume it's in PATH
-        return "uv"
+    def _find_uv_binary(self) -> str:
+        """Find the uv binary, falling back to the bare name for PATH lookup."""
+        return self._locate_uv() or "uv"
 
     def _install_with_uv(self) -> None:
         """Install dependencies using uv sync for exact locked versions."""

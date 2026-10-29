@@ -6,12 +6,21 @@
 
 from __future__ import annotations
 
+import shutil
 from typing import TYPE_CHECKING
 
 from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.events import InstallingVirtualEnv, emit
-from hop3.lib import Abort, chdir, check_binaries, log, prepend_to_path
+from hop3.lib import (
+    Abort,
+    Diagnosis,
+    abort_with_diagnosis,
+    chdir,
+    check_binaries,
+    log,
+    prepend_to_path,
+)
 from hop3.run.uwsgi.naming import vassal_glob
 
 from ._base import LanguageToolchain
@@ -25,6 +34,7 @@ class NodeToolchain(LanguageToolchain):
 
     name = "Node"
     requirements = ["node", "npm"]  # ruff:ignore[mutable-class-default]
+    defers_runtime = True
 
     def accept(self) -> bool:
         """Check if the package.json file exists in the specified app path."""
@@ -192,9 +202,18 @@ class NodeToolchain(LanguageToolchain):
 
         started = list(c.UWSGI_ENABLED.glob(vassal_glob(self.app_name)))
         if installed and started:
-            # Raise an error if the app is running
-            msg = "Warning: Can't update node with app running. Stop the app & retry."
-            raise Abort(msg)
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Node toolchain",
+                    action=f"switch Node.js from {installed} to {version}",
+                    reason=(
+                        f"'{self.app_name}' is running on the Node.js in its venv, "
+                        "which nodeenv would replace underneath it"
+                    ),
+                    hint=f"Stop the app (hop3 app stop --app {self.app_name}), "
+                    "then deploy again",
+                )
+            )
 
         log(
             f"Installing node version '{version}' using nodeenv",
@@ -245,8 +264,30 @@ class NodeToolchain(LanguageToolchain):
         npm_prefix = self.src_path
         package_json = self.src_path / "package.json"
 
-        assert package_json.exists()
-        assert check_binaries(["npm"])
+        if not package_json.exists():
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Node toolchain",
+                    action="install npm dependencies",
+                    reason=f"{package_json} does not exist",
+                    hint=(
+                        "Commit a package.json, or declare the install in "
+                        "hop3.toml [build].build"
+                    ),
+                )
+            )
+        if shutil.which("npm", path=str(env.get("PATH", ""))) is None:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Node toolchain",
+                    action="install npm dependencies",
+                    reason=f"npm is not on the build PATH ({env.get('PATH', '')})",
+                    hint=(
+                        "Install Node.js on the server (`hop3-install server`), "
+                        "or pin [build].node-version so nodeenv provides it"
+                    ),
+                )
+            )
 
         # `npm ci` installs the dependency tree recorded in the lockfile and
         # nothing else. The alternative, `npm install --package-lock=false`,

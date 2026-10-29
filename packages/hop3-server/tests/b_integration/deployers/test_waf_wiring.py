@@ -44,10 +44,6 @@ def test_waf_section_validates_the_policy():
     assert section.allow == ["/", "/api/.*"]
 
 
-def test_resolve_networks_without_session_is_empty():
-    assert _resolve_networks(None) == {}
-
-
 def test_resolve_networks_maps_name_to_cidrs(db_session):
     db_session.add(Network(name="office", cidrs=["203.0.113.0/24", "10.0.0.0/8"]))
     db_session.add(Network(name="vpn", cidrs=["10.8.0.0/24"]))
@@ -175,3 +171,31 @@ def test_reconcile_bans_expires_elapsed_bans(db_session, tmp_path, monkeypatch):
     )
     assert active == 0
     assert "198.51.100.9" not in engine._bans_path(app.name).read_text()
+
+
+def test_teardown_removes_the_engine_files(tmp_path, monkeypatch):
+    engine = _tmp_engine(tmp_path, monkeypatch)
+    rules = engine._rules_path("myapp")
+    rules.parent.mkdir(parents=True, exist_ok=True)
+    rules.write_text("SecRule ...")
+    app = App(name="myapp", waf_port=4242)
+
+    assert waf_mod.teardown_waf(app) == []
+    assert not rules.exists()
+    assert app.waf_port == 0
+
+
+def test_teardown_reports_what_it_could_not_remove(tmp_path, monkeypatch):
+    """The engine cleanup used to sit under suppress(Exception): destroy said clean."""
+
+    class _StuckEngine:
+        def remove_app(self, app_name):
+            raise PermissionError(13, "Permission denied", f"/waf/{app_name}.conf")
+
+    monkeypatch.setattr(waf_mod, "get_waf_engine", lambda name="lewaf": _StuckEngine())
+
+    leftovers = waf_mod.teardown_waf(App(name="myapp", waf_port=4242))
+
+    assert len(leftovers) == 1
+    assert "Permission denied" in leftovers[0]
+    assert "myapp" in leftovers[0]

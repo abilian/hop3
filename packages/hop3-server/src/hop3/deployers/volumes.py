@@ -32,7 +32,7 @@ import os
 import shutil
 from typing import TYPE_CHECKING, Any
 
-from hop3.config import HOP3_USER
+from hop3 import config as c
 from hop3.lib import log
 from hop3.lib.path import is_confined_to
 from hop3.lib.util import robust_rmtree
@@ -143,10 +143,10 @@ def _storage_dir(path: Path, name: str, mode: str | None) -> Path:
         # A failure stops the deploy: it was logged and the app started with a
         # volume it could not write.
         try:
-            shutil.chown(path, user=HOP3_USER, group=HOP3_USER)
+            shutil.chown(path, user=c.HOP3_USER, group=c.HOP3_USER)
         except (LookupError, PermissionError) as e:
             msg = (
-                f"[[volumes]] {name!r}: cannot give {path} to {HOP3_USER}, so the "
+                f"[[volumes]] {name!r}: cannot give {path} to {c.HOP3_USER}, so the "
                 f"app could not write to it: {e}"
             )
             raise ValueError(msg) from e

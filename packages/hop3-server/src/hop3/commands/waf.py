@@ -248,18 +248,32 @@ class WafReconcileBansCmd(Command):
         )
 
         apps = AppRepository(session=self.db_session).list_all_ordered()
+        waf_apps = [a for a in apps if a.waf_port]
         active_total = 0
-        for app in apps:
+        failed: list[str] = []
+        for app in waf_apps:
             try:
                 app_config = AppConfig.from_dir(app.app_path)
-            except Exception:  # a missing/broken app dir is skippable
+            except Exception as e:
+                # A WAF-enabled app whose config can't be read is not scored:
+                # its offenders go unbanned, so say which and why.
+                failed.append(f"{app.name}: {e}")
                 continue
             active_total += reconcile_bans(app, app_config, self.db_session)
         self.db_session.commit()
-        return [
+        response = [
             text(
-                f"Reconciled WAF bans across {len(apps)} app(s); "
-                f"{active_total} active ban(s)."
-            ),
-            summary("reconciled waf bans"),
+                f"Reconciled WAF bans across {len(waf_apps) - len(failed)} of "
+                f"{len(waf_apps)} WAF-enabled app(s); {active_total} active ban(s)."
+            )
         ]
+        if failed:
+            response.append(
+                error(
+                    f"Could not reconcile bans for {len(failed)} app(s) — their "
+                    "config failed to load, so no new offenders were banned:\n"
+                    + "\n".join(f"  - {item}" for item in failed)
+                )
+            )
+        response.append(summary("reconciled waf bans"))
+        return response

@@ -19,10 +19,9 @@ from __future__ import annotations
 
 import os
 import subprocess
-from contextlib import suppress
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, NoReturn
 
-from hop3.lib import get_free_port, log
+from hop3.lib import Diagnosis, format_diagnosis, get_free_port, log
 from hop3.orm.app import AppStateEnum
 
 if TYPE_CHECKING:
@@ -31,6 +30,7 @@ if TYPE_CHECKING:
     from hop3.orm.app import App
 
 __all__ = [
+    "DockerError",
     "app_container_ids",
     "cleanup_orphan_docker_resources",
     "destroy_docker_compose",
@@ -158,13 +158,7 @@ def stop_docker_compose(app: App) -> None:
             level=2,
             fg="yellow",
         )
-        with suppress(Exception):
-            subprocess.run(
-                ["docker", "kill", *running],
-                capture_output=True,
-                check=False,
-                timeout=30,
-            )
+        _docker(app, "kill", *running, action="force-kill its containers")
         running = app_container_ids(app, running_only=True)
     if running:
         msg = (
@@ -238,34 +232,46 @@ def destroy_docker_compose(app: App) -> None:
     except Exception as e:
         log(f"Error destroying Docker Compose app: {e}", level=2, fg="yellow")
 
-    # Safety net: 'down' is best-effort (check=False, may time out). Remove
+    # Safety nets: 'down' is best-effort (check=False, may time out). Remove
     # any container it left behind — otherwise it keeps the published host
-    # port and collides by name on the next deploy. (The orphan reaper is
-    # only on the non-docker branch of destroy(), so do it here too.)
+    # port and collides by name on the next deploy — then the network and the
+    # per-app image `down --rmi` may have missed (e.g. the compose file was
+    # already gone; base images are never tagged `hop3/...`). Every step runs,
+    # and every failure is reported: destroy must never claim a clean teardown
+    # over a leftover.
+    failures: list[str] = []
+    for step in (
+        _remove_leftover_containers,
+        force_cleanup_docker_network,
+        force_cleanup_docker_image,
+    ):
+        try:
+            step(app)
+        except DockerError as e:
+            failures.append(str(e))
+    if failures:
+        raise DockerError("\n\n".join(failures))
+
+
+def _remove_leftover_containers(app: App) -> None:
+    """Force-remove every container of the app's project, and verify it."""
     leftover = app_container_ids(app)
-    if leftover:
-        log(
-            f"Force-removing {len(leftover)} leftover container(s) for "
-            f"'{app.name}' after compose down",
-            level=2,
-            fg="yellow",
+    if not leftover:
+        return
+    log(
+        f"Force-removing {len(leftover)} leftover container(s) for "
+        f"'{app.name}' after compose down",
+        level=2,
+        fg="yellow",
+    )
+    _docker(app, "rm", "-f", *leftover, action="remove its leftover containers")
+    still = app_container_ids(app)
+    if still:
+        _fail(
+            app,
+            "remove its leftover containers",
+            f"{len(still)} container(s) survived `docker rm -f`: {', '.join(still)}",
         )
-        with suppress(Exception):
-            subprocess.run(
-                ["docker", "rm", "-f", *leftover],
-                capture_output=True,
-                check=False,
-                timeout=60,
-            )
-
-    # Always try to force cleanup the network as a safety measure
-    # docker compose down should remove it, but sometimes networks are left behind
-    force_cleanup_docker_network(app)
-
-    # Safety net: remove the per-app image directly, in case `down --rmi`
-    # missed it (e.g. the compose file was already gone). Base images are
-    # never tagged `hop3/...`, so this only drops the app's own image.
-    force_cleanup_docker_image(app)
 
 
 def app_container_ids(app: App, *, running_only: bool = False) -> list[str]:
@@ -275,61 +281,95 @@ def app_container_ids(app: App, *, running_only: bool = False) -> list[str]:
     ``running_only`` limits to currently-running containers; otherwise it
     includes stopped ones too. The project label is an exact match (unlike a
     container-name substring), so it can't catch a different app by prefix.
+    Raises :class:`DockerError` when Docker can't answer: an empty list must
+    mean "no containers", never "couldn't ask".
     """
     flag = "-q" if running_only else "-aq"
-    with suppress(Exception):  # docker missing / timeout -> nothing to report
-        result = subprocess.run(
-            [
-                "docker",
-                "ps",
-                flag,
-                "--filter",
-                f"label=com.docker.compose.project={app.name}",
-            ],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-        if result.returncode == 0 and result.stdout.strip():
-            return result.stdout.strip().split("\n")
-    return []
+    result = _docker(
+        app,
+        "ps",
+        flag,
+        "--filter",
+        f"label=com.docker.compose.project={app.name}",
+        action="list its containers",
+    )
+    return result.stdout.split()
 
 
 def force_cleanup_docker_image(app: App) -> None:
-    """Force-remove the app's own image; safe no-op if already gone."""
+    """Force-remove the app's own image, and verify it is gone."""
     image_tag = app.image_tag or f"hop3/{app.name.lower()}:latest"
-    with suppress(Exception):  # best-effort cleanup
-        subprocess.run(
-            ["docker", "rmi", "-f", image_tag],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
+    action = f"remove its image {image_tag}"
+    if not _docker(app, "images", "-q", image_tag, action=action).stdout.strip():
+        return
+    _docker(app, "rmi", "-f", image_tag, action=action)
+    if _docker(app, "images", "-q", image_tag, action=action).stdout.strip():
+        _fail(app, action, "the image is still present after `docker rmi -f`")
 
 
 def force_cleanup_docker_network(app: App) -> None:
-    """Force cleanup of Docker network when compose file is missing."""
+    """Remove the app's default Compose network if it exists, and verify it."""
     network_name = f"{app.name}_default"
-    log(
-        f"Attempting to force remove network '{network_name}'...",
-        level=2,
-        fg="yellow",
+    action = f"remove its network {network_name}"
+    if not _network_exists(app, network_name, action):
+        return
+    _docker(app, "network", "rm", network_name, action=action)
+    if _network_exists(app, network_name, action):
+        _fail(app, action, "the network is still present after `docker network rm`")
+    log(f"Removed orphan network '{network_name}'", level=2, fg="green")
+
+
+def _network_exists(app: App, network_name: str, action: str) -> bool:
+    listed = _docker(
+        app, "network", "ls", "-q", "--filter", f"name=^{network_name}$", action=action
     )
-    try:
-        result = subprocess.run(
-            ["docker", "network", "rm", network_name],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
+    return bool(listed.stdout.strip())
+
+
+class DockerError(RuntimeError):
+    """A Docker operation on an app failed; the message is a formatted Diagnosis."""
+
+
+def _fail(app: App, action: str, reason: str) -> NoReturn:
+    raise DockerError(
+        format_diagnosis(
+            Diagnosis(
+                component="Docker runtime",
+                action=f"{action} for '{app.name}'",
+                reason=reason,
+                hint=(
+                    "check that the Docker daemon is running (`docker info`), "
+                    "then retry; until then the leftover holds the app's name, "
+                    "ports or disk"
+                ),
+            )
         )
-        if result.returncode == 0:
-            log(f"Removed orphan network '{network_name}'", level=2, fg="green")
-        # Don't log error if network doesn't exist - that's fine
-    except Exception:
-        pass  # Best effort cleanup
+    )
+
+
+def _docker(
+    app: App, *args: str, action: str, timeout: int = 30
+) -> subprocess.CompletedProcess[str]:
+    """Run ``docker <args>``; raise :class:`DockerError` unless it succeeds."""
+    cmd = ["docker", *args]
+    shown = " ".join(cmd)
+    try:
+        result = run_docker(cmd, timeout)
+    except FileNotFoundError:
+        _fail(app, action, f"`{shown}` failed: the docker CLI is not installed")
+    except subprocess.TimeoutExpired:
+        _fail(app, action, f"`{shown}` did not answer within {timeout}s")
+    if result.returncode != 0:
+        output = (result.stderr or result.stdout or "").strip() or "no output"
+        _fail(app, action, f"`{shown}` exited {result.returncode}: {output}")
+    return result
+
+
+def run_docker(cmd: list[str], timeout: int) -> subprocess.CompletedProcess[str]:
+    """The one place this module runs the docker CLI (the seam tests replace)."""
+    return subprocess.run(
+        cmd, capture_output=True, text=True, check=False, timeout=timeout
+    )
 
 
 def cleanup_orphan_docker_resources(app: App) -> None:
@@ -339,73 +379,45 @@ def cleanup_orphan_docker_resources(app: App) -> None:
     Called when destroying an app that isn't marked docker-compose but may
     still own containers from an earlier deployment or a failed cleanup.
 
-    Docker being absent is a legitimate no-op — most apps aren't
-    containerised — but a container that *survives* removal is not. It
-    holds the app's ports and name, so the next deploy of that name fails
-    with an opaque error, and only after something else has run: the
-    order-dependent heisenbug the platform rules single out. This used to
-    swallow both the removal failure and the exception, so destroy
-    reported success over a live container. It now re-checks and says so.
+    A host without the docker CLI is a legitimate no-op — most apps aren't
+    containerised. A Docker that is installed but does not answer is not: it
+    may still hold a container with the app's ports and name, so the next
+    deploy of that name would fail with an opaque error, and only after
+    something else has run. That raises, as does a container that survives
+    removal.
     """
+    name_filter = f"name={app.name}-"
+    action = "list its orphan containers"
     try:
-        found = subprocess.run(
-            ["docker", "ps", "-aq", "--filter", f"name={app.name}-"],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
+        found = run_docker(["docker", "ps", "-aq", "--filter", name_filter], 30)
+    except FileNotFoundError:
+        return  # no Docker on this host: nothing of ours can exist under it
+    except subprocess.TimeoutExpired:
+        _fail(app, action, "`docker ps` did not answer within 30s")
+    if found.returncode != 0:
+        output = (found.stderr or found.stdout or "").strip() or "no output"
+        _fail(app, action, f"`docker ps` exited {found.returncode}: {output}")
+
+    container_ids = found.stdout.split()
+    if container_ids:
+        log(
+            f"Found {len(container_ids)} orphan container(s) for '{app.name}'",
+            level=2,
+            fg="yellow",
         )
-    except (subprocess.TimeoutExpired, FileNotFoundError):
-        # No Docker on this host (or it didn't answer): nothing of ours can
-        # be running under it, so there is nothing to clean up.
-        return
-
-    if found.returncode != 0 or not found.stdout.strip():
-        force_cleanup_docker_network(app)
-        return
-
-    container_ids = found.stdout.strip().split("\n")
-    log(
-        f"Found {len(container_ids)} orphan container(s) for '{app.name}'",
-        level=2,
-        fg="yellow",
-    )
-    for container_id in container_ids:
-        removed = subprocess.run(
-            ["docker", "rm", "-f", container_id],
-            capture_output=True,
-            text=True,
-            check=False,
-            timeout=30,
-        )
-        if removed.returncode != 0:
-            log(
-                f"  docker rm -f {container_id} failed: {removed.stderr.strip()}",
-                level=1,
-                fg="yellow",
-            )
-
+        _docker(app, "rm", "-f", *container_ids, action="remove its orphan containers")
     force_cleanup_docker_network(app)
 
-    # Verify the effect, not the exit codes: re-query and fail loudly if
-    # anything is still there, naming what and how to clear it.
-    still = subprocess.run(
-        ["docker", "ps", "-aq", "--filter", f"name={app.name}-"],
-        capture_output=True,
-        text=True,
-        check=False,
-        timeout=30,
-    )
-    leftover = still.stdout.strip().split("\n") if still.stdout.strip() else []
-    if leftover:
-        msg = (
-            f"Teardown of '{app.name}' left {len(leftover)} Docker "
-            f"container(s) running: {', '.join(leftover)}. They still hold "
-            f"the app's name and ports, so the next deploy of '{app.name}' "
-            f"will fail. Remove them with "
-            f"`docker rm -f {' '.join(leftover)}` and retry the destroy."
+    # Verify the effect, not the exit codes.
+    leftover = _docker(app, "ps", "-aq", "--filter", name_filter, action=action)
+    if leftover.stdout.split():
+        ids = leftover.stdout.split()
+        _fail(
+            app,
+            "remove its orphan containers",
+            f"{len(ids)} container(s) survived `docker rm -f`: {', '.join(ids)}; "
+            f"they still hold the app's name and ports",
         )
-        raise RuntimeError(msg)
 
 
 def restart_docker_compose(app: App) -> None:

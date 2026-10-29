@@ -11,7 +11,7 @@ import subprocess
 import tempfile
 import threading
 from dataclasses import dataclass
-from importlib.metadata import version as get_version
+from importlib.metadata import PackageNotFoundError, version as get_version
 from pathlib import Path
 from typing import TYPE_CHECKING, ClassVar
 
@@ -57,8 +57,9 @@ class VersionCmd(Command):
     def call(self, *args: str, **kwargs: object) -> list[dict]:
         try:
             server_version = get_version("hop3-server")
-        except Exception:
-            server_version = "unknown"
+        except PackageNotFoundError:
+            # Running from a source tree that was never installed.
+            server_version = "unknown (not installed as a package)"
 
         return [text(f"hop3-server {server_version}")]
 

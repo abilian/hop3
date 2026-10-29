@@ -15,7 +15,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Literal
 
-from hop3.config import APP_ROOT
+from hop3 import config as c
 from hop3.core.protocols import BuildArtifact, BuildContext, RuntimeConfig
 from hop3.lib import Abort, abort_with_diagnosis, log
 from hop3.lib.diagnostics import Diagnosis, format_diagnosis
@@ -309,7 +309,7 @@ class NixBuilder:
         if writable_tree and Path(writable_tree).resolve() == tree:
             root = self.context.source_path / root.relative_to(tree)
         return serve_with_php_fpm(
-            self.context.app_name, APP_ROOT / self.context.app_name, binary, root
+            self.context.app_name, c.APP_ROOT / self.context.app_name, binary, root
         )
 
     def _generate_nix_file(self) -> Path:
@@ -530,7 +530,7 @@ class NixBuilder:
         bundle); best-effort, never fatal.
         """
         try:
-            app_log_dir = APP_ROOT / self.context.app_name / "log"
+            app_log_dir = c.APP_ROOT / self.context.app_name / "log"
             app_log_dir.mkdir(parents=True, exist_ok=True)
             timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S")
             status = "SUCCESS" if success else "FAILED"

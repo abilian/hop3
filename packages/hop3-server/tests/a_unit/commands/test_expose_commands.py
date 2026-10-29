@@ -112,7 +112,7 @@ def test_expose_any_source_emits_warning():
 def test_unexpose_not_exposed_message():
     with (
         patch.object(services, "_resolve_addon_types", return_value=["postgres"]),
-        patch.object(services, "unexpose_addon", return_value=False),
+        patch.object(services, "unexpose_addon", return_value=None),
     ):
         items = AddonUnexposeCmd(port_claim_repo=MagicMock()).call("mydb")
     assert items[0]["t"] == "text"
@@ -122,11 +122,24 @@ def test_unexpose_not_exposed_message():
 def test_unexpose_success():
     with (
         patch.object(services, "_resolve_addon_types", return_value=["postgres"]),
-        patch.object(services, "unexpose_addon", return_value=True) as mock_un,
+        patch.object(services, "unexpose_addon", return_value=[]) as mock_un,
     ):
         items = AddonUnexposeCmd(port_claim_repo=MagicMock()).call("mydb")
     mock_un.assert_called_once()
     assert any("Removed public exposure" in it.get("text", "") for it in items)
+
+
+def test_unexpose_reports_what_rootd_left_behind():
+    leftovers = ["firewall rule r1 (nft: busy)"]
+    with (
+        patch.object(services, "_resolve_addon_types", return_value=["postgres"]),
+        patch.object(services, "unexpose_addon", return_value=leftovers),
+    ):
+        items = AddonUnexposeCmd(port_claim_repo=MagicMock()).call("mydb")
+    errors = [it for it in items if it["t"] == "error"]
+    assert len(errors) == 1
+    assert "firewall rule r1 (nft: busy)" in str(errors[0])
+    assert not any("Removed public exposure" in it.get("text", "") for it in items)
 
 
 # --- destroy teardown -----------------------------------------------------
@@ -141,10 +154,27 @@ def test_destroy_auto_unexposes():
 
     with (
         patch.object(services, "get_addon", return_value=addon),
-        patch.object(services, "unexpose_addon", return_value=True) as mock_un,
+        patch.object(services, "unexpose_addon", return_value=[]) as mock_un,
     ):
         cmd.call("mydb", "--type", "postgres")
 
     mock_un.assert_called_once()
     assert mock_un.call_args.args[:2] == ("postgres", "mydb")
     addon.destroy.assert_called_once()
+
+
+def test_destroy_reports_unexpose_leftovers():
+    addon = MagicMock()
+    addon.exists.return_value = True
+    cred_repo = MagicMock()
+    cred_repo.list_by_addon.return_value = []
+    cmd = AddonDestroyCmd(addon_credential_repo=cred_repo)
+
+    with (
+        patch.object(services, "get_addon", return_value=addon),
+        patch.object(services, "unexpose_addon", return_value=["forwarder (boom)"]),
+    ):
+        items = cmd.call("mydb", "--type", "postgres")
+
+    assert any(it["t"] == "error" and "forwarder (boom)" in str(it) for it in items)
+    assert not any("successfully" in it.get("text", "") for it in items)

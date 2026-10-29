@@ -86,8 +86,8 @@ def nix_test_app_dir(test_app_dir: Path) -> Path:
     source = (
         Path(__file__).resolve().parents[4] / "apps" / "test-apps-nix" / "static-hello"
     )
-    if not source.is_dir():
-        pytest.skip(f"nix test app not found at {source}")
+    # The fixture is in this repository: its absence is a broken checkout.
+    assert source.is_dir(), f"in-repo nix test app missing: {source}"
     shutil.copytree(source, test_app_dir, dirs_exist_ok=True)
     init_git_repo(test_app_dir)
     return test_app_dir

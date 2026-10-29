@@ -385,7 +385,7 @@ def test_volumes_are_linked_once_after_the_build() -> None:
     linking = source.index("realize_volumes(app, app_config.hop3_config.volumes)")
     assert source.index('"postbuild"') < linking
     assert linking < source.index("drop_previous_source(app)")
-    assert source.index("drop_previous_source(app)") < source.index("get_deployer(")
+    assert source.index("drop_previous_source(app)") < source.index("_start(")
 
 
 def test_a_rebuild_starts_from_the_delivered_tree(tmp_path: Path) -> None:
@@ -415,7 +415,7 @@ def test_a_rebuild_starts_from_the_delivered_tree(tmp_path: Path) -> None:
 def test_every_deploy_starts_from_the_delivered_tree() -> None:
     source = inspect.getsource(deployer._do_deploy)
     assert source.index("_start_from_delivered_source(app)") < source.index(
-        "AppConfig.from_dir("
+        "_parse_app_config(app)"
     )
 
 

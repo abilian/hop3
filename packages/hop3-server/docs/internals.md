@@ -138,8 +138,7 @@ Orchestrates the deployment process:
 
 ```
 deployers/
-├── deployer.py           # Main DeploymentOrchestrator
-└── git_based_deployer.py # Git-based deployment flow
+└── deployer.py           # Main DeploymentOrchestrator
 ```
 
 Deployment stages:

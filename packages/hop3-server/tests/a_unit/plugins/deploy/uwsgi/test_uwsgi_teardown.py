@@ -14,6 +14,7 @@ no longer mentions the app) so it can confirm they're gone.
 
 from __future__ import annotations
 
+from hop3.config import HopConfig
 from hop3.plugins.deploy.uwsgi.deployer import (
     UWSGIDeployer,
     _proc_belongs_to_app,
@@ -97,8 +98,9 @@ def test_deployer_stop_raises_when_a_process_survives(monkeypatch):
     deployer = _deployer_with_app(transitions)
     # A config file exists (so stop doesn't early-return), and a daemon survives.
     monkeypatch.setattr(
-        "hop3.plugins.deploy.uwsgi.deployer.UWSGI_ENABLED",
-        SimpleNamespace(glob=lambda _pat: [MagicMock()]),
+        HopConfig,
+        "UWSGI_ENABLED",
+        property(lambda _self: SimpleNamespace(glob=lambda _pat: [MagicMock()])),
     )
     with (
         patch.object(UWSGIDeployer, "_wait_for_processes_to_stop", return_value=[4242]),
@@ -112,8 +114,9 @@ def test_deployer_stop_reports_stopped_when_reap_is_clean(monkeypatch):
     transitions: list = []
     deployer = _deployer_with_app(transitions)
     monkeypatch.setattr(
-        "hop3.plugins.deploy.uwsgi.deployer.UWSGI_ENABLED",
-        SimpleNamespace(glob=lambda _pat: [MagicMock()]),
+        HopConfig,
+        "UWSGI_ENABLED",
+        property(lambda _self: SimpleNamespace(glob=lambda _pat: [MagicMock()])),
     )
     with patch.object(UWSGIDeployer, "_wait_for_processes_to_stop", return_value=[]):
         deployer.stop()

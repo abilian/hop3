@@ -28,7 +28,6 @@ conflict check still applies) but the firewall is not opened.
 
 from __future__ import annotations
 
-from contextlib import suppress
 from typing import TYPE_CHECKING
 
 from sqlalchemy.exc import IntegrityError
@@ -63,17 +62,36 @@ def _abort_conflict(number: int, protocol: str, holder: str) -> None:
     )
 
 
-def _close_firewall_rule(rule_id: str | None) -> None:
-    """Best-effort close of a single firewall rule (never raises)."""
+def _close_firewall_rule(rule_id: str | None, app_name: str, port: str) -> None:
+    """
+    Close one firewall rule on redeploy, or abort the deploy.
+
+    The claim is dropped (or re-scoped) in the same session, so an unclosed
+    rule would leave the port open with nothing recording it. Aborting rolls
+    the session back: the claim keeps its rule id and the next deploy retries.
+    """
     if not rule_id:
         return
-    with suppress(RootdError), LocalRootdClient() as client:
-        client.call("firewall.remove_rule", {"rule_id": rule_id})
+    try:
+        with LocalRootdClient() as client:
+            client.call("firewall.remove_rule", {"rule_id": rule_id})
+    except RootdError as e:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Deployer",
+                action=f"close the firewall rule {rule_id} of port {port}",
+                reason=f"hop3-rootd firewall.remove_rule failed: {e}",
+                hint=(
+                    f"'{app_name}' no longer declares {port} as it was, but its "
+                    "firewall rule is still open. Start or fix hop3-rootd, then "
+                    "redeploy."
+                ),
+                troubleshooting=["journalctl -u hop3-rootd --no-pager | tail -50"],
+            )
+        )
 
 
-def claim_fixed_ports(
-    app: App, app_config: AppConfig, db_session: Session | None
-) -> None:
+def claim_fixed_ports(app: App, app_config: AppConfig, db_session: Session) -> None:
     """
     Pre-flight: reconcile + claim the app's declared ``[[ports]]``.
 
@@ -85,9 +103,6 @@ def claim_fixed_ports(
     savepoint-guarded flush turns a concurrent-deploy race into the same clear
     diagnosis rather than an opaque IntegrityError.
     """
-    if db_session is None:
-        return
-
     declared = app_config.ports
     repo = PortClaimRepository(session=db_session)
     declared_keys = {
@@ -97,7 +112,9 @@ def claim_fixed_ports(
     # Reconcile: drop claims for ports this app declared before but no longer does.
     for claim in repo.get_by_app_id(app.id):
         if (claim.number, claim.protocol) not in declared_keys:
-            _close_firewall_rule(claim.rule_id)
+            _close_firewall_rule(
+                claim.rule_id, app.name, f"{claim.number}/{claim.protocol}"
+            )
             db_session.delete(claim)
             log(
                 f"Released fixed port {claim.number}/{claim.protocol} "
@@ -121,7 +138,7 @@ def claim_fixed_ports(
             # rule_id so open_fixed_ports re-applies with the new source. Without
             # this a redeployed source edit would be silently ignored.
             if existing.source != source:
-                _close_firewall_rule(existing.rule_id)
+                _close_firewall_rule(existing.rule_id, app.name, f"{number}/{protocol}")
                 existing.source = source
                 existing.rule_id = None
                 log(
@@ -165,7 +182,7 @@ def claim_fixed_ports(
         )
 
 
-def open_fixed_ports(app: App, db_session: Session | None) -> None:
+def open_fixed_ports(app: App, db_session: Session) -> None:
     """
     On a successful deploy, open the firewall for the app's claimed ports.
 
@@ -174,8 +191,6 @@ def open_fixed_ports(app: App, db_session: Session | None) -> None:
     declared ports aren't published to the host yet — see module docstring). The
     rootd rule id is stored on the claim so teardown can remove it.
     """
-    if db_session is None:
-        return
     repo = PortClaimRepository(session=db_session)
 
     if app.runtime and "docker" in app.runtime:
@@ -246,7 +261,7 @@ def open_fixed_ports(app: App, db_session: Session | None) -> None:
         )
 
 
-def release_fixed_ports(app: App, db_session: Session | None) -> None:
+def release_fixed_ports(app: App, db_session: Session) -> list[str]:
     """
     On teardown, fully release the app's fixed ports: firewall *and* registry.
 
@@ -258,40 +273,48 @@ def release_fixed_ports(app: App, db_session: Session | None) -> None:
        is deleted. A stranded claim blocks *every* future deploy of that port, so
        freeing it must not depend on the rest of destroy succeeding. (The caller
        commits; the cascade on App delete is then just a harmless backstop.)
-    2. **Close the firewall** — best-effort, never blocks destroy. Removes rules
-       by stored id *and* by app name (so a rule whose id never made it back to
-       the DB is still reclaimed).
+    2. **Close the firewall.** Removes rules by stored id *and* by app name (so a
+       rule whose id never made it back to the DB is still reclaimed). A failure
+       here does not block destroy, but is returned: an open firewall rule for a
+       port nothing listens on is a leftover the caller must report.
+
+    Returns the leftovers (empty when the teardown is complete).
     """
-    if db_session is None:
-        return
     repo = PortClaimRepository(session=db_session)
     claims = repo.get_by_app_id(app.id)
     if not claims:
-        return
+        return []
 
     # Step 1 — free the registry rows first, so the port is reclaimable even if
-    # the best-effort firewall close below fails (the caller commits the delete).
+    # the firewall close below fails (the caller commits the delete).
     # rule_ids are read off the claim objects before deletion (still in memory).
     rule_ids = {c.rule_id for c in claims if c.rule_id}
+    ports = ", ".join(f"{c.number}/{c.protocol}" for c in claims)
     for claim in claims:
         db_session.delete(claim)
     log(f"Released fixed-port claims of '{app.name}'", level=2, fg="blue")
 
-    # Step 2 — close the firewall (best-effort, never blocks destroy).
+    # Step 2 — close the firewall, sweeping any rule rootd still has for this
+    # app (orphan safety), and collect what could not be closed.
+    leftovers: list[str] = []
     try:
         with LocalRootdClient() as client:
-            # Also sweep any rule rootd still has for this app (orphan safety).
-            with suppress(RootdError):
+            try:
                 listed = client.call("firewall.list_rules", {"app_name": app.name})
                 rule_ids.update(r.get("rule_id") for r in listed.get("rules", []))
-            for rule_id in rule_ids:
-                if rule_id:
-                    with suppress(RootdError):
-                        client.call("firewall.remove_rule", {"rule_id": rule_id})
-            log(f"Closed firewall for fixed ports of '{app.name}'", level=2, fg="blue")
+            except RootdError as e:
+                leftovers.append(
+                    f"firewall rules of '{app.name}' (could not list them: {e})"
+                )
+            for rule_id in sorted(r for r in rule_ids if r):
+                try:
+                    client.call("firewall.remove_rule", {"rule_id": rule_id})
+                except RootdError as e:
+                    leftovers.append(f"firewall rule {rule_id} ({e})")
     except RootdError as e:
-        log(
-            f"Could not close firewall for fixed ports (best-effort): {e}",
-            level=1,
-            fg="yellow",
-        )
+        leftovers.append(f"firewall rules for fixed ports {ports} ({e})")
+    for leftover in leftovers:
+        log(f"Could not close the {leftover}", level=1, fg="red")
+    if not leftovers:
+        log(f"Closed firewall for fixed ports of '{app.name}'", level=2, fg="blue")
+    return leftovers

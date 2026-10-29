@@ -14,7 +14,7 @@ so we exercise it directly without touching the filesystem or the ORM.
 
 from __future__ import annotations
 
-from hop3.run import spawn
+from hop3.config import HopConfig
 from hop3.run.spawn import AppLauncher
 from hop3.run.uwsgi.naming import vassal_name, worker_env_path
 
@@ -126,7 +126,7 @@ def test_a_removed_worker_takes_its_secrets_file_with_it(tmp_path, monkeypatch):
     """
     enabled = tmp_path / "uwsgi-enabled"
     enabled.mkdir()
-    monkeypatch.setattr(spawn, "UWSGI_ENABLED", enabled)
+    monkeypatch.setattr(HopConfig, "UWSGI_ENABLED", property(lambda _self: enabled))
     launcher = AppLauncher.__new__(AppLauncher)
     launcher.app_name = "app"
     launcher.app_path = tmp_path / "app"

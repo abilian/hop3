@@ -5,6 +5,7 @@
 
 from __future__ import annotations
 
+import subprocess
 from types import SimpleNamespace
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -142,7 +143,10 @@ class TestDockerComposeDeployerDeploy:
             patch("subprocess.run") as mock_run,
             patch("hop3.plugins.docker.deployer.get_free_port", return_value=9999),
         ):
-            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            # `docker compose port` reports the port `up` published.
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout="127.0.0.1:9999\n", stderr=""
+            )
 
             info = deployer.deploy()
 
@@ -173,7 +177,9 @@ class TestDockerComposeDeployerDeploy:
             patch("subprocess.run") as mock_run,
             patch("hop3.plugins.docker.deployer.get_free_port", return_value=9999),
         ):
-            mock_run.return_value = MagicMock(returncode=0, stdout="", stderr="")
+            mock_run.return_value = MagicMock(
+                returncode=0, stdout="127.0.0.1:9999\n", stderr=""
+            )
 
             deployer.deploy(deltas={"web": 3})
 
@@ -343,49 +349,46 @@ class TestDockerComposeDeployerStatus:
 class TestDockerComposeDeployerPortDiscovery:
     """Tests for port discovery."""
 
-    def test_discover_port_from_metadata(
-        self, tmp_path: Path, docker_artifact: BuildArtifact
+    def _deployer(self, tmp_path: Path, artifact: BuildArtifact):
+        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+        context = DeploymentContext(
+            app_name="test-app", source_path=tmp_path, app_config={}
+        )
+        return DockerComposeDeployer(context, artifact)
+
+    def test_discover_port_reads_the_published_host_port(
+        self, tmp_path: Path, docker_artifact: BuildArtifact, monkeypatch
     ):
-        """Should use port from artifact metadata."""
-        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
+        seen: list[tuple[list[str], dict]] = []
 
-        context = DeploymentContext(
-            app_name="test-app",
-            source_path=tmp_path,
-            app_config={},
+        def fake_run(cmd, **kwargs):
+            seen.append((cmd, kwargs["env"]))
+            return SimpleNamespace(
+                returncode=0, stdout="127.0.0.1:41234\n[::1]:41234\n", stderr=""
+            )
+
+        monkeypatch.setattr("hop3.plugins.docker.deployer.subprocess.run", fake_run)
+        deployer = self._deployer(tmp_path, docker_artifact)
+
+        assert deployer._discover_port({"PORT": "41234"}) == 41234
+        cmd, env = seen[0]
+        assert cmd[-3:] == ["port", "web", "8080"]
+        assert env == {"PORT": "41234"}  # the env the containers started with
+
+    def test_discover_port_aborts_with_the_command_output(
+        self, tmp_path: Path, docker_artifact: BuildArtifact, monkeypatch
+    ):
+        """It used to swallow the failure and proxy to a guessed port."""
+        monkeypatch.setattr(
+            "hop3.plugins.docker.deployer.subprocess.run",
+            lambda cmd, **kw: SimpleNamespace(
+                returncode=1, stdout="", stderr="no container found for web_1"
+            ),
         )
-        deployer = DockerComposeDeployer(context, docker_artifact)
+        deployer = self._deployer(tmp_path, docker_artifact)
 
-        # No running container to query, so short-circuit the docker CLI call
-        # (launching it costs ~0.5s) — the port must come from metadata anyway.
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout="")
-            port = deployer._discover_port()
-
-        assert port == 8080
-
-    def test_discover_port_fallback(self, tmp_path: Path):
-        """Should fall back to 8080 when port not discoverable."""
-        (tmp_path / "docker-compose.yml").write_text("version: '3'\n")
-
-        artifact = BuildArtifact(
-            kind="docker-image",
-            location="hop3/test-app:latest",
-            metadata={},  # No exposed_ports
-        )
-        context = DeploymentContext(
-            app_name="test-app",
-            source_path=tmp_path,
-            app_config={},
-        )
-        deployer = DockerComposeDeployer(context, artifact)
-
-        with patch("subprocess.run") as mock_run:
-            mock_run.return_value = MagicMock(returncode=1, stdout="")
-
-            port = deployer._discover_port()
-
-            assert port == 8080
+        with pytest.raises(Abort, match="no container found for web_1"):
+            deployer._discover_port({})
 
 
 class TestDockerComposeDeployerProxyIntegration:
@@ -673,14 +676,36 @@ class TestPruneDanglingImages:
         assert "-af" not in cmd
         assert "builder" not in cmd
 
-    def test_prune_failure_never_fails_the_deploy(
-        self, deployer: DockerComposeDeployer
+    def test_prune_failure_is_reported_never_fails_the_deploy(
+        self, deployer: DockerComposeDeployer, monkeypatch
     ):
+        logged: list[str] = []
+        monkeypatch.setattr(
+            "hop3.plugins.docker.deployer.log", lambda msg, **_kw: logged.append(msg)
+        )
         with patch(
             "hop3.plugins.docker.deployer.subprocess.run",
             side_effect=OSError("docker not found"),
         ):
             deployer._prune_dangling_images()  # must not raise
+        assert len(logged) == 1
+        assert "docker not found" in logged[0]
+
+    def test_prune_nonzero_exit_is_reported_with_docker_output(
+        self, deployer: DockerComposeDeployer, monkeypatch
+    ):
+        """A non-zero exit was ignored (check=False under suppress)."""
+        logged: list[str] = []
+        monkeypatch.setattr(
+            "hop3.plugins.docker.deployer.log", lambda msg, **_kw: logged.append(msg)
+        )
+        failed = subprocess.CompletedProcess(
+            [], 1, stdout="", stderr="Cannot connect to the Docker daemon"
+        )
+        with patch("hop3.plugins.docker.deployer.subprocess.run", return_value=failed):
+            deployer._prune_dangling_images()
+        assert len(logged) == 1
+        assert "exit 1: Cannot connect to the Docker daemon" in logged[0]
 
 
 class TestDockerComposeLimits:

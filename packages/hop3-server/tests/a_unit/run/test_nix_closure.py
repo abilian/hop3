@@ -20,10 +20,11 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.run.nix_closure import (
-    NIX_STORE_CANDIDATES,
     ClosureCheckError,
     missing_closure_paths,
+    nix_store_candidates,
     resolve_nix_store,
 )
 
@@ -38,13 +39,16 @@ class TestResolveNixStore:
         fake = tmp_path / "nix-store"
         fake.write_text("#!/bin/sh\n")
         fake.chmod(0o755)
-        monkeypatch.setattr("hop3.run.nix_closure.NIX_STORE_CANDIDATES", (str(fake),))
+        monkeypatch.setattr(
+            "hop3.run.nix_closure.nix_store_candidates", lambda: (str(fake),)
+        )
         monkeypatch.setattr("shutil.which", lambda _: None)
         assert resolve_nix_store() == fake
 
     def test_returns_none_when_nothing_resolves(self, monkeypatch):
         monkeypatch.setattr(
-            "hop3.run.nix_closure.NIX_STORE_CANDIDATES", ("/nonexistent/nix-store",)
+            "hop3.run.nix_closure.nix_store_candidates",
+            lambda: ("/nonexistent/nix-store",),
         )
         monkeypatch.setattr("shutil.which", lambda _: None)
         assert resolve_nix_store() is None
@@ -53,7 +57,9 @@ class TestResolveNixStore:
         fake = tmp_path / "nix-store"
         fake.write_text("")
         fake.chmod(0o644)
-        monkeypatch.setattr("hop3.run.nix_closure.NIX_STORE_CANDIDATES", (str(fake),))
+        monkeypatch.setattr(
+            "hop3.run.nix_closure.nix_store_candidates", lambda: (str(fake),)
+        )
         monkeypatch.setattr("shutil.which", lambda _: None)
         assert resolve_nix_store() is None
 
@@ -61,14 +67,14 @@ class TestResolveNixStore:
         # A bare name would reintroduce the PATH dependency this module exists to
         # remove; a `~` would reintroduce it in a subtler form, since the deploy
         # process's HOME is not the hop3 user's.
-        for candidate in NIX_STORE_CANDIDATES:
+        for candidate in nix_store_candidates():
             assert candidate.startswith("/"), candidate
             assert "~" not in candidate, candidate
 
     def test_covers_both_installer_modes(self):
         # The installer picks multi-user with systemd and single-user in
         # containers; a guard that knows only one silently skips on the other.
-        joined = " ".join(NIX_STORE_CANDIDATES)
+        joined = " ".join(nix_store_candidates())
         assert "/nix/var/nix/profiles/default" in joined, "multi-user mode missing"
         assert ".nix-profile" in joined, "single-user mode missing"
 
@@ -129,3 +135,8 @@ class TestMissingClosurePaths:
         monkeypatch.setattr(subprocess, "run", _timeout)
         with pytest.raises(ClosureCheckError):
             missing_closure_paths([str(root)], nix_store)
+
+    def test_the_single_user_candidate_follows_hop3_root(self, tmp_path, monkeypatch):
+        """It was a module constant: frozen at the HOP3_ROOT of import time."""
+        monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
+        assert f"{tmp_path}/.nix-profile/bin/nix-store" in nix_store_candidates()

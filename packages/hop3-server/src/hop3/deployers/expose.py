@@ -22,7 +22,6 @@ from __future__ import annotations
 
 import random
 import socket
-from contextlib import suppress
 from typing import TYPE_CHECKING, Any, NoReturn
 from urllib.parse import urlparse, urlunparse
 
@@ -124,14 +123,24 @@ def _abort_no_url(addon_type: str, addon_name: str) -> NoReturn:
 
 def _rollback_partial(
     rule_id: str | None, claim: PortClaim, db_session: DbSession
-) -> None:
-    """Undo a half-done exposure: remove any firewall rule, drop the claim row."""
-    if rule_id:
-        with suppress(RootdError, RootdUnavailableError), LocalRootdClient() as client:
+) -> str:
+    """
+    Undo a half-done exposure: remove any firewall rule, drop the claim row.
+
+    Returns what the rollback left behind ("" when complete), for the caller's
+    diagnosis. The claim drop needs no guard: the caller aborts, so the session
+    is rolled back either way.
+    """
+    db_session.delete(claim)
+    db_session.flush()
+    if not rule_id:
+        return ""
+    try:
+        with LocalRootdClient() as client:
             client.call("firewall.remove_rule", {"rule_id": rule_id})
-    with suppress(Exception):
-        db_session.delete(claim)
-        db_session.flush()
+    except RootdError as e:
+        return f"firewall rule {rule_id} is still open ({e})"
+    return ""
 
 
 def expose_addon(
@@ -228,7 +237,14 @@ def expose_addon(
             )
             claim.proxy_unit = proxy.get("unit")
     except (RootdError, RootdUnavailableError) as e:
-        _rollback_partial(rule_id, claim, db_session)
+        leftover = _rollback_partial(rule_id, claim, db_session)
+        rolled_back = (
+            f"the rollback left a {leftover}: once rootd works, run "
+            f"`hop3 addon expose {addon_name}` then `hop3 addon unexpose "
+            f"{addon_name}`, which sweeps every rule of this addon"
+            if leftover
+            else "the exposure was rolled back"
+        )
         abort_with_diagnosis(
             Diagnosis(
                 component="Addon",
@@ -236,7 +252,7 @@ def expose_addon(
                 reason=str(e),
                 hint=(
                     "hop3-rootd must be running and able to open the firewall "
-                    "and create the forwarder; the exposure was rolled back."
+                    f"and create the forwarder; {rolled_back}."
                 ),
                 troubleshooting=[
                     "journalctl -u hop3-rootd --no-pager | tail -50",
@@ -261,19 +277,22 @@ def expose_addon(
     }
 
 
-def unexpose_addon(addon_type: str, addon_name: str, *, db_session: DbSession) -> bool:
+def unexpose_addon(
+    addon_type: str, addon_name: str, *, db_session: DbSession
+) -> list[str] | None:
     """
-    Tear down an addon's exposure. Idempotent; returns False if not exposed.
+    Tear down an addon's exposure. Idempotent.
 
-    Drops the claim row first (so the host port is reclaimable even if rootd is
-    down), then best-effort closes the firewall and removes the forwarder. A
-    rootd failure here is not fatal: the claim is gone, so the orphaned unit is
-    swept by rootd's startup ``reconcile_proxies``.
+    Returns None when the addon was not exposed, else what the teardown left
+    behind (empty when complete). The claim row is dropped first, so the host
+    port is reclaimable even if rootd is down; a firewall rule or forwarder
+    rootd could not remove is returned for the caller to report, never
+    swallowed.
     """
     repo = PortClaimRepository(session=db_session)
     claim = repo.find_by_addon(addon_type, addon_name)
     if claim is None:
-        return False
+        return None
 
     rule_id = claim.rule_id
     tag = claim.app_name
@@ -282,28 +301,30 @@ def unexpose_addon(addon_type: str, addon_name: str, *, db_session: DbSession) -
     db_session.flush()
     log(f"Released exposure claim for {addon_type} addon '{addon_name}'", level=2)
 
-    # Step 2 — close firewall + remove forwarder (best-effort; reconcile is the
-    # completeness backstop if rootd is unreachable right now).
+    # Step 2 — close the firewall and remove the forwarder, collecting failures.
+    leftovers: list[str] = []
     try:
         with LocalRootdClient() as client:
             rule_ids = {rule_id} if rule_id else set()
-            with suppress(RootdError):
+            try:
                 listed = client.call("firewall.list_rules", {"app_name": tag})
                 rule_ids.update(r.get("rule_id") for r in listed.get("rules", []))
-            for rid in rule_ids:
-                if rid:
-                    with suppress(RootdError):
-                        client.call("firewall.remove_rule", {"rule_id": rid})
-            with suppress(RootdError):
+            except RootdError as e:
+                leftovers.append(f"firewall rules tagged '{tag}' (could not list: {e})")
+            for rid in sorted(r for r in rule_ids if r):
+                try:
+                    client.call("firewall.remove_rule", {"rule_id": rid})
+                except RootdError as e:
+                    leftovers.append(f"firewall rule {rid} ({e})")
+            try:
                 client.call(
                     "proxy.remove",
                     {"addon_type": addon_type, "addon_name": addon_name},
                 )
-    except (RootdError, RootdUnavailableError) as e:
-        log(
-            f"Could not fully tear down exposure of '{addon_name}' (best-effort, "
-            f"rootd reconcile will sweep the orphan): {e}",
-            level=1,
-            fg="yellow",
-        )
-    return True
+            except RootdError as e:
+                leftovers.append(f"forwarder of '{addon_name}' ({e})")
+    except RootdError as e:
+        leftovers.append(f"firewall rules and forwarder of '{addon_name}' ({e})")
+    for leftover in leftovers:
+        log(f"Could not remove the {leftover}", level=1, fg="red")
+    return leftovers

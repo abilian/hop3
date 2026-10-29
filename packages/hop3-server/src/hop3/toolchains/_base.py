@@ -61,6 +61,10 @@ class LanguageToolchain(ABC):
     # Class attributes
     name: ClassVar[str]
     requirements: ClassVar[list[str]]
+    #: When another toolchain also accepts the project, that one serves it and
+    #: this one only contributes its build (Node building a Django or Laravel
+    #: app's frontend assets).
+    defers_runtime: ClassVar[bool] = False
 
     def __init__(
         self,

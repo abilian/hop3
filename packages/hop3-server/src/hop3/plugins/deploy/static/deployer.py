@@ -9,7 +9,7 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
-from hop3.config import HOP3_ROOT, HOP3_USER
+from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
 from hop3.core.plugins import get_proxy_strategy
@@ -61,8 +61,8 @@ class StaticDeployer:
         # Bootstrap environment
         env = Env({
             "APP": self.app.name,
-            "HOME": HOP3_ROOT,
-            "USER": HOP3_USER,
+            "HOME": c.HOP3_ROOT,
+            "USER": c.HOP3_USER,
             "PATH": f"{virtualenv_path / 'bin'}:{os.environ['PATH']}",
             "PWD": str(self.app.app_path),
             "VIRTUAL_ENV": str(virtualenv_path),

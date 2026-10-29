@@ -14,6 +14,7 @@ from hop3.commands._helpers import find_hostname_conflict
 from hop3.config import HopConfig
 from hop3.core.artifacts import (
     ARTIFACT_FILENAME,
+    WEB_WORKER_KINDS,
     BuildArtifact,
     load_backend_protocol,
 )
@@ -24,7 +25,7 @@ from hop3.core.protocols import DeploymentContext
 from hop3.deployers.access import configure_access_preflight
 from hop3.deployers.addon_provisioning import (
     provision_addons,
-    reinject_attached_addons,
+    sync_addon_env_vars,
 )
 from hop3.deployers.admin_bootstrap import (
     AdminBootstrapError,
@@ -90,8 +91,8 @@ __all__ = ["do_deploy"]
 def do_deploy(
     app: App,
     *,
+    db_session: Session,
     deltas: dict[str, int] | None = None,
-    db_session: Session | None = None,
 ) -> None:
     """
     Deploy an app; on failure, best-effort alert the operator, then re-raise.
@@ -128,35 +129,27 @@ def _notify_deploy_failure(app: App, exc: BaseException) -> None:
         server_log.exception("deploy-failure notification errored", app_name=app.name)
 
 
-def _do_deploy(  # ruff:ignore[too-many-statements]
+def _do_deploy(
     app: App,
     *,
-    deltas: dict[str, int] | None = None,
-    db_session: Session | None = None,
+    deltas: dict[str, int] | None,
+    db_session: Session,
 ) -> None:
     """
-    Deploys an application using a pluggable builder and deployer.
+    Deploy an application using a pluggable builder and deployer.
 
-    This function orchestrates the deployment process:
-    1. Parses application configuration (Procfile/hop3.toml).
-    1.5. Provisions addons and injects env vars from hop3.toml.
-    2. Runs prebuild hook (may fetch source code, prepare environment).
-    3. Selects and runs a suitable Builder.
-    4. Runs postbuild hook (migrations, asset compilation, etc.).
-    5. Selects and runs a suitable Deployer.
-    6. (Future) Configures the proxy based on deployment info.
+    The phases, in order:
 
-    The prebuild hook runs BEFORE builder selection because it may fetch
-    or generate the source code that the builder needs to detect.
-
-    Args:
-        app: The application to deploy
-        deltas: Optional scaling deltas for workers
-        db_session: Database session for addon provisioning (required for auto-provisioning)
+    1. Parse the app's configuration (Procfile / hop3.toml).
+    2. Provision addons and env vars, claim ports, run the preflights.
+    3. Run the prebuild hook. It runs BEFORE builder selection because it may
+       fetch or generate the source the builder needs to detect.
+    4. Build, and save the artifact the run phase reads.
+    5. Run the postbuild hook, then link the volumes.
+    6. Select a deployer, start the app and wait until it serves.
+    7. Post-start: firewall, WAF proxy, native limits, admin account.
+    8. Report, surface the admin credential, and run the smoke test.
     """
-    deltas = deltas or {}
-
-    # Reset decision logger for this deployment
     from hop3.lib.decision_log import (  # ruff:ignore[import-outside-top-level]
         flush_decision_logger,
         reset_decision_logger,
@@ -164,12 +157,83 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
 
     reset_decision_logger()
 
-    # --- 1. Parse Application Configuration ---
     log(f"Starting deployment for app '{app.name}'", level=0, fg="green")
     server_log.info("Starting deployment", app_name=app.name, app_id=app.id)
 
     _start_from_delivered_source(app)
+    app_config = _parse_app_config(app)
 
+    # Before the build, because some builds need database URLs etc.
+    if app_config.has_hop3_toml:
+        _process_config_dependencies(app, app_config, db_session)
+    _prepare_source_for_build(app, app_config, db_session)
+
+    prebuild_cmd = app_config.pre_build
+    if prebuild_cmd:
+        log(f"Found prebuild command: {prebuild_cmd}", level=2)
+    _run_hook("prebuild", prebuild_cmd, app.src_path)
+
+    context = DeploymentContext(
+        app_name=app.name,
+        source_path=app.src_path,
+        app_config=app_config.to_dict(),
+        app=app,
+    )
+    build_artifact = _build(app, app_config, context)
+
+    # path_prepend lets postbuild commands find the virtualenv's binaries
+    # (e.g., "python manage.py collectstatic").
+    _run_hook(
+        "postbuild",
+        app_config.post_build,
+        app.src_path,
+        path_prepend=build_artifact.runtime.path_prepend,
+    )
+
+    # Volumes ([[volumes]], ADR 046 §2) are linked after the build, before the
+    # app starts. A recipe's build usually downloads the application into src/
+    # and moves directories into place, which a link in the way breaks (`mv`
+    # cannot rename a directory over one; a directory made to hold one
+    # receives the move instead). So the build sees the tree it always saw,
+    # and an empty volume is then seeded from the tree this deploy replaced,
+    # else from what the build left at its target. Only then does the replaced
+    # tree go.
+    realize_volumes(app, app_config.hop3_config.volumes)
+    drop_previous_source(app)
+
+    deployer_name = _start(app, app_config, context, build_artifact, deltas or {})
+    _finish_started_app(app, app_config, build_artifact, deployer_name, db_session)
+
+    flush_decision_logger()
+    log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
+
+    # Surface the initial admin credential once ever (ADR 056) — after the
+    # success line so it is the last thing the operator sees. The helper's
+    # `surfaced` flag makes this fire on the first SUCCESSFUL deploy and never
+    # re-print the password afterwards.
+    surface_admin_credential(app, db_session)
+
+    # Verify the app actually WORKS, not merely that it started. Runs on every
+    # deploy path — web UI, `hop3 deploy`, catalog install, git push — because
+    # "it deployed" was repeatedly not the same as "you can log in": apps served
+    # their login page perfectly while rejecting every credential. A failure is
+    # reported loudly rather than swallowed; the app is left deployed so the
+    # operator can inspect it, but the deploy does not claim success it cannot
+    # back up.
+    _run_deploy_smoke_test(app, db_session)
+
+    server_log.info(
+        "Deployment finished successfully",
+        app_name=app.name,
+        app_id=app.id,
+        runtime=deployer_name,
+        port=app.port,
+        hostname=app.hostname,
+    )
+
+
+def _parse_app_config(app: App) -> AppConfig:
+    """Parse the app's Procfile / hop3.toml, aborting with a Diagnosis if invalid."""
     try:
         app_config = AppConfig.from_dir(app.app_path)
     except ValueError as e:
@@ -187,7 +251,6 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
             )
         )
 
-    # Log parsed configuration for debugging
     log(f"Config parsed from: {app_config.app_dir}", level=2)
     log(f"  has_procfile: {app_config.has_procfile}", level=2)
     log(f"  has_hop3_toml: {app_config.has_hop3_toml}", level=2)
@@ -196,31 +259,20 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
         log(f"  pre_build: {app_config.pre_build}", level=2)
     if app_config.post_build:
         log(f"  post_build: {app_config.post_build}", level=2)
+    return app_config
 
-    # --- 1.5. Process Config-Based Addons and Env Vars ---
-    # This runs BEFORE build because some builds need database URLs etc.
-    if app_config.has_hop3_toml:
-        _process_config_dependencies(app, app_config, db_session)
 
-    # --- 1.6. Prepare the freshly-extracted source tree for the build ---
-    _prepare_source_for_build(app, app_config, db_session)
+def _build(
+    app: App, app_config: AppConfig, context: DeploymentContext
+) -> BuildArtifact:
+    """
+    Select and run a builder, merge the runtime manifest, save the artifact.
 
-    # --- 2. Run Prebuild Hook ---
-    # This runs BEFORE builder selection because prebuild may fetch source code
-    # or generate files that the builder needs to detect the app type.
-    prebuild_cmd = app_config.pre_build
-    if prebuild_cmd:
-        log(f"Found prebuild command: {prebuild_cmd}", level=2)
-    _run_hook("prebuild", prebuild_cmd, app.src_path)
-
-    # --- 3. Select and Run Builder ---
-    context = DeploymentContext(
-        app_name=app.name,
-        source_path=app.src_path,
-        app_config=app_config.to_dict(),
-        app=app,
-    )
-
+    RuntimeManifestBuilder merges the Procfile and hop3.toml into the
+    toolchain's RuntimeConfig: workers, before-run (the build's own, then
+    hop3.toml [run] before-run), static paths, healthcheck and proxy limits.
+    The saved artifact is the contract the run phase reads.
+    """
     builder = get_builder(context)
     log(f"Using builder: '{builder.name}'", level=1, fg="blue")
 
@@ -233,141 +285,94 @@ def _do_deploy(  # ruff:ignore[too-many-statements]
         fg="green",
     )
 
-    # --- 3.5. Enhance Artifact with Merged Runtime Config ---
-    # RuntimeManifestBuilder merges Procfile and hop3.toml into RuntimeConfig.
-    # The toolchain provides env_vars, path_prepend, working_dir; we add:
-    # - workers (from Procfile/hop3.toml merged)
-    # - before_run (the build's own, then hop3.toml [run] before-run)
-    # - static_paths (from hop3.toml [run] static)
-    # - healthcheck_path/timeout (from hop3.toml [run] healthcheck)
-    # - proxy transfer limits (from hop3.toml [proxy])
-    manifest_builder = RuntimeManifestBuilder(app_config)
-    enhanced_runtime = manifest_builder.build(
-        env_vars=build_artifact.runtime.env_vars,
-        path_prepend=build_artifact.runtime.path_prepend,
-        working_dir=build_artifact.runtime.working_dir,
-        workers=build_artifact.runtime.workers or None,
-        writable_tree=build_artifact.runtime.writable_tree,
-        backend_protocol=build_artifact.runtime.backend_protocol,
-        before_run=build_artifact.runtime.before_run,
+    runtime = build_artifact.runtime
+    build_artifact.runtime = RuntimeManifestBuilder(app_config).build(
+        env_vars=runtime.env_vars,
+        path_prepend=runtime.path_prepend,
+        working_dir=runtime.working_dir,
+        workers=runtime.workers or None,
+        writable_tree=runtime.writable_tree,
+        backend_protocol=runtime.backend_protocol,
+        before_run=runtime.before_run,
     )
-    build_artifact.runtime = enhanced_runtime
-
-    # --- 3.6. Auto-discover WSGI module for Python apps ---
-    if build_artifact.kind in {"python", "buildpack", "virtualenv"}:
-        _auto_discover_wsgi(build_artifact, app.src_path)
-
     log(
-        f"Runtime manifest built: {len(enhanced_runtime.workers)} workers, "
-        f"{len(enhanced_runtime.before_run)} before-run commands",
+        f"Runtime manifest built: {len(build_artifact.runtime.workers)} workers, "
+        f"{len(build_artifact.runtime.before_run)} before-run commands",
         level=2,
     )
 
-    # Persist build artifact for run phase
     artifact_path = app.app_path / ARTIFACT_FILENAME
     build_artifact.save(artifact_path)
     log(f"Build artifact saved to: {artifact_path}", level=2)
+    return build_artifact
 
-    # --- 4. Run Postbuild Hook ---
-    # Pass path_prepend from the build artifact so postbuild commands can
-    # find binaries from the virtualenv (e.g., "python manage.py collectstatic")
-    _run_hook(
-        "postbuild",
-        app_config.post_build,
-        app.src_path,
-        path_prepend=build_artifact.runtime.path_prepend,
-    )
 
-    # --- 4.5. Link the volumes ([[volumes]], ADR 046 §2) ---
-    # After the build, before the app starts. A recipe's build usually
-    # downloads the application into src/ and moves directories into place,
-    # which a link in the way breaks (`mv` cannot rename a directory over one;
-    # a directory made to hold one receives the move instead). So the build
-    # sees the tree it always saw, and an empty volume is then seeded from
-    # the tree this deploy replaced, else from what the build left at its
-    # target. Only then does the replaced tree go.
-    realize_volumes(app, app_config.hop3_config.volumes)
-    drop_previous_source(app)
+def _start(
+    app: App,
+    app_config: AppConfig,
+    context: DeploymentContext,
+    build_artifact: BuildArtifact,
+    deltas: dict[str, int],
+) -> str:
+    """
+    Select a deployer, start the app, and record how it runs.
 
-    # --- 5. Select and Run Deployer ---
+    Returns the deployer's name. The App model learns its runtime, port and
+    hostname so start/stop/status know how to handle it, and the call returns
+    only once the app actually serves.
+    """
     deployer = get_deployer(context, build_artifact)
     log(f"Using deployer: '{deployer.name}'", level=1, fg="blue")
 
-    # The deploy method is now part of the strategy instance
     deployment_info = deployer.deploy(deltas)
     log(
         f"Deployment successful. App running at: {deployment_info}",
         level=1,
         fg="green",
     )
-
-    # --- 6. Update App Model ---
-    # Store runtime info so start/stop/status commands know how to handle this app
     _update_app_model(app, deployer.name, deployment_info, app_config)
+    return deployer.name
 
-    # --- 6.5. Open the firewall for declared fixed ports (best-effort) ---
-    # Now that the app is confirmed running, allow external ingress to the
-    # ports it claimed. Skipped silently when no [[ports]] are declared.
+
+def _finish_started_app(
+    app: App,
+    app_config: AppConfig,
+    build_artifact: BuildArtifact,
+    deployer_name: str,
+    db_session: Session,
+) -> None:
+    """
+    The steps that need the app running: ports, WAF, limits, admin account.
+
+    1. Open the firewall for declared fixed ports, now the app is confirmed
+       running (a no-op when no [[ports]] are declared).
+    2. Start the LeWAF proxy (ADR 050) that nginx already points at; its rules
+       were compiled and validated in preflight.
+    3. Apply native [limits] cgroup caps (ADR 046 §3): the app's PIDs exist
+       only now. Docker caps were applied by the compose generator at build
+       time. Strict mode aborts if the cap can't be enforced.
+    4. Bootstrap the initial admin account (ADR 056): the DB addon is
+       provisioned, so the recipe's idempotent [admin].create can run.
+    """
     open_fixed_ports(app, db_session)
-
-    # --- 6.55. Start the LeWAF proxy (ADR 050) ---
-    # The app is running and its port is known; bring up the per-app WAF proxy
-    # that nginx already points at. Rules were compiled+validated in preflight.
     start_waf_proxy(app, app_config)
 
-    # --- 6.6. Apply native [limits] cgroup caps (ADR 046 §3) ---
-    # Post-start: the app's PIDs exist only now. Docker caps were applied by the
-    # compose generator at build time; this is the native/Nix path. Strict mode
-    # aborts here if the cap can't be enforced (no looks-capped-but-isn't).
     try:
         enforce_native_limits(app, app_config)
     except Abort:
-        # The app is RUNNING but its cap couldn't be applied (strict mode). The
-        # guarantee is "capped or not running", so don't leave it running uncapped
-        # — stop + reap it, then re-raise so the deploy fails loudly.
+        # The app is RUNNING but its cap couldn't be applied (strict mode) or a
+        # stale cap couldn't be dropped. The guarantee is "running under the
+        # recorded cap or not running", so stop + reap it, then re-raise so the
+        # deploy fails loudly (the diagnosis above names the cause).
         log(
-            f"Stopping '{app.name}': [limits] could not be enforced (strict mode)",
+            f"Stopping '{app.name}': its [limits] cgroup cap could not be applied",
             level=1,
             fg="red",
         )
         app.stop()
         raise
 
-    # --- 6.7. Bootstrap the initial admin account (ADR 056) ---
-    # The app is deployed and its DB addon is provisioned, so the recipe's
-    # idempotent [admin].create management command can create the account. Runs
-    # once (guarded by the credential's bootstrapped flag) and fails loud.
-    _bootstrap_admin_account(app, app_config, build_artifact, deployer.name, db_session)
-
-    # Flush decision log summary
-    flush_decision_logger()
-
-    log(f"Deployment for '{app.name}' finished successfully.", level=0, fg="green")
-
-    # Surface the initial admin credential once ever (ADR 056) — after the
-    # success line so it is the last thing the operator sees. The helper's
-    # `surfaced` flag makes this fire on the first SUCCESSFUL deploy and never
-    # re-print the password afterwards.
-    if db_session is not None:
-        surface_admin_credential(app, db_session)
-
-    # Verify the app actually WORKS, not merely that it started. Runs on every
-    # deploy path — web UI, `hop3 deploy`, catalog install, git push — because
-    # "it deployed" was repeatedly not the same as "you can log in": apps served
-    # their login page perfectly while rejecting every credential. A failure is
-    # reported loudly rather than swallowed; the app is left deployed so the
-    # operator can inspect it, but the deploy does not claim success it cannot
-    # back up.
-    _run_deploy_smoke_test(app, db_session)
-
-    server_log.info(
-        "Deployment finished successfully",
-        app_name=app.name,
-        app_id=app.id,
-        runtime=deployer.name,
-        port=app.port,
-        hostname=app.hostname,
-    )
+    _bootstrap_admin_account(app, app_config, build_artifact, deployer_name, db_session)
 
 
 def _update_app_model(
@@ -598,24 +603,24 @@ def _process_new_logs(app: App, seen: list[str]) -> tuple[list[str], int]:
     Returns:
         Tuple of (log lines now seen, crash_indicator_count)
     """
-    crash_count = 0
     try:
         logs = app.get_logs(lines=50)
-        if not logs:
-            return seen, 0
+    except OSError as e:
+        # A log file mid-rotation, say: this poll learns nothing, the next one
+        # reads again. Anything else is a bug and must not disable the scan.
+        log(f"  (could not read the app's logs this poll: {e})", level=2)
+        return seen, 0
+    if not logs:
+        return seen, 0
 
-        new_lines = _lines_since(seen, logs)
-        for line in new_lines[-10:]:  # Show at most 10 new lines per check
-            line_stripped = line.rstrip()
-            log(f"  {line_stripped}", level=1)
+    new_lines = _lines_since(seen, logs)
+    for line in new_lines[-10:]:  # Show at most 10 new lines per check
+        log(f"  {line.rstrip()}", level=1)
 
-        # Count over ALL new lines, not just the ten displayed: the display cap
-        # is about noise, and a burst of crashes must not hide inside it.
-        crash_count = sum(1 for line in new_lines if _is_crash_indicator(line))
-
-        return logs, crash_count
-    except Exception:
-        return seen, 0  # Ignore log reading errors
+    # Count over ALL new lines, not just the ten displayed: the display cap
+    # is about noise, and a burst of crashes must not hide inside it.
+    crash_count = sum(1 for line in new_lines if _is_crash_indicator(line))
+    return logs, crash_count
 
 
 #: A healthcheck body is small, and the socket timeout already caps a slow or
@@ -1293,29 +1298,34 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
     """
     log_text = "\n".join(log_lines).lower()
 
-    # Load the artifact kind so we can gate WSGI-specific diagnoses on
-    # apps that were actually expected to configure a WSGI module. Apps
-    # built via nix / go / ruby / docker legitimately run uWSGI in
-    # no-workers mode with an attach-daemon; reporting "no-workers" as
-    # a failure for those would be a false positive.
-    artifact_kind: str | None = None
+    # The artifact says which workers were meant to serve. Without one (a
+    # start that never got that far) there is no claim to check it against.
+    # An unreadable one is reported, not raised: this runs to explain a failed
+    # start, and aborting here would replace that cause with its own problem.
+    artifact_path = app.app_path / ARTIFACT_FILENAME
     try:
-        artifact = BuildArtifact.load(app.app_path / ARTIFACT_FILENAME)
-        if artifact is not None:
-            artifact_kind = artifact.kind
-    except Exception:
-        # Missing / unreadable artifact is not fatal for diagnosis; we
-        # just skip the WSGI-specific pattern match.
-        artifact_kind = None
+        artifact = BuildArtifact.load(artifact_path)
+    except OSError as e:
+        artifact = None
+        log_diagnosis(
+            Diagnosis(
+                component="Deployer",
+                action="read the build artifact",
+                reason=f"can't read {artifact_path}: {e}",
+                hint=f"Check the permissions on {app.app_path}, then redeploy",
+            )
+        )
 
-    wsgi_kinds = {"python", "buildpack", "virtualenv"}
-
-    # Check for uWSGI "no workers" mode (WSGI module not configured). A Python
-    # app started by its own server (`gunicorn app:app`) runs in no-workers mode
-    # with an attach-daemon; its crash is the daemon's, diagnosed below.
+    # uWSGI in "no workers" mode with no web worker declared means nothing was
+    # configured to serve HTTP. An app whose web worker is an attach-daemon
+    # (`gunicorn app:app`, a Nix binary) also runs in no-workers mode; its
+    # crash is the daemon's, diagnosed below.
+    no_web_worker = artifact is not None and not (
+        WEB_WORKER_KINDS & set(artifact.runtime.workers)
+    )
     daemon_spawned = "[uwsgi-daemons] spawning" in log_text
     if (
-        artifact_kind in wsgi_kinds
+        no_web_worker
         and not daemon_spawned
         and (
             "operational mode: no-workers" in log_text
@@ -1326,7 +1336,7 @@ def _diagnose_failure(app: App, log_lines: list[str]) -> None:
             Diagnosis(
                 component="uWSGI",
                 action="start workers",
-                reason="uWSGI started in no-workers mode (no WSGI module configured)",
+                reason="uWSGI started in no-workers mode (no web worker configured)",
                 hint=(
                     "Add a WSGI worker to hop3.toml under [run.workers], e.g. "
                     '`wsgi = "app:application"`'
@@ -1590,7 +1600,7 @@ def _reject_build_off_local(builder_name: str, build_commands: list[str]) -> Non
 
 
 def _prepare_source_for_build(
-    app: App, app_config: AppConfig, db_session: Session | None
+    app: App, app_config: AppConfig, db_session: Session
 ) -> None:
     """
     Ready the freshly-extracted source tree before the prebuild/build runs.
@@ -1607,7 +1617,7 @@ def _prepare_source_for_build(
        holds. This covers any do_deploy path that didn't already stop (e.g.
        restart); it's a no-op when the app is already stopped.
 
-    Volumes are linked after the build (``do_deploy``, step 4.5), not here: a
+    Volumes are linked after the build (``_do_deploy``, after postbuild), not here: a
     build that unpacks the application moves directories into place, and a
     link where it expects nothing breaks it.
     """
@@ -1623,7 +1633,7 @@ def _prepare_source_for_build(
 
 
 def _process_config_dependencies(
-    app: App, app_config: AppConfig, db_session: Session | None
+    app: App, app_config: AppConfig, db_session: Session
 ) -> None:
     """
     Process addons and env vars from hop3.toml.
@@ -1634,20 +1644,9 @@ def _process_config_dependencies(
     Args:
         app: The application model
         app_config: Parsed application configuration
-        db_session: Database session for persistence (required for addon provisioning)
+        db_session: Database session for persistence
     """
     hop3_config = app_config.hop3_config
-
-    if db_session is None:
-        log(
-            "  Warning: No db_session provided - skipping addon provisioning",
-            level=0,
-            fg="yellow",
-        )
-        server_log.warning(
-            "No db_session provided for addon provisioning", app_name=app.name
-        )
-        return
 
     # Provision addons from [[addons]] sections
     addon_configs = hop3_config.addons
@@ -1664,7 +1663,7 @@ def _process_config_dependencies(
     # re-injected from the stored credentials on each deploy and can't silently
     # go missing on redeploy. Runs unconditionally — a manually-attached addon
     # leaves no [[addons]] entry, so this is its only re-injection point.
-    reinject_attached_addons(app, db_session)
+    sync_addon_env_vars(app, db_session)
 
     # Inject env vars from [env] section
     env_config = hop3_config.env
@@ -1835,7 +1834,7 @@ def _bootstrap_admin_account(
     app_config: AppConfig,
     build_artifact: BuildArtifact,
     deployer_name: str,
-    db_session: Session | None,
+    db_session: Session,
 ) -> None:
     """
     Run the recipe's [admin].create once, post-deploy (ADR 056, native path).
@@ -1861,7 +1860,7 @@ def _bootstrap_admin_account(
     # Otherwise the check uses the operator's credential and REPORTS that it did
     # ("verified the handover only"), which is a weaker claim, not a silent one.
     wants_create = bool(admin.get("create")) or bool(probe.get("create"))
-    if not wants_create or db_session is None:
+    if not wants_create:
         return
 
     if "docker" in deployer_name:
@@ -1960,51 +1959,7 @@ def _run_hook(
             )
 
 
-def _auto_discover_wsgi(artifact: BuildArtifact, src_path: Path) -> None:
-    """
-    Auto-discover WSGI module for Python apps that have no web workers.
-
-    Probes for common WSGI entry points and adds a 'wsgi' worker to the
-    artifact's runtime config if found.
-
-    Args:
-        artifact: The build artifact to potentially modify
-        src_path: Path to the application source code
-    """
-    web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
-    if any(w in web_worker_names for w in artifact.runtime.workers):
-        return  # Already has a web-facing worker
-
-    # Probe for common WSGI entry points (ordered by convention)
-    probes = [
-        # (file_to_check, wsgi_module_string, description)
-        ("wsgi.py", "wsgi:application", "wsgi.py"),
-        ("app.py", "app:app", "app.py"),
-    ]
-
-    # Django convention: <project>/wsgi.py
-    for child in sorted(src_path.iterdir()):
-        if child.is_dir() and (child / "wsgi.py").exists():
-            module = f"{child.name}.wsgi:application"
-            probes.append((
-                str(child / "wsgi.py"),
-                module,
-                f"{child.name}/wsgi.py (Django)",
-            ))
-            break
-
-    for file_check, module, description in probes:
-        if (src_path / file_check).exists():
-            log(
-                f"  Auto-detected WSGI module: {module} (from {description})",
-                level=1,
-                fg="green",
-            )
-            artifact.runtime.workers["wsgi"] = module
-            return
-
-
-def _run_deploy_smoke_test(app: App, db_session: Session | None) -> None:
+def _run_deploy_smoke_test(app: App, db_session: Session) -> None:
     """
     Run the app's check.py at the end of a deploy and report what it found.
 
@@ -2018,9 +1973,6 @@ def _run_deploy_smoke_test(app: App, db_session: Session | None) -> None:
     diagnosable app into no app at all. What must not happen is a deploy that
     stays silent about it.
     """
-    if db_session is None:
-        return
-
     from hop3.server.checks.runner import (  # ruff:ignore[import-outside-top-level]
         run_app_check,
     )

@@ -18,7 +18,7 @@ import time
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from hop3.config import APP_ROOT
+from hop3 import config as c
 from hop3.core.protocols import BuildArtifact, BuildContext
 from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log
 from hop3.lib.logging import server_log
@@ -280,6 +280,7 @@ class DockerBuilder:
 
         return BuildArtifact(
             kind="docker-image",
+            builder="docker",
             location=image_tag,
             metadata=metadata,
         )
@@ -521,7 +522,7 @@ class DockerBuilder:
             # diagnostic bundle) looks under /home/hop3/apps/<app>/log/. A failed
             # Docker build was captured but unretrievable. (Same fix the local
             # builder already carries.)
-            app_log_dir = APP_ROOT / self.app_name / "log"
+            app_log_dir = c.APP_ROOT / self.app_name / "log"
             app_log_dir.mkdir(parents=True, exist_ok=True)
 
             build_log_path = app_log_dir / "build.log"

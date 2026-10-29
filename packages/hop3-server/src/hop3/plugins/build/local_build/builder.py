@@ -8,14 +8,18 @@ from __future__ import annotations
 import shutil
 import subprocess
 import time
+from dataclasses import replace
+from typing import TYPE_CHECKING
 
-from hop3.config import APP_ROOT
+from hop3 import config as c
 from hop3.core.plugins import get_plugin_manager
-from hop3.core.protocols import BuildArtifact, BuildContext, LanguageToolchain
 from hop3.lib import log
 from hop3.lib.decision_log import get_decision_logger
-from hop3.lib.diagnostics import Diagnosis, log_diagnosis
+from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis, log_diagnosis
 from hop3.lib.logging import server_log
+
+if TYPE_CHECKING:
+    from hop3.core.protocols import BuildArtifact, BuildContext, LanguageToolchain
 
 
 class LocalBuilder:
@@ -32,6 +36,9 @@ class LocalBuilder:
     """
 
     name = "local"
+    #: Chosen only when no other builder accepts: any source a toolchain
+    #: recognises qualifies, so a Dockerfile or hop3.nix beside it wins.
+    fallback = True
 
     def __init__(self, context: BuildContext) -> None:
         """Initialize local builder with build context."""
@@ -137,7 +144,7 @@ class LocalBuilder:
             build_output.append(msg)
 
             # 2. Build with each toolchain (supports multi-language apps)
-            artifacts = []
+            artifacts: list[tuple[type[LanguageToolchain], BuildArtifact]] = []
             for toolchain_class in toolchains:
                 toolchain_name = getattr(
                     toolchain_class, "name", toolchain_class.__name__
@@ -148,7 +155,7 @@ class LocalBuilder:
 
                 toolchain = toolchain_class(self.context)
                 artifact = toolchain.build()
-                artifacts.append(artifact)
+                artifacts.append((toolchain_class, artifact))
 
                 msg = f"Build with {toolchain_name} completed: {artifact.kind} at {artifact.location}"
                 build_output.append(msg)
@@ -157,10 +164,10 @@ class LocalBuilder:
 
             # 3. Single toolchain case
             if len(artifacts) == 1:
-                return artifacts[0]
+                return artifacts[0][1]
 
             # 4. Multi-toolchain case (e.g., Python + Node)
-            return self._combine_artifacts(artifacts)
+            return _combine_artifacts(artifacts)
 
         except Exception as e:
             build_output.append(f"BUILD FAILED: {e}")
@@ -209,13 +216,17 @@ class LocalBuilder:
                         explicit=True,
                     )
                     return [toolchain_class]
-            # Toolchain not found
-            log(
-                f"Warning: Explicit toolchain '{explicit_toolchain}' not found",
-                level=1,
-                fg="yellow",
+            available = sorted(
+                getattr(cls, "name", "").lower() for cls in toolchain_classes
             )
-            return []
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Native builder",
+                    action="select the [build].toolchain",
+                    reason=f"no toolchain is named '{explicit_toolchain}'",
+                    hint=f"Set [build].toolchain to one of: {', '.join(available)}",
+                )
+            )
 
         # Auto-detect: check which toolchains accept this project
         applicable = []
@@ -256,15 +267,6 @@ class LocalBuilder:
             return None
         return build_section.get("toolchain")
 
-    def _combine_artifacts(self, artifacts: list[BuildArtifact]) -> BuildArtifact:
-        """Combine multiple artifacts for multi-language apps."""
-        # Simple implementation: return composite artifact
-        return BuildArtifact(
-            kind="multi-language",
-            location=str(self.context.source_path.parent),
-            metadata={"artifacts": [a.__dict__ for a in artifacts]},
-        )
-
     def _save_build_log(
         self, output: list[str], duration: float, *, success: bool = True
     ) -> None:
@@ -285,7 +287,7 @@ class LocalBuilder:
 
             # App log dir sits under APP_ROOT (= HOP3_ROOT/apps), not
             # HOP3_ROOT itself.
-            app_log_dir = APP_ROOT / app_name / "log"
+            app_log_dir = c.APP_ROOT / app_name / "log"
             app_log_dir.mkdir(parents=True, exist_ok=True)
 
             build_log_path = app_log_dir / "build.log"
@@ -314,6 +316,42 @@ Builder: local
                 app_name=self.context.app_name,
                 error=str(e),
             )
+
+
+def _combine_artifacts(
+    built: list[tuple[type[LanguageToolchain], BuildArtifact]],
+) -> BuildArtifact:
+    """
+    One artifact for a project several toolchains built (Django + npm assets).
+
+    The first toolchain, in discovery order, that does not defer its runtime
+    serves the app: its artifact is the result, workers and protocol included.
+    The others ran their build already; they add their runtime env vars, PATH
+    entries and before-run commands, the serving toolchain winning a conflict.
+    """
+    serving = next(
+        (a for cls, a in built if not getattr(cls, "defers_runtime", False)),
+        built[0][1],
+    )
+    others = [a for _, a in built if a is not serving]
+
+    env_vars: dict[str, str] = {}
+    path_prepend = list(serving.runtime.path_prepend)
+    before_run = list(serving.runtime.before_run)
+    for other in others:
+        env_vars.update(other.runtime.env_vars)
+        path_prepend += [p for p in other.runtime.path_prepend if p not in path_prepend]
+        before_run += other.runtime.before_run
+    env_vars.update(serving.runtime.env_vars)
+
+    runtime = replace(
+        serving.runtime,
+        env_vars=env_vars,
+        path_prepend=path_prepend,
+        before_run=before_run,
+    )
+    metadata = {**serving.metadata, "also_built_by": [a.kind for a in others]}
+    return replace(serving, runtime=runtime, metadata=metadata)
 
 
 def _probe_declared_packages(context: BuildContext) -> list[str]:

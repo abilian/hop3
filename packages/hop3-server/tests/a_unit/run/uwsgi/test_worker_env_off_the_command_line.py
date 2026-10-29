@@ -36,10 +36,8 @@ SECRET = "s3cr3t-do-not-print"
 def hop3_root(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
     monkeypatch.setenv("HOP3_ROOT", str(tmp_path))
     HopConfig.reset_instance()
-    for name in ("UWSGI_AVAILABLE", "UWSGI_ENABLED"):
-        directory = tmp_path / name.lower()
-        directory.mkdir()
-        monkeypatch.setattr(c, name, directory)
+    c.UWSGI_AVAILABLE.mkdir()
+    c.UWSGI_ENABLED.mkdir()
     yield tmp_path
     HopConfig.reset_instance()
 

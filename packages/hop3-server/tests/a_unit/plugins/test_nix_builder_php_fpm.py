@@ -18,9 +18,9 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.protocols import BuildContext
 from hop3.lib.console import Abort
-from hop3.plugins.build.nix import builder as builder_module
 from hop3.plugins.build.nix.builder import NixBuilder
 from hop3.toolchains.php_fpm import POOL_TEMPLATE_NAME
 
@@ -46,7 +46,7 @@ def _build(tmp_path: Path, monkeypatch, store: Path):
     src = tmp_path / "apps" / "shop" / "src"
     src.mkdir(parents=True)
     (src / "hop3.nix").write_text("# explicit")
-    monkeypatch.setattr(builder_module, "APP_ROOT", tmp_path / "apps")
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     monkeypatch.setattr(NixBuilder, "_kill_stale_nix_builds", lambda self, f: None)
     monkeypatch.setattr(NixBuilder, "_nix_build", lambda self, f: str(store))
     context = BuildContext(app_name="shop", source_path=src, app_config={})

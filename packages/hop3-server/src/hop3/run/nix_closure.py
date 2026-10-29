@@ -28,25 +28,29 @@ import shutil
 import subprocess
 from pathlib import Path
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 
 __all__ = [
-    "NIX_STORE_CANDIDATES",
     "ClosureCheckError",
     "missing_closure_paths",
+    "nix_store_candidates",
     "resolve_nix_store",
 ]
+
 
 # Multi-user (daemon) install first: the installer prefers it wherever systemd is
 # available, and it is readable whichever user the deploy runs as. Then the
 # single-user profile, resolved against the **hop3 user's** home rather than the
 # current process's — in a container the installer falls back to single-user and
 # installs there, while the deploy may be running as root.
-NIX_STORE_CANDIDATES: tuple[str, ...] = (
-    "/nix/var/nix/profiles/default/bin/nix-store",
-    f"{HOP3_ROOT}/.nix-profile/bin/nix-store",
-    "/run/current-system/sw/bin/nix-store",
-)
+def nix_store_candidates() -> tuple[str, ...]:
+    """Where `nix-store` may live, in preference order (HOP3_ROOT read live)."""
+    return (
+        "/nix/var/nix/profiles/default/bin/nix-store",
+        f"{c.HOP3_ROOT}/.nix-profile/bin/nix-store",
+        "/run/current-system/sw/bin/nix-store",
+    )
+
 
 CLOSURE_QUERY_TIMEOUT_SECONDS = 60
 
@@ -63,7 +67,7 @@ class ClosureCheckError(Exception):
 
 def resolve_nix_store() -> Path | None:
     """Absolute path to a usable `nix-store`, or None if there is none."""
-    for candidate in NIX_STORE_CANDIDATES:
+    for candidate in nix_store_candidates():
         path = Path(os.path.expanduser(candidate))
         if path.is_file() and os.access(path, os.X_OK):
             return path

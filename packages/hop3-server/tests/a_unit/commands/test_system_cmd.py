@@ -18,7 +18,6 @@ The pre-0.5 commands ``check`` / ``uptime`` / ``ps`` were removed and
 from __future__ import annotations
 
 import json
-from types import SimpleNamespace
 
 import pytest
 
@@ -31,6 +30,7 @@ from hop3.commands.system import (
     StatusCmd,
     _worst,
 )
+from hop3.config import HopConfig
 from hop3.core.protocols import HealthCheckResult
 
 IDENTITY = {
@@ -289,7 +289,7 @@ def test_info_features_lists_installed_addons(tmp_path, monkeypatch):
     (tmp_path / "hop3-server.toml").write_text(
         'POSTGRES_SUPERUSER_PASSWORD = "x"\nMYSQL_SUPERUSER_PASSWORD = "y"\n'
     )
-    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
 
     features = sysmod._installed_features()
     assert "postgres" in features
@@ -298,7 +298,7 @@ def test_info_features_lists_installed_addons(tmp_path, monkeypatch):
 
 def test_info_features_none_without_addons(tmp_path, monkeypatch):
     (tmp_path / "hop3-server.toml").write_text('HOP3_SECRET_KEY = "x"\n')
-    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     # No postgres/mysql creds → neither reported (redis/s3/nix depend on the host).
     features = sysmod._installed_features()
     assert "postgres" not in features
@@ -339,7 +339,7 @@ def test_info_shows_provenance_from_manifest(tmp_path, monkeypatch):
             "deployed_at": "2026-06-12T10:30:00+00:00",
         })
     )
-    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
 
     blob = InfoCmd().call()[0]["text"]
     assert "Commit:         abc123def4567890 (dirty)" in blob
@@ -350,7 +350,7 @@ def test_info_shows_provenance_from_manifest(tmp_path, monkeypatch):
 
 def test_info_provenance_unknown_without_manifest(tmp_path, monkeypatch):
     """With no manifest (and no VCS install), Commit reads 'unknown'."""
-    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     monkeypatch.setattr(sysmod, "_commit_from_direct_url", lambda: (None, None))
 
     blob = InfoCmd().call()[0]["text"]
@@ -362,7 +362,7 @@ def test_info_provenance_unknown_without_manifest(tmp_path, monkeypatch):
 
 def test_provenance_falls_back_to_direct_url(tmp_path, monkeypatch):
     """No manifest but a git (PEP 610) install → commit from direct_url.json."""
-    monkeypatch.setattr(sysmod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     monkeypatch.setattr(
         sysmod, "_commit_from_direct_url", lambda: ("deadbeefcafe", "devel")
     )
@@ -395,7 +395,7 @@ def _states(states: dict[str, tuple[bool, str]]):
 
 def test_services_are_the_ones_this_server_runs(monkeypatch):
     """The active proxy, not always nginx: a Caddy server has no nginx to run."""
-    monkeypatch.setattr(sysmod, "config", SimpleNamespace(HOP3_PROXY_TYPE="caddy"))
+    monkeypatch.setattr(HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: "caddy"))
     monkeypatch.setattr(
         sysmod,
         "service_state",

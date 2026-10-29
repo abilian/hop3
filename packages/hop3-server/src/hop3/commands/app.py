@@ -18,7 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, ClassVar, cast
 
-from hop3.core.backup import BackupManager
+from hop3.core.backup import BackupManager, UnreadableBackup
 from hop3.core.git import clone_repository
 from hop3.core.identifiers import validate_app_name, validate_repo_url
 from hop3.core.plugins import get_addon
@@ -29,6 +29,7 @@ from hop3.deployers.admin_bootstrap import (
     read_admin_credential,
 )
 from hop3.deployers.fixed_ports import release_fixed_ports
+from hop3.deployers.native_limits import remove_native_limits
 from hop3.deployers.waf import teardown_waf
 from hop3.lib import log
 from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
@@ -67,6 +68,8 @@ from ._response import (
 from .apps import _get_instance_count
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
     from sqlalchemy.orm import Session
 
 
@@ -836,86 +839,69 @@ class DestroyCmd(Command):
             command_context("destroying app", app_name=app_name),
         ):
             log(f"Destroying app '{app_name}'...", level=2)
-            cleanup_failed = False
+            # Everything teardown could not remove, one line each. Destroy keeps
+            # going (the DB delete below must always run: a stranded port-claim
+            # row blocks every future deploy of that port), but never reports a
+            # clean teardown over a leftover.
+            leftovers: list[str] = []
 
             # Stop the app first — release file locks AND reap its processes so a
-            # daemon holding a fixed port can't survive teardown. A stop that
-            # can't fully reap must not block DB teardown: record it and continue
-            # (app.destroy() below reaps again, state-independently).
-            try:
-                app.stop()
-            except Exception as e:
-                cleanup_failed = True
-                log(
-                    f"Stop during destroy was incomplete for '{app_name}': {e}",
-                    level=1,
-                    fg="yellow",
-                )
+            # daemon holding a fixed port can't survive teardown. app.destroy()
+            # below reaps again, state-independently.
+            leftovers += _teardown_step("stop", app.stop)
 
             # Tear down attached addons (DBs, redis slots) while their
             # credentials are still in the DB. Without this, addon resources
             # leak forever and eventually exhaust (e.g. Redis has 15 dbs).
-            leaked_addons = self._destroy_addons(app)
+            leftovers += [f"addon {a}" for a in self._destroy_addons(app)]
 
             # Fully release the app's fixed ports (firewall + registry rows)
             # BEFORE the fallible filesystem/Docker cleanup, so a stranded claim
             # can never block a future deploy of that port.
-            release_fixed_ports(app, self.db_session)
+            leftovers += _teardown_step(
+                "fixed ports", release_fixed_ports, app, self.db_session
+            )
 
             # Stop the LeWAF proxy vassal (Emperor reaps it + its daemon) and
             # remove its rules, so no proxy process/port/config is left behind.
-            teardown_waf(app)
+            leftovers += _teardown_step("WAF", teardown_waf, app)
 
-            # Clean up filesystem (repo, src, logs, configs etc.). Downgrade a
-            # failure to a warning: a busy directory or a Docker hiccup must not
-            # strand the app row and its port-claim/addon rows in the DB (a far
-            # worse leak than a leftover directory — which we log loudly — because
-            # a stranded fixed-port claim blocks every future deploy of that
-            # port). The DB delete + commit below must always run.
-            try:
-                app.destroy()
-            except Exception as e:
-                cleanup_failed = True
-                log(
-                    f"Filesystem/Docker cleanup for '{app_name}' was incomplete: "
-                    f"{e}. Removing the app from the database anyway — inspect for "
-                    f"leftovers manually.",
-                    level=1,
-                    fg="yellow",
-                )
+            # Filesystem, processes and Docker resources.
+            leftovers += _teardown_step("filesystem/Docker cleanup", app.destroy)
+
+            # Drop any native [limits] cgroup leaf (ADR 046 §3) for ALL runtimes:
+            # an app deployed native (with a leaf) then redeployed to Docker
+            # still has one, and this is the only place that reclaims it.
+            leftovers += _teardown_step("cgroup leaf", remove_native_limits, app_name)
 
             # Remove from the database (cascades to any remaining child rows)
             self.db_session.delete(app)
             self.db_session.commit()
 
             # Reload nginx to remove the app's routing configuration
-            self._reload_nginx(app_name)
+            leftovers += self._reload_nginx(app_name)
 
-        # Report accurately in the summary: if filesystem/Docker cleanup failed, the app
-        # is gone from the DB (port freed) but leftovers may remain — say so,
-        # rather than reporting a clean success ("teardown must be verifiable").
-        if cleanup_failed:
-            final_message = (
-                f"App '{app_name}' removed from the database, but filesystem/Docker "
-                f"cleanup was incomplete — inspect for leftovers (see logs above)."
-            )
-            response = build_log_response(captured, [final_message])
-            response.append(summary(f"destroyed {app_name} (with cleanup warnings)."))
-        else:
+        if not leftovers:
             response = build_log_response(
                 captured, [f"App '{app_name}' has been destroyed."]
             )
             response.append(summary(f"destroyed {app_name}."))
-            if leaked_addons:
-                # Surfaced where the operator is looking, not only in a log.
-                response.append(
-                    error(
-                        f"Storage was left behind for {len(leaked_addons)} "
-                        f"addon(s): " + "; ".join(leaked_addons) + ". It will "
-                        "block the next install of an app with this name — "
-                        "remove it by hand."
-                    )
-                )
+            return response
+
+        # The app is gone from the DB (its ports are free), but teardown left
+        # things behind: say what, where the operator is looking.
+        response = build_log_response(
+            captured,
+            [f"App '{app_name}' removed from the database; teardown was incomplete."],
+        )
+        response.append(
+            error(
+                f"Teardown of '{app_name}' left {len(leftovers)} leftover(s) — "
+                "remove them before redeploying this name:\n"
+                + "\n".join(f"  - {item}" for item in leftovers)
+            )
+        )
+        response.append(summary(f"destroyed {app_name} (with cleanup warnings)."))
         return response
 
     def _destroy_addons(self, app: App) -> list[str]:
@@ -968,7 +954,7 @@ class DestroyCmd(Command):
                 )
         return leaked
 
-    def _reload_nginx(self, app_name: str) -> None:
+    def _reload_nginx(self, app_name: str) -> list[str]:
         """
         Reload nginx (via hop3-rootd) to drop the destroyed app's route.
 
@@ -1001,6 +987,24 @@ class DestroyCmd(Command):
                 app_name=app_name,
                 error=str(e),
             )
+            return [f"nginx route of '{app_name}' (reload failed: {e})"]
+        return []
+
+
+def _teardown_step(label: str, step: Callable[..., object], *args: object) -> list[str]:
+    """
+    Run one destroy step; return its leftovers, never raise.
+
+    A step either returns the list of what it could not remove, or returns
+    nothing and raises on failure. Both become leftovers here, so one failing
+    step neither stops the others nor goes unreported.
+    """
+    try:
+        result = step(*args)
+    except Exception as e:
+        log(f"Teardown step '{label}' failed: {e}", level=1, fg="red")
+        return [f"{label}: {e}"]
+    return [f"{label}: {item}" for item in result] if isinstance(result, list) else []
 
 
 @register
@@ -1474,7 +1478,15 @@ class AppRollbackCmd(Command):
                     f"Take one with `hop3 backup create --app {app_name}`."
                 )
                 raise ValueError(msg)
-            return recent[0].backup_id
+            latest = recent[0]
+            if isinstance(latest, UnreadableBackup):
+                msg = (
+                    f"The latest backup of '{app_name}', {latest.backup_id}, is "
+                    f"unreadable ({latest.reason}). Pick an older one with "
+                    f"`hop3 backup list --app {app_name}` and pass it with --to."
+                )
+                raise ValueError(msg)
+            return latest.backup_id
 
         try:
             info = manager.get_backup_info(target)

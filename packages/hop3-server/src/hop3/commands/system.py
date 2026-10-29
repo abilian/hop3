@@ -38,12 +38,12 @@ from datetime import datetime, timedelta, timezone
 from itertools import starmap
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3.config import HOP3_ROOT, config
+from hop3 import config as c
 from hop3.core.plugins import get_plugin_manager
 from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.console import get_verbosity
-from hop3.lib.logging import DEFAULT_LOG_FILE
+from hop3.lib.logging import server_log_file
 from hop3.lib.registry import register
 from hop3.lib.rootd import RootdError, RootdUnavailableError, service_state
 from hop3.plugins.redis.redis import REDIS_PASS_FILE
@@ -193,9 +193,9 @@ def _acme_engine_summary() -> str:
     Reads the live config singleton (not the file), so it reflects what the
     process will use — the answer to "why is my cert self-signed?".
     """
-    engine = config.ACME_ENGINE
+    engine = c.ACME_ENGINE
     if engine == "certbot":
-        email = config.ACME_EMAIL
+        email = c.ACME_EMAIL
         return f"certbot ({email})" if email else "certbot (ACME_EMAIL not set!)"
     return engine
 
@@ -205,7 +205,7 @@ def _database_backend() -> str:
     Control-plane DB backend (scheme only — never the URI, which may carry
     a password). Mirrors the resolution in ``orm.session.get_session_factory``.
     """
-    uri = os.environ.get("HOP3_DATABASE_URI", "") or f"sqlite:///{HOP3_ROOT}/hop3.db"
+    uri = os.environ.get("HOP3_DATABASE_URI", "") or f"sqlite:///{c.HOP3_ROOT}/hop3.db"
     return uri.split(":", 1)[0] or "unknown"
 
 
@@ -220,7 +220,7 @@ def _installed_features() -> list[str]:
     """
     features: list[str] = []
     try:
-        content = (HOP3_ROOT / "hop3-server.toml").read_text(encoding="utf-8")
+        content = (c.HOP3_ROOT / "hop3-server.toml").read_text(encoding="utf-8")
     except OSError:
         content = ""
     if "POSTGRES_SUPERUSER_PASSWORD" in content:
@@ -251,7 +251,7 @@ def _read_build_info() -> dict | None:
     (e.g. an install that predates build-info, or a hand-rolled deploy).
     """
     try:
-        raw = (HOP3_ROOT / "build-info.json").read_text(encoding="utf-8")
+        raw = (c.HOP3_ROOT / "build-info.json").read_text(encoding="utf-8")
         data = json.loads(raw)
     except (OSError, ValueError):
         return None
@@ -406,7 +406,7 @@ class StatusCmd(Command):
     def _check_services(self) -> CheckSection:
         # The proxy this server runs, not always nginx: on a Caddy server an
         # absent nginx is correct, and reporting it down is a false alarm.
-        proxy = config.HOP3_PROXY_TYPE
+        proxy = c.HOP3_PROXY_TYPE
         services = [
             ("hop3-server", "Hop3 Server"),
             (proxy, proxy.capitalize()),
@@ -438,11 +438,11 @@ class StatusCmd(Command):
 
     def _check_filesystem(self) -> CheckSection:
         required = [
-            (HOP3_ROOT, "HOP3_ROOT"),
-            (HOP3_ROOT / "apps", "Apps directory"),
-            (HOP3_ROOT / "nginx", "Nginx config"),
-            (HOP3_ROOT / "uwsgi-available", "uWSGI available"),
-            (HOP3_ROOT / "uwsgi-enabled", "uWSGI enabled"),
+            (c.HOP3_ROOT, "HOP3_ROOT"),
+            (c.HOP3_ROOT / "apps", "Apps directory"),
+            (c.HOP3_ROOT / "nginx", "Nginx config"),
+            (c.HOP3_ROOT / "uwsgi-available", "uWSGI available"),
+            (c.HOP3_ROOT / "uwsgi-enabled", "uWSGI enabled"),
         ]
         items: list[CheckItem] = []
         for path, label in required:
@@ -466,7 +466,7 @@ class StatusCmd(Command):
         return CheckSection(title="Filesystem", items=items)
 
     def _check_configuration(self) -> CheckSection:
-        config_file = HOP3_ROOT / "hop3-server.toml"
+        config_file = c.HOP3_ROOT / "hop3-server.toml"
         items: list[CheckItem] = []
         if not config_file.exists():
             items.append(
@@ -506,8 +506,8 @@ class StatusCmd(Command):
         return CheckSection(title="Configuration", items=items)
 
     def _check_certificates(self) -> CheckSection:
-        ssl_cert = HOP3_ROOT / "nginx" / "ssl" / "hop3.crt"
-        ssl_key = HOP3_ROOT / "nginx" / "ssl" / "hop3.key"
+        ssl_cert = c.HOP3_ROOT / "nginx" / "ssl" / "hop3.crt"
+        ssl_key = c.HOP3_ROOT / "nginx" / "ssl" / "hop3.key"
         if ssl_cert.exists() and ssl_key.exists():
             item = CheckItem(name="SSL", severity="ok", detail="configured")
         else:
@@ -520,7 +520,7 @@ class StatusCmd(Command):
 
     def _check_disk(self) -> CheckSection:
         try:
-            usage = shutil.disk_usage(HOP3_ROOT)
+            usage = shutil.disk_usage(c.HOP3_ROOT)
         except OSError as e:
             return CheckSection(
                 title="Disk",
@@ -717,9 +717,9 @@ class InfoCmd(Command):
         lines.extend([
             "",
             "Paths",
-            f"  HOP3_ROOT:    {HOP3_ROOT}",
-            f"  Apps dir:     {HOP3_ROOT / 'apps'}",
-            f"  Nginx conf:   {HOP3_ROOT / 'nginx'}",
+            f"  HOP3_ROOT:    {c.HOP3_ROOT}",
+            f"  Apps dir:     {c.HOP3_ROOT / 'apps'}",
+            f"  Nginx conf:   {c.HOP3_ROOT / 'nginx'}",
         ])
         return lines
 
@@ -764,10 +764,11 @@ class SystemLogsCmd(Command):
         level = parsed["level"].upper()
         grep = parsed["grep"]
 
-        if not DEFAULT_LOG_FILE.exists():
-            return [text(f"No log file found at {DEFAULT_LOG_FILE}")]
+        log_file = server_log_file()
+        if not log_file.exists():
+            return [text(f"No log file found at {log_file}")]
 
-        with pathlib.Path(DEFAULT_LOG_FILE).open(encoding="utf-8") as f:
+        with log_file.open(encoding="utf-8") as f:
             all_lines = f.readlines()
 
         if since:
@@ -915,7 +916,7 @@ class CleanupCmd(Command):
                 text=True,
                 check=False,
             )
-            ids = [c for c in result.stdout.strip().split("\n") if c]
+            ids = [cid for cid in result.stdout.strip().split("\n") if cid]
             lines.append(
                 f"  Would remove {len(ids)} stopped container(s)"
                 if ids

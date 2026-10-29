@@ -119,7 +119,9 @@ def test_a_crashing_daemon_is_not_blamed_on_a_missing_wsgi_module(
     diagnoses = []
     monkeypatch.setattr(deployer_mod, "log_diagnosis", diagnoses.append)
     monkeypatch.setattr(
-        deployer_mod.BuildArtifact, "load", lambda path: SimpleNamespace(kind="python")
+        deployer_mod.BuildArtifact,
+        "load",
+        lambda path: SimpleNamespace(runtime=SimpleNamespace(workers={})),
     )
     app = SimpleNamespace(app_path=Path("/nonexistent"))
     lines = [
@@ -134,3 +136,66 @@ def test_a_crashing_daemon_is_not_blamed_on_a_missing_wsgi_module(
     [diagnosis] = diagnoses
     assert "gunicorn: not found" in diagnosis.reason
     assert "no-workers" not in diagnosis.reason
+
+
+def _artifact_with(workers: dict[str, str]) -> SimpleNamespace:
+    return SimpleNamespace(runtime=SimpleNamespace(workers=workers))
+
+
+_NO_WORKERS_LOG = ["*** Operational MODE: no-workers ***"]
+
+
+def test_no_web_worker_is_diagnosed_whatever_the_language(monkeypatch) -> None:
+    """The gate is the artifact's workers, not a list of Python artifact kinds."""
+    diagnoses = []
+    monkeypatch.setattr(deployer_mod, "log_diagnosis", diagnoses.append)
+    monkeypatch.setattr(
+        deployer_mod.BuildArtifact, "load", lambda path: _artifact_with({"worker": "x"})
+    )
+    app = SimpleNamespace(app_path=Path("/nonexistent"), name="myapp")
+
+    deployer_mod._diagnose_failure(app, _NO_WORKERS_LOG)
+
+    [diagnosis] = diagnoses
+    assert "no web worker configured" in diagnosis.reason
+
+
+def test_a_declared_web_worker_is_not_reported_missing(monkeypatch) -> None:
+    diagnoses = []
+    monkeypatch.setattr(deployer_mod, "log_diagnosis", diagnoses.append)
+    monkeypatch.setattr(
+        deployer_mod.BuildArtifact,
+        "load",
+        lambda path: _artifact_with({"wsgi": "app:app"}),
+    )
+    app = SimpleNamespace(app_path=Path("/nonexistent"), name="myapp")
+
+    deployer_mod._diagnose_failure(app, _NO_WORKERS_LOG)
+
+    assert not diagnoses
+
+
+def test_an_unreadable_artifact_is_reported_beside_the_start_failure(
+    monkeypatch,
+) -> None:
+    """
+    It used to be swallowed by `except Exception`, skipping the check; then it
+    aborted, replacing the start failure it was called to explain. It is now
+    reported, and the log analysis still runs.
+    """
+
+    def unreadable(path):
+        raise PermissionError(13, "Permission denied", str(path))
+
+    diagnoses = []
+    monkeypatch.setattr(deployer_mod, "log_diagnosis", diagnoses.append)
+    monkeypatch.setattr(deployer_mod.BuildArtifact, "load", unreadable)
+    app = SimpleNamespace(app_path=Path("/nonexistent"), name="myapp")
+
+    deployer_mod._diagnose_failure(
+        app, ["*** uWSGI is running in multiple interpreter mode ***", "throttling"]
+    )
+
+    reasons = [d.reason for d in diagnoses]
+    assert any("can't read" in r and "Permission denied" in r for r in reasons)
+    assert any("crashing repeatedly" in r for r in reasons)

@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from hop3.core.artifacts import WEB_WORKER_KINDS
 from hop3.project.hop3_config import Hop3Config
 from hop3.project.procfile import Procfile
 
@@ -73,8 +74,7 @@ class AppConfig:
         Returns:
             Dictionary of web workers (wsgi, jwsgi, rwsgi, web)
         """
-        web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
-        return {k: v for k, v in self.workers.items() if k in web_worker_names}
+        return {k: v for k, v in self.workers.items() if k in WEB_WORKER_KINDS}
 
     @property
     def pre_build(self) -> list[str]:
@@ -256,19 +256,6 @@ class AppConfig:
             # hop3.toml is optional - use empty defaults
             self.hop3_config = Hop3Config()
             self.has_hop3_toml = False
-
-    def get_worker(self, name: str) -> str:
-        """
-        Retrieve a worker's details by name from the procfile.
-
-        Input:
-        - name (str): The name of the worker to retrieve.
-
-        Returns:
-        - str: Details of the worker if found, otherwise an empty string.
-        """
-        # Attempt to retrieve the worker's details from the 'workers' dictionary.
-        return self.procfile.workers.get(name, "")
 
     def __repr__(self) -> str:
         return f"<AppConfig {self.app_dir}>"

@@ -30,6 +30,7 @@ import pytest
 
 from hop3.core.env import Env
 from hop3.core.protocols import BuildContext
+from hop3.lib import Abort
 from hop3.toolchains import (
     ClojureToolchain,
     DotNetToolchain,
@@ -456,14 +457,6 @@ class TestPythonBuildAndHelpers:
         assert env["PYTHONUNBUFFERED"] == "1"
         assert env["PYTHONIOENCODING"] == "UTF_8:replace"
 
-    def test_has_uv_reflects_which(self, tmp_path, monkeypatch):
-        _src(tmp_path)
-        tc = PythonToolchain("myapp", tmp_path)
-        monkeypatch.setattr(py_mod.shutil, "which", lambda _b: "/usr/bin/uv")
-        assert tc._has_uv() is True
-        monkeypatch.setattr(py_mod.shutil, "which", lambda _b: None)
-        assert tc._has_uv() is False
-
     def test_is_python_executable(self, tmp_path):
         _src(tmp_path)
         tc = PythonToolchain("myapp", tmp_path)
@@ -482,15 +475,100 @@ class TestPythonBuildAndHelpers:
         with pytest.raises(FileNotFoundError):
             tc.install_virtualenv()
 
-    def test_uv_lock_falls_back_to_pip_when_uv_unavailable(self, tmp_path, monkeypatch):
+    def test_uv_lock_without_uv_aborts_instead_of_ignoring_the_lock(
+        self, tmp_path, monkeypatch
+    ):
+        """Falling back to pip installed a tree the uv.lock never pinned."""
         _src(tmp_path, {"requirements.txt": "flask==3.0.0\n", "uv.lock": "\n"})
         _fake_venv(tmp_path)
         tc = PythonToolchain("myapp", tmp_path)
         rec = _record(tc, monkeypatch)
-        monkeypatch.setattr(tc, "_ensure_uv_installed", lambda: False)
-        tc.install_virtualenv()
-        # uv couldn't be installed, so the pip path drives the install instead.
-        assert any("-r" in c and "requirements.txt" in c for c in rec.calls)
+        monkeypatch.setattr(py_mod.shutil, "which", lambda _b: None)
+        monkeypatch.setattr(tc, "_uv_candidates", list)
+        monkeypatch.setattr(
+            py_mod.subprocess,
+            "run",
+            lambda *_a, **_k: subprocess.CompletedProcess([], 7, "", "no network"),
+        )
+
+        with pytest.raises(Abort, match=r"uv is not available.*no network"):
+            tc.install_virtualenv()
+        assert rec.calls == []  # pip never ran
+
+    def test_uv_installer_is_bounded_by_a_timeout(self, tmp_path, monkeypatch):
+        _src(tmp_path)
+        tc = PythonToolchain("myapp", tmp_path)
+        monkeypatch.setattr(py_mod.shutil, "which", lambda _b: None)
+        monkeypatch.setattr(tc, "_uv_candidates", list)
+        seen = {}
+
+        def hang(cmd, **kwargs):
+            seen.update(kwargs)
+            raise subprocess.TimeoutExpired(cmd, kwargs["timeout"])
+
+        monkeypatch.setattr(py_mod.subprocess, "run", hang)
+
+        with pytest.raises(Abort, match="timed out"):
+            tc._ensure_uv_installed()
+        assert seen["timeout"] > 0
+
+    def test_uv_found_in_a_candidate_location_needs_no_install(
+        self, tmp_path, monkeypatch
+    ):
+        _src(tmp_path)
+        tc = PythonToolchain("myapp", tmp_path)
+        found = tmp_path / "uv"
+        found.touch()
+        monkeypatch.setattr(py_mod.shutil, "which", lambda _b: None)
+        monkeypatch.setattr(tc, "_uv_candidates", lambda: [found])
+        monkeypatch.setattr(
+            py_mod.subprocess,
+            "run",
+            lambda *_a, **_k: pytest.fail("installed uv although it was present"),
+        )
+        tc._ensure_uv_installed()
+
+    def test_missing_venv_aborts_with_a_diagnosis(self, tmp_path, monkeypatch):
+        """These preconditions were `assert`s, which `python -O` strips."""
+        _src(tmp_path, {"requirements.txt": "flask==3.0.0\n"})
+        tc = PythonToolchain("myapp", tmp_path)
+        _record(tc, monkeypatch)
+        with pytest.raises(Abort, match="venv does not exist"):
+            tc.install_virtualenv()
+
+
+class TestPythonWsgiDiscovery:
+    """The toolchain, not core, says which WSGI module a Python app serves."""
+
+    def _build(self, tmp_path, monkeypatch, files, workers=None):
+        src = _src(tmp_path, {"requirements.txt": "flask==3.0.0\n", **files})
+        ctx = BuildContext(
+            app_name="myapp",
+            source_path=src,
+            app_config={"procfile": {"workers": workers or {}}},
+        )
+        tc = PythonToolchain(ctx)
+        monkeypatch.setattr(tc, "make_virtual_env", lambda: None)
+        monkeypatch.setattr(tc, "install_virtualenv", lambda: None)
+        return tc.build()
+
+    def test_wsgi_py_becomes_the_wsgi_worker(self, tmp_path, monkeypatch):
+        artifact = self._build(tmp_path, monkeypatch, {"wsgi.py": ""})
+        assert artifact.runtime.workers["wsgi"] == "wsgi:application"
+
+    def test_django_project_module_is_found(self, tmp_path, monkeypatch):
+        artifact = self._build(tmp_path, monkeypatch, {"mysite/wsgi.py": ""})
+        assert artifact.runtime.workers["wsgi"] == "mysite.wsgi:application"
+
+    def test_a_declared_web_worker_is_left_alone(self, tmp_path, monkeypatch):
+        artifact = self._build(
+            tmp_path, monkeypatch, {"app.py": ""}, workers={"web": "gunicorn x:y"}
+        )
+        assert "wsgi" not in artifact.runtime.workers
+
+    def test_nothing_conventional_declares_nothing(self, tmp_path, monkeypatch):
+        artifact = self._build(tmp_path, monkeypatch, {"main.py": ""})
+        assert artifact.runtime.workers == {}
 
 
 class TestNodeInstallSteps:

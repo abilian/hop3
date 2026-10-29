@@ -28,7 +28,6 @@ Three entry points, mirroring ``fixed_ports.py``:
 
 from __future__ import annotations
 
-from contextlib import suppress
 from typing import TYPE_CHECKING, Any
 
 from hop3.config import HopConfig
@@ -95,7 +94,22 @@ def enforce_native_limits(app: App, app_config: AppConfig) -> None:
         # Redeploy that dropped [limits]: tear down any prior leaf AND clear the
         # recorded state, else status keeps reporting a cap that no longer exists
         # and the periodic re-attach keeps poking a dead leaf.
-        remove_native_limits(app.name)
+        leftovers = remove_native_limits(app.name)
+        if leftovers:
+            # A leaf that survives keeps capping (or killing) whatever lands in
+            # it, while status would report no cap: refuse to record that.
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Limits",
+                    action=f"drop the [limits] cgroup leaf of '{app.name}'",
+                    reason="; ".join(leftovers),
+                    hint=(
+                        "the redeploy removed [limits] but the previous cap could "
+                        "not be torn down. Check hop3-rootd, then redeploy."
+                    ),
+                    troubleshooting=["journalctl -u hop3-rootd --no-pager | tail -50"],
+                )
+            )
         app.limits_enforced = ""
         app.limits_detail = ""
         return
@@ -160,16 +174,24 @@ def reattach_native_limits(app_name: str) -> None:
         )
 
 
-def remove_native_limits(app_name: str) -> None:
+def remove_native_limits(app_name: str) -> list[str]:
     """
-    Kill + drop the app's cgroup leaf on teardown (best-effort, never raises).
+    Kill + drop the app's cgroup leaf on teardown; return what was left behind.
 
     Idempotent on the rootd side (a missing leaf reports absent). Destroy reaps
     the processes first, so the leaf is empty by the time this runs; this just
-    clears the leaf and the stored cap so no ghost cgroup survives the app.
+    clears the leaf and the stored cap so no ghost cgroup survives the app. A
+    rootd that can't be reached or refuses is not "no leaf": the failure is
+    returned (and logged) for the caller to report, never swallowed.
     """
-    with suppress(RootdError), LocalRootdClient() as client:
-        client.call("cgroup.remove", {"app_name": app_name})
+    try:
+        with LocalRootdClient() as client:
+            client.call("cgroup.remove", {"app_name": app_name})
+    except RootdError as e:
+        leftover = f"cgroup leaf of '{app_name}' (hop3-rootd cgroup.remove: {e})"
+        log(f"[limits] could not remove the {leftover}", level=1, fg="red")
+        return [leftover]
+    return []
 
 
 def _apply_cgroup(app_name: str, args: dict[str, Any]) -> None:

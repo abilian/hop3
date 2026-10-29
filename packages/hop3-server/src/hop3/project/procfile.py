@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from hop3 import config as c
+from hop3.core.artifacts import WEB_WORKER_KINDS
 from hop3.lib import log
 
 
@@ -55,8 +56,7 @@ class Procfile:
 
     @property
     def web_workers(self) -> dict:
-        web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
-        return {k: v for k, v in self.workers.items() if k in web_worker_names}
+        return {k: v for k, v in self.workers.items() if k in WEB_WORKER_KINDS}
 
     def parse(self, text: str) -> None:
         """

@@ -247,9 +247,11 @@ class TestGenericToolchainDetection:
         ctx = self._ctx(tmp_path, {"toolchain": "generic"})
         assert GenericToolchain(ctx).accept()
 
-    def test_accepts_when_toolchain_none(self, tmp_path):
+    def test_none_is_not_an_alias(self, tmp_path):
+        # LocalBuilder selects an explicit toolchain by name; "none" names no
+        # toolchain, so accepting it here would only advertise a dead alias.
         ctx = self._ctx(tmp_path, {"toolchain": "none"})
-        assert GenericToolchain(ctx).accept()
+        assert not GenericToolchain(ctx).accept()
 
     def test_rejects_when_no_toolchain_declared(self, tmp_path):
         ctx = self._ctx(tmp_path, {})

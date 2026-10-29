@@ -14,14 +14,14 @@ from typing import TYPE_CHECKING
 
 from advanced_alchemy.base import BigIntAuditBase
 from sqlalchemy import JSON, DateTime, Enum as SQLEnum, String, TypeDecorator
-from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy.orm import Mapped, mapped_column, object_session, relationship
 from sqlalchemy.types import Integer as SQLInteger
 
 from hop3.config import HopConfig
 from hop3.core.env import Env
-from hop3.core.plugins import get_deployer_by_name
+from hop3.core.plugins import NeverBuiltError, get_probe_deployer
 from hop3.core.roles import Role
-from hop3.lib import Abort, log, robust_rmtree
+from hop3.lib import Abort, Diagnosis, abort_with_diagnosis, log, robust_rmtree
 from hop3.lib.path import REJECTED_SUFFIX
 from hop3.run.spawn import spawn_app, verify_nix_closure
 from hop3.run.uwsgi.naming import vassal_glob
@@ -239,8 +239,13 @@ class App(BigIntAuditBase):
         Raises:
             RuntimeError: no deployer serves the app's runtime. This used to
                 read as STOPPED, so `hop3 status` called a running app CRASHED.
+                Also raised when the build artifact is unreadable.
         """
-        strategy = get_deployer_by_name(self, self.runtime)
+        try:
+            strategy = get_probe_deployer(self, self.runtime)
+        except NeverBuiltError:
+            # Nothing of an app that was never built can be running.
+            return AppStateEnum.STOPPED
         return AppStateEnum.RUNNING if strategy.check_status() else AppStateEnum.STOPPED
 
     def sync_state(self) -> bool:
@@ -461,12 +466,23 @@ class App(BigIntAuditBase):
         Deploys the application by invoking the deployment process.
 
         This serves as a wrapper that calls the `do_deploy` function,
-        which handles the actual deployment steps necessary for the application.
+        which handles the actual deployment steps necessary for the application,
+        in the session this app is loaded in (addons, admin account, smoke test).
         """
         # Lazy import to avoid circular dependency
         from hop3.deployers import do_deploy  # ruff:ignore[import-outside-top-level]
 
-        do_deploy(self)
+        session = object_session(self)
+        if session is None:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="App",
+                    action=f"deploy '{self.name}'",
+                    reason="the app is not attached to a database session",
+                    hint="Load the app through a repository before deploying it",
+                )
+            )
+        do_deploy(self, db_session=session)
 
     def destroy(self) -> None:
         """
@@ -508,17 +524,6 @@ class App(BigIntAuditBase):
                     f"(pids {survivors}) and still hold their ports"
                 )
                 raise RuntimeError(msg)
-
-        # Drop any native [limits] cgroup leaf (ADR 046 §3) for ALL runtimes: an
-        # app deployed native (with a leaf) then redeployed to Docker would still
-        # have a stale leaf this is the only place that reclaims. Processes are
-        # already reaped (native, above) or torn down (Docker, below), so the leaf
-        # is empty. Idempotent + best-effort (absent leaf is a no-op).
-        from hop3.deployers.native_limits import (  # ruff:ignore[import-outside-top-level]
-            remove_native_limits,
-        )
-
-        remove_native_limits(app_name)
 
         # First, clean up runtime resources (Docker containers, etc.)
         if self.runtime == "docker-compose":

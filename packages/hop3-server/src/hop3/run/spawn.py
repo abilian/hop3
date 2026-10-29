@@ -16,8 +16,8 @@ from typing import TYPE_CHECKING, ClassVar
 
 from sqlalchemy.orm import object_session
 
-from hop3.config import UWSGI_ENABLED
-from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact
+from hop3 import config as c
+from hop3.core.artifacts import ARTIFACT_FILENAME, WEB_WORKER_KINDS, BuildArtifact
 from hop3.core.env import Env
 from hop3.core.plugins import get_proxy_strategy
 from hop3.lib import (
@@ -44,9 +44,9 @@ from hop3.toolchains.php_fpm import (
 )
 
 from .nix_closure import (
-    NIX_STORE_CANDIDATES,
     ClosureCheckError,
     missing_closure_paths,
+    nix_store_candidates,
     resolve_nix_store,
 )
 from .uwsgi import spawn_uwsgi_worker
@@ -203,8 +203,25 @@ class AppLauncher:
     @property
     def web_workers(self) -> dict:
         """Get web workers, preferring artifact over AppConfig."""
-        web_worker_names = {"wsgi", "jwsgi", "rwsgi", "web"}
-        return {k: v for k, v in self.workers.items() if k in web_worker_names}
+        return {k: v for k, v in self.workers.items() if k in WEB_WORKER_KINDS}
+
+    def unrouted_reason(self, host_name: str) -> str:
+        """
+        Why ``host_name`` would route to nothing, or ``""``.
+
+        Read from the workers the build declared, never from the language:
+        any app proxied by hostname needs a worker answering HTTP or a
+        ``static`` tree, else the proxy publishes a 502.
+        """
+        if not self.artifact or host_name in {"", "_"}:
+            return ""
+        if self.web_workers or "static" in self.workers:
+            return ""
+        kinds = ", ".join(sorted(WEB_WORKER_KINDS))
+        return (
+            f"the app declares no worker that answers HTTP ({kinds} or static); "
+            "its hostname will route to nothing"
+        )
 
     def _update_app_metadata(self, host_name: str) -> None:
         """Update app model with port and hostname, persisting to database."""
@@ -317,7 +334,7 @@ class AppLauncher:
     def _handle_auto_restart(self, env: Env) -> None:
         """Handle auto-restart by removing uwsgi configs if enabled."""
         if env.get_bool("HOP3_AUTO_RESTART", default=True):
-            configs = list(UWSGI_ENABLED.glob(vassal_glob(self.app_name)))
+            configs = list(c.UWSGI_ENABLED.glob(vassal_glob(self.app_name)))
             if configs:
                 echo("-----> Removing uwsgi configs to trigger auto-restart.")
                 for config in configs:
@@ -680,7 +697,7 @@ class AppLauncher:
                         "--with nix`."
                     ),
                     troubleshooting=[
-                        f"ls -l {NIX_STORE_CANDIDATES[0]}",
+                        f"ls -l {nix_store_candidates()[0]}",
                         "command -v nix-store",
                     ],
                 )
@@ -757,29 +774,21 @@ class AppLauncher:
         # timeout (the forgejo class).
         self.verify_nix_closure_intact()
 
-        # Early detection: Python app with no web-facing workers
-        if not self.web_workers and self.artifact:
-            kind = self.artifact.kind
-            if kind in {"python", "buildpack", "virtualenv"}:
-                log_diagnosis(
-                    Diagnosis(
-                        component="uWSGI spawner",
-                        action="select web workers",
-                        reason=(
-                            "the Python app declares no web-facing workers; "
-                            "uWSGI will start in no-workers mode and won't "
-                            "serve HTTP requests"
-                        ),
-                        hint=(
-                            "Add a worker to hop3.toml ([run.workers] "
-                            'wsgi = "app:application") or to the Procfile '
-                            "(web: gunicorn app:application -b 0.0.0.0:$PORT)"
-                        ),
-                    ),
-                    fg="yellow",
-                )
-
         host_name = self.env.get("HOST_NAME", "")
+        if reason := self.unrouted_reason(host_name):
+            log_diagnosis(
+                Diagnosis(
+                    component="uWSGI spawner",
+                    action=f"serve '{self.app_name}' at {host_name}",
+                    reason=reason,
+                    hint=(
+                        "declare one in hop3.toml [run.workers] or [run].start, "
+                        "or unset HOST_NAME for a background-only app"
+                    ),
+                ),
+                fg="yellow",
+            )
+
         self._update_app_metadata(host_name)
         self._setup_proxy(host_name)
 
@@ -962,7 +971,7 @@ class AppLauncher:
         # Create new workers
         for kind, v in to_create.items():
             for w in v:
-                enabled = UWSGI_ENABLED / vassal_name(self.app_name, kind, w)
+                enabled = c.UWSGI_ENABLED / vassal_name(self.app_name, kind, w)
                 if enabled.exists():
                     # Skip if the worker configuration already exists
                     continue
@@ -982,7 +991,7 @@ class AppLauncher:
         # Remove unnecessary workers (leave logfiles)
         for k, v in to_destroy.items():
             for w in v:
-                enabled = UWSGI_ENABLED / vassal_name(self.app_name, k, w)
+                enabled = c.UWSGI_ENABLED / vassal_name(self.app_name, k, w)
                 if not enabled.exists():
                     continue  # Skip if the file does not exist
 

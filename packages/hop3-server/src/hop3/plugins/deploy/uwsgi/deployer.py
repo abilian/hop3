@@ -5,7 +5,8 @@ import socket
 import subprocess
 from dataclasses import dataclass
 
-from hop3.config import UWSGI_ENABLED, HopConfig
+from hop3 import config as c
+from hop3.config import HopConfig
 from hop3.core.artifacts import load_backend_protocol
 from hop3.core.protocols import (
     BuildArtifact,
@@ -29,6 +30,9 @@ from hop3.run.uwsgi.naming import vassal_glob
 _proc_belongs_to_app = proc_belongs_to_app
 _GRACEFUL_STOP_SECONDS = GRACEFUL_STOP_SECONDS
 
+#: Builders whose artifacts run as host processes under uWSGI.
+HOST_BUILDERS = frozenset({"local", "nix"})
+
 
 @dataclass(frozen=True)
 class UWSGIDeployer:
@@ -47,27 +51,15 @@ class UWSGIDeployer:
         return self.context.app
 
     def accept(self) -> bool:
-        # Accept common artifact kinds from language toolchains
-        # Note: "static" is NOT included - static files are handled by StaticDeployer
-        return self.artifact.kind in {
-            # Language toolchains
-            "python",
-            "node",
-            "ruby",
-            "php",
-            "clojure",
-            "rust",
-            "go",
-            "java",
-            "dotnet",
-            "elixir",
-            "generic",  # Pre-built binaries or custom build apps
-            # Nix builder
-            "nix",
-            # Legacy/compatibility
-            "buildpack",
-            "virtualenv",  # Legacy Python artifact kind
-        }
+        """
+        Run what a host builder (local toolchains, Nix) built as processes.
+
+        Gated on the builder, not on a list of languages: the artifact's
+        RuntimeConfig says what to run, whatever produced it. A ``static``
+        artifact is a site the proxy serves itself (StaticDeployer), whichever
+        builder made it.
+        """
+        return self.artifact.builder in HOST_BUILDERS and self.artifact.kind != "static"
 
     def deploy(self, deltas: dict[str, int] | None = None) -> DeploymentInfo:
         """
@@ -132,7 +124,7 @@ class UWSGIDeployer:
         if self.app.run_state == AppStateEnum.RUNNING:
             self.app.transition_state(AppStateEnum.STOPPING)
 
-        config_files = list(UWSGI_ENABLED.glob(vassal_glob(self.app.name)))
+        config_files = list(c.UWSGI_ENABLED.glob(vassal_glob(self.app.name)))
         if not config_files:
             log(f"App '{self.app.name}' is already stopped or not deployed.", level=3)
             # If already stopped in filesystem, ensure DB state matches

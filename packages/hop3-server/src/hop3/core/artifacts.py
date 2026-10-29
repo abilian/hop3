@@ -48,6 +48,9 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from pathlib import Path
 
+#: Worker names that answer HTTP on the app's port.
+WEB_WORKER_KINDS = frozenset({"wsgi", "jwsgi", "rwsgi", "web"})
+
 
 @dataclass
 class RuntimeConfig:

@@ -17,11 +17,10 @@ from __future__ import annotations
 import os
 import re
 import subprocess
-from contextlib import suppress
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, NoReturn
 
-from hop3.config import HOP3_ROOT, HOP3_USER
+from hop3 import config as c
 from hop3.core.env import Env
 from hop3.core.identifiers import validate_service_name
 from hop3.core.plugins import get_proxy_strategy
@@ -367,7 +366,7 @@ services:
         self._prune_dangling_images()
 
         # Discover the actual port (should match allocated_port)
-        port = self._discover_port(allocated_port, compose_file)
+        port = self._discover_port(compose_env, compose_file)
 
         # Setup proxy if HOST_NAME is configured
         self._setup_proxy(port)
@@ -387,16 +386,31 @@ services:
         the container has been recreated — unused. ``docker image prune -f``
         removes only dangling images: it never touches the BuildKit build
         cache or tagged base images, so it does not slow future builds.
-        Best-effort; a failure must not fail the deploy.
+
+        The app is already running the new image, so a failed prune does not
+        fail the deploy (that would report a running app as failed). It is
+        reported in the deploy output with docker's own words: an image left
+        behind on every deploy fills the disk.
         """
-        with suppress(Exception):
-            subprocess.run(
-                ["docker", "image", "prune", "-f"],
-                capture_output=True,
-                text=True,
-                check=False,
-                timeout=60,
+        cmd = ["docker", "image", "prune", "-f"]
+        try:
+            result = subprocess.run(
+                cmd, capture_output=True, text=True, check=False, timeout=60
             )
+        except (OSError, subprocess.TimeoutExpired) as e:
+            reason = str(e)
+        else:
+            if result.returncode == 0:
+                return
+            output = (result.stderr or result.stdout).strip()
+            reason = f"exit {result.returncode}: {output}"
+        log(
+            f"Could not reclaim the superseded image of '{self.app_name}' "
+            f"(`{' '.join(cmd)}` failed: {reason}); it stays on disk until the "
+            "next successful prune",
+            level=1,
+            fg="red",
+        )
 
     def _allocate_port(self) -> int:
         """
@@ -885,74 +899,73 @@ services:
         )
 
     def _discover_port(
-        self, expected_port: int | None = None, compose_file: Path | None = None
+        self, env: dict[str, str], compose_file: Path | None = None
     ) -> int:
         """
-        Discover the HOST port the application is listening on.
+        Discover the HOST port the application's ``web`` service is published on.
 
         For Docker containers, the host port may differ from the container port
         due to port mapping (e.g., -p 5000:8080 maps host 5000 to container 8080).
+        Asks ``docker compose port``; aborts with its output when it can't
+        answer, rather than proxying to a guessed port.
 
         Args:
-            expected_port: The port we allocated and expect to be used
+            env: The environment the containers were started with
             compose_file: Path to the compose file (optional)
-
-        Returns:
-            Host port number (defaults to expected_port or 8080 if not discoverable)
         """
-        # Get internal container port using same priority as _generate_compose_file
         internal_port = self._get_container_port()
+        cmd = ["docker", "compose"]
+        if compose_file:
+            cmd += ["-f", str(compose_file)]
+        cmd += ["-p", self.app_name, "port", "web", str(internal_port)]
+        host_port, reason = self._query_host_port(cmd, env)
+        if host_port is None:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Docker deployer",
+                    action=f"find the host port of '{self.app_name}'",
+                    reason=reason,
+                    hint=(
+                        f"publish container port {internal_port} of the `web` "
+                        "service in the compose file, so the proxy has a port to "
+                        "route to"
+                    ),
+                    troubleshooting=[
+                        f"docker compose -p {self.app_name} ps",
+                        f"hop3 app logs --app {self.app_name}",
+                    ],
+                )
+            )
+        log(
+            f"Container port {internal_port} mapped to host port {host_port}",
+            level=2,
+        )
+        return host_port
 
-        # Try to get the actual HOST port from the running container
-        # Use project name for proper isolation
+    def _query_host_port(
+        self, cmd: list[str], env: dict[str, str]
+    ) -> tuple[int | None, str]:
+        """Run ``docker compose port``: (host port, "") or (None, why not)."""
+        shown = " ".join(cmd)
         try:
-            # Build command with compose file if provided
-            if compose_file:
-                cmd = [
-                    "docker",
-                    "compose",
-                    "-f",
-                    str(compose_file),
-                    "-p",
-                    self.app_name,
-                    "port",
-                    "web",
-                    str(internal_port),
-                ]
-            else:
-                cmd = [
-                    "docker",
-                    "compose",
-                    "-p",
-                    self.app_name,
-                    "port",
-                    "web",
-                    str(internal_port),
-                ]
-
             result = subprocess.run(
                 cmd,
                 cwd=self.source_path,
+                env=env,
                 check=False,
                 capture_output=True,
                 text=True,
                 timeout=10,
             )
-            if result.returncode == 0 and result.stdout.strip():
-                # Output format: 127.0.0.1:5000 or 0.0.0.0:32768
-                port_str = result.stdout.strip().split(":")[-1]
-                if port_str.isdigit():
-                    discovered_port = int(port_str)
-                    log(
-                        f"Container port {internal_port} mapped to host port {discovered_port}",
-                        level=2,
-                    )
-                    return discovered_port
-        except Exception:
-            pass
-
-        # Fallback to expected port or internal port
-        return expected_port or internal_port
+        except (OSError, subprocess.TimeoutExpired) as e:
+            return None, f"`{shown}` could not run: {e}"
+        # Output format: 127.0.0.1:5000 (one line per published address)
+        lines = result.stdout.strip().splitlines()
+        port_str = lines[0].rsplit(":", 1)[-1] if lines else ""
+        if result.returncode == 0 and port_str.isdigit():
+            return int(port_str), ""
+        output = (result.stderr or result.stdout).strip() or "no output"
+        return None, f"`{shown}` exited {result.returncode}: {output}"
 
     def _setup_proxy(self, port: int) -> None:
         """
@@ -1022,8 +1035,8 @@ services:
         # Bootstrap environment
         env = Env({
             "APP": self.app_name,
-            "HOME": str(HOP3_ROOT),
-            "USER": HOP3_USER,
+            "HOME": str(c.HOP3_ROOT),
+            "USER": c.HOP3_USER,
             "PATH": os.environ.get("PATH", ""),
             "PWD": str(self.source_path),
         })

@@ -322,7 +322,7 @@ class TestStateSyncServiceIntegration:
         session = MockSession([app])
         service = _service(lambda: session)
 
-        service._sync_cycle()
+        service.run_once()
 
         assert session._committed
 
@@ -337,7 +337,7 @@ class TestStateSyncServiceIntegration:
         session = MockSession([])  # No apps
         service = _service(lambda: session)
 
-        service._sync_cycle()
+        service.run_once()
 
         assert not session._committed
 
@@ -349,7 +349,7 @@ class TestStateSyncServiceIntegration:
             sync_count["value"] += 1
 
         service = _service(MockSession, interval=0.02)
-        setattr(service, "_sync_cycle", mock_sync_cycle)  # ruff:ignore[set-attr-with-constant]
+        setattr(service, "run_once", mock_sync_cycle)  # ruff:ignore[set-attr-with-constant]
 
         service.start()
         time.sleep(0.1)  # ~5 intervals: comfortably more than the 2 we assert

@@ -23,7 +23,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3.config import HOP3_USER
+from hop3 import config as c
 from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact
 
 if TYPE_CHECKING:
@@ -71,7 +71,7 @@ def build_app_env(
         "APP": app.name,
         "HOME": str(app.home_path),
         "TMPDIR": str(app.tmp_path),
-        "USER": HOP3_USER,
+        "USER": c.HOP3_USER,
         "PATH": f"{venv_bin}:{os.environ.get('PATH', '/usr/bin:/bin')}",
         "PWD": str(cwd or app.src_path),
         "VIRTUAL_ENV": str(app.virtualenv_path),

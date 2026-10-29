@@ -19,6 +19,7 @@ import pytest
 
 import hop3.commands.app as app_module
 from hop3.commands.app import AppRollbackCmd, AppUpgradeCmd
+from hop3.core.backup import UnreadableBackup
 
 
 class _FakeManager:
@@ -146,6 +147,19 @@ def test_rollback_fails_loud_when_no_backup(env, monkeypatch):
         env.module, "_backup_manager", lambda _s: _FakeManager(backups=[])
     )
     with pytest.raises(ValueError, match="No backup"):
+        AppRollbackCmd(db_session=env.session).call("--app", "myapp")
+
+
+def test_rollback_names_an_unreadable_latest_backup(env, monkeypatch):
+    """It used to read as 'No backup to roll back to'."""
+    latest = UnreadableBackup(
+        backup_id="B_BROKEN", app_name="myapp", state="COMPLETED", reason="no manifest"
+    )
+    monkeypatch.setattr(
+        env.module, "_backup_manager", lambda _s: _FakeManager(backups=[latest])
+    )
+
+    with pytest.raises(ValueError, match=r"B_BROKEN, is unreadable \(no manifest\)"):
         AppRollbackCmd(db_session=env.session).call("--app", "myapp")
 
 

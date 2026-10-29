@@ -5,7 +5,7 @@
 Generic toolchain for pre-built binaries and apps without build steps.
 
 This toolchain is used when:
-1. `toolchain = "generic"` or `toolchain = "none"` is explicitly set in hop3.toml
+1. `toolchain = "generic"` is explicitly set in hop3.toml
 2. The app has a custom `build` command that handles everything
 3. The app uses pre-built binaries that don't need compilation
 
@@ -30,7 +30,7 @@ class GenericToolchain(LanguageToolchain):
 
     This toolchain accepts projects when explicitly specified via:
         [build]
-        toolchain = "generic"  # or "none"
+        toolchain = "generic"
 
     It runs any custom build command specified in hop3.toml but doesn't
     perform any automatic dependency installation.
@@ -41,13 +41,13 @@ class GenericToolchain(LanguageToolchain):
 
     def accept(self) -> bool:
         """
-        Accept only when explicitly specified via toolchain = 'generic' or 'none'.
+        Accept only when explicitly specified via toolchain = 'generic'.
 
         This toolchain does NOT auto-detect. It must be explicitly requested
         in hop3.toml to avoid accepting projects meant for other toolchains.
         """
         explicit_toolchain = self._get_explicit_toolchain()
-        return explicit_toolchain in {"generic", "none"}
+        return explicit_toolchain == "generic"
 
     def _get_explicit_toolchain(self) -> str | None:
         """

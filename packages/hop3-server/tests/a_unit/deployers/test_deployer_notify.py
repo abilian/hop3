@@ -10,6 +10,7 @@ through the email backend, best-effort, without ever masking the deploy error.
 
 from __future__ import annotations
 
+from typing import Any
 from unittest.mock import patch
 
 import pytest
@@ -20,6 +21,10 @@ from hop3.deployers import deployer
 class _App:
     name = "myapp"
     id = 1
+
+
+# _do_deploy is patched out in every test, so the session is never used.
+_SESSION: Any = object()
 
 
 def test_failure_notifies_operator():
@@ -34,7 +39,7 @@ def test_failure_notifies_operator():
         patch("hop3.plugins.email.notifications.notify", fake_notify),
         pytest.raises(RuntimeError, match="build blew up"),
     ):
-        deployer.do_deploy(_App())
+        deployer.do_deploy(_App(), db_session=_SESSION)
 
     assert calls, "expected a deploy-failure notification"
     event, subject, body = calls[0]
@@ -56,7 +61,7 @@ def test_notification_failure_does_not_mask_deploy_error():
         patch("hop3.plugins.email.notifications.notify", boom),
         pytest.raises(ValueError, match="real deploy error"),
     ):
-        deployer.do_deploy(_App())
+        deployer.do_deploy(_App(), db_session=_SESSION)
 
 
 def test_success_does_not_notify():
@@ -68,6 +73,6 @@ def test_success_does_not_notify():
             "hop3.plugins.email.notifications.notify", lambda *a, **_k: calls.append(a)
         ),
     ):
-        deployer.do_deploy(_App())
+        deployer.do_deploy(_App(), db_session=_SESSION)
 
     assert not calls  # no alert on a successful deploy

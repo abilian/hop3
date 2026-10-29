@@ -27,7 +27,7 @@ if TYPE_CHECKING:
 
 
 def configure_access_preflight(
-    app: App, app_config: AppConfig, db_session: Session | None
+    app: App, app_config: AppConfig, db_session: Session
 ) -> None:
     """Refuse a gate the server cannot enforce; record the app's policy."""
     section = app_config.hop3_config.access
@@ -49,8 +49,7 @@ def configure_access_preflight(
             level=1,
             fg="green",
         )
-    if db_session is not None:
-        db_session.commit()
+    db_session.commit()
 
 
 def _refuse_unenforceable_gate(app: App, *, allow_http: bool) -> None:

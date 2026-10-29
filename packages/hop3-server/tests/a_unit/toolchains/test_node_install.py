@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.lib import Abort
 from hop3.toolchains import NodeToolchain, node as node_mod
@@ -79,7 +80,7 @@ def test_install_modules_installs_from_the_lockfile(tmp_path, monkeypatch):
 
     tc = NodeToolchain("myapp", tmp_path)
     monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
-    monkeypatch.setattr(node_mod, "check_binaries", lambda _bins: True)
+    monkeypatch.setattr(node_mod.shutil, "which", lambda *_a, **_k: "/usr/bin/npm")
     calls: list[str] = []
     monkeypatch.setattr(tc, "shell", lambda cmd, **_k: calls.append(cmd))
 
@@ -97,8 +98,78 @@ def test_install_modules_aborts_without_a_lockfile(tmp_path, monkeypatch):
 
     tc = NodeToolchain("myapp", tmp_path)
     monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
-    monkeypatch.setattr(node_mod, "check_binaries", lambda _bins: True)
+    monkeypatch.setattr(node_mod.shutil, "which", lambda *_a, **_k: "/usr/bin/npm")
     monkeypatch.setattr(tc, "shell", lambda *_a, **_k: None)
 
     with pytest.raises(Abort, match=r"package-lock\.json"):
         tc.install_modules(Env({}))
+
+
+def test_install_modules_finds_npm_on_the_build_path(tmp_path, monkeypatch):
+    """npm from a pinned nodeenv sits in the venv, on the build PATH only."""
+    src = tmp_path / "src"
+    src.mkdir(parents=True)
+    (src / "package.json").write_text("{}")
+    (src / "package-lock.json").write_text("{}")
+    venv_bin = tmp_path / "venv" / "bin"
+    venv_bin.mkdir(parents=True)
+    (venv_bin / "npm").write_text("#!/bin/sh\n")
+    (venv_bin / "npm").chmod(0o755)
+
+    tc = NodeToolchain("myapp", tmp_path)
+    monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
+    calls: list[str] = []
+    monkeypatch.setattr(tc, "shell", lambda cmd, **_k: calls.append(cmd))
+
+    tc.install_modules(Env({"PATH": str(venv_bin)}))
+
+    assert any("npm ci" in c for c in calls)
+
+
+def test_install_modules_without_npm_aborts_with_a_diagnosis(tmp_path, monkeypatch):
+    """This was an `assert`, which `python -O` strips."""
+    src = tmp_path / "src"
+    src.mkdir(parents=True)
+    (src / "package.json").write_text("{}")
+    (src / "package-lock.json").write_text("{}")
+
+    tc = NodeToolchain("myapp", tmp_path)
+    monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
+    monkeypatch.setattr(tc, "shell", lambda *_a, **_k: None)
+
+    with pytest.raises(Abort, match="npm is not on the build PATH"):
+        tc.install_modules(Env({"PATH": str(tmp_path / "empty")}))
+
+
+def test_install_modules_without_package_json_aborts_with_a_diagnosis(
+    tmp_path, monkeypatch
+):
+    """An explicit `toolchain = "node"` skips accept(), so package.json may be absent."""
+    (tmp_path / "src").mkdir(parents=True)
+    tc = NodeToolchain("myapp", tmp_path)
+    monkeypatch.setattr(node_mod, "emit", lambda *_a, **_k: None)
+
+    with pytest.raises(Abort, match=r"package\.json does not exist"):
+        tc.install_modules(Env({}))
+
+
+def test_switching_node_under_a_running_app_aborts_with_a_diagnosis(
+    tmp_path, monkeypatch
+):
+    monkeypatch.setattr(node_mod, "check_binaries", lambda _bins: True)
+    node = tmp_path / "venv" / "bin" / "node"
+    node.parent.mkdir(parents=True)
+    node.write_text("")
+    enabled = tmp_path / "uwsgi-enabled"
+    enabled.mkdir()
+    monkeypatch.setattr(HopConfig, "UWSGI_ENABLED", property(lambda _self: enabled))
+    tc = NodeToolchain("myapp", tmp_path)
+    (enabled / f"{tc.app_name}_web.1.ini").write_text("")
+
+    class _Done:
+        stdout = "v20.0.0\n"
+
+    monkeypatch.setattr(tc, "shell", lambda *_a, **_k: _Done())
+
+    with pytest.raises(Abort, match=r"Stop the app \(hop3 app stop --app myapp\)"):
+        tc.install_node(Env({"NODE_VERSION": "22.13.1"}))

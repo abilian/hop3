@@ -11,6 +11,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.protocols import BuildContext
 from hop3.lib import Abort
 from hop3.plugins.docker.builder import (
@@ -423,7 +424,7 @@ def test_build_failure_message_is_concise_with_pointer(tmp_path, monkeypatch):
     The raised Abort carries the root-cause line + a `--build` pointer, NOT the
     full backtrace (which now lives once in build.log).
     """
-    monkeypatch.setattr("hop3.plugins.docker.builder.APP_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "APP_ROOT", property(lambda _self: tmp_path))
     builder = MagicMock()
     builder.app_name = "myapp"
     # Use the REAL _save_build_log so we can assert the full output is persisted.

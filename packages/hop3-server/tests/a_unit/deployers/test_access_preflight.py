@@ -16,6 +16,7 @@ from types import SimpleNamespace
 import pytest
 
 from hop3 import config
+from hop3.config import HopConfig
 from hop3.core.roles import Role
 from hop3.deployers import access
 from hop3.lib.console import Abort
@@ -30,14 +31,26 @@ def server(monkeypatch):
     monkeypatch.setattr(
         type(config.config), "ADMIN_DOMAIN", property(lambda _self: "admin.example.org")
     )
-    monkeypatch.setattr(config, "HOP3_PROXY_TYPE", "nginx")
+    monkeypatch.setattr(HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: "nginx"))
+
+
+class _Session:
+    """The deploy session: the preflight commits the policy it recorded."""
+
+    def __init__(self) -> None:
+        self.commits = 0
+
+    def commit(self) -> None:
+        self.commits += 1
 
 
 def deploy(data, *, host="notes.example.org"):
     app = App(name="notes")
     app.get_runtime_env = lambda: {"HOST_NAME": host}
     app_config = SimpleNamespace(hop3_config=Hop3Config(_data=data))
-    access.configure_access_preflight(app, app_config, None)
+    session = _Session()
+    access.configure_access_preflight(app, app_config, session)
+    assert session.commits == 1
     return app
 
 
