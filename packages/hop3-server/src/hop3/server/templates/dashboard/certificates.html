@@ -16,9 +16,9 @@
 
     {% if alerts %}
     <div class="mt-6 rounded-md {% if alerts[0].level == 'critical' %}bg-red-50{% else %}bg-yellow-50{% endif %} p-4">
-        <h3 class="text-sm font-medium {% if alerts[0].level == 'critical' %}text-red-800{% else %}text-yellow-800{% endif %}">
+        <h2 class="text-sm font-medium {% if alerts[0].level == 'critical' %}text-red-800{% else %}text-yellow-800{% endif %}">
             {{ alerts|length }} issue{{ "s" if alerts|length != 1 else "" }} need attention
-        </h3>
+        </h2>
         <ul class="mt-2 list-disc space-y-1 pl-5 text-sm {% if alerts[0].level == 'critical' %}text-red-700{% else %}text-yellow-700{% endif %}">
             {% for a in alerts %}
             <li>{{ a.message }}</li>
@@ -52,7 +52,7 @@
                                 {% if c.status == "ok" %}
                                 <span class="inline-flex items-center rounded-md bg-green-50 px-2 py-1 text-xs font-medium text-green-700 ring-1 ring-inset ring-green-600/20">{{ c.days_left }}d</span>
                                 {% elif c.status == "expiring" %}
-                                <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">{{ c.days_left }}d</span>
+                                <span class="inline-flex items-center rounded-md bg-yellow-50 px-2 py-1 text-xs font-medium text-yellow-800 ring-1 ring-inset ring-yellow-600/20">{{ c.days_left }}d, expiring</span>
                                 {% elif c.status == "expired" %}
                                 <span class="inline-flex items-center rounded-md bg-red-50 px-2 py-1 text-xs font-medium text-red-700 ring-1 ring-inset ring-red-600/20">Expired</span>
                                 {% else %}

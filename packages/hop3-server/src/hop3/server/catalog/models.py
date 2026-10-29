@@ -6,20 +6,22 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-# Safe colors for fallback icons (good contrast with white text)
+#: Backgrounds for an app's initials when it has no icon. The initials are
+#: white, so each colour must reach WCAG AA contrast (4.5:1) against white:
+#: Tailwind's 700 shades do, the 500 shades did not.
 FALLBACK_COLORS = [
-    "#3b82f6",  # blue
-    "#10b981",  # emerald
-    "#8b5cf6",  # violet
-    "#f59e0b",  # amber
-    "#ef4444",  # red
-    "#06b6d4",  # cyan
-    "#ec4899",  # pink
-    "#6366f1",  # indigo
-    "#14b8a6",  # teal
-    "#f97316",  # orange
-    "#84cc16",  # lime
-    "#a855f7",  # purple
+    "#1d4ed8",  # blue
+    "#047857",  # emerald
+    "#6d28d9",  # violet
+    "#b45309",  # amber
+    "#b91c1c",  # red
+    "#0e7490",  # cyan
+    "#be185d",  # pink
+    "#4338ca",  # indigo
+    "#0f766e",  # teal
+    "#c2410c",  # orange
+    "#4d7c0f",  # lime
+    "#7e22ce",  # purple
 ]
 
 

@@ -208,14 +208,6 @@ def test_app_logs_stream_not_found(authenticated_client: TestClient):
     assert b"App not found" in response.content
 
 
-def test_app_logs_stream_content_type(authenticated_client: TestClient):
-    """Test that logs stream returns plain text."""
-    response = authenticated_client.get("/dashboard/apps/testapp/logs/stream")
-    # Will return 404 if app doesn't exist
-    if response.status_code == 200:
-        assert response.headers["content-type"] == "text/plain; charset=utf-8"
-
-
 def test_app_logs_download_not_found(authenticated_client: TestClient):
     """Test app logs download with non-existent app redirects to dashboard."""
     response = authenticated_client.get(
@@ -291,14 +283,6 @@ def test_app_status_htmx_fragment(authenticated_client: TestClient):
     # Should return HTML fragment (not full page)
     assert b"<!DOCTYPE" not in response.content
     assert b"<html" not in response.content
-
-
-def test_logs_stream_htmx_compatible(authenticated_client: TestClient):
-    """Test that logs stream is HTMX-compatible."""
-    response = authenticated_client.get("/dashboard/apps/testapp/logs/stream")
-    # Should return plain text (HTMX will insert into pre tag)
-    if response.status_code == 200:
-        assert response.headers["content-type"] == "text/plain; charset=utf-8"
 
 
 # Authentication Tests

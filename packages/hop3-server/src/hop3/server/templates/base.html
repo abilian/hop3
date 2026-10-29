@@ -13,7 +13,6 @@
 
     <!-- HTMX -->
     <script src="https://unpkg.com/htmx.org@1.9.10"></script>
-    <script src="https://unpkg.com/htmx.org@1.9.10/dist/ext/sse.js"></script>
 
     <!-- Alpine.js -->
     <script src="https://unpkg.com/alpinejs@3.13.3/dist/cdn.min.js" defer></script>
@@ -22,10 +21,23 @@
 </head>
 <body class="h-full">
     {% set user = get_current_user() %}
+    <a href="#main" class="sr-only focus:not-sr-only focus:absolute focus:left-4 focus:top-4 focus:z-50 focus:rounded-md focus:bg-white focus:px-4 focus:py-2 focus:text-sm focus:font-medium focus:text-blue-700 focus:shadow">
+        Skip to content
+    </a>
     <div class="min-h-full">
         {% if user %}
+        {# One list for the desktop and the mobile menu, so the labels the
+           breadcrumbs reuse cannot drift apart (WCAG 3.2.4). #}
+        {% set path = request.url.path %}
+        {% set nav_items = [
+            ("/dashboard", "Applications"),
+            ("/dashboard/catalog", "Catalog"),
+            ("/dashboard/addons", "Addons"),
+            ("/dashboard/backups", "Backups"),
+            ("/dashboard/certificates", "Certificates"),
+        ] %}
         <!-- Navigation -->
-        <nav class="bg-white shadow-sm">
+        <nav class="bg-white shadow-sm" aria-label="Main" x-data="{ mobileMenuOpen: false }">
             <div class="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
                 <div class="flex h-16 justify-between">
                     <div class="flex">
@@ -38,39 +50,30 @@
 
                         <!-- Primary Navigation -->
                         <div class="hidden sm:ml-6 sm:flex sm:space-x-8">
-                            <a href="/dashboard"
-                               class="{% if request.url.path == '/dashboard' %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
-                                Applications
+                            {% for href, label in nav_items %}
+                            {% set active = path == href if href == "/dashboard" else path.startswith(href) %}
+                            <a href="{{ href }}"
+                               {% if active %}aria-current="page"{% endif %}
+                               class="{% if active %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
+                                {{ label }}
                             </a>
-                            <a href="/dashboard/catalog"
-                               class="{% if request.url.path.startswith('/dashboard/catalog') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
-                                Catalog
-                            </a>
-                            <a href="/dashboard/addons"
-                               class="{% if request.url.path.startswith('/dashboard/addons') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
-                                Addons
-                            </a>
-                            <a href="/dashboard/backups"
-                               class="{% if request.url.path.startswith('/dashboard/backups') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
-                                Backups
-                            </a>
-                            <a href="/dashboard/certificates"
-                               class="{% if request.url.path.startswith('/dashboard/certificates') %}border-blue-500 text-gray-900{% else %}border-transparent text-gray-500 hover:border-gray-300 hover:text-gray-700{% endif %} inline-flex items-center border-b-2 px-1 pt-1 text-sm font-medium">
-                                Certificates
-                            </a>
+                            {% endfor %}
                         </div>
                     </div>
 
                     <!-- User menu -->
                     <div class="hidden sm:ml-6 sm:flex sm:items-center">
-                        <div x-data="{ open: false }" class="relative ml-3">
+                        <div x-data="{ open: false }" @keydown.escape.window="open = false" class="relative ml-3">
                             <div>
                                 <button @click="open = !open"
                                         type="button"
+                                        :aria-expanded="open.toString()"
+                                        aria-expanded="false"
+                                        aria-controls="user-menu"
                                         class="flex rounded-full bg-white text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2"
                                         id="user-menu-button">
                                     <span class="sr-only">Open user menu</span>
-                                    <div class="h-8 w-8 rounded-full bg-blue-500 flex items-center justify-center">
+                                    <div class="h-8 w-8 rounded-full bg-blue-600 flex items-center justify-center" aria-hidden="true">
                                         <span class="text-white font-medium text-sm">
                                             {{ user.username[0]|upper }}
                                         </span>
@@ -79,6 +82,7 @@
                             </div>
 
                             <div x-show="open"
+                                 id="user-menu"
                                  @click.away="open = false"
                                  x-transition:enter="transition ease-out duration-200"
                                  x-transition:enter-start="transform opacity-0 scale-95"
@@ -111,9 +115,12 @@
                     <div class="-mr-2 flex items-center sm:hidden">
                         <button type="button"
                                 @click="mobileMenuOpen = !mobileMenuOpen"
-                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-400 hover:bg-gray-100 hover:text-gray-500 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
+                                :aria-expanded="mobileMenuOpen.toString()"
+                                aria-expanded="false"
+                                aria-controls="mobile-menu"
+                                class="inline-flex items-center justify-center rounded-md p-2 text-gray-500 hover:bg-gray-100 hover:text-gray-700 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500">
                             <span class="sr-only">Open main menu</span>
-                            <svg class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <svg aria-hidden="true" class="block h-6 w-6" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" />
                             </svg>
                         </button>
@@ -123,35 +130,23 @@
 
             <!-- Mobile menu -->
             <div x-show="mobileMenuOpen"
-                 x-data="{ mobileMenuOpen: false }"
+                 id="mobile-menu"
                  class="sm:hidden"
                  style="display: none;">
                 <div class="space-y-1 pb-3 pt-2">
-                    <a href="/dashboard"
-                       class="{% if request.url.path == '/dashboard' %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
-                        Applications
+                    {% for href, label in nav_items %}
+                    {% set active = path == href if href == "/dashboard" else path.startswith(href) %}
+                    <a href="{{ href }}"
+                       {% if active %}aria-current="page"{% endif %}
+                       class="{% if active %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
+                        {{ label }}
                     </a>
-                    <a href="/dashboard/catalog"
-                       class="{% if request.url.path.startswith('/dashboard/catalog') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
-                        Catalog
-                    </a>
-                    <a href="/dashboard/addons"
-                       class="{% if request.url.path.startswith('/dashboard/addons') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
-                        Addons
-                    </a>
-                    <a href="/dashboard/backups"
-                       class="{% if request.url.path.startswith('/dashboard/backups') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
-                        Backups
-                    </a>
-                    <a href="/dashboard/certificates"
-                       class="{% if request.url.path.startswith('/dashboard/certificates') %}border-blue-500 bg-blue-50 text-blue-700{% else %}border-transparent text-gray-500 hover:bg-gray-50 hover:border-gray-300 hover:text-gray-700{% endif %} block border-l-4 py-2 pl-3 pr-4 text-base font-medium">
-                        Certificates
-                    </a>
+                    {% endfor %}
                 </div>
                 <div class="border-t border-gray-200 pb-3 pt-4">
                     <div class="flex items-center px-4">
-                        <div class="flex-shrink-0">
-                            <div class="h-10 w-10 rounded-full bg-blue-500 flex items-center justify-center">
+                        <div class="flex-shrink-0" aria-hidden="true">
+                            <div class="h-10 w-10 rounded-full bg-blue-600 flex items-center justify-center">
                                 <span class="text-white font-medium">
                                     {{ user.username[0]|upper }}
                                 </span>
@@ -179,7 +174,7 @@
 
         <!-- Page content -->
         <div class="{% if user %}py-10{% else %}flex min-h-full flex-1 flex-col justify-center py-12{% endif %}">
-            <main>
+            <main id="main" tabindex="-1" class="focus:outline-none">
                 <div class="mx-auto max-w-7xl sm:px-6 lg:px-8">
                     {% block content %}{% endblock %}
                 </div>

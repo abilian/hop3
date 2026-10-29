@@ -7,10 +7,11 @@
             <!-- Icon or initials -->
             <div class="flex-shrink-0">
                 {% if app.icon_url %}
-                <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="h-12 w-12 rounded-lg object-cover">
+                <img src="{{ app.icon_url }}" alt="" class="h-12 w-12 rounded-lg object-cover">
                 {% else %}
                 <div class="h-12 w-12 rounded-lg flex items-center justify-center text-white font-bold text-lg"
-                     style="background-color: {{ app.fallback_color }};">
+                     style="background-color: {{ app.fallback_color }};"
+                     aria-hidden="true">
                     {{ app.initials }}
                 </div>
                 {% endif %}

@@ -16,6 +16,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A failed deploy under `--json` prints its error.** The CLI exited before it wrote the JSON it had collected, so stdout was empty.
 - **The installer's setup step aborts the install when it fails.** The installer ignored the setup command's exit code.
 - **The deployer and the server backup and restore scripts no longer call sudo.** They run commands as `hop3` or `postgres` with `su` or `runuser`, as the installer does.
+- **The dashboard's live logs stream.** The stream opened the app's log directory as a file and failed on every connection, while the page said "Live". It now tails each worker's log file. Streamed lines are shown as text: they were inserted as HTML, so a log line an app wrote from a client's request could run script in the operator's signed-in session. The log search and level filter now filter, and Pause holds new lines until you resume.
+- **The dashboard fixes the WCAG 2.2 AA failures an accessibility audit found.** The menu opens on a phone or a zoomed screen, where the navigation and Sign out were unreachable. Every field and icon button has a name; text, field borders and app icons have enough contrast; status changes and copy results are announced; certificate expiry no longer relies on colour alone; breadcrumbs use the navigation's names; the mobile category picker no longer navigates on selection. The help text shows the current commands (`hop3 env set --app`, `hop3 deploy --app`), and the resource-tier legend shows the tiers' actual names and limits.
 
 ## [0.8.0] - 2026-10-27
 

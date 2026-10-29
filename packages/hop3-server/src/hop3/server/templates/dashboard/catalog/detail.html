@@ -1,33 +1,11 @@
 {% extends "base.html" %}
+{% from "_macros.html" import breadcrumb %}
 
 {% block title %}{{ app.title }} - Catalog - Hop3 Dashboard{% endblock %}
 
 {% block content %}
 <div class="px-4 sm:px-6 lg:px-8">
-    <!-- Breadcrumb -->
-    <nav class="flex mb-6" aria-label="Breadcrumb">
-        <ol class="flex items-center space-x-2">
-            <li>
-                <a href="/dashboard/catalog" class="text-gray-400 hover:text-gray-500">
-                    Catalog
-                </a>
-            </li>
-            <li>
-                <span class="text-gray-400">/</span>
-            </li>
-            <li>
-                <a href="/dashboard/catalog/apps" class="text-gray-400 hover:text-gray-500">
-                    Apps
-                </a>
-            </li>
-            <li>
-                <span class="text-gray-400">/</span>
-            </li>
-            <li>
-                <span class="text-gray-900 font-medium">{{ app.title }}</span>
-            </li>
-        </ol>
-    </nav>
+    {{ breadcrumb([("Catalog", "/dashboard/catalog"), ("Apps", "/dashboard/catalog/apps"), (app.title, None)]) }}
 
     <!-- Main content -->
     <div class="lg:grid lg:grid-cols-3 lg:gap-8">
@@ -36,10 +14,11 @@
             <!-- Header -->
             <div class="flex items-start space-x-4">
                 {% if app.icon_url %}
-                <img src="{{ app.icon_url }}" alt="{{ app.title }}" class="h-20 w-20 rounded-xl object-cover shadow-sm">
+                <img src="{{ app.icon_url }}" alt="" class="h-20 w-20 rounded-xl object-cover shadow-sm">
                 {% else %}
                 <div class="h-20 w-20 rounded-xl flex items-center justify-center text-white font-bold text-2xl shadow-sm"
-                     style="background-color: {{ app.fallback_color }};">
+                     style="background-color: {{ app.fallback_color }};"
+                     aria-hidden="true">
                     {{ app.initials }}
                 </div>
                 {% endif %}
@@ -92,7 +71,7 @@
                     <a href="{{ src }}" target="_blank" rel="noopener"
                        class="block overflow-hidden rounded-lg border border-gray-200 hover:border-blue-400 transition-colors">
                         <img src="{{ src }}" alt="{{ app.title }} screenshot {{ loop.index }}"
-                             loading="lazy" class="w-full h-auto">
+                             loading="lazy" class="w-full h-auto"> <span class="sr-only">(opens in a new tab)</span>
                     </a>
                     {% endfor %}
                 </div>
@@ -145,9 +124,9 @@
                         <div>
                             <dt class="text-sm font-medium text-gray-500">Website</dt>
                             <dd class="mt-1 text-sm">
-                                <a href="{{ app.website }}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-500">
-                                    {{ app.website }}
-                                    <svg class="inline h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <a href="{{ app.website }}" target="_blank" rel="noopener" class="text-blue-600 hover:text-blue-800">
+                                    {{ app.website }} <span class="sr-only">(opens in a new tab)</span>
+                                    <svg aria-hidden="true" class="inline h-3 w-3 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
                                     </svg>
                                 </a>
@@ -183,7 +162,7 @@
                     {% if errors %}
                     <div class="mb-4 bg-red-50 border border-red-200 rounded-lg p-3">
                         <div class="flex">
-                            <svg class="h-5 w-5 text-red-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                            <svg aria-hidden="true" class="h-5 w-5 text-red-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                                 <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                             </svg>
                             <div class="ml-3">
@@ -208,6 +187,7 @@
                                 <input type="text"
                                        name="app_name"
                                        id="app_name"
+                                       aria-describedby="app_name-hint"
                                        {# Default to the blueprint's own id, matching `hop3 catalog install <id>`
                                           which names the app after the blueprint unless --app says otherwise.
                                           `app_name` is whatever was typed, so a re-render after a validation
@@ -216,8 +196,8 @@
                                        placeholder="{{ app.id }}"
                                        pattern="[a-z][a-z0-9-]*"
                                        required
-                                       class="mt-1 block w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
-                                <p class="mt-1 text-xs text-gray-500">
+                                       class="mt-1 block w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-500 placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                                <p id="app_name-hint" class="mt-1 text-xs text-gray-500">
                                     Lowercase letters, numbers, and hyphens only. Must start with a letter.
                                 </p>
                             </div>
@@ -225,15 +205,16 @@
                             <!-- Domain (optional) -->
                             <div>
                                 <label for="domain" class="block text-sm font-medium text-gray-700">
-                                    Domain <span class="text-gray-400 font-normal">(optional)</span>
+                                    Domain <span class="text-gray-500 font-normal">(optional)</span>
                                 </label>
                                 <input type="text"
                                        name="domain"
                                        id="domain"
+                                       aria-describedby="domain-hint"
                                        value="{{ domain }}"
                                        placeholder="app.example.com"
-                                       class="mt-1 block w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-300 placeholder:text-gray-400 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
-                                <p class="mt-1 text-xs text-gray-500">
+                                       class="mt-1 block w-full rounded-md border-0 py-2 px-3 text-gray-900 shadow-sm ring-1 ring-inset ring-gray-500 placeholder:text-gray-500 focus:ring-2 focus:ring-inset focus:ring-blue-600 sm:text-sm">
+                                <p id="domain-hint" class="mt-1 text-xs text-gray-500">
                                     Leave blank to use the server default (<code>&lt;name&gt;.&lt;admin-domain&gt;</code>).
                                 </p>
                             </div>
@@ -242,7 +223,7 @@
                             {% if app.providers %}
                             <div class="bg-blue-50 border border-blue-200 rounded-lg p-3">
                                 <div class="flex">
-                                    <svg class="h-5 w-5 text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+                                    <svg aria-hidden="true" class="h-5 w-5 text-blue-400 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
                                         <path fill-rule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clip-rule="evenodd" />
                                     </svg>
                                     <div class="ml-3">
@@ -258,8 +239,8 @@
 
                             <!-- Submit button -->
                             <button type="submit"
-                                    class="w-full inline-flex justify-center items-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
-                                <svg class="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    class="w-full inline-flex justify-center items-center rounded-md bg-blue-600 px-4 py-2.5 text-sm font-semibold text-white shadow-sm hover:bg-blue-700 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-600">
+                                <svg aria-hidden="true" class="mr-2 h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
                                 </svg>
                                 Install {{ app.title }}
@@ -281,18 +262,22 @@
         </p>
         <div class="grid grid-cols-1 gap-3 sm:grid-cols-3">
             {% for variant in variants %}
+            {% set current = variant.id == app.id %}
             <a href="/dashboard/catalog/apps/{{ variant.id }}"
-               class="block rounded-lg border p-4 hover:border-gray-400
-                      {{ 'border-gray-900 bg-gray-50' if variant.id == app.id else 'border-gray-200' }}">
+               {% if current %}aria-current="page"{% endif %}
+               class="block rounded-lg p-4 hover:border-gray-500
+                      {{ 'border-2 border-gray-900 bg-gray-50' if current else 'border border-gray-200' }}">
                 <div class="flex items-baseline justify-between">
                     <span class="font-medium text-gray-900">{{ variant.build_path }}</span>
-                    {% if not variant.variant_of %}
-                    <span class="text-xs text-gray-500">default</span>
-                    {% endif %}
+                    <span class="text-xs text-gray-500">
+                        {%- if current %}viewing{% endif %}
+                        {%- if current and not variant.variant_of %} · {% endif %}
+                        {%- if not variant.variant_of %}default{% endif -%}
+                    </span>
                 </div>
                 <p class="mt-1 text-xs text-gray-500">{{ variant.id }}</p>
                 {% if variant.status and variant.status != 'golden' %}
-                <p class="mt-1 text-xs text-gray-400">{{ variant.status }}</p>
+                <p class="mt-1 text-xs text-gray-500">{{ variant.status }}</p>
                 {% endif %}
             </a>
             {% endfor %}

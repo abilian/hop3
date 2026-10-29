@@ -2,14 +2,6 @@
 
 {% block title %}Create New App{% endblock %}
 
-{% block breadcrumb %}
-<nav class="text-sm text-gray-500 mb-4">
-    <a href="/dashboard" class="hover:text-blue-600">Dashboard</a>
-    <span class="mx-2">/</span>
-    <span class="text-gray-900">Create App</span>
-</nav>
-{% endblock %}
-
 {% block content %}
 <div class="max-w-3xl mx-auto">
     <div class="bg-white shadow rounded-lg p-6">
@@ -19,12 +11,12 @@
         <div class="mb-6 bg-red-50 border border-red-200 rounded-lg p-4">
             <div class="flex">
                 <div class="flex-shrink-0">
-                    <svg class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
+                    <svg aria-hidden="true" class="h-5 w-5 text-red-400" viewBox="0 0 20 20" fill="currentColor">
                         <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
                     </svg>
                 </div>
                 <div class="ml-3">
-                    <h3 class="text-sm font-medium text-red-800">Validation Errors</h3>
+                    <h2 class="text-sm font-medium text-red-800">Validation Errors</h2>
                     <ul class="mt-2 text-sm text-red-700 list-disc list-inside">
                         {% for error in errors %}
                         <li>{{ error }}</li>
@@ -44,16 +36,17 @@
                 <input
                     type="text"
                     id="app_name"
+                    aria-describedby="app_name-hint"
                     name="app_name"
                     value="{{ app_name if app_name else '' }}"
                     required
                     pattern="[a-zA-Z0-9_-]+"
                     minlength="3"
                     maxlength="63"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full px-3 py-2 border border-gray-500 rounded-md focus:ring-blue-500 focus:border-blue-500"
                     placeholder="my-awesome-app"
                 >
-                <p class="mt-1 text-sm text-gray-500">
+                <p id="app_name-hint" class="mt-1 text-sm text-gray-500">
                     3-63 characters. Letters, numbers, hyphens, and underscores only.
                 </p>
             </div>
@@ -65,8 +58,9 @@
                 </label>
                 <select
                     id="builder"
+                    aria-describedby="builder-hint"
                     name="builder"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500"
+                    class="w-full px-3 py-2 border border-gray-500 rounded-md focus:ring-blue-500 focus:border-blue-500"
                 >
                     {% for b in builders %}
                     <option value="{{ b.id }}" {% if builder == b.id %}selected{% endif %}>
@@ -74,7 +68,7 @@
                     </option>
                     {% endfor %}
                 </select>
-                <p class="mt-1 text-sm text-gray-500">
+                <p id="builder-hint" class="mt-1 text-sm text-gray-500">
                     Select "Auto-detect" to automatically determine the builder from your project files.
                 </p>
             </div>
@@ -87,13 +81,14 @@
                 <input
                     type="url"
                     id="git_url"
+                    aria-describedby="git_url-hint"
                     name="git_url"
                     value="{{ git_url if git_url else '' }}"
                     disabled
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md bg-gray-50 text-gray-500"
+                    class="w-full px-3 py-2 border border-gray-500 rounded-md bg-gray-50 text-gray-500"
                     placeholder="https://github.com/user/repo.git"
                 >
-                <p class="mt-1 text-sm text-gray-500">
+                <p id="git_url-hint" class="mt-1 text-sm text-gray-500">
                     Git deployment will be available in a future update. For now, use file upload or CLI.
                 </p>
             </div>
@@ -105,12 +100,13 @@
                 </label>
                 <textarea
                     id="env_vars"
+                    aria-describedby="env_vars-hint"
                     name="env_vars"
                     rows="6"
-                    class="w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
+                    class="w-full px-3 py-2 border border-gray-500 rounded-md focus:ring-blue-500 focus:border-blue-500 font-mono text-sm"
                     placeholder="DATABASE_URL=postgres://...&#10;API_KEY=your-key&#10;DEBUG=false"
                 >{{ env_vars if env_vars else '' }}</textarea>
-                <p class="mt-1 text-sm text-gray-500">
+                <p id="env_vars-hint" class="mt-1 text-sm text-gray-500">
                     One variable per line, in KEY=VALUE format. Lines starting with # are ignored.
                 </p>
             </div>
@@ -134,11 +130,11 @@
 
         <!-- CLI Alternative -->
         <div class="mt-6 p-4 bg-blue-50 border border-blue-200 rounded-lg">
-            <h3 class="text-sm font-medium text-blue-900 mb-2">Alternative: Create via CLI</h3>
+            <h2 class="text-sm font-medium text-blue-900 mb-2">Alternative: Create via CLI</h2>
             <p class="text-sm text-blue-700 mb-2">
                 For full deployment support, use the command line:
             </p>
-            <pre class="bg-blue-900 text-blue-100 p-3 rounded text-sm overflow-x-auto"><code>hop3 deploy &lt;app-name&gt; /path/to/your/app</code></pre>
+            <pre class="bg-blue-900 text-blue-100 p-3 rounded text-sm overflow-x-auto"><code>hop3 deploy --app &lt;app-name&gt; /path/to/your/app</code></pre>
         </div>
     </div>
 </div>

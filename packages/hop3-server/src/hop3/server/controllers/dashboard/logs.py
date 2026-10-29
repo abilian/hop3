@@ -29,71 +29,68 @@ if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
 
-async def _create_log_generator(log_path: Path) -> AsyncIterator[str]:
-    """Create async generator for log streaming."""
+async def _create_log_generator(log_dir: Path) -> AsyncIterator[str]:
+    """
+    Stream, as SSE events, the lines the app's workers append to ``log_dir``.
+
+    The page already shows the recent history, so the stream starts at the end
+    of every file present on connect; a file that appears later (a new worker)
+    is read from its start. A ``==> worker <==`` line marks each change of
+    source, as in the page's history.
+    """
     try:
-        log_path_anyio = anyio.Path(log_path)
-
-        async for event in _send_initial_logs(log_path_anyio):
-            yield event
-
-        file_size = await _get_file_size(log_path_anyio)
-
+        offsets = await anyio.to_thread.run_sync(_end_offsets, log_dir)
+        source = ""
         while True:
-            if await log_path_anyio.exists():
-                current_size = (await log_path_anyio.stat()).st_size
-
-                if current_size > file_size:
-                    async for event in _send_new_log_lines(log_path, file_size):
-                        yield event
-                    file_size = current_size
-                elif current_size < file_size:
-                    file_size = 0
-
+            chunks, offsets = await anyio.to_thread.run_sync(
+                _read_appended, log_dir, offsets
+            )
+            for worker, lines in chunks:
+                if worker != source:
+                    source = worker
+                    yield _sse(f"==> {worker} <==")
+                for line in lines:
+                    yield _sse(line)
             await asyncio.sleep(1)
-
-    except asyncio.CancelledError:
-        pass
     except Exception as e:
         yield f"event: error\ndata: Error streaming logs: {e}\n\n"
 
 
-async def _get_file_size(log_path_anyio: anyio.Path) -> int:
-    """Get file size or 0 if file doesn't exist."""
-    if await log_path_anyio.exists():
-        return (await log_path_anyio.stat()).st_size
-    return 0
+def _sse(line: str) -> str:
+    return f"data: {line}\n\n"
 
 
-async def _send_initial_logs(log_path_anyio: anyio.Path) -> AsyncIterator[str]:
-    """Send initial log lines (last 50) as SSE events."""
-    if not await log_path_anyio.exists():
-        return
-
-    content = await log_path_anyio.read_text()
-    lines = content.splitlines(keepends=True)
-    initial_lines = lines[-50:] if len(lines) > 50 else lines
-
-    for line in initial_lines:
-        if line:
-            escaped_line = line.rstrip().replace("\n", "\\n")
-            yield f"data: {escaped_line}\n\n"
+def _end_offsets(log_dir: Path) -> dict[Path, int]:
+    """Current size of each log file, i.e. where tailing starts."""
+    return {path: path.stat().st_size for path in sorted(log_dir.glob("*.log"))}
 
 
-async def _send_new_log_lines(log_path: Path, file_size: int) -> AsyncIterator[str]:
-    """Read and send new log lines from file."""
-    # Read inside the context manager so the file is closed deterministically,
-    # then yield outside it — a yield while the file is open wouldn't run the
-    # close if the SSE consumer disconnects mid-stream (ruff ASYNC119).
-    async with await anyio.open_file(log_path, "r") as f:
-        await f.seek(file_size)
-        new_content = await f.read()
+def _read_appended(
+    log_dir: Path, offsets: dict[Path, int]
+) -> tuple[list[tuple[str, list[str]]], dict[Path, int]]:
+    """
+    Read the complete lines written to each log file since ``offsets``.
 
-    new_lines = new_content.splitlines(keepends=True)
-    for line in new_lines:
-        if line:
-            escaped_line = line.rstrip().replace("\n", "\\n")
-            yield f"data: {escaped_line}\n\n"
+    Returns ``(worker, lines)`` pairs and the new offsets. A line still being
+    written (no newline yet) is left for the next read; a file smaller than
+    its offset was truncated or rotated and is read again from its start.
+    """
+    chunks = []
+    new_offsets = {}
+    for path in sorted(log_dir.glob("*.log")):
+        start = offsets.get(path, 0)
+        size = path.stat().st_size
+        if size < start:
+            start = 0
+        with path.open("rb") as f:
+            f.seek(start)
+            data = f.read(size - start)
+        complete = data[: data.rfind(b"\n") + 1]
+        new_offsets[path] = start + len(complete)
+        lines = complete.decode("utf-8", errors="replace").splitlines()
+        if lines:
+            chunks.append((path.stem, lines))
+    return chunks, new_offsets
 
 
 class LogsController(Controller):
@@ -158,10 +155,10 @@ class LogsController(Controller):
                     media_type="text/plain",
                 )
 
-            log_path = Path(app.log_path)
+            log_dir = Path(app.log_path)
 
         return Stream(
-            content=_create_log_generator(log_path),
+            content=_create_log_generator(log_dir),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",
