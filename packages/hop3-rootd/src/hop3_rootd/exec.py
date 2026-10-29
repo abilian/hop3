@@ -23,6 +23,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Final, Protocol
@@ -268,3 +269,31 @@ class RealExec:
 
 #: Shared production instance. Tests inject their own ``Exec``.
 DEFAULT_EXEC: Exec = RealExec()
+
+
+def first_success(
+    exec: Exec, methods: Iterable[tuple[list[str], str]], *, timeout: float
+) -> tuple[str | None, list[str]]:
+    """
+    Run ``(argv, label)`` methods in order until one exits 0.
+
+    Returns ``(label, failures)``: the label of the method that worked (None
+    if none did) and one line per method tried before it, each with its rc
+    and stderr (or why it could not run). A caller that gives up reports
+    every line, so a fallback's failure never hides the first method's.
+    ``methods`` may be a generator, so a later method can be computed only
+    once the earlier ones have failed.
+    """
+    failures: list[str] = []
+    for argv, label in methods:
+        try:
+            result = exec.run(argv, timeout=timeout)
+        except (InvalidBinaryError, CommandTimeoutError) as e:
+            failures.append(f"{label}: {e}")
+            continue
+        if result.success:
+            return label, failures
+        failures.append(
+            f"{label}: rc={result.returncode} stderr={result.stderr.strip()!r}"
+        )
+    return None, failures

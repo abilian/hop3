@@ -48,6 +48,8 @@ def health(_req: Request, ctx: OpContext) -> dict[str, Any]:
         "uptime_seconds": round(now - stats.started_at, 3),
         "rules_count": len(ctx.state.rules),
         "last_reconcile_at": stats.last_reconcile_at,
+        "reconcile": stats.reconcile,
+        "degraded": stats.degraded_subsystems(),
         "last_request_at": _format_ts(stats.last_request_at),
         "errors_last_hour": stats.errors_last_hour,
     }

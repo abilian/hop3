@@ -141,6 +141,20 @@ def test_all_methods_failing_reports_the_last_error():
         get_handler("service.reload")(_req("mysql"), ctx)
 
 
+def test_all_methods_failing_reports_every_error():
+    """A later method's failure does not hide an earlier one's rc and stderr."""
+    ctx, fake = _ctx()
+    fake.set_path("supervisorctl", "/usr/bin/supervisorctl")
+    fake.set_path("systemctl", "/usr/bin/systemctl")
+    fake.on(lambda argv: "supervisorctl" in argv[0], fail("ERROR (no such process)"))
+    fake.on(lambda argv: "systemctl" in argv[0], fail("Unit not found", returncode=5))
+
+    with pytest.raises(ServiceReloadFailedError) as exc:
+        get_handler("service.reload")(_req("redis"), ctx)
+    assert "no such process" in str(exc.value)
+    assert "rc=5 stderr='Unit not found'" in str(exc.value)
+
+
 def test_a_timeout_is_not_swallowed_into_success():
     ctx, fake = _ctx()
     fake.set_path("supervisorctl", None)

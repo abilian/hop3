@@ -7,7 +7,7 @@ from __future__ import annotations
 
 from hop3_rootd import PROTOCOL_VERSION, __version__
 from hop3_rootd.ops import all_ops, get_handler
-from hop3_rootd.ops._base import OpContext
+from hop3_rootd.ops._base import ERROR_WINDOW_SECONDS, DaemonStats, OpContext
 from hop3_rootd.protocol import Request
 from hop3_rootd.state import State, StoredRule
 
@@ -92,3 +92,38 @@ def test_health_uptime_is_nonnegative():
     req = Request(v=PROTOCOL_VERSION, id="r1", op="daemon.health", args={})
     result = handler(req, _ctx())
     assert result["uptime_seconds"] >= 0
+
+
+def test_health_reports_reconcile_outcomes_and_degraded():
+    """A degraded startup reconcile is visible in health, not just the journal."""
+    handler = get_handler("daemon.health")
+    assert handler is not None
+    ctx = _ctx()
+    ctx.stats.mark_reconcile(
+        "2026-04-24T15:30:00+00:00",
+        {
+            "firewall": {"status": "ok", "detail": "", "tracked": 0},
+            "cgroups": {"status": "unavailable", "detail": "no v2", "tracked": 0},
+            "mounts": {"status": "unavailable", "detail": "x", "tracked": 3},
+            "proxies": {"status": "error", "detail": "boom", "tracked": 1},
+        },
+    )
+    req = Request(v=PROTOCOL_VERSION, id="r1", op="daemon.health", args={})
+    result = handler(req, ctx)
+    assert result["reconcile"]["proxies"]["detail"] == "boom"
+    # Unavailable with nothing tracked is a feature absent, not a degradation.
+    assert result["degraded"] == ["mounts", "proxies"]
+
+
+def test_errors_last_hour_is_a_sliding_window():
+    """Errors older than the window drop out without a SIGUSR2 reset."""
+    now = [1000.0]
+    stats = DaemonStats(clock=lambda: now[0])
+    stats.increment_error()
+    now[0] += ERROR_WINDOW_SECONDS - 1
+    stats.increment_error()
+    assert stats.errors_last_hour == 2
+    now[0] += 2  # first error is now older than the window
+    assert stats.errors_last_hour == 1
+    stats.reset_errors()
+    assert stats.errors_last_hour == 0

@@ -22,7 +22,7 @@ import time
 from pathlib import Path
 from typing import Any
 
-from hop3_rootd.exec import CommandTimeoutError, Exec, InvalidBinaryError
+from hop3_rootd.exec import Exec, InvalidBinaryError, first_success
 from hop3_rootd.ops._base import OpContext, register
 from hop3_rootd.protocol import Request
 
@@ -294,36 +294,22 @@ def reload_nginx(_req: Request, ctx: OpContext) -> dict[str, Any]:
     since_ticks = _ticks_since_boot()
     log_offset = _error_log_size()
 
-    last_error: str | None = None
-    for argv, label in methods:
-        try:
-            result = ctx.exec.run(argv, timeout=10.0)
-        except InvalidBinaryError as e:
-            last_error = str(e)
-            continue
-        except CommandTimeoutError as e:
-            # A wedged systemd shouldn't strand the deploy — the next method
-            # (`nginx -s reload`) signals the master directly and may still work.
-            last_error = str(e)
-            continue
-        if result.success:
-            reason = _verify_reload(since_ticks, log_offset)
-            if reason is None:
-                return {"method": label}
-            # rc=0 but the config was rejected at reload time. Retrying another
-            # method would hit the same rejection (it's the config, not the
-            # method), so fail loud with nginx's own reason.
-            raise NginxReloadNotAppliedError(
-                f"nginx accepted the reload (via {label}) but did not apply the "
-                f"new config: {reason}"
-            )
-        last_error = (
-            f"{label} returned rc={result.returncode}; stderr={result.stderr.strip()}"
+    # A wedged systemd (timeout) shouldn't strand the deploy: the next method
+    # (`nginx -s reload`) signals the master directly and may still work.
+    label, failures = first_success(ctx.exec, methods, timeout=10.0)
+    if label is None:
+        raise NginxBinaryNotFoundError(
+            f"all nginx-reload methods failed: {'; '.join(failures)}"
         )
-
-    # All methods failed.
-    raise NginxBinaryNotFoundError(
-        f"all nginx-reload methods failed; last error: {last_error}"
+    reason = _verify_reload(since_ticks, log_offset)
+    if reason is None:
+        return {"method": label}
+    # rc=0 but the config was rejected at reload time. Retrying another
+    # method would hit the same rejection (it's the config, not the
+    # method), so fail loud with nginx's own reason.
+    raise NginxReloadNotAppliedError(
+        f"nginx accepted the reload (via {label}) but did not apply the "
+        f"new config: {reason}"
     )
 
 

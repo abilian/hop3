@@ -15,8 +15,11 @@ from hop3_rootd.exec import (
     CommandResult,
     CommandTimeoutError,
     InvalidBinaryError,
+    first_success,
     run,
 )
+
+from tests.a_unit._fakes import FakeExec, fail
 
 # --- Argv validation ------------------------------------------------------
 
@@ -241,3 +244,22 @@ def test_real_binary_smoke():
     result = run([sysctl_path, "--version"], timeout=5.0)
     assert result.success
     assert "systemd" in result.stdout.lower()
+
+
+def test_first_success_collects_each_failure_and_stops_at_success():
+    ex = FakeExec()
+    ex.on(lambda a: a[0] == "a", fail("A broke", returncode=3))
+    tried: list[str] = []
+
+    def methods():
+        tried.append("a")
+        yield ["a"], "first"
+        tried.append("b")
+        yield ["b"], "second"
+        tried.append("c")  # never reached: "second" succeeded
+        yield ["c"], "third"
+
+    label, failures = first_success(ex, methods(), timeout=1.0)
+    assert label == "second"
+    assert failures == ["first: rc=3 stderr='A broke'"]
+    assert tried == ["a", "b"]

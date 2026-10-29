@@ -130,6 +130,19 @@ def test_reload_falls_back_to_postfix_when_systemctl_fails(postfix_dir):
     assert result["reloaded"] == "postfix reload"
 
 
+def test_reload_failure_reports_every_method(postfix_dir):
+    """The fallback's failure must not overwrite systemctl's rc and stderr."""
+    ex = FakeExec()
+    ex.on(lambda a: bool(a) and a[0].endswith("systemctl"), fail("no systemd"))
+    ex.on(lambda a: bool(a) and "start" in a, fail("fatal: bad main.cf", returncode=2))
+    ex.on(lambda a: bool(a) and "status" in a, fail("not running"))
+    with pytest.raises(PostfixError) as exc:
+        pf.configure("127.0.0.1", 1025, use_tls=False, exec=ex)
+    msg = str(exc.value)
+    assert "systemctl: rc=1 stderr='no systemd'" in msg
+    assert "postfix start: rc=2 stderr='fatal: bad main.cf'" in msg
+
+
 # --- op: postfix.configure -----------------------------------------------
 
 

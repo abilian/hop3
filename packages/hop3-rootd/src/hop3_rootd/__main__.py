@@ -30,7 +30,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from types import FrameType
-from typing import Final, TypeVar
+from typing import Any, Final, TypeVar
 
 from hop3_rootd import cgroup as cg, proxy as px
 from hop3_rootd.audit import (
@@ -67,6 +67,13 @@ EXIT_BIND_ERROR: Final[int] = 4
 #: Reconcile report type — inferred per caller so ``report.reasserted`` etc.
 #: type-check instead of falling back to ``Any``.
 T = TypeVar("T")
+
+#: One subsystem's startup-reconcile result, surfaced in ``daemon.health``.
+Outcome = dict[str, Any]
+
+
+def _outcome(status: str, detail: str, tracked: int) -> Outcome:
+    return {"status": status, "detail": detail, "tracked": tracked}
 
 
 def _parse_args(argv: list[str] | None = None) -> argparse.Namespace:
@@ -122,9 +129,9 @@ def _sd_notify(msg: str) -> None:
         logger.warning("sd_notify failed: %s", e)
 
 
-def _startup_reconcile(state: State, state_path: Path) -> bool:
+def _startup_reconcile(state: State, state_path: Path) -> Outcome | None:
     """
-    Reconcile kernel state at startup. Return True to continue, False to abort.
+    Reconcile kernel state at startup. Return the outcome, or None to abort.
 
     A *missing* nft backend is tolerated — the firewall subsystem degrades
     (firewall ops fail at call time, see server.dispatch) but the daemon stays
@@ -148,20 +155,19 @@ def _startup_reconcile(state: State, state_path: Path) -> bool:
             e,
             len(state.rules),
         )
-        return True
+        return _outcome("unavailable", str(e), len(state.rules))
     except NftError as e:
         logger.error("reconciliation failed: %s", e)
-        return False
+        return None
 
     save(state, state_path)
-    logger.info(
-        "reconciliation: verified=%d reapplied=%d orphans_removed=%d state_dropped=%d",
-        report.verified,
-        report.reapplied,
-        report.orphans_removed,
-        report.state_dropped,
+    detail = (
+        f"verified={report.verified} reapplied={report.reapplied} "
+        f"orphans_removed={report.orphans_removed} "
+        f"state_dropped={report.state_dropped}"
     )
-    return True
+    logger.info("reconciliation: %s", detail)
+    return _outcome("ok", detail, len(state.rules))
 
 
 def _try_reconcile(
@@ -172,12 +178,13 @@ def _try_reconcile(
     tracked: int,
     unavailable_exc: type[Exception],
     error_exc: type[Exception],
-) -> T | None:
+) -> tuple[T | None, Outcome]:
     """
     Run a non-fatal reconcile; on backend-missing or error, log + degrade.
 
-    Returns the report on success, or ``None`` when the backend was
-    unavailable or errored (the caller then skips persist + log). An
+    Returns ``(report, outcome)``. The report is ``None`` when the backend
+    was unavailable or errored (the caller then skips persist + log), and the
+    outcome says which, so ``daemon.health`` reports it. An
     *unavailable* backend is logged at warning when nothing is tracked (a
     feature simply absent on this host) and at error when tracked state will
     go unserviced — mirroring the firewall path.
@@ -187,7 +194,7 @@ def _try_reconcile(
     (refuse start), which needs a 3-way result rather than report-or-None.
     """
     try:
-        return run(state)
+        return run(state), _outcome("ok", "", tracked)
     except unavailable_exc as e:
         log = logger.error if tracked else logger.warning
         log(
@@ -197,13 +204,13 @@ def _try_reconcile(
             e,
             tracked,
         )
-        return None
+        return None, _outcome("unavailable", str(e), tracked)
     except error_exc as e:
         logger.error("%s reconciliation error: %s", noun, e)
-        return None
+        return None, _outcome("error", str(e), tracked)
 
 
-def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
+def _startup_reconcile_cgroups(state: State, state_path: Path) -> Outcome:
     """
     Re-assert cgroup leaves at startup. Non-fatal by design (ADR 046 P2.2).
 
@@ -214,8 +221,8 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
     noise.
     """
     if not state.cgroups and not cg.slice_path().exists():
-        return
-    report = _try_reconcile(
+        return _outcome("skipped", "nothing tracked", 0)
+    report, outcome = _try_reconcile(
         state,
         reconcile_cgroups,
         noun="cgroup v2",
@@ -224,17 +231,19 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> None:
         error_exc=CgroupError,
     )
     if report is None:
-        return
+        return outcome
     save(state, state_path)
-    logger.info(
-        "cgroup reconcile: reasserted=%d orphans_removed=%d failed=%d",
-        report.reasserted,
-        report.orphans_removed,
-        report.failed,
+    detail = (
+        f"reasserted={report.reasserted} "
+        f"orphans_removed={report.orphans_removed} failed={report.failed}"
     )
+    logger.info("cgroup reconcile: %s", detail)
+    # Per-item failures are an error outcome, not "ok" with a footnote.
+    status = "error" if report.failed else "ok"
+    return _outcome(status, detail, len(state.cgroups))
 
 
-def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
+def _startup_reconcile_mounts(state: State, state_path: Path) -> Outcome:
     """
     Reconcile tracked volume mounts at startup. Non-fatal (ADR 046 P2.1).
 
@@ -242,8 +251,8 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
     there is nothing tracked, so a volume-free host does no mountinfo work.
     """
     if not state.mounts:
-        return
-    report = _try_reconcile(
+        return _outcome("skipped", "nothing tracked", 0)
+    report, outcome = _try_reconcile(
         state,
         reconcile_mounts,
         noun="mount backend",
@@ -252,17 +261,17 @@ def _startup_reconcile_mounts(state: State, state_path: Path) -> None:
         error_exc=MountError,
     )
     if report is None:
-        return
+        return outcome
     save(state, state_path)
-    logger.info(
-        "mount reconcile: verified=%d state_dropped=%d orphans_removed=%d",
-        report.verified,
-        report.state_dropped,
-        report.orphans_removed,
+    detail = (
+        f"verified={report.verified} state_dropped={report.state_dropped} "
+        f"orphans_removed={report.orphans_removed}"
     )
+    logger.info("mount reconcile: %s", detail)
+    return _outcome("ok", detail, len(state.mounts))
 
 
-def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
+def _startup_reconcile_proxies(state: State, state_path: Path) -> Outcome:
     """
     Reconcile addon-exposure forwarders at startup. Non-fatal by design.
 
@@ -271,8 +280,8 @@ def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
     exposure-free host does no unit work.
     """
     if not state.proxies and not px.list_units():
-        return
-    report = _try_reconcile(
+        return _outcome("skipped", "nothing tracked", 0)
+    report, outcome = _try_reconcile(
         state,
         reconcile_proxies,
         noun="systemd-socket-proxyd",
@@ -281,14 +290,16 @@ def _startup_reconcile_proxies(state: State, state_path: Path) -> None:
         error_exc=ProxyError,
     )
     if report is None:
-        return
+        return outcome
     save(state, state_path)
-    logger.info(
-        "proxy reconcile: reasserted=%d orphans_removed=%d failed=%d",
-        report.reasserted,
-        report.orphans_removed,
-        report.failed,
+    detail = (
+        f"reasserted={report.reasserted} "
+        f"orphans_removed={report.orphans_removed} failed={report.failed}"
     )
+    logger.info("proxy reconcile: %s", detail)
+    # Per-item failures are an error outcome, not "ok" with a footnote.
+    status = "error" if report.failed else "ok"
+    return _outcome(status, detail, len(state.proxies))
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -318,17 +329,20 @@ def main(argv: list[str] | None = None) -> int:
         args.state_path,
     )
 
-    if not _startup_reconcile(state, args.state_path):
+    firewall = _startup_reconcile(state, args.state_path)
+    if firewall is None:
         return EXIT_RECONCILE_ERROR
-
-    _startup_reconcile_cgroups(state, args.state_path)
-    _startup_reconcile_mounts(state, args.state_path)
-    _startup_reconcile_proxies(state, args.state_path)
+    outcomes = {
+        "firewall": firewall,
+        "cgroups": _startup_reconcile_cgroups(state, args.state_path),
+        "mounts": _startup_reconcile_mounts(state, args.state_path),
+        "proxies": _startup_reconcile_proxies(state, args.state_path),
+    }
 
     audit = AuditLog(args.audit_log)
 
     server = Server(state, args.state_path, audit)
-    server.stats.mark_reconcile(datetime.now(timezone.utc).isoformat())
+    server.stats.mark_reconcile(datetime.now(timezone.utc).isoformat(), outcomes)
     if not server.inherit_systemd_socket():
         try:
             server.bind(args.socket_path)

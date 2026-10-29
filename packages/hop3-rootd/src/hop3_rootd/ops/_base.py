@@ -25,6 +25,7 @@ each invocation, with the request id and duration captured.
 from __future__ import annotations
 
 import time
+from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING, Any, Protocol
@@ -53,6 +54,10 @@ class StateConflictError(Exception):
 # --- DaemonStats: mutable runtime metrics surfaced via daemon.health ----
 
 
+#: Width of the sliding window behind ``DaemonStats.errors_last_hour``.
+ERROR_WINDOW_SECONDS = 3600.0
+
+
 @dataclass
 class DaemonStats:
     """
@@ -61,27 +66,50 @@ class DaemonStats:
     globals in ``ops/daemon.py``.
 
     Single-threaded read/write today (single accept loop, sequential
-    dispatch). If the server ever grows worker threads, the increment
-    in `increment_error()` becomes an unsynchronised RMW and needs a
-    lock.
+    dispatch). If the server ever grows worker threads, the append
+    in `increment_error()` needs a lock.
     """
 
     started_at: float = field(default_factory=time.time)
     last_request_at: float = field(default_factory=time.time)
+    #: When the startup reconcile pass ran; what each subsystem actually did
+    #: is in ``reconcile`` (a pass that ran is not a pass that succeeded).
     last_reconcile_at: str | None = None
-    errors_last_hour: int = 0
+    #: Subsystem name → ``{"status", "detail", "tracked"}``; status is one of
+    #: ``ok`` / ``skipped`` / ``unavailable`` / ``error``.
+    reconcile: dict[str, dict[str, Any]] = field(default_factory=dict)
+    clock: Callable[[], float] = time.time
+    _error_times: deque[float] = field(default_factory=deque)
 
     def mark_request(self) -> None:
-        self.last_request_at = time.time()
+        self.last_request_at = self.clock()
 
-    def mark_reconcile(self, iso: str) -> None:
+    def mark_reconcile(self, iso: str, outcomes: dict[str, dict[str, Any]]) -> None:
         self.last_reconcile_at = iso
+        self.reconcile = dict(outcomes)
+
+    def degraded_subsystems(self) -> list[str]:
+        """Subsystems whose reconcile left tracked state unserviced, or failed."""
+        return sorted(
+            name
+            for name, o in self.reconcile.items()
+            if o["status"] == "error"
+            or (o["status"] == "unavailable" and o.get("tracked", 0) > 0)
+        )
 
     def increment_error(self) -> None:
-        self.errors_last_hour += 1
+        self._error_times.append(self.clock())
+
+    @property
+    def errors_last_hour(self) -> int:
+        """Errors in the last ``ERROR_WINDOW_SECONDS``; older ones are dropped."""
+        horizon = self.clock() - ERROR_WINDOW_SECONDS
+        while self._error_times and self._error_times[0] < horizon:
+            self._error_times.popleft()
+        return len(self._error_times)
 
     def reset_errors(self) -> None:
-        self.errors_last_hour = 0
+        self._error_times.clear()
 
 
 # --- OpContext: shared dependencies passed to every op ------------------

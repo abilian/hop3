@@ -25,10 +25,11 @@ attribute so tests can point it at a tmp dir.
 from __future__ import annotations
 
 import os
+from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Final
 
-from hop3_rootd.exec import DEFAULT_EXEC, CommandResult, Exec, InvalidBinaryError
+from hop3_rootd.exec import DEFAULT_EXEC, Exec, InvalidBinaryError, first_success
 
 # Postfix config directory (test override via this attribute).
 POSTFIX_DIR: Path = Path("/etc/postfix")
@@ -146,14 +147,6 @@ def _postmap(postmap: str, path: Path, *, exec: Exec) -> None:
         raise PostfixError(f"postmap {path} failed: {result.stderr.strip()}")
 
 
-def _run(exec: Exec, argv: list[str]) -> CommandResult | None:
-    """Run ``argv``; return the result, or None if the binary isn't allow-listed."""
-    try:
-        return exec.run(argv, timeout=_RELOAD_TIMEOUT_SECONDS)
-    except InvalidBinaryError:
-        return None
-
-
 def _reload(exec: Exec) -> str:
     """
     Apply the new config, starting Postfix if it is not already running.
@@ -164,7 +157,7 @@ def _reload(exec: Exec) -> str:
     ``postfix start`` when ``postfix status`` reports it stopped, ``postfix
     reload`` otherwise. This is the pm-aware handling the ``--docker`` target
     needs (a plain ``systemctl reload`` there is a silent no-op / failure).
-    Raises if nothing works.
+    Raises if nothing works, naming every method's rc and stderr.
     """
     systemctl = exec.resolve("systemctl")
     postfix = exec.resolve("postfix")
@@ -173,35 +166,33 @@ def _reload(exec: Exec) -> str:
             "no Postfix reload method available (neither systemctl nor postfix "
             "on the allow-list); is Postfix installed?"
         )
+    method, failures = first_success(
+        exec, _reload_methods(exec, systemctl, postfix), timeout=_RELOAD_TIMEOUT_SECONDS
+    )
+    if method is None:
+        raise PostfixError(f"all Postfix reload methods failed: {'; '.join(failures)}")
+    return method
 
-    last_error: str | None = None
+
+def _reload_methods(
+    exec: Exec, systemctl: str | None, postfix: str | None
+) -> Iterator[tuple[list[str], str]]:
+    """
+    Yield the reload methods in order, lazily.
+
+    ``postfix status`` runs only once systemctl has failed: it picks ``start``
+    for a stopped Postfix, ``reload`` for a running one.
+    """
     if systemctl is not None:
-        result = _run(exec, [systemctl, "reload-or-restart", "postfix"])
-        if result is not None and result.success:
-            return "systemctl"
-        last_error = _format_error("systemctl reload-or-restart", result)
-
-    if postfix is not None:
-        method = _postfix_start_or_reload(exec, postfix)
-        if method is not None:
-            return method
-        last_error = "postfix start/reload failed"
-
-    raise PostfixError(f"all Postfix reload methods failed; last: {last_error}")
-
-
-def _postfix_start_or_reload(exec: Exec, postfix: str) -> str | None:
-    """Start Postfix if ``postfix status`` shows it stopped, else reload it."""
-    status = _run(exec, [postfix, "status"])
-    verb = "reload" if (status is not None and status.success) else "start"
-    result = _run(exec, [postfix, verb])
-    return f"postfix {verb}" if (result is not None and result.success) else None
-
-
-def _format_error(label: str, result: CommandResult | None) -> str:
-    if result is None:
-        return f"{label} not runnable"
-    return f"{label} rc={result.returncode}: {result.stderr.strip()}"
+        yield [systemctl, "reload-or-restart", "postfix"], "systemctl"
+    if postfix is None:
+        return
+    try:
+        status = exec.run([postfix, "status"], timeout=_RELOAD_TIMEOUT_SECONDS)
+        verb = "reload" if status.success else "start"
+    except InvalidBinaryError:
+        verb = "start"
+    yield [postfix, verb], f"postfix {verb}"
 
 
 # --- public operation (called by ops/postfix.py) --------------------------

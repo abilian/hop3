@@ -24,7 +24,7 @@ from __future__ import annotations
 
 from typing import Any, Final
 
-from hop3_rootd.exec import CommandTimeoutError, Exec, InvalidBinaryError
+from hop3_rootd.exec import Exec, first_success
 from hop3_rootd.ops._base import OpContext, register
 from hop3_rootd.protocol import Request
 
@@ -109,20 +109,10 @@ def reload_service(req: Request, ctx: OpContext) -> dict[str, Any]:
         )
         raise ServiceReloadFailedError(msg)
 
-    last_error: str | None = None
-    for argv, label in methods:
-        try:
-            result = ctx.exec.run(argv, timeout=_RELOAD_TIMEOUT_SECONDS)
-        except (InvalidBinaryError, CommandTimeoutError) as e:
-            last_error = f"{label}: {e}"
-            continue
-        if result.success:
-            return {"service": service, "method": label}
-        last_error = (
-            f"{label} returned rc={result.returncode}; stderr={result.stderr.strip()}"
-        )
-
-    msg = f"could not reload {service!r}; last error: {last_error}"
+    label, failures = first_success(ctx.exec, methods, timeout=_RELOAD_TIMEOUT_SECONDS)
+    if label is not None:
+        return {"service": service, "method": label}
+    msg = f"could not reload {service!r}: {'; '.join(failures)}"
     raise ServiceReloadFailedError(msg)
 
 

@@ -19,7 +19,8 @@ from unittest.mock import MagicMock, patch
 
 from hop3_rootd import __main__ as main_mod
 from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftError
-from hop3_rootd.state import State, init_empty
+from hop3_rootd.ops._base import DaemonStats
+from hop3_rootd.state import State, StoredRule, init_empty, load, save
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -91,7 +92,7 @@ def test_main_refuses_when_reconcile_fails_for_other_reasons(tmp_path: Path) -> 
 def test_try_reconcile_returns_report_on_success() -> None:
     """On success the report is handed back so the caller can persist + log it."""
     sentinel = object()
-    report = main_mod._try_reconcile(
+    report, outcome = main_mod._try_reconcile(
         State(),
         lambda _state: sentinel,
         noun="x",
@@ -100,15 +101,17 @@ def test_try_reconcile_returns_report_on_success() -> None:
         error_exc=ValueError,
     )
     assert report is sentinel
+    assert outcome["status"] == "ok"
 
 
 def test_try_reconcile_degrades_on_unavailable() -> None:
     """An unavailable backend → None (caller skips persist); logged, not raised."""
 
     def raise_unavail(_state: State) -> object:
-        raise RuntimeError  # stands in for CgroupUnavailableError etc.
+        msg = "no cgroup2"
+        raise RuntimeError(msg)  # stands in for CgroupUnavailableError
 
-    report = main_mod._try_reconcile(
+    report, outcome = main_mod._try_reconcile(
         State(),
         raise_unavail,
         noun="x",
@@ -117,15 +120,17 @@ def test_try_reconcile_degrades_on_unavailable() -> None:
         error_exc=ValueError,
     )
     assert report is None
+    assert outcome == {"status": "unavailable", "detail": "no cgroup2", "tracked": 2}
 
 
 def test_try_reconcile_degrades_on_error() -> None:
     """A non-unavailable error → None (degrade), not a crash."""
 
     def raise_err(_state: State) -> object:
-        raise ValueError  # stands in for a per-item reconcile error
+        msg = "leaf busy"
+        raise ValueError(msg)  # stands in for a per-item reconcile error
 
-    report = main_mod._try_reconcile(
+    report, outcome = main_mod._try_reconcile(
         State(),
         raise_err,
         noun="x",
@@ -134,3 +139,46 @@ def test_try_reconcile_degrades_on_error() -> None:
         error_exc=ValueError,
     )
     assert report is None
+    assert outcome == {"status": "error", "detail": "leaf busy", "tracked": 0}
+
+
+def test_main_records_each_reconcile_outcome_in_stats(tmp_path: Path) -> None:
+    """
+    A degraded startup reaches daemon.health, not only the journal.
+
+    nft missing while rules are stored leaves the firewall unenforced: the
+    outcome is recorded on the server's stats, and health names it degraded.
+    """
+    state_path = tmp_path / "state.json"
+    init_empty(state_path)
+    state = load(state_path)
+    state.rules.append(StoredRule("r1", {}, "2026-04-24T00:00:00Z"))
+    save(state, state_path)
+
+    fake_server = MagicMock()
+    fake_server.inherit_systemd_socket.return_value = True
+    fake_server.stats = DaemonStats()
+
+    with (
+        patch.object(
+            main_mod, "reconcile", side_effect=NftBinaryNotFoundError("no nft")
+        ),
+        patch.object(main_mod, "Server", return_value=fake_server),
+        patch.object(main_mod, "AuditLog", return_value=MagicMock()),
+        patch.object(main_mod, "_startup_reconcile_cgroups", return_value=_SKIP),
+        patch.object(main_mod, "_startup_reconcile_mounts", return_value=_SKIP),
+        patch.object(main_mod, "_startup_reconcile_proxies", return_value=_SKIP),
+    ):
+        assert main_mod.main(_argv(tmp_path, state_path)) == main_mod.EXIT_OK
+
+    stats = fake_server.stats
+    assert stats.reconcile["firewall"] == {
+        "status": "unavailable",
+        "detail": "no nft",
+        "tracked": 1,
+    }
+    assert stats.reconcile["mounts"]["status"] == "skipped"
+    assert stats.degraded_subsystems() == ["firewall"]
+
+
+_SKIP = {"status": "skipped", "detail": "nothing tracked", "tracked": 0}
