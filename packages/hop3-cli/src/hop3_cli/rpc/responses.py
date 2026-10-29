@@ -248,6 +248,11 @@ def _handle_streaming_response(
             verify_ssl=verify_ssl,
         )
     except DeploymentError:
+        # The failure was printed into the JSON buffer, which the caller flushes
+        # only on return: exiting here used to discard it, so a failed deploy
+        # under --json printed nothing at all.
+        if printer.json_output:
+            printer.flush_json()
         sys.exit(1)
 
 

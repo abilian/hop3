@@ -286,3 +286,24 @@ def test_streaming_tunnel_mode_with_ssh_context_url() -> None:
 
     mock_stream.assert_called_once()
     assert mock_stream.call_args.kwargs["base_url"] == "http://localhost:12345"
+
+
+def test_a_failed_streaming_deploy_prints_its_error_as_json(capsys) -> None:
+    """Under --json, the failure must reach stdout before the CLI exits."""
+    config = _ctx_config("http://localhost:8000")
+    printer = RichPrinter(json_output=True)
+    result = [{"t": "stream", "stream_id": "abc123"}]
+
+    def fails(*, printer, **_kw) -> None:
+        msg = "build failed: no lockfile"
+        printer.print([{"t": "error", "text": msg}])
+        raise DeploymentError(msg)
+
+    with (
+        patch("hop3_cli.rpc.streaming.stream_deployment_logs", side_effect=fails),
+        pytest.raises(SystemExit) as exited,
+    ):
+        _handle_streaming_response(result, config, printer)
+
+    assert exited.value.code == 1
+    assert "build failed: no lockfile" in capsys.readouterr().out
