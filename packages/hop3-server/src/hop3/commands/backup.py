@@ -24,7 +24,7 @@ from hop3.orm.repositories import (  # ruff:ignore[typing-only-first-party-impor
 
 from ._base import Command, NamespaceCommand
 from ._errors import command_context
-from ._response import success, summary, table, text
+from ._response import hint, success, summary, table, text
 
 
 @register
@@ -347,12 +347,17 @@ class BackupRestoreCmd(Command):
                 f"Application: {app_name}",
                 f"Hostname: {manifest.app_metadata.get('hostname', 'N/A')}",
                 f"Port: {manifest.app_metadata.get('port', 'N/A')}",
-                "",
-                "To start the application:",
-                f"  hop3 restart {app_name}",
             ]
 
             output.append(text("\n".join(info_lines)))
+            # The restore redeployed the app: point at its state, by the name
+            # it was restored under, which the user did not type as --app.
+            output.append(
+                hint(
+                    f"app status --app {app_name}",
+                    "\nThe application was redeployed. Check it with {cmd}.",
+                )
+            )
             output.append(summary(f"restored {app_name} from backup {backup_id}."))
 
         return output

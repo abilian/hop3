@@ -600,3 +600,18 @@ def test_hint_omits_implicit_selectors():
     assert "hop3 deploy" in out
     assert "--context" not in out
     assert "--app" not in out
+
+
+def test_hint_keeps_the_app_it_names():
+    """
+    A restore into another app points at that app's status: the --app the
+    user typed must not be appended beside it.
+    """
+    item = {
+        "t": "hint",
+        "command": "app status --app restored",
+        "message": "Run {cmd}.",
+    }
+    out = _render_hint(item, context="prod", app="original")
+    assert "hop3 app status --app restored --context prod" in out
+    assert "original" not in out

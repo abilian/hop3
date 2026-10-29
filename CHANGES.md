@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **A deploy over HTTPS accepts an archive up to 200 MB.** The admin domain's nginx vhost set no `client_max_body_size`, so nginx refused any archive over its 1 MB default with a 413, before it reached hop3-server, which accepts 200 MB. The CLI then said the limit was 200 MB. The installer now sets 200 MB in `/etc/nginx/conf.d/hop3-http.conf`, a file each update reconciles. When nginx refuses an archive, the CLI now says so. Deploys through an SSH tunnel never went through nginx.
+- **`hop3 backup restore` points at the restored app's status.** It told you to start the app with `hop3 restart <app>`, a spelling 0.8 retired, although the restore had already redeployed it.
 - **Upgrading with the install one-liner migrates the database.** Only `hop3-deploy-server` ran `hop3-server db:upgrade`. The one-liner restarted hop3-server on the new code against the old schema. The installer now migrates before it restarts the server and aborts when the migration fails; `--skip-migrations` skips the step. A server upgraded to 0.8.0 with the one-liner is migrated by its next install.
 - **The installer's setup step aborts the install when it fails.** The installer ignored the setup command's exit code.
 - **The deployer and the server backup and restore scripts no longer call sudo.** They run commands as `hop3` or `postgres` with `su` or `runuser`, as the installer does.

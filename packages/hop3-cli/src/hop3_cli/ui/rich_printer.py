@@ -187,13 +187,18 @@ class RichPrinter:
         self.console.print(message, markup=False, highlight=False)
 
     def _render_suggested_command(self, command: str) -> str:
-        """Build ``hop3 <command>`` + the typed --context/--app selectors."""
+        """
+        Build ``hop3 <command>`` + the typed --context/--app selectors.
+
+        A command that names its own ``--app`` (the app a backup was restored into)
+        keeps it: that app is the one the hint is about.
+        """
         parts = ["hop3", command]
         ctx = self._suggest.get("context")
         app = self._suggest.get("app")
         if ctx:
             parts.append(f"--context {ctx}")
-        if app:
+        if app and "--app" not in command.split():
             parts.append(f"--app {app}")
         return " ".join(p for p in parts if p)
 

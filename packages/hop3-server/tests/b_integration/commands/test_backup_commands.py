@@ -520,6 +520,10 @@ class TestBackupRestoreCommand:
         assert len(result) >= 2
         assert result[1]["t"] == "success"
 
+        # The follow-up names the app restored into, not the one backed up.
+        hints = [r["command"] for r in result if r["t"] == "hint"]
+        assert hints == ["app status --app restored-app"]
+
         # Check that new app was created
         restored_app_path = HopConfig.get_instance().APP_ROOT / "restored-app"
         assert restored_app_path.exists()

@@ -94,9 +94,11 @@ def hint(command: str, message: str) -> dict[str, Any]:
     A follow-up-command suggestion the CLI renders in the user's own dialect.
 
     ``command`` is the bare verb path (e.g. ``"deploy"`` or ``"app restart"``)
-    with NO target flags. The CLI prepends ``hop3 `` and appends the
-    ``--context`` / ``--app`` selectors the user actually typed, then substitutes
-    the result into ``message`` at the ``{cmd}`` placeholder.
+    with no target flags, except an ``--app`` naming an app the user did not
+    type (the app a backup was restored into), which the CLI then leaves
+    alone. The CLI prepends ``hop3 `` and appends the ``--context`` /
+    ``--app`` selectors the user actually typed, then substitutes the result
+    into ``message`` at the ``{cmd}`` placeholder.
 
     This keeps a suggested next step on the same context (server) the user is
     already targeting. A server-rendered string can't do this: ``--context`` is
