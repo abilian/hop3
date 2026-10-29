@@ -115,3 +115,11 @@ Three hand-written argv loops in `login` and `init` ended with `else: i += 1`, s
 ## The platform's own hints and scripts are argv too
 
 `hop3 login --token` took the JWT only as an argument, the server's admin commands printed `hop3 login "SERVER_URL?token=<jwt>"` for the operator to copy, `hop3-deploy-server` called the CLI with the admin token on its command line, and the demos ran the login through `sh -c` with the token or an echoed password inside the shell line. `--token` now reads `-` (stdin), `@file` or a hidden prompt; the literal form still works, hidden from help, with a warning. The hints and the platform's own callers moved to the same forms. When a secret moves off argv, grep the hints that teach the old form and the scripts that call it.
+
+## A Parser That Accepts a Positional Uses It or Refuses It
+
+`hop3 login --browser` accepted one positional, then looked for the target again with a stricter helper that returned `None` for anything not shaped like an ssh target. `hop3 login --browser https://prod.example.com` dropped the typed server and minted a dashboard link for the current context's server. A value the user typed is either used or refused with a message naming it; re-deriving it through a second, stricter path drops it silently.
+
+## A Hidden Alias Does Not Outrank the Secrets Rule
+
+The `hop3 login "URL?token=..."` form had been removed from every help text and hint, but it still dispatched, pinned by a "still dispatches" test. It took a secret on argv. Deprecate-by-hiding is for spellings that are only old; a form that breaks a security rule is refused with a hint to the safe form (`--token -`), and its test asserts the refusal.

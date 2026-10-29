@@ -46,3 +46,11 @@ LinuxServer.io images take their database settings from a first-run web wizard a
 3. The framework's explicit dependencies for its major version.
 4. The framework's security defaults: host authorization, CSRF, `Secure` cookies over plain HTTP.
 5. The environment the container actually has, after `--force-recreate`.
+
+## Select an app's containers by an exact identity, never by name
+
+The orphan cleanup that runs on every non-Docker destroy listed containers with `docker ps --filter name={app}-` and force-removed every match. Docker's name filter matches any part of the name, so destroying `app` removed `myapp-web-1` and destroying `foo` removed `foo-bar-web-1`: one app's teardown deleted another app's containers. The cleanup now selects by `label=com.docker.compose.project={app}`, the same exact match `app_container_ids` uses everywhere else. Any selector that feeds a destructive command must match one app exactly; test it with a sibling whose name contains the app's.
+
+## A step whose failure the next check already covers must not raise
+
+The force-kill in `stop_docker_compose` was moved onto the raising `_docker` helper. A container that exits between the `ps` and the `kill` makes `docker kill` fail, so stop raised before the re-check two lines below could confirm everything was down. When a step is followed by a verification of its effect, the verification decides; the step's own exit code is noise.

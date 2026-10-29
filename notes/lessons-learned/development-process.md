@@ -66,6 +66,10 @@ Before adding, sharing or removing a fallback, establish whether its premise can
 
 The nginx cache-prefix code wrapped its template expansion in `except Exception` and logged "ignoring". Removing the catch-all to fail loud on a bad operator value showed that the happy path had never run: the template was expanded with `locals()`, where `cache_path` was a `Path`, so the expansion always raised, and `$app` was never substituted, so the zone names could not match. Nginx caching had never worked on any server. Before deleting a catch-all, run the path it guards with valid input; what it swallowed may be the feature itself.
 
+## A rule nobody can explain is traced, then enforced or deleted
+
+A review found reserved app names (`admin`, `api`, `www` and five more) refused by the catalog installer but not by the dashboard's "New app" form, nor by `hop3 app create`, deploy or `git push`. The first fix shared the list with the dashboard form and left four creation paths open. The list had arrived with imported marketplace code, as a form check, with no commit saying what it protected. Tracing it found nothing: app vhosts live in `~hop3/nginx/`, apart from the platform's own site; no platform file shares the per-app paths; hostname clashes, the admin vhost's included, are caught by the hostname conflict check; dashboard routes take the name as a parameter. The list was deleted. A restriction enforced on some paths only is two bugs, one where it is missing and one where it may be refusing for nothing: find the mechanism it protects, and either enforce it on every path that reaches that mechanism or remove it.
+
 ## Related
 
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md): the `Diagnosis` record that the entry-point rule protects.

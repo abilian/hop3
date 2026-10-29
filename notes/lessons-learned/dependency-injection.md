@@ -69,3 +69,11 @@ Manages a resource or has a lifecycle?
     ├─ a utility → module functions
     └─ created per operation → a factory, not the container
 ```
+
+## The request scope lasts as long as the response
+
+The dashboard's log stream looked the app up through a request-scoped `AppRepository` and returned a `Stream`. Dishka closes the request scope after the response is fully sent, and the SELECT had begun a transaction, so every open log tab held a pooled connection for as long as it stayed open: about fifteen tabs exhaust a pool of 5 plus 10 overflow and block every other request, login included. A handler that returns a long-lived response (SSE, a streamed download) ends its read transaction before returning. The provider also set the "current request session" context variable without resetting it, so a non-web caller that opened a REQUEST scope kept a closed session as its current one; keep the token from `set()` and reset it in a `finally`.
+
+## Importing a module must not read the live configuration
+
+Three scripts pointed `HOP3_ROOT` at a temporary directory before `import hop3`, because importing server modules read the live `hop3-server.toml`. The cause was `from hop3.config import config` in a dozen modules: the module `__getattr__` built the singleton at import. `config` is now a proxy that builds nothing until a setting is read, and the three workarounds are gone. A workaround copied into several callers points at one import-time side effect. Tests that patched `type(config)` broke when `config` became a proxy; patch the class by name.

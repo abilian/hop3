@@ -130,3 +130,11 @@ Treat log lines, app output and query strings as data: render them as text, and 
 ## A safety interlock reads the setting the way the guarded code does
 
 `HOP3_UNSAFE=true` disables authentication, so a startup check requires `HOP3_UNSAFE_ACK` and forces the bypass off in production. The check read `os.environ`; the guards read the live config, which is the environment first and `hop3-server.toml` after it. `HOP3_UNSAFE = true` in the file therefore reached the guards and skipped the check: authentication off, no acknowledgement, no production override. The two also parsed the value differently: the check took `yes` and `on` as true, while the guards' parser rejected them. The check now reads the three settings through the same config and the same parser, and a test sets the bypass in the file. An interlock that reads its input from a different source than the code it protects protects a different setting.
+
+## Text carried in a URL needs a size cap
+
+The dashboard's flash message carried the whole error text in a signed token in the redirect's query string. Command output can run to tens of kilobytes, past nginx's request-line limit, so the redirect failed with a 414 and the failure the flash existed to show was lost; the text also landed in access logs and browser history, since a signed token is not an encrypted one. Cap what goes into a URL and point at the server log, where the full text already is.
+
+## A rate limiter's housekeeping must not scale with the attacker
+
+The login limiter swept every idle bucket on every `check()`, under its lock. An attacker cycling source addresses keeps one bucket per address alive, so each login attempt cost O(N) and the limiter became the amplifier it was meant to stop. Sweep at most once per window.

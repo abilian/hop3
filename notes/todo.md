@@ -99,6 +99,18 @@ The items below come out of the 2026-09-25 pass that lined the client's argument
 - **`.NET` on Fedora is untested.** An installed SDK now counts as available (`rpm -q`), in case `dnf list --available` leaves it out, as the 2026-10-06 review recalled; no Fedora run has confirmed either half.
 - **`GitHubSource` has placeholder fields** (`archive = "directory"`, `executable`) so templates that test `source.archive` take the right branch. Templates should branch on the source's kind; a recipe can no longer set the inert keys, so the fields are only dead weight now.
 
+## Plugin system
+
+- **Which deployer runs which builder's artifact is not designed yet.** Deployers select inconsistently: uWSGI on `artifact.builder in {"local", "nix"}` (`HOST_BUILDERS` in `plugins/deploy/uwsgi/deployer.py`), Docker and static on `artifact.kind`. `builder` became a required field in October 2026, after a missing value defaulting to `"local"` let uWSGI claim a Docker image. What works today, and stays: the three built-in builders each produce an artifact exactly one deployer accepts.
+
+  Limitations, as they stand:
+
+  - A third-party builder whose output runs on the host has to write `builder="local"` (the plugin guide says so). The field then says how the artifact runs, not who built it, so diagnostics and any future per-builder logic cannot tell that builder from the local one.
+  - A third-party builder that sets its own name gets no deployer, and the deploy aborts. It is loud, but there is no way to opt in short of editing `HOST_BUILDERS`.
+  - Two different rules (builder for uWSGI, kind for the others) mean a new deployer has no single convention to follow, and the "deployers accept disjoint artifacts" invariant `get_deployer` relies on holds only by construction.
+
+  Options to weigh, none decided: keep the closed set and document `local` as "host processes" (no code, field stays overloaded); split the artifact into `builder` (provenance) and a run-mode field every deployer selects on (touches every builder, every deployer and the artifact format, with a migration or rebuild of artifacts on disk); or let a builder plugin name the deployer for its output (moves the knowledge, couples two plugin types). What decides: the first real external builder, or the next change to the artifact format, whichever comes first.
+
 ## Release tooling
 
 - **`release.py` uploads whatever the tree says.** 0.7.5 went to PyPI with `CHANGES.md` still headed `## [Unreleased]`. Nothing objected. The script already refuses a workspace whose nine package versions disagree, so the place to add the check exists: refuse to upload when the changelog has no section matching the version being released. While there: the tag is still manual (0.7.2 through 0.7.4 each needed remembering, and the footer link list had gone three releases without an entry). Nothing verifies the built artifact came from the commit being tagged.
