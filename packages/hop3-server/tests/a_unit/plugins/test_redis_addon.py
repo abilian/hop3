@@ -13,8 +13,8 @@ from typing import TYPE_CHECKING
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.identifiers import InvalidIdentifierError
-from hop3.plugins.addons import secrets as secrets_mod
 from hop3.plugins.redis import redis as redis_mod
 from hop3.plugins.redis.redis import (
     RedisAddon,
@@ -37,8 +37,7 @@ def tmp_hop3_root(tmp_path, monkeypatch) -> Path:
     HOP3_ROOT is imported into several modules at import time, so we monkeypatch
     each consumer that reads it.
     """
-    monkeypatch.setattr(redis_mod, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(secrets_mod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     return tmp_path
 
 

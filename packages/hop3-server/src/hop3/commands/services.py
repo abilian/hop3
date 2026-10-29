@@ -22,6 +22,7 @@ from hop3.deployers.addon_provisioning import (
 from hop3.deployers.expose import connection_url, expose_addon, unexpose_addon
 from hop3.lib.args import parse_cli_args
 from hop3.lib.decorators import register
+from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential
 
@@ -423,15 +424,30 @@ class AddonUnexposeCmd(Command):
         with command_context(
             "unexposing addon", addon_name=addon_name, service_type=addon_type
         ):
-            removed = unexpose_addon(
+            leftovers = unexpose_addon(
                 addon_type, addon_name, db_session=self.port_claim_repo.session
             )
-        if not removed:
+        if leftovers is None:
             return [text(f"Addon '{addon_name}' is not exposed.")]
+        if leftovers:
+            return [
+                text(f"Released the public port claim of '{addon_name}'."),
+                _unexpose_leftovers_error(addon_name, leftovers),
+                summary(f"unexposed addon '{addon_name}' (teardown incomplete)."),
+            ]
         return [
             text(f"Removed public exposure of {addon_type} addon '{addon_name}'."),
             summary(f"unexposed addon '{addon_name}' ({addon_type})."),
         ]
+
+
+def _unexpose_leftovers_error(addon_name: str, leftovers: list[str]) -> dict:
+    """The error item naming what an unexpose could not remove."""
+    return error(
+        f"Unexposing '{addon_name}' left {len(leftovers)} leftover(s) in "
+        "hop3-rootd — check `journalctl -u hop3-rootd`:\n"
+        + "\n".join(f"  - {item}" for item in leftovers)
+    )
 
 
 @register
@@ -863,18 +879,38 @@ class AddonDetachCmd(Command):
     }
 
     def _addon_details(self, service_type: str, addon_name: str, stored: str) -> dict:
-        """Decrypt the stored credential; fall back to the live addon."""
-        encryptor = get_credential_encryptor()
+        """
+        The connection vars this credential injected, by name.
+
+        The stored copy answers; if it cannot be decrypted, the live addon's
+        details carry the same names. When neither answers, the detach is
+        refused: deleting the credential without knowing the names would leave
+        ``DATABASE_URL`` and friends behind, pointing at an addon the app no
+        longer has.
+        """
         try:
-            details = encryptor.decrypt(stored)
-        except Exception:
-            details = {}
-        if details:
-            return details
-        try:
-            return get_addon(service_type, addon_name).get_connection_details()
-        except Exception:
-            return {}
+            return get_credential_encryptor().decrypt(stored)
+        except Exception as decrypt_error:
+            try:
+                return get_addon(service_type, addon_name).get_connection_details()
+            except Exception as live_error:
+                abort_with_diagnosis(
+                    Diagnosis(
+                        component="Addon detach",
+                        action=f"detach {service_type} addon '{addon_name}'",
+                        reason=(
+                            "its stored credential cannot be decrypted "
+                            f"({type(decrypt_error).__name__}) and the addon did "
+                            f"not answer ({live_error}), so Hop3 cannot tell "
+                            "which environment variables it injected"
+                        ),
+                        hint=(
+                            f"Bring {service_type} back up, or restore the "
+                            "server's credential key, and retry; nothing was "
+                            "changed"
+                        ),
+                    )
+                )
 
     def _remove_named_env_vars(self, app: App, names: Iterable[str]) -> list[str]:
         """Remove the app's env vars whose name is in ``names`` (delete-orphan)."""
@@ -1007,7 +1043,9 @@ class AddonDestroyCmd(Command):
             addon = get_addon(service_type, addon_name)
 
             # Check if the addon actually exists (hasattr check doesn't narrow type for ty)
-            if hasattr(addon, "exists") and not addon.exists():  # type: ignore[call-non-callable]
+            if hasattr(addon, "exists") and not self._exists(
+                addon, service_type, addon_name
+            ):
                 return [
                     text(
                         f"Addon '{addon_name}' of type '{service_type}' does not exist."
@@ -1018,7 +1056,7 @@ class AddonDestroyCmd(Command):
             # is touched). Idempotent — a no-op when the addon isn't exposed. The
             # app-delete cascade doesn't cover addon claims (app_id is null), so
             # this explicit call is mandatory, not a backstop.
-            unexpose_addon(
+            leftovers = unexpose_addon(
                 service_type,
                 addon_name,
                 db_session=self.addon_credential_repo.session,
@@ -1037,12 +1075,41 @@ class AddonDestroyCmd(Command):
             # Destroy the service
             addon.destroy()
 
+        if leftovers:
+            return [
+                text(f"Addon '{addon_name}' of type '{service_type}' destroyed."),
+                _unexpose_leftovers_error(addon_name, leftovers),
+                summary(f"destroyed addon '{addon_name}' (teardown incomplete)."),
+            ]
         return [
             text(
                 f"Addon '{addon_name}' of type '{service_type}' destroyed successfully."
             ),
             summary(f"destroyed addon '{addon_name}' ({service_type})."),
         ]
+
+    @staticmethod
+    def _exists(addon: Addon, service_type: str, addon_name: str) -> bool:
+        """
+        Ask the addon whether it exists; an addon that cannot answer aborts.
+
+        "Does not exist" ends the command with success, so it must be an
+        answer, never what an unreachable server looks like.
+        """
+        try:
+            return addon.exists()  # type: ignore[attr-defined]  # ty: ignore[unresolved-attribute]
+        except Exception as e:
+            abort_with_diagnosis(
+                Diagnosis(
+                    component=f"{service_type} addon",
+                    action=f"check whether addon '{addon_name}' exists",
+                    reason=f"{type(e).__name__}: {e}",
+                    hint=(
+                        f"Make sure {service_type} is running and accepts the "
+                        "superuser credential, then retry; nothing was destroyed"
+                    ),
+                )
+            )
 
 
 @register

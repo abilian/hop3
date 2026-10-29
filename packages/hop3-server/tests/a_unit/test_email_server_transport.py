@@ -16,7 +16,7 @@ import stat
 
 import pytest
 
-from hop3.plugins.addons import secrets as secrets_module
+from hop3.config import HopConfig
 from hop3.plugins.email import deliverability, providers, server_transport as st_module
 from hop3.plugins.email.cli import AddonEmailCreateCmd, AddonEmailStatusCmd
 from hop3.plugins.email.email import EmailAddon, EmailTransport
@@ -39,8 +39,7 @@ def email_root(tmp_path, monkeypatch):
     Point both the addon-secrets store and the server-transport store at a
     throwaway dir.
     """
-    monkeypatch.setattr(secrets_module, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(st_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     return tmp_path
 
 

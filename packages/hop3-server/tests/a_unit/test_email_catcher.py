@@ -20,8 +20,8 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 
 import pytest
 
-from hop3.plugins.addons import secrets as secrets_module
-from hop3.plugins.email import catcher, server_cli, server_transport as st_module
+from hop3.config import HopConfig
+from hop3.plugins.email import catcher, server_cli
 from hop3.plugins.email.server_cli import ServerEmailCaughtCmd, ServerEmailStatusCmd
 from hop3.plugins.email.server_transport import save_server_catch
 
@@ -41,8 +41,7 @@ _MAILPIT_PAGE = {
 
 @pytest.fixture
 def email_root(tmp_path, monkeypatch):
-    monkeypatch.setattr(secrets_module, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(st_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     return tmp_path
 
 

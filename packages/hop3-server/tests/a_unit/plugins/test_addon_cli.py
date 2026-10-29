@@ -17,6 +17,7 @@ from pathlib import Path
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.backup import resolve_backup_file
 from hop3.plugins.addons import generic_cli
 from hop3.plugins.mysql import cli as mysql_cli
@@ -297,7 +298,7 @@ IMPORT_COMMANDS = [
 
 @pytest.mark.parametrize("cmd", IMPORT_COMMANDS, ids=lambda c: c.__name__)
 def test_import_restores_the_dump_from_the_backup_tree(cmd, monkeypatch, tmp_path):
-    monkeypatch.setattr(generic_cli, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     importer = _ConfinedImporter(tmp_path / "backups")
     monkeypatch.setattr(generic_cli, "get_addon", lambda t, n: importer)
 

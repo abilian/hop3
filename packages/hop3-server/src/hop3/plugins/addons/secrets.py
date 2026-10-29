@@ -28,9 +28,10 @@ import os
 import tempfile
 from typing import TYPE_CHECKING, Any
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
     from pathlib import Path
 
 
@@ -44,7 +45,7 @@ def _get_secrets_dir(addon_type: str) -> Path:
     Returns:
         Path to the secrets directory, created if it doesn't exist
     """
-    secrets_dir = HOP3_ROOT / "addons" / addon_type
+    secrets_dir = c.HOP3_ROOT / "addons" / addon_type
     secrets_dir.mkdir(parents=True, exist_ok=True)
     return secrets_dir
 
@@ -141,7 +142,7 @@ def list_addon_instances() -> list[tuple[str, str]]:
     Returns:
         Sorted list of (addon_type, addon_name) pairs.
     """
-    addons_dir = HOP3_ROOT / "addons"
+    addons_dir = c.HOP3_ROOT / "addons"
     if not addons_dir.exists():
         return []
 
@@ -152,3 +153,26 @@ def list_addon_instances() -> list[tuple[str, str]]:
         for secrets_file in sorted(type_dir.glob("*.json")):
             instances.append((type_dir.name, secrets_file.stem))
     return instances
+
+
+def find_identifier_clash(
+    addon_type: str,
+    addon_name: str,
+    derive: Callable[[str], tuple[str, ...]],
+) -> str | None:
+    """
+    Name another ``addon_type`` instance that would share ``addon_name``'s identifiers.
+
+    ``derive`` maps an addon name to the identifiers the backing service
+    stores (database, user, ...), as the service stores them: ``a-b`` and
+    ``a_b`` both become the database ``a_b``, and a long name loses its tail
+    to the service's length limit. Identifiers are compared position by
+    position, so a database never clashes with a user of the same spelling.
+    """
+    mine = derive(addon_name)
+    for other_type, other_name in list_addon_instances():
+        if other_type != addon_type or other_name == addon_name:
+            continue
+        if any(a == b for a, b in zip(derive(other_name), mine, strict=True)):
+            return other_name
+    return None

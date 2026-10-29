@@ -17,6 +17,7 @@ from unittest.mock import patch
 import psycopg2
 import pytest
 
+from hop3.config import HopConfig
 from hop3.lib.rootd import RootdUnavailableError
 from hop3.plugins.postgresql import postgres as pg
 from hop3.plugins.postgresql.postgres import (
@@ -76,7 +77,7 @@ def test_password_is_generated():
 
 def test_restore_nonexistent_backup(postgres_service, tmp_path, monkeypatch):
     """Restore fails cleanly when a backup inside the backup tree is missing."""
-    monkeypatch.setattr(pg, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     backups = tmp_path / "backups" / "postgres"
     backups.mkdir(parents=True)
 
@@ -106,7 +107,7 @@ def test_restore_refuses_path_outside_backup_root(
     the app-level backup manager stores under ``backups/apps/`` alongside the
     addon dumps. Escaping *that* is what matters.
     """
-    monkeypatch.setattr(pg, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     backups = tmp_path / "backups" / "postgres"
     backups.mkdir(parents=True)
 
@@ -118,7 +119,7 @@ def test_restore_refuses_symlink_escaping_backup_root(
     postgres_service, tmp_path, monkeypatch
 ) -> None:
     """Containment is checked on the resolved path, so symlinks can't walk out."""
-    monkeypatch.setattr(pg, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     backups = tmp_path / "backups" / "postgres"
     backups.mkdir(parents=True)
     secret = tmp_path / "secret.json"

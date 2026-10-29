@@ -161,7 +161,12 @@ def test_services_attach_app_not_found(
 
 def test_services_destroy_success(mock_addon_credential_repo):
     """Test successful service destruction."""
-    with patch("hop3.commands.services.get_addon") as mock_get_service:
+    # A mock session makes every claim lookup "find" an exposure; this addon
+    # is not exposed.
+    with (
+        patch("hop3.commands.services.get_addon") as mock_get_service,
+        patch("hop3.commands.services.unexpose_addon", return_value=None),
+    ):
         mock_service = Mock()
         mock_get_service.return_value = mock_service
 

@@ -13,11 +13,11 @@ best-effort `notify` delivery (fail-loud-but-never-raise), the
 from __future__ import annotations
 
 import stat
-from types import SimpleNamespace
 from typing import ClassVar
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.plugins.email import (
     notifications as notif_module,
     sender as sender_module,
@@ -40,8 +40,7 @@ from hop3.server import cert_renewal_service as crs_module
 @pytest.fixture
 def notif_root(tmp_path, monkeypatch):
     """Point the server-transport + notifications stores at a throwaway dir."""
-    monkeypatch.setattr(st_module, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(notif_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     return tmp_path
 
 
@@ -140,23 +139,19 @@ def test_config_file_is_0600(notif_root):
 
 
 def test_recipient_override_wins(notif_root, monkeypatch):
-    monkeypatch.setattr(
-        notif_module, "config", SimpleNamespace(ACME_EMAIL="acme@x.com")
-    )
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: "acme@x.com"))
     save_notifications_config(enabled=True, recipient="override@x.com")
     assert notification_recipient() == "override@x.com"
 
 
 def test_recipient_falls_back_to_acme_email(notif_root, monkeypatch):
-    monkeypatch.setattr(
-        notif_module, "config", SimpleNamespace(ACME_EMAIL="acme@x.com")
-    )
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: "acme@x.com"))
     save_notifications_config(enabled=True)  # no explicit recipient
     assert notification_recipient() == "acme@x.com"
 
 
 def test_recipient_empty_when_nothing_set(notif_root, monkeypatch):
-    monkeypatch.setattr(notif_module, "config", SimpleNamespace(ACME_EMAIL=""))
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: ""))
     assert notification_recipient() == ""
 
 
@@ -198,7 +193,7 @@ def test_notify_enabled_without_transport_returns_false_no_send(
 
 
 def test_notify_enabled_without_recipient_returns_false(notif_root, monkeypatch):
-    monkeypatch.setattr(notif_module, "config", SimpleNamespace(ACME_EMAIL=""))
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: ""))
     called = {}
     monkeypatch.setattr(
         notif_module, "send_via_transport", lambda *a: called.setdefault("sent", True)
@@ -247,7 +242,7 @@ def test_notify_survives_invalid_stored_transport(notif_root):
 
 
 def test_cli_on_without_transport_warns(notif_root, monkeypatch):
-    monkeypatch.setattr(notif_module, "config", SimpleNamespace(ACME_EMAIL=""))
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: ""))
     result = ServerEmailNotificationsCmd().call("on", "--to", "ops@x.com")
     assert "will NOT send" in _joined(result)
     assert notifications_enabled() is True  # opt-in still recorded
@@ -267,7 +262,7 @@ def test_cli_off_disables(notif_root):
 
 
 def test_cli_status_warns_when_on_but_undeliverable(notif_root, monkeypatch):
-    monkeypatch.setattr(notif_module, "config", SimpleNamespace(ACME_EMAIL=""))
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: ""))
     save_notifications_config(enabled=True, recipient="ops@x.com")  # no transport
     result = ServerEmailNotificationsCmd().call("status")
     assert "not deliverable" in _joined(result)

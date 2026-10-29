@@ -26,7 +26,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 
 from .email import EmailTransport, validate_mail_from
 
@@ -55,7 +55,7 @@ def _store_path() -> Path:
     ``HOP3_ROOT`` at a throwaway dir — the same seam the addon-secrets store
     uses.
     """
-    return HOP3_ROOT / "server" / "email-transport.json"
+    return c.HOP3_ROOT / "server" / "email-transport.json"
 
 
 def _load_record() -> dict | None:

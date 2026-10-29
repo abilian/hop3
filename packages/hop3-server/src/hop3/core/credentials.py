@@ -4,8 +4,8 @@
 # ruff:file-ignore[global-statement]
 # `_encryptor` is a deliberate lazy-init singleton; migration to a Dishka
 # provider is non-trivial because Hop3's commands resolve dataclass fields
-# via a hand-rolled REPOSITORY_TYPES table in controllers/rpc.py rather than
-# directly from the container. Tests reset the singleton via
+# via the REPOSITORY_TYPES table in di/providers.py rather than directly
+# from the container. Tests reset the singleton via
 # `reset_credential_encryptor()`.
 
 """

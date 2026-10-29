@@ -27,7 +27,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 from hop3.core.backup import resolve_backup_file
 from hop3.core.identifiers import validate_service_name
 from hop3.plugins.addons import (
@@ -358,7 +358,7 @@ class RedisAddon:
         Returns:
             Path to the backup file
         """
-        backup_dir = HOP3_ROOT / "backups" / "redis"
+        backup_dir = c.HOP3_ROOT / "backups" / "redis"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -433,7 +433,7 @@ class RedisAddon:
         # Confine the caller-supplied path to the backup tree: this value
         # comes straight from RPC and reaches a file-reading sink below.
         # Same root backup() writes to, so the two cannot drift apart.
-        backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
+        backup_path = resolve_backup_file(backup_path, c.HOP3_ROOT / "backups")
 
         with Path(backup_path).open() as f:
             backup_data = json.load(f)
@@ -518,7 +518,7 @@ def _db_number_lock() -> Generator[None, None, None]:
     Blocking, not ``LOCK_NB``: two creates racing should queue behind each
     other, and the critical section is one directory scan.
     """
-    secrets_dir = HOP3_ROOT / "addons" / ADDON_TYPE
+    secrets_dir = c.HOP3_ROOT / "addons" / ADDON_TYPE
     secrets_dir.mkdir(parents=True, exist_ok=True)
     fd = os.open(secrets_dir / DB_NUMBER_LOCK_FILE, os.O_CREAT | os.O_RDWR, 0o600)
     try:
@@ -539,7 +539,7 @@ def _db_number_owners() -> dict[int, str]:
     under the lock and never inferred later.
     """
     owners: dict[int, str] = {}
-    secrets_dir = HOP3_ROOT / "addons" / ADDON_TYPE
+    secrets_dir = c.HOP3_ROOT / "addons" / ADDON_TYPE
     if not secrets_dir.exists():
         return owners
     for secrets_file in secrets_dir.glob("*.json"):

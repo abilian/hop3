@@ -21,7 +21,7 @@ from typing import TYPE_CHECKING, cast
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import get_addon
 from hop3.deployers.env_provisioning import set_env_vars
-from hop3.lib import log
+from hop3.lib import Diagnosis, abort_with_diagnosis, log
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredential
 from hop3.orm.repositories import AddonCredentialRepository
@@ -147,11 +147,6 @@ def provision_addons(
             # Never silently skip a declared addon: the app would deploy without
             # its backing service and then fail confusingly downstream (e.g. a
             # migration with no database). Refuse loudly, where the user looks.
-            from hop3.lib import (  # ruff:ignore[import-outside-top-level]
-                Diagnosis,
-                abort_with_diagnosis,
-            )
-
             abort_with_diagnosis(
                 Diagnosis(
                     component="Addon provisioning",
@@ -201,6 +196,37 @@ def compute_namespaced_vars(
     return {f"{prefix}{key}": value for key, value in details.items()}
 
 
+def _decrypt_credential(credential: AddonCredential, app_name: str) -> dict[str, str]:
+    """
+    The connection details stored in ``credential``; abort when unreadable.
+
+    Skipping it would deploy the app without that addon's variables, or label
+    them as user-set: the app would start, then fail on a missing
+    ``DATABASE_URL`` far from the cause.
+    """
+    try:
+        return get_credential_encryptor().decrypt(credential.encrypted_data)
+    except Exception as e:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Addon credentials",
+                action=(
+                    f"read the stored credential of {credential.addon_type} "
+                    f"addon '{credential.addon_name}'"
+                ),
+                reason=(
+                    f"it cannot be decrypted ({type(e).__name__}: {e}), so the "
+                    f"connection variables it gives '{app_name}' are unknown"
+                ),
+                hint=(
+                    "Restore the server's credential key, or refresh the "
+                    "credential with: hop3 addon attach "
+                    f"{credential.addon_name} --app {app_name}"
+                ),
+            )
+        )
+
+
 def _effective_primary_ids(credentials: list[AddonCredential]) -> set[int]:
     """
     Pick the effective primary credential id for each addon type.
@@ -241,23 +267,13 @@ def sync_addon_env_vars(app: App, db_session: DbSession) -> dict[str, list[str]]
     """
     repo = AddonCredentialRepository(session=db_session)
     credentials = repo.get_by_app_id(app.id)
-    encryptor = get_credential_encryptor()
 
     primary_ids = _effective_primary_ids(credentials)
 
     desired: dict[str, str] = {}
     managed_names: set[str] = set()
     for credential in credentials:
-        try:
-            details = encryptor.decrypt(credential.encrypted_data)
-        except Exception as e:
-            log(
-                f"  Could not decrypt credentials for addon "
-                f"'{credential.addon_name}': {e}",
-                level=1,
-                fg="yellow",
-            )
-            continue
+        details = _decrypt_credential(credential, app.name)
         if not details:
             continue
         prefix = addon_var_prefix(credential.addon_name)
@@ -289,10 +305,6 @@ def sync_addon_env_vars(app: App, db_session: DbSession) -> dict[str, list[str]]
     return {"set": sorted(desired), "removed": sorted(removed)}
 
 
-# Back-compat alias: the deploy path and tests import reinject_attached_addons.
-reinject_attached_addons = sync_addon_env_vars
-
-
 def addon_var_names(app: App, db_session: DbSession) -> set[str]:
     """
     Env-var names injected by the app's addons (both prefixed + unprefixed).
@@ -302,13 +314,9 @@ def addon_var_names(app: App, db_session: DbSession) -> set[str]:
     ``sync_addon_env_vars`` so a non-primary addon's prefixed vars are counted.
     """
     repo = AddonCredentialRepository(session=db_session)
-    encryptor = get_credential_encryptor()
     names: set[str] = set()
     for credential in repo.get_by_app_id(app.id):
-        try:
-            details = encryptor.decrypt(credential.encrypted_data)
-        except Exception:
-            continue
+        details = _decrypt_credential(credential, app.name)
         prefix = addon_var_prefix(credential.addon_name)
         names.update(details.keys())
         names.update(f"{prefix}{key}" for key in details)
@@ -333,9 +341,17 @@ def _provision_single_addon(
     try:
         addon = get_addon(addon_type, addon_name)
     except RuntimeError as e:
-        log(f"  Unknown addon type: {addon_type}", level=0, fg="red")
-        server_log.error("Unknown addon type", addon_type=addon_type, error=str(e))
-        return
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Addon provisioning",
+                action=f"provision addon '{addon_name}'",
+                reason=str(e),
+                hint=(
+                    "Fix 'type' in the [[addons]] entry of hop3.toml; "
+                    "'hop3 addon types' lists the types this server has"
+                ),
+            )
+        )
 
     # Always call create() - it's idempotent and handles:
     # - Creating new addon if it doesn't exist
@@ -360,11 +376,6 @@ def _provision_single_addon(
             "Ensured addon exists", addon_name=addon_name, addon_type=addon_type
         )
     except Exception as e:
-        from hop3.lib import (  # ruff:ignore[import-outside-top-level]
-            Diagnosis,
-            abort_with_diagnosis,
-        )
-
         log(f"  Failed to create addon {addon_name}: {e}", level=0, fg="red")
         server_log.error(
             "Failed to create addon",
@@ -393,20 +404,22 @@ def _provision_single_addon(
     try:
         connection_details = addon.get_connection_details()
     except Exception as e:
-        log(
-            f"  Failed to get connection details for {addon_name}: {e}",
-            level=0,
-            fg="red",
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Addon provisioning",
+                action=f"read the connection details of {addon_type} addon '{addon_name}'",
+                reason=str(e) or type(e).__name__,
+                hint=(
+                    f"Run 'hop3 addon status {addon_name}' to see its state, "
+                    "fix it, then redeploy"
+                ),
+            )
         )
-        server_log.error(
-            "Failed to get connection details",
-            addon_name=addon_name,
-            error=str(e),
-        )
-        return
 
     if not connection_details:
-        log(f"  No connection details from addon {addon_name}", level=0, fg="yellow")
+        # A legitimate state, not a failure: an email addon with no server
+        # backend yet injects nothing, and says why itself.
+        log(f"  Addon {addon_name} has no connection details to inject", level=1)
         return
 
     # Store credential

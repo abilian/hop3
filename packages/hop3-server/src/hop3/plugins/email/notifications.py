@@ -25,7 +25,7 @@ from __future__ import annotations
 import json
 from typing import TYPE_CHECKING
 
-from hop3.config import HOP3_ROOT, config
+from hop3 import config as c
 from hop3.lib.logging import server_log
 
 from .sender import send_via_transport
@@ -37,7 +37,7 @@ if TYPE_CHECKING:
 
 def _store_path() -> Path:
     """Path to the notifications config (call-time for test isolation)."""
-    return HOP3_ROOT / "server" / "notifications.json"
+    return c.HOP3_ROOT / "server" / "notifications.json"
 
 
 def save_notifications_config(*, enabled: bool, recipient: str | None = None) -> None:
@@ -67,7 +67,7 @@ def notifications_enabled() -> bool:
 def notification_recipient() -> str:
     """The resolved recipient: the explicit override, else ACME_EMAIL, else ''."""
     cfg = load_notifications_config()
-    return cfg.get("recipient") or config.ACME_EMAIL or ""
+    return cfg.get("recipient") or c.ACME_EMAIL or ""
 
 
 def notify(event: str, subject: str, body: str) -> bool:

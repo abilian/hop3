@@ -21,7 +21,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 from hop3.lib import log
 from hop3.plugins.addons.secrets import (
     delete_addon_secrets,
@@ -50,7 +50,7 @@ def _has_control_chars(value: str) -> bool:
     serialization or inject SMTP/email headers in a downstream app, so it is
     refused at the boundary.
     """
-    return any(ord(c) < 0x20 or ord(c) == 0x7F for c in value)
+    return any(ord(ch) < 0x20 or ord(ch) == 0x7F for ch in value)
 
 
 def _looks_like_email(value: str) -> bool:
@@ -290,7 +290,7 @@ class EmailAddon:
         are not copied: they hold the SMTP password, and they outlive the app's
         backup and restore on this server.
         """
-        backup_dir = HOP3_ROOT / "backups" / _TYPE
+        backup_dir = c.HOP3_ROOT / "backups" / _TYPE
         backup_dir.mkdir(parents=True, exist_ok=True)
         record = backup_dir / f"{self.addon_name}.json"
         record.write_text(json.dumps({"addon_name": self.addon_name}))

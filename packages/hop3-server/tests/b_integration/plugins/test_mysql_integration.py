@@ -29,6 +29,7 @@ import mysql.connector
 import pytest
 
 import hop3.plugins.mysql.mysql as mysql_module
+from hop3.config import HopConfig
 from hop3.plugins.mysql.admin import MySQLAdmin
 from hop3.plugins.mysql.mysql import MySQLAddon
 
@@ -252,7 +253,7 @@ class TestMySQLBackupRestore:
         self, mysql_addon, tmp_path, monkeypatch, capfd
     ):
         """The app's user holds rights on its database only: no access error."""
-        monkeypatch.setattr(mysql_module, "HOP3_ROOT", tmp_path)
+        monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
         mysql_addon.create()
 
         mysql_addon.backup()

@@ -31,7 +31,7 @@ from typing import TYPE_CHECKING, Any, cast
 import mysql.connector
 from mysql.connector import errorcode
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 from hop3.core.backup import resolve_backup_file
 from hop3.core.identifiers import validate_service_name
 from hop3.plugins.addons import (
@@ -39,6 +39,7 @@ from hop3.plugins.addons import (
     load_addon_secrets,
     save_addon_secrets,
 )
+from hop3.plugins.addons.secrets import find_identifier_clash
 
 from .admin import MySQLAdmin
 
@@ -66,6 +67,15 @@ ADDON_TYPE = "mysql"
 # network came from the 192.168.x pool: "[1130] Host '192.168.x.y' is not
 # allowed to connect to this MySQL server".)
 ADDON_USER_HOSTS = ("localhost", "127.0.0.1", "10.%", "172.%", "192.168.%")
+
+# MySQL user names are limited to 32 characters.
+MYSQL_MAX_USER = 32
+
+
+def _derived_identifiers(addon_name: str) -> tuple[str, str]:
+    """(database, user) as MySQL stores them for ``addon_name``."""
+    db_name = addon_name.replace("-", "_")
+    return db_name, f"{db_name}_user"[:MYSQL_MAX_USER]
 
 
 @dataclass(frozen=True)
@@ -103,15 +113,14 @@ class MySQLAddon:
     @property
     def db_name(self) -> str:
         """Database name derived from service name."""
-        # Replace hyphens with underscores for valid MySQL identifiers
-        return self.addon_name.replace("-", "_")
+        return _derived_identifiers(self.addon_name)[0]
 
     @property
     def db_user(self) -> str:
         """Database user name derived from service name."""
-        # MySQL username has a 32-character limit, truncate if necessary
-        user = f"{self.db_name}_user"
-        return user[:32]
+        # Truncated to MySQL's limit. Existing users keep this exact name; a new
+        # addon whose truncated name is taken is refused at create().
+        return _derived_identifiers(self.addon_name)[1]
 
     @property
     def db_password(self) -> str:
@@ -159,6 +168,28 @@ class MySQLAddon:
             return secrets_data.get("password")
         return None
 
+    def _refuse_identifier_clash(self) -> None:
+        """
+        Refuse a new addon whose database or user another mysql addon owns.
+
+        Without it, a second create would ALTER the first addon's user to a new
+        password and GRANT it the second database. Only a new addon (no stored
+        secrets) is checked, so an existing one keeps deploying.
+        """
+        if load_addon_secrets(ADDON_TYPE, self.addon_name):
+            return
+        other = find_identifier_clash(ADDON_TYPE, self.addon_name, _derived_identifiers)
+        if other is None:
+            return
+        msg = (
+            f"addon name {self.addon_name!r} would give MySQL the database "
+            f"{self.db_name!r} and user {self.db_user!r}, which the existing "
+            f"mysql addon {other!r} already uses ('-' and '_' give the same "
+            f"identifier, and user names are cut to {MYSQL_MAX_USER} characters); "
+            f"choose another name."
+        )
+        raise ValueError(msg)
+
     def create(self) -> None:
         """
         Create a new MySQL database if it does not already exist.
@@ -172,6 +203,7 @@ class MySQLAddon:
         If the database already exists but secrets are missing (e.g., after
         server reinstall), the password is regenerated and saved.
         """
+        self._refuse_identifier_clash()
         admin = self._get_admin()
 
         # Generate new password
@@ -403,7 +435,7 @@ class MySQLAddon:
             msg = f"No stored password for addon '{self.addon_name}'."
             raise RuntimeError(msg)
 
-        backup_dir = HOP3_ROOT / "backups" / "mysql"
+        backup_dir = c.HOP3_ROOT / "backups" / "mysql"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -448,7 +480,7 @@ class MySQLAddon:
         # Confine the caller-supplied path to the backup tree: this value
         # comes straight from RPC and reaches a file-reading sink below.
         # Same root backup() writes to, so the two cannot drift apart.
-        backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
+        backup_path = resolve_backup_file(backup_path, c.HOP3_ROOT / "backups")
 
         admin = self._get_admin()
         password = self._get_stored_password()

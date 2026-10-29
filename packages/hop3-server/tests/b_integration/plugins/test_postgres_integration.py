@@ -30,8 +30,7 @@ import psycopg2
 import psycopg2.extensions
 import pytest
 
-import hop3.plugins.postgresql.postgres as pg_module
-from hop3.plugins.addons import generic_cli
+from hop3.config import HopConfig
 from hop3.plugins.postgresql import cli as pg_cli
 from hop3.plugins.postgresql.admin import PostgresAdmin
 from hop3.plugins.postgresql.postgres import PostgresAddon
@@ -237,9 +236,8 @@ class TestPostgresBackupRestore:
 
     def test_backup_creates_file(self, postgres_addon, tmp_path):
         """Test that backup creates an actual SQL file."""
-        # Temporarily override HOP3_ROOT for test
-        original_root = pg_module.HOP3_ROOT
-        pg_module.HOP3_ROOT = tmp_path
+        original_config = HopConfig._instance
+        HopConfig.set_instance(HopConfig(hop3_root=tmp_path))
 
         try:
             postgres_addon.create()
@@ -268,12 +266,12 @@ class TestPostgresBackupRestore:
             assert "CREATE TABLE" in content or "test_data" in content
 
         finally:
-            pg_module.HOP3_ROOT = original_root
+            HopConfig._instance = original_config
 
     def test_restore_recovers_data(self, postgres_addon, tmp_path):
         """Test that restore actually recovers data."""
-        original_root = pg_module.HOP3_ROOT
-        pg_module.HOP3_ROOT = tmp_path
+        original_config = HopConfig._instance
+        HopConfig.set_instance(HopConfig(hop3_root=tmp_path))
 
         try:
             postgres_addon.create()
@@ -328,7 +326,7 @@ class TestPostgresBackupRestore:
             assert result[0] == "original"
 
         finally:
-            pg_module.HOP3_ROOT = original_root
+            HopConfig._instance = original_config
 
 
 def _app_sql(addon: PostgresAddon, *statements: str) -> list:
@@ -359,7 +357,7 @@ def test_a_restore_over_the_live_database_gives_back_the_dump(
     LimeSurvey's rollback replayed its dump over the upgraded database: every
     CREATE failed on an existing table, psql exited 0, and both mixed.
     """
-    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     postgres_addon.create()
     _app_sql(
         postgres_addon,
@@ -388,7 +386,7 @@ def test_a_restore_over_the_live_database_gives_back_the_dump(
 def test_a_dump_that_fails_leaves_the_live_database_alone(
     postgres_addon, tmp_path, monkeypatch
 ):
-    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     postgres_addon.create()
     _app_sql(
         postgres_addon,
@@ -423,8 +421,7 @@ def test_import_loads_a_dump_streamed_from_the_client(
     `addon postgres import` staged the upload in /tmp, which `restore` refuses:
     the command could never succeed, and a stubbed `restore` hid it.
     """
-    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(generic_cli, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     postgres_addon.create()
 
     pg_cli.AddonPostgresImportCmd().call(
@@ -443,7 +440,7 @@ def test_a_dump_without_owners_is_given_to_the_app_user(
     Loaded as the admin, a dump without `OWNER TO` left every object the
     admin's: the restore succeeded and the app got "permission denied".
     """
-    monkeypatch.setattr(pg_module, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     postgres_addon.create()
     dump = tmp_path / "backups" / "postgres" / "foreign.sql"
     dump.parent.mkdir(parents=True)

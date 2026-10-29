@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from hop3.plugins.addons import secrets as secrets_mod
+from hop3.config import HopConfig
 from hop3.plugins.addons.secrets import (
     delete_addon_secrets,
     list_addon_instances,
@@ -33,7 +33,7 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def tmp_hop3_root(tmp_path, monkeypatch) -> Path:
-    monkeypatch.setattr(secrets_mod, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     return tmp_path
 
 

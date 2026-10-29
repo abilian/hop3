@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 
+import psycopg2
 from dishka import Provider, Scope, provide
 
 from hop3.core.hooks import hookimpl
@@ -21,15 +22,6 @@ assert cli
 
 logger = logging.getLogger(__name__)
 
-# Check if psycopg2 is available
-_PSYCOPG2_AVAILABLE = False
-try:
-    import psycopg2
-
-    _PSYCOPG2_AVAILABLE = True
-except ImportError:
-    psycopg2 = None  # type: ignore[assignment,unused-ignore]
-
 
 class PostgresHealthCheck:
     """Health check for PostgreSQL connectivity."""
@@ -38,23 +30,10 @@ class PostgresHealthCheck:
 
     def is_configured(self) -> bool:
         """Check if PostgreSQL is configured with admin credentials."""
-        if not _PSYCOPG2_AVAILABLE:
-            return False
-        try:
-            admin = PostgresAdmin.from_config()
-            return admin.superuser_password is not None
-        except Exception:
-            return False
+        return PostgresAdmin.from_config().superuser_password is not None
 
     def check(self) -> HealthCheckResult:
         """Test PostgreSQL connectivity."""
-        if not _PSYCOPG2_AVAILABLE:
-            return HealthCheckResult(
-                name="PostgreSQL",
-                passed=True,
-                message="psycopg2 not installed (skipped)",
-            )
-
         try:
             admin = PostgresAdmin.from_config()
 
@@ -66,7 +45,6 @@ class PostgresHealthCheck:
                 )
 
             # Try to connect
-            assert psycopg2 is not None  # checked by _PSYCOPG2_AVAILABLE above
             connection = psycopg2.connect(**admin.get_connection_params())
             cursor = connection.cursor()
             cursor.execute("SELECT version()")

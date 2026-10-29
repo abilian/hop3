@@ -9,6 +9,7 @@ from __future__ import annotations
 import logging
 from typing import Any, cast
 
+import redis
 from dishka import Provider, Scope, provide
 
 from hop3.core.hooks import hookimpl
@@ -22,15 +23,6 @@ assert cli
 
 logger = logging.getLogger(__name__)
 
-# Check if redis package is available
-_REDIS_AVAILABLE = False
-try:
-    import redis
-
-    _REDIS_AVAILABLE = True
-except ImportError:
-    redis = None  # type: ignore[assignment,unused-ignore]
-
 
 class RedisHealthCheck:
     """Health check for Redis connectivity."""
@@ -38,32 +30,19 @@ class RedisHealthCheck:
     name = "redis"
 
     def is_configured(self) -> bool:
-        """
-        Check if Redis package is available.
-
-        Redis doesn't require explicit configuration - it just needs to be running.
-        """
-        return _REDIS_AVAILABLE
+        """Redis needs no configuration: it only has to be running."""
+        return True
 
     def check(self) -> HealthCheckResult:
         """
         Test Redis connectivity.
 
-        Redis is an optional addon: when it's unreachable or the client
-        package isn't installed, we return ``passed=False, severity="warn"``
+        Redis is an optional addon: when it's unreachable, we return
+        ``passed=False, severity="warn"``
         so the operator sees ⚠ (not ✓) in ``hop3 system status`` and the
         overall summary counts it as a warning rather than a hard failure.
         """
-        if not _REDIS_AVAILABLE:
-            return HealthCheckResult(
-                name="Redis",
-                passed=False,
-                severity="warn",
-                message="redis-py package not installed (skipped)",
-            )
-
         try:
-            assert redis is not None  # checked by _REDIS_AVAILABLE above
             factory = RedisClientFactory.from_config()
             client = redis.Redis(**factory.get_connection_params())
             info = cast("dict[str, Any]", client.info())

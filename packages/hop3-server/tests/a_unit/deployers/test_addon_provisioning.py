@@ -16,6 +16,7 @@ from hop3.deployers.addon_provisioning import (
     provision_addons,
 )
 from hop3.deployers.env_provisioning import set_default_env_vars, set_env_vars
+from hop3.lib import Abort
 
 
 class TestAddonFailureClassification:
@@ -276,13 +277,33 @@ class TestProvisionAddons:
     def test_provision_handles_unknown_addon_type(
         self, mock_get_addon, mock_app, mock_db_session
     ):
-        """Test that unknown addon types are handled gracefully."""
+        """An unknown addon type aborts the deploy: the app needs that service."""
         mock_get_addon.side_effect = RuntimeError("Unknown addon type: foobar")
 
         addon_configs = [{"type": "foobar"}]
 
-        # Should not raise, just log warning
-        provision_addons(mock_app, addon_configs, mock_db_session)
+        with pytest.raises(Abort, match="Unknown addon type: foobar"):
+            provision_addons(mock_app, addon_configs, mock_db_session)
+
+    @patch("hop3.deployers.addon_provisioning.get_addon")
+    def test_provision_aborts_when_the_addon_gives_no_connection_details(
+        self, mock_get_addon, mock_app, mock_db_session
+    ):
+        """The deploy used to go on without the addon's variables."""
+
+        class NoPassword:
+            def create(self) -> None:
+                pass
+
+            def get_connection_details(self) -> dict[str, str]:
+                msg = "No stored password for addon 'test-app-postgres'"
+                raise RuntimeError(msg)
+
+        mock_get_addon.return_value = NoPassword()
+
+        with pytest.raises(Abort, match="No stored password"):
+            provision_addons(mock_app, [{"type": "postgres"}], mock_db_session)
+        mock_db_session.add.assert_not_called()
 
     @patch("hop3.deployers.addon_provisioning.get_addon")
     @patch("hop3.deployers.addon_provisioning.get_credential_encryptor")

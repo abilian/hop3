@@ -3,22 +3,20 @@
 # SPDX-License-Identifier: Apache-2.0
 
 """
-Integration tests for service management commands using state-based testing.
+The addon commands, run against a fake addon type registered through the hook.
 
-This module tests service commands using real database interactions:
-- Uses real database instead of mocks (via db_session fixture)
-- Commands receive repository instances for database access
-- Verifies actual database state changes
-- Tests that outcomes (state) are correct, not just that methods were called
+The fake addon ``fakedb`` is a real plugin as far as Hop3 can tell: it comes
+back from ``get_addons()`` and records its instances in the addon secrets
+store, the registry every command reads. Its "server" can be taken down to
+see what each command does when the backing service does not answer.
 
-The tests mock the addon plugin system since we're testing command logic,
-not actual addon implementations (which are tested separately).
+Each test asserts the state a command leaves behind: credential rows, the
+app's environment, the instances on record.
 """
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
-from unittest.mock import Mock, patch
+from typing import TYPE_CHECKING, Any, ClassVar
 
 import pytest
 
@@ -29,1170 +27,393 @@ from hop3.commands.services import (
     AddonDetachCmd,
     AddonShowCmd,
 )
+from hop3.config import HopConfig
 from hop3.core.credentials import get_credential_encryptor
+from hop3.core.hooks import hookimpl
+from hop3.core.plugins import get_plugin_manager
 from hop3.orm import AddonCredential, App, EnvVar
 from hop3.orm.repositories import (
     AddonCredentialRepository,
     AppRepository,
     EnvVarRepository,
 )
+from hop3.plugins.addons.secrets import (
+    delete_addon_secrets,
+    list_addon_instances,
+    load_addon_secrets,
+    save_addon_secrets,
+)
 
 if TYPE_CHECKING:
+    from collections.abc import Iterator
+
     from sqlalchemy.orm import Session
 
+FAKE = "fakedb"
+
+
+class FakeAddon:
+    """An addon whose instances live in the secrets store; ``down`` breaks it."""
+
+    name: ClassVar[str] = FAKE
+    down: ClassVar[bool] = False
+
+    def __init__(self, addon_name: str) -> None:
+        self.addon_name = addon_name
+
+    def _answer(self) -> None:
+        if FakeAddon.down:
+            msg = "fakedb is not answering on 127.0.0.1:9999"
+            raise ConnectionError(msg)
+
+    def create(self) -> None:
+        self._answer()
+        save_addon_secrets(FAKE, self.addon_name, {"password": "pw"})
+
+    def exists(self) -> bool:
+        self._answer()
+        return load_addon_secrets(FAKE, self.addon_name) is not None
+
+    def destroy(self) -> None:
+        self._answer()
+        delete_addon_secrets(FAKE, self.addon_name)
+
+    def get_connection_details(self) -> dict[str, str]:
+        self._answer()
+        if load_addon_secrets(FAKE, self.addon_name) is None:
+            msg = f"No fakedb addon '{self.addon_name}'"
+            raise RuntimeError(msg)
+        return {
+            "DATABASE_URL": f"fake://u:pw@127.0.0.1:9999/{self.addon_name}",
+            "FAKE_HOST": "127.0.0.1",
+        }
+
+    def info(self) -> dict[str, Any]:
+        self._answer()
+        return {"addon_name": self.addon_name, "type": FAKE, "size_mb": 42.5}
+
+
+class _FakePlugin:
+    @hookimpl
+    def get_addons(self) -> list:
+        return [FakeAddon]
+
+
+@pytest.fixture(autouse=True)
+def fakedb(tmp_path, monkeypatch) -> Iterator[type[FakeAddon]]:
+    """Register ``fakedb`` with the plugin manager, over an empty registry."""
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
+    monkeypatch.setattr(FakeAddon, "down", False)
+    pm = get_plugin_manager()
+    plugin = _FakePlugin()
+    pm.register(plugin)
+    yield FakeAddon
+    pm.unregister(plugin)
+
 
 @pytest.fixture
-def app_repo(db_session: Session) -> AppRepository:
-    """Create an app repository for testing."""
-    return AppRepository(session=db_session)
-
-
-@pytest.fixture
-def addon_credential_repo(db_session: Session) -> AddonCredentialRepository:
-    """Create an addon credential repository for testing."""
+def credential_repo(db_session: Session) -> AddonCredentialRepository:
     return AddonCredentialRepository(session=db_session)
 
 
 @pytest.fixture
-def env_var_repo(db_session: Session) -> EnvVarRepository:
-    """Create an env var repository for testing."""
-    return EnvVarRepository(session=db_session)
+def attach(db_session: Session, credential_repo) -> AddonAttachCmd:
+    return AddonAttachCmd(
+        app_repo=AppRepository(session=db_session),
+        addon_credential_repo=credential_repo,
+        env_var_repo=EnvVarRepository(session=db_session),
+    )
 
 
 @pytest.fixture
-def test_app(db_session: Session) -> App:
-    """
-    Create a test application for addon testing.
-
-    Args:
-        db_session: Database session
-
-    Returns:
-        App instance with name 'test-app'
-    """
-    app = App(name="test-app", hostname="test.example.com", port=8000)
-    db_session.add(app)
-    db_session.commit()
-    db_session.refresh(app)
-    return app
+def detach(db_session: Session, credential_repo) -> AddonDetachCmd:
+    return AddonDetachCmd(
+        app_repo=AppRepository(session=db_session),
+        addon_credential_repo=credential_repo,
+        env_var_repo=EnvVarRepository(session=db_session),
+    )
 
 
 @pytest.fixture
-def another_app(db_session: Session) -> App:
-    """
-    Create another test application.
+def destroy(credential_repo) -> AddonDestroyCmd:
+    return AddonDestroyCmd(addon_credential_repo=credential_repo)
 
-    Args:
-        db_session: Database session
 
-    Returns:
-        App instance with name 'another-app'
-    """
-    app = App(name="another-app", hostname="another.example.com", port=8001)
-    db_session.add(app)
-    db_session.commit()
-    db_session.refresh(app)
+def _app(session: Session, name: str = "web") -> App:
+    app = App(name=name, hostname=f"{name}.example.com", port=8000)
+    session.add(app)
+    session.commit()
     return app
 
 
-@pytest.mark.integration
-class TestAddonsCreateCmdIntegration:
-    """Integration tests for AddonCreateCmd using state-based testing."""
-
-    def test_create_requires_arguments(self):
-        """
-        Test that addon create requires both service type and name.
-
-        ARRANGE:
-            - Create command instance
-
-        ACT:
-            - Call command without arguments
-
-        ASSERT:
-            - Verify usage message is returned
-            - Verify no database state changes
-        """
-        cmd = AddonCreateCmd()
+def _env(session: Session, app: App) -> dict[str, str]:
+    session.expire_all()
+    rows = session.query(EnvVar).filter_by(app_id=app.id).all()
+    return {row.name: row.value for row in rows}
 
-        with pytest.raises(ValueError, match="Usage: hop3 addon create"):
-            cmd.call()
 
-    def test_create_with_postgres_success(self):
-        """
-        Test creating a PostgreSQL addon.
+def _credentials(session: Session, **filters: object) -> list[AddonCredential]:
+    session.expire_all()
+    return session.query(AddonCredential).filter_by(**filters).all()
 
-        ARRANGE:
-            - Mock addon plugin to return mock addon instance
-
-        ACT:
-            - Create postgres addon with valid arguments
 
-        ASSERT:
-            - Verify addon.create() was called
-            - Verify success message
-            - Verify instruction for attaching addon
-        """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_get_addon.return_value = mock_addon
+def _created(*names: str) -> None:
+    for addon_name in names:
+        AddonCreateCmd().call(FAKE, addon_name)
 
-            cmd = AddonCreateCmd()
 
-            result = cmd.call("postgres", "my-database")
+# --- create -------------------------------------------------------------------
 
-        mock_get_addon.assert_called_once_with("postgres", "my-database")
-        mock_addon.create.assert_called_once()
 
-        # 2 informational items + 1 summary (ADR 036 D19c).
-        assert len(result) == 3
-        assert result[0]["t"] == "text"
-        assert "my-database" in result[0]["text"]
-        assert "postgres" in result[0]["text"]
-        assert "created successfully" in result[0]["text"]
-        assert "addon attach" in result[1]["text"]
-        assert result[-1]["t"] == "summary"
-
-    def test_create_with_redis_success(self):
-        """
-        Test creating a Redis addon.
+def test_create_requires_type_and_name():
+    with pytest.raises(ValueError, match="Usage: hop3 addon create"):
+        AddonCreateCmd().call()
 
-        ARRANGE:
-            - Mock addon plugin to return mock addon instance
 
-        ACT:
-            - Create redis addon with valid arguments
-
-        ASSERT:
-            - Verify addon.create() was called
-            - Verify success message
-        """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonCreateCmd()
-
-            result = cmd.call("redis", "my-cache")
-
-        mock_get_addon.assert_called_once_with("redis", "my-cache")
-        mock_addon.create.assert_called_once()
-
-        # 2 informational items + 1 summary (ADR 036 D19c).
-        assert len(result) == 3
-        assert "my-cache" in result[0]["text"]
-        assert "redis" in result[0]["text"]
-        assert "created successfully" in result[0]["text"]
-        assert result[-1]["t"] == "summary"
-
-    def test_create_handles_runtime_errors(self):
-        """
-        Test error handling when addon plugin raises RuntimeError.
-
-        ARRANGE:
-            - Mock addon plugin to raise RuntimeError
-
-        ACT:
-            - Attempt to create addon
-
-        ASSERT:
-            - Verify error message is returned
-            - Verify error type is "error"
-        """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_get_addon.side_effect = RuntimeError("Addon type not supported")
-
-            cmd = AddonCreateCmd()
-
-            # command_context raises ValueError for JSON-RPC error handling
-            with pytest.raises(ValueError) as exc_info:
-                cmd.call("invalid-type", "my-service")
-
-            assert "Addon type not supported" in str(exc_info.value)
-
-    def test_create_handles_unexpected_errors(self):
-        """
-        Test error handling when addon plugin raises unexpected exception.
-
-        ARRANGE:
-            - Mock addon plugin to raise generic Exception
-
-        ACT:
-            - Attempt to create addon
-
-        ASSERT:
-            - Verify ValueError is raised for JSON-RPC error handling
-            - Verify error message contains exception details
-        """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_get_addon.side_effect = Exception("Unexpected error occurred")
-
-            cmd = AddonCreateCmd()
-
-            # command_context raises ValueError for JSON-RPC error handling
-            with pytest.raises(ValueError) as exc_info:
-                cmd.call("postgres", "my-db")
-
-            assert "Unexpected error" in str(exc_info.value)
-
-
-@pytest.mark.integration
-class TestAddonsAttachCmdIntegration:
-    """Integration tests for AddonAttachCmd using state-based testing."""
-
-    def test_attach_requires_app_parameter(
-        self,
-        db_session: Session,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test that addon attach requires --app parameter.
-
-        ARRANGE:
-            - Create command instance
-
-        ACT:
-            - Call command without --app parameter
-
-        ASSERT:
-            - Verify error message about missing --app parameter
-            - Verify no database state changes
-        """
-        cmd = AddonAttachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        with pytest.raises(ValueError, match="--app is required"):
-            cmd.call("my-database")
-
-        # Verify no credentials were created
-        db_session.expire_all()
-        credentials = db_session.query(AddonCredential).all()
-        assert len(credentials) == 0
-
-    def test_attach_app_not_found(
-        self,
-        db_session: Session,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test error when app doesn't exist.
-
-        ARRANGE:
-            - Database with no apps
-
-        ACT:
-            - Try to attach addon to non-existent app
-
-        ASSERT:
-            - Verify ValueError is raised for JSON-RPC error handling
-            - Verify no credentials were created
-        """
-        cmd = AddonAttachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        # App not found raises ValueError for JSON-RPC error handling
-        with pytest.raises(ValueError) as exc_info:
-            cmd.call("my-database", "--app", "nonexistent-app", "--type", "postgres")
-
-        assert "not found" in str(exc_info.value)
-
-        # Verify no credentials were created
-        db_session.expire_all()
-        credentials = db_session.query(AddonCredential).all()
-        assert len(credentials) == 0
-
-    def test_attach_success_creates_credentials_and_env_vars(
-        self,
-        db_session: Session,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test successful addon attachment creates credentials and env vars.
-
-        ARRANGE:
-            - Create a test app
-            - Mock addon plugin to return connection details
-
-        ACT:
-            - Attach addon to app
-
-        ASSERT:
-            - Verify AddonCredential was created in database
-            - Verify environment variables were created
-            - Verify credential contains encrypted connection details
-            - Verify success message
-        """
-        connection_details = {
-            "DATABASE_URL": "postgresql://user:pass@localhost/db",
-            "PGHOST": "localhost",
-            "PGPORT": "5432",
-        }
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.get_connection_details.return_value = connection_details
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonAttachCmd(
-                app_repo=app_repo,
-                addon_credential_repo=addon_credential_repo,
-                env_var_repo=env_var_repo,
-            )
-
-            result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
-
-        db_session.expire_all()
-
-        # Check credentials were created
-        credentials = (
-            db_session.query(AddonCredential).filter_by(app_id=test_app.id).all()
-        )
-        assert len(credentials) == 1, "Should create one credential"
-        credential = credentials[0]
-        assert credential.addon_type == "postgres"
-        assert credential.addon_name == "my-database"
-        assert credential.encrypted_data is not None
-
-        # Check environment variables were created
-        env_vars = db_session.query(EnvVar).filter_by(app_id=test_app.id).all()
-        assert len(env_vars) == 3, "Should create 3 environment variables"
-
-        env_var_dict = {var.name: var.value for var in env_vars}
-        assert env_var_dict["DATABASE_URL"] == connection_details["DATABASE_URL"]
-        assert env_var_dict["PGHOST"] == connection_details["PGHOST"]
-        assert env_var_dict["PGPORT"] == connection_details["PGPORT"]
-
-        # Verify output
-        result_text = " ".join(r["text"] for r in result)
-        assert "attached" in result_text
-        assert "test-app" in result_text
-        assert "DATABASE_URL" in result_text
-
-    def test_attach_updates_existing_env_vars(
-        self,
-        db_session: Session,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test that attaching addon updates existing environment variables.
-
-        ARRANGE:
-            - Create a test app with existing env vars
-            - Mock addon plugin to return connection details
-
-        ACT:
-            - Attach addon to app (which has existing DATABASE_URL)
-
-        ASSERT:
-            - Verify existing env var was updated (not duplicated)
-            - Verify value was changed to new value
-            - Verify output mentions "Updated" for existing var
-        """
-        # Create existing env var
-        existing_var = EnvVar(
-            app_id=test_app.id, name="DATABASE_URL", value="old_connection_string"
-        )
-        db_session.add(existing_var)
-        db_session.commit()
-
-        new_connection_details = {
-            "DATABASE_URL": "postgresql://newuser:newpass@localhost/newdb",
-            "PGHOST": "localhost",
-        }
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.get_connection_details.return_value = new_connection_details
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonAttachCmd(
-                app_repo=app_repo,
-                addon_credential_repo=addon_credential_repo,
-                env_var_repo=env_var_repo,
-            )
-
-            result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
-
-        db_session.expire_all()
-
-        # Check that we still have correct number of env vars (no duplicates)
-        env_vars = db_session.query(EnvVar).filter_by(app_id=test_app.id).all()
-        assert len(env_vars) == 2, (
-            "Should have 2 env vars (DATABASE_URL updated, PGHOST added)"
-        )
-
-        # Check DATABASE_URL was updated
-        database_url_var = (
-            db_session
-            .query(EnvVar)
-            .filter_by(app_id=test_app.id, name="DATABASE_URL")
-            .first()
-        )
-        assert database_url_var is not None
-        assert database_url_var.value == new_connection_details["DATABASE_URL"], (
-            "DATABASE_URL should be updated"
-        )
-
-        # Verify the output reports the (updated) DATABASE_URL var.
-        result_text = " ".join(r.get("text", "") for r in result)
-        assert "DATABASE_URL" in result_text
-
-    def test_attach_with_custom_service_type(
-        self,
-        db_session: Session,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test attaching addon with custom service type.
-
-        ARRANGE:
-            - Create a test app
-            - Mock addon plugin for redis type
-
-        ACT:
-            - Attach redis addon with --type flag
-
-        ASSERT:
-            - Verify credential was created with redis type
-            - Verify addon plugin was called with redis type
-        """
-        connection_details = {
-            "REDIS_URL": "redis://localhost:6379/0",
-            "REDIS_HOST": "localhost",
-        }
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.get_connection_details.return_value = connection_details
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonAttachCmd(
-                app_repo=app_repo,
-                addon_credential_repo=addon_credential_repo,
-                env_var_repo=env_var_repo,
-            )
-
-            cmd.call("my-cache", "--app", "test-app", "--type", "redis")
-
-        mock_get_addon.assert_called_once_with("redis", "my-cache")
-
-        db_session.expire_all()
-        credential = (
-            db_session.query(AddonCredential).filter_by(app_id=test_app.id).first()
-        )
-        assert credential is not None
-        assert credential.addon_type == "redis"
-        assert credential.addon_name == "my-cache"
-
-    def test_attach_multiple_addons_to_same_app(
-        self,
-        db_session: Session,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test attaching multiple different addons to same app.
-
-        ARRANGE:
-            - Create a test app
-
-        ACT:
-            - Attach postgres addon
-            - Attach redis addon
-
-        ASSERT:
-            - Verify two credentials were created
-            - Verify all environment variables exist
-        """
-        pg_details = {"DATABASE_URL": "postgresql://localhost/db"}
-        redis_details = {"REDIS_URL": "redis://localhost:6379"}
-
-        cmd = AddonAttachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.get_connection_details.return_value = pg_details
-            mock_get_addon.return_value = mock_addon
-
-            cmd.call("my-db", "--app", "test-app", "--type", "postgres")
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.get_connection_details.return_value = redis_details
-            mock_get_addon.return_value = mock_addon
-
-            cmd.call("my-cache", "--app", "test-app", "--type", "redis")
-
-        db_session.expire_all()
-
-        credentials = (
-            db_session.query(AddonCredential).filter_by(app_id=test_app.id).all()
-        )
-        assert len(credentials) == 2, "Should have 2 credentials"
-
-        credential_types = {cred.addon_type for cred in credentials}
-        assert credential_types == {"postgres", "redis"}
-
-        env_vars = db_session.query(EnvVar).filter_by(app_id=test_app.id).all()
-        assert len(env_vars) == 2, "Should have 2 environment variables"
-
-        env_var_names = {var.name for var in env_vars}
-        assert env_var_names == {"DATABASE_URL", "REDIS_URL"}
-
-
-@pytest.mark.integration
-class TestAddonsDetachCmdIntegration:
-    """Integration tests for AddonDetachCmd using state-based testing."""
-
-    def test_detach_requires_app_parameter(
-        self,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test that addon detach requires --app parameter.
-
-        ARRANGE:
-            - Create command instance
-
-        ACT:
-            - Call command without --app parameter
-
-        ASSERT:
-            - Verify error message about missing --app parameter
-        """
-        cmd = AddonDetachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        with pytest.raises(ValueError, match="--app is required"):
-            cmd.call("my-database")
-
-    def test_detach_app_not_found(
-        self,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test error when app doesn't exist.
-
-        ARRANGE:
-            - Database with no apps
-
-        ACT:
-            - Try to detach addon from non-existent app
-
-        ASSERT:
-            - Verify ValueError is raised for JSON-RPC error handling
-        """
-        cmd = AddonDetachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        # App not found raises ValueError for JSON-RPC error handling
-        with pytest.raises(ValueError) as exc_info:
-            cmd.call("my-database", "--app", "nonexistent-app", "--type", "postgres")
-
-        assert "not found" in str(exc_info.value)
-
-    def test_detach_success_removes_credentials_and_env_vars(
-        self,
-        db_session: Session,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test successful addon detachment removes credentials and env vars.
-
-        ARRANGE:
-            - Create test app with attached addon (credential + env vars)
-
-        ACT:
-            - Detach addon from app
-
-        ASSERT:
-            - Verify AddonCredential was removed from database
-            - Verify environment variables were removed
-            - Verify success message
-        """
-        encryptor = get_credential_encryptor()
-        connection_details = {
-            "DATABASE_URL": "postgresql://user:pass@localhost/db",
-            "PGHOST": "localhost",
-        }
-
-        credential = AddonCredential(
-            app_id=test_app.id,
-            addon_type="postgres",
-            addon_name="my-database",
-            encrypted_data=encryptor.encrypt(connection_details),
-        )
-        db_session.add(credential)
-
-        for key, value in connection_details.items():
-            env_var = EnvVar(app_id=test_app.id, name=key, value=value)
-            db_session.add(env_var)
-
-        db_session.commit()
-
-        # Verify setup
-        assert (
-            db_session.query(AddonCredential).filter_by(app_id=test_app.id).count() == 1
-        )
-        assert db_session.query(EnvVar).filter_by(app_id=test_app.id).count() == 2
-
-        cmd = AddonDetachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
-
-        db_session.expire_all()
-
-        # Check credential was removed
-        credentials = (
-            db_session.query(AddonCredential).filter_by(app_id=test_app.id).all()
-        )
-        assert len(credentials) == 0, "Credential should be removed"
-
-        # Check env vars were removed
-        env_vars = db_session.query(EnvVar).filter_by(app_id=test_app.id).all()
-        assert len(env_vars) == 0, "Environment variables should be removed"
-
-        # Verify output
-        result_text = " ".join(r["text"] for r in result)
-        assert "detached" in result_text
-        assert "DATABASE_URL" in result_text
-        assert "PGHOST" in result_text
-
-    def test_detach_when_not_attached(
-        self,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test detaching addon that was never attached.
-
-        ARRANGE:
-            - Create test app with no addons attached
-
-        ACT:
-            - Try to detach addon
-
-        ASSERT:
-            - Verify message about addon not being attached
-            - Verify no errors occur
-        """
-        # Mock addon to return empty connection details
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.get_connection_details.return_value = {}
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonDetachCmd(
-                app_repo=app_repo,
-                addon_credential_repo=addon_credential_repo,
-                env_var_repo=env_var_repo,
-            )
-
-            result = cmd.call("my-database", "--app", "test-app", "--type", "postgres")
-
-        assert len(result) == 1
-        result_text = result[0]["text"]
-        assert "was not attached" in result_text
-
-    def test_detach_only_removes_specified_addon(
-        self,
-        db_session: Session,
-        test_app: App,
-        app_repo: AppRepository,
-        addon_credential_repo: AddonCredentialRepository,
-        env_var_repo: EnvVarRepository,
-    ):
-        """
-        Test that detaching one addon doesn't affect other addons.
-
-        ARRANGE:
-            - Create test app with two attached addons
-
-        ACT:
-            - Detach only one addon
-
-        ASSERT:
-            - Verify only specified addon's credential was removed
-            - Verify other addon's credential remains
-            - Verify only specified addon's env vars were removed
-        """
-        encryptor = get_credential_encryptor()
-
-        # Postgres credential and env vars
-        pg_details = {"DATABASE_URL": "postgresql://localhost/db"}
-        pg_cred = AddonCredential(
-            app_id=test_app.id,
-            addon_type="postgres",
-            addon_name="my-db",
-            encrypted_data=encryptor.encrypt(pg_details),
-        )
-        db_session.add(pg_cred)
-        db_session.add(
-            EnvVar(
-                app_id=test_app.id,
-                name="DATABASE_URL",
-                value=pg_details["DATABASE_URL"],
-            )
-        )
-
-        # Redis credential and env vars
-        redis_details = {"REDIS_URL": "redis://localhost:6379"}
-        redis_cred = AddonCredential(
-            app_id=test_app.id,
-            addon_type="redis",
-            addon_name="my-cache",
-            encrypted_data=encryptor.encrypt(redis_details),
-        )
-        db_session.add(redis_cred)
-        db_session.add(
-            EnvVar(
-                app_id=test_app.id, name="REDIS_URL", value=redis_details["REDIS_URL"]
-            )
-        )
-
-        db_session.commit()
-
-        # Verify setup
-        assert (
-            db_session.query(AddonCredential).filter_by(app_id=test_app.id).count() == 2
-        )
-        assert db_session.query(EnvVar).filter_by(app_id=test_app.id).count() == 2
-
-        cmd = AddonDetachCmd(
-            app_repo=app_repo,
-            addon_credential_repo=addon_credential_repo,
-            env_var_repo=env_var_repo,
-        )
-
-        cmd.call("my-db", "--app", "test-app", "--type", "postgres")
-
-        db_session.expire_all()
-
-        # Postgres credential should be gone
-        pg_cred_check = (
-            db_session
-            .query(AddonCredential)
-            .filter_by(app_id=test_app.id, addon_type="postgres")
-            .first()
-        )
-        assert pg_cred_check is None, "Postgres credential should be removed"
-
-        # Redis credential should remain
-        redis_cred_check = (
-            db_session
-            .query(AddonCredential)
-            .filter_by(app_id=test_app.id, addon_type="redis")
-            .first()
-        )
-        assert redis_cred_check is not None, "Redis credential should remain"
-
-        # DATABASE_URL should be gone
-        db_url_var = (
-            db_session
-            .query(EnvVar)
-            .filter_by(app_id=test_app.id, name="DATABASE_URL")
-            .first()
-        )
-        assert db_url_var is None, "DATABASE_URL should be removed"
-
-        # REDIS_URL should remain
-        redis_url_var = (
-            db_session
-            .query(EnvVar)
-            .filter_by(app_id=test_app.id, name="REDIS_URL")
-            .first()
-        )
-        assert redis_url_var is not None, "REDIS_URL should remain"
-
-
-@pytest.mark.integration
-class TestAddonsDestroyCmdIntegration:
-    """Integration tests for AddonDestroyCmd using state-based testing."""
-
-    def test_destroy_requires_arguments(
-        self,
-        addon_credential_repo: AddonCredentialRepository,
-    ):
-        """
-        Test that addon destroy requires service name.
-
-        ARRANGE:
-            - Create command instance
-
-        ACT:
-            - Call command without arguments
-
-        ASSERT:
-            - Verify usage message is returned
-        """
-        cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
-
-        with pytest.raises(ValueError, match="Usage: hop3 addon destroy"):
-            cmd.call()
-
-    def test_destroy_success_removes_all_credentials(
-        self,
-        db_session: Session,
-        test_app: App,
-        another_app: App,
-        addon_credential_repo: AddonCredentialRepository,
-    ):
-        """
-        Test successful addon destruction removes all associated credentials.
-
-        ARRANGE:
-            - Create addon attached to multiple apps
-
-        ACT:
-            - Destroy the addon
-
-        ASSERT:
-            - Verify addon.destroy() was called
-            - Verify all credentials for that addon were removed
-            - Verify success message
-        """
-        encryptor = get_credential_encryptor()
-        connection_details = {"DATABASE_URL": "postgresql://localhost/db"}
-
-        cred1 = AddonCredential(
-            app_id=test_app.id,
-            addon_type="postgres",
-            addon_name="shared-db",
-            encrypted_data=encryptor.encrypt(connection_details),
-        )
-        cred2 = AddonCredential(
-            app_id=another_app.id,
-            addon_type="postgres",
-            addon_name="shared-db",
-            encrypted_data=encryptor.encrypt(connection_details),
-        )
-        db_session.add(cred1)
-        db_session.add(cred2)
-        db_session.commit()
-
-        # Verify setup
-        assert (
-            db_session
-            .query(AddonCredential)
-            .filter_by(addon_type="postgres", addon_name="shared-db")
-            .count()
-            == 2
-        )
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
-
-            result = cmd.call("shared-db", "--type", "postgres")
-
-        mock_get_addon.assert_called_once_with("postgres", "shared-db")
-        mock_addon.destroy.assert_called_once()
-
-        db_session.expire_all()
-
-        # All credentials for this addon should be removed
-        remaining_creds = (
-            db_session
-            .query(AddonCredential)
-            .filter_by(addon_type="postgres", addon_name="shared-db")
-            .all()
-        )
-        assert len(remaining_creds) == 0, "All credentials should be removed"
-
-        # Verify output
-        assert result[0]["t"] == "text"
-        assert "destroyed successfully" in result[0]["text"]
-        assert "shared-db" in result[0]["text"]
-
-    def test_destroy_with_no_credentials(
-        self,
-        addon_credential_repo: AddonCredentialRepository,
-    ):
-        """
-        Test destroying addon that has no stored credentials.
-
-        ARRANGE:
-            - Database with no credentials for the addon
-
-        ACT:
-            - Destroy addon
-
-        ASSERT:
-            - Verify addon.destroy() was still called
-            - Verify no errors occur
-            - Verify success message
-        """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
-
-            result = cmd.call("orphan-db", "--type", "postgres")
-
-        mock_addon.destroy.assert_called_once()
-
-        assert result[0]["t"] == "text"
-        assert "destroyed successfully" in result[0]["text"]
-
-    def test_destroy_handles_errors(
-        self,
-        db_session: Session,
-        addon_credential_repo: AddonCredentialRepository,
-    ):
-        """
-        Test error handling when addon destruction fails.
-
-        ARRANGE:
-            - Mock addon plugin to raise RuntimeError
-
-        ACT:
-            - Attempt to destroy addon
-
-        ASSERT:
-            - Verify ValueError is raised for JSON-RPC error handling
-            - Verify credentials are NOT removed (transaction rollback)
-        """
-        encryptor = get_credential_encryptor()
-
-        app = App(name="error-app", hostname="error.local", port=8000)
-        db_session.add(app)
-        db_session.commit()
-
-        cred = AddonCredential(
-            app_id=app.id,
-            addon_type="postgres",
-            addon_name="error-db",
-            encrypted_data=encryptor.encrypt({
-                "DATABASE_URL": "postgresql://localhost/db"
-            }),
-        )
-        db_session.add(cred)
-        db_session.commit()
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.destroy.side_effect = RuntimeError("Cannot destroy addon")
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonDestroyCmd(addon_credential_repo=addon_credential_repo)
-
-            # command_context raises ValueError for JSON-RPC error handling
-            with pytest.raises(ValueError) as exc_info:
-                cmd.call("error-db", "--type", "postgres")
-
-            assert "Cannot destroy addon" in str(exc_info.value)
-
-        # Note: Credentials were already removed before destroy() is called
-        # This is by design in the command implementation
-
-
-@pytest.mark.integration
-class TestAddonsInfoCmdIntegration:
-    """Integration tests for AddonShowCmd using state-based testing."""
-
-    def test_info_requires_arguments(self):
-        """
-        Test that addon info requires service name.
-
-        ARRANGE:
-            - Create command instance
-
-        ACT:
-            - Call command without arguments
-
-        ASSERT:
-            - Verify usage message is returned
-        """
-        cmd = AddonShowCmd()
-
-        with pytest.raises(ValueError, match="Usage: hop3 addon show"):
-            cmd.call()
-
-    def test_info_success_displays_addon_information(self):
-        """
-        Test successful retrieval of addon information.
-
-        ARRANGE:
-            - Mock addon plugin to return info dict
-
-        ACT:
-            - Get addon info
-
-        ASSERT:
-            - Verify addon.info() was called
-            - Verify all info fields are displayed
-            - Verify formatting is correct
-        """
-        addon_info = {
-            "addon_name": "my-database",
-            "type": "postgres",
-            "size_mb": 42.5,
-            "table_count": 10,
-            "connection_count": 3,
-            "status": "healthy",
-        }
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.info.return_value = addon_info
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonShowCmd()
-
-            result = cmd.call("my-database", "--type", "postgres")
-
-        mock_get_addon.assert_called_once_with("postgres", "my-database")
-        mock_addon.info.assert_called_once()
-
-        assert len(result) == 1
-        assert result[0]["t"] == "text"
-
-        output_text = result[0]["text"]
-        assert "my-database" in output_text
-        assert "postgres" in output_text
-        assert "42.5" in output_text
-        assert "10" in output_text
-        assert "healthy" in output_text
-
-    def test_info_without_type_uses_the_addons_own(self):
-        """
-        Without --type, the addon's name decides its type; postgres is not assumed.
-
-        ARRANGE:
-            - A redis addon named default-db on record
-
-        ACT:
-            - Get addon info without specifying --type
-
-        ASSERT:
-            - Verify redis was used
-        """
-        with (
-            patch("hop3.commands.services.get_addon") as mock_get_addon,
-            patch(
-                "hop3.commands.services.list_addon_instances",
-                return_value=[("redis", "default-db")],
-            ),
-        ):
-            mock_addon = Mock()
-            mock_addon.info.return_value = {
-                "addon_name": "default-db",
-                "type": "postgres",
-            }
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonShowCmd()
-
-            cmd.call("default-db")
-
-        mock_get_addon.assert_called_once_with("redis", "default-db")
-
-    def test_info_with_custom_service_type(self):
-        """
-        Test getting info with custom service type.
-
-        ARRANGE:
-            - Mock addon plugin for redis
-
-        ACT:
-            - Get addon info with --type redis
-
-        ASSERT:
-            - Verify redis type was used
-            - Verify addon.info() was called
-        """
-        redis_info = {
-            "addon_name": "my-cache",
-            "type": "redis",
-            "memory_mb": 128,
-            "keys": 1000,
-        }
-
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_addon = Mock()
-            mock_addon.info.return_value = redis_info
-            mock_get_addon.return_value = mock_addon
-
-            cmd = AddonShowCmd()
-
-            result = cmd.call("my-cache", "--type", "redis")
-
-        mock_get_addon.assert_called_once_with("redis", "my-cache")
-        mock_addon.info.assert_called_once()
-
-        output_text = result[0]["text"]
-        assert "my-cache" in output_text
-        assert "redis" in output_text
-        assert "128" in output_text
-        assert "1000" in output_text
-
-    def test_info_handles_errors(self):
-        """
-        Test error handling when getting addon info fails.
-
-        ARRANGE:
-            - Mock addon plugin to raise RuntimeError
-
-        ACT:
-            - Attempt to get addon info
-
-        ASSERT:
-            - Verify ValueError is raised for JSON-RPC error handling
-        """
-        with patch("hop3.commands.services.get_addon") as mock_get_addon:
-            mock_get_addon.side_effect = RuntimeError("Addon not found")
-
-            cmd = AddonShowCmd()
-
-            # command_context raises ValueError for JSON-RPC error handling
-            with pytest.raises(ValueError) as exc_info:
-                cmd.call("nonexistent-db", "--type", "postgres")
-
-            assert "Addon not found" in str(exc_info.value)
+def test_create_records_the_instance():
+    result = AddonCreateCmd().call(FAKE, "my-db")
+
+    assert (FAKE, "my-db") in list_addon_instances()
+    assert "created successfully" in result[0]["text"]
+    assert result[-1]["t"] == "summary"
+
+
+def test_create_refuses_an_unsafe_name():
+    result = AddonCreateCmd().call(FAKE, "a;drop")
+
+    assert result[0]["t"] == "error"
+    assert list_addon_instances() == []
+
+
+def test_create_of_an_unknown_type_names_the_available_ones():
+    with pytest.raises(ValueError, match=f"not found.*{FAKE}"):
+        AddonCreateCmd().call("nosuchdb", "my-db")
+
+
+def test_create_against_a_server_that_is_down_fails(fakedb):
+    fakedb.down = True
+
+    with pytest.raises(ValueError, match="not answering"):
+        AddonCreateCmd().call(FAKE, "my-db")
+    assert list_addon_instances() == []
+
+
+# --- attach -------------------------------------------------------------------
+
+
+def test_attach_requires_app(db_session, attach):
+    with pytest.raises(ValueError, match="--app is required"):
+        attach.call("my-db")
+    assert _credentials(db_session) == []
+
+
+def test_attach_to_a_missing_app_stores_nothing(db_session, attach):
+    _created("my-db")
+
+    with pytest.raises(ValueError, match="not found"):
+        attach.call("my-db", "--app", "ghost", "--type", FAKE)
+    assert _credentials(db_session) == []
+
+
+def test_attach_stores_the_credential_and_injects_the_env(db_session, attach):
+    app = _app(db_session)
+    _created("my-db")
+
+    attach.call("my-db", "--app", "web")
+
+    (credential,) = _credentials(db_session, app_id=app.id)
+    assert (credential.addon_type, credential.addon_name) == (FAKE, "my-db")
+    stored = get_credential_encryptor().decrypt(credential.encrypted_data)
+    assert stored["DATABASE_URL"] == "fake://u:pw@127.0.0.1:9999/my-db"
+    assert _env(db_session, app) == stored
+
+
+def test_attach_overwrites_a_user_set_var_of_the_same_name(db_session, attach):
+    app = _app(db_session)
+    db_session.add(EnvVar(app_id=app.id, name="DATABASE_URL", value="old"))
+    db_session.commit()
+    _created("my-db")
+
+    attach.call("my-db", "--app", "web")
+
+    env = _env(db_session, app)
+    assert env["DATABASE_URL"] == "fake://u:pw@127.0.0.1:9999/my-db"
+    assert len(env) == 2
+
+
+def test_a_second_addon_of_a_type_gets_prefixed_vars(db_session, attach):
+    app = _app(db_session)
+    _created("db1", "db2")
+
+    attach.call("db1", "--app", "web")
+    attach.call("db2", "--app", "web")
+
+    env = _env(db_session, app)
+    assert env["DATABASE_URL"].endswith("/db1")
+    assert env["DB2_DATABASE_URL"].endswith("/db2")
+    assert len(_credentials(db_session, app_id=app.id)) == 2
+
+
+def test_attach_to_a_server_that_is_down_stores_nothing(db_session, attach, fakedb):
+    app = _app(db_session)
+    _created("my-db")
+    fakedb.down = True
+
+    with pytest.raises(ValueError, match="not answering"):
+        attach.call("my-db", "--app", "web")
+    assert _credentials(db_session) == []
+    assert _env(db_session, app) == {}
+
+
+# --- detach -------------------------------------------------------------------
+
+
+def test_detach_requires_app(detach):
+    with pytest.raises(ValueError, match="--app is required"):
+        detach.call("my-db", "--type", FAKE)
+
+
+def test_detach_from_a_missing_app_fails(detach):
+    with pytest.raises(ValueError, match="not found"):
+        detach.call("my-db", "--app", "ghost", "--type", FAKE)
+
+
+def test_detach_removes_the_credential_and_its_vars(db_session, attach, detach):
+    app = _app(db_session)
+    db_session.add(EnvVar(app_id=app.id, name="SECRET_KEY", value="mine"))
+    db_session.commit()
+    _created("my-db")
+    attach.call("my-db", "--app", "web")
+
+    detach.call("my-db", "--app", "web")
+
+    assert _credentials(db_session, app_id=app.id) == []
+    assert _env(db_session, app) == {"SECRET_KEY": "mine"}
+
+
+def test_detach_of_an_unattached_addon_says_so(db_session, detach):
+    _app(db_session)
+
+    result = detach.call("my-db", "--app", "web", "--type", FAKE)
+
+    assert "was not attached" in result[0]["text"]
+
+
+def test_detach_leaves_the_other_addons_alone(db_session, attach, detach):
+    app = _app(db_session)
+    _created("db1", "db2")
+    attach.call("db1", "--app", "web")
+    attach.call("db2", "--app", "web")
+
+    detach.call("db1", "--app", "web")
+
+    (remaining,) = _credentials(db_session, app_id=app.id)
+    assert remaining.addon_name == "db2"
+    # db2 was promoted: it now owns the unprefixed vars.
+    assert _env(db_session, app)["DATABASE_URL"].endswith("/db2")
+    assert "DB2_DATABASE_URL" not in _env(db_session, app)
+
+
+def _corrupt_credential(session: Session, app: App, addon_name: str) -> None:
+    (credential,) = _credentials(session, app_id=app.id, addon_name=addon_name)
+    credential.encrypted_data = "not-a-fernet-token"
+    session.commit()
+
+
+def test_detach_with_an_unreadable_credential_uses_the_live_names(
+    db_session, attach, detach
+):
+    app = _app(db_session)
+    _created("my-db")
+    attach.call("my-db", "--app", "web")
+    _corrupt_credential(db_session, app, "my-db")
+
+    detach.call("my-db", "--app", "web")
+
+    assert _credentials(db_session, app_id=app.id) == []
+    assert _env(db_session, app) == {}
+
+
+def test_detach_is_refused_when_no_source_names_the_vars(
+    db_session, attach, detach, fakedb
+):
+    """Deleting the credential then would orphan DATABASE_URL for good."""
+    app = _app(db_session)
+    _created("my-db")
+    attach.call("my-db", "--app", "web")
+    _corrupt_credential(db_session, app, "my-db")
+    fakedb.down = True
+
+    with pytest.raises(ValueError, match="cannot tell which environment"):
+        detach.call("my-db", "--app", "web")
+
+    db_session.rollback()
+    assert len(_credentials(db_session, app_id=app.id)) == 1
+    assert "DATABASE_URL" in _env(db_session, app)
+
+
+# --- destroy ------------------------------------------------------------------
+
+
+def test_destroy_requires_a_name(destroy):
+    with pytest.raises(ValueError, match="Usage: hop3 addon destroy"):
+        destroy.call()
+
+
+def test_destroy_removes_the_instance_and_every_attachment(db_session, attach, destroy):
+    web, worker = _app(db_session, "web"), _app(db_session, "worker")
+    _created("shared-db")
+    attach.call("shared-db", "--app", "web")
+    attach.call("shared-db", "--app", "worker")
+
+    result = destroy.call("shared-db")
+
+    assert list_addon_instances() == []
+    assert _credentials(db_session, addon_name="shared-db") == []
+    assert {web.id, worker.id}.isdisjoint(c.app_id for c in _credentials(db_session))
+    assert "destroyed successfully" in result[0]["text"]
+
+
+def test_destroy_of_an_absent_addon_says_so(destroy):
+    result = destroy.call("ghost-db", "--type", FAKE)
+
+    assert "does not exist" in result[0]["text"]
+
+
+def test_destroy_against_a_server_that_is_down_destroys_nothing(
+    db_session, attach, destroy, fakedb
+):
+    """'Does not exist' is an answer; a server that cannot answer is an error."""
+    app = _app(db_session)
+    _created("my-db")
+    attach.call("my-db", "--app", "web")
+    fakedb.down = True
+
+    with pytest.raises(ValueError, match="nothing was destroyed"):
+        destroy.call("my-db")
+
+    db_session.rollback()
+    assert (FAKE, "my-db") in list_addon_instances()
+    assert len(_credentials(db_session, app_id=app.id)) == 1
+
+
+# --- show ---------------------------------------------------------------------
+
+
+def test_show_requires_a_name():
+    with pytest.raises(ValueError, match="Usage: hop3 addon show"):
+        AddonShowCmd().call()
+
+
+def test_show_resolves_the_type_from_the_name_and_prints_the_info():
+    _created("my-db")
+
+    (item,) = AddonShowCmd().call("my-db")
+
+    assert f"Type: {FAKE}" in item["text"]
+    assert "size_mb: 42.5" in item["text"]
+
+
+def test_show_of_an_unknown_name_fails():
+    with pytest.raises(ValueError, match="No addon named 'ghost'"):
+        AddonShowCmd().call("ghost")

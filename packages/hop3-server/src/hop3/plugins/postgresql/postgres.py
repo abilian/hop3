@@ -33,7 +33,7 @@ from psycopg2 import sql
 from psycopg2.errors import DuplicateObject  # type: ignore[import-not-found]
 from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 
-from hop3.config import HOP3_ROOT
+from hop3 import config as c
 from hop3.core.backup import resolve_backup_file
 from hop3.lib.logging import server_log
 from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
@@ -42,11 +42,58 @@ from hop3.plugins.addons import (
     load_addon_secrets,
     save_addon_secrets,
 )
+from hop3.plugins.addons.secrets import find_identifier_clash
 
 from .admin import PostgresAdmin
 
 # Addon type identifier for secrets storage
 ADDON_TYPE = "postgres"
+
+# PostgreSQL keeps the first 63 bytes of an identifier (NAMEDATALEN - 1) and
+# drops the rest with only a NOTICE.
+PG_MAX_IDENTIFIER = 63
+
+
+def _derived_identifiers(addon_name: str) -> tuple[str, str]:
+    """(database, role) as PostgreSQL stores them for ``addon_name``."""
+    db_name = addon_name.replace("-", "_")
+    return db_name[:PG_MAX_IDENTIFIER], f"{db_name}_user"[:PG_MAX_IDENTIFIER]
+
+
+# Tables in a database outside the system schemas: what a previous app left.
+_USER_TABLE_COUNT = """
+SELECT count(*) FROM pg_class c JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'p')
+  AND n.nspname <> 'information_schema' AND n.nspname NOT LIKE 'pg\\_%'
+"""
+
+
+def _refuse_foreign_database(
+    cursor: psycopg2.extensions.cursor, db_name: str, addon_name: str
+) -> None:
+    """
+    Refuse a database that exists, holds tables, and that Hop3 has no secrets for.
+
+    ``cursor`` is connected to ``db_name``. An empty leftover is the residue of
+    a partial teardown and is adopted; a populated one belongs to a previous
+    app of the same name, and adopting it (and resetting its owner's password)
+    would hand the new app the old one's data.
+    """
+    cursor.execute(_USER_TABLE_COUNT)
+    row = cursor.fetchone()
+    table_count = row[0] if row else 0
+    if not table_count:
+        return
+    msg = (
+        f"Database '{db_name}' already exists with {table_count} table(s), but "
+        f"Hop3 holds no credentials for addon '{addon_name}', so this data is "
+        f"left over from a previous app of the same name, not this one. "
+        f"Refusing to attach it: the new app would inherit the old app's data. "
+        f"Either drop it (dropdb {db_name}) if the data is no longer wanted, or "
+        f"install this app under a different name."
+    )
+    raise RuntimeError(msg)
+
 
 # Extensions the platform installs as superuser on behalf of an app.
 # Allow-list rather than deny-list so anything new requires deliberate
@@ -385,6 +432,18 @@ def _give_admin_objects_to(admin: PostgresAdmin, *, db_name: str, db_user: str) 
         conn.close()
 
 
+def _refuse_foreign_database_in(
+    admin: PostgresAdmin, db_name: str, addon_name: str
+) -> None:
+    """Run ``_refuse_foreign_database`` on a connection to ``db_name``."""
+    conn = psycopg2.connect(**admin.get_connection_params(dbname=db_name))
+    try:
+        with conn.cursor() as cursor:
+            _refuse_foreign_database(cursor, db_name, addon_name)
+    finally:
+        conn.close()
+
+
 def _admin_execute(admin: PostgresAdmin, *statements: sql.Composable) -> None:
     """Run ``statements`` in order as the admin, outside a transaction."""
     conn = psycopg2.connect(**admin.get_connection_params())
@@ -466,6 +525,28 @@ class PostgresAddon:
             return secrets.get("password")
         return None
 
+    def _refuse_identifier_clash(self) -> None:
+        """
+        Refuse a new addon whose database or role another postgres addon owns.
+
+        Only a new addon (no stored secrets) is checked: refusing an existing
+        one would block every redeploy of an app whose addon already works.
+        """
+        if load_addon_secrets(ADDON_TYPE, self.addon_name):
+            return
+        other = find_identifier_clash(ADDON_TYPE, self.addon_name, _derived_identifiers)
+        if other is None:
+            return
+        db_name, db_user = _derived_identifiers(self.addon_name)
+        msg = (
+            f"addon name {self.addon_name!r} would give PostgreSQL the database "
+            f"{db_name!r} and role {db_user!r}, which the existing postgres addon "
+            f"{other!r} already uses ('-' and '_' give the same identifier, and "
+            f"PostgreSQL keeps only the first {PG_MAX_IDENTIFIER} characters); "
+            f"choose another name."
+        )
+        raise ValueError(msg)
+
     def create(self) -> None:
         """
         Create a new PostgreSQL database if it does not already exist.
@@ -478,8 +559,12 @@ class PostgresAddon:
         5. Stores the password for future use
 
         If the database already exists but secrets are missing (e.g., after
-        server reinstall), the password is regenerated and saved.
+        server reinstall), an empty one is adopted and its password reset; one
+        that holds tables is refused (see ``_refuse_foreign_database``).
+        A new name whose identifiers another addon owns is refused first.
         """
+        self._refuse_identifier_clash()
+
         # Ensure PostgreSQL is configured for Docker container access
         # This is idempotent and only makes changes if needed
         # These may fail if PostgreSQL is remote or we lack permissions - that's OK
@@ -515,8 +600,9 @@ class PostgresAddon:
                     return
 
                 if db_exists:
-                    # Database exists but secrets are missing - regenerate password
-                    # This can happen after server reinstall or secrets cleanup
+                    # Database exists but secrets are missing (server reinstall,
+                    # secrets cleanup): adopt it only if it is empty.
+                    _refuse_foreign_database_in(admin, self.db_name, self.addon_name)
                     # User may or may not exist, so try CREATE first, fall back to ALTER
                     try:
                         cursor.execute(
@@ -658,6 +744,11 @@ class PostgresAddon:
 
         Returns:
             True if the database exists, False otherwise.
+
+        Raises:
+            psycopg2.Error: PostgreSQL could not be asked (down, refused the
+                superuser). That is not an answer: callers act on False by
+                skipping the teardown.
         """
         admin = self._get_admin()
 
@@ -670,8 +761,6 @@ class PostgresAddon:
                     (self.db_name,),
                 )
                 return cursor.fetchone() is not None
-        except Exception:
-            return False
         finally:
             if connection:
                 connection.close()
@@ -821,7 +910,7 @@ class PostgresAddon:
             msg = f"No stored password for addon '{self.addon_name}'."
             raise RuntimeError(msg)
 
-        backup_dir = HOP3_ROOT / "backups" / "postgres"
+        backup_dir = c.HOP3_ROOT / "backups" / "postgres"
         backup_dir.mkdir(parents=True, exist_ok=True)
 
         timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
@@ -867,7 +956,7 @@ class PostgresAddon:
         # Confine the caller-supplied path to the backup tree: this value
         # comes straight from RPC and reaches a file-reading sink below.
         # Same root backup() writes to, so the two cannot drift apart.
-        backup_path = resolve_backup_file(backup_path, HOP3_ROOT / "backups")
+        backup_path = resolve_backup_file(backup_path, c.HOP3_ROOT / "backups")
 
         if not self._get_stored_password():
             msg = f"No stored password for addon '{self.addon_name}'."

@@ -194,7 +194,7 @@ class TestTheLifecycleTheAddonDependsOn:
 @pytest.fixture
 def hop3_root(tmp_path, monkeypatch):
     monkeypatch.setenv("HOP3_ROOT", str(tmp_path))
-    monkeypatch.setattr(generic_cli, "HOP3_ROOT", tmp_path)
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
     HopConfig.reset_instance()
     yield tmp_path
     HopConfig.reset_instance()

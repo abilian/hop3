@@ -30,10 +30,10 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, cast
 
+from hop3 import config as c
 from hop3.commands._base import Command
 from hop3.commands._errors import command_context
 from hop3.commands._response import blob, error, summary, table, text
-from hop3.config import HOP3_ROOT
 from hop3.core.identifiers import InvalidIdentifierError, validate_service_name
 from hop3.core.plugins import get_addon
 from hop3.core.roles import Role
@@ -325,7 +325,7 @@ def _import_cmd(spec: AddonCliSpec) -> type[Command]:
             content = base64.b64decode(import_data)
             # `restore` reads only from the backup tree, so the dump is
             # staged there, beside the ones `dump` writes.
-            import_dir = HOP3_ROOT / "backups" / spec.type_name
+            import_dir = c.HOP3_ROOT / "backups" / spec.type_name
             import_dir.mkdir(parents=True, exist_ok=True)
             with tempfile.NamedTemporaryFile(
                 dir=import_dir, prefix="import-", suffix=spec.dump_suffix, delete=False
