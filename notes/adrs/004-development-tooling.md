@@ -26,6 +26,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [uv](https://github.com/astral-sh/uv) (by Astral)
 
 **Rationale**:
+
 - **Speed**: Faster than pip/poetry (10-100x)
 - **Workspace Support**: Native monorepo/workspace support for our multi-package architecture
 - **Lock Files**: Deterministic dependency resolution with `uv.lock`
@@ -41,6 +42,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [Make](https://www.gnu.org/software/make/) + [Invoke](https://www.pyinvoke.org/)
 
 **Design**:
+
 - The `Makefile` in the repository root is the primary task runner.
 - `tasks.py` provides Invoke-based tasks for sub-repository management.
 - Both serve CI/CD and developer workflows.
@@ -50,6 +52,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [Ruff](https://github.com/astral-sh/ruff)
 
 **Rationale**:
+
 - **Speed**: 10-100x faster than pylint/flake8
 - **Comprehensive**: Combines flake8, isort, pyupgrade, and more into one
 - **Compatible**: Implements most rules from popular linters
@@ -65,6 +68,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [pytest](https://pytest.org/)
 
 **Rationale**:
+
 - **De facto standard**: Most widely used Python testing framework
 - **Rich ecosystem**: Extensive plugin ecosystem (pytest-cov, pytest-asyncio, etc.)
 - **Fixtures**: Dependency injection for test setup
@@ -72,6 +76,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 - **Readable**: Clear, pythonic test syntax
 
 **Plugins Used**:
+
 - pytest-asyncio: Async test support
 - pytest-cov: Coverage reporting
 - pytest-beartype: Runtime type checking
@@ -84,6 +89,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [pre-commit](https://pre-commit.com/)
 
 **Rationale**:
+
 - **Industry Standard**: Widely adopted for git hook management
 - **Multi-language**: Supports hooks for various languages
 - **Automatic Updates**: Can auto-update hook versions
@@ -96,12 +102,14 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [Pyrefly](https://github.com/tmke8/pyrefly) with [ty](https://github.com/tmke8/ty) (experimental)
 
 **Rationale**:
+
 - **Modern Approach**: New generation type checker addressing limitations of traditional tools
 - **Fast**: Performance-focused implementation
 - **Accurate**: Improved type inference and error detection
 - **Direction**: Where Python type checking is heading
 
 **Experimental Tool - ty**:
+
 - **Advanced Types**: Experimental type system extensions
 - **Research**: Exploring new type checking capabilities
 - **Evaluation**: Candidate for future adoption
@@ -115,6 +123,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [pyinfra](https://pyinfra.com/)
 
 **Rationale**:
+
 - **Python-native**: Infrastructure as code in Python
 - **Agentless**: SSH-based, no agents to install
 - **Fast**: Parallel execution across hosts
@@ -128,6 +137,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [Docker](https://www.docker.com/)
 
 **Rationale**:
+
 - **E2E Testing**: Provides isolated environments for end-to-end tests
 - **Reproducibility**: Consistent testing environments across machines
 - **Industry Standard**: De facto standard for containerization
@@ -139,6 +149,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [MkDocs](https://www.mkdocs.org/) with Material theme
 
 **Rationale**:
+
 - **Markdown-based**: Easy to write and maintain
 - **Beautiful**: Material theme provides a polished look
 - **Features**: Search, navigation, code highlighting
@@ -147,6 +158,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Configuration**: `mkdocs.yml`
 
 **Plugins Used**:
+
 - mkdocs-material: Modern theme
 - mkdocstrings: API documentation from docstrings
 - mkdocs-git-revision-date: Show last update dates
@@ -156,6 +168,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [Nox](https://nox.thea.codes/)
 
 **Rationale**:
+
 - **Isolation**: Each test session in its own virtual environment
 - **Python-based**: Configuration in Python, not YAML
 - **Matrix Testing**: Easy testing across Python versions
@@ -168,6 +181,7 @@ A modern Python project needs a toolchain that supports developer productivity, 
 **Tool**: [REUSE](https://reuse.software/)
 
 **Rationale**:
+
 - **Standard**: FSFE standard for license compliance
 - **Simple**: Easy to verify all files have proper license headers
 - **Automated**: Can be checked in CI/CD
@@ -218,6 +232,7 @@ This tooling stack takes a performance-focused approach to Python development. T
 The choice of Rust-based tools (uv, Ruff) reflects an industry trend toward using systems programming languages for developer tools where performance matters.
 
 We limited tool proliferation by:
+
 - Giving Ruff the work of 5+ separate linting tools
 - Giving uv the work of multiple package management tools
 

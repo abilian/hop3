@@ -169,6 +169,7 @@ hop3 deploy myapp
 ```
 
 Hop3 automatically:
+
 - Configures nginx with your domain
 - Requests a Let's Encrypt SSL certificate
 - Sets up HTTPS redirects
@@ -303,6 +304,7 @@ hop3 app logs myapp
 ```
 
 Common culprits:
+
 - Missing dependency in `requirements.txt`
 - Typo in `Procfile`
 - Port not binding to `$PORT`

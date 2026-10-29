@@ -23,6 +23,7 @@ This "fire-and-forget" pattern creates several problems:
 4. **Poor UX**: Users don't know if the app is actually running
 
 This affects **all deployment types** supported by Hop3:
+
 - **Python apps**: pip install, virtualenv creation
 - **Node.js apps**: npm/yarn install, build scripts
 - **Go apps**: go mod download, go build
@@ -41,11 +42,13 @@ Hop3 streams deployment logs through Server-Sent Events (SSE), with a synchronou
 The deploy command **blocks until the build completes**, capturing and returning all output in a single JSON-RPC response.
 
 **Server responsibilities:**
+
 - `deploy_app()` captures stdout/stderr from the build process
 - The build output is returned as part of the JSON-RPC response
 - The response includes success/failure status
 
 **CLI responsibilities:**
+
 - Wait for the full response (with an appropriate timeout)
 - Display build output as it's received
 - Show a clear success/failure indication
@@ -69,10 +72,12 @@ def deploy_app(app_name: str) -> dict:
 ```
 
 **Pros:**
+
 - Works within the existing JSON-RPC framework
 - Output captured in a single response
 
 **Cons:**
+
 - Long builds may hit HTTP/proxy timeouts
 - No incremental output during the build
 - The client must wait for the full response

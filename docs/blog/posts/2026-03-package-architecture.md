@@ -52,6 +52,7 @@ hop3-server is the core platform that runs on your deployment server.
 **Entry point**: `hop3-server serve`
 
 **Responsibilities**:
+
 - JSON-RPC API for CLI/TUI communication
 - Application deployment orchestration
 - Reverse proxy configuration
@@ -69,6 +70,7 @@ hop3-cli is a thin client that developers use to interact with Hop3 servers.
 **Entry point**: `hop3` or `hop`
 
 **Responsibilities**:
+
 - Parse and validate commands
 - Manage SSH tunnels to remote servers
 - Send RPC calls and display responses
@@ -83,6 +85,7 @@ hop3-cli is a thin client that developers use to interact with Hop3 servers.
 hop3-installer holds the tools for installing Hop3, with minimal dependencies.
 
 **Entry points**:
+
 - `hop3-install` - Production installer for end users
 - `hop3-deploy` - Developer deployment tool
 
@@ -97,6 +100,7 @@ hop3-tui is a terminal UI built with Textual for keyboard-driven server manageme
 **Entry point**: `hop3-tui`
 
 **Responsibilities**:
+
 - Dashboard with system metrics
 - Application management
 - Real-time log viewing
@@ -113,6 +117,7 @@ Testing utilities and fixtures for E2E testing.
 **Entry point**: `hop3-test`
 
 **Responsibilities**:
+
 - Pytest fixtures for integration/E2E testing
 - Docker and SSH target management
 - Test catalog and discovery
@@ -208,6 +213,7 @@ pip install hop3-tui  # Add TUI if wanted
 ### When to Split
 
 Split when you have:
+
 - Different deployment targets (server vs. local machine)
 - Different user personas (admin vs. developer)
 - Optional functionality (TUI, testing tools)
@@ -216,6 +222,7 @@ Split when you have:
 ### When to Keep Together
 
 Keep together when:
+
 - Components always change together
 - Splitting would create circular dependencies
 - The split boundary is unclear
@@ -240,6 +247,7 @@ members = ["packages/*"]
 ```
 
 This lets us:
+
 - Install all packages in development: `uv sync`
 - Run tests across packages: `pytest packages/`
 - Build all packages: `uv build --all`

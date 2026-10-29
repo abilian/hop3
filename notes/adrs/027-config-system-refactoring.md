@@ -573,6 +573,7 @@ def test_app_create(tmp_path):
 ### From Monkeypatching the Module-Level Constants
 
 The dashboard UI tests ([ADR 026](./026-dashboard-ui-test-classification.md)) exposed the pain of monkeypatching this configuration:
+
 - Several distinct locations must be patched in lockstep.
 - Patching is insufficient on its own: `App.create()` must also be mocked.
 - Results depend on import order, so tests break when it changes.

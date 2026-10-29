@@ -47,6 +47,7 @@ All multi-token commands use spaces (`hop3 env set`). The top-level surface hold
 #### D2: Top-level placement is governed by a principled rule
 
 A command is top-level if and only if *all three* are true:
+
 1. It operates on at most one app.
 2. It is a read (`logs`, `status`, `ps`), a non-destructive runtime control (`restart`, `scale`, `ssh`, `open`), or a deploy verb (`deploy`, `run`).
 3. It is in the top ~15 by frequency.
@@ -152,6 +153,7 @@ Unresolvable → fail with the chain printed and a one-line fix suggested.
 **Prefix aliases are supported**: an alias may rewrite the first N tokens. `pg = "addon postgres"` is valid and makes `hop3 pg diagnose mydb` expand to `hop3 addon postgres diagnose mydb`. The subcommand-check at the expansion point still applies.
 
 **Sources**:
+
 - **Core aliases** (built-in, shipped with the CLI): small curated set: see `command-catalog.md`.
 - **Plugin aliases**: registered via the plugin manifest (see [ADR 039](./039-python-deploy-strategies.md)).
 - **User aliases**: in `~/.config/hop3-cli/config.toml` under `[aliases]`. Static text expansions only (no `$VAR`, no backticks). Circular or unresolvable → rejected.
@@ -222,6 +224,7 @@ Destructive operations (`destroy`, `restore`, `user remove`, `context remove`) p
 #### D15: Hidden commands
 
 A command with `hidden: True`:
+
 - Does not appear in `hop3 help`, help-all, namespace help, or tab completion.
 - Still invokable explicitly if its name is typed.
 - Appears in `hop3 help --hidden` (opt-in view).

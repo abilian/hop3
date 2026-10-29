@@ -12,6 +12,7 @@ This ADR describes the implementation of a background reconciliation loop and ac
 ## Summary
 
 We will implement:
+
 1. **Background Reconciliation Loop**: A periodic task that synchronizes database state with actual process state
 2. **Active Health Checks**: Probing of application health endpoints with configurable checks
 3. **Restart Policies**: Automatic recovery from failures with configurable retry behavior
@@ -24,6 +25,7 @@ These components work together to transform Hop3 from a "fire and forget" deploy
 ### Context
 
 Currently, Hop3 only synchronizes application state in two scenarios:
+
 1. When the dashboard is viewed (HTMX polling triggers `App.sync_state()`)
 2. When lifecycle commands are explicitly run (`hop3 app start`, etc.)
 
@@ -56,6 +58,7 @@ This creates several problems:
 ## Decision
 
 We will implement a unified **Watchdog** service that runs as part of the Hop3 server process, responsible for:
+
 1. Periodic reconciliation of all application states
 2. Execution of configured health checks
 3. Enforcement of restart policies
@@ -1018,6 +1021,7 @@ class ResetRestartsCommand(Command):
 #### 6.2 Dashboard Integration
 
 The dashboard should display:
+
 - Health status indicator (green/yellow/red) for each app
 - Last health check timestamp
 - Restart count and policy

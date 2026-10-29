@@ -55,6 +55,7 @@ Multi-server distribution is not needed for Hop3's primary use case (single-serv
 ## Decision
 
 Hop3 will adopt an agent-based architecture where each server runs an autonomous agent that:
+
 1. Manages local application lifecycle
 2. Maintains promises about application state
 3. Reports status to a coordinator (in multi-server mode)
@@ -91,6 +92,7 @@ Phase 1 implements the core patterns on a single server (the detailed design liv
 ```
 
 Key deliverables:
+
 - `WatchdogService`: Background reconciliation loop (30-60 second cycle)
 - `HealthChecker`: Command and HTTP-based health probing
 - `RestartPolicy`: NEVER, ON_FAILURE, ALWAYS with exponential backoff
@@ -148,6 +150,7 @@ class LocalAgent:
 ```
 
 Key deliverables:
+
 - `LocalAgent`: Encapsulates all agent responsibilities
 - `AgentStatus`: Standardized status reporting format
 - `Task` / `Promise`: Data structures for task assignment
@@ -262,6 +265,7 @@ class Scheduler:
 ```
 
 Key deliverables:
+
 - `Coordinator`: Central management service
 - `Scheduler`: Three-phase scheduling algorithm
 - `AgentConnection`: Agent communication protocol
@@ -345,6 +349,7 @@ Rather than issuing imperative commands ("deploy this app now"), the coordinator
 5. Coordinator: Verifies promise periodically
 
 This provides:
+
 - **Decentralization**: Agents decide how to fulfill promises
 - **Fault Tolerance**: Broken promises trigger re-scheduling
 - **Auditability**: Promise history gives a clear audit trail

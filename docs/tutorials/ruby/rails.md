@@ -495,6 +495,7 @@ sleep 5
 ```
 
 You'll see output showing:
+
 - Code upload
 - Dependency installation (`bundle install`)
 - Asset compilation
@@ -713,6 +714,7 @@ hop3 backup create --app hop3-tuto-rails
 ```
 
 This backs up:
+
 - Application source code
 - Database (PostgreSQL dump)
 - Environment variables
@@ -780,6 +782,7 @@ If assets aren't loading:
 ### Slow Application Startup
 
 For faster boot times:
+
 - Use `bootsnap` (included by default in Rails 8)
 - Preload the application in Puma (`preload_app!`)
 - Consider using `jemalloc` for better memory management

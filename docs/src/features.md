@@ -200,6 +200,7 @@ hop3 system status
 ```
 
 Checks:
+
 - Core services (hop3-server, the reverse proxy, uwsgi)
 - Database addons
 - Disk space

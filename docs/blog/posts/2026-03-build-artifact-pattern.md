@@ -32,6 +32,7 @@ def deploy(app: App) -> None:
 ```
 
 Problems:
+
 1. **Tightly coupled**: Run logic knew about build details
 2. **Not portable**: Couldn't build on one machine, run on another
 3. **Hard to extend**: Each new language needed changes in multiple places

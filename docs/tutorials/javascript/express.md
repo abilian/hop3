@@ -569,6 +569,7 @@ hop3 app logs --app hop3-tuto-express
 ```
 
 Common issues:
+
 - **Missing dependencies**: Ensure `npm install` runs during build
 - **Wrong Node.js version**: Check `engines` field in `package.json`
 - **Port binding**: Ensure you use `process.env.PORT`
@@ -599,6 +600,7 @@ Ensure all dependencies are in `dependencies` (not `devDependencies`) if needed 
 ### Slow Startup
 
 For faster cold starts:
+
 - Minimize dependencies
 - Use lazy loading for heavy modules
 - Consider using `esbuild` or `webpack` to bundle your app

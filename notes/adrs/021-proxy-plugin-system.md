@@ -61,11 +61,13 @@ class Proxy(Protocol):
 ### Input Specifications
 
 **`app: App`** - The application being configured:
+
 - `app.name` - Application identifier (used in config filenames)
 - `app.app_path` - Application directory path
 - `app.state` - Current application state
 
 **`env: Env`** - Application environment variables:
+
 - `HOST_NAME` - Primary domain(s) for this app (comma-separated)
 - `NGINX_STATIC_PATHS` - Static file paths to serve directly
 - `NGINX_CLOUDFLARE_CERT` - Enable Cloudflare Origin certificates
@@ -82,16 +84,19 @@ class Proxy(Protocol):
 ### Output and Side Effects
 
 **Configuration Files Created:**
+
 - Nginx: `HOP3_ROOT/nginx/{app_name}.conf`
 - Caddy: `HOP3_ROOT/caddy/{app_name}.caddyfile`
 - Traefik: `HOP3_ROOT/traefik/{app_name}.yml`, read by Traefik's file provider
 
 **SSL/TLS Certificates:**
+
 - Issued by Hop3's certificate engine (self-signed, or Let's Encrypt through certbot)
 - Written where each proxy reads them, beside the app's configuration
 - Renewed by Hop3, which rewrites them and reloads the proxy
 
 **Server Reload:**
+
 - Graceful reload (no dropped connections)
 - Configuration validation before reload
 - Rollback on validation failure
@@ -268,6 +273,7 @@ A server runs **one reverse proxy instance** listening on ports 80/443:
 - **Operations:** Simpler to manage and monitor a single service
 
 **Alternative Rejected:** Per-application proxy selection would require:
+
 - Multiple proxy instances on different ports (requires meta-proxy for port 80/443)
 - Complex port routing layer
 - Operational complexity for negligible benefit

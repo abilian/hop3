@@ -76,6 +76,7 @@ heroku config -a your-app --shell > heroku-env.txt
 ```
 
 Review the file and remove Heroku-specific variables:
+
 - `DATABASE_URL` (will be set by Hop3 addon)
 - `REDIS_URL` (will be set by Hop3 addon)
 - `PORT` (auto-set by Hop3)

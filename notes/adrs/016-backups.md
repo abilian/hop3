@@ -35,6 +35,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 ### Backup Types and Frequency
 
 **Phase 1** (specified in [ADR 024](./024-backup-restore-system.md)):
+
 - Manual full backups on demand
 - All application components in one backup
 
@@ -55,6 +56,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 ### Backup Storage and Security
 
 **Phase 1** (specified in [ADR 024](./024-backup-restore-system.md)):
+
 - Local file-based storage only
 - File permissions (600) for access control
 - SHA256 checksums for integrity
@@ -72,6 +74,7 @@ The strategy is delivered in phases, so that a usable foundation exists before t
 ### Restoration Procedures
 
 **Phase 1** (specified in [ADR 024](./024-backup-restore-system.md)):
+
 - Manual restore via CLI (`hop3 backup restore`)
 - Checksum verification before restore
 - Service-specific restore (PostgreSQL via `pg_restore`, etc.)

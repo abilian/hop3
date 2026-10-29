@@ -24,6 +24,7 @@ This plugin provides a simple build strategy that creates a Python virtualenv fo
 ### As a Learning Tool
 
 Study the code to understand:
+
 - How to structure a plugin
 - How to implement the `Builder` protocol
 - How to register strategies via hooks

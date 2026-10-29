@@ -235,6 +235,7 @@ hop3-test run --list-images
 ```
 
 Each test:
+
 1. Creates a fresh VM
 2. Runs the installer
 3. Deploys test applications

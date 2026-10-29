@@ -3,7 +3,7 @@
 ZENSICAL := uv run zensical
 PYTHON := uv run python
 
-.PHONY: help build serve clean convert-tutorials convert-adrs generate-blog-index preprocess schema lint-cli llms-full
+.PHONY: help build serve clean convert-tutorials convert-adrs generate-blog-index preprocess schema lint-cli lint-lists llms-full
 
 help:
 	@echo "Hop3 Documentation (Zensical)"
@@ -18,6 +18,7 @@ help:
 	@echo "  make schema              - Publish the hop3.toml JSON Schema into site/"
 	@echo "  make llms-full           - Publish llms-full.txt (whole docs, one file) into site/"
 	@echo "  make lint-cli            - Check every documented \`hop3 ...\` command exists"
+	@echo "  make lint-lists          - Check every list has a blank line before it"
 	@echo ""
 
 convert-tutorials:
@@ -51,6 +52,11 @@ llms-full:
 lint-cli:
 	$(PYTHON) scripts/lint_cli_commands.py
 
+# Python-Markdown renders a list glued to the paragraph above as part of that
+# paragraph. Checks the sources, so the fix lands where the text is edited.
+lint-lists:
+	git ls-files --cached --others --exclude-standard src tutorials blog/posts ../notes/adrs | grep '\.md$$' | xargs $(PYTHON) scripts/lint_lists.py
+
 # The Open Graph card a shared link shows: the deck's first slide. Committed, and
 # redrawn (pdftoppm, from poppler) only when the deck is newer.
 OG_CARD := src/assets/og/card.jpg
@@ -59,7 +65,7 @@ $(OG_CARD): src/pdf/hop3.pdf
 	@mkdir -p $(dir $@)
 	pdftoppm -f 1 -l 1 -singlefile -jpeg -jpegopt quality=85 -scale-to-x 1200 -scale-to-y -1 $< $(basename $@)
 
-build: preprocess lint-cli $(OG_CARD)
+build: preprocess lint-cli lint-lists $(OG_CARD)
 	$(ZENSICAL) build
 	uv run hop3-install bundle --all --output-dir site/
 	@make schema

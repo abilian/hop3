@@ -36,6 +36,7 @@ From user feedback and observation:
 ### Design Goals
 
 The CLI improvements should:
+
 - **Prevent accidents**: Confirm destructive actions before executing
 - **Improve clarity**: Use colors and formatting to make output scannable
 - **Enable automation**: Support machine-readable JSON output
@@ -50,12 +51,14 @@ We will implement a comprehensive set of CLI user experience improvements organi
 ### 1. Interactive Confirmation for Destructive Actions
 
 **Design:**
+
 - Add `destructive: ClassVar[bool]` metadata to the `Command` base class
 - Mark commands that delete/destroy data as `destructive = True`
 - CLI automatically prompts for confirmation before executing destructive commands
 - Users can bypass prompts with `-y` / `--yes` / `--force` flags
 
 **Destructive Commands:**
+
 - `app destroy` - Destroys application and all data
 - `backup destroy` - Permanently deletes a backup
 - `addon destroy` - Destroys service instance and all data
@@ -69,12 +72,14 @@ Type the app name to confirm: _
 ```
 
 **Benefits:**
+
 - Prevents accidental data loss
 - Makes consequences clear before execution
 - Allows automation with bypass flags
 - Follows industry standards (AWS CLI, kubectl, etc.)
 
 **Alternatives Considered:**
+
 - **Soft deletes**: Rejected - adds complexity, doesn't prevent all accidents
 - **Undo functionality**: Rejected - not feasible for all operations (e.g., service data)
 - **Config file setting**: Rejected - per-command flag is more explicit
@@ -82,6 +87,7 @@ Type the app name to confirm: _
 ### 2. Rich Output Formatting
 
 **Design:**
+
 - Use the [Rich](https://rich.readthedocs.io/) library for enhanced terminal output
 - Create new `RichPrinter` class that replaces the basic `Printer`
 - Support multiple message types with appropriate styling:
@@ -93,6 +99,7 @@ Type the app name to confirm: _
   - **Panels**: Boxed text for important messages
 
 **Output Message Protocol:** Messages from server include type field `"t"`:
+
 - `"success"` - Success messages (green)
 - `"error"` - Error messages (red, stderr)
 - `"warning"` - Warning messages (yellow)
@@ -102,12 +109,14 @@ Type the app name to confirm: _
 - `"progress"` - Progress updates (spinner/bar)
 
 **Benefits:**
+
 - Easier to scan output visually
 - Errors immediately visible (red)
 - Professional appearance
 - Better accessibility (color + icons)
 
 **Alternatives Considered:**
+
 - **Termcolor**: Rejected - less feature-rich than Rich
 - **Colorama**: Rejected - only colors, no tables/panels
 - **Custom implementation**: Rejected - Rich is stable and widely used
@@ -115,6 +124,7 @@ Type the app name to confirm: _
 ### 3. Machine-Readable Output
 
 **Design:**
+
 - Add `--json` flag to output all results as JSON
 - JSON output goes to stdout, can be piped to `jq` or parsed by scripts
 - All message types preserved in JSON with metadata
@@ -139,12 +149,14 @@ Type the app name to confirm: _
 ```
 
 **Benefits:**
+
 - Easy integration with scripts
 - CI/CD can parse results
 - Enables custom tooling
 - Preserves all information
 
 **Alternatives Considered:**
+
 - **CSV output**: Rejected - only works for tables
 - **XML output**: Rejected - too verbose
 - **YAML output**: Rejected - harder to parse than JSON
@@ -152,6 +164,7 @@ Type the app name to confirm: _
 ### 4. Quiet Mode
 
 **Design:**
+
 - Add `--quiet` / `-q` flag to suppress all output except errors
 - Only exit code indicates success/failure
 - Errors always printed to stderr (even in quiet mode)
@@ -172,17 +185,20 @@ $ echo $?
 ```
 
 **Benefits:**
+
 - Clean CI/CD logs
 - Faster execution (no formatting overhead)
 - Standard CLI pattern
 
 **Alternatives Considered:**
+
 - **Verbosity levels (-v, -vv, -vvv)**: Deferred to future enhancement
 - **Log file option**: Deferred to future enhancement
 
 ### 5. Progress Indicators
 
 **Design:**
+
 - Use Rich Progress API for long-running operations
 - Show spinner for operations without known duration
 - Show progress bar for operations with stages (build → deploy → start)
@@ -208,12 +224,14 @@ Deploying my-app
 ```
 
 **Benefits:**
+
 - Users know command is working
 - Reduces support requests
 - Professional appearance
 - Matches expectations from modern tools
 
 **Alternatives Considered:**
+
 - **Simple dots (...)**: Rejected - less informative
 - **Percentage only**: Rejected - doesn't show what's happening
 - **No progress**: Rejected - poor UX
@@ -221,11 +239,13 @@ Deploying my-app
 ### 6. Client-Side Validation
 
 **Design:**
+
 - Validate inputs before sending to server
 - Check for common mistakes with helpful error messages
 - Provide suggestions for fixing errors
 
 **Validations:**
+
 - **App names**: Alphanumeric + hyphens only, max 63 chars
 - **Deploy command**: Check for `hop3.toml` or `Procfile` existence
 - **Backup restore**: Validate backup ID format
@@ -244,12 +264,14 @@ Did you mean: 'my-app'?
 ```
 
 **Benefits:**
+
 - Faster feedback (no round-trip to server)
 - Better error messages
 - Fewer server errors
 - Guides users to correct usage
 
 **Alternatives Considered:**
+
 - **Server-side only**: Rejected - slower feedback (round-trip per error)
 - **Strict validation**: Rejected - too restrictive
 - **No suggestions**: Rejected - less helpful
@@ -330,6 +352,7 @@ Did you mean: 'my-app'?
 **Keep current simple CLI as-is**
 
 **Rejected because:**
+
 - Users want better UX
 - Accidental deletions are real problem
 - Automation requires workarounds
@@ -340,6 +363,7 @@ Did you mean: 'my-app'?
 **Just add confirmation prompts, skip formatting**
 
 **Rejected because:**
+
 - Confirmation alone doesn't address other pain points
 - Rich formatting provides clear value
 - Partial solution doesn't meet user needs
@@ -350,6 +374,7 @@ Did you mean: 'my-app'?
 **Rewrite CLI using Click or Typer framework**
 
 **Rejected because:**
+
 - Current architecture works well
 - RPC-based design is core advantage
 - Migration would break compatibility
@@ -360,6 +385,7 @@ Did you mean: 'my-app'?
 **Have server prompt for confirmation via RPC**
 
 **Rejected because:**
+
 - Breaks client-server separation
 - Harder to test
 - Requires complex RPC protocol changes
@@ -370,11 +396,13 @@ Did you mean: 'my-app'?
 ### For Users
 
 **Existing workflows continue to work:**
+
 - Default behavior unchanged for non-destructive commands
 - Destructive commands now prompt (add `-y` to scripts)
 - Old text output still works (add `--json` for parsing)
 
 **Migration steps:**
+
 1. Update scripts with `-y` flag for destructive commands
 2. Update parsing scripts to use `--json` flag
 3. Remove custom progress indicators (now built-in)
@@ -382,6 +410,7 @@ Did you mean: 'my-app'?
 ### For Developers
 
 **New command development:**
+
 1. Use new message types in command responses
 2. Mark destructive commands with `destructive = True`
 3. Emit progress updates for long operations
@@ -392,6 +421,7 @@ Did you mean: 'my-app'?
 ### Verbosity Levels
 
 **Deferred from initial scope; planned:**
+
 - `-v` / `--verbose`: Show debug information
 - `-vv`: Show even more debug information
 - Default: Current level
@@ -399,6 +429,7 @@ Did you mean: 'my-app'?
 ### Custom Themes
 
 **User-configurable color schemes:**
+
 - Light theme for light terminals
 - Dark theme for dark terminals
 - Accessibility themes (high contrast)
@@ -407,6 +438,7 @@ Did you mean: 'my-app'?
 ### Command History
 
 **Shell-like command history:**
+
 - Up arrow to recall previous commands
 - Searchable history
 - Stored in `~/.hop3/history`
@@ -414,6 +446,7 @@ Did you mean: 'my-app'?
 ### Auto-Completion
 
 **Shell completion for bash/zsh/fish:**
+
 - Complete command names
 - Complete app names
 - Complete backup IDs
@@ -422,6 +455,7 @@ Did you mean: 'my-app'?
 ### Progress Persistence
 
 **Resume interrupted operations:**
+
 - Save progress state
 - Resume on reconnect
 - Useful for long deploys over unstable connections
@@ -429,12 +463,14 @@ Did you mean: 'my-app'?
 ## References
 
 **Inspiration from:**
+
 - [AWS CLI](https://aws.amazon.com/cli/) - Confirmation prompts, JSON output
 - [kubectl](https://kubernetes.io/docs/reference/kubectl/) - Rich output, validation
 - [GitHub CLI](https://cli.github.com/) - Modern UX patterns
 - [Heroku CLI](https://devcenter.heroku.com/articles/heroku-cli) - Simplicity focus
 
 **Libraries:**
+
 - [Rich](https://rich.readthedocs.io/) - Terminal formatting
 - [Click](https://click.palletsprojects.com/) - Future consideration
 - [Typer](https://typer.tiangolo.com/) - Future consideration

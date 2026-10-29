@@ -181,6 +181,7 @@ def get_json_schema() -> dict[str, Any]:
 ```
 
 VS Code with the Even Better TOML extension can use this for:
+
 - Field autocompletion
 - Inline documentation
 - Real-time validation
@@ -240,6 +241,7 @@ The worst bugs are silent failures. `extra="forbid"` turns silent ignores into c
 ### 2. Context in Error Messages
 
 Every error message should identify:
+
 - What field was wrong
 - What was expected
 - Where to find documentation

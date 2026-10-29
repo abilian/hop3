@@ -381,6 +381,7 @@ deployed successfully
 ```
 
 You'll see output showing:
+
 - Code upload
 - Dependency installation (`npm install`)
 - Application build (`npm run build`)
@@ -606,6 +607,7 @@ hop3 app logs --app hop3-tuto-nextjs
 ```
 
 Common issues:
+
 - **Missing standalone output**: Ensure `output: "standalone"` is in `next.config.ts`
 - **Static files not copied**: Check the `prerun` command in Procfile
 - **Wrong hostname binding**: Set `HOSTNAME=0.0.0.0`
@@ -638,6 +640,7 @@ cp -r public .next/standalone/
 ### Slow Cold Starts
 
 To improve cold start times:
+
 - Minimize dependencies
 - Use dynamic imports for heavy components
 - Consider edge runtime for API routes where appropriate

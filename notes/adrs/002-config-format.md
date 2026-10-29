@@ -21,6 +21,7 @@ The format defines a stable core that the runtime consumes, plus forward-looking
 
 ### Reserved fields
 These fields appear in the spec and in some documentation examples but are not consumed by the runtime. They are retained in the design:
+
 - `[metadata]` extras: `author`, `tagline`, `tags`, `profile`, `release`.
 - `[build]` extras: `license`, `src-url`, `src-checksum`, `git-url`, `git-branch`, `base-image`, `method`, `test`.
 - `[backup]` section.

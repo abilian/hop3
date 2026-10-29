@@ -489,6 +489,7 @@ sleep 5
 ```
 
 You'll see output showing:
+
 - Code upload
 - Maven build (`mvn package`)
 - Application startup
@@ -783,6 +784,7 @@ hop3 app logs --app hop3-tuto-spring-boot
 ```
 
 Common issues:
+
 - **Port binding**: Ensure using `${PORT}` or `-Dserver.port=$PORT`
 - **Memory issues**: Increase heap with `JAVA_OPTS`
 - **Missing dependencies**: Check `mvn dependency:tree`

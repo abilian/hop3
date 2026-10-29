@@ -392,6 +392,7 @@ hop3 env set --app hop3-tuto-symfony APP_DEBUG=0
 Keep `composer.lock` (it pins your dependency versions for local work) and
 remove the JS manifests so the builder doesn't mis-detect this as a
 multi-language project:
+
 - `package.json` / `package-lock.json` - prevent Node mis-detection
 
 The server runs `composer install --no-dev` from the committed `composer.lock` for a reproducible build. The `--ignore-platform-req=ext-redis` flag is there because `symfony/cache` wants the phpredis extension at >= 6.1; this app doesn't use redis, so we let composer install without it.

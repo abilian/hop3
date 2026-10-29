@@ -536,11 +536,13 @@ Separating build from deployment enables composition:
 The `Builder` protocol has three production implementations and the `Deployer` protocol three, spanning the native, container, and Nix toolchains:
 
 **Build:**
+
 - `LocalBuilder` (`NativeBuildPlugin`) - native builds for Python, Node.js, Ruby, Go, Clojure, and static sites
 - `DockerBuilder` - Docker-based builds
 - `NixBuilder` - Nix closure builds
 
 **Deployment:**
+
 - `UWSGIDeployer` - uWSGI application server with Unix sockets
 - `StaticDeployer` - static file serving via reverse proxy
 - `DockerDeployer` - Docker Compose container deployment

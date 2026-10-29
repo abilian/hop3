@@ -739,6 +739,7 @@ hop3 app logs --app hop3-tuto-flask
 ```
 
 Common issues:
+
 - **Missing SECRET_KEY**: `hop3.toml` generates it on the first deploy; check `hop3 env show --app hop3-tuto-flask` that it is set
 - **Module not found**: Ensure all dependencies are in `requirements.txt`
 - **Port binding**: Ensure Gunicorn binds to `0.0.0.0:$PORT`

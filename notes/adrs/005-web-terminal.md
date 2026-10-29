@@ -11,6 +11,7 @@ The web terminal is an operator convenience for cases where SSH is inconvenient 
 ## Context
 
 Users need shell access to their deployed applications directly through the web interface for troubleshooting and operational tasks. Currently, users must:
+
 - SSH into the server
 - Navigate to the app directory
 - Manually set up the environment
@@ -30,6 +31,7 @@ This creates friction and requires SSH access to the host, which may not be desi
 ### Requirements
 
 **Must Have:**
+
 - Secure, authenticated terminal access per application
 - Proper PTY (pseudo-terminal) emulation with colors and control sequences
 - Session management with timeouts
@@ -37,6 +39,7 @@ This creates friction and requires SSH access to the host, which may not be desi
 - Multi-session support (multiple terminal tabs)
 
 **Should Have:**
+
 - Read-only mode for monitoring without command execution
 - Session recording for audit and replay
 - Copy/paste functionality
@@ -44,12 +47,14 @@ This creates friction and requires SSH access to the host, which may not be desi
 - Keyboard shortcuts for power users
 
 **Could Have:**
+
 - Multi-user collaborative terminals
 - Database shell integration (psql, mysql client)
 - System-level terminal for superadmins
 - Command approval workflows for sensitive operations
 
 **Won't Have (v1):**
+
 - Full IDE capabilities
 - GUI file editor
 - Real-time collaborative editing
@@ -61,6 +66,7 @@ We will implement a web-based terminal feature using the following architecture:
 ### Technology Stack
 
 **Frontend:**
+
 - **xterm.js**: Terminal emulator
   - Full VT100/xterm terminal emulation
   - Extensive addon ecosystem
@@ -69,6 +75,7 @@ We will implement a web-based terminal feature using the following architecture:
 - **Alpine.js**: Lightweight reactive UI (already in use)
 
 **Backend:**
+
 - **Python PTY module**: Proper terminal emulation with shell
 - **Asyncio**: Non-blocking I/O for multiple concurrent sessions
 - **Litestar WebSocket routes**: Native framework support
@@ -118,6 +125,7 @@ class TerminalPermission(Enum):
 ```
 
 **Access Control:**
+
 - Only authenticated users can access terminals
 - User must have `terminal:app:{app_name}` permission
 - Superadmins have `terminal:global` for all apps
@@ -158,6 +166,7 @@ class TerminalLimits:
 #### Audit Logging
 
 All terminal sessions will be:
+
 - **Logged.** Start time, end time, user, app, commands executed
 - **Recorded.** Full session recording in asciicast v2 format
 - **Monitored.** Real-time alerts for suspicious activity
@@ -329,6 +338,7 @@ terminal.onData((data) => {
 ```
 
 **Keyboard Shortcuts:**
+
 - `Ctrl+Shift+T` - New terminal session
 - `Ctrl+Shift+W` - Close current session
 - `Ctrl+Shift+C` - Copy selection
@@ -369,6 +379,7 @@ max_memory = 536870912  # 512MB
 ### Positive
 
 **For Users:**
+
 - ✅ Faster debugging and troubleshooting
 - ✅ No need for SSH access to server
 - ✅ Accessible from any device with browser
@@ -376,6 +387,7 @@ max_memory = 536870912  # 512MB
 - ✅ Safer than giving full SSH access
 
 **For Operations:**
+
 - ✅ Complete audit trail of all terminal activity
 - ✅ Ability to restrict dangerous commands
 - ✅ Resource limits prevent runaway processes
@@ -383,6 +395,7 @@ max_memory = 536870912  # 512MB
 - ✅ Fine-grained access control (app-specific terminals)
 
 **For Platform:**
+
 - ✅ Feature parity with Heroku, Render, Railway
 - ✅ Differentiator from simpler PaaS offerings
 - ✅ Reduces support burden (users can self-diagnose)
@@ -391,6 +404,7 @@ max_memory = 536870912  # 512MB
 ### Negative
 
 **Security Risks:**
+
 - ⚠️ New attack surface (WebSocket endpoint)
 - ⚠️ Risk of privilege escalation if not implemented carefully
 - ⚠️ Command injection if input not properly sanitized
@@ -398,6 +412,7 @@ max_memory = 536870912  # 512MB
 - ⚠️ Session hijacking if WebSocket not properly secured
 
 **Mitigation:**
+
 - Use session-based auth (no tokens in URLs)
 - Implement command filtering and confirmation
 - Enforce strict resource limits (CPU, memory, time)
@@ -405,12 +420,14 @@ max_memory = 536870912  # 512MB
 - Rate limiting on WebSocket connections
 
 **Performance Concerns:**
+
 - ⚠️ Each terminal session requires a PTY (file descriptor)
 - ⚠️ WebSocket connections are long-lived
 - ⚠️ Large output can overwhelm browser/network
 - ⚠️ Session recordings can grow large
 
 **Mitigation:**
+
 - Limit sessions per user (5 default)
 - Output buffer size limits (10MB default)
 - Automatic session cleanup on idle timeout
@@ -418,12 +435,14 @@ max_memory = 536870912  # 512MB
 - Optional: store recordings in S3/object storage
 
 **Complexity:**
+
 - ⚠️ PTY management is complex (signals, resize, terminal modes)
 - ⚠️ WebSocket state management
 - ⚠️ Multi-session coordination
 - ⚠️ Browser compatibility issues with xterm.js
 
 **Mitigation:**
+
 - Use libraries the field trusts (xterm.js, Python pty module)
 - Test at every layer (unit, integration, E2E)
 - Progressive enhancement (graceful degradation)
@@ -434,11 +453,13 @@ max_memory = 536870912  # 512MB
 ### 1. SSH-based Terminal (Wetty/ttyd)
 
 **Pros:**
+
 - Use existing SSH infrastructure
 - Standard protocol, well-tested
 - No new server-side code
 
 **Cons:**
+
 - Requires SSH access to server
 - Harder to implement fine-grained permissions
 - No easy way to restrict to app environment
@@ -449,10 +470,12 @@ max_memory = 536870912  # 512MB
 ### 2. Execute via RPC (Current Approach)
 
 **Pros:**
+
 - Already have RPC infrastructure
 - Simple request/response model
 
 **Cons:**
+
 - No interactive shell (no PTY)
 - No real-time output streaming
 - Can't use interactive tools (vim, top, etc.)
@@ -463,10 +486,12 @@ max_memory = 536870912  # 512MB
 ### 3. Container Exec (Docker/Podman)
 
 **Pros:**
+
 - Native container isolation
 - Standard exec interface
 
 **Cons:**
+
 - Requires containerization (not all apps use containers)
 - More complex infrastructure
 - Harder to implement resource limits
@@ -476,10 +501,12 @@ max_memory = 536870912  # 512MB
 ### 4. Gotty/Tmate (Standalone Terminal Sharing)
 
 **Pros:**
+
 - Off-the-shelf solution
 - Minimal integration needed
 
 **Cons:**
+
 - External dependency
 - Limited customization
 - No integration with our auth system
@@ -500,14 +527,17 @@ max_memory = 536870912  # 512MB
 ### Libraries & Tools
 
 **Frontend:**
+
 - [xterm.js](https://xtermjs.org/): Terminal emulator
 - [local-echo](https://github.com/wavesoft/local-echo): Input handling
 
 **Backend:**
+
 - [pty (Python)](https://docs.python.org/3/library/pty.html): Pseudo-terminal utilities
 - [pyte](https://github.com/selectel/pyte): Terminal emulator (if needed)
 
 **Recording:**
+
 - [asciinema](https://asciinema.org/): Terminal session recording format
 
 ### Security Standards

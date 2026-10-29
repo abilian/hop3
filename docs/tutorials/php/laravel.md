@@ -504,6 +504,7 @@ There's nothing to set by hand: `APP_KEY` is generated automatically on the firs
 Keep `composer.lock` (it pins your dependency versions for local work) and
 remove the JS manifests so the builder doesn't mistake this for a multi-language
 project (Vite isn't needed for a basic deployment):
+
 - `package.json` / `package-lock.json` / `vite.config.js` - prevent Node mis-detection
 
 The server runs `composer install --no-dev --optimize-autoloader` from the committed `composer.lock` for a reproducible production build.
@@ -544,6 +545,7 @@ sleep 5
 ```
 
 You'll see output showing:
+
 - Code upload
 - Dependency installation (`composer install`)
 - Database migration
@@ -730,6 +732,7 @@ hop3 app logs --app hop3-tuto-laravel
 ```
 
 Common issues:
+
 - **Missing APP_KEY**: It's generated automatically on the first deploy via the `[env]` `{ generate = ... }` declaration; check `hop3 env show --app hop3-tuto-laravel` to confirm it's set
 - **Database not connected**: Ensure the addon is attached
 - **Missing PHP extensions**: Check required extensions in `composer.json`

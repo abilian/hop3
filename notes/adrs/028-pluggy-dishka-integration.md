@@ -9,10 +9,12 @@
 ## Context
 
 Hop3 uses two complementary frameworks:
+
 - **Pluggy**: Plugin system for discovering and executing extension points
 - **Dishka**: Dependency injection framework for managing service lifecycles
 
 Absent an integration between them, these systems operate independently:
+
 - Plugins register via Pluggy's hook system
 - Services are managed via Dishka's container and providers
 - No mechanism lets plugins contribute services to the DI container
@@ -30,6 +32,7 @@ register_service("postgres", PostgresService())
 ```
 
 This approach:
+
 - Runs at import time (order-dependent)
 - Creates global state
 - Is difficult to test
@@ -37,6 +40,7 @@ This approach:
 
 ### Problem 2: No Dependency Injection for Plugin Services
 Plugin services couldn't use Dishka's features:
+
 - No automatic dependency resolution
 - No scope management (APP vs REQUEST)
 - No type-safe injection
@@ -44,6 +48,7 @@ Plugin services couldn't use Dishka's features:
 
 ### Problem 3: Tight Coupling
 To use a plugin service, code had to:
+
 1. Know the service exists globally
 2. Import from the plugin module directly
 3. Handle instantiation manually
@@ -53,6 +58,7 @@ This made plugins harder to test and created tight coupling between core and plu
 ### Design Goals
 
 We needed a solution that:
+
 1. Allows plugins to contribute services to the DI container
 2. Maintains separation between Pluggy (discovery) and Dishka (DI)
 3. Supports dependency injection between plugin services
@@ -266,6 +272,7 @@ def get_service(name):
 ```
 
 **Rejected because**:
+
 - Global mutable state
 - No type safety
 - No dependency injection
@@ -288,6 +295,7 @@ def create_container():
 ```
 
 **Rejected because**:
+
 - Loses Pluggy's hook system
 - No way to contribute build strategies, OS handlers, etc.
 - Would need to rebuild plugin infrastructure
@@ -308,6 +316,7 @@ def get_services():
 ```
 
 **Rejected because**:
+
 - Manual lifecycle management
 - No automatic dependency resolution
 - No type-safe injection
@@ -329,6 +338,7 @@ def initialize_plugin(container):
 ```
 
 **Rejected because**:
+
 - Inversion of control is backwards
 - Plugins become tightly coupled to container
 - Doesn't allow plugins to contribute services
@@ -347,6 +357,7 @@ def register_services():
 ```
 
 **Rejected because**:
+
 - More complex than provider pattern
 - Loses Dishka's declarative providers
 - Still requires custom integration code

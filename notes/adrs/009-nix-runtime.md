@@ -22,6 +22,7 @@ Two design questions remain open and are to be resolved against the results of t
 ### Interaction with [ADR 023](./023-runtime-stack-replacement.md) (Runtime Stack Replacement)
 
 Nix support must work with both runtime stacks:
+
 - **Current stack**: uWSGI + nginx + supervisor
 - **Proposed stack** ([ADR 023](./023-runtime-stack-replacement.md)): Granian + Caddy + ProcessManager
 
@@ -47,6 +48,7 @@ Hop3's build/run separation model ([ADR 035](./035-build-artifacts.md)) matches 
 2. **Run phase** reads the artifact and applies the configuration without detection or inference.
 
 Nix naturally produces this model:
+
 - All paths are absolute (`/nix/store/...`)
 - All dependencies are explicit and immutable
 - Runtime environment is fully determined at build time
@@ -69,6 +71,7 @@ BuildArtifact {
 **Connection to Deployment Strategies ([ADR 032](./032-deployment-strategies-artifact-lifecycle.md))**:
 
 Nix's immutable store paths enable clean versioning and rollback:
+
 - Each build produces a unique `/nix/store/<hash>-app` path
 - Rolling back = switching symlinks to previous store path
 - Blue-green deployments are natural with Nix's atomic symlink switches

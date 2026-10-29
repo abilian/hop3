@@ -52,6 +52,7 @@ Hop3 supports two distinct use cases that both result in deployed applications:
 #### App Origin
 
 An App can originate from:
+
 1. **Custom code** - Developer pushes their own code (Heroku-style)
 2. **Blueprint** - Operator installs from catalog (App Store-style)
 
@@ -137,11 +138,13 @@ The deployment process follows a three-stage pipeline: **Build → Deploy → Pr
 #### Two-Level Build Architecture (from [ADR 030](./030-two-level-build-architecture.md))
 
 **Level 1: Builder (Orchestration)**
+
 - Defines HOW to build: locally, in Docker, with Nix
 - Examples: `LocalBuilder`, `DockerBuilder`, `NixBuilder`
 - Selection: Configuration-driven (`hop3.toml`) or auto-detection
 
 **Level 2: LanguageToolchain (Language-Specific)**
+
 - Defines WHAT tools to use for a specific language
 - Examples: `PythonToolchain`, `NodeToolchain`, `JavaToolchain`
 - Selection: Auto-detection based on project files (requirements.txt, package.json)
@@ -413,6 +416,7 @@ See [ADR 030](./030-two-level-build-architecture.md) for detailed rationale.
 ### Why "Deployer" Not "Runtime"?
 
 "Runtime" implies execution environment, but deployers also:
+
 - Manage static file serving (no runtime)
 - Configure systemd services (process manager)
 - Handle lifecycle management (start, stop, scale)
@@ -422,6 +426,7 @@ See [ADR 030](./030-two-level-build-architecture.md) for detailed rationale.
 ### Why "OS" Not "Platform"?
 
 "Platform" is ambiguous:
+
 - Could mean the PaaS platform (Hop3)
 - Could mean infrastructure (AWS, bare metal)
 - Could mean OS (Debian, Ubuntu)

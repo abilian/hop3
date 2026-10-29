@@ -43,6 +43,7 @@ Hop3 currently relies on three major components for its runtime:
    - Requires `supervisorctl` commands for changes
 
 This stack works but has real drawbacks:
+
 - **uWSGI is unmaintained** - Security and compatibility risks
 - **No hot reconfiguration** - Adding apps requires nginx reloads
 - **Complexity** - uWSGI has 100+ features, we use ~7
@@ -72,6 +73,7 @@ We will replace the current runtime stack with:
 **Option 1: Caddy + Custom Process Manager + Granian** (Recommended)
 
 Components:
+
 1. **Granian** - Rust-based ASGI/WSGI server (app execution layer)
 2. **Caddy** - Reverse proxy with automatic HTTPS (edge layer)
 3. **Custom Process Manager** - Python daemon for lifecycle management (control layer)
@@ -105,6 +107,7 @@ Architecture:
 **Alternative Option 2: All-Python Stack**
 
 Components:
+
 1. **Hypercorn/Uvicorn** - Python ASGI server (replaces both nginx and Granian)
 2. **Custom Reverse Proxy** - Python ASGI middleware (routing layer)
 3. **acme library** - Python ACME client (SSL/TLS)
@@ -117,6 +120,7 @@ Components:
 #### Granian (replacing uWSGI)
 
 **Why Granian?**
+
 - ✅ Rust-based - Fast, memory-safe, actively maintained
 - ✅ Already a dependency - hop3-server uses it
 - ✅ ASGI/WSGI support - Handles Python apps
@@ -125,6 +129,7 @@ Components:
 - ✅ A small fraction of uWSGI's complexity - Does what we need
 
 **Granian features we'll use:**
+
 - WSGI/ASGI interface
 - Unix socket communication
 - Multi-worker support
@@ -133,6 +138,7 @@ Components:
 - Environment variables
 
 **What we lose from uWSGI:**
+
 - Ruby (RWSGI), Java (JWSGI) plugins → Can proxy to standalone Ruby/Java processes
 - Emperor mode → Replaced by custom process manager
 - Built-in cron → Use system cron or scheduled tasks
@@ -141,6 +147,7 @@ Components:
 #### Caddy (replacing nginx)
 
 **Why Caddy?**
+
 - ✅ Automatic HTTPS - Built-in ACME, zero configuration
 - ✅ Hot reload via API - JSON API for config changes without restart
 - ✅ Single binary - Easy to install and update
@@ -173,6 +180,7 @@ curl -X POST http://localhost:2019/config/ \
 ```
 
 **What we lose from nginx:**
+
 - Extensive tuning options → Caddy has sensible defaults
 - nginx-specific modules → Don't use any Hop3-specific ones
 - Familiarity → Learning curve for Caddy
@@ -180,6 +188,7 @@ curl -X POST http://localhost:2019/config/ \
 #### Custom Process Manager (replacing supervisor)
 
 **Why custom?**
+
 - ✅ Hop3-specific - Exactly our needs, no more
 - ✅ Tight integration - Direct API with hop3-server
 - ✅ Hot reconfiguration - Full control over lifecycle
@@ -206,6 +215,7 @@ class ProcessManager:
 ```
 
 **What we lose from supervisor:**
+
 - GUI (supervisorctl web interface) → Use hop3 CLI/API
 - Generic process management → Hop3-specific instead
 
@@ -263,24 +273,28 @@ packages/hop3-server/src/hop3/
 ### Migration Strategy
 
 **Phase 1: Parallel Implementation**
+
 - Implement ProcessManager
 - Implement Caddy integration
 - Add Granian deployer plugin
 - Keep existing uWSGI/nginx code
 
 **Phase 2: Feature Parity**
+
 - Test all app types (Python, Node.js, Ruby, etc.)
 - Verify SSL/ACME functionality
 - Performance testing
 - Documentation
 
 **Phase 3: Migration**
+
 - Update installer to include Caddy
 - Default to new stack for new installs
 - Write a migration script for existing deployments
 - Update all documentation
 
 **Phase 4: Deprecation**
+
 - Mark uWSGI/nginx code as deprecated
 - Remove in next major version
 
@@ -421,12 +435,14 @@ await pm.start_app(
 ## Lessons Learned
 
 From previous experience with uWSGI:
+
 - Emperor mode's hot reload is the "killer feature" - must replicate
 - Simple config files (touch to reload) worked well - keep this pattern
 - Most uWSGI features are unused - validate minimal feature set
 - Process isolation is important - maintain one-process-per-app
 
 From nginx experience:
+
 - Static config files + reload is acceptable but suboptimal
 - Virtual host routing is essential
 - Unix sockets work better than TCP for local communication
@@ -439,11 +455,13 @@ From nginx experience:
 **Description:** Continue using uWSGI + nginx, potentially forking uWSGI if critical bugs arise.
 
 **Pros:**
+
 - Zero migration effort
 - Known quantity
 - Existing documentation
 
 **Cons:**
+
 - uWSGI is unmaintained (security risk)
 - No hot reconfiguration
 - Technical debt accumulates
@@ -455,11 +473,13 @@ From nginx experience:
 **Description:** Use Traefik as the reverse proxy.
 
 **Pros:**
+
 - Service discovery built-in
 - More enterprise features
 - Metrics/observability
 
 **Cons:**
+
 - More complex than Caddy
 - Heavier resource usage
 - More verbose configuration
@@ -471,11 +491,13 @@ From nginx experience:
 **Description:** Build everything in Python - reverse proxy, SSL management, process management.
 
 **Pros:**
+
 - No external dependencies
 - Full control
 - Tight integration
 
 **Cons:**
+
 - Substantial code to implement properly
 - ACME is complex
 - Proxy performance < Caddy
@@ -488,11 +510,13 @@ From nginx experience:
 **Description:** Use systemd templates for process management.
 
 **Pros:**
+
 - Standard Linux approach
 - Proven at scale
 - No custom code
 
 **Cons:**
+
 - Linux-only (not macOS/BSD)
 - Less flexible than programmatic API
 - Harder to integrate with hop3-server
@@ -504,11 +528,13 @@ From nginx experience:
 **Description:** Minimal change - just replace uWSGI with Granian, keep nginx.
 
 **Pros:**
+
 - Smaller migration
 - Keep proven nginx
 - Lower risk
 
 **Cons:**
+
 - No hot reconfiguration
 - No automatic HTTPS
 - Doesn't solve all problems
@@ -543,6 +569,7 @@ From nginx experience:
 - Web UI for management
 
 **Common patterns:**
+
 - Modern PaaS platforms use hot reconfiguration
 - Automatic SSL is table stakes
 - Simplicity over features
@@ -623,6 +650,7 @@ From nginx experience:
 From analysis of `hop3/run/uwsgi/worker.py`:
 
 **Core features:**
+
 - Master process
 - Process management (workers, threads)
 - Environment variables
@@ -632,6 +660,7 @@ From analysis of `hop3/run/uwsgi/worker.py`:
 - Idle timeout
 
 **Worker types:**
+
 - WSGI (Python) - plugin=python3
 - RWSGI (Ruby) - plugin=rack
 - JWSGI (Java) - plugin=jvm
@@ -639,6 +668,7 @@ From analysis of `hop3/run/uwsgi/worker.py`:
 - Cron - scheduled tasks
 
 **NOT used:**
+
 - Static file serving (nginx does this)
 - Caching (nginx does this)
 - Load balancing
@@ -818,6 +848,7 @@ otherapp.example.com {
 ### D. Performance Comparison Target
 
 **Metrics to benchmark:**
+
 - Requests/second (should be ≥ uWSGI)
 - Latency p50, p95, p99 (should be ≤ uWSGI)
 - Memory usage (target: ≤ uWSGI)
@@ -826,6 +857,7 @@ otherapp.example.com {
 - Time to reload app (target: < uWSGI)
 
 **Test scenarios:**
+
 1. Single app, low load (100 req/s)
 2. Single app, high load (1000 req/s)
 3. Multiple apps (10 apps, 100 req/s each)

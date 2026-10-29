@@ -28,6 +28,7 @@ Build artifacts in Hop3 can take many forms:
 | **Nix closure** | `/nix/store/xxx-myapp/` | Immutable store | Via Nix |
 
 Each artifact type has different characteristics:
+
 - **Mutability**: Can it be modified in place? (Nix closures: no, virtualenvs: yes)
 - **Versioning**: How are versions tracked? (Git SHA, semantic version, content hash)
 - **Storage**: Where does it live? (filesystem, registry, object store)
@@ -47,6 +48,7 @@ Each artifact type has different characteristics:
 ```
 
 **Problems**:
+
 - Downtime = stop time + build time + start time (can be minutes)
 - If build fails, app stays down
 - If new version fails to start, no automatic recovery

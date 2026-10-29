@@ -31,6 +31,7 @@ def __init__(
 ```
 
 **Root Cause**: Such a class tries to serve two purposes:
+
 - Abstract base for language toolchains (Python, Node, Java)
 - Plugin interface for build orchestration (invoked by plugin system)
 
@@ -46,11 +47,13 @@ Builder (Protocol)
 ```
 
 **Issues**:
+
 - A `DockerBuilder` that builds ALL languages in containers has no clean place in the hierarchy.
 - A `NixBuilder` that builds ALL languages with Nix has no clean place either.
 - Python+Node in a single app (full-stack) cannot be expressed.
 
 A flat hierarchy treats all `*Builder` classes equally in the plugin system, but:
+
 - `PythonBuilder` is language-specific (Level 2)
 - `DockerBuilder` is language-agnostic (Level 1)
 - They belong to different architectural levels
@@ -58,12 +61,14 @@ A flat hierarchy treats all `*Builder` classes equally in the plugin system, but
 ### Problem 3: Composite and Alternative Builds
 
 **Multi-language builds**: A Python backend + Node frontend needs:
+
 - One orchestrator: `LocalBuilder`
 - Two toolchains: `PythonToolchain` + `NodeToolchain`
 
 A flat hierarchy cannot express this cleanly.
 
 **Alternative build methods**: Users want to choose:
+
 - Local builds (fast, uses host tools)
 - Docker builds (reproducible, isolated)
 - Nix builds (reproducible, declarative)
@@ -199,6 +204,7 @@ class LanguageToolchain(Protocol):
 ### Why Two Levels?
 
 **Separation of Concerns**:
+
 - **Level 1 (Builder)**: Environment and isolation concerns
   - Where to build? (host, container, sandbox)
   - How to isolate? (none, Docker, Nix)
@@ -210,11 +216,13 @@ class LanguageToolchain(Protocol):
   - How to compile/transpile code?
 
 **Orthogonal Variation**:
+
 - `LocalBuilder` uses LanguageToolchains to build on the host
 - `DockerBuilder` encapsulates build logic in the Dockerfile (no toolchains)
 - `NixBuilder` uses Nix expressions (no toolchains)
 
 LanguageToolchains are specific to LocalBuilder and enable:
+
 - Multi-language builds (Python + Node in a single app)
 - Auto-detection of applicable languages
 - Reusable language-specific build logic
@@ -222,11 +230,13 @@ LanguageToolchains are specific to LocalBuilder and enable:
 ### Why "Builder" at Level 1?
 
 **Domain Language**:
+
 - DevOps engineers ask: "What builder are you using?"
 - They mean: "Are you building locally, in Docker, or with Nix?"
 - The `Builder` protocol in `hop3/core/protocols.py` lives at this level
 
 **Consistency with Terminology**:
+
 - Follows Heroku-inspired naming (Builder, Deployer, Addon)
 - Avoids generic suffixes like "Strategy" or "Method"
 - Natural and concrete term
@@ -234,11 +244,13 @@ LanguageToolchains are specific to LocalBuilder and enable:
 ### Why "LanguageToolchain" at Level 2?
 
 **Established Terminology**:
+
 - "Python toolchain", "Node toolchain" are industry-standard terms
 - Refers to the set of tools needed to build a language (pip, virtualenv, compiler, etc.)
 - More specific than generic "backend" or "strategy"
 
 **Avoids Confusion**:
+
 - "Backend" could mean server-side code (vs frontend)
 - "Toolchain" is unambiguous: the build tools for a language
 
@@ -273,6 +285,7 @@ artifact = builder.build()
 ⚠️ **Renaming and restructuring**: The original language-specific `*Builder` classes become `*Toolchain`, and the original `Builder` ABC becomes `LanguageToolchain`.
 
 ⚠️ **Complexity**: Two protocols
+
 - Requires clear documentation
 - Plugin authors need to understand the distinction
 
@@ -293,6 +306,7 @@ class Builder(Protocol):
 ```
 
 **Rejected**:
+
 - Doesn't solve the type narrowing issue
 - Still mixes two concerns in one abstraction
 - Unclear semantics (what does `is_orchestrator` mean?)
@@ -308,6 +322,7 @@ class Builder:
 ```
 
 **Rejected**:
+
 - Doesn't work for DockerBuilder (doesn't use toolchains)
 - Forces all builders to use the same pattern
 - Less flexible than protocol-based approach
@@ -319,6 +334,7 @@ class Builder:
 Keep `Builder` at Level 1, but have it use a "ToolchainStrategy" internally.
 
 **Rejected**:
+
 - Adds unnecessary indirection
 - Still need to rename existing classes
 - More complex than two protocols
@@ -347,6 +363,7 @@ package_manager = "pnpm"  # or "npm", "yarn"
 ### Toolchain Dependencies
 
 Some toolchains may depend on others:
+
 - TypeScript toolchain depends on Node toolchain
 - Sass toolchain depends on Node toolchain
 
@@ -355,6 +372,7 @@ May need dependency resolution in the future.
 ### Performance Optimization
 
 Building with multiple toolchains sequentially may be slow. Consider:
+
 - Parallel builds (if toolchains are independent)
 - Incremental builds (cache toolchain outputs)
 - Artifact reuse (don't rebuild unchanged components)

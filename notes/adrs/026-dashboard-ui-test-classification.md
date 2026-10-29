@@ -23,6 +23,7 @@ Dashboard UI tests that involve file system operations belong in system tests (`
 ### Context
 
 The dashboard app creation feature (`/dashboard/apps/new`) is exercised by tests that verify:
+
 - Form rendering and validation
 - App creation with database persistence
 
@@ -44,6 +45,7 @@ def test_client(tmp_path: Path, monkeypatch):
 ```
 
 **What this arrangement verifies:**
+
 - ✅ Real Starlette HTTP request/response cycle
 - ✅ Real route handlers (`@router.get`, `@router.post`)
 - ✅ Real Jinja2 template rendering
@@ -82,6 +84,7 @@ The question: is the file system an "external dependency", or part of the subsys
 Dashboard UI tests for the app creation feature live in `c_system/` and use the real `App.create()` implementation without mocks. Under Option 1 the same tests sit in `b_integration/` with `App.create()` mocked.
 
 **Rationale:**
+
 1. `App.create()` is core business logic that creates the application's directory structure
 2. The performance overhead is negligible
 3. Removes mock maintenance burden - tests use real code
@@ -89,6 +92,7 @@ Dashboard UI tests for the app creation feature live in `c_system/` and use the 
 5. Clearer semantics - "system test" clearly means "full stack with real dependencies"
 
 **What's tested:**
+
 - Real HTTP request/response cycle (Starlette)
 - Real route handlers and form validation
 - Real database operations (SQLAlchemy + SQLite)
@@ -101,6 +105,7 @@ Dashboard UI tests for the app creation feature live in `c_system/` and use the 
 **Decision**: Dashboard UI tests remain in `b_integration/` with `App.create()` mocked.
 
 **Rationale:**
+
 - The file system is considered an "external dependency" like network I/O
 - Integration tests focus on web framework + database integration
 - File system operations are implementation details of the domain layer
@@ -118,6 +123,7 @@ def test_client(tmp_path: Path, monkeypatch):
 ```
 
 **What gets tested:**
+
 - HTTP routing and request handling
 - Form validation logic
 - Template rendering
@@ -126,6 +132,7 @@ def test_client(tmp_path: Path, monkeypatch):
 - Response redirects and status codes
 
 **What gets mocked:**
+
 - File system operations (`App.create()`)
 - Authentication (`SessionAuthBackend.authenticate`)
 
@@ -134,6 +141,7 @@ def test_client(tmp_path: Path, monkeypatch):
 **Decision**: Move dashboard UI tests to `c_system/` and remove mocks.
 
 **Rationale:**
+
 - `App.create()` implements core business logic
 - File system operations are part of the application's contract
 - System tests should verify the full stack including persistence
@@ -154,12 +162,14 @@ def test_client(tmp_path: Path, monkeypatch):
 ```
 
 **What gets tested:**
+
 - Everything from Option 1, plus:
 - Real `App.create()` directory structure creation
 - Real file system operations
 - Integration of domain logic with persistence layer
 
 **What gets mocked:**
+
 - Only authentication (for test convenience)
 - External network calls (if any)
 
@@ -170,6 +180,7 @@ def test_client(tmp_path: Path, monkeypatch):
 **File**: `packages/hop3-server/tests/b_integration/test_dashboard_app_create.py`
 
 **Test Characteristics:**
+
 - **Speed**: Fastest: no disk I/O
 - **Isolation**: High - no file system side effects
 - **Maintainability**: Requires maintaining mock implementation parallel to real code
@@ -193,6 +204,7 @@ def mock_app_create(self):
 **File**: `packages/hop3-server/tests/c_system/test_dashboard_app_create.py`
 
 **Test Characteristics:**
+
 - **Speed**: Slightly slower due to real I/O
 - **Isolation**: Medium - creates real directories in tmp_path
 - **Maintainability**: No mock to maintain, tests use real code
@@ -356,15 +368,18 @@ Mocking `App.create()` and `HOP3_ROOT` is awkward: environment-level patching an
 **Description**: Keep most tests in `b_integration/` with mocks, add a few smoke tests in `c_system/` without mocks.
 
 **Example:**
+
 - `b_integration/test_dashboard_app_create.py` - 10 tests with `App.create()` mocked
 - `c_system/test_dashboard_app_create_smoke.py` - 2-3 tests using real `App.create()`
 
 **Pros:**
+
 - Fast feedback for common cases
 - Real verification for critical paths
 - Best of both worlds
 
 **Cons:**
+
 - Duplicated test logic
 - Maintenance burden (two test suites)
 - Unclear which approach to use for new tests
@@ -379,15 +394,18 @@ class App:
 ```
 
 Then both options become easier:
+
 - Integration tests: Inject mock file system
 - System tests: Inject real file system
 
 **Pros:**
+
 - Better architecture (dependency injection)
 - Easier testing at all levels
 - Clearer separation of concerns
 
 **Cons:**
+
 - Significant refactoring required before implementing tests
 - Not addressing the immediate question
 - The payoff for this use case is unclear
@@ -397,10 +415,12 @@ Then both options become easier:
 **Description**: Skip both integration and system tests, rely on E2E tests in Docker.
 
 **Pros:**
+
 - Maximum confidence (full production-like environment)
 - No mocking or configuration complexity
 
 **Cons:**
+
 - Slow feedback compared to in-process tests
 - Poor developer experience
 - Violates testing pyramid principles
@@ -412,6 +432,7 @@ Then both options become easier:
 ### Django Testing Practices
 
 Django's test framework uses:
+
 - **Unit tests**: Pure Python logic
 - **TestCase with database**: Similar to our integration tests
 - **LiveServerTestCase**: Starts a real server (like our system tests)
@@ -422,6 +443,7 @@ Django's `TestCase` uses real database but is still considered "integration" lev
 ### Rails Testing Practices
 
 Rails uses:
+
 - **Model tests**: Pure model logic
 - **Controller tests**: Request/response with database
 - **Integration tests**: Multi-controller workflows
@@ -432,6 +454,7 @@ Rails "controller tests" mock views but use real database - similar to Option 1.
 ### Fast API Testing Practices
 
 FastAPI documentation recommends:
+
 - **Unit tests**: Individual route handlers with mocked dependencies
 - **Integration tests**: TestClient with real database
 - **No official "system" layer**: Relies on E2E for full stack

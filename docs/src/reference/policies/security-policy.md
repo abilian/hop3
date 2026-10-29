@@ -47,6 +47,7 @@ We are committed to protecting any data we handle. For detailed information, ple
 Hop3 stores backing service credentials (databases, caches, etc.) encrypted at rest with Fernet. This requires a secret key configured via the `HOP3_SECRET_KEY` environment variable.
 
 **Encryption Details:**
+
 - **Algorithm:** Fernet (symmetric AEAD - Authenticated Encryption with Associated Data)
 - **Key Derivation:** PBKDF2-HMAC-SHA256 with 600,000 iterations (OWASP 2026 baseline), using a per-install salt
 - **Storage:** Credentials encrypted in the Hop3 database (SQLite or PostgreSQL)
@@ -87,6 +88,7 @@ Environment="HOP3_SECRET_KEY=your-generated-secret-key-here"
 ⚠️ **CRITICAL SECURITY REQUIREMENTS** ⚠️
 
 **DO:**
+
 - ✅ Generate a unique secret key for each Hop3 installation
 - ✅ Use a cryptographically secure random generator (as shown above)
 - ✅ Store the secret key securely (e.g., in environment files with restricted permissions)
@@ -95,6 +97,7 @@ Environment="HOP3_SECRET_KEY=your-generated-secret-key-here"
 - ✅ Use a key length of at least 32 bytes (256 bits)
 
 **DO NOT:**
+
 - ❌ Use weak or predictable values (e.g., "password", "secret123")
 - ❌ Commit the secret key to version control
 - ❌ Share the secret key across multiple Hop3 installations
@@ -112,6 +115,7 @@ If you need to rotate your encryption key:
 4. Re-attach all services again (this re-encrypts with the new key)
 
 Alternatively, for a fresh start:
+
 1. Detach all services from all apps
 2. Update HOP3_SECRET_KEY
 3. Re-attach all services
@@ -119,6 +123,7 @@ Alternatively, for a fresh start:
 **Impact of Lost Secret Key:**
 
 If you lose your HOP3_SECRET_KEY:
+
 - Existing service credentials cannot be decrypted
 - You must detach and re-attach all services to generate new credentials
 - This is a breaking change requiring service reconfiguration
@@ -139,6 +144,7 @@ For automated testing purposes, Hop3 includes a `HOP3_UNSAFE` configuration opti
 ⚠️ **CRITICAL SECURITY WARNING** ⚠️
 
 **What HOP3_UNSAFE Does:**
+
 - Bypasses all authentication checks
 - Grants full admin access to all requests
 - Treats all requests as authenticated admin users
@@ -146,11 +152,13 @@ For automated testing purposes, Hop3 includes a `HOP3_UNSAFE` configuration opti
 - Disables command-level authorization
 
 **Acceptable Use:**
+
 - ✅ Automated tests running in isolated Docker containers
 - ✅ Local development in completely isolated environments
 - ✅ CI/CD pipelines with network-isolated test containers
 
 **NEVER Use In:**
+
 - ❌ Production servers
 - ❌ Staging servers
 - ❌ Any server accessible from a network

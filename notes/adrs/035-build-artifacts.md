@@ -148,6 +148,7 @@ We considered two approaches:
 Detection advocates argue "what if user manually installs dependencies after build?"
 
 This is behaviour we want to prevent:
+
 - Build should be the single source of truth
 - Manual modifications should require rebuild
 - This matches Docker/Nix philosophy
@@ -215,6 +216,7 @@ def setup_runtime_env(cls, app: App, env: Env) -> bool:
 ```
 
 **Rejected because:**
+
 - Still couples run phase to language-specific detection
 - Not portable (must re-detect on each machine)
 - Doesn't align with Nix model
@@ -224,6 +226,7 @@ def setup_runtime_env(cls, app: App, env: Env) -> bool:
 The runtime config would live in the App ORM model instead of in the JSON file.
 
 **Rejected because:**
+
 - Couples artifact to database schema
 - Harder to inspect/debug
 - Database not available in all contexts (e.g., build server)
@@ -233,6 +236,7 @@ The runtime config would live in the App ORM model instead of in the JSON file.
 Accept that only ~5 languages need runtime setup and keep them hardcoded.
 
 **Rejected because:**
+
 - Violates plugin architecture promise
 - Doesn't scale to new languages
 - Blocks Nix integration

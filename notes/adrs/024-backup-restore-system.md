@@ -20,6 +20,7 @@ Hop3 needs a comprehensive backup and restore system to protect user application
 5. **User Confidence**: Give users peace of mind that their data is protected
 
 The backup system must be:
+
 - **Complete**: Capture all necessary data (code, data, config, services)
 - **Reliable**: Ensure data integrity with verification
 - **Simple**: Easy to use via CLI commands
@@ -139,6 +140,7 @@ class Backup(BigIntAuditBase):
 ```
 
 This provides:
+
 - State tracking for backup operations
 - Integration with Hop3's audit trail
 - Future support for scheduled backups
@@ -232,6 +234,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 **Considered:** Store entire backup as one `.tar.gz` file
 
 **Rejected because:**
+
 - Harder to inspect contents
 - Must extract everything to verify one file
 - Checksumming less granular
@@ -242,6 +245,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 **Considered:** Store backup data in PostgreSQL/SQLite
 
 **Rejected because:**
+
 - BLOB storage inefficient
 - Harder to move/copy backups
 - Potential database bloat
@@ -252,6 +256,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 **Considered:** Store backups directly in S3/B2
 
 **Rejected for initial version because:**
+
 - Adds complexity and dependencies
 - Requires configuration (API keys, etc.)
 - Not all users have cloud access
@@ -262,6 +267,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 **Considered:** Store only changed files since last backup
 
 **Rejected for initial version because:**
+
 - Significantly more complex
 - Requires reference to previous backup
 - Harder to verify integrity
@@ -272,6 +278,7 @@ Backups are portable across Hop3 instances. The operator workflow:
 **Considered:** Encrypt all backup files
 
 **Rejected for initial version because:**
+
 - Adds key management complexity
 - Not all users need encryption
 - Can be added as opt-in enhancement

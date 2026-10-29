@@ -149,6 +149,7 @@ def _validate_member(member: tarfile.TarInfo, target_dir: Path) -> None:
 ```
 
 The extractor guards against three attacks:
+
 - **Tar slip**: paths escaping the destination (`../../../etc/passwd`) are rejected on the resolved path, so they don't escape even through symlinked parents.
 - **Link attacks**: symlink and hardlink entries are refused outright.
 - **Decompression bombs**: extraction aborts once the running uncompressed total crosses a configurable limit (`HOP3_MAX_EXTRACTED_SIZE`) or the member count crosses `HOP3_MAX_ARCHIVE_MEMBERS`. Neither limit trusts the archive's own headers.

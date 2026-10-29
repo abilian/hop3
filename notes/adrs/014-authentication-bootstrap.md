@@ -22,6 +22,7 @@ However, there is a bootstrap problem: how do we create the first admin user and
 > **Only someone with server access should be able to create the first admin account.**
 
 This is non-negotiable for remote servers. The verification of "server access" can be:
+
 - SSH access (can run commands on the server)
 - Physical/console access
 - Access to server configuration files
@@ -189,6 +190,7 @@ echo "$ADMIN_PASSWORD" | hop3 init \
 Generate a one-time token during installation stored in `/etc/hop3/bootstrap-token`.
 
 **Rejected because:**
+
 - Token must be securely transmitted from server to client
 - One-time use complexity (what if it fails mid-way?)
 - Option A is simpler and equally secure
@@ -200,6 +202,7 @@ Generate a one-time token during installation stored in `/etc/hop3/bootstrap-tok
 Create default `admin/admin123` during database migration.
 
 **Rejected because:**
+
 - Well-known credentials are a security risk
 - Requires forced password change mechanism
 - Poor security posture
@@ -209,6 +212,7 @@ Create default `admin/admin123` during database migration.
 Allow first registration to automatically become admin.
 
 **Rejected because:**
+
 - Race condition vulnerability on remote servers
 - Anyone who can reach the network endpoint could become admin
 - Violates the security principle
@@ -289,6 +293,7 @@ def init_via_ssh(ssh_target: str, username: str, email: str, password: str, serv
 ## Web Portal Authentication
 
 The same user created by `hop3-server admin:create` can:
+
 1. Use CLI with the API token
 2. Login to web portal with username/password
 
@@ -382,6 +387,7 @@ The public server RPC that verifies a username + password and returns a token (o
 - **Race Conditions**: Multiple simultaneous bootstrap attempts could create security vulnerabilities
 
 **Mitigation:**
+
 - Implement bootstrap mechanism with time limits or usage counts
 - Require immediate password/token rotation after bootstrap
 - Log all bootstrap operations for audit
@@ -394,6 +400,7 @@ The public server RPC that verifies a username + password and returns a token (o
 - **Documentation Gap**: Users may not find or follow bootstrap instructions
 
 **Mitigation:**
+
 - Provide multiple recovery mechanisms
 - Clear error messages with recovery instructions
 - Comprehensive documentation with examples
@@ -405,12 +412,14 @@ The public server RPC that verifies a username + password and returns a token (o
 Generate a special bootstrap token during server installation:
 
 **How it works:**
+
 - Installation script generates a random bootstrap token
 - Token stored in `/etc/hop3/bootstrap.token` or `HOP3_BOOTSTRAP_TOKEN` env var
 - Bootstrap token carries the privilege to create the first admin
 - Must be used to register initial admin, then should be rotated/deleted
 
 **Characteristics:**
+
 - Automated bootstrap possible
 - Token is a shared secret requiring secure handling
 - Needs mechanism to rotate/revoke after first use
@@ -421,12 +430,14 @@ Generate a special bootstrap token during server installation:
 Create a default admin user during initial database migration:
 
 **How it works:**
+
 - Initial migration creates `admin` user with default password
 - Credentials documented in installation guide
 - User must change password on first login
 - Login returns token for subsequent operations
 
 **Characteristics:**
+
 - Zero-friction setup
 - **Security concern**: Well-known default credentials
 - Requires prominent documentation and warnings
@@ -437,11 +448,13 @@ Create a default admin user during initial database migration:
 Allow first user registration without authentication:
 
 **How it works:**
+
 - If database has zero users, allow `auth:register --admin` without token
 - Once first admin exists, all `auth:register` requires authentication or admin approval
 - First user automatically gets admin privileges
 
 **Characteristics:**
+
 - Self-service bootstrap
 - **Security concern**: Race condition if multiple users register simultaneously
 - Requires network isolation during initial setup

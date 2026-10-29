@@ -35,6 +35,7 @@ Level 1 (Builder)          Level 2 (Toolchain)
 ```
 
 **DockerBuilder** is a Level 1 Builder that:
+
 - Does NOT use Level 2 toolchains
 - Builds directly from a Dockerfile
 - Produces `docker-image` artifacts
@@ -71,6 +72,7 @@ builder = "docker"
 ```
 
 Available builder names:
+
 - `"docker"` - Use DockerBuilder (requires Dockerfile)
 - `"local"` - Use LocalBuilder (native toolchains)
 - `"auto"` - Auto-detect (default)
@@ -114,6 +116,7 @@ services:
 For **advanced use cases** (multi-container, volumes, custom networks), users can provide their own `docker-compose.yml`, `compose.yml`, or `docker-compose.yaml`. If a user-supplied compose file exists, Hop3 uses that file and skips generation.
 
 Hop3 provides these environment variables to the compose file:
+
 - `HOP3_IMAGE_TAG`: The Docker image tag (e.g., `hop3/myapp:latest`)
 - `HOP3_APP_NAME`: The application name
 - `HOP3_APP_PORT`: The exposed port from Dockerfile (if detected)- `PORT`: The allocated host port for the container
@@ -129,6 +132,7 @@ The substitution is value-based: it matches host references at host boundaries w
 **Decision**: Use the **Direct Proxy Integration** pattern, following StaticDeployer's approach.
 
 This approach:
+
 - Works with any configured proxy (nginx, caddy, traefik)
 - Is consistent with existing Hop3 architecture
 - Requires no special proxy-specific configuration
@@ -150,6 +154,7 @@ Internet ──▶ Port 80/443 ──▶ │ nginx/caddy │──▶ │   127.
 ```
 
 The proxy does not care whether the backend is a uWSGI process, a static folder, or a Docker container. It only needs:
+
 1. A `HOST_NAME` to route requests
 2. A `BIND_ADDRESS:PORT` to forward to
 3. Standard environment configuration
@@ -168,6 +173,7 @@ services:
 ```
 
 **Why `127.0.0.1`?**
+
 - Prevents direct external access to container
 - All traffic goes through Hop3's proxy (enabling SSL, rate limiting, etc.)
 - Consistent with uWSGI apps that bind to localhost
