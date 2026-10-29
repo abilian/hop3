@@ -72,8 +72,8 @@ from pathlib import Path
 BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECRET_KEY: a dev-insecure fallback keeps `migrate` and the first deploy
-# working before any secrets are set. Override it in production with
-# `hop3 env set --app <app> SECRET_KEY=...` (see the deploy step below).
+# working before any secrets are set. In production it is overridden by
+# the value `hop3.toml` generates on the first deploy (see the deploy step below).
 SECRET_KEY = os.environ.get('SECRET_KEY', 'django-insecure-dev-only-change-me')
 DEBUG = os.environ.get('DEBUG', 'False').lower() == 'true'
 
@@ -331,10 +331,10 @@ interval = 60
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -353,7 +353,7 @@ hop3 deploy --app hop3-tuto-drf
 
 ### Set Environment Variables
 
-`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml` `[env]`). Set `ALLOWED_HOSTS` and the hostname for the application:
+`SECRET_KEY` is generated automatically on the first deploy (see `hop3.toml` `[env]`). Now set `ALLOWED_HOSTS` and the application's hostname:
 
 ```bash exec id=set-allowed-hosts timeout=30
 hop3 env set --app hop3-tuto-drf ALLOWED_HOSTS=hop3-tuto-drf.$HOP3_TEST_DOMAIN,localhost,127.0.0.1
@@ -480,7 +480,6 @@ web = 8000
 [healthcheck]
 path = "/up"
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```

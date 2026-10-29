@@ -258,10 +258,12 @@ nav = [
 ]
 
 # Custom CSS
-extra_css = ["stylesheets/theme.css", "stylesheets/adr-index.css"]
+extra_css = ["stylesheets/theme.css", "stylesheets/adr-index.css", "stylesheets/deck.css"]
 
-# Custom JS (ADR Overview: sortable/filterable index table)
-extra_javascript = ["javascripts/adr-index.js"]
+# Custom JS: the ADR Overview's sortable/filterable index table, and the slide
+# viewer the home page embeds its PDF deck with (pdf.js, loaded from jsDelivr
+# only on a page that has a deck).
+extra_javascript = ["javascripts/adr-index.js", "javascripts/deck.js"]
 
 # =============================================================================
 # Theme Configuration

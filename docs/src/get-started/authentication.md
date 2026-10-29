@@ -1,6 +1,6 @@
 # Signing In
 
-Hop3 has two surfaces, and each holds a different credential.
+Hop3 has two surfaces, each holding a different credential.
 
 | | What it is | Where it lives | How long it lasts |
 |---|---|---|---|
@@ -35,7 +35,7 @@ See [Choosing where a project deploys](#choosing-where-a-project-deploys) below.
 
 A bare hostname means `root@`: the line above shows the address it resolved to, so you can see the substitution.
 
-## SSH gets you in; HTTPS carries the everyday traffic
+## SSH gets you in; HTTPS handles the everyday traffic
 
 The two are different jobs. The address above is the giveaway: you signed in over SSH, but the recorded target is `https://`.
 
@@ -68,7 +68,7 @@ It travels over SSH too, but it is not a login: it prints a one-time URL for you
 
 You need it *in addition to* signing the CLI in; the two surfaces hold separate credentials, and neither grants the other.
 
-Bare `--browser` asks the server you are already signed into. Name one when you aren't yet:
+Without an argument, `--browser` asks the server you are already signed into. Name one when you aren't yet:
 
 ```bash
 hop3 login --browser root@your-server.com
@@ -84,7 +84,7 @@ This is the same missing piece that keeps the CLI on the SSH tunnel: give the se
 
 ## What about the admin password?
 
-`hop3-deploy-server` generates one when it creates the admin account, and does not print it unless you pass `--verbose`. That is deliberate: it is not the way in. A secret half-shown in terminal scrollback is a secret leaked.
+`hop3-deploy-server` generates one when it creates the admin account, and does not print it unless you pass `--verbose`. The password is not the way in. A secret half-shown in terminal scrollback is a secret leaked.
 
 You need it in exactly one case: signing into the dashboard's own form from a machine with no SSH access to the server. To set one you know:
 
@@ -97,7 +97,7 @@ If you cannot run `hop3` at all, do it on the server. Run `hop3-server` as the `
 
 ```bash
 ssh root@your-server.com
-sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:reset-password admin
+runuser -u hop3 -- /home/hop3/venv/bin/hop3-server admin:reset-password admin
 ```
 
 ## Naming your servers

@@ -1,6 +1,6 @@
 # Tutorials
 
-Step-by-step guides for deploying web applications on Hop3. Each tutorial walks you through creating and deploying a small application with a specific framework — but they all share the same deployment model, so it is worth understanding the general principles first.
+These step-by-step guides deploy web applications on Hop3. Each tutorial walks you through creating and deploying a small application with a specific framework. They all share one deployment model, which the next section describes.
 
 ## How deployment works
 
@@ -8,24 +8,24 @@ Every tutorial follows the same four steps:
 
 1. **Create** a minimal application with the framework.
 2. **Configure** it for Hop3 (a `hop3.toml`, and/or a `Procfile`).
-3. **Deploy** it to your Hop3 server (`hop3 deploy --app <app>`).
+3. **Deploy** it to your Hop3 server: bind the checkout to the server once (`hop3 context use <name>`), then run `hop3 deploy --app <app>`.
 4. **Verify** it is running (`hop3 app status`, then open it in a browser).
 
 Under the hood, Hop3 does the same thing for every app, whatever the language:
 
-- **Builds** it with an auto-detected toolchain — Python virtualenv, Node/npm, Go, Ruby/Bundler, and so on. No Dockerfile is required (though you can use one).
-- **Runs** it as a supervised process that listens on a **dynamic `$PORT`**. Your app must read `$PORT` and bind to it — a hardcoded port will not receive traffic. (Static sites are the exception: nginx serves their files directly, with no process — see [Static Sites](static/index.md).)
+- **Builds** it with an auto-detected toolchain (Python virtualenv, Node/npm, Go, Ruby/Bundler, and so on). No Dockerfile is required (though you can use one).
+- **Runs** it as a supervised process that listens on a **dynamic `$PORT`**. Your app must read `$PORT` and bind to it: a hardcoded port will not receive traffic. (Static sites are the exception. Nginx serves their files directly, with no process; see [Static Sites](static/index.md).)
 - **Proxies** it through nginx, which routes requests to your app by hostname (`HOST_NAME`) and terminates TLS, so many apps share ports 80/443.
-- **Wires addons** (PostgreSQL, Redis, …) by injecting connection strings as environment variables such as `DATABASE_URL` and `REDIS_URL` — no host/port plumbing on your side.
+- **Wires addons** (PostgreSQL, Redis, …) by injecting connection strings as environment variables such as `DATABASE_URL` and `REDIS_URL`, so your code needs no host or port plumbing.
 
-Set configuration with `hop3 env set --app <app> KEY=value` — the most important is `HOST_NAME`, which tells nginx which domain to serve. App-internal secrets like `SECRET_KEY` are best **declared** in `hop3.toml` `[env]` as `{ generate = ... }`, so Hop3 creates them on the first deploy and never commits them; reserve `hop3 env set` for secrets you supply yourself (API keys).
+Set configuration with `hop3 env set --app <app> KEY=value`. The most important is `HOST_NAME`, which tells nginx which domain to serve. App-internal secrets like `SECRET_KEY` are best **declared** in `hop3.toml` `[env]` as `{ generate = ... }`, so Hop3 creates them on the first deploy and never commits them; reserve `hop3 env set` for secrets you supply yourself (API keys).
 
 ## Prerequisites
 
 Before starting any tutorial, ensure you have:
 
 - A Hop3 server set up and accessible.
-- The `hop3` CLI installed and configured.
+- The `hop3` CLI installed and signed in to your server (`hop3 login root@your-server.example.com`, which records it as the context `default`).
 - SSH access to your server (or local Docker for testing).
 
 See the [Installation Guide](../get-started/server-setup.md) to get started.
@@ -36,7 +36,7 @@ A Hop3 app is described by one or both of these files at the repository root:
 
 ### hop3.toml
 
-The Hop3-specific configuration file — how to build and run your app. A minimal example:
+This Hop3-specific file says how to build and run your app. A minimal example:
 
 ```toml
 [metadata]
@@ -50,7 +50,7 @@ Hop3 auto-detects the language toolchain from your project files; add a `[build]
 
 ### Procfile
 
-A generic, cross-tool process file. Hop3 reads it too, but `hop3.toml` takes precedence when both declare the same thing:
+The Procfile is a generic, cross-tool process file. Hop3 reads it too, but `hop3.toml` takes precedence when both declare the same thing:
 
 ```procfile
 web: gunicorn app:app -b 0.0.0.0:$PORT
@@ -106,7 +106,7 @@ With the model above in mind, pick your framework. Each section starts with an *
 | Framework | Description |
 |-----------|-------------|
 | [Axum](rust/axum.md) | Ergonomic and modular framework |
-| [Actix-web](rust/actix-web.md) | Powerful async framework |
+| [Actix-web](rust/actix-web.md) | Async framework on the Tokio runtime |
 
 ### Java
 
@@ -143,11 +143,11 @@ With the model above in mind, pick your framework. Each section starts with an *
 
 ### Static Sites
 
-Sites served directly by nginx with no application process. Start with the [Static Sites overview](static/index.md), which explains the two deployment strategies (build at the source vs. build on the server).
+Nginx serves these sites directly, with no application process. Start with the [Static Sites overview](static/index.md), which explains the two deployment strategies (build at the source vs. build on the server).
 
 | Guide | Description |
 |-------|-------------|
-| [Plain static site](static/static-site.md) | Pre-built HTML/CSS/JS served directly by nginx — no build, no app server |
+| [Plain static site](static/static-site.md) | Pre-built HTML/CSS/JS served directly by nginx, without an app server |
 | [Hugo](static/hugo.md) | Fast static site generator (Go) |
 | [Astro](static/astro.md) | Modern static site builder (Node.js) |
 | [Eleventy](static/eleventy.md) | Simple static site generator (Node.js) |

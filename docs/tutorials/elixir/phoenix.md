@@ -296,7 +296,7 @@ cat >> mix.exs << 'EOF'
 EOF
 ```
 
-Compile first, then build assets. Phoenix 1.8 extracts colocated JS/CSS (`phoenix-colocated/…`) during `mix compile`, and `mix assets.deploy` (Tailwind) imports it — so compiling must come first, in the same `MIX_ENV`:
+Compile first, then build assets. Phoenix 1.8 extracts colocated JS/CSS (`phoenix-colocated/…`) during `mix compile`, and `mix assets.deploy` (Tailwind) imports it. Compiling must therefore come first, in the same `MIX_ENV`:
 
 ```bash exec id=compile-dev dir=hop3-tuto-phoenix timeout=120
 mix compile
@@ -334,7 +334,7 @@ ebin
 
 ## Step 6: Create Deployment Configuration
 
-Hop3 reads a single `hop3.toml` for the build and run configuration. Don't also add a `Procfile`: when both exist Hop3 builds from `hop3.toml`, but the Procfile's `prebuild:` line is started as a long-running worker that loops `mix release --overwrite`, repeatedly overwriting the release while the web process tries to exec it (`bin/hop3_tuto_phoenix: not found`).
+Hop3 reads a single `hop3.toml` for the build and run configuration, so this app needs no `Procfile`.
 
 ### Create hop3.toml
 
@@ -435,10 +435,10 @@ Initial Phoenix application
 
 ## Step 8: Deploy to Hop3
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -457,7 +457,7 @@ hop3 env set --app hop3-tuto-phoenix PHX_HOST=hop3-tuto-phoenix.your-server.exam
 
 ### Deploy
 
-Deploy the application (first deployment creates the app). The production release requires `SECRET_KEY_BASE` at boot (see `runtime.exs`); Hop3 generates it on the first deploy from the `{ generate = "urlsafe", length = 64 }` declaration in `hop3.toml`, persists it, and reuses it on every later deploy — so no secret is ever typed by hand or committed:
+Deploy the application (first deployment creates the app). The production release requires `SECRET_KEY_BASE` at boot (see `runtime.exs`); Hop3 generates it on the first deploy from the `{ generate = "urlsafe", length = 64 }` declaration in `hop3.toml`, persists it, and reuses it on every later deploy. You never type or commit the secret:
 
 ```bash exec id=deploy dir=hop3-tuto-phoenix timeout=120
 hop3 deploy --app hop3-tuto-phoenix
@@ -654,8 +654,7 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 

@@ -7,16 +7,16 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
 ## Table of Contents
 
 - [Data Structures](#data-structures)
-  - [DeploymentContext](#deploymentcontext)
-  - [BuildArtifact](#buildartifact)
-  - [DeploymentInfo](#deploymentinfo)
+    - [DeploymentContext](#deploymentcontext)
+    - [BuildArtifact](#buildartifact)
+    - [DeploymentInfo](#deploymentinfo)
 - [Strategy Protocols](#strategy-protocols)
-  - [Builder](#builder)
-  - [Deployer](#deployer)
-  - [Addon](#addon)
-  - [Proxy](#proxy)
-  - [BaseProxy](#baseproxy)
-  - [OS](#os)
+    - [Builder](#builder)
+    - [Deployer](#deployer)
+    - [Addon](#addon)
+    - [Proxy](#proxy)
+    - [BaseProxy](#baseproxy)
+    - [OS](#os)
 
 ## Data Structures
 
@@ -24,7 +24,7 @@ All protocols are defined in `hop3/core/protocols.py` using Python's PEP 544 Pro
 
 **Location**: `hop3.core.protocols.DeploymentContext`
 
-**Purpose**: Carries contextual information about an application deployment.
+**Purpose**: Holds contextual information about an application deployment.
 
 **Attributes**:
 
@@ -140,6 +140,7 @@ Determine if this strategy can build the application.
 **Returns**: `True` if the strategy can build this app, `False` otherwise.
 
 **Implementation Guidelines**:
+
 - Check for framework-specific files (requirements.txt, package.json, etc.)
 - Check configuration settings
 - Verify required tools are available
@@ -161,10 +162,12 @@ Execute the build process and return artifact information.
 **Returns**: `BuildArtifact` describing what was built.
 
 **Raises**:
+
 - `Abort` (from `hop3.lib`) for user-facing errors
 - Other exceptions for unexpected errors
 
 **Implementation Guidelines**:
+
 - Create isolated build environment (virtualenv, container, etc.)
 - Install dependencies
 - Compile code if needed
@@ -223,11 +226,13 @@ def accept(self) -> bool:
 Deploy the artifact.
 
 **Parameters**:
+
 - `deltas`: Optional dictionary of worker scaling changes (`{"web": 2, "worker": 1}`)
 
 **Returns**: `DeploymentInfo` with connection details for the proxy.
 
 **Implementation Guidelines**:
+
 - Start application processes/containers
 - Configure workers based on deltas
 - Wait for startup (or return immediately if async)
@@ -252,6 +257,7 @@ def deploy(self, deltas=None) -> DeploymentInfo:
 Stop the running application.
 
 **Implementation Guidelines**:
+
 - Gracefully shut down processes/containers
 - Clean up runtime resources (sockets, PID files)
 - Should be idempotent (safe to call multiple times)
@@ -272,6 +278,7 @@ Check if the application is actually running.
 **Returns**: `True` if processes/containers are confirmed running, `False` otherwise.
 
 **Implementation Guidelines**:
+
 - Verify actual running state (don't just check config files)
 - For uWSGI: check socket files, process listings, config files
 - For Docker: check container status (`docker ps`)
@@ -302,9 +309,11 @@ def check_status(self) -> bool:
 Scale the workers up or down.
 
 **Parameters**:
+
 - `deltas`: Dictionary mapping worker names to scaling changes (e.g., `{"web": 2}` to set 2 web workers)
 
 **Implementation Guidelines**:
+
 - Adjust number of worker processes/containers
 - May trigger restart/reload
 - Should be graceful (no downtime if possible)
@@ -358,6 +367,7 @@ The addon is constructed with the instance name as a keyword-only argument: `__i
 Create a new service instance.
 
 **Implementation Guidelines**:
+
 - Provision necessary resources (database, user, directories)
 - Configure service
 - Start service
@@ -384,6 +394,7 @@ def create(self) -> None:
 Destroy the service instance and all its data.
 
 **Implementation Guidelines**:
+
 - Stop service
 - Remove all data (WARNING: destructive)
 - Remove configuration
@@ -406,6 +417,7 @@ Get environment variables for applications to connect to this service.
 **Returns**: Dictionary mapping environment variable names to values.
 
 **Implementation Guidelines**:
+
 - Return standard connection URLs (DATABASE_URL, REDIS_URL, etc.)
 - Include all necessary connection parameters
 - Use localhost for local services
@@ -430,6 +442,7 @@ Create a backup of service data.
 **Returns**: Path to the backup file or directory.
 
 **Implementation Guidelines**:
+
 - Create complete backup of data
 - Use service-specific backup tools (pg_dump, redis-cli SAVE, etc.)
 - Include timestamps in filename
@@ -456,9 +469,11 @@ def backup(self) -> Path:
 Restore service data from a backup.
 
 **Parameters**:
+
 - `backup_path`: Path to backup file/directory to restore from
 
 **Implementation Guidelines**:
+
 - Stop service if necessary
 - Clear existing data (optional, based on strategy)
 - Restore from backup
@@ -487,6 +502,7 @@ Get information about the service instance.
 **Returns**: Dictionary with service details.
 
 **Implementation Guidelines**:
+
 - Include status, version, size, etc.
 - Don't include sensitive data (passwords)
 - Should be fast
@@ -580,6 +596,7 @@ def get_proxy_name(self) -> str:
 Configure the backend connection (TCP port or Unix socket).
 
 **Implementation Guidelines**:
+
 - Set `NGINX_SOCKET` or `NGINX_BACKEND` environment variables
 - Choose between Unix socket and TCP based on configuration
 
@@ -600,6 +617,7 @@ def setup_backend(self) -> None:
 Set up SSL/TLS certificates for the application.
 
 **Implementation Guidelines**:
+
 - Generate self-signed certificates for development
 - Integrate with Let's Encrypt for production
 - Set certificate paths in environment
@@ -609,6 +627,7 @@ Set up SSL/TLS certificates for the application.
 Configure caching for the application.
 
 **Implementation Guidelines**:
+
 - Enable/disable based on environment variables
 - Configure cache paths
 - Set cache parameters (size, TTL, etc.)
@@ -618,6 +637,7 @@ Configure caching for the application.
 Configure static file serving.
 
 **Implementation Guidelines**:
+
 - Use `self.get_static_paths()` helper method
 - Generate location/route blocks for each static path
 - Configure caching headers
@@ -627,6 +647,7 @@ Configure static file serving.
 Apply additional proxy-specific setup.
 
 **Implementation Guidelines**:
+
 - Custom headers
 - Redirect rules
 - Rate limiting
@@ -637,6 +658,7 @@ Apply additional proxy-specific setup.
 Generate the proxy configuration file.
 
 **Implementation Guidelines**:
+
 - Use templates (Jinja2 recommended)
 - Render with `self.env` and `self.app` context
 - Write to proxy-specific config directory
@@ -646,6 +668,7 @@ Generate the proxy configuration file.
 Validate the generated configuration.
 
 **Implementation Guidelines**:
+
 - Use proxy's config test command (`nginx -t`, etc.)
 - Raise exception if validation fails
 
@@ -654,6 +677,7 @@ Validate the generated configuration.
 Reload the proxy to apply configuration changes.
 
 **Implementation Guidelines**:
+
 - Try supervisor control first
 - Fall back to systemctl
 - Fall back to direct command (`nginx -s reload`)
@@ -666,6 +690,7 @@ Reload the proxy to apply configuration changes.
 Update an environment variable, optionally from a template.
 
 **Parameters**:
+
 - `key`: Environment variable name
 - `value`: Value to set (if template is empty)
 - `template`: Template string to format with current env vars
@@ -684,6 +709,7 @@ self.update_env("CACHE_PATH", template="/var/cache/{app_name}")
 Main setup orchestrator (already implemented, don't override).
 
 This method calls all setup methods in the correct order:
+
 1. `setup_backend()`
 2. `setup_certificates()`
 3. `setup_cache()`
@@ -737,6 +763,7 @@ Check if this strategy matches the current operating system.
 **Returns**: `True` if this OS strategy should be used on the current system.
 
 **Implementation Guidelines**:
+
 - Read `/etc/os-release` or similar files
 - Check distribution name and version
 - Return `True` only for exact matches or families
@@ -757,6 +784,7 @@ def detect(self) -> bool:
 Install dependencies and configure the system for hop3.
 
 **Implementation Guidelines**:
+
 1. Configure package manager settings
 2. Create hop3 user account
 3. Install required system packages
@@ -785,10 +813,12 @@ def setup_server(self) -> None:
 Install system packages using the OS package manager.
 
 **Parameters**:
+
 - `packages`: List of package names to install
 - `update`: Whether to update package lists first (default: True)
 
 **Implementation Guidelines**:
+
 - Use OS-specific package manager (apt, yum, dnf, pacman, etc.)
 - Should be idempotent (don't reinstall if already installed)
 - Handle errors gracefully
@@ -811,12 +841,14 @@ def ensure_packages(self, packages, *, update=True):
 Create a system user account if it doesn't exist.
 
 **Parameters**:
+
 - `user`: Username to create
 - `home`: Home directory path
 - `shell`: Default shell path
 - `group`: Primary group name
 
 **Implementation Guidelines**:
+
 - Check if user already exists
 - Create user with specified settings
 - Should be idempotent

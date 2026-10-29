@@ -8,19 +8,19 @@
 
 **A:** Hop3 sets itself apart by combining simplicity, modularity, and a commitment to open-source principles. Many PaaS solutions are proprietary, or lean on complex, resource-intensive containerization and orchestration tools such as Docker and Kubernetes. Hop3 is designed to be lightweight and accessible, and runs efficiently even on low-end devices and in resource-constrained environments.
 
-Hop3 is extensible and customizable through a plugin-oriented architecture. Such modularity is rare in the PaaS space, where platforms often trade customizability for simplicity. With plugins, users can tailor the platform to their needs, extending its functionality without bloating the core.
+Hop3 is extensible and customizable through a plugin-oriented architecture. Such modularity is rare in the PaaS space, where platforms often trade customizability for simplicity. With plugins, users can tailor the platform to their needs and extend it without bloating the core.
 
-Hop3's open-source nature makes it easy to tailor or enhance the platform, share knowledge, and develop new features. Commercial PaaS offerings impose the limitations and costs of proprietary technologies, and their users have no influence over how the platform develops.
+Hop3's open-source nature makes it easy to tailor or enhance the platform, share knowledge, and develop new features. Commercial PaaS offerings impose the limitations and costs of proprietary technologies. Their users have no influence over how the platform develops.
 
 Hop3 prioritizes direct integration with the host system, which improves performance and resource use compared with solutions that abstract away the underlying infrastructure. The direct approach also enhances security and reliability, since users keep closer control over their deployment environments.
 
 Finally, Hop3 avoids the complexity and overhead of larger platforms like Kubernetes. It aims for a straightforward deployment experience, which appeals to small and medium-sized projects, early-stage startups, and developers who want an agile, cost-effective way to deploy and manage their applications without giving up the power and flexibility of larger PaaS solutions.
 
-**Q: Why Python? / why not Go/Rust/Erlang/...?**
+**Q: Why is Hop3 written in Python, when Go, Rust or Erlang were options?**
 
 **A:** Python was chosen for its simplicity, readability, and large ecosystem, which make the platform accessible to a broad range of developers.
 
-Go, Rust, and Erlang have their own advantages, including performance and concurrency support, but Python balances performance, ease of development, and community support, and it is the language we know best.
+Go, Rust, and Erlang have their own advantages, including performance and concurrency support, but Python balances performance, ease of development, and community support, and is also the language we know best.
 
 **Q: Can Hop3 support applications built with various programming languages?**
 
@@ -28,11 +28,11 @@ Go, Rust, and Erlang have their own advantages, including performance and concur
 
 **Q: Why not just use Dokku?**
 
-**A:** Dokku was the original "self-hosted and lightweight Heroku-clone", but it has architectural limitations: it can be heavy for small-scale deployments or low-end hardware, and its customization options are limited by its reliance on Docker. Hop3 is leaner, with better performance and security, and its modular, plugin-oriented design is more flexible and extensible.
+**A:** Dokku was the original "self-hosted and lightweight Heroku-clone", but its reliance on Docker makes it heavy for small-scale deployments or low-end hardware and limits how far it can be customized. Hop3 is leaner, with better performance and security, and its modular, plugin-oriented design is more flexible and extensible.
 
 **Q: Why not just use Piku or Sailor?**
 
-**A:** Both Piku and Sailor are good solutions. Hop3 aims to offer broader functionality, a more polished user experience, and support for more deployment contexts. We share roots with Piku and Sailor, including some shared code, but Hop3's architecture is more openly extensible, which encourages use of and contribution to its ecosystem, especially through plugins.
+**A:** Both Piku and Sailor are good solutions. Hop3 aims to offer broader functionality, a more polished user experience, and support for more deployment contexts. We share roots with Piku and Sailor, including some shared code, but Hop3's architecture is more openly extensible, which encourages use of and contribution to the ecosystem, especially through plugins.
 
 **Q: Why not use Docker or a similar container-based technology?**
 
@@ -48,7 +48,7 @@ Go, Rust, and Erlang have their own advantages, including performance and concur
 
 **Q: Why not use platforms like Render, Vercel, Netlify, etc.?**
 
-**A:** Platforms such as Render, Vercel, and Netlify provide valuable services, but often with less flexibility and control, and at a higher price. Hop3 is more versatile and economical, with broader deployment capabilities and deeper customization. It is also open source, so users are not locked into proprietary ecosystems, and its openness encourages collaboration and gives users a level of control over their deployment environments that proprietary platforms cannot match.
+**A:** Platforms such as Render, Vercel, and Netlify provide valuable services, but often with less flexibility and control, and at a higher price. Hop3 is more versatile and economical, with broader deployment capabilities and deeper customization. It is also open source, so users are not locked into proprietary ecosystems. That openness encourages collaboration and gives users a level of control over their deployment environments that proprietary platforms cannot match.
 
 **Q: How does Hop3 contribute to environmental sustainability?**
 
@@ -76,7 +76,7 @@ For troubleshooting, see the **[Troubleshooting Guide](troubleshooting.md)**.
 
 ```bash
 hop3 deploy --app myapp -v          # Verbose output during deploy
-hop3 app build-logs --app myapp     # View build logs after deploy
+hop3 app logs --app myapp --build   # View build logs after deploy
 hop3 app logs --app myapp           # View runtime logs
 ```
 

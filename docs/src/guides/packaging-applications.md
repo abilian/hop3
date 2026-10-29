@@ -25,7 +25,7 @@ Hop3 supports two configuration approaches:
 - **Procfile** (convention): simple, Heroku-compatible, works out of the box.
 - **hop3.toml** (configuration): advanced, full-featured, optional.
 
-You can use either one or both together. When both exist, `hop3.toml` settings override `Procfile` settings.
+You can use either one or both together. When both exist, the settings in `hop3.toml` override those in the `Procfile`.
 
 ## Quick Start: Minimal Configuration
 
@@ -47,6 +47,7 @@ web: gunicorn app:app --bind 0.0.0.0:$PORT
 ```
 
 That's it! Hop3 will:
+
 - Detect it's a Python application (from `requirements.txt`)
 - Install dependencies automatically
 - Run the command specified in `Procfile`
@@ -75,7 +76,7 @@ start = "gunicorn app:app --bind 0.0.0.0:$PORT"
 
 ### Option 3: Hybrid Approach (Best of Both)
 
-Use `Procfile` for basics and `hop3.toml` for advanced features:
+Put the basics in a `Procfile` and the advanced features in `hop3.toml`:
 
 **Procfile:**
 ```
@@ -95,13 +96,13 @@ before-build = "pip install -r requirements-dev.txt"
 type = "postgres"
 ```
 
-Result: the `web` and `worker` processes come from the Procfile, and the build configuration and database come from `hop3.toml`.
+The `web` and `worker` processes then come from the Procfile. The build configuration and the database come from `hop3.toml`.
 
 ## Configuration Options
 
 ### Procfile Format
 
-The `Procfile` declares process types using the format:
+Each line of a `Procfile` declares one process type, in this format:
 
 ```
 <process-type>: <command>
@@ -183,13 +184,13 @@ hop3-fetch "$URL" -o app.tar.gz --sha256 "$SHA256"       # or write a file
 
 It downloads through a cache shared by every app on the server, so redeploying the same pinned version does not ask upstream again. The benefit goes beyond speed: a catalog run pulls dozens of tags from the same few hosts within minutes, and GitHub's codeload rate-limits the address. After that, `curl` gets `HTTP 429` and the deploy fails with nothing wrong in the recipe. Retrying harder makes it worse; not asking twice fixes it.
 
-`hop3-fetch` also fails loudly on an HTTP error instead of saving the error page as the artifact, retries transient failures with backoff (honouring `Retry-After`), and verifies `--sha256` **before** admitting the download to the cache, so a cache hit is proof the bytes are the ones the recipe pinned.
+`hop3-fetch` also fails loudly on an HTTP error where `curl -o` would save the error page as the artifact, retries transient failures with backoff (honouring `Retry-After`), and verifies `--sha256` **before** admitting the download to the cache, so a cache hit is proof the bytes are the ones the recipe pinned.
 
 It also checks the body against the `Content-Length` the server promised. A connection that drops mid-transfer leaves a short file and raises nothing. Without that check, the fetch reports a download that did not happen, and an unpinned recipe, having nothing else to compare against, caches the fragment and serves it to every later build. Pin `--sha256` wherever upstream publishes one: it is the only thing that can detect a body which arrived complete but wrong.
 
 `--refresh` discards any cached copy and downloads again. Use it when a cache entry is suspect; otherwise a cache hit is returned without being read.
 
-When piping into `tar`, set `set -eo pipefail` in the script. Without it the pipeline's exit status is `tar`'s, so a failed download surfaces as a misleading "Unexpected EOF" instead of the actual error.
+When piping into `tar`, set `set -eo pipefail` in the script. Without it the pipeline's exit status is `tar`'s, so a failed download surfaces as a misleading "Unexpected EOF" and the actual error is lost.
 
 #### `[run]` - Runtime Configuration
 
@@ -268,7 +269,7 @@ type = "redis"
 
 #### `[[volumes]]` - Where Your App Writes
 
-Every deploy replaces the app's source tree: `src/` is deleted and extracted again from the new version. Anything the running app writes inside it is lost on the next deploy, including an upgrade. So every directory the app writes to at runtime must be declared:
+Every deploy replaces the app's source tree: `src/` is deleted and extracted again from the new version. Anything the running app writes inside it is lost on the next deploy, including an upgrade. So the directories the app writes to at runtime must be declared:
 
 ```toml
 # Uploads, a SQLite database, configuration the app writes itself: kept
@@ -594,7 +595,7 @@ path = "/"
 
 **Data inside the document root.** The proxy never serves hidden files there (`.env`, `.htaccess`, `.git/`). Data an app writes under its web root (a SQLite file, compiled templates, uploads) is protected upstream by an `.htaccess` that only Apache reads, so list it in `[proxy] deny = ["/data"]` and the proxy answers it with 404.
 
-**If you want a different runtime** — Laravel Octane, FrankenPHP, RoadRunner — declare it as `[run].start` and it replaces the pool. Do not reach for `php -S` or `php artisan serve`: they are development servers, single-threaded, and an app that makes an HTTP request to itself (Nextcloud and Matomo both do) deadlocks against its own only worker.
+**If you want a different runtime** (Laravel Octane, FrankenPHP, RoadRunner), declare it as `[run].start` and it replaces the pool. Do not reach for `php -S` or `php artisan serve`: they are development servers, single-threaded, and an app that makes an HTTP request to itself (Nextcloud and Matomo both do) deadlocks against its own only worker.
 
 ### Go Application
 
@@ -677,7 +678,7 @@ Each process type runs independently and scales separately.
 
 ### Build-Time vs Runtime Packages
 
-Some packages are only needed during build, others at runtime:
+Some packages are needed only during the build; others are needed at runtime:
 
 **hop3.toml:**
 ```toml
@@ -698,6 +699,7 @@ start = "gunicorn app:app"
 ```
 
 **Benefits:**
+
 - Smaller runtime container
 - Faster deployments
 - Better security (fewer packages = smaller attack surface)
@@ -763,6 +765,7 @@ start = "gunicorn app:app"
 ```
 
 **What happens:**
+
 1. Install npm dependencies (`npm ci`)
 2. Build frontend assets (`npm run build`)
 3. Collect Django static files (`collectstatic`)
@@ -810,7 +813,7 @@ build = "npm run build"
 
 ### Wiring config from injected credentials
 
-When you attach an addon, Hop3 injects its connection details as environment variables (`DATABASE_URL`, `REDIS_URL`, `SMTP_HOST`, …). An app that reads those from the environment is configured the moment it's attached, with no further work. Some apps instead read their settings from a **config file** (`homeserver.yaml`, `LocalSettings.php`, an INI section) or from their own **database** (set through a CLI like `occ`). Environment injection cannot reach those, so render the config from the injected environment in a `before-run` command; it runs on every deploy with every injected variable present:
+When you attach an addon, Hop3 injects its connection details as environment variables (`DATABASE_URL`, `REDIS_URL`, `SMTP_HOST`, …). An app that reads those from the environment is configured the moment it's attached, with no further work. Some apps instead read their settings from a **config file** (`homeserver.yaml`, `LocalSettings.php`, an INI section) or from their own **database** (set through a CLI like `occ`). Environment injection cannot reach those, so render the config from the injected environment in a `before-run` command; it runs at deploy time, with the injected variables present:
 
 ```toml
 [run]
@@ -849,7 +852,7 @@ myapp-cli set-smtp-password --value="$SMTP_PASSWORD"          # leaks to `ps`
 printf '%s' "$SMTP_PASSWORD" | myapp-cli set-smtp-password --stdin   # better
 ```
 
-**Fail loud.** Start with `set -euo pipefail` and assert required variables (`: "${SMTP_HOST:?…}"`), so a missing credential aborts the deploy instead of writing a half-rendered config with a literal `${SMTP_PASSWORD}` left in it.
+**Fail loud.** Start with `set -euo pipefail` and assert required variables (`: "${SMTP_HOST:?…}"`), so a missing credential aborts the deploy before any config is rendered with a literal `${SMTP_PASSWORD}` left in it.
 
 **Make setup commands idempotent.** A `before-run` step runs on every redeploy. Guard a non-idempotent command (an installer, an import) with a probe so it doesn't double-apply:
 

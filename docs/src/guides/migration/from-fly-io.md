@@ -27,7 +27,7 @@ There's no automated `fly.toml` importer. The translation is short and mechanica
 | Multi-region, anycast edge | Single server |
 | Fly Machines (per-machine scaling) | Manual scaling on one host |
 | Autoscaling | Manual via `hop3 ps scale` |
-| Many managed services | PostgreSQL, MySQL, Redis, S3/MinIO, with more on the way |
+| Many managed services | PostgreSQL, MySQL, Redis, S3 (Garage), with more on the way |
 | Private 6PN networking | Apps colocated on one host (localhost) |
 
 Hop3 is simpler: you manage one server, where Fly ran a fleet of Machines spread across regions.
@@ -44,15 +44,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Fly.io Configuration
 
@@ -123,8 +125,8 @@ A few things changed. Each one is a Fly primitive landing on a Hop3 one:
 - **`app` → `[metadata].id`.** Same canonical name; the server uses it as the app's identity.
 - **`primary_region` simply disappears.** There's one host, so there's nowhere to pin a region. That line is both the most visible thing you lose and the whole point of the trade-off.
 - **The Dockerfile maps to `[build] builder = "docker"`.** Hop3 builds the same `Dockerfile` you shipped to Fly. (See the next section if you'd rather drop the Dockerfile entirely.)
-- **`[http_service].internal_port` → bind `$PORT`.** Hop3 assigns a dynamic `$PORT` and sets it in the environment. The reverse proxy routes to it by hostname. Make your app read `$PORT` and drop the hardcoded `8080`. `force_https` has no equivalent toggle: Hop3 terminates TLS at the proxy, and you point the domain at it (Step 6).
-- **`[[mounts]]` → `[[volumes]]`.** Fly's `destination` is an absolute path; Hop3's `target` is a directory inside your app tree (relative, no `..`) that survives redeploys. Storage lives under the app's data root, outside the source tree that gets replaced on each deploy.
+- **`[http_service].internal_port` → bind `$PORT`.** Hop3 assigns a dynamic `$PORT` and sets it in the environment. The reverse proxy routes to it by hostname. Make your app read `$PORT` and drop the hardcoded `8080`. `force_https` has no equivalent toggle: Hop3 terminates TLS at the proxy once you point the domain at it (Step 6).
+- **`[[mounts]]` → `[[volumes]]`.** Fly's `destination` is an absolute path; Hop3's `target` is a directory inside your app tree (relative, no `..`) that persists across redeploys. Storage lives under the app's data root, outside the source tree that gets replaced on each deploy.
 - **`[checks]` → `[healthcheck]`.** Same idea, single path.
 
 ## Step 4: Migrate Your Database
@@ -159,13 +161,9 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 ## Step 5: Deploy to Hop3
@@ -226,7 +224,7 @@ protocol = "tcp"
 name = "rtmp"
 ```
 
-Hop3 records each fixed port in a host-wide registry and refuses a second app that wants the same one before it builds, so two apps can't silently fight over it. One caveat: fixed ports are opened for native and Nix builds. A Docker-deployed app claims the port, so the conflict check works, but the firewall isn't opened for it yet. Use a native or Nix build for an app that needs a reachable fixed port.
+Hop3 records each fixed port in a host-wide registry and refuses a second app that wants the same one before it builds, so two apps can't silently fight over it. Fixed ports open only for native and Nix builds. A Docker-deployed app claims the port, so the conflict check works, but the firewall isn't opened for it yet. Use a native or Nix build for an app that needs a reachable fixed port.
 
 ### Secrets
 
@@ -234,18 +232,17 @@ Hop3 records each fixed port in a host-wide registry and refuses a second app th
 
 ```bash
 hop3 env set --app your-app SECRET_KEY=… STRIPE_KEY=…
-hop3 app restart your-app
+hop3 app restart --app your-app
 ```
 
 Database and cache credentials are a special case: you don't copy them over at all. When you attach an addon, Hop3 injects `DATABASE_URL`, `REDIS_URL`, and friends for you, so drop those from your secrets list entirely.
 
 ### Keeping an External Managed Database
 
-Maybe you ran Fly Postgres but your real database is a managed Postgres elsewhere (Neon, Crunchy, RDS) that you're not ready to move. You don't have to. Skip the addon and point `[env]` at the existing URL:
+Maybe you ran Fly Postgres but your real database is a managed Postgres elsewhere (Neon, Crunchy, RDS) that you're not ready to move. You don't have to. Skip the addon and set the existing URL on the server (`hop3.toml` refuses a connection string with credentials in it):
 
-```toml
-[env]
-DATABASE_URL = "postgresql://user:pass@db.example.com:5432/mydb"
+```bash
+hop3 env set --app your-app DATABASE_URL="postgresql://user:pass@db.example.com:5432/mydb"
 ```
 
 Hop3 leaves that database alone, and your app talks to it exactly as before. You can adopt a Hop3 addon later.
@@ -281,9 +278,9 @@ scheduler = "celery -A myapp beat"
 Or use system cron on the one box:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Multi-Region

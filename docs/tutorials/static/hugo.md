@@ -183,7 +183,7 @@ Add a home-page layout. Themes occasionally lag the installed Hugo release; a pr
 </html>
 ```
 
-A theme's `404.html` renders through its `baseof.html`, which can reference fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`) — that fails the *whole* build, not just the 404 page. A self-contained project-level `layouts/404.html` renders it without the theme's base template:
+A theme's `404.html` renders through its `baseof.html`, which can reference fields a pinned Hugo predates (ananke uses `.Site.Language.Locale`). That fails the *whole* build. A self-contained project-level `layouts/404.html` renders it without the theme's base template:
 
 ```file path=hop3-tuto-hugo/layouts/404.html
 <!DOCTYPE html>
@@ -300,10 +300,10 @@ Initial Hugo site
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:

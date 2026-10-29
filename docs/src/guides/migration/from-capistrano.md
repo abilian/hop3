@@ -14,9 +14,9 @@ If you've used Capistrano, the Hop3 workflow will feel familiar:
 | `cap deploy:rollback` | redeploy a previous commit |
 | `shared/` directories (uploads, etc.) | `[[volumes]]` |
 
-Both are SSH-based and Git-driven. You still `git push` to ship, and your build/migrate steps still run on the server. Hop3 adds the server itself to the contract: reverse proxy, process supervision, certificates, and database provisioning all move under management.
+Both are SSH-based and Git-driven. You still `git push` to ship. Your build/migrate steps still run on the server. Hop3 adds the server itself to the contract: reverse proxy, process supervision, certificates, and database provisioning all move under management.
 
-One difference to keep in mind from the start: Capistrano targets a *stage* (`cap production deploy`), and the app it operates on is implicit in your `deploy.rb`. In Hop3 the app you're targeting is always the `--app` flag, never a positional argument or a colon. So a Capistrano `cap production deploy` becomes `git push hop3 main` (or `hop3 deploy --app myapp`), while a one-off task like `cap production rails:console` becomes `hop3 app run --app myapp bin/rails console`.
+Keep one difference in mind from the start: Capistrano targets a *stage* (`cap production deploy`), leaving the app it operates on implicit in your `deploy.rb`. In Hop3 the app you're targeting is always the `--app` flag, never a positional argument or a colon. So a Capistrano `cap production deploy` becomes `git push hop3 main` (or `hop3 deploy --app myapp`), while a one-off task like `cap production rails:console` becomes `hop3 app run --app myapp bin/rails console`.
 
 ## What's Different
 
@@ -44,21 +44,23 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 This is the step that used to be a Capistrano provisioning recipe, or an Ansible playbook next to it, installing Nginx, Ruby, a process manager, and certbot. With Hop3 those come with the server.
 
 ## Step 2: Read Off Your Capistrano Config
 
-There's no automatic importer for `deploy.rb`: the translation is done by hand, and the exercise pays for itself because most of `deploy.rb` describes server layout that Hop3 now owns. Open your `config/deploy.rb` and the stage files (`config/deploy/production.rb`) and pull out the parts that are *about your app* rather than *about the server*:
+There's no automatic importer for `deploy.rb`. The translation pays for itself, because most of `deploy.rb` describes server layout that Hop3 now owns. Open your `config/deploy.rb` and the stage files (`config/deploy/production.rb`) and pull out the parts that are *about your app*:
 
 - **Build and release tasks:** `bundle install`, `rails db:migrate`, `rails assets:precompile`, and any `before`/`after` hooks. These become `before-build` / `before-run` in `hop3.toml`.
 - **`linked_files` / `linked_dirs`:** your `shared/` entries (`storage`, `public/uploads`, `public/system`). These become `[[volumes]]`.
@@ -69,7 +71,7 @@ What you can *drop*: `set :deploy_to`, `:keep_releases`, the `releases/` and `cu
 
 ## Step 3: Add hop3.toml
 
-A `Procfile` works if you already have one. Running `hop3 app migrate procfile <dir>` generates a starting `hop3.toml` from it; that's the only config importer, and everything else here is translated by hand. For a Rails app, `hop3.toml` maps cleanly onto what `deploy.rb` used to express:
+A `Procfile` works if you already have one. Running `hop3 app migrate procfile <dir>` generates a starting `hop3.toml` from it; that's the only config importer. For a Rails app, `hop3.toml` maps cleanly onto what `deploy.rb` used to express:
 
 ```toml
 [metadata]
@@ -100,7 +102,7 @@ Read that against your `deploy.rb`:
 | `set :rails_env, 'production'` | `[env] RAILS_ENV = "production"` |
 | `cap deploy` (Puma start) | the `web` process (see below) |
 
-The Ruby toolchain runs `bundle install` for you, so the step needs no entry; Capistrano's `bundler` plugin worked the same way. `SECRET_KEY_BASE = { generate = "hex", length = 64 }` means you no longer push a secret onto the box by hand; Hop3 generates the value on first deploy and keeps it stable across redeploys.
+The Ruby toolchain runs `bundle install` for you, so the step needs no entry; Capistrano's `bundler` plugin worked the same way. `SECRET_KEY_BASE = { generate = "hex", length = 64 }` means you no longer push a secret onto the box; Hop3 generates the value on first deploy and keeps it stable across redeploys.
 
 ### The process model
 
@@ -118,7 +120,7 @@ or as workers in `hop3.toml`:
 worker = "bundle exec sidekiq -C config/sidekiq.yml"
 ```
 
-You scale these with `hop3 ps scale` instead of editing a systemd template and re-running Capistrano (scheduling is covered below).
+You scale these with `hop3 ps scale`, with no systemd template to edit (scheduling is covered below).
 
 ## Step 4: Move Your shared/ Directories to Volumes
 
@@ -134,7 +136,7 @@ name = "storage"
 target = "storage"
 ```
 
-Each volume survives redeploys, lives outside the replaced source tree, and is captured by `hop3 backup create` by default, so your `shared/public/uploads` and Active Storage `shared/storage` round-trip exactly as they did under Capistrano, without you wiring the symlinks.
+Each volume persists across redeploys, lives outside the replaced source tree, and is captured by `hop3 backup create` by default, so your `shared/public/uploads` and Active Storage `shared/storage` round-trip exactly as they did under Capistrano, without you wiring the symlinks.
 
 ## Step 5: Migrate Your Database
 
@@ -153,7 +155,7 @@ Attaching injects `DATABASE_URL` into the app's environment, so your `database.y
 hop3 addon show your-app-db
 ```
 
-The four addon types Hop3 provisions today are PostgreSQL, MySQL, Redis, and S3/MinIO; the list is growing. If you run something Hop3 doesn't manage yet, or you want to keep an existing managed database, point `[env]` at its URL instead of creating an addon and skip this step.
+The four data addon types Hop3 provisions today are PostgreSQL, MySQL, Redis, and S3 (Garage); the list is growing. If you run something Hop3 doesn't manage yet, or you want to keep an existing managed database, point `[env]` at its URL instead of creating an addon and skip this step.
 
 ### Move the data
 
@@ -163,11 +165,9 @@ Dump from your old server and restore on the new one:
 # On your old server
 pg_dump --no-owner --format=custom your_app_production > latest.dump
 
-# Copy to the Hop3 server and restore
-scp latest.dump root@your-server.com:/tmp/
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 If your schema uses Postgres extensions (`pg_trgm`, `pgcrypto`, `pg_stat_statements`), enable them through the addon command, which avoids running `psql` as a superuser:
@@ -219,13 +219,13 @@ hop3 domain add your-app.example.com --app your-app
 your-app.example.com  A  your-server-ip
 ```
 
-This is the certbot cron you used to babysit. A freshly installed server serves a self-signed certificate out of the box; once you point the server at an ACME provider (Let's Encrypt), Hop3 requests a real certificate for the domain at deploy time. Templating Nginx TLS blocks and scheduling renewals by hand are both gone.
+This is the certbot cron you used to babysit. A freshly installed server serves a self-signed certificate out of the box; once you point the server at an ACME provider (Let's Encrypt), Hop3 requests a real certificate for the domain at deploy time. You no longer template Nginx TLS blocks or schedule renewals.
 
 ## Common Migration Notes
 
 ### Roles and multiple servers
 
-Capistrano roles (`:app`, `:web`, `:db`, `:worker`) let one deploy fan out across a fleet. Hop3 deploys to a single server: web, workers, and the database addon all live on the one box. If your Capistrano setup spans multiple machines (a separate DB host, a separate worker tier), that topology doesn't carry over as-is. For many small and mid-size Rails apps the single-server model is exactly right (the `:db` role often pointed at a single Postgres host anyway); for a true multi-tier fleet, this is a real limitation to weigh.
+Capistrano roles (`:app`, `:web`, `:db`, `:worker`) let one deploy fan out across a fleet. Hop3 deploys to a single server, where web, workers, and the database addon all live on the one box. If your Capistrano setup spans multiple machines (a separate DB host, a separate worker tier), Hop3 cannot reproduce that topology as-is. For many small-to-medium Rails apps the single-server model is exactly right (the `:db` role often pointed at a single Postgres host anyway); for a true multi-tier fleet, this is a real limitation to weigh.
 
 ### Scheduled jobs (whenever / cron)
 
@@ -276,7 +276,7 @@ hop3 app run --app your-app bin/rails db:seed
 
 Capistrano is free, and so is Hop3, so neither is the line item. The cost in a Capistrano setup is the *maintenance surface*: the deploy recipes, plus the Nginx configs, the Puma/systemd units, the certbot cron, the database provisioning, and the runbook that keeps them all consistent. That's the part Hop3 removes. You still pay for the VPS (roughly $10–30/month for a small-to-medium Rails app) and you still own the server. The hand-maintained layer between "my code" and "a running site" goes away.
 
-On lock-in: there's very little to lock into. Your app is unchanged Rails, your database is standard PostgreSQL you can `pg_dump` out at any time, your config is a readable `hop3.toml`, and your deploy is a `git push`. If you ever leave, you leave with a normal Rails app and a normal Postgres dump, the same way you arrived.
+On lock-in: there's very little to lock into. Your app is unchanged Rails. Your database is standard PostgreSQL you can `pg_dump` out at any time. Your config is a readable `hop3.toml`. Deploying is a `git push`. If you ever leave, you leave with a normal Rails app and a normal Postgres dump, the same way you arrived.
 
 ## Rollback Plan
 
@@ -304,4 +304,4 @@ This rebuilds, so it's slower than `cap deploy:rollback`. If a release goes bad,
 
 ---
 
-*Coming from a different deploy tool? The concepts carry over. Check the [Getting Started guide](/get-started/) for a fresh start.*
+*Coming from a different deploy tool? The concepts are the same. Check the [Getting Started guide](/get-started/) for a fresh start.*

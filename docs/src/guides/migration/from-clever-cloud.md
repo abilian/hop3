@@ -17,7 +17,7 @@ If you're comfortable on Clever Cloud, the Hop3 workflow will feel familiar:
 
 You push a Git repository. The platform inspects your stack, builds it, and fronts the result with a reverse proxy. Both platforms detect the runtime from your project files.
 
-One syntactic difference: the `clever` CLI takes the app implicitly from the linked directory (`clever link`). Hop3 targets an app with the `--app` flag; the app name is never positional. `clever env set FOO bar` becomes `hop3 env set FOO=bar --app myapp`. (Hop3 can also resolve the app from a `hop3.toml` in the current directory, so once your repo has one, `--app` is usually optional.)
+The syntax differs in one way. The `clever` CLI takes the app implicitly from the linked directory (`clever link`). Hop3 targets an app with the `--app` flag; the app name is never positional. `clever env set FOO bar` becomes `hop3 env set FOO=bar --app myapp`. (Hop3 can also resolve the app from a `hop3.toml` in the current directory, so once your repo has one, `--app` is usually optional.)
 
 ## What's Different
 
@@ -25,7 +25,7 @@ One syntactic difference: the `clever` CLI takes the app implicitly from the lin
 |--------------|------|
 | Managed platform | Self-hosted |
 | Vertical + horizontal auto-scalers | Single server, manual scaling |
-| Broad addon catalogue | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
+| Broad addon catalogue | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | `CC_*` runtime knobs | `hop3.toml` + `[env]` |
 | Multi-instance, multi-zone | One server you manage |
 
@@ -45,15 +45,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Clever Cloud Configuration
 
@@ -63,7 +65,7 @@ Get your Clever Cloud environment variables from the linked app directory:
 clever env > clever-env.txt
 ```
 
-Review the file and remove Clever-specific variables. They map to Hop3 mechanisms; they don't carry over verbatim:
+Review the file and remove Clever-specific variables. Each maps to a Hop3 mechanism:
 
 - `CC_*` build/run knobs (e.g. `CC_RUN_COMMAND`, `CC_PYTHON_VERSION`, `CC_PRE_BUILD_HOOK`): these become `hop3.toml` sections, not environment variables. See Step 3.
 - `POSTGRESQL_ADDON_URI` / `REDIS_URL` and similar addon URIs: Hop3 sets these for you when you attach an addon.
@@ -150,16 +152,12 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
-Hop3 ships four addon types (PostgreSQL, MySQL, Redis, S3/MinIO), and more are in development. If you depend on a Clever Cloud addon Hop3 doesn't offer, you have two options: keep that managed service and point `[env]` at its URL, or run the dependency yourself.
+Hop3 ships four data addon types (PostgreSQL, MySQL, Redis, S3 (Garage)), and more are in development. If you depend on a Clever Cloud addon Hop3 doesn't offer, you have two options: keep that managed service and point `[env]` at its URL, or run the dependency yourself.
 
 ## Step 5: Deploy to Hop3
 
@@ -197,7 +195,7 @@ Once Let's Encrypt / ACME is configured on the server, Hop3 requests a certifica
 
 ### Runtime Detection vs `CC_*`
 
-Clever Cloud reads `CC_*` variables to decide how to build and start. Hop3 auto-detects the toolchain (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET) from your project files. You only reach for `[build]` / `[run]` when the defaults aren't right. Most apps need just `[metadata].id` plus their own `[env]`.
+On Clever Cloud, `CC_*` variables decide how an app is built and started. Hop3 auto-detects the toolchain (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET) from your project files. You only reach for `[build]` / `[run]` when the defaults aren't right. Most apps need just `[metadata].id` plus their own `[env]`.
 
 ### Runtime Versions
 
@@ -222,7 +220,7 @@ before-build = "npm install && npm run build"
 
 ### Postgres Extensions
 
-If your app relies on a Postgres extension (like `pg_stat_statements`), enable it through the addon command. No SSH or manual `psql` needed:
+If your app relies on a Postgres extension (like `pg_stat_statements`), enable it through the addon command, which needs neither SSH nor a manual `psql` session:
 
 ```bash
 hop3 addon postgres extensions your-app-db pg_stat_statements
@@ -235,7 +233,7 @@ Extensions are allow-listed, so only the ones Hop3 ships support for will instal
 Clever Cloud's scalers move automatically. On Hop3 you set the process count yourself:
 
 ```bash
-hop3 ps scale your-app web=3 worker=2
+hop3 ps scale --app your-app web=3 worker=2
 ```
 
 There is no autoscaler. Size the server for your peak, and adjust `ps scale` when the workload changes. This is the migration's main trade-off: plan for it before you discover it under load.
@@ -272,9 +270,9 @@ Or use system cron on the server directly.
 
 Clever Cloud already keeps your data in the EU, so the move isn't about jurisdiction. It's about a predictable bill and total control of the stack.
 
-On Clever Cloud you pay per running instance and per addon, and the auto-scalers can grow that bill on their own as traffic moves. On Hop3 you pay for one VPS. A small app that costs roughly the price of a couple of instances plus a database addon on Clever Cloud runs on a ~10 EUR/month VPS; a medium app on a ~30 EUR/month VPS. The trade-off is that the elastic headroom the scalers gave you is now your job to provision.
+On Clever Cloud you pay per running instance and per addon. The auto-scalers can grow that bill on their own as traffic moves. On Hop3 you pay for one VPS. A small app that costs roughly the price of a couple of instances plus a database addon on Clever Cloud runs on a ~10 EUR/month VPS. A medium app needs a ~30 EUR/month VPS. The trade-off is that the elastic headroom the scalers gave you is now your job to provision.
 
-The deeper win is lock-in. Your app is a Git repository plus a `hop3.toml`, your data is a standard `pg_dump`, and your server is a plain VPS you can image and move to any provider. Nothing about the deployment is specific to one vendor's control plane.
+The deeper win is lock-in. Your app is a Git repository plus a `hop3.toml`. Your data is a standard `pg_dump`. Your server is a plain VPS you can image and move to any provider. Nothing about the deployment is specific to one vendor's control plane.
 
 ## Rollback Plan
 

@@ -8,9 +8,9 @@ tutorial:
 
 # Tutorial: Your Own Flask App, Built Hermetically by Nix
 
-[Deploy a Flask App with Nix](nix-flask.md) gets its reproducibility from a `hop3.nix` you write by hand. This tutorial deploys the same application with no Nix code at all. You describe the app in `hop3.toml` and Hop3 generates the expression on the server, from your own source directory.
+[Deploy a Flask App with Nix](nix-flask.md) gets its reproducibility from a `hop3.nix` you write yourself. This tutorial deploys the same application with no Nix code at all. You describe the app in `hop3.toml` and Hop3 generates the expression on the server, from your own source directory.
 
-What you get is the same guarantee: the build runs offline, inside the Nix sandbox, from a dependency set fixed by a hash. Deploy the same commit next month, or on another server, and you get the same application. You don't need Nix on your machine.
+Hop3 gives you the same guarantee: the build runs offline, inside the Nix sandbox, from a dependency set fixed by a hash. Deploy the same commit next month, or on another server, and you get the same application. You don't need Nix on your machine.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ uv [0-9]+\.[0-9]+
 mkdir -p hop3-tuto-nix-gen-flask
 ```
 
-The application is the one from the hand-written tutorial:
+The application is the one from the first Nix tutorial:
 
 ```file path=hop3-tuto-nix-gen-flask/app.py
 import os
@@ -104,19 +104,19 @@ exec-args = ["app:app", "--bind", "0.0.0.0:${PORT:-8080}"]
 path = "/health"
 ```
 
-Compare it with `hop3.nix` in the hand-written tutorial:
+Compare it with `hop3.nix` in the first Nix tutorial:
 
 - `exec-target` and `exec-args` replace the wrapper script and `runtime.json`;
-- the lockfile replaces `python3.withPackages`. Your dependencies come from PyPI at the versions you pinned, rather than from whatever nixpkgs packages.
+- the lockfile replaces `python3.withPackages`. Your dependencies come from PyPI, at the versions you pinned.
 
 Only one step of the build can reach the network: it downloads the files the lockfile names, and Nix checks the result against `pip-deps-hash`. Everything after it, including compiling MarkupSafe, runs offline.
 
 ## Step 4: Deploy
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -161,16 +161,17 @@ curl -s https://hop3-tuto-nix-gen-flask.$HOP3_TEST_DOMAIN/
 Hello from Nix!
 ```
 
-`git push` works the same way. Add the remote that `hop3 init` printed, and every push builds the commit you pushed:
+`git push` works the same way. Add a remote named after the app, and every push builds the commit you pushed:
 
 ```bash skip
 git init && git add -A && git commit -m "Initial commit"
+git remote add hop3 hop3@your-server.example.com:hop3-tuto-nix-gen-flask
 git push hop3 main
 ```
 
 ## When the Dependencies Change
 
-Change `requirements.in`, run `uv pip compile` again, and the downloaded set changes with it. The recorded `pip-deps-hash` no longer matches, and the deploy stops before anything is installed:
+Change `requirements.in` and run `uv pip compile` again: the downloaded set changes with it. The recorded `pip-deps-hash` no longer matches, so the deploy stops before anything is installed:
 
 ```text
 error: hash mismatch in fixed-output derivation '/nix/store/...-python-deps-0.1.0.drv':
@@ -197,4 +198,4 @@ A package that ships compiled wheels makes the downloaded set, and its hash, dep
 ## Next Steps
 
 - [The `[nix]` section of hop3.toml](../../reference/config.md#nix-template-based-nix-builds): every template and its keys, including `node-pnpm-install` (Node, from a pnpm lockfile), `go-source` and `php-app`, which build your own directory the same way
-- [Deploy a Flask App with Nix](nix-flask.md): the same application with a hand-written expression
+- [Deploy a Flask App with Nix](nix-flask.md): the same application with an expression you write yourself

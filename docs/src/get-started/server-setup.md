@@ -26,6 +26,7 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain hop3.e
 ```
 
 This will:
+
 - Configure nginx to serve the admin UI at `https://hop3.example.com/`
 - Request a Let's Encrypt SSL certificate automatically
 - Store the admin domain in the server configuration
@@ -42,7 +43,7 @@ sudo python3 install-server.py --from git --branch main
 
 ### From Local Path
 
-For development or testing with local code:
+To develop or test with local code:
 
 ```bash
 sudo python3 install-server.py --path /path/to/hop3-server
@@ -54,7 +55,7 @@ sudo python3 install-server.py --path /path/to/hop3-server
 |--------|-------------|
 | `--domain DOMAIN` | Domain for admin UI (enables Let's Encrypt SSL) |
 | `--acme-email EMAIL` | Email for Let's Encrypt registration (required when using `--domain`) |
-| `--with FEATURES` | Comma-separated optional features: `mysql`, `redis`, `docker`, `nix`, `s3`, or `all` |
+| `--with FEATURES` | Comma-separated optional features: `mysql`, `redis`, `docker`, `nix`, `s3`, `email`, `rust`, `clojure`, `elixir`, or `all` |
 | `--version VERSION` | Install specific version from PyPI |
 | `--pre` | Allow pre-release versions from PyPI |
 | `--from git` | Install from git repository |
@@ -123,24 +124,24 @@ hop3 login root@your-server.com
 
 SSH access to the server *is* administrator access ([ADR 014](https://github.com/abilian/hop3/blob/main/notes/adrs/014-authentication-bootstrap.md)), so there is no password to type. This runs `admin:ssh-token` on the server, auto-creating a default `admin` if none exists, and stores the token in `~/.config/hop3-cli/credentials.toml`.
 
-That signs in the CLI and records the server's own HTTPS address when it has an admin domain. SSH is the bootstrap, not the everyday route: the Web UI holds a separate credential, and `hop3 login --browser` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
+That signs in the CLI and records the server's own HTTPS address when it has an admin domain. SSH is the bootstrap. The Web UI holds a separate credential, and `hop3 login --browser` prints a one-time link for it (over SSH as well), good for 5 minutes and one use.
 
 To do the same on the server itself, run `hop3-server` as the `hop3` user so the database stays owned by `hop3` and not by `root`:
 
 ```bash
 ssh root@your-server.com
 
-sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:create admin admin@example.com
-sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:token admin
-sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:reset-password admin
-sudo -u hop3 /home/hop3/venv/bin/hop3-server auth:magic-link admin
-sudo -u hop3 /home/hop3/venv/bin/hop3-server admin:list
+runuser -u hop3 -- /home/hop3/venv/bin/hop3-server admin:create admin admin@example.com
+runuser -u hop3 -- /home/hop3/venv/bin/hop3-server admin:token admin
+runuser -u hop3 -- /home/hop3/venv/bin/hop3-server admin:reset-password admin
+runuser -u hop3 -- /home/hop3/venv/bin/hop3-server auth:magic-link admin
+runuser -u hop3 -- /home/hop3/venv/bin/hop3-server admin:list
 ```
 
 Then sign the local CLI in with a token you printed that way:
 
 ```bash
-hop3 auth login --token <paste-token-here> --url https://your-server.com
+hop3 login --token <paste-token-here> --url https://your-server.com
 ```
 
 Either way the server is recorded as a context, named `default` unless you pass `--context <name>`. Before deploying from a project directory, bind the checkout to it once:
@@ -150,7 +151,7 @@ cd myapp
 hop3 context use default
 ```
 
-**[Signing In](authentication.md)** covers the whole picture: which credential each surface holds, why the Web UI needs HTTPS, how to name several servers, and what to do when you cannot get in.
+**[Signing In](authentication.md)** covers the whole picture: which credential each surface holds, why the Web UI needs HTTPS, how to name several servers, and how to recover when you cannot get in.
 
 ### For Automation (CI/CD)
 
@@ -182,6 +183,7 @@ python demos/demo.py run --host <your-server-ip> --local --keep demo01
 ```
 
 The demo launcher will:
+
 - Install/update Hop3 on the target server
 - Configure the admin domain (if specified)
 - Create an admin user
@@ -218,6 +220,7 @@ sudo journalctl -u hop3-server --no-pager -n 50
 ### SSL Certificate Issues
 
 For Let's Encrypt, ensure:
+
 - Domain DNS points to your server's IP
 - Ports 80 and 443 are open
 - No other service is using port 80
@@ -225,7 +228,7 @@ For Let's Encrypt, ensure:
 To manually request a certificate:
 
 ```bash
-sudo -u hop3 /home/hop3/.acme.sh/acme.sh --issue -d your-domain.com -w /var/www/html
+runuser -u hop3 -- /home/hop3/.acme.sh/acme.sh --issue -d your-domain.com -w /var/www/html
 ```
 
 ### PostgreSQL Connection Issues
@@ -233,33 +236,24 @@ sudo -u hop3 /home/hop3/.acme.sh/acme.sh --issue -d your-domain.com -w /var/www/
 Verify PostgreSQL is configured for the hop3 user:
 
 ```bash
-sudo -u hop3 psql -d hop3 -c "SELECT 1"
+runuser -u hop3 -- psql -d hop3 -c "SELECT 1"
 ```
 
 ### Admin UI Shows 404
 
-If using a domain and getting 404:
+If a domain returns 404, check nginx and hop3-server:
+
 1. Verify nginx config: `sudo nginx -t`
 2. Check nginx is proxying to hop3-server: `cat /etc/nginx/sites-available/hop3`
 3. Ensure hop3-server is running on port 8000
 
 ### Bare Host Serves the Wrong App (or the Default Nginx Page)
 
-**Symptom**: `http://your-server/` shows the default nginx welcome page, or
-`https://your-server/` shows one of your deployed apps (with the wrong TLS
-certificate) instead of the Hop3 Web UI.
+**Symptom**: `http://your-server/` shows the default nginx welcome page, or `https://your-server/` shows one of your deployed apps (with the wrong TLS certificate) instead of the Hop3 Web UI.
 
-**Cause**: the control plane isn't claiming the bare host. Each app's nginx
-vhost matches only its own `server_name`, so a request to a host that matches no
-app falls through to whichever vhost nginx loaded first (the distro default on
-port 80, an arbitrary app on port 443). This happens on servers installed before
-the control plane started pinning nginx's `default_server`.
+**Cause**: the control plane isn't claiming the bare host. Each app's nginx vhost matches only its own `server_name`, so a request to a host that matches no app falls through to whichever vhost nginx loaded first (the distro default on port 80, an arbitrary app on port 443). This happens on servers installed before the control plane started pinning nginx's `default_server`.
 
-**Fix**: redeploy. `hop3-deploy-server --host your-server.com` now makes
-`your-server.com` the admin hostname automatically and pins the Hop3 control
-plane as nginx's `default_server`, so the bare host and any unmatched Host
-reach the Web UI instead of a random app. To serve the Web UI on a *different*
-hostname, pass it explicitly:
+**Fix**: redeploy. `hop3-deploy-server --host your-server.com` now makes `your-server.com` the admin hostname automatically and pins the Hop3 control plane as nginx's `default_server`, so the bare host and any unmatched Host reach the Web UI. To serve the Web UI on a *different* hostname, pass it explicitly:
 
 ```bash
 # Developer tool with a different admin hostname:
@@ -277,5 +271,6 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 - --domain your-s
 ## Support
 
 For additional help or to report issues:
+
 - GitHub: [https://github.com/abilian/hop3/issues](https://github.com/abilian/hop3/issues)
 - Documentation: [https://hop3.cloud/](https://hop3.cloud/)

@@ -29,7 +29,7 @@ Deployment fails during the build phase with dependency or compilation errors.
 
 #### Diagnosis
 ```bash
-hop3 app logs --app myapp --lines 100
+hop3 app logs --app myapp --build
 ```
 
 #### Common Causes & Solutions
@@ -97,7 +97,7 @@ systemctl status uwsgi-hop3
 
 #### Common Causes & Solutions
 
-**Missing Procfile:**
+**No web process declared (Procfile or `[run].start` in hop3.toml):**
 ```bash
 # Verify Procfile exists
 cat /home/hop3/apps/myapp/src/Procfile
@@ -142,8 +142,8 @@ Nginx returns 502 Bad Gateway error.
 # Check Nginx error log
 sudo tail -50 /var/log/nginx/error.log
 
-# Check if application socket exists
-ls -la /tmp/uwsgi-*.sock
+# Check the application answers on its port
+hop3 app ping --app myapp
 
 # Check Nginx configuration
 sudo nginx -t
@@ -158,14 +158,6 @@ hop3 app restart --app myapp
 
 # Check if it started
 hop3 app status --app myapp
-```
-
-**Socket permission issues:**
-```bash
-# Check socket permissions
-ls -la /tmp/uwsgi-myapp.sock
-
-# Should be owned by hop3:www-data
 ```
 
 **uWSGI worker crashed:**
@@ -317,10 +309,10 @@ Site shows "Not Secure" or SSL certificate errors.
 #### Diagnosis
 ```bash
 # Check certificate status
-sudo certbot certificates
+hop3 cert status
 
-# Check for errors
-sudo journalctl -u certbot -n 50
+# Check for errors (hop3-server obtains and renews certificates)
+hop3 system logs --grep cert
 ```
 
 #### Solutions
@@ -343,6 +335,7 @@ sudo ufw allow 80/tcp
 ```
 
 **Rate limited by Let's Encrypt:**
+
 - Wait 1 hour and try again
 - Check https://letsencrypt.org/docs/rate-limits/
 
@@ -350,14 +343,11 @@ sudo ufw allow 80/tcp
 
 #### Solutions
 ```bash
-# Test renewal
-sudo certbot renew --dry-run
+# Check expiry dates
+hop3 cert status
 
 # Force renewal
-sudo certbot renew --force-renewal
-
-# Check timer
-systemctl status certbot.timer
+hop3 cert renew --app myapp --force-renewal
 ```
 
 ## Performance Issues
@@ -395,7 +385,7 @@ hop3 addon attach myapp-cache --app myapp
 **Database optimization:**
 ```bash
 # Check slow queries (PostgreSQL)
-sudo -u postgres psql -c "SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10;"
+runuser -u postgres -- psql -c "SELECT * FROM pg_stat_statements ORDER BY total_time DESC LIMIT 10;"
 ```
 
 ### Out of Memory
@@ -560,12 +550,6 @@ journalctl -u uwsgi-hop3 -n 50
 
 #### Solutions
 
-**Socket directory missing:**
-```bash
-sudo mkdir -p /run/uwsgi
-sudo chown hop3:www-data /run/uwsgi
-```
-
 **Configuration error:**
 ```bash
 # Check all app configs (active configs live in uwsgi-enabled)
@@ -598,10 +582,11 @@ hop3 app logs --app myapp --lines 200 >> diagnostic.txt
 ### Where to Get Help
 
 1. **Documentation**: https://hop3.cloud/
-2. **GitHub Issues**: https://github.com/hop3-project/hop3/issues
+2. **GitHub Issues**: https://github.com/abilian/hop3/issues
 3. **Community Chat**: (link to Discord/Matrix if available)
 
 When reporting issues, please include:
+
 - Hop3 version: `hop3 --version`
 - Operating system: `cat /etc/os-release`
 - Error messages and logs

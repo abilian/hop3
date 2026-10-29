@@ -33,9 +33,9 @@ Every Hop3 backup includes:
 Backups are stored as directories containing:
 
 ```
-/var/hop3/backups/apps/<app-name>/<backup-id>/
+/home/hop3/backups/apps/<app-name>/<backup-id>/
 ├── metadata.json         # Backup manifest with checksums
-├── source.tar.gz         # Git repository archive
+├── source.tar.gz         # Source tree, delivered tree and git repository
 ├── data.tar.gz           # Application data archive
 ├── env.json              # Environment variables
 ├── volume-<name>.tar.gz  # One archive per persistent [[volumes]] volume
@@ -65,7 +65,7 @@ hop3 backup create --app my-app
 # Backup created successfully!
 #
 # Backup ID: 20251108_143022_a8f3d9
-# Location: /var/hop3/backups/apps/my-app/20251108_143022_a8f3d9
+# Location: /home/hop3/backups/apps/my-app/20251108_143022_a8f3d9
 # Total size: 15.6 MB
 #
 # To restore this backup:
@@ -97,8 +97,7 @@ hop3 backup restore 20251108_143022_a8f3d9
 # Hostname: myapp.example.com
 # Port: 8000
 #
-# To start the application:
-#   hop3 app restart --app my-app
+# The application was redeployed. Check it with 'hop3 app status --app my-app'.
 ```
 
 ## Creating Backups
@@ -117,6 +116,7 @@ hop3 backup create --app blog
 ```
 
 This creates a complete backup including:
+
 - Source code
 - Data directory
 - Environment variables
@@ -159,7 +159,7 @@ Shows all backups across all applications in a table format.
 ### Filter by Application
 
 ```bash
-hop3 backup list <app-name>
+hop3 backup list --app <app-name>
 ```
 
 **Example:**
@@ -290,10 +290,10 @@ The restore process includes **safety checks** at every step.
 
 ### After Restore
 
-After restoring, you typically need to restart the application:
+A restore redeploys the application from the restored source, so it is running again when the command returns. Check its state:
 
 ```bash
-hop3 app restart --app <app-name>
+hop3 app status --app <app-name>
 ```
 
 ## Deleting Backups
@@ -351,7 +351,7 @@ Recommended retention policies:
 
 ### Backup Storage
 
-- Backups are stored in `/var/hop3/backups/`
+- Backups are stored in `/home/hop3/backups/`
 - Monitor disk space regularly
 - Consider setting up automated cleanup for old backups
 - Plan for approximately 2-3x the size of your application data
@@ -382,7 +382,6 @@ Periodically test your backups:
 ```bash
 hop3 backup create --app devel-app
 hop3 backup restore <backup-id> --target-app devel-app-test
-hop3 app restart --app devel-app-test
 # Test the application
 hop3 app destroy --app devel-app-test
 ```
@@ -416,7 +415,6 @@ hop3 deploy --app myapp
 
 # 3. If something goes wrong, restore
 hop3 backup restore <backup-id>
-hop3 app restart --app myapp
 ```
 
 ## Troubleshooting
@@ -461,6 +459,7 @@ Got: sha256:def456...
 **Meaning:** The backup file has been corrupted or modified.
 
 **Solution:**
+
 - Do **not** use this backup
 - Use a different backup
 - Investigate how the file was corrupted
@@ -476,7 +475,7 @@ Error: Insufficient disk space for backup
 **Solution:**
 ```bash
 # Check disk space
-df -h /var/hop3/backups
+df -h /home/hop3/backups
 
 # Delete old backups
 hop3 backup list
@@ -489,13 +488,13 @@ hop3 backup destroy <old-backup-id>
 
 **Error:**
 ```
-Error: Permission denied: /var/hop3/backups/apps/myapp/...
+Error: Permission denied: /home/hop3/backups/apps/myapp/...
 ```
 
 **Solution:** This usually indicates a system-level issue. Contact your system administrator or check file permissions:
 
 ```bash
-ls -la /var/hop3/backups/
+ls -la /home/hop3/backups/
 ```
 
 ### Restore Fails Partway Through
@@ -517,6 +516,7 @@ Error: Failed to restore service 'my-database': Connection refused
 ```
 
 **Possible causes:**
+
 - Service (PostgreSQL, Redis, etc.) is not running
 - Service credentials have changed
 - Service port is blocked
@@ -537,7 +537,7 @@ hop3 backup restore <backup-id>
 Understanding the backup structure can help with debugging:
 
 ```
-/var/hop3/backups/apps/myapp/20251108_143022_a8f3d9/
+/home/hop3/backups/apps/myapp/20251108_143022_a8f3d9/
 │
 ├── metadata.json          # Backup manifest
 │   └── Contains:
@@ -546,11 +546,11 @@ Understanding the backup structure can help with debugging:
 │       - Service information
 │       - Application metadata
 │
-├── source.tar.gz          # Git repository
+├── source.tar.gz          # Source and git repository
 │   └── Contains:
-│       - Complete git history
-│       - All branches and tags
-│       - .git directory
+│       - The deployed source tree (src/)
+│       - The tree the app was delivered with, which a restore rebuilds from
+│       - The bare git repository, with its history
 │
 ├── data.tar.gz            # Application data
 │   └── Contains:
@@ -576,7 +576,7 @@ You can manually verify a backup:
 
 ```bash
 # Navigate to backup directory
-cd /var/hop3/backups/apps/myapp/20251108_143022_a8f3d9/
+cd /home/hop3/backups/apps/myapp/20251108_143022_a8f3d9/
 
 # View metadata
 cat metadata.json | python3 -m json.tool
@@ -616,7 +616,7 @@ Other addons are backed up by their own `backup()`/`restore()` implementations:
 
 - MySQL: `mysqldump` SQL file
 - Redis: a JSON dump of the database's keys (via `redis-cli`)
-- S3/MinIO: the bucket's objects
+- S3: a tar of the bucket's objects, with their content types
 
 ### Backup Performance
 
@@ -653,10 +653,10 @@ In case of complete server failure, do the following:
 3. **Restore applications** one by one:
    ```bash
    hop3 backup restore <backup-id>
-   hop3 app restart --app <app-name>
    ```
 
 Keep backups in multiple locations:
+
 - Local server
 - Remote backup server
 - Cloud storage (future feature)
@@ -679,7 +679,6 @@ hop3 deploy --app myapp
 if [ $? -ne 0 ]; then
     echo "Deployment failed, restoring backup..."
     hop3 backup restore $backup_id
-    hop3 app restart --app myapp
     exit 1
 fi
 
@@ -697,7 +696,7 @@ Create a monitoring script:
 app_name="myapp"
 max_age_days=1
 
-latest_backup=$(hop3 backup list $app_name --limit 1 | tail -n 1 | awk '{print $4}')
+latest_backup=$(hop3 backup list --app $app_name --limit 1 | tail -n 1 | awk '{print $4}')
 current_date=$(date +%s)
 backup_date=$(date -d "$latest_backup" +%s)
 age_seconds=$((current_date - backup_date))

@@ -12,17 +12,17 @@ Recipes live in the catalog repository, under the maturity status that admits th
 apps/<status>/<app-id>/
 ```
 
-The directory **is** the status. Nothing else records it, because a `status` field beside a `status/` directory is two sources of truth for one fact, and they drift. The published `index.json` carries a `status` field derived at publish time. That value crosses into the artifact the node can read.
+The directory **is** the status. Nothing else records it, because a `status` field beside a `status/` directory is two sources of truth for one fact, and they drift. The publish step writes a `status` field, derived from the directory, into `index.json`. That value crosses into the artifact the node can read.
 
 | Status | Admitted when | Published |
 |---|---|---|
-| `golden` | It installs **from the published catalog** and signs in through the application's own authentication with the credential Hop3 generated. A wrong password is refused. Carries `[admin]`, and `[probe]` where the application has accounts. Presentation metadata complete. | yes |
-| `beta` | It deploys and serves its own content: readiness passes a `[healthcheck].contains` assertion on the body. The sign-in bar is unmet or does not apply. | yes, marked |
+| `golden` | It installs **from the published catalog** and signs in through the application's authentication with the credential Hop3 generated. A wrong password is refused. Declares `[admin]`, and `[probe]` where the application has accounts. Presentation metadata complete. | yes |
+| `beta` | It deploys and serves content: readiness passes a `[healthcheck].contains` assertion on the body. The sign-in bar is unmet or does not apply. | yes, marked |
 | `alpha` | It deploys. Verification is status-only or unproven. | no |
 | `broken` | A recorded failure, with the reason written down. Kept: the failure names a platform gap. | no |
 | `retired` | Withdrawn for a reason upstream of the platform: archived project, incompatible licence, superseded by another variant. | no |
 
-An application packaged several ways has one entry carrying its name (the native build path, the default an operator gets) and suffixed variants at their own status: `gitea`, `gitea-nix`, `gitea-nixgen`.
+An application packaged several ways has one unsuffixed entry (the native build path, the default an operator gets) and suffixed variants, each at the status it earned: `gitea`, `gitea-nix`, `gitea-nixgen`.
 
 The published tree stays **flat**. Publish walks the hierarchy and emits the same `<app-id>/…` layout it always has, so a deployed node's loader is untouched.
 
@@ -62,7 +62,7 @@ hop3-test run --host <server> --recipes published --with all
 hop3-test run --host <server> --recipes published gitea-nixgen   # one app
 ```
 
-A published run refreshes the server's catalog first and fails if the refresh does. Alpha is refused: the catalog does not publish it. Each app is installed, validated, upgraded with `hop3 app upgrade` and validated again, then destroyed. Installing builds each app from source, so budget generously: a single Rust-heavy app can take twenty minutes. `--screenshots` also photographs each app signed in, into its recipe's `screenshots/`, and is what verifies the apps whose sign-in only a browser can drive; without it those are reported as not verified. It needs Playwright: `uv run --with playwright hop3-test run --host <server> --recipes published --screenshots`.
+A published run refreshes the server's catalog first and fails if the refresh does. Alpha is refused: the catalog does not publish it. Each app is installed, validated, upgraded with `hop3 app upgrade` and validated again, then destroyed. Installing builds each app from source, so budget generously: a single Rust-heavy app can take twenty minutes. `--screenshots` also photographs each app signed in, into `screenshots/` beside the recipe, and is what verifies the apps whose sign-in only a browser can drive; without it those are reported as not verified. It needs Playwright: `uv run --with playwright hop3-test run --host <server> --recipes published --screenshots`.
 
 ## The loop
 
@@ -73,7 +73,7 @@ cd hop3-catalog
 make validate            # coexistence gate + recipe lint + presentation lint
 ```
 
-`lint-recipes` rejects an app that hard-codes its public address in place of `HOP3_PUBLIC_URL`. Four recipes pinned a loopback address; all four passed their own checks while showing a browser nothing. `lint-presentation` rejects an entry unfit to show an operator: one missing its title, real category, memory estimate, icon or screenshot, or carrying an id another entry claims. `validate` also names every recipe it will **not** publish, grouped by status.
+`lint-recipes` rejects an app that hard-codes its public address in place of `HOP3_PUBLIC_URL`. Four recipes pinned a loopback address; all four passed their checks while showing a browser nothing. `lint-presentation` rejects an entry unfit to show an operator: one missing a title, real category, memory estimate, icon or screenshot, or reusing an id another entry claims. `validate` also names every recipe it will **not** publish, grouped by status.
 
 ### 2. Publish
 
@@ -103,7 +103,7 @@ hop3 catalog list        # confirm the entry count and statuses are what you jus
 hop3-test run --host <server> --recipes published --covers nix
 ```
 
-For each app that passes, move it and re-publish so the artifact carries the new status:
+For each app that passes, move it and re-publish so the artifact records the new status:
 
 ```bash
 git mv apps/beta/<app> apps/golden/<app>
@@ -114,7 +114,7 @@ A status can also go **backwards**. A `golden` recipe whose next verification fa
 
 ## Recipes that need a newer server
 
-One catalog serves every server that refreshes from it, and servers upgrade on their own schedule. A recipe that depends on a platform feature an older server lacks (a new `[nix]` key, a template capability, a nixpkgs pin its recorded hashes were taken against) says so in its overlay:
+One catalog serves every server that refreshes from it, and servers upgrade on their own schedule. A recipe that depends on a platform feature an older server lacks (a new `[nix]` key, a template capability, a nixpkgs pin the recorded hashes were taken against) says so in its overlay:
 
 ```toml
 [catalog]
@@ -125,11 +125,11 @@ A server older than that refuses `hop3 catalog install` by name ("needs Hop3 0.8
 
 Servers released before the key existed ignore it. They still fail on such a recipe, at build time, so a recipe that needs a new server is published only once that server is released.
 
-The publish step also works out what a recipe needs. Each platform feature a recipe can depend on has a rule over its `hop3.toml` (`server/catalog/features.py`): `php-fpm` for a PHP recipe with no start command, `scratch-volumes`, `proxy-deny`, `access-gate`, `nix-github-source` and others. The names a recipe matches go into its entry in the signed index as `requires`, and a server lacking one refuses the install, naming it. The publish refuses a recipe whose `requires_hop3` is missing or lower than the release that introduced its features, and says which value to write; a higher value is kept, for a need no rule detects.
+The publish step also works out what a recipe needs. Each platform feature a recipe can depend on has a rule that reads the recipe's `hop3.toml` (`server/catalog/features.py`): `php-fpm` for a PHP recipe with no start command, `scratch-volumes`, `proxy-deny`, `access-gate`, `nix-github-source` and others. The names a recipe matches go into the signed index as `requires`, and a server lacking one refuses the install, naming it. The publish refuses a recipe whose `requires_hop3` is missing or lower than the release that introduced its features, and says which value to write; a higher value is kept, for a need no rule detects.
 
 ## The ordering trap
 
-A published run installs from the published catalog. Edit a recipe, skip the publish, re-run it, and you have re-tested the **old** recipe, with nothing in the output saying so. Five apps were recorded as "verified fixed" against recipes that still carried the bug, twice, before the missing `make publish` was noticed.
+A published run installs from the published catalog. If you edit a recipe, skip the publish and re-run it, the run re-tests the **old** recipe without a word in the output. Five apps were recorded as "verified fixed" against recipes that still had the bug, twice, before the missing `make publish` was noticed.
 
 Publishing belongs inside the edit-test loop.
 

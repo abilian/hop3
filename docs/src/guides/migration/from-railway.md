@@ -16,7 +16,7 @@ Railway and Hop3 share the same core promise: you hand over source code, the pla
 
 Just as Nixpacks infers your start command, Hop3 auto-detects the process model from your project, so you don't have to write a `Procfile`. If you want explicit control, you pin it in `hop3.toml` (or add a `Procfile`), but neither is required to get going.
 
-One difference to keep in mind: Railway's CLI and dashboard scope everything to the currently linked project/service. Hop3 uses spaces between words and targets the app with the `--app` flag rather than a positional argument or a linked context. So setting a variable is `hop3 env set FOO=bar --app myapp`, with no linked project to switch away from first.
+Railway's CLI and dashboard scope everything to the currently linked project/service. Hop3 uses spaces between words and targets the app with the `--app` flag. So setting a variable is `hop3 env set FOO=bar --app myapp`, with no linked project to switch away from first.
 
 ## What's Different
 
@@ -25,11 +25,11 @@ One difference to keep in mind: Railway's CLI and dashboard scope everything to 
 | Managed platform | Self-hosted |
 | Usage-based billing | Fixed monthly VPS cost |
 | Automatic scaling | Manual scaling (`hop3 ps scale`) |
-| Postgres / MySQL / Redis / **Mongo** plugins | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| Postgres / MySQL / Redis / **Mongo** plugins | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Template marketplace | No marketplace (deploy any repo directly) |
 | Multi-region deploys | Single server |
 
-Hop3 is simpler, and the cost is predictable: you manage one server instead of a metered cloud account. The one mapping that isn't clean is **MongoDB**: Railway offers a Mongo plugin, and Hop3 doesn't have a managed MongoDB addon. See [Step 4](#step-4-migrate-your-data) for how to handle that.
+Hop3 is simpler, with a predictable cost: you pay for one server. The one mapping that isn't clean is **MongoDB**: Railway offers a Mongo plugin; Hop3 has no managed MongoDB addon. See [Step 4](#step-4-migrate-your-data) for how to handle that.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -43,15 +43,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Railway Configuration
 
@@ -68,7 +70,7 @@ Review the file and remove Railway-managed variables; Hop3 sets the equivalents 
 - `PORT` (auto-set by Hop3)
 - `RAILWAY_*` variables (Railway-internal, no Hop3 equivalent)
 
-Keep your application's own secrets (`SECRET_KEY`, API keys, feature flags); those carry over unchanged.
+Keep your application's own secrets (`SECRET_KEY`, API keys, feature flags); those stay unchanged.
 
 ## Step 3: Add hop3.toml
 
@@ -119,20 +121,20 @@ Export from Railway. Railway exposes a `DATABASE_URL` for the plugin; use it wit
 
 ```bash
 # Postgres — dump using Railway's connection string
-pg_dump "$RAILWAY_DATABASE_URL" -Fc -f latest.dump
+pg_dump "$RAILWAY_DATABASE_URL" --no-owner --no-acl -f latest.sql
 ```
 
-Import to Hop3. The `postgres import` verb reads a dump from stdin:
+Import to Hop3. The `postgres import` verb reads a plain SQL dump from stdin:
 
 ```bash
-hop3 addon postgres import your-app-db --confirm=your-app-db < latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
-(Redis data is usually cache and can start fresh; if you need it, `hop3 addon redis import your-app-db --confirm=your-app-db < dump.rdb`.)
+(Redis data is usually cache and can start fresh; if you need it, `hop3 addon create redis your-app-cache`, then `hop3 addon redis import your-app-cache --confirm=your-app-cache < dump.rdb`.)
 
 ### MongoDB
 
-Hop3 ships PostgreSQL, MySQL, Redis, and S3/MinIO addons; it has no MongoDB addon, so an app that uses Railway's Mongo plugin has no managed equivalent to migrate into. You have two practical paths:
+Hop3 ships PostgreSQL, MySQL, Redis, and S3 (Garage) addons; it has no MongoDB addon, so an app that uses Railway's Mongo plugin has no managed equivalent to migrate into. You have two practical paths:
 
 1. **Keep an external managed MongoDB** (MongoDB Atlas, or any host you run) and point your app at it. Hop3 doesn't manage it, and doesn't need to: set the connection string as a plain variable:
 
@@ -191,7 +193,7 @@ Railway builds with Nixpacks, which inspects your repo and assembles a build. Ho
 | Go detected | `go` (auto-detected) |
 | Custom Nixpacks config | `[build]` section |
 
-For multi-language apps (e.g. a Python backend that builds a JS frontend):
+A multi-language app (e.g. a Python backend that builds a JS frontend) picks one toolchain and builds the other part in `before-build`:
 
 ```toml
 [build]
@@ -241,9 +243,9 @@ worker = "celery -A myapp worker"
 Or use system cron on the server for periodic jobs:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Scaling
@@ -251,10 +253,10 @@ crontab -e
 Railway scales replicas and resources for you. Hop3 scaling is manual and explicit: you set the process count:
 
 ```bash
-hop3 ps scale your-app web=3 worker=2
+hop3 ps scale --app your-app web=3 worker=2
 ```
 
-There's no autoscaling or multi-region: it's one server, and you size it. For many apps that came to Railway from a hobby tier, a single right-sized VPS is more than enough, and the bill doesn't move when traffic does.
+There's no autoscaling or multi-region: it's one server, and you size it. For many apps that came to Railway from a hobby tier, a single right-sized VPS is more than enough. The bill doesn't move when traffic does.
 
 ## Command Mapping
 

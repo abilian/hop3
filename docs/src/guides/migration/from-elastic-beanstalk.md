@@ -4,7 +4,7 @@ Elastic Beanstalk promised to hide the AWS machinery, but the machinery never re
 
 ## What's Similar
 
-If you came to Elastic Beanstalk for its managed-platform feel, a lot carries over:
+If you came to Elastic Beanstalk for its managed-platform feel, a lot stays the same:
 
 | Elastic Beanstalk | Hop3 |
 |-------------------|------|
@@ -16,7 +16,7 @@ If you came to Elastic Beanstalk for its managed-platform feel, a lot carries ov
 
 Your `Procfile` works unchanged: Elastic Beanstalk reads a `Procfile`, and so does Hop3. The process model you already declared there comes across as-is.
 
-One syntactic difference to keep in mind: the EB CLI infers the environment from the local `.elasticbeanstalk/` directory, while Hop3 targets the app with the `--app` flag (never a positional argument or colon syntax). So `eb setenv FOO=bar` becomes `hop3 env set FOO=bar --app myapp`.
+The two CLIs pick their target differently: the EB CLI infers the environment from the local `.elasticbeanstalk/` directory, while Hop3 targets the app with the `--app` flag. So `eb setenv FOO=bar` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -28,13 +28,13 @@ Elastic Beanstalk's AWS-shaped assumptions stop applying here. Read this section
 | ELB + autoscaling group | Single server, manual `ps scale` |
 | Worker environment tier (SQS) | `[run.workers]` (no managed queue) |
 | RDS managed database | PostgreSQL / MySQL addon, or keep RDS |
-| Many AWS-integrated services | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| Many AWS-integrated services | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Multiple environments / cloning | Deploy named apps manually |
 
-- **No load balancer or autoscaling group.** Elastic Beanstalk fronts your app with an ELB and scales an ASG up and down on a metric. Hop3 runs your app on one server, and you set the process count yourself with `hop3 ps scale`. There is no automatic scale-out or multi-instance load balancing across machines: Hop3 is a single-server PaaS, with no multi-region, cluster, or edge tier. If your workload needs an ASG, that's a reason to stay on EB.
+- **No load balancer or autoscaling group.** Elastic Beanstalk fronts your app with an ELB and scales an ASG up and down on a metric. Hop3 runs your app on one server, where you set the process count yourself with `hop3 ps scale`. There is no automatic scale-out or multi-instance load balancing across machines: Hop3 is a single-server PaaS, with no multi-region, cluster, or edge tier. If your workload needs an ASG, that's a reason to stay on EB.
 - **No managed queue for the worker tier.** EB's *worker environment tier* is wired to an SQS queue that delivers messages to your app over HTTP. Hop3 has no managed-queue equivalent. You can still run background workers (see [The worker tier](#the-worker-tier) below), but you bring your own broker (Redis, for instance) or use cron. There is no SQS to point at.
 
-Hop3 is simpler. You manage one server instead of a CloudFormation stack, an ELB, an ASG, and a fleet of EC2 instances.
+Hop3 is simpler. You manage one server, with no CloudFormation stack, ELB, ASG, or fleet of EC2 instances.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -48,15 +48,16 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
-Connect the CLI to your server. On a first install this also creates the
-admin account and stores your API token:
+Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Elastic Beanstalk Configuration
 
@@ -143,12 +144,12 @@ If you ran a separate EB *worker environment*, its process belongs in `[run.work
 worker = "celery -A myapp worker"
 ```
 
-The important caveat, repeated from above: EB's worker tier is fed by an SQS queue, and Hop3 has no managed queue. Your worker still runs, but it needs a broker you provide. Typically that is a Redis addon (`hop3 addon create redis your-app-cache`) that your worker reads from; for periodic jobs, use system cron:
+As noted above, an SQS queue feeds EB's worker tier, while Hop3 has no managed queue. Your worker still runs, but it needs a broker you provide. Typically that is a Redis addon (`hop3 addon create redis your-app-cache`) that your worker reads from; for periodic jobs, use system cron:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ## Step 4: Migrate Your Database
@@ -164,7 +165,7 @@ hop3 env set --app your-app \
   DATABASE_URL=postgresql://user:pass@your-db.abc123.us-east-1.rds.amazonaws.com:5432/yourdb
 ```
 
-Make sure the RDS security group allows connections from your new Hop3 server's IP. Nothing else changes: Hop3 doesn't require its own addon, and an external managed database is fine.
+Make sure the RDS security group allows connections from your new Hop3 server's IP. Nothing else changes: Hop3 works with an external managed database and doesn't require its own addon.
 
 ### Option B: move the database onto Hop3
 
@@ -189,14 +190,12 @@ Dump RDS and restore into the addon:
 # Dump from RDS (run from a host that can reach RDS)
 pg_dump -Fc -h your-db.abc123.us-east-1.rds.amazonaws.com -U user yourdb > rds.dump
 
-# Copy the dump to the Hop3 server and restore
-scp rds.dump root@your-server.com:/tmp/
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/rds.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f rds.sql rds.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < rds.sql
 ```
 
-If your RDS instance is MySQL, create a `mysql` addon instead and use `mysqldump` / the matching restore. Hop3's addons are PostgreSQL, MySQL, Redis, and S3/MinIO (and growing). There's no managed MongoDB or message queue; for those, keep the AWS-side service and point `[env]` at it, exactly like Option A.
+If your RDS instance is MySQL, create a `mysql` addon instead and use `mysqldump` / the matching restore. Hop3's addons are PostgreSQL, MySQL, Redis, and S3 (Garage), and growing. There's no managed MongoDB or message queue; for those, keep the AWS-side service and point `[env]` at it, exactly like Option A.
 
 ### RDS Postgres extensions
 
@@ -241,7 +240,7 @@ There's no autoscaling group to configure, and no ELB scaling policy to translat
 hop3 ps scale --app your-app web=3
 ```
 
-You can scale workers the same way (`worker=2`). The manual count is deliberate: Hop3 is a single server, so scaling means adjusting how many worker processes that server runs rather than adding instances behind a load balancer.
+You can scale workers the same way (`worker=2`). The count stays manual because Hop3 runs on a single server: scaling means adjusting how many worker processes that server runs.
 
 ### Domain and TLS
 

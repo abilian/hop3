@@ -5,3 +5,4 @@
 /src/blog/
 /src/developers/adrs/
 /src/tutorials/
+.hop3-local.toml

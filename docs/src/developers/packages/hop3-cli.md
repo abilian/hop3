@@ -109,7 +109,7 @@ The CLI uses JSON-RPC 2.0 over HTTP, posting to the server's `/rpc` endpoint. Th
 }
 ```
 
-`extra_args` carries out-of-band values that don't belong in the argv (for example file contents read locally and passed to the server).
+`extra_args` holds out-of-band values that don't belong in the argv (for example file contents read locally and passed to the server).
 
 ### RPC Client
 
@@ -133,7 +133,7 @@ Commands are organized by type:
 
 ### Remote Commands
 
-Most commands are forwarded to the server as the `cli` method, with the command tokens passed verbatim. The app target is always the `--app NAME` flag (ADR 036 D5); when omitted, the CLI resolves it from where you stand (env var `$HOP3_APP`, a `.hop3-app` file in the CWD or an ancestor, or `hop3.toml`) and injects it as `--app` before forwarding. There is no per-context default app (ADR 042).
+Most commands are forwarded to the server as the `cli` method, with the command tokens passed verbatim. The app target is always the `--app NAME` flag (ADR 036 D5). When omitted, the CLI resolves it from where you stand (env var `$HOP3_APP`, a `.hop3-app` file in the CWD or an ancestor, or `hop3.toml`) and injects it as `--app` before forwarding; contexts hold no default app (ADR 042).
 
 ```bash
 # These are forwarded to the server as cli(["<tokens>"])
@@ -173,7 +173,7 @@ server = "https://hop3.example.com"             # the address every command conn
 bootstrap = "ssh://root@hop3.example.com"       # used only to renew the token
 ```
 
-The file is written atomically (tmpfile + `os.replace`) and `chmod 0600` defensively, even though it carries no secrets.
+The file is written atomically (tmpfile + `os.replace`) and `chmod 0600` defensively, even though it contains no secrets.
 
 ### Credential Store (`credentials.toml`)
 
@@ -184,17 +184,17 @@ Bearer tokens live in `~/.config/hop3-cli/credentials.toml` (same config dir), k
 token = "eyJ..."
 ```
 
-This file is invisible plumbing: `hop3 auth login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. It is created file-mode `0o600` with parent dir `0o700`, and the store **aborts loudly** rather than ever leaving it group/world-readable (Hop3's "errors are never silent" rule). See `core/credential_store.py`.
+This file is invisible plumbing: `hop3 auth login` / `hop3 init` populate it, deploy/RPC read it, and it is never hand-edited. The store (`core/credential_store.py`) creates it with file mode `0o600` and parent dir `0o700`. It **aborts loudly** if the file would end up group/world-readable, following Hop3's "errors are never silent" rule.
 
 ### Contexts and the binding
 
 A *context* is a named server: `server`, plus an optional `bootstrap` `ssh://` route used only to mint a token. It never holds an app, domains or environment; those per-deployment differences live in the project's `hop3.toml`, under `[contexts.<name>]` blocks keyed by context name and holding only `app`, `domains` and `env` (a `server` or `bootstrap` there is refused). Contexts are managed with `hop3 context add|use|unset|list|show|remove|rename` (see `commands/local/context_cmd.py`).
 
-`main.py` resolves the target once per invocation, in two steps. `core/resolution.py:resolve_context` picks the context *name* by rule B of ADR 042: `--context`, then `HOP3_CONTEXT` (or the context `env` for `HOP3_API_URL` / `HOP3_DEV_MODE`), then, inside a project, the checkout's binding from `.hop3-local.toml`, and, outside a project, `[cli].default_context`. Inside a project with no binding the result is `UNBOUND`, never the global context. `core/target.py:resolve_target` then turns the name into a `Target` (context, server, bootstrap, source) or a `TargetError` that names the fix (`hop3 context use <name>`); a name that resolves to nothing aborts, whichever step supplied it. `Target.describe()` is the `→ <context> (<server>), <why>` line each server-reaching command prints on stderr. There is no `--server` flag and no single-context fallback.
+`main.py` resolves the target once per invocation, in two steps. `core/resolution.py:resolve_context` picks the context *name* by rule B of ADR 042: `--context`, then `HOP3_CONTEXT` (or the context `env` for `HOP3_API_URL` / `HOP3_DEV_MODE`), then, inside a project, the checkout's binding from `.hop3-local.toml`, and, outside a project, `[cli].default_context`. Inside a project with no binding the result is `UNBOUND`, never the global context. `core/target.py:resolve_target` then turns the name into a `Target` (context, server, bootstrap, source) or a `TargetError` that names the fix (`hop3 context use <name>`); a name that resolves to nothing aborts, whichever step supplied it. `Target.describe()` is the `→ <context> (<server>), <why>` line each server-reaching command prints on stderr; the CLI has no `--server` flag and does not fall back to a lone context.
 
 ### Config Class
 
-`Config` wraps the parsed TOML `data` dict. `main.py` records the resolved target with `set_target` (or the refusal with `set_target_error`, raised the first time a server is needed); `get_api_url` returns the target's server, and the token comes from the credential store keyed by that same address, or from `HOP3_API_TOKEN`.
+`Config` wraps the parsed TOML `data` dict. `main.py` records the resolved target with `set_target` (or the resolution error with `set_target_error`, raised the first time a server is needed). `get_api_url` returns the target's server. The token comes from the credential store keyed by that same address, or from `HOP3_API_TOKEN`.
 
 ```python
 @dataclass
@@ -237,7 +237,7 @@ api         running   8002    1d ago
 
 ```
 $ hop3 app list --json
-[{"name": "myapp", "state": "running", "port": 8001}, ...]
+[{"t": "table", "headers": ["Name", "Status", "Instances"], "rows": [["myapp", "RUNNING", 1], ...]}]
 ```
 
 ### Quiet
@@ -270,7 +270,7 @@ class DeploymentError(CliError):
     """Raised when a deployment fails."""
 ```
 
-Exit codes are defined centrally in `exit_codes.py` (ADR 036 D16) rather than as per-exception attributes, so scripts can distinguish failure classes:
+Exit codes are defined centrally in `exit_codes.py` (ADR 036 D16), so scripts can distinguish failure classes:
 
 ```python
 class ExitCode:
@@ -292,8 +292,7 @@ The JSON envelope includes `error.exit_code` so JSON consumers don't have to map
 
 ## Authentication Flow
 
-`hop3 auth login` (canonical spelling: `hop3 auth login`) is a local handler. Its
-password path goes through the server's `auth get-token` primitive:
+`hop3 login` (canonical spelling: `hop3 auth login`) is a local handler. Its password path goes through the server's `auth get-token` primitive:
 
 ```
 1. User runs: hop3 auth login   (prompts for username/password)
@@ -304,8 +303,7 @@ password path goes through the server's `auth get-token` primitive:
 5. Subsequent requests include: Authorization: Bearer <token>
 ```
 
-`hop3 auth get-token <user> --password-file -` exposes that same primitive
-directly, for scripts that want to capture a token without saving config.
+`hop3 auth get-token <user> --password-file -` exposes that same primitive directly, for scripts that want to capture a token without saving config.
 
 `hop3 auth login --ssh <target>` obtains the token over SSH and stores it the same way: in the per-server credential store, keyed by the canonical server address. The server is recorded as a context in `config.toml` (named by `--context`, else `default`; still secret-free, since only the address is written), and becomes `[cli].default_context` only when no global current context is set; otherwise the login prints the `hop3 context use <name>` that would switch. `config.toml` is never where the token goes. When the API URL uses an `ssh://` scheme, the CLI can also obtain a token over SSH automatically: on a 401 it runs the SSH bootstrap, fetches a token, stores it, and retries the request. The local `hop3 init` and `hop3 auth login` commands rely on that retry.
 

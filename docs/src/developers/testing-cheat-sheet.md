@@ -83,7 +83,7 @@ The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `
 
 ### Upgrade Chain (Cross-Version Upgrades)
 
-Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions, each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Each hop after the first is an in-place update, and the test asserts the app comes back healthy with a readable schema.
+Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions, each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Each hop after the first is an in-place update, after which the test checks that the app comes back healthy with a readable schema.
 
 ```bash
 # Fresh Docker container: 0.6.2 -> current tree

@@ -25,13 +25,13 @@ CapRover is dashboard-first; Hop3 is config-and-CLI-first. Where you used to cli
 |----------|------|
 | Docker Swarm under the hood | Plain single-server, no Swarm |
 | Everything is a container | Native toolchains *or* Docker builder |
-| One-click app marketplace | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| One-click app marketplace | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Richer web dashboard | Config-in-repo + CLI/TUI |
 | Cluster-capable (multi-node) | Single server |
 
 The headline is the orchestrator. CapRover runs your apps as Swarm services, which means a Swarm manager, an overlay network, and a scheduler you're on the hook to keep alive. That's overhead you pay even when there's exactly one node. Hop3 drops Swarm entirely. Apps run as ordinary processes managed by uWSGI behind nginx. If an app wants to be a container, you opt into the Docker builder for that one app.
 
-CapRover's one-click marketplace and dashboard are more featureful than what Hop3 ships today. Hop3 gives you four first-class addons (Postgres, MySQL, Redis, S3/MinIO) plus a CLI/TUI, where CapRover offers a point-and-click catalog. Scaling is manual: there's no autoscaler.
+CapRover's one-click marketplace and dashboard are more featureful than what Hop3 ships today. Hop3 gives you four first-class data addons (Postgres, MySQL, Redis, S3 (Garage)) plus a CLI/TUI, where CapRover offers a point-and-click catalog. Hop3 has no autoscaler, so you scale each app yourself with `hop3 ps scale`.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -45,14 +45,16 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 Unlike CapRover, there's no Swarm to initialize or overlay network to wire up. The installer sets up nginx, uWSGI, and the Hop3 server.
 
@@ -64,7 +66,7 @@ Open each app in the CapRover dashboard and collect three things before you touc
 2. **The environment variables** from the app's *App Configs* tab.
 3. **The persistent directories** from the app's *Persistent Directories* setting (the host paths CapRover bind-mounts into the container).
 
-You're going to translate each of those into a `hop3.toml`. There is no automatic importer for `captain-definition`: Hop3's only config importer is for Procfiles (`hop3 app migrate procfile <dir>`), so the `captain-definition` mapping below is done by hand. It's mechanical, and you do it once per app.
+You're going to translate each of those into a `hop3.toml`. There is no automatic importer for `captain-definition`: Hop3's only config importer is for Procfiles (`hop3 app migrate procfile <dir>`), so the `captain-definition` mapping below is done by hand. The work is mechanical and happens once per app.
 
 ## Step 3: Native Toolchain or Docker Builder
 
@@ -133,11 +135,11 @@ list = ["myapp.example.com"]
 path = "/health/"
 ```
 
-A few notes on the mapping:
+The mapping has a few points to note:
 
 - **The `CMD`/server command** doesn't need to be transcribed by hand if you keep a `Procfile`: Hop3 reads it for the process model. A `web: gunicorn myapp.wsgi` line is enough. (`$PORT` is auto-assigned by Hop3; don't hardcode a port.)
 - **`RUN` steps** split between build-time and run-time. Dependency installs and asset compilation that should happen during the build go in `[build] before-build`; migrations and anything that must run against the live database go in `[run] before-run`.
-- **CapRover persistent directories** become `[[volumes]]`. Each `target` is a directory inside your app tree that survives redeploys (each deploy wipes and re-extracts `src/`, so anything you need to keep lives in a volume).
+- **CapRover persistent directories** become `[[volumes]]`. Each `target` is a directory inside your app tree that persists across redeploys (each deploy wipes and re-extracts `src/`, so anything you need to keep lives in a volume).
 - **The container itself** disappears in the native path. If you chose Option B instead, you'd drop the `[build] toolchain` line, set `builder = "docker"`, and keep your `Dockerfile`; the `[env]`, `[[volumes]]`, `[domains]`, and `[healthcheck]` sections stay exactly the same.
 
 If your app already ships a `Procfile`, you can generate a starting `hop3.toml` from it:
@@ -161,7 +163,7 @@ hop3 addon create postgres myapp-db
 hop3 addon attach myapp-db --app myapp
 ```
 
-Attaching injects the connection variables (`DATABASE_URL`, …) into the app's environment automatically. You don't copy a connection string around by hand the way you did between CapRover apps.
+Attaching injects the connection variables (`DATABASE_URL` and the others) into the app's environment. You don't copy a connection string around by hand the way you did between CapRover apps.
 
 ### Move the data
 
@@ -178,11 +180,9 @@ Get the Hop3 addon's connection details and import:
 ```bash
 hop3 addon show myapp-db
 
-# Copy dump to the Hop3 server and restore
-scp latest.dump root@your-server.com:/tmp/
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d myapp_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import myapp-db --confirm=myapp-db < latest.sql
 ```
 
 MySQL and Redis follow the same shape (`mysqldump` / `BGSAVE` on the CapRover side, `hop3 addon create mysql|redis` plus the type-specific restore verbs on the Hop3 side).
@@ -199,16 +199,15 @@ Extensions are allow-listed, so only the ones Hop3 ships support for will instal
 
 ### Keeping an external managed database
 
-If a CapRover app already pointed at a managed database outside the cluster (RDS, a managed Postgres, etc.), you don't have to move it at all. Skip the addon and point `[env]` at the existing URL:
+If a CapRover app already pointed at a managed database outside the cluster (RDS, a managed Postgres, etc.), you don't have to move it at all. Skip the addon and set the existing URL on the server (`hop3.toml` refuses a connection string with credentials in it):
 
-```toml
-[env]
-DATABASE_URL = "postgresql://user:pass@db.example.com:5432/mydb"
+```bash
+hop3 env set --app myapp DATABASE_URL="postgresql://user:pass@db.example.com:5432/mydb"
 ```
 
 ### A note on addon coverage
 
-CapRover's marketplace offers one-click containers for a long tail of services. Hop3 ships four addons: PostgreSQL, MySQL, Redis, and S3/MinIO. If a CapRover app depended on something outside that set (a message broker, a document store), you have two routes: run it as its own Docker-builder Hop3 app, or point at an external/managed instance via `[env]`. There's no MongoDB addon or managed queue today.
+CapRover's marketplace offers one-click containers for a long tail of services. Hop3 ships four data addons: PostgreSQL, MySQL, Redis, and S3 (Garage). If a CapRover app depended on something outside that set (a message broker, a document store), you have two routes: run it as its own Docker-builder Hop3 app, or point at an external/managed instance via `[env]`. There's no MongoDB addon or managed queue today.
 
 ## Step 6: Deploy to Hop3
 
@@ -253,7 +252,7 @@ Or use system cron on the server for one-off maintenance tasks.
 CapRover lets you set the replica count of a Swarm service. Hop3 scales the same way conceptually, but manually and without an autoscaler:
 
 ```bash
-hop3 ps scale myapp web=3 worker=2
+hop3 ps scale --app myapp web=3 worker=2
 ```
 
 ### The Docker registry
@@ -301,7 +300,7 @@ Keep your CapRover app running during the migration:
 2. Verify the app and its data: hit real endpoints, check the database restored correctly.
 3. Switch DNS to the Hop3 server.
 4. Keep the CapRover app running for 1–2 weeks as a fallback.
-5. Tear down the CapRover app, and the Swarm node too if it was your only one, once you're confident.
+5. Once you're confident, tear down the CapRover app, along with the Swarm node if it was your only one.
 
 Because your CapRover stack is untouched until step 3, the rollback at any point before then is just "don't switch DNS."
 

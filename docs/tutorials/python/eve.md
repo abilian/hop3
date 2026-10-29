@@ -311,10 +311,10 @@ interval = 60
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -388,7 +388,7 @@ hop3 ps scale --app hop3-tuto-eve web=2
 
 ### MongoDB Backend
 
-For production, use MongoDB instead of the in-memory data layer:
+For production, switch the data layer to MongoDB:
 
 ```python
 # settings.py
@@ -476,8 +476,6 @@ web = 8000
 
 [healthcheck]
 path = "/up"
-
-[[provider]]
-name = "mongodb"
-plan = "standard"
 ```
+
+Hop3 has no MongoDB addon, so nothing in `hop3.toml` provisions the database. Run MongoDB yourself and point the app at it with `hop3 env set --app hop3-tuto-eve MONGO_HOST=... MONGO_USERNAME=...`, then `hop3 env set --app hop3-tuto-eve MONGO_PASSWORD=-`, which reads the password from stdin.

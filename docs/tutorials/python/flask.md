@@ -272,7 +272,7 @@ requirements.txt
 
 ### Create a Procfile
 
-Create a `Procfile` in your project root:
+Optionally, create a `Procfile` in your project root, for tools that read one. Hop3 does not need it: where both files declare the same process, `hop3.toml` wins.
 
 ```file path=hop3-tuto-flask/Procfile
 # Main web process (using Gunicorn)
@@ -281,7 +281,7 @@ web: gunicorn wsgi:app --bind 0.0.0.0:$PORT --workers 2 --threads 4 --worker-cla
 
 ### Create hop3.toml
 
-Create a `hop3.toml` for advanced configuration:
+Create a `hop3.toml`, which tells Hop3 how to build and start the app:
 
 ```file path=hop3-tuto-flask/hop3.toml
 [metadata]
@@ -398,14 +398,14 @@ Initial Flask application
 
 ## Step 8: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server.
 
 ### Configure the CLI
 
-If this is your first deployment, initialize Hop3:
+If this is your first deployment, sign in to your server:
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -416,7 +416,7 @@ hop3 context use default   # bind this checkout to the server you logged into
 
 ### Deploy
 
-Deploy the application (first deployment creates the app). `SECRET_KEY` is generated automatically from the `hop3.toml` `[env]` declaration before the app boots, so the first deploy comes up cleanly — no placeholder, no crash:
+Deploy the application (first deployment creates the app). `SECRET_KEY` is generated automatically from the `hop3.toml` `[env]` declaration before the app boots, so the first deploy comes up without a crash:
 
 ```bash exec id=deploy dir=hop3-tuto-flask timeout=120
 hop3 deploy --app hop3-tuto-flask
@@ -739,7 +739,7 @@ hop3 app logs --app hop3-tuto-flask
 ```
 
 Common issues:
-- **Missing SECRET_KEY**: Set it with `hop3 env set`
+- **Missing SECRET_KEY**: `hop3.toml` generates it on the first deploy; check `hop3 env show --app hop3-tuto-flask` that it is set
 - **Module not found**: Ensure all dependencies are in `requirements.txt`
 - **Port binding**: Ensure Gunicorn binds to `0.0.0.0:$PORT`
 
@@ -828,13 +828,11 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile for Flask

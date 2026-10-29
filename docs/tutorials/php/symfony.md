@@ -202,7 +202,7 @@ class HealthController extends AbstractController
 
 ## Step 3: Configure for Production
 
-Configure the committed `.env` for production. Don't replace the Flex-generated `.env` — it defines defaults (`DEFAULT_URI`, `MESSENGER_TRANSPORT_DSN`, `MAILER_DSN`, …) that `cache:clear` resolves at compile time, and dropping them makes the production cache build fail with `Environment variable not found`. Edit only what we need: run in `prod` (so the post-install `cache:clear` doesn't load the dev-only `DebugBundle` that `--no-dev` excludes), give `APP_SECRET` a value, point `DATABASE_URL` at SQLite (self-contained — no DB server), and trust the local reverse proxy.
+Configure the committed `.env` for production. Keep the Flex-generated `.env`: it defines defaults (`DEFAULT_URI`, `MESSENGER_TRANSPORT_DSN`, `MAILER_DSN`, …) that `cache:clear` resolves at compile time, and without them the production cache build fails with `Environment variable not found`. Edit only what we need: run in `prod` (so the post-install `cache:clear` doesn't load the dev-only `DebugBundle` that `--no-dev` excludes), give `APP_SECRET` a value, point `DATABASE_URL` at SQLite (self-contained, so no DB server is needed), and trust the local reverse proxy.
 
 ```bash exec id=configure-env dir=hop3-tuto-symfony
 sed -i 's/^APP_ENV=dev/APP_ENV=prod/' .env
@@ -271,7 +271,7 @@ prerun: php bin/console cache:clear --env=prod && php bin/console cache:warmup -
 ```
 
 !!! tip "What serves this"
-    php-fpm behind nginx, which Hop3 sets up for you — nginx serves your static files off disk and hands `.php` requests to the pool, and `public/` is detected as the document root. If you later want a long-running application server instead (FrankenPHP, RoadRunner), declare it as `[run].start`; doing so replaces the pool.
+    Hop3 sets up php-fpm behind nginx for you. nginx serves your static files off disk, hands `.php` requests to the pool, and uses `public/` as the document root. If you later want a long-running application server instead (FrankenPHP, RoadRunner), declare it as `[run].start`; doing so replaces the pool.
 
 ### Create hop3.toml
 
@@ -368,10 +368,10 @@ Initial Symfony application
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -663,13 +663,11 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile

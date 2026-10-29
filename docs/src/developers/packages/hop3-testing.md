@@ -351,12 +351,7 @@ Filters: `-t/--tier`, `-p/--priority`, `--tag`. `--show NAME` prints the full de
 
 ### Cloud runs & the image sweep (`run --provider hetzner --images`)
 
-Cloud E2E testing is part of `run`: `hop3-test run --provider hetzner --images ...`
-runs the suite across cloud OS images (Hetzner). Each image is a full
-`hop3-test run --provider hetzner`, so a cloud run shares `run`'s lexicon
-(positional apps, `--from`, `--with`). Requires `HETZNER_API_TOKEN` and
-`HETZNER_SERVER_ID`, and the server must carry the label `hop3-throwaway=true`
-(`hcloud server add-label <id> hop3-throwaway=true`), because a rebuild wipes it.
+Cloud E2E testing is part of `run`: `hop3-test run --provider hetzner --images ...` runs the suite across cloud OS images (Hetzner). Each image is a full `hop3-test run --provider hetzner`, so a cloud run shares `run`'s lexicon (positional apps, `--from`, `--with`). Requires `HETZNER_API_TOKEN` and `HETZNER_SERVER_ID`. Because a rebuild wipes the server, it must have the label `hop3-throwaway=true` (`hcloud server add-label <id> hop3-throwaway=true`).
 
 ```bash
 hop3-test run --list-images                                       # Available OS images
@@ -405,7 +400,7 @@ status = 200
 contains = "Welcome"
 ```
 
-Each validation hits a `path`, asserts a `status`, and can assert response body content (`contains`). For richer checks, an app can ship a `check.py` exposing a `check(hostname, port)` function, run via `run_check_script_detailed`. Asserting app-specific body content (a bare 200 is not enough) is the gate before an app is advertised: a 200 can be a placeholder, an error page, or another app's content.
+Each validation hits a `path`, expects a `status`, and can require body content (`contains`). For richer checks, an app can ship a `check.py` exposing a `check(hostname, port)` function, run via `run_check_script_detailed`. Checking app-specific body content is the gate before an app is advertised: a 200 can be a placeholder, an error page, or another app's content.
 
 ## Debugging
 

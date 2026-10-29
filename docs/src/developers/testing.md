@@ -55,7 +55,7 @@ docker context create builder --docker "host=ssh://you@builder.local"
 docker context use builder        # or: export DOCKER_CONTEXT=builder
 ```
 
-A container's ports are then published on that machine, each on a host port Docker picks (a fixed one collides with whatever else the machine runs), and the harness reaches them at the machine's hostname, which must resolve from here. They listen on all its interfaces, and the test container's API accepts a known fallback key, so keep that machine on a trusted network. Build contexts hold only what the test images copy (the root `.dockerignore`), so a build sends a few megabytes rather than the checkout. One run at a time per developer machine: the Docker target's container name is fixed, and `hop3-test` takes a lock (`~/.hop3/docker-target.lock`) before it starts.
+A container's ports are then published on that machine, each on a host port Docker picks (a fixed one collides with whatever else the machine runs). The harness reaches them at the machine's hostname, which must resolve from here. They listen on all its interfaces while the test container's API accepts a known fallback key, so keep that machine on a trusted network. Build contexts hold only what the test images copy (the root `.dockerignore`), so a build sends a few megabytes rather than the checkout. One run at a time per developer machine: the Docker target's container name is fixed, and `hop3-test` takes a lock (`~/.hop3/docker-target.lock`) before it starts.
 
 ### Run Application Tests
 
@@ -118,7 +118,7 @@ hop3-test why <run-id>              # Show the diagnostic bundle for a failed ru
 
 ### Upgrade-chain testing
 
-`hop3-test upgrade-chain` verifies that a running server survives a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update. Each one has to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
+`hop3-test upgrade-chain` verifies that a running server stays healthy through a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update. Each one has to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
 
 ## Test Organization
 
@@ -185,7 +185,7 @@ docs/tutorials/            # Tutorials (discovered by their validoc fences)
 
 Test configuration lives in the app's `hop3.toml` file under a `[test]` section. Most apps keep all their test config there, with no separate `test.toml` file.
 
-Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`, and the need for an admin domain from `[access] require = "auth"`: a gated app is refused at deploy on a server without one, so the runner asks the server (`hop3-server admin:server-url`) and leaves such a test out, with a warning, when it has none. The `[test]` section only declares what's test-framework-specific.
+Most fields are *derived* from the rest of `hop3.toml`: the test name from `[metadata].id`, category from `[build].builder`, required services from `[[addons]]`, base healthcheck path from `[healthcheck]`, and the need for an admin domain from `[access] require = "auth"`. A gated app is refused at deploy on a server without one, so the runner asks the server (`hop3-server admin:server-url`) and leaves such a test out, with a warning, when it has none. The `[test]` section only declares what's test-framework-specific.
 
 ```toml
 [metadata]
@@ -214,7 +214,7 @@ Note: `tier` is *only* a report-grouping label. All builds share a single 30-min
 
 **Standalone `test.toml` files still exist for Procfile-only test apps** (`apps/test-apps-procfile/*/`), which don't pair with a `hop3.toml`. Two other kinds of test are configured differently:
 
-- Negative-test cases are the recipes the catalog files as `broken`. They carry a normal `hop3.toml`, and the runner treats any deploy under `broken/` as expected-to-fail (a failed deploy counts as PASS). An `expects-failure = false` in `[test]` opts one back out (a recipe dropped for business reasons that still deploys fine), and `expects-failure = true` opts any other app in.
+- Negative-test cases are the recipes the catalog files as `broken`. Each has a normal `hop3.toml`. The runner treats any deploy under `broken/` as expected-to-fail (a failed deploy counts as PASS). An `expects-failure = false` in `[test]` opts one back out (a recipe dropped for business reasons that still deploys fine), and `expects-failure = true` opts any other app in.
 - Demos (`demos/*/`) and tutorials (`docs/tutorials/**/`) are discovered structurally, without a `test.toml`: a demo by its `demo-script.py`, a tutorial by its `bash exec`/`output`/`file` markers.
 
 ### Test Modes
@@ -288,7 +288,7 @@ test-logs/
 
 ### Tests that read the catalog
 
-The app recipes live in the separate hop3-catalog repository (ADR 059), so this repository's suites do not read it: a fresh checkout runs them with nothing beside it. A test that does read the catalog, through the `catalog_apps` or `catalog_recipe` fixture, is marked `catalog` and is deselected unless pytest is given `--catalog=<checkout>`; `make test-catalog` gives it. Write the option with `=`: as a separate argument, the path moves pytest's rootdir. A test that only needs a realistic recipe as input keeps a frozen copy beside it (`tests/.../recipes/<app>.toml`) instead.
+The app recipes live in the separate hop3-catalog repository (ADR 059), so this repository's suites run from a fresh checkout with nothing beside it. A test that does read the catalog, through the `catalog_apps` or `catalog_recipe` fixture, is marked `catalog` and is deselected unless pytest is given `--catalog=<checkout>`; `make test-catalog` gives it. Write the option with `=`: as a separate argument, the path moves pytest's rootdir. A test that only needs a realistic recipe as input keeps a frozen copy beside it (`tests/.../recipes/<app>.toml`) instead.
 
 ## Continuous Integration
 

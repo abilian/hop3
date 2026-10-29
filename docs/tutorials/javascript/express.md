@@ -183,7 +183,7 @@ node_modules
 
 ### Create a Procfile
 
-Create a `Procfile` in your project root:
+Optionally, create a `Procfile` in your project root, for tools that read one. Hop3 does not need it: where both files declare the same process, `hop3.toml` wins.
 
 ```file path=hop3-tuto-express/Procfile
 # Pre-build: Install dependencies
@@ -195,7 +195,7 @@ web: node app.js
 
 ### Create hop3.toml
 
-Create a `hop3.toml` for advanced configuration:
+Create a `hop3.toml`, which tells Hop3 how to build and start the app:
 
 ```file path=hop3-tuto-express/hop3.toml
 [metadata]
@@ -296,14 +296,14 @@ Initial Express.js application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server.
 
 ### Configure the CLI
 
-If this is your first deployment, initialize Hop3:
+If this is your first deployment, sign in to your server:
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -533,7 +533,7 @@ before-build = ["npm install", "npm run build"]
 
 ### CORS Configuration
 
-For API servers accessed from different domains:
+API servers accessed from different domains need CORS:
 
 ```javascript
 const cors = require('cors');
@@ -641,9 +641,8 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ### Complete Procfile for Express

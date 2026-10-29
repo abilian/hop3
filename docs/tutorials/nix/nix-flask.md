@@ -1,6 +1,6 @@
 # Tutorial: Deploy a Flask App with Nix
 
-This tutorial walks you through deploying a Flask application on Hop3 using Nix. The expression below pins nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates. By the end, you'll have a working web app where every dependency — from Python to Gunicorn — comes from that pinned nixpkgs. Because this example sources Flask and Gunicorn from nixpkgs (via `python3.withPackages`), those packages are pinned too; templates that instead run pip / npm or fetch upstream binaries at build time are not bit-for-bit reproducible.
+This tutorial walks you through deploying a Flask application on Hop3 using Nix. The expression below pins nixpkgs to a specific commit (nixos-24.11) so the toolchain is reproducible across machines and dates. By the end, you'll have a working web app where every dependency, from Python to Gunicorn, comes from that pinned nixpkgs. Because this example sources Flask and Gunicorn from nixpkgs (via `python3.withPackages`), those packages are pinned too; templates that instead run pip / npm or fetch upstream binaries at build time are not bit-for-bit reproducible.
 
 ## Prerequisites
 
@@ -147,7 +147,7 @@ Optionally, test it runs:
 PORT=5000 BIND_ADDRESS=127.0.0.1 "$result/bin/start" --bind 127.0.0.1:5000 --chdir "$result/app"
 ```
 
-Visit `http://localhost:5000` — you should see "Hello from Nix!".
+Visit `http://localhost:5000`: the page shows "Hello from Nix!".
 
 ## Step 5: Deploy to Hop3
 
@@ -181,9 +181,13 @@ Hop3 will:
 
 ## Step 6: Verify
 
+Give the app a hostname, so the proxy routes it, and deploy again:
+
 ```bash
+hop3 env set --app nix-flask-demo HOST_NAME=nix-flask-demo.your-server.example.com
+hop3 deploy --app nix-flask-demo
 hop3 app status --app nix-flask-demo
-curl http://your-server:PORT/
+curl https://nix-flask-demo.your-server.example.com/
 ```
 
 ## Adding a Database
@@ -198,7 +202,7 @@ builder = "nix"
 type = "postgres"
 ```
 
-Hop3 provisions the database and injects `DATABASE_URL`, `PGHOST`, `PGPORT`, etc. into your app's environment. Use them in your Flask app:
+Hop3 creates the database, then sets `DATABASE_URL`, `PGHOST`, `PGPORT` and the other connection variables in your app's environment. Use them in your Flask app:
 
 ```python
 import os
@@ -219,4 +223,4 @@ database_url = os.environ.get("DATABASE_URL")
 
 - See [Deploying with Nix](../../guides/nix-deployment.md) for patterns in Go, Node.js, Ruby, and static sites
 - See [Nix Integration Reference](../../reference/nix.md) for the full `runtime.json` specification
-- Browse working examples in `apps/nix-apps/` (10 apps across 6 languages)
+- Browse working examples in `apps/test-apps-nix/` in the Hop3 repository

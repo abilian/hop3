@@ -1,6 +1,6 @@
 # Migrating from DigitalOcean App Platform to Hop3
 
-You're already on DigitalOcean. You like the dashboard, the networking, the backups, the predictable Droplet pricing. App Platform itself is the metering: every component is metered separately, a small app with a couple of services and a database climbs past what a single Droplet costs, and the managed convenience starts to feel like a tax. You don't have to leave DigitalOcean to leave App Platform. Install Hop3 on a Droplet you control, point your existing DigitalOcean infrastructure at it, and drop the per-component App Platform charges while keeping everything else you already pay for. This guide helps you migrate App Platform apps to Hop3.
+You're already on DigitalOcean. You like the dashboard, the networking, the backups, the predictable Droplet pricing. App Platform itself is the metering: every component is metered separately. A small app with a couple of services and a database climbs past what a single Droplet costs, until the managed convenience starts to feel like a tax. You don't have to leave DigitalOcean to leave App Platform. Install Hop3 on a Droplet you control, point your existing DigitalOcean infrastructure at it, and drop the per-component App Platform charges while keeping everything else you already pay for. This guide helps you migrate App Platform apps to Hop3.
 
 ## What's Similar
 
@@ -15,7 +15,7 @@ If you're comfortable with App Platform's app spec and `doctl`, Hop3 will feel f
 | Component env vars | `hop3 env set` |
 | DO Managed Databases | `hop3 addon create` |
 
-Push-to-deploy stays. Build detection stays: App Platform sniffs your repo for a buildpack, and Hop3 sniffs it for a toolchain, so the mental model carries over.
+Push-to-deploy stays. Build detection stays: App Platform sniffs your repo for a buildpack where Hop3 sniffs it for a toolchain, so the mental model is the same.
 
 One syntactic difference to keep in mind: App Platform centers on a single app spec describing many components, and `doctl apps` always takes an `--app-id`. In Hop3, each long-running service becomes its own app. The app you're targeting is always the `--app` flag, never a positional argument or an ID. A `web` service in your spec becomes a Hop3 app that you talk to with `hop3 app status --app myapp`.
 
@@ -26,7 +26,7 @@ One syntactic difference to keep in mind: App Platform centers on a single app s
 | Managed platform | Self-hosted (on your own Droplet) |
 | Autoscaling (Pro tier) | Manual scaling (`hop3 ps scale`) |
 | One spec, many components | One Hop3 app per service |
-| Managed databases as a product | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| Managed databases as a product | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Preview / branch deploys | Not yet supported |
 
 Hop3 is simpler: you manage one server where App Platform gave you a multi-component managed deployment, and that server is a Droplet you already understand.
@@ -44,7 +44,7 @@ App Platform's central idea is the **component**. A single app spec bundles seve
 | Buildpack build | Native toolchain (auto-detected) |
 | Dockerfile build | `[build] builder = "docker"` |
 
-The main shift: App Platform lets one spec describe a web service, a worker, and a static site as siblings under a single app. In Hop3, a **web service plus its background workers** live together in one app (the web process and its `[run.workers]`), while a **separate static site** is its own Hop3 app. Most App Platform apps are one service plus a database, so in practice you end up with one Hop3 app and one addon.
+The main shift concerns structure. App Platform lets one spec describe a web service, a worker, and a static site as siblings under a single app. In Hop3, a **web service plus its background workers** live together in one app (the web process and its `[run.workers]`), while a **separate static site** is its own Hop3 app. Most App Platform apps are one service plus a database, so in practice you end up with one Hop3 app and one addon.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -58,15 +58,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-droplet.example.com
+hop3 login root@your-droplet.example.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your App Platform Configuration
 
@@ -77,12 +79,14 @@ doctl apps spec get <your-app-id> > app-spec.yaml
 ```
 
 Read through it and note, per component:
+
 - Which component is the `service` (becomes your Hop3 app's `web` process)
 - Which are `worker` components (become `[run.workers]`)
 - Which are `static_site` components (become separate Hop3 apps)
 - The `envs` block, minus anything App Platform injects for you
 
 Strip the variables Hop3 sets itself before you copy them over:
+
 - `DATABASE_URL` (will be set by the Hop3 addon, or pointed at your managed DB. See Step 4.)
 - `REDIS_URL` (will be set by the Hop3 addon)
 - Bindable variables like `${db.DATABASE_URL}` and `${APP_URL}` (App Platform-specific)
@@ -167,14 +171,7 @@ You have two paths here. Pick based on how much you want to change at once.
 
 ### Option A. Keep your DigitalOcean Managed Database (low-risk on-ramp)
 
-The least disruptive move: leave your DO Managed Database exactly where it is and point your Hop3 app at it. You keep DigitalOcean's managed backups and failover, and you only move the compute. Set the connection string in `[env]`:
-
-```toml
-[env]
-DATABASE_URL = "postgresql://doadmin:password@your-db.db.ondigitalocean.com:25060/yourdb?sslmode=require"
-```
-
-Or set it through the CLI without committing it:
+The least disruptive move is to leave your DO Managed Database exactly where it is and point your Hop3 app at it. You keep DigitalOcean's managed backups and failover and move only the compute. Set the connection string on the server (`hop3.toml` refuses a connection string with credentials in it):
 
 ```bash
 hop3 env set DATABASE_URL="postgresql://doadmin:...@your-db.db.ondigitalocean.com:25060/yourdb?sslmode=require" --app your-app
@@ -209,18 +206,14 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-droplet.example.com:/tmp/
-
-# SSH to server and import
-ssh root@your-droplet.example.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 Drop the `DATABASE_URL` you set in Option A. Once the addon is attached, Hop3 injects the connection variables for you.
 
-Hop3's addons are PostgreSQL, MySQL, Redis, and S3/MinIO (and growing). If App Platform was your front end to a DO Managed MySQL or Managed Redis (Valkey), those map to `hop3 addon create mysql ...` and `hop3 addon create redis ...` the same way. Or keep them managed and point `[env]` at them, exactly as in Option A.
+Hop3's addons are PostgreSQL, MySQL, Redis, and S3 (Garage), and growing. If App Platform was your front end to a DO Managed MySQL or Managed Redis (Valkey), those map to `hop3 addon create mysql ...` and `hop3 addon create redis ...` the same way. Or keep them managed and point `[env]` at them, exactly as in Option A.
 
 ### Postgres extensions
 
@@ -282,17 +275,17 @@ before-run = ["python manage.py migrate"]
 App Platform doesn't have a first-class cron primitive; teams usually run a scheduler as a long-lived worker (the `scheduler` line above) or lean on an external trigger. Both translate directly: keep the scheduler as a `[run.workers]` entry, or use system cron on the Droplet:
 
 ```bash
-ssh root@your-droplet.example.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Scaling
 
-App Platform scales by instance count and size, and the Pro tier can autoscale. Hop3 scaling is manual:
+App Platform scales by instance count and size; its Pro tier can autoscale. Hop3 scaling is manual:
 
 ```bash
-hop3 ps scale your-app web=3 worker=2
+hop3 ps scale --app your-app web=3 worker=2
 ```
 
 There is no autoscaler yet; you set the process counts you want. For most single-Droplet workloads that works in your favor: fixed counts mean fixed, predictable resource use.
@@ -306,7 +299,7 @@ App Platform can create a deployment per pull request. Hop3 doesn't have managed
 
 ### Multiple components, multiple apps
 
-If your spec has several `service` components forming a real microservice split, create one Hop3 app per service and wire them together with env vars. They run on the same Droplet and reach each other over localhost. There's no multi-region or edge placement, because Hop3 is a single server. A spec that fanned components across regions doesn't carry over: everything lands on the one Droplet.
+If your spec has several `service` components forming a real microservice split, create one Hop3 app per service and wire them together with env vars. They run on the same Droplet and reach each other over localhost. There's no multi-region or edge placement, because Hop3 is a single server. A spec that fanned components across regions ends up with everything on the one Droplet.
 
 ## Command Mapping
 

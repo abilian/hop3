@@ -13,7 +13,7 @@ Hop3 supports two modes for Nix-based deployment, in order of preference:
    `hop3.nix` file. Use this when the templates can't express what you
    need.
 
-**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, run `hop3 nix eject --app <app> > hop3.nix`; this prints the file and is the supported way to switch from generated to hand-crafted mode.
+**Pick exactly one.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder refuses to build and prints an error pointing you to either delete `hop3.nix` or remove the `[nix]` section. To convert a template into a `hop3.nix` file, run `hop3 nix eject --app <app> > hop3.nix`; this prints the file and is the supported way to switch modes.
 
 ## When to use Nix
 
@@ -27,7 +27,7 @@ Nix-based deployment is a good choice when you want:
   ARM, RISC-V, etc.
 - **Cross-language builds**: a single build system for polyglot apps
 
-For most simple applications, Hop3's native buildpacks (auto-detected from `requirements.txt`, `package.json`, etc.) are simpler and faster. Use Nix when reproducibility, dependency precision, or non-x86 support matters.
+Most simple applications build faster and with less setup on Hop3's native buildpacks, which detect `requirements.txt`, `package.json` and similar files. Use Nix when reproducibility, dependency precision, or non-x86 support matters.
 
 ### Reproducibility tiers
 
@@ -79,12 +79,13 @@ type = "postgres"
 ```
 
 Hop3 will:
+
 1. Generate a `hop3.nix` that wraps `pkgs.miniflux`
 2. Run `nix-build` to fetch/build the source via nixpkgs
 3. Create a startup wrapper that exports the env vars
-4. Hand off to the deployer
+4. Pass the result to the deployer
 
-No Nix code, no `fetchurl`, no hash to maintain.
+You write no Nix code and maintain no `fetchurl` hash.
 
 ## Available templates
 
@@ -134,16 +135,16 @@ nix-instantiate --eval -E '(import (builtins.fetchTarball "https://github.com/Ni
 
 ## Hand-crafted hop3.nix
 
-When the templates don't fit, write a `hop3.nix` directly. Two cases where this is necessary:
+When the templates don't fit, write a `hop3.nix` directly. Two cases call for it:
 
 1. The app needs custom build steps that no template covers
 2. You need to combine nixpkgs sources with custom wrapping
 
 `hop3 nix eject --app <app> > hop3.nix` prints the generated Nix expression as a `hop3.nix` file you can edit; remove the `[nix]` section from `hop3.toml` before you deploy it.
 
-### Minimal hand-crafted example
+### Minimal example
 
-A Python Flask app served by gunicorn:
+This example serves a Python Flask app with gunicorn:
 
 ```nix
 { pkgs ? import (fetchTarball {

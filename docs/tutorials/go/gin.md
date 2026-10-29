@@ -367,10 +367,10 @@ Initial Gin application
 
 ## Step 7: Deploy to Hop3
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -626,13 +626,11 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile

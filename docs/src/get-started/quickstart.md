@@ -9,7 +9,7 @@ By the end of this tutorial, you will have a live web application managed by Hop
 Before you begin, you must have the following:
 
 1.  **A Server with Hop3 Installed:** You need a server (or VM) with a fresh installation of Hop3. If you haven't done this yet, follow the [**Hop3 Installer Guide**](./server-setup.md) first.
-2.  **The Hop3 CLI on Your Local Machine:** The `hop3` command-line tool should be installed locally. The installation guide covers setting up the development environment, which includes the CLI.
+2.  **The Hop3 CLI on Your Local Machine:** The `hop3` command-line tool should be installed locally: `uv tool install hop3`, or see the [installer guide](./installer.md).
 
 ## Step 1: Create a Sample Python Application
 
@@ -88,10 +88,11 @@ public = true
 ```
 
 !!! note "What does this file do?"
+
     - **`[metadata]`**: Provides essential information like a unique `id` for your app.
     - **`[build]`**: Instructs Hop3 to create a Python environment and install the dependencies listed in `requirements.txt`.
     - **`[run]`**: Defines the command that starts the web server. Hop3 sets the `$PORT` environment variable automatically.
-    - **`[port.web]`**: Tells Hop3's internal router (Nginx) that the application process listening on its container port should be made publicly accessible via HTTP/HTTPS.
+    - **`[port.web]`**: Tells Hop3's reverse proxy (nginx by default) that the application process listening on its container port should be made publicly accessible via HTTP/HTTPS.
 
 ## Step 3: Deploy to Hop3
 
@@ -103,7 +104,7 @@ With your application code and configuration ready, you can now deploy it.
     hop3 login root@hop3.example.com
     ```
 
-    Your SSH access to the server is the credential: no password, and no admin user to create first, since the server makes one if there isn't one. The token is stored in `~/.config/hop3-cli/credentials.toml`.
+    Your SSH access to the server is the credential, so you need no password. The server creates an admin user if none exists. The token is stored in `~/.config/hop3-cli/credentials.toml`.
 
     See [Signing In](./authentication.md) for the web dashboard, several servers, and what to do when you can't get in.
 
@@ -123,9 +124,10 @@ With your application code and configuration ready, you can now deploy it.
     hop3 deploy --app hello-hop3
     ```
 
-    Inside the project directory, Hop3 reads the app name from `hop3.toml`, so a bare `hop3 deploy` works too. The first line of output says where the deploy goes: `→ default (…), bound in this checkout`.
+    A bare `hop3 deploy` works too, because Hop3 reads the app name from `hop3.toml`. The first line of output says where the deploy goes: `→ default (…), bound in this checkout`.
 
     You will see output from Hop3 as it:
+
     -   Uploads your application code.
     -   Builds the application environment, then installs dependencies.
     -   Starts the application process.
@@ -166,15 +168,19 @@ You'll see a nicely formatted table showing:
 hop3 app status --app hello-hop3 --json
 ```
 ```json
-{
-  "status": "success",
-  "data": {
-    "name": "hello-hop3",
-    "state": "RUNNING",
-    "processes": {"web": 2},
-    "url": "hello-hop3.hop3.example.com"
+[
+  {
+    "t": "table",
+    "headers": ["Property", "Value"],
+    "rows": [
+      ["Name", "hello-hop3"],
+      ["Status", "RUNNING"],
+      ["Instances", "2"],
+      ["Local URL", "http://127.0.0.1:5000"],
+      ["URL", "https://hello-hop3.hop3.example.com"]
+    ]
   }
-}
+]
 ```
 
 #### View Logs
@@ -227,7 +233,6 @@ hop3 backup list --app hello-hop3
 
 # Restore if needed
 hop3 backup restore <backup-id>
-hop3 app restart --app hello-hop3
 ```
 
 !!! tip "Best Practice: Backup Before Deployment"
@@ -236,7 +241,6 @@ hop3 app restart --app hello-hop3
     hop3 deploy --app hello-hop3         # Deploy new version
     # If something goes wrong:
     hop3 backup restore <backup-id>
-    hop3 app restart --app hello-hop3
     ```
 
 For complete backup documentation, including what's backed up, retention policies, and troubleshooting, see the [Backup and Restore Guide](../guides/backup-restore.md).
@@ -289,15 +293,20 @@ hop3 env get --app hello-hop3 DEBUG
 hop3 env show --app hello-hop3 --json
 ```
 ```json
-{
-  "status": "success",
-  "data": {
-    "PORT": "5000",
-    "DEBUG": "true",
-    "LOG_LEVEL": "info",
-    "MAX_WORKERS": "4"
-  }
-}
+[
+  {"t": "text", "text": "Configured environment for 'hello-hop3':"},
+  {
+    "t": "table",
+    "headers": ["Key", "Value"],
+    "rows": [
+      ["DEBUG", "true"],
+      ["LOG_LEVEL", "info"],
+      ["MAX_WORKERS", "4"],
+      ["PORT", "5000"]
+    ]
+  },
+  {"t": "text", "text": "\nNote: These are configured values. Use 'env live' to see actual running values."}
+]
 ```
 
 #### Removing Environment Variables
@@ -321,13 +330,13 @@ Almost all Hop3 commands support `--json` output for scripting and automation:
 
 ```bash
 # Get app status in JSON
-hop3 app status --app myapp --json | jq '.data.state'
+hop3 app status --app myapp --json | jq '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]'
 
 # List all apps and filter by status
-hop3 app list --json | jq '.data[] | select(.state == "RUNNING")'
+hop3 app list --json | jq '.[] | select(.t=="table") | .rows[] | select(.[1] == "RUNNING")'
 
 # Create backup and capture backup ID
-BACKUP_ID=$(hop3 backup create --app myapp --json | jq -r '.data.backup_id')
+BACKUP_ID=$(hop3 backup create --app myapp --json | jq -r '.[] | select(.t=="summary") | .text | capture("created backup (?<id>[^ ]+) of").id')
 echo "Created backup: $BACKUP_ID"
 ```
 

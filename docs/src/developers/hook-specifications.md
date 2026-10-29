@@ -95,6 +95,7 @@ builder = get_builder(context)
 ```
 
 **Notes**:
+
 - Return the builder **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement the `Builder` protocol
@@ -138,6 +139,7 @@ class ToolchainPlugin:
 ```
 
 **Notes**:
+
 - Return the toolchain **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement `accept()` to detect its language
@@ -197,6 +199,7 @@ deployer = get_deployer_by_name(app, "docker-compose")
 ```
 
 **Notes**:
+
 - Return the deployer **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement the `Deployer` protocol
@@ -252,6 +255,7 @@ connection = addon.get_connection_details()
 ```
 
 **Notes**:
+
 - Return the addon **classes** themselves, uninstantiated
 - Each class must have a `name` attribute (the addon type)
 - Each class must implement the `Addon` protocol
@@ -308,6 +312,7 @@ os_strategy.setup_server()
 ```
 
 **Notes**:
+
 - Return the strategy **classes** themselves, uninstantiated
 - Each class must have `name` and `display_name` attributes
 - Each class must implement `detect()` to identify if it matches the current OS
@@ -361,6 +366,7 @@ proxy.setup()
 ```
 
 **Notes**:
+
 - Return the proxy **classes** themselves, uninstantiated
 - Should inherit from `BaseProxy` for code reuse
 - Each proxy type should have a unique name
@@ -374,7 +380,7 @@ proxy.setup()
 **Location**: `hop3.core.hookspecs.get_di_providers`
 
 **Signature**:
-````python
+~~~python
 @hookspec
 def get_di_providers() -> list:
     """Get DI providers from this plugin.
@@ -397,7 +403,7 @@ def get_di_providers() -> list:
         @hookimpl def get_di_providers() -> list: return [MyPluginProvider()]
         ```
     """
-````
+~~~
 
 **Returns**: List of Dishka `Provider` **instances** (not classes).
 
@@ -442,6 +448,7 @@ for provider in providers:
 ```
 
 **Notes**:
+
 - Return provider **instances**, already constructed (unlike the other hooks)
 - Use Dishka's `Provider` class
 - Define scope appropriately (`Scope.APP`, `Scope.REQUEST`, etc.)
@@ -494,6 +501,7 @@ Health checks run during server startup (failures are logged) and via
 `hop3 system status`.
 
 **Notes**:
+
 - Return health check **instances**, already constructed
 - Each must implement `is_configured()` and `check()`
 - `check()` returns a `HealthCheckResult`
@@ -553,6 +561,7 @@ for contributed in pm.hook.cli_commands():
 ```
 
 **Notes**:
+
 - Return `Command` **subclasses** (not instances or Click commands)
 - Each command's `name` is a tuple of tokens, matched space-separated on the CLI
 - Contributed commands are dispatched over JSON-RPC alongside the core commands

@@ -102,7 +102,7 @@ hop3 app status --app <app>
 hop3 app logs --app <app>
 
 # Build logs
-hop3 app build-logs --app <app>
+hop3 app logs --app <app> --build
 
 # Start / Stop / Restart
 hop3 app start --app <app>
@@ -142,7 +142,7 @@ echo myapp > .hop3-app
 hop3 --why logs
 ```
 
-The resolution order is `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app`. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
+The resolution order is `--app` → `$HOP3_APP` → `.hop3-app` → `hop3.toml [cli].app` → the selected context's `[contexts.<name>].app` → `[metadata].id`. See [CLI Reference: App Resolution](../reference/cli.md#app-resolution).
 
 ### Configuration / Environment
 
@@ -166,7 +166,7 @@ hop3 env live --app <app>
 hop3 app migrate procfile /path/to/app --dry-run
 ```
 
-(`config` is the back-compat alias for the `env` command group: `hop3 env show --app <app>` is equivalent.)
+(`config` is the back-compat alias for the `env` command group: `hop3 config show --app <app>` is equivalent to `hop3 env show --app <app>`.)
 
 ### Addons (Backing Services)
 
@@ -189,7 +189,6 @@ hop3 backup create --app <app>     # Create backup
 hop3 backup list --app <app>       # List backups for an app (bare `backup list` lists all)
 hop3 backup show <backup-id>       # Backup details (alias: backup info)
 hop3 backup restore <backup-id>    # Restore
-hop3 app restart --app <app>       # Restart after restore
 hop3 backup destroy <backup-id>    # Delete backup
 ```
 
@@ -278,7 +277,7 @@ hop3 <command> --help
 
 ```bash
 # Get app state in JSON (with structured exit-code on error)
-hop3 app status --app myapp --json | jq '.data.state'
+hop3 app status --app myapp --json | jq '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]'
 
 # Safer scripted destroy: typed-name match + still runs safety checks
 hop3 app destroy --app myapp --confirm=myapp
@@ -344,7 +343,6 @@ title = "My Application"
 [build]
 before-build = "pip install -r requirements.txt"
 build = "npm run build"
-test = "pytest"
 packages = ["nodejs", "gcc"]
 
 [run]
@@ -401,8 +399,9 @@ See [hop3.toml Reference](../reference/config.md) for complete documentation.
 # 1. Create project with hop3.toml or Procfile
 cd myapp
 
-# 2. Initialize hop3 (first time)
-hop3 init --ssh root@hop3.example.com
+# 2. Sign in and bind this checkout to the server (first time)
+hop3 login root@hop3.example.com
+hop3 context use default
 
 # 3. Deploy
 hop3 deploy --app myapp
@@ -423,7 +422,6 @@ hop3 deploy --app myapp
 
 # 4. If something breaks, restore
 hop3 backup restore <backup-id>
-hop3 app restart --app myapp
 ```
 
 ### Add a Database
@@ -449,7 +447,7 @@ hop3 app status --app myapp
 hop3 app logs --app myapp
 
 # Build logs
-hop3 app build-logs --app myapp
+hop3 app logs --app myapp --build
 
 # Full debug info
 hop3 app debug --app myapp
@@ -527,8 +525,8 @@ hop3 ps scale --app myapp worker=2
 |--------|------|
 | `heroku create` | `hop3 app create <repo> --app <name>` |
 | `git push heroku main` | `hop3 deploy` |
-| `heroku config set` | `hop3 env set` |
-| `heroku addon create heroku-postgresql` | `hop3 addon create postgres` |
+| `heroku config:set` | `hop3 env set` |
+| `heroku addons:create heroku-postgresql` | `hop3 addon create postgres` |
 | `heroku logs -t` | `hop3 app logs` |
 | `heroku ps` | `hop3 ps` |
 | `heroku restart` | `hop3 app restart` |

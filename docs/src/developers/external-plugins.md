@@ -252,6 +252,7 @@ uv build
 ```
 
 This creates:
+
 - `dist/my_hop3_plugin-0.1.0-py3-none-any.whl` (wheel)
 - `dist/my_hop3_plugin-0.1.0.tar.gz` (source distribution)
 
@@ -338,7 +339,7 @@ Maintain a `CHANGELOG.md`:
 
 Your README should include:
 
-````markdown
+~~~markdown
 # My Hop3 Plugin
 
 Description of what your plugin does.
@@ -376,13 +377,13 @@ MYFRAMEWORK_VERSION = "2.0"
 ## License
 
 Apache 2.0
-````
+~~~
 
 ### API Documentation
 
 Document your public APIs:
 
-```python
+~~~python
 class MyBuilder:
     """Build strategy for MyFramework applications.
 
@@ -401,7 +402,7 @@ class MyBuilder:
         # myframework.yaml version: "1.0" runtime: myframework
         ```
     """
-```
+~~~
 
 ## Testing Against Multiple Hop3 Versions
 
@@ -661,6 +662,7 @@ class MyBuilder:
 **Problem**: Hop3 does not discover an installed plugin.
 
 **Solutions**:
+
 1. Check entry point configuration in `pyproject.toml`
 2. Verify plugin instance is created: `plugin = MyPlugin()`
 3. Check import in `__init__.py`
@@ -671,6 +673,7 @@ class MyBuilder:
 **Problem**: Plugin and Hop3 have incompatible dependencies.
 
 **Solutions**:
+
 1. Widen version ranges in dependencies
 2. Test against multiple Hop3 versions
 3. Update plugin to use current Hop3 APIs
@@ -680,6 +683,7 @@ class MyBuilder:
 **Problem**: `ImportError` when loading plugin.
 
 **Solutions**:
+
 1. Ensure all dependencies are installed
 2. Check Python version compatibility
 3. Verify package structure matches entry point

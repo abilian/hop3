@@ -1,10 +1,10 @@
 # Migrating from Vercel to Hop3
 
-Thinking about moving a Next.js app off Vercel? Maybe you want predictable flat-rate costs instead of per-invocation and bandwidth billing, no cold starts on a low-traffic route, or data that lives on infrastructure you control. Hop3 runs your full-stack Next.js app as a single always-on Node process on your own server. This guide helps you migrate an existing Vercel project to Hop3.
+Thinking about moving a Next.js app off Vercel? Maybe you want predictable flat-rate costs, no cold starts on a low-traffic route, or data that lives on infrastructure you control. Hop3 runs your full-stack Next.js app as a single always-on Node process on your own server. This guide helps you migrate an existing Vercel project to Hop3.
 
 ## Is Hop3 a Good Fit?
 
-Read this section first. Vercel and Hop3 have different shapes, and the migration is smooth only when your app fits.
+Read this section first. Vercel and Hop3 have different shapes. The migration is smooth only when your app fits.
 
 Hop3 is a single always-on server. It runs your Next.js app as one long-lived Node process (`next start`, or the standalone server), behind a reverse proxy, on a box you provision. That is the ideal target for a **server-rendered / full-stack Next.js app**: SSR pages, API routes, and server actions all served by that one process.
 
@@ -29,7 +29,7 @@ The day-to-day workflow will feel familiar:
 | Custom domains | `hop3 domain add` + ACME |
 | Build & output settings | `[build]` in `hop3.toml` |
 
-Your Next.js source doesn't change. You point a Git remote at your server and push, and Hop3 builds and runs it.
+Your Next.js source doesn't change. You point a Git remote at your server and push. Hop3 builds and runs it.
 
 On Hop3, the app you target is always the `--app` flag, never a positional argument. A command reads `hop3 env set FOO=bar --app myapp`.
 
@@ -42,7 +42,7 @@ On Hop3, the app you target is always the `--app` flag, never a positional argum
 | Global edge network + CDN | Single origin server, one region |
 | Per-function autoscaling | Manual scaling (`hop3 ps scale`) |
 | Preview deployments per PR | Not supported: use a staging app |
-| Vercel Postgres / KV / Blob | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
+| Vercel Postgres / KV / Blob | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 
 Hop3 is simpler in operation: one server, one process, one bill. You give up the edge and the magic; you get always-on behavior, flat cost, and control.
 
@@ -78,15 +78,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Vercel Configuration
 
@@ -139,7 +141,7 @@ Notes on the translation:
 
 This is the part that takes the most care, because Vercel's managed storage maps onto three different Hop3 addons.
 
-The four addon types Hop3 offers are **PostgreSQL, MySQL, Redis, and S3/MinIO** (and growing). That covers the common Vercel storage triad:
+The four data addon types Hop3 offers are PostgreSQL, MySQL, Redis, and S3 (Garage), with more planned. That covers the common Vercel storage triad:
 
 | Vercel | Hop3 addon |
 |--------|------------|
@@ -171,13 +173,9 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 If your schema needs a Postgres extension (`pgvector`, `pg_stat_statements`, …), enable it through the addon command. No manual `psql` is needed:
@@ -199,11 +197,11 @@ hop3 addon create redis your-app-cache
 hop3 addon attach your-app-cache --app your-app
 ```
 
-It injects `REDIS_URL`. Most KV usage is cache, so starting fresh is usually fine. If you need to carry data over, export it from your KV instance and load it into the addon.
+It injects `REDIS_URL`. Most KV usage is cache, so starting fresh is usually fine. If you need the existing data, export it from your KV instance and load it into the addon.
 
 ### Blob (Vercel Blob → Hop3 s3)
 
-Vercel Blob maps to Hop3's S3/MinIO addon, which the `s3` addon type provides:
+Vercel Blob maps to Hop3's S3 (Garage) addon, which the `s3` addon type provides:
 
 ```bash
 hop3 addon create s3 your-app-blobs
@@ -214,11 +212,10 @@ It injects `S3_*` connection variables. Copy your existing blobs into the new bu
 
 ### Keeping an external managed database
 
-You don't have to move the data at all. If you'd rather keep an existing managed Postgres (Neon, RDS, your current Vercel Postgres), point `[env]` at its URL and skip the addon:
+You don't have to move the data at all. If you'd rather keep an existing managed Postgres (Neon, RDS, your current Vercel Postgres), set its URL on the server and skip the addon (`hop3.toml` refuses a connection string with credentials in it):
 
-```toml
-[env]
-DATABASE_URL = "postgresql://user:pass@db.example.com:5432/your_app"
+```bash
+hop3 env set --app your-app DATABASE_URL="postgresql://user:pass@db.example.com:5432/your_app"
 ```
 
 ## Step 5: Deploy to Hop3
@@ -255,7 +252,7 @@ Once Let's Encrypt is configured on the server, Hop3 requests a certificate for 
 
 ### Edge functions
 
-If your app uses the edge runtime (middleware on the edge, `export const runtime = 'edge'`), those paths have no Hop3 equivalent: Hop3 runs one Node process, not an edge network. Move that logic into the Node runtime, or keep it on Vercel. There's no way to fake the edge on a single origin server.
+If your app uses the edge runtime (middleware on the edge, `export const runtime = 'edge'`), those paths have no Hop3 equivalent: Hop3 runs one Node process, with no edge network. Move that logic into the Node runtime, or keep it on Vercel. There's no way to fake the edge on a single origin server.
 
 ### API routes and server actions
 
@@ -276,7 +273,7 @@ A long-running worker process, declared alongside your `web` process:
 scheduler = "node scripts/scheduler.js"
 ```
 
-Or system cron, if you only need to hit a route on a schedule the way Vercel Cron did:
+System cron also works if you only need to hit a route on a schedule the way Vercel Cron did:
 
 ```bash
 ssh root@your-server.com
@@ -330,7 +327,7 @@ Vercel's pricing is usage-based: function invocations, bandwidth, and managed-st
 | Cold starts | possible on idle routes | none (always-on process) |
 | Bill predictability | varies with traffic | fixed |
 
-Beyond cost, you gain control: always-on behavior with no cold starts, a predictable monthly number, and data residency on infrastructure you own. The trade-off: you run the server, you have one region, and you scale by hand. For a Next.js app that doesn't need the edge, that's a fair trade.
+Beyond cost, you gain control: always-on behavior with no cold starts, a predictable monthly number, and data residency on infrastructure you own. In exchange, you run the server, you have one region, and you scale by hand. For a Next.js app that doesn't need the edge, that's a fair trade.
 
 ## Rollback Plan
 

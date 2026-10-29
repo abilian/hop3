@@ -8,7 +8,7 @@ tutorial:
 
 # Deploying a Static Site on Hop3
 
-This guide walks you through deploying a **plain static site** — just HTML, CSS, and JavaScript files — on Hop3. There is no build step and no application server: Hop3's static deployer configures nginx to serve your files directly. It's the simplest possible deployment.
+This guide walks you through deploying a **plain static site** (HTML, CSS, and JavaScript files) on Hop3. There is no build step and no application server: Hop3's static deployer configures nginx to serve your files directly. It's the simplest possible deployment.
 
 > **New to static sites on Hop3?** Read the [Static Sites overview](index.md) for the two deployment strategies (build at the source vs. build on the server). Using a generator? Its build output is also just static files, so it deploys the same way — see [Hugo](hugo.md), [Eleventy](eleventy.md), [Astro](astro.md), or [Jekyll](jekyll.md).
 
@@ -19,7 +19,7 @@ Before you begin, ensure you have:
 1. **A Hop3 server** - Follow the [Installation Guide](../../get-started/server-setup.md)
 2. **The Hop3 CLI** - Installed on your local machine
 
-No language runtime is required — that's the whole point of a static site.
+A static site needs no language runtime.
 
 ## Step 1: Create the Site
 
@@ -49,7 +49,7 @@ HTML
 
 ## Step 2: Configure Hop3
 
-Tell Hop3 to serve the `public/` directory as static. The recommended way is a short `hop3.toml` — **no `Procfile` required**. The `static` worker makes Hop3 skip the language toolchains and application servers entirely and serve the directory directly through nginx:
+Tell Hop3 to serve the `public/` directory as static. The recommended way is a short `hop3.toml`; **you need no `Procfile`**. The `static` worker makes Hop3 skip the language toolchains and application servers entirely and serve the directory directly through nginx:
 
 ```bash exec id=create-config dir=hop3-tuto-static
 cat > hop3.toml <<'TOML'
@@ -77,10 +77,10 @@ static = "public"
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -149,7 +149,7 @@ Hello from Hop3
 
 ## How It Works
 
-- **No build, no runtime.** Hop3 sees the `static` directive (in `hop3.toml` or a `Procfile`) and uses its static deployer instead of a language toolchain or application server.
+- **No runtime.** Hop3 sees the `static` directive (in `hop3.toml` or a `Procfile`) and serves the files with its static deployer.
 - **nginx serves your files.** The named directory (`public/`) is served directly; requests never reach an app process.
 - **Anything static works.** Drop in CSS, JavaScript, images, or the build output of any static-site generator.
 
@@ -165,4 +165,4 @@ hop3 app destroy --app hop3-tuto-static -y  # Remove the app
 ## Next Steps
 
 - Put a static-site generator in front of the same workflow: [Hugo](hugo.md), [Eleventy](eleventy.md), [Astro](astro.md), [Jekyll](jekyll.md).
-- Add a custom domain and TLS — see the deployment guides.
+- Add a custom domain and TLS (see the deployment guides).

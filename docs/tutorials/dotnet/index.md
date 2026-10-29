@@ -6,9 +6,9 @@ This page covers the concepts shared by every .NET deployment. Read it first, th
 
 ## How Hop3 builds and runs .NET
 
-Hop3 builds .NET apps with the **.NET SDK** on the server — you declare the SDK as a build package, and the build step runs `dotnet publish` to produce a self-contained `publish/` directory. There is no separate application server like uWSGI: ASP.NET Core ships its own production web server, **Kestrel**, and Hop3 simply runs your published app as the web process.
+Hop3 builds .NET apps with the **.NET SDK** on the server. You declare the SDK as a build package; the build step runs `dotnet publish` to produce a self-contained `publish/` directory. There is no separate application server like uWSGI: ASP.NET Core ships its own production web server, **Kestrel**, and Hop3 simply runs your published app as the web process.
 
-The one rule that makes everything work is the port. Hop3 injects a `PORT` environment variable for each app, and your app must bind Kestrel to it instead of a hardcoded port. ASP.NET Core does not read `PORT` automatically, so you wire it up in `Program.cs`:
+The one rule that makes everything work is the port. Hop3 injects a `PORT` environment variable for each app. Your app must bind Kestrel to it. ASP.NET Core does not read `PORT` automatically, so you wire it up in `Program.cs`:
 
 ```csharp
 var port = Environment.GetEnvironmentVariable("PORT") ?? "5000";
@@ -42,14 +42,14 @@ timeout = 30
 interval = 60
 ```
 
-The flow is: `before-build` runs `dotnet publish` to produce `publish/`, `[run].start` launches the published DLL with `dotnet`, the app binds Kestrel to the injected `$PORT`, and nginx proxies the app's hostname to it. The `[healthcheck]` path is hit to confirm the process is live — add a tiny endpoint like `app.MapGet("/up", () => "OK")` for it.
+The flow is: `before-build` runs `dotnet publish` to produce `publish/`, `[run].start` launches the published DLL with `dotnet`, the app binds Kestrel to the injected `$PORT`, and nginx proxies the app's hostname to it. The `[healthcheck]` path is hit to confirm the process is live; add a tiny endpoint like `app.MapGet("/up", () => "OK")` for it.
 
 ## Cross-cutting notes
 
 These apply to every .NET app on Hop3, regardless of how your project is structured:
 
 - **Set `ASPNETCORE_ENVIRONMENT=Production`** in `[env]` so the framework runs with production logging and error handling.
-- **Addons are exposed as environment variables.** Attach PostgreSQL or Redis and read the injected connection strings in `Program.cs` — for example `Environment.GetEnvironmentVariable("DATABASE_URL")` for Npgsql, or `REDIS_URL` for the StackExchange Redis cache. Don't hardcode credentials.
+- **Addons are exposed as environment variables.** Attach PostgreSQL or Redis and read the injected connection strings in `Program.cs`, for example `Environment.GetEnvironmentVariable("DATABASE_URL")` for Npgsql, or `REDIS_URL` for the StackExchange Redis cache. Don't hardcode credentials.
 - **Run database migrations on deploy** with a `before-run` step such as `dotnet ef database update || true`, so the schema is current before the new process takes traffic.
 - **Choose your publish style.** The default framework-dependent publish needs the matching `dotnet-sdk-*` package on the server. A self-contained or Native AOT publish (`-r linux-x64 --self-contained`) ships the runtime with your app and starts the binary directly (`./publish/my-dotnet-app`) for faster startup and a smaller footprint.
 - **Scale the web process** with `hop3 ps scale --app <app> web=2` once a single instance is healthy.

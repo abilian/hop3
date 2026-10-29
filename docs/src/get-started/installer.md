@@ -169,6 +169,7 @@ HOP3_GIT=1 HOP3_BRANCH=develop sudo -E python3 install-server.py
 ### SSL Certificates
 
 By default, the installer generates a **self-signed SSL certificate** for immediate HTTPS support. This is suitable for:
+
 - Development and testing
 - Internal/private servers
 - Initial setup before configuring a domain
@@ -179,14 +180,15 @@ To use a **Let's Encrypt certificate**, provide a domain name and a registration
 sudo python3 install-server.py --domain hop3.example.com --acme-email you@example.com
 ```
 
-Requirements for Let's Encrypt:
+Let's Encrypt requires:
+
 - The domain must point to this server's IP address
 - Ports 80 and 443 must be accessible from the internet
 - The server must be reachable at the specified domain
 
 Providing `--acme-email` writes `ACME_ENGINE=certbot` to `/etc/default/hop3`; without it the server stays on `ACME_ENGINE=self-signed`. Certificate renewal is then handled by the configured ACME engine.
 
-**Note:** The installer configures nginx as the reverse proxy. Support for alternative proxies (Caddy, Traefik) is planned for future versions.
+**Note:** The installer configures nginx as the reverse proxy. Caddy and Traefik also serve apps (`HOP3_PROXY_TYPE` in `hop3-server.toml`), but the installer does not set them up. Traefik serves no static files and no PHP, and only nginx fronts the WAF, hosts the certbot engine and routes the admin domain where the `[access]` sign-in lives.
 
 ### Supported Distributions
 
@@ -204,6 +206,7 @@ Providing `--acme-email` writes `ACME_ENGINE=certbot` to `/etc/default/hop3`; wi
 ### System Dependencies
 
 **Debian/Ubuntu packages:**
+
 - bc, git, sudo, cron, build-essential
 - nginx, postgresql
 - python3-dev, python3-pip, python3-venv
@@ -211,6 +214,7 @@ Providing `--acme-email` writes `ACME_ENGINE=certbot` to `/etc/default/hop3`; wi
 - Various development libraries
 
 **Fedora/RHEL packages:**
+
 - bc, git, sudo, cronie, gcc, gcc-c++, make
 - nginx, postgresql-server, postgresql-contrib
 - python3-devel, python3-pip
@@ -263,13 +267,14 @@ After installation, the Hop3 server is reachable at:
 - `https://<server-ip>/dashboard`: Web dashboard (the root URL `/` redirects here, or to `/auth/login` when not signed in)
 
 If using Let's Encrypt with a domain:
+
 - `https://hop3.example.com/rpc`
 
 ## Development and Testing
 
 ### Local Development
 
-For testing installers with local package changes:
+To test installers with local package changes:
 
 ```bash
 # CLI
@@ -325,13 +330,15 @@ Both installers follow the same design principles:
 ### Single-File Distribution
 
 Each installer is a self-contained Python script that can be:
+
 - Downloaded and executed directly
 - Piped through `python3 -` for one-liner installation
 - Inspected before running (no hidden downloads)
 
 ### Standard Library Only
 
-No external dependencies beyond Python's standard library:
+The installers need nothing beyond Python's standard library:
+
 - `argparse` for CLI parsing
 - `subprocess` for running commands
 - `pathlib` for file operations
@@ -347,6 +354,7 @@ No external dependencies beyond Python's standard library:
 ### Environment Variable Support
 
 All options can be set via environment variables, enabling:
+
 - CI/CD integration
 - Automation scripts
 - Configuration management tools
@@ -406,7 +414,7 @@ sudo python3 install-server.py
 
 ### Network Issues During Git Install
 
-If `--git` fails due to network issues:
+If `--git` fails because of the network, install from PyPI:
 ```bash
 # Try PyPI instead
 python3 install-cli.py

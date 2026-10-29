@@ -339,11 +339,11 @@ mkdir -p static staticfiles templates
 
 ## Step 4: Create Deployment Configuration
 
-You can deploy Django apps to Hop3 using either a `Procfile` (simple, Heroku-compatible) or `hop3.toml` (advanced features). You can also use both together.
+Hop3 reads how to build and run the app from `hop3.toml`. A `Procfile` is optional and Heroku-compatible; this tutorial creates both. The project settings need the `SECRET_KEY` that `hop3.toml` generates, so the `Procfile` alone would not start the app.
 
 ### Option A: Using a Procfile
 
-Create a `Procfile` in your project root:
+Create a `Procfile` in your project root. Where both files declare the same process, `hop3.toml` wins:
 
 ```file path=hop3-tuto-django/Procfile
 # Pre-run: Migrations and static files
@@ -389,9 +389,8 @@ path = "/health/"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ## Step 5: Configure Gunicorn
@@ -542,14 +541,14 @@ Initial Django application
 
 ## Step 8: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server.
 
 ### Configure the CLI
 
-If this is your first deployment, initialize Hop3:
+If this is your first deployment, sign in to your server:
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -933,10 +932,10 @@ SESSION_CACHE_ALIAS = 'default'
 
 ### Create a Backup
 
-Before major changes, always backup:
+Back up before any major change:
 
 ```bash skip
-hop3 backup create hop3-tuto-django
+hop3 backup create --app hop3-tuto-django
 ```
 
 This backs up:
@@ -950,7 +949,6 @@ This backs up:
 ```bash skip
 hop3 backup list --app hop3-tuto-django
 hop3 backup restore <backup-id>
-hop3 app restart --app hop3-tuto-django
 ```
 
 ## Troubleshooting
@@ -965,9 +963,9 @@ hop3 app logs --app hop3-tuto-django
 
 Common issues:
 
-- **Missing SECRET_KEY**: Set it with `hop3 env set`
+- **Missing SECRET_KEY**: `hop3.toml` generates it on the first deploy; check `hop3 env show --app hop3-tuto-django` that it is set
 - **Database not connected**: Ensure the addon is attached and `DATABASE_URL` is set
-- **Static files not found**: Ensure `collectstatic` runs in `prerun`
+- **Static files not found**: Ensure `collectstatic` runs in `[run].before-run`
 - **Module not found**: Check `requirements.txt` includes all dependencies
 
 ### Database Connection Issues
@@ -1127,14 +1125,11 @@ enabled = true
 schedule = "0 3 * * *"
 retention = 14
 
-[[provider]]
-name = "postgres"
-plan = "standard"
-version = "15"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile for Django

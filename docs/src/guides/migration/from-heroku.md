@@ -16,7 +16,7 @@ Hop3 was designed with Heroku workflows in mind:
 
 Your `Procfile` works unchanged. Your deployment workflow stays the same.
 
-One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`). The app you're targeting is always the `--app` flag rather than a positional argument. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
+One syntactic difference to keep in mind: where Heroku uses a colon (`config:set`), Hop3 uses spaces (`hop3 env set`). The app you're targeting is always the `--app` flag. So `heroku config:set FOO=bar -a myapp` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -24,7 +24,7 @@ One syntactic difference to keep in mind: where Heroku uses a colon (`config:set
 |--------|------|
 | Managed platform | Self-hosted |
 | Automatic scaling | Manual scaling |
-| Many addon types | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| Many addon types | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Review apps | Not yet supported |
 | Pipelines | Not yet supported |
 
@@ -42,15 +42,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Heroku Configuration
 
@@ -61,6 +63,7 @@ heroku config -a your-app --shell > heroku-env.txt
 ```
 
 Review the file and remove Heroku-specific variables:
+
 - `DATABASE_URL` (will be set by Hop3 addon)
 - `REDIS_URL` (will be set by Hop3 addon)
 - `PORT` (auto-set by Hop3)
@@ -116,13 +119,9 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 ## Step 5: Deploy to Hop3
@@ -215,9 +214,9 @@ scheduler = "celery -A myapp beat"
 Or use system cron:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Review Apps

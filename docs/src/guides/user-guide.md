@@ -36,7 +36,7 @@ Hop3 detects your application type and builds it directly on the server using it
 
 **How it works**:
 
-1. You provide source code with a `Procfile` (and optionally `hop3.toml`)
+1. You provide source code with a `Procfile` or a `hop3.toml`
 2. Hop3 detects the language/framework from files present
 3. Dependencies are installed in an isolated environment
 4. Application processes are started and managed
@@ -50,13 +50,13 @@ Hop3 detects your application type and builds it directly on the server using it
 
 **Requirements**:
 
-- A `Procfile` defining your processes
+- A `Procfile`, or a `[run]` section in `hop3.toml`, defining your processes
 - Language-specific dependency file (`requirements.txt`, `package.json`, `Gemfile`, etc.)
 - Optionally, a `hop3.toml` for advanced configuration
 
 ### Method 2: Docker Build
 
-For applications that need custom environments, complex dependencies, or specific system packages.
+Docker suits applications that need custom environments, complex dependencies, or specific system packages.
 
 **How it works**:
 
@@ -90,9 +90,9 @@ byte-identical artefact, verifiable by rebuilding.
 
 **How it works**:
 
-1. You provide a `hop3.nix` expression alongside your source
+1. You write a `hop3.nix` expression alongside your source
 2. Nix builds it in a sandbox, offline, against a pinned dependency set
-3. The built package declares how to run itself, and Hop3 runs it
+3. Hop3 runs the built package the way the package declares
 
 **Advantages**:
 
@@ -105,7 +105,7 @@ expression language.
 
 ### Method 4: Nix from a template (no Nix knowledge needed)
 
-The same guarantees without writing Nix. Declare a template in `hop3.toml` and
+You get the same guarantees without writing Nix: declare a template in `hop3.toml` and
 Hop3 generates the expression for you.
 
 ```toml
@@ -184,7 +184,7 @@ path = "/health/"
 
 **Key sections:** `[metadata]`, `[build]`, `[run]`, `[env]`, `[[addons]]`, `[healthcheck]`, `[domains]`, `[[volumes]]`, `[[ports]]`, `[limits]`, `[backup]`
 
-For complete documentation of all options, see the **[hop3.toml Reference](../reference/config.md)**.
+For complete documentation of all options, see the [hop3.toml Reference](../reference/config.md).
 
 ### Using Both Together
 
@@ -195,11 +195,8 @@ You can use both Procfile and hop3.toml. Hop3 merges them with `hop3.toml` takin
 ### Initial Setup
 
 ```bash
-# Initialize connection to your Hop3 server
-hop3 init --ssh root@hop3.example.com
-
-# Or login to an existing setup
-hop3 auth login --ssh root@hop3.example.com
+# Sign in to your Hop3 server (your SSH access is the credential)
+hop3 login root@hop3.example.com
 
 # Inside a project: bind this checkout to the server (once per checkout;
 # a login without --context names the server "default")
@@ -342,7 +339,7 @@ hop3 cert status
 hop3 cert renew --app myapp
 ```
 
-See the **[Domains and Hostnames Guide](domains.md)** for DNS and certificate
+See the [Domains and Hostnames Guide](domains.md) for DNS and certificate
 setup.
 
 ### Backing Services (Addons)
@@ -375,10 +372,9 @@ hop3 addon destroy myapp-db
 hop3 backup create --app myapp   # Create backup
 hop3 backup list --app myapp     # List backups for an app
 hop3 backup restore <id>         # Restore from backup
-hop3 app restart --app myapp     # Restart after restore
 ```
 
-For complete backup documentation, see the **[Backup and Restore Guide](backup-restore.md)**.
+For complete backup documentation, see the [Backup and Restore Guide](backup-restore.md).
 
 ### System Administration
 
@@ -432,8 +428,8 @@ hop3 env set --app myapp $(cat .env | xargs)
 
 | Heroku | Hop3 |
 |--------|------|
-| `heroku addon create heroku-postgresql` | `hop3 addon create postgres mydb` |
-| `heroku addon create heroku-redis` | `hop3 addon create redis mycache` |
+| `heroku addons:create heroku-postgresql` | `hop3 addon create postgres mydb` |
+| `heroku addons:create heroku-redis` | `hop3 addon create redis mycache` |
 
 **Step 4: Deploy**
 
@@ -551,7 +547,7 @@ hop3 app migrate procfile /path/to/app --backup
 ```bash
 # JSON output for scripting
 hop3 app list --json
-hop3 app status --app myapp --json | jq '.data.state'
+hop3 app status --app myapp --json | jq '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]'
 
 # Quiet mode (minimal output)
 hop3 deploy --app myapp --quiet
@@ -584,8 +580,8 @@ export HOP3_API_URL="https://hop3.example.com"
 # Override token
 export HOP3_API_TOKEN="your-token-here"
 
-# Enable debug logging
-export HOP3_DEBUG=1
+# Raise the default verbosity (0-3)
+export HOP3_VERBOSITY=3
 ```
 
 ## Quick Reference
@@ -621,7 +617,7 @@ export HOP3_DEBUG=1
 - **[CLI Reference](../reference/cli.md)**: Complete command documentation
 - **[hop3.toml Reference](../reference/config.md)**: Full configuration file reference
 - **[Troubleshooting](troubleshooting.md)**: Diagnose and fix common issues
-- **[FAQ](faq.md)** - Frequently asked questions
+- **[FAQ](faq.md)**: Frequently asked questions
 
 For help at any time, run:
 

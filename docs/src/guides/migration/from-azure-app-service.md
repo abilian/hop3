@@ -2,7 +2,7 @@
 
 Thinking about leaving Azure App Service? Whether it's the cost curve, the lock-in, or wanting your own box, Hop3 gives you a familiar deploy-from-git workflow on infrastructure you control. This guide helps you move an existing App Service web app to Hop3.
 
-On App Service you rent a managed runtime and pay per plan tier. On Hop3 you run the same app on a server you own, and it stays up without an Always-On toggle to pay for.
+On App Service you rent a managed runtime and pay per plan tier. On Hop3 you run the same app on a server you own. It stays up without an Always-On toggle to pay for.
 
 ## What's Similar
 
@@ -16,7 +16,7 @@ If you've been deploying with App Service's deployment center, the Hop3 loop wil
 | Connection strings | `[env]` / addon connection vars |
 | Custom domain + managed cert | `hop3 domain add` + Hop3 ACME |
 
-You still push code from git and the platform builds it. A `Procfile` is supported for the process model, so if you already have one it carries over.
+You still push code from git and the platform builds it. A `Procfile` is supported for the process model, so an existing one keeps working.
 
 One syntactic habit to retrain: App Service's app target is the resource you select in the portal or pass with `--name`. In Hop3 the app you're targeting is always the `--app` flag, never a positional or colon syntax. So a settings change like `az webapp config appsettings set --name myapp --settings FOO=bar` becomes `hop3 env set FOO=bar --app myapp`.
 
@@ -26,12 +26,12 @@ One syntactic habit to retrain: App Service's app target is the resource you sel
 |-------------------|------|
 | Managed platform | Self-hosted |
 | Autoscale (rules / metrics) | Manual scaling (`ps scale`) |
-| Many backing services | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| Many backing services | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Deployment slots | Not supported (use a separate staging app) |
 | Always-On toggle | Always on (no toggle) |
 | WebJobs | `[run.workers]` or system cron |
 
-Hop3 is simpler. You manage one server instead of an App Service plan, a region, and a sprawl of resource settings. The trade-off: there are no deployment slots, and scaling is manual. Both have workarounds, covered below.
+Hop3 is simpler: you manage one server, with no App Service plan, region, or sprawl of resource settings. In exchange you give up deployment slots, and you scale by hand. Both have workarounds, covered below.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -45,15 +45,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your App Service Configuration
 
@@ -140,9 +142,9 @@ This is the lowest-risk first move: switch where the app runs without touching w
 
 ### Option B: Move the data onto a Hop3 addon
 
-To leave Azure entirely, dump from Azure Database and load into a Hop3 PostgreSQL addon. Hop3 also ships MySQL, Redis, and S3/MinIO addons.
+To leave Azure entirely, dump from Azure Database and load into a Hop3 PostgreSQL addon. Hop3 also ships MySQL, Redis, and S3 (Garage) addons.
 
-Dump from Azure Database for PostgreSQL:
+Dump the data from Azure Database for PostgreSQL:
 
 ```bash
 pg_dump --no-owner --format=custom \
@@ -166,13 +168,9 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 For MySQL, the shape is identical: dump from Azure Database for MySQL with `mysqldump`, `hop3 addon create mysql your-app-db`, attach, then load the dump.
@@ -276,9 +274,9 @@ scheduler = "celery -A myapp beat"
 Or use system cron directly for a plain command on a clock:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Deployment Slots
@@ -298,7 +296,7 @@ There is no atomic swap; you re-deploy the validated commit to the production ap
 App Service autoscale (rule- or metric-based) has no equivalent; Hop3 scaling is manual. Set process counts with `ps scale`:
 
 ```bash
-hop3 ps scale your-app web=3 worker=2
+hop3 ps scale --app your-app web=3 worker=2
 ```
 
 This is a single-server platform: there is no multi-region, no cluster, and no edge. If your App Service app relied on autoscaling across instances to absorb load, size the server for the peak and scale processes manually. Horizontal scale-out is something Hop3 doesn't do today.
@@ -322,9 +320,9 @@ This is a single-server platform: there is no multi-region, no cluster, and no e
 
 ## Cost and Lock-In
 
-App Service bills per plan: you pay for the tier, for Always-On, often for a separate Azure Database, and for staging slots that ride on a higher tier. The number grows with each managed piece, and every one of those pieces is Azure-shaped: your config lives in the portal.
+App Service bills per plan: you pay for the tier, for Always-On, often for a separate Azure Database, and for staging slots that ride on a higher tier. The number grows with each managed piece. Each piece is Azure-shaped, too: your config lives in the portal.
 
-On Hop3 the bill is your VPS. A small app that ran on a Basic/Standard plan plus a managed database fits comfortably on a modest single server; a medium app on a larger one. The configuration that used to live in App Service settings now lives in `hop3.toml`, committed alongside your code.
+On Hop3 the bill is your VPS. A small app that ran on a Basic/Standard plan plus a managed database fits comfortably on a modest single server. A medium app needs a larger one. The configuration that used to live in App Service settings now lives in `hop3.toml`, committed alongside your code.
 
 You manage the server and give up slots and autoscale; in exchange you own the box, own the config, and stop paying per managed primitive. The process is always on; there is no Always-On toggle.
 

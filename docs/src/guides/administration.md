@@ -52,8 +52,8 @@ sudo python3 install-server.py --with mysql,redis
 # Install all optional features
 sudo python3 install-server.py --with all
 
-# Specify domain for Let's Encrypt certificate
-sudo python3 install-server.py --domain hop3.example.com
+# Specify domain and email for a Let's Encrypt certificate
+sudo python3 install-server.py --domain hop3.example.com --acme-email admin@example.com
 ```
 
 See the [Server Setup Guide](../get-started/server-setup.md) for complete installation options.
@@ -76,10 +76,10 @@ Upgrading the **server** (Hop3 itself) is done with `hop3-deploy-server`, run fr
 
 ```bash
 # Take a snapshot first (from your machine; see Full Server Backup below)
-hop3-backup-server --host server.example.com --version 0.7.3 --fetch ~/backups
+hop3-backup-server --host server.example.com --version 0.8.0 --fetch ~/backups
 
 # Upgrade to a released version
-hop3-deploy-server --host server.example.com --from pypi --version 0.7.3
+hop3-deploy-server --host server.example.com --from pypi --version 0.8.0
 
 # Or, self-hosted from source
 hop3-deploy-server --host server.example.com --from git              # a branch
@@ -91,7 +91,7 @@ hop3-deploy-server --host server.example.com --from local            # this chec
 
 Each upgrade runs the same sequence: install `hop3-server`, `hop3-rootd` and `hop3-cli` at one version → check the venv holds exactly that version → `hop3-server db:upgrade` (migrations) → restart `hop3-rootd`, then `hop3-server` → verify the server answers. Running apps are not touched: the uWSGI emperor, its vassals and nginx keep serving throughout. Never pass `--clean` for an upgrade; it wipes the installation and its addon databases.
 
-**Do not upgrade by re-running the single-file installer** (`install-server.py`). On an existing server it skips the migrations, upgrades the code only when a version is pinned, and restarts the uWSGI emperor, which restarts every app. The single-file installer exists for a first install only.
+**Do not upgrade by re-running the single-file installer** (`install-server.py`). On an existing server it skips the migrations, upgrades the code only when a version is pinned, and restarts the uWSGI emperor, which restarts the apps, whenever its unit file changed. The single-file installer exists for a first install only.
 
 **What the upgrade guarantees.** Migrations run *between* install and restart. Both ends are gated, so a broken upgrade never leaves you silently down:
 
@@ -102,7 +102,7 @@ Each upgrade runs the same sequence: install `hop3-server`, `hop3-rootd` and `ho
 
 ```bash
 journalctl -u hop3-server -n 100 --no-pager     # why the new server didn't start
-sudo -u hop3 /home/hop3/venv/bin/hop3-server db:current   # current schema revision
+su - hop3 -c '/home/hop3/venv/bin/hop3-server db:current'   # current schema revision
 ```
 
 Because platform migrations are forward-only, if the previous code cannot run on the already-migrated schema, restore a database backup taken before the upgrade (see [Backup & Restore](#backup-restore)).
@@ -125,6 +125,9 @@ hop3 app rollback --app myapp     # restore the most recent backup (--to <backup
 │       ├── git/               # Bare git repository
 │       ├── src/               # Checked-out source code
 │       ├── data/              # Persistent data
+│       ├── volumes/           # Declared [[volumes]]
+│       ├── home/              # The app's HOME
+│       ├── tmp/               # The app's TMPDIR
 │       ├── log/               # Log files
 │       └── venv/              # Virtual environment (if applicable)
 ├── nginx/                     # Nginx configs and certs
@@ -156,7 +159,7 @@ POSTGRES_SUPERUSER_PASSWORD = "your-postgres-password"
 MYSQL_SUPERUSER = "root"
 MYSQL_SUPERUSER_PASSWORD = "your-mysql-password"
 
-REDIS_HOST = "localhost"
+REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
 ```
 
@@ -199,20 +202,20 @@ If you need to create users directly on the server:
 
 ```bash
 ssh root@your-server.com
-hop3-server admin:create admin admin@example.com
+su - hop3 -c '/home/hop3/venv/bin/hop3-server admin:create admin admin@example.com'
 # Enter password when prompted
 ```
 
 Then log into the server from your local CLI (the printed token is the API token):
 ```bash
-hop3 auth login --token <paste-token-here> --url https://your-server.com
+hop3 login --token <paste-token-here> --url https://your-server.com
 ```
 
 ### Generating API Tokens
 
 ```bash
-# Generate a token for an existing user (run on server)
-hop3-server admin:token admin
+# Generate a token for an existing user (run on server, as root)
+su - hop3 -c '/home/hop3/venv/bin/hop3-server admin:token admin'
 ```
 
 ### Listing Users
@@ -247,7 +250,7 @@ POSTGRES_SUPERUSER_PASSWORD = "secure-password"
 MYSQL_SUPERUSER = "root"
 MYSQL_SUPERUSER_PASSWORD = "secure-password"
 
-REDIS_HOST = "localhost"
+REDIS_HOST = "127.0.0.1"
 REDIS_PORT = 6379
 ```
 
@@ -255,8 +258,9 @@ REDIS_PORT = 6379
 
 ### Automatic Certificates (Let's Encrypt)
 
-Hop3 automatically provisions SSL certificates via Let's Encrypt when:
+Hop3 provisions SSL certificates via Let's Encrypt when:
 
+1. The server runs the `certbot` engine (`ACME_ENGINE=certbot` with an `ACME_EMAIL`, which the installer sets from `--acme-email`) and the nginx proxy; otherwise each app gets a self-signed certificate
 1. Application has `HOST_NAME` configured
 2. Domain DNS points to server IP
 3. Port 80 is accessible for ACME challenge
@@ -269,27 +273,15 @@ hop3 env set --app myapp HOST_NAME=myapp.example.com
 hop3 deploy --app myapp
 ```
 
-### Manual Certificate Installation
-
-```bash
-# Copy certificates to standard location
-sudo cp fullchain.pem /etc/ssl/certs/myapp.example.com.crt
-sudo cp privkey.pem /etc/ssl/private/myapp.example.com.key
-
-# Set permissions
-sudo chmod 644 /etc/ssl/certs/myapp.example.com.crt
-sudo chmod 600 /etc/ssl/private/myapp.example.com.key
-```
-
 ### Certificate Renewal
 
-Let's Encrypt certificates auto-renew via systemd timer:
+hop3-server renews certificates itself, twice a day, for those within 30 days of expiry:
 ```bash
-# Check timer status
-systemctl status certbot.timer
+# Expiry of each app's certificate
+hop3 cert status
 
-# Manual renewal test
-sudo certbot renew --dry-run
+# Renew one app's certificate now
+hop3 cert renew --app myapp
 ```
 
 ## Monitoring & Health Checks
@@ -305,7 +297,8 @@ hop3 system status --quiet
 ```
 
 Checks performed:
-- Core services (hop3-server, nginx, uwsgi)
+
+- Core services (hop3-server, the proxy the server runs, uwsgi)
 - Database addons (PostgreSQL, MySQL, Redis)
 - Filesystem permissions
 - Disk space
@@ -365,10 +358,10 @@ hop3 backup restore <id>         # Restore from backup
 
 ### Full Server Backup
 
-`hop3-backup-server` (installed with `hop3-deploy-server`) takes a complete snapshot of a server from your machine, without stopping anything on it. The snapshot holds a consistent copy of the control-plane database, every config and secret file, the service units, the proxy and uWSGI trees, the apps tree, and a dump of each backing service that is installed (PostgreSQL, MySQL, Redis, Garage; Docker volumes with `--docker-volumes`). A stopped Redis or Garage is copied as it is on disk, a stopped PostgreSQL or MySQL is named in the report as missing from the snapshot, and a service that runs but does not answer stops the backup. It uploads the server-side script it ships with, runs it as root, and streams the report: every step prints ok, skip or FAIL, the result carries checksums and a `RESTORE.md`, and the directory is mode 0700 because it holds every secret the server has. `--fetch DIR` copies the snapshot to your machine, which is where a backup belongs when the server itself is the thing that might fail.
+`hop3-backup-server` (installed with `hop3-deploy-server`) takes a complete snapshot of a server from your machine, without stopping anything on it. The snapshot holds a consistent copy of the control-plane database, the config and secret files, the service units, the proxy and uWSGI trees, the apps tree, and a dump of each backing service that is installed (PostgreSQL, MySQL, Redis, Garage; Docker volumes with `--docker-volumes`). A stopped Redis or Garage is copied as it is on disk. A stopped PostgreSQL or MySQL is named in the report as missing from the snapshot. A service that runs but does not answer stops the backup. It uploads the server-side script it ships with, runs it as root, and streams the report: every step prints ok, skip or FAIL, the result includes checksums and a `RESTORE.md`, and the directory is mode 0700 because it holds the server's secrets. `--fetch DIR` copies the snapshot to your machine, which is where a backup belongs when the server itself is the thing that might fail.
 
 ```bash
-hop3-backup-server --host server.example.com --version 0.7.3           # /var/backups/hop3/<host>-pre-0.7.3
+hop3-backup-server --host server.example.com --version 0.8.0           # /var/backups/hop3/<host>-pre-0.8.0
 hop3-backup-server --host server.example.com --label weekly --fetch ~/backups
 hop3-backup-server --host server.example.com --skip-apps --dest /mnt/backup/hop3
 ```
@@ -380,8 +373,8 @@ The server-side script can also be run directly on the box, as root: `hop3-serve
 `hop3-restore-server` puts a server back to a snapshot: the control-plane database, every config and secret file, the apps tree, and each backing service the snapshot holds a dump of. It stops `hop3-server` and the app processes while it works, keeps a `.pre-restore-<stamp>` copy of everything it replaces, migrates the restored database forward to the installed code, starts everything again, and reports success only once the server answers. Hop3 must be installed on the box first (the same release the snapshot came from, or a newer one); the command refuses a snapshot from a newer Hop3 than the box runs.
 
 ```bash
-hop3-restore-server --host server.example.com --snapshot prod-pre-0.7.3 --yes                 # a snapshot still on the server
-hop3-restore-server --host server.example.com --snapshot prod-pre-0.7.3 --from-local ~/backups/prod-pre-0.7.3 --yes
+hop3-restore-server --host server.example.com --snapshot prod-pre-0.8.0 --yes                 # a snapshot still on the server
+hop3-restore-server --host server.example.com --snapshot prod-pre-0.8.0 --from-local ~/backups/prod-pre-0.8.0 --yes
 hop3-restore-server --host server.example.com --snapshot prod-weekly --only db,config --yes   # a subset
 ```
 
@@ -405,7 +398,7 @@ mkdir -p "$BACKUP_DIR"
 
 tar -czf "$BACKUP_DIR/apps.tar.gz" /home/hop3/apps/
 cp /home/hop3/hop3-server.toml /home/hop3/hop3.db "$BACKUP_DIR/"
-sudo -u postgres pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
+runuser -u postgres -- pg_dumpall | gzip > "$BACKUP_DIR/postgres.sql.gz"
 ```
 
 ### Disaster Recovery
@@ -483,6 +476,7 @@ sudo mysql_secure_installation
 ### Application Isolation
 
 Each application runs:
+
 - In isolated directory (`/home/hop3/apps/<name>/`)
 - With dedicated virtual environment
 - Under the `hop3` user
@@ -494,7 +488,7 @@ Each application runs:
 
 Edit application's uWSGI config or set via environment:
 ```bash
-hop3 env set --app myapp UWSGI_WORKERS=4
+hop3 env set --app myapp UWSGI_PROCESSES=4
 hop3 env set --app myapp UWSGI_THREADS=2
 ```
 
@@ -595,7 +589,7 @@ hop3 env show --app myapp
 1. Check if application is running: `hop3 app list`
 2. Check application logs: `hop3 app logs --app myapp`
 3. Verify Nginx config: `sudo nginx -t`
-4. Check uWSGI socket: `ls -la /tmp/uwsgi-*.sock`
+4. Check the app answers on its port: `hop3 app ping --app myapp`
 
 #### Database Connection Failed
 
@@ -614,10 +608,10 @@ hop3 system status
 
 ```bash
 # Check certificate status
-sudo certbot certificates
+hop3 cert status
 
 # Force renewal
-sudo certbot renew --force-renewal
+hop3 cert renew --app myapp --force-renewal
 
 # Check Nginx SSL config
 sudo nginx -t
@@ -642,15 +636,18 @@ hop3 system status
 ### Regular Maintenance Checklist
 
 **Daily:**
+
 - Monitor disk space: `df -h`
 - Check server health: `hop3 system status`
 
 **Weekly:**
+
 - Review logs for errors
 - Verify backups are running
-- Check certificate expiry: `sudo certbot certificates`
+- Check certificate expiry: `hop3 cert status`
 
 **Monthly:**
+
 - Update system packages: `sudo apt update && sudo apt upgrade`
 - Review and rotate logs
 - Test backup restoration
@@ -662,9 +659,8 @@ hop3 system status
 # Check the running server version
 hop3 system info
 
-# Update Hop3 server by re-running the installer (idempotent: it preserves
-# operator config and secrets, and restarts the services)
-curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
+# Upgrade the server from your machine (see Upgrading Hop3 above)
+hop3-deploy-server --host server.example.com --from pypi --version 0.8.0
 ```
 
 ### Log Rotation
@@ -705,7 +701,7 @@ sudo systemctl restart systemd-journald
 | Nginx configs | `/home/hop3/nginx/` |
 | uWSGI configs | `/home/hop3/uwsgi-available/`, `/home/hop3/uwsgi-enabled/` |
 | Application logs | `/home/hop3/apps/<name>/log/` |
-| SSL certs | `/etc/letsencrypt/live/` |
+| SSL certs | `/home/hop3/certificates/` |
 
 ### Environment Variables
 

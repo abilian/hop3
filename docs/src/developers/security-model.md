@@ -6,7 +6,7 @@ If you operate a Hop3 server, read [Security](../guides/security.md). To report 
 
 !!! note "Where the full catalogue lives"
 
-    This page covers the model and the method. The exhaustive site-by-site catalogue of *reviewed and deliberate* code patterns lives in [`notes/security/security-model.md`](https://github.com/abilian/hop3/blob/main/notes/security/security-model.md) in the repository, alongside the per-round audit reports. One copy exists on purpose: a duplicated catalogue drifts, and a drifted catalogue is worse than none.
+    This page covers the model and the method. The exhaustive site-by-site catalogue of *reviewed and intended* code patterns lives in [`notes/security/security-model.md`](https://github.com/abilian/hop3/blob/main/notes/security/security-model.md) in the repository, alongside the per-round audit reports. One copy exists on purpose: a duplicated catalogue drifts. A drifted catalogue is worse than none.
 
 ## Actors
 
@@ -23,10 +23,10 @@ Hop3 separates six actors with real privilege boundaries between them. Most secu
 
 ## Boundaries
 
-Four boundaries carry the security weight:
+Four boundaries hold the security weight:
 
 1. **Unauthenticated HTTP → authenticated session.** Login, magic-link redemption, JWT validation, rate limiting. Anything reachable before the token check is internet-exposed.
-2. **Account → a higher role.** Every command and dashboard route names the lowest role that may use it, and the server checks the account's role on every request.
+2. **Account → a higher role.** Commands and dashboard routes name the lowest role that may use them, and the server checks the account's role at request time.
 3. **App deployer → host.** A deployer supplies a `hop3.toml` and a tarball; Hop3 turns those into a process supervisor entry, a proxy configuration and an addon-secrets record. Sinks that interpolate deployer-controlled strings into shell, SQL, config files or filesystem paths are where to look.
 4. **hop3 user → root.** `hop3-server` asks `hop3-rootd` to perform a privileged operation over a local socket. Every operation revalidates its arguments inside rootd.
 
@@ -34,9 +34,9 @@ The model defines **no boundary between two app deployers** (see below).
 
 ## Roles on the control plane
 
-Every account holds one of four standard roles, totally ordered: `admin` > `deployer` > `viewer` > `member` ([ADR 061](adrs/061-standard-roles-and-rpc-authorization.md)). Each command class declares `min_role`, defaulting to `admin`; each dashboard route carries a `RoleGuard`. The server reads the account's role from the database on every request, so a token carries identity and never authority. Two tables in the test suite pin the whole policy, one for commands and one for routes, and a new command or route fails the suite until its role is written down.
+Every account holds one of four standard roles, totally ordered: `admin` > `deployer` > `viewer` > `member` ([ADR 061](adrs/061-standard-roles-and-rpc-authorization.md)). Each command class declares `min_role`, defaulting to `admin`; each dashboard route declares a `RoleGuard`. The server looks up the account's role in the database when it handles a request, so a token holds identity and never authority. Two tables in the test suite pin the whole policy, one for commands and one for routes, and a new command or route fails the suite until its role is written down.
 
-Roles bound what an account may do. They do not separate apps: a role applies to every app and addon on the server, and a deployer's builds run as the control plane's own user.
+Roles bound what an account may do. They do not separate apps: a role applies server-wide, to apps and addons alike. A deployer's builds run as the control plane's own user.
 
 Consequences when reviewing:
 
@@ -60,7 +60,7 @@ Several of those are planned work; the repository note tracks which ones.
 The source uses two grep-able comment prefixes:
 
 - **`# SECURITY:`**: this code *is* a security control. Weakening it changes the platform's posture. The comment names the threat and any upstream contract the control depends on.
-- **`# AUDIT:`**: this code *looks* suspicious, has been reviewed, and carries the boundary argument that makes it safe. Add it where a reviewer would otherwise re-flag the construction.
+- **`# AUDIT:`**: this code *looks* suspicious, has been reviewed, and states the boundary argument that makes it safe. Add it where a reviewer would otherwise re-flag the construction.
 
 ```sh
 git grep -n -E "^[ \t]*# (SECURITY|AUDIT):" -- packages/
@@ -78,7 +78,7 @@ A hardening pattern that applies in one module almost certainly applies in other
 
 ### Brief the reviewer first
 
-Give any reviewer (an LLM included) this page and the repository catalogue before it reads a line of source. Measurably fewer invalid findings come back: after the catalogue first existed, reviewing models began classifying constructions as intentional-and-documented, and the recurring noise of earlier rounds largely stopped.
+Give any reviewer (an LLM included) this page and the repository catalogue before it reads a line of source. Measurably fewer invalid findings come back. Once the catalogue existed, reviewing models began classifying constructions as intentional-and-documented, which largely stopped the recurring noise of earlier rounds.
 
 State the local-only threat model explicitly, because it is the most common source of invalid findings. `hop3-installer`, `hop3-cli` and `hop3-tui` run on the user's own machine with that user's privileges on input that user typed. Injection there crosses no boundary. Reviewers told nothing about this reliably produce reports full of "command injection via `--branch`" and "no authentication on the CLI".
 
@@ -88,11 +88,11 @@ Package-scoped reviews are blind to the findings that matter most. In one round,
 
 ### Demand evidence proportional to the claim
 
-Every finding needs a trace from a named entry point to a named sink. Anything above informational needs something that runs. A "proof" that only asserts a substring appears in the source is no demonstration; if a finding cannot be shown, report it as a structural concern, marked unverified, without a severity.
+Every finding needs a trace from a named entry point to a named sink. Anything above informational needs something that runs. A "proof" that only checks that a substring appears in the source is no demonstration; if a finding cannot be shown, report it as a structural concern, marked unverified, without a severity.
 
 ### Re-verify before reporting
 
-Record the commit audited and diff it against `HEAD` before publishing. In one round, five of eleven findings were fixed within an hour of the run finishing and the report asserted them for another week; reviewer attention went to work already done.
+Record the commit audited and diff it against `HEAD` before publishing. In one round, five of eleven findings were fixed within an hour of the run finishing and the report still listed them as open for another week; reviewer attention went to work already done.
 
 ### Triage into four buckets
 

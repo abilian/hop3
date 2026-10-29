@@ -6,14 +6,14 @@ This document is the technical reference for deploying applications on Hop3 usin
 
 Hop3 supports Nix-based deployments as an alternative to native buildpacks and Docker. Two modes are supported:
 
-1. **Generated mode (ADR 008).** Hop3 generates a `hop3.nix` file at
+1. **Generated mode (ADR 008).** Hop3 generates a `.hop3-generated.nix` file at
    build time from a `[nix]` section in `hop3.toml`, using one of the
    built-in templates. This is the preferred mode for most apps.
 2. **Hand-crafted mode.** The user provides a `hop3.nix` file directly.
    Used when the templates don't fit, or when extracted via
    `hop3 nix eject`.
 
-**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort` instead of picking one. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To deliberately convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name> > hop3.nix`.
+**The two modes are mutually exclusive.** If both a `hop3.nix` file and a `[nix].template` section in `hop3.toml` are present, NixBuilder raises `Abort`. The error message points the user to either delete `hop3.nix` or remove the `[nix]` section. To convert a template to a hand-crafted file, use `hop3 nix eject --app <app-name> > hop3.nix`.
 
 ## Architecture
 
@@ -47,9 +47,9 @@ When Hop3 deploys a Nix app:
 2. Verifies `nix-build` is available
 3. Resolves the Nix file:
    - **Hand-crafted mode**: uses the existing `hop3.nix`
-   - **Generated mode**: generates a `hop3.nix` from the `[nix]`
+   - **Generated mode**: generates `.hop3-generated.nix` from the `[nix]`
      section using the appropriate template
-4. Runs: `nix-build hop3.nix -A package --out-link .nix-result`
+4. Runs: `nix-build <that file> -A package --out-link .nix-result`
    (`--out-link` registers a GC root so nix's garbage collector can't
    delete a running app's closure).
 5. Reads `$out/hop3/runtime.json` from the built store path
@@ -97,14 +97,14 @@ The built package **must** generate `$out/hop3/runtime.json` containing runtime 
 | `writable_tree` | No | A store directory Hop3 copies into the app's `src/` at deploy time, for applications that write inside their own tree. |
 | `php_fpm` | No | Serve the app with a php-fpm pool, as Hop3 serves a native PHP app: `binary` is the store's `php-fpm`, `tree` the application's store directory, `document_root` (optional) its front-controller directory, detected (`public/`, `web/`, `htdocs/`, `www/`) when absent. Hop3 writes the pool, adds the `web` worker and has the proxy speak FastCGI to it. When `tree` is also the `writable_tree`, the copy in `src/` is what is served. |
 
-Anything an application needs written before it starts (its configuration, a schema migration, a first-run install) belongs in `before_run`, not in the worker's wrapper. A wrapper runs on every start, inside the start timeout, and the files it writes into `src/` are replaced by the next deploy. The generated templates follow this rule: their wrapper, called with `--hop3-before-run`, writes the `[[nix.config-files]]` and runs `[nix] pre-exec`, and `runtime.json` names that call as its `before_run`.
+Anything an application needs written before it starts (its configuration, a schema migration, a first-run install) belongs in `before_run`. The worker's wrapper is the wrong place: it runs on every start, inside the start timeout. The next deploy also replaces the files it writes into `src/`. The generated templates follow this rule: their wrapper, called with `--hop3-before-run`, writes the `[[nix.config-files]]` and runs `[nix] pre-exec`, and `runtime.json` names that call as its `before_run`.
 
 ### Worker types
 
 | Worker name | Behavior |
 |-------------|----------|
 | `web` | Spawned as a uWSGI daemon. Must listen on `$BIND_ADDRESS:$PORT`. |
-| `static` | Value is a directory path. Hop3 serves it via nginx (StaticDeployer). |
+| `static` | Value is a directory path. Hop3 serves it via the proxy, nginx or Caddy (StaticDeployer). |
 | Other names | Spawned as generic uWSGI daemons. |
 
 If `workers` contains **only** the key `"static"`, Hop3 produces a `BuildArtifact` with `kind="static"` and the StaticDeployer takes over. Otherwise the artifact has `kind="nix"` and uWSGI manages all workers.
@@ -149,7 +149,7 @@ Every template builds in the Nix sandbox with no network access, against a hash-
 | 2 | Source build against a committed lockfile (pip, composer, pnpm, go, bundler, gradle) | Yes | Yes | One arch per lockfile |
 | 3 | Pre-built upstream artefact (`fetchurl`) | Yes | No; the binary is taken on trust | Usually x86_64-linux only |
 
-Tier 1 is the goal: you inherit nixpkgs' build, its architectures and its security updates for free. Tier 2 is where most real apps land, because nixpkgs either doesn't package them or packages a version you can't deploy; you get the same auditability, and the lockfile is yours to refresh. Tier 3 is a floor for apps whose upstream ships no buildable source for the packaged version.
+Tier 1 is the goal: you inherit nixpkgs' build, its architectures and its security updates for free. Tier 2 is where most real apps land, because nixpkgs either doesn't package them or packages a version you can't deploy; you get the same auditability, while the lockfile is yours to refresh. Tier 3 is a floor for apps whose upstream ships no buildable source for the packaged version.
 
 To see the tier of every app in a checkout:
 

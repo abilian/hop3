@@ -78,7 +78,7 @@ PackageReference for package 'Swashbuckle.AspNetCore'
 
 ## Step 2: Configure the Application
 
-Update `Program.cs` with health endpoints and proper configuration:
+Add health endpoints and the production configuration to `Program.cs`:
 
 ```file path=hop3-tuto-aspnet-core/Program.cs
 using System.Diagnostics;
@@ -373,10 +373,10 @@ Initial ASP.NET Core application
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -568,7 +568,7 @@ builder.Services.AddHostedService<BackgroundWorker>();
 
 ### Self-Contained Deployment
 
-For deployment without .NET runtime on server:
+To deploy without a .NET runtime on the server, publish a self-contained build:
 
 ```bash skip
 dotnet publish -c Release -r linux-x64 --self-contained -o publish
@@ -586,7 +586,7 @@ start = "./publish/hop3-tuto-aspnet-core"
 
 ### Native AOT (Ahead-of-Time Compilation)
 
-For faster startup and smaller memory footprint:
+Native AOT gives faster startup and a smaller memory footprint:
 
 ```xml
 <!-- In hop3-tuto-aspnet-core.csproj -->
@@ -660,13 +660,11 @@ path = "/healthz"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile

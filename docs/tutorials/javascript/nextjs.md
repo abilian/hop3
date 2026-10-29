@@ -168,7 +168,7 @@ export default function Home() {
 
 ## Step 4: Build and Verify
 
-Build the application to ensure it compiles correctly. Force `NODE_ENV=production` for the build: `next build` must run in production, or it emits dev error pages (`/404`, `/_error`) that import `<Html>` and fail static export. (This tutorial otherwise runs with `NODE_ENV=development` so the dev dependencies needed to build — TypeScript, ESLint — get installed.)
+Build the application to ensure it compiles correctly. Force `NODE_ENV=production` for the build: `next build` must run in production, or it emits dev error pages (`/404`, `/_error`) that import `<Html>` and fail static export. (This tutorial otherwise runs with `NODE_ENV=development` so the dev dependencies needed to build, such as TypeScript and ESLint, get installed.)
 
 ```bash exec id=build-app dir=hop3-tuto-nextjs timeout=180
 NODE_ENV=production npm run build
@@ -192,7 +192,7 @@ server.js
 
 ### Create a Procfile
 
-Create a `Procfile` in your project root:
+Optionally, create a `Procfile` in your project root, for tools that read one. Hop3 does not need it: where both files declare the same process, `hop3.toml` wins.
 
 ```file path=hop3-tuto-nextjs/Procfile
 # Pre-build: install (incl. devDependencies — TypeScript/ESLint are needed to
@@ -208,7 +208,7 @@ web: node .next/standalone/server.js
 
 ### Create hop3.toml
 
-Create a `hop3.toml` for advanced configuration:
+Create a `hop3.toml`, which tells Hop3 how to build and start the app:
 
 ```file path=hop3-tuto-nextjs/hop3.toml
 [metadata]
@@ -328,14 +328,14 @@ Initial Next.js application
 
 ## Step 7: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server.
 
 ### Configure the CLI
 
-If this is your first deployment, initialize Hop3:
+If this is your first deployment, sign in to your server:
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -572,7 +572,7 @@ export default async function Page() {
 
 ### API Routes with Database
 
-Example API route with database access:
+This API route reads from the database:
 
 ```typescript
 // src/app/api/users/route.ts
@@ -716,9 +716,8 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ### Complete Procfile for Next.js

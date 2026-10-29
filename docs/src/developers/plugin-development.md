@@ -36,16 +36,19 @@ Modify core code when you need to:
 ### 1. Builders
 
 Builders orchestrate the build process. There are two levels:
+
 - **Level 1 (Orchestrators)**: Decide how to build (local vs containerized)
 - **Level 2 (Language Toolchains)**: Language-specific build logic (used by LocalBuilder)
 
 **Protocol**: `Builder` (from `hop3.core.protocols`)
 
 **Required attributes**:
+
 - `name` (str): Unique identifier (e.g., "python", "docker")
 - `context` (DeploymentContext): Deployment context with app info
 
 **Required methods**:
+
 - `accept() -> bool`: Return `True` if this strategy can build the app
 - `build() -> BuildArtifact`: Execute build and return artifact info
 
@@ -97,6 +100,7 @@ Language toolchains provide language-specific build logic. They are used by `Loc
 **Protocol**: `LanguageToolchain` (from `hop3.core.protocols`)
 
 **Required methods**:
+
 - `accept() -> bool`: Return `True` if this toolchain can build the app
 - `build() -> BuildArtifact`: Execute build and return artifact info
 
@@ -113,11 +117,13 @@ Deployers run build artifacts and manage their lifecycle.
 **Protocol**: `Deployer` (from `hop3.core.protocols`)
 
 **Required attributes**:
+
 - `name` (str): Unique identifier (e.g., "uwsgi", "docker-compose")
 - `context` (DeploymentContext): Deployment context
 - `artifact` (BuildArtifact): Build artifact to deploy
 
 **Required methods**:
+
 - `accept() -> bool`: Return `True` if this strategy can deploy the artifact
 - `deploy(deltas: dict | None = None) -> DeploymentInfo`: Deploy the artifact
 - `stop() -> None`: Stop the running application
@@ -200,10 +206,12 @@ Addons manage backing services (databases, caches, etc.). They are independent r
 **Location**: `hop3/plugins/{postgresql,mysql,redis}/`
 
 **Required attributes**:
+
 - `name` (str): Addon type (e.g., "postgres", "redis")
 - `addon_name` (str): Specific instance name
 
 **Required methods**:
+
 - `create() -> None`: Create the service instance
 - `destroy() -> None`: Destroy the service instance
 - `get_connection_details() -> dict[str, str]`: Return environment variables for connection
@@ -286,11 +294,13 @@ Proxies configure reverse proxies for applications.
 **Location**: `hop3/plugins/proxy/{nginx,caddy,traefik}/`
 
 **Required attributes**:
+
 - `app` (App): Application instance
 - `env` (Env): Environment variables
 - `workers` (`dict[str, str]`): Worker configurations
 
 **Required methods** (abstract):
+
 - `get_proxy_name() -> str`: Return proxy name ("nginx", "caddy", "traefik")
 - `setup_backend() -> None`: Configure backend connection
 - `setup_certificates() -> None`: Setup SSL certificates
@@ -302,6 +312,7 @@ Proxies configure reverse proxies for applications.
 - `reload_proxy() -> None`: Reload proxy to apply changes
 
 **Capabilities** (class attributes; override the `BaseProxy` defaults to match what the proxy can do):
+
 - `backend_protocols: frozenset[str]`: what it can speak to an app's port (default `{"http"}`; add `"fastcgi"` for php-fpm pools)
 - `serves_files: bool`: whether it serves files from disk, including the ACME challenge webroot (default `True`)
 - `fronts_waf: bool`: whether it can route an app through its WAF (default `False`)
@@ -382,11 +393,13 @@ OS implementations handle operating system-specific configuration.
 **Location**: `hop3/plugins/oses/`
 
 **Required attributes**:
+
 - `name` (str): OS identifier (e.g., "debian12", "ubuntu2204")
 - `display_name` (str): Human-readable name
 - `packages` (`list[str]`): Required system packages
 
 **Required methods**:
+
 - `detect() -> bool`: Check if this OS matches the current system
 - `setup_server() -> None`: Install dependencies and configure system
 - `ensure_packages(packages, update=True) -> None`: Install system packages
@@ -490,6 +503,7 @@ plugin = MyPlugin()
 ```
 
 **Available hooks**:
+
 - `get_builders()` - Return Builder classes
 - `get_language_toolchains()` - Return LanguageToolchain classes
 - `get_deployers()` - Return Deployer classes

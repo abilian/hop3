@@ -18,7 +18,7 @@ Hop3 was designed around the same Heroku-style workflow Scalingo uses:
 
 Your `Procfile` works unchanged and your deployment workflow stays the same: you commit and push; the platform then builds and runs your app.
 
-One syntactic difference: where Scalingo passes the app with `-a` (and uses a verb-noun form like `env-set`), Hop3 uses spaces and the app you're targeting is always the `--app` flag rather than a positional argument. So `scalingo --app myapp env-set FOO=bar` becomes `hop3 env set FOO=bar --app myapp`.
+Scalingo passes the app with `-a` and uses verb-noun forms like `env-set`. Hop3 separates words with spaces and always takes the target app as the `--app` flag. So `scalingo --app myapp env-set FOO=bar` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -26,11 +26,11 @@ One syntactic difference: where Scalingo passes the app with `-a` (and uses a ve
 |----------|------|
 | Managed platform | Self-hosted |
 | Automatic + manual scaling | Manual scaling (`hop3 ps scale`) |
-| Broad addon catalogue | PostgreSQL, MySQL, Redis, S3/MinIO (and growing) |
+| Broad addon catalogue | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Review apps | Not yet supported |
 | Multi-region regions (osc-fr1, osc-secnum-fr1) | Single server |
 
-Hop3 is simpler. You manage one server instead of a managed fleet: that is the point if you want full control, and the cost if you wanted someone else to carry the pager.
+Hop3 is simpler: you manage one server. That suits you if you want full control, and costs you if you wanted someone else to hold the pager.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -44,15 +44,16 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
-Connect the CLI to your server. On a first install this also creates the
-admin account and stores your API token:
+Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Scalingo Configuration
 
@@ -63,12 +64,13 @@ scalingo --app your-app env > scalingo-env.txt
 ```
 
 Review the file and remove Scalingo-managed variables; these are re-provided by Hop3 addons or set automatically:
+
 - `DATABASE_URL` / `SCALINGO_POSTGRESQL_URL` (will be set by the Hop3 Postgres addon)
 - `REDIS_URL` / `SCALINGO_REDIS_URL` (will be set by the Hop3 Redis addon)
 - `PORT` (auto-set by Hop3)
 - Other `SCALINGO_*` variables
 
-Keep your real application secrets (`SECRET_KEY`, API keys, settings module, and so on); those carry over unchanged.
+Keep your real application secrets (`SECRET_KEY`, API keys, settings module, and so on); they move over unchanged.
 
 ## Step 3: Add hop3.toml
 
@@ -78,7 +80,7 @@ While `Procfile` is compatible, `hop3.toml` gives you more control. If you only 
 hop3 app migrate procfile .
 ```
 
-Then fill in the rest. A representative `hop3.toml` translated from a Scalingo app:
+Then fill in the rest. Here is a representative `hop3.toml` translated from a Scalingo app:
 
 ```toml
 [metadata]
@@ -97,7 +99,7 @@ before-run = ["python manage.py migrate"]
 path = "/health/"
 ```
 
-There is no importer for `scalingo.json` or for a Scalingo "manifest"; Hop3 imports only a `Procfile`. The mapping is direct, so you do the rest by hand: env vars go under `[env]`, your `web:` and `worker:` process lines stay in the `Procfile` (or move to `[run.workers]`), and any release-phase command becomes `before-run`.
+There is no importer for `scalingo.json` or for a Scalingo "manifest"; Hop3 imports only a `Procfile`. The mapping is direct, so you do the rest by hand. Env vars go under `[env]`. Your `web:` and `worker:` process lines stay in the `Procfile` (or move to `[run.workers]`). Any release-phase command becomes `before-run`.
 
 ## Step 4: Migrate Your Database
 
@@ -131,13 +133,9 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 ## Step 5: Deploy to Hop3
@@ -223,7 +221,7 @@ hop3 addon attach your-app-cache --app your-app
 
 ### MongoDB, Elasticsearch, InfluxDB
 
-This is the gap to plan around. Scalingo offers MongoDB, Elasticsearch, and InfluxDB addons; Hop3 does not have native equivalents. Its addon set is PostgreSQL, MySQL, Redis, and S3/MinIO (and growing). If your app depends on one of these, you have two options:
+This is the gap to plan around. Scalingo offers MongoDB, Elasticsearch, and InfluxDB addons; Hop3 does not have native equivalents. Its addon set is PostgreSQL, MySQL, Redis, and S3 (Garage), and growing. If your app depends on one of these, you have two options:
 
 1. Keep using a managed instance (Scalingo's, or any provider's) and point `[env]` at its connection URL:
 
@@ -248,9 +246,9 @@ scheduler = "celery -A myapp beat"
 Or use system cron on the server:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Review Apps
@@ -292,7 +290,7 @@ Scalingo is fairly priced for what it is (a managed EU PaaS). You're paying for 
 | **Total (small app)** | a managed-plan bill | ~€10/month (VPS) |
 | **Total (medium app)** | a larger managed bill | ~€30/month (VPS) |
 
-The deeper win is lock-in: `hop3.toml` and a `Procfile` are portable, your data lives in a standard Postgres/MySQL/Redis you can dump and move, and the server is just a Linux box. The cost is the obvious one: you carry the ops Scalingo handled, including security updates and backups.
+The deeper win is lock-in. `hop3.toml` and a `Procfile` are portable. Your data lives in a standard Postgres/MySQL/Redis you can dump and move, on a server that is a plain Linux box. The cost is the obvious one: you take on the ops Scalingo handled, including security updates and backups.
 
 ## Rollback Plan
 

@@ -51,7 +51,15 @@ llms-full:
 lint-cli:
 	$(PYTHON) scripts/lint_cli_commands.py
 
-build: preprocess lint-cli
+# The Open Graph card a shared link shows: the deck's first slide. Committed, and
+# redrawn (pdftoppm, from poppler) only when the deck is newer.
+OG_CARD := src/assets/og/card.jpg
+
+$(OG_CARD): src/pdf/hop3.pdf
+	@mkdir -p $(dir $@)
+	pdftoppm -f 1 -l 1 -singlefile -jpeg -jpegopt quality=85 -scale-to-x 1200 -scale-to-y -1 $< $(basename $@)
+
+build: preprocess lint-cli $(OG_CARD)
 	$(ZENSICAL) build
 	uv run hop3-install bundle --all --output-dir site/
 	@make schema
@@ -62,7 +70,7 @@ serve: preprocess
 
 deploy:
 	@make build
-	hop3 --context prod deploy
+	hop3 deploy
 
 clean:
 	rm -rf site/ src/tutorials/ src/blog/* src/developers/adrs/

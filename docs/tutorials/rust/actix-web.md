@@ -8,7 +8,7 @@ tutorial:
 
 # Deploying Actix Web on Hop3
 
-This guide walks you through deploying an Actix Web application on Hop3. Actix Web is a powerful, pragmatic, and extremely fast web framework for Rust.
+This guide walks you through deploying an Actix Web application on Hop3. Actix Web is a pragmatic, fast web framework for Rust.
 
 ## Prerequisites
 
@@ -353,10 +353,10 @@ Initial Actix Web application
 
 The following steps require a Hop3 server.
 
-### Initialize (First Time Only)
+### Sign In (First Time Only)
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -499,7 +499,6 @@ web = 8080
 [healthcheck]
 path = "/up"
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```

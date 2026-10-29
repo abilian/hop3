@@ -1,0 +1,58 @@
+/* The slide viewer: see deck.js. */
+
+.deck {
+  margin: 1.5em 0;
+  border: 1px solid var(--md-default-fg-color--lightest);
+  border-radius: 0.4rem;
+  overflow: hidden;
+  background: var(--md-default-bg-color);
+}
+
+.deck canvas {
+  display: block;
+  margin: 0 auto;
+  cursor: pointer;
+}
+
+.deck__bar {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+  padding: 0.3rem 0.8rem;
+  border-top: 1px solid var(--md-default-fg-color--lightest);
+  font-size: 0.75rem;
+}
+
+.deck__count {
+  min-width: 3.5em;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+
+.deck__bar button {
+  padding: 0 0.3rem;
+  border: 0;
+  background: none;
+  color: var(--md-typeset-a-color);
+  font-size: 1.2rem;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.deck__bar button:disabled {
+  color: var(--md-default-fg-color--lighter);
+  cursor: default;
+}
+
+/* The download link and the full-screen button sit at the right. */
+.deck__bar a {
+  margin-left: auto;
+}
+
+.deck:fullscreen {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  border: 0;
+  border-radius: 0;
+}

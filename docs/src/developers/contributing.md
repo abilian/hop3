@@ -1,6 +1,6 @@
 # Hop3 Contribution Guidelines
 
-You're reading this because you're interested in contributing to Hop3, and that makes us happy! Your contributions make Hop3 a better platform and strengthen the open source community around it.
+Thank you for your interest in contributing to Hop3! Your contributions make Hop3 a better platform and strengthen the open source community around it.
 
 These guidelines keep collaboration smooth for everyone.
 
@@ -47,11 +47,13 @@ Hop3 uses a three-layer testing strategy (see ADR 043). All contributions should
 ### Test Requirements
 
 **For Bug Fixes:**
+
 - Add a test that reproduces the bug (should fail before your fix)
 - Verify the test passes after your fix
 - Add tests at the appropriate layer (usually unit or integration)
 
 **For New Features:**
+
 - Add unit tests (`a_unit/`) for new functions/classes
 - Add integration tests (`b_integration/`) for component interactions that need a real in-memory DB
 - Add E2E tests (`c_e2e/`) if the feature needs a real Docker deploy or host mutation
@@ -105,6 +107,7 @@ docker ps
 ```
 
 Docker is installed differently on each platform:
+
 - **macOS**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
 - **Linux**: Install via your package manager (e.g., `apt install docker.io`)
 - **Windows**: Install [Docker Desktop](https://www.docker.com/products/docker-desktop)
@@ -125,7 +128,7 @@ Nothing in the workspace is optional to its test suite. The dev group installs e
 
 ### Dependencies and the cooldown
 
-The lock never selects a distribution uploaded in the last seven days (`[tool.uv] exclude-newer = "7 days"` in `pyproject.toml`). A compromised release is usually caught and yanked within days, and `uv lock --upgrade` would otherwise take it the hour it lands. The setting is relative, so there is no date to refresh. A fix you need sooner than a week is a deliberate exception: override it for that one package with `exclude-newer-package`, and say why in the commit.
+The lock never selects a distribution uploaded in the last seven days (`[tool.uv] exclude-newer = "7 days"` in `pyproject.toml`). A compromised release is usually caught and yanked within days, and `uv lock --upgrade` would otherwise take it the hour it lands. The setting is relative, so there is no date to refresh. To take a fix sooner than a week, override the setting for that one package with `exclude-newer-package`, and say why in the commit.
 
 Servers get the same week. The installer writes it into the server venv's `pip.conf`, so every pip call on that venv resolves dependencies under it. Hop3's own packages are the exception: they are installed first with the cutoff lifted, so a release can be installed the day it ships.
 
@@ -188,6 +191,7 @@ E2E tests run in Docker containers with `HOP3_UNSAFE=true` to bypass authenticat
 ### Additional Testing Resources
 
 For comprehensive testing documentation, see:
+
 - [Testing Strategy](./testing-strategy.md) for the complete testing guide
 - [Testing Documentation](./testing.md) for a quick reference
 - test-status for current test status
@@ -221,6 +225,7 @@ make test-cov  # Coverage on the in-process layers (what coverage.py sees)
 ### Coverage Requirements
 
 Coverage is produced by pytest on the in-process layers only (`a_unit` + `b_integration`). The Docker e2e layer contributes none. Run `make test-cov` to reproduce it. We don't enforce strict coverage requirements; we expect:
+
 - New features to include tests covering the main code paths
 - Bug fixes to include regression tests
 - Coverage not to decrease significantly with new changes
@@ -255,6 +260,7 @@ Default message type for general information.
 **Output:** Plain text without formatting
 
 **Use for:**
+
 - General information
 - Command output that doesn't fit other categories
 - Default messages when type is omitted
@@ -269,6 +275,7 @@ Green checkmark with success message.
 **Output:** `✓ Application deployed successfully` (green)
 
 **Use for:**
+
 - Successful completion of operations
 - Confirmation messages
 - Positive feedback
@@ -283,6 +290,7 @@ Red error prefix with error message. **Always shown, even in quiet mode.**
 **Output:** `ERROR: Application not found` (bold red)
 
 **Use for:**
+
 - Fatal errors
 - Validation failures
 - Operation failures
@@ -299,6 +307,7 @@ Yellow warning symbol with message.
 **Output:** `⚠ Application is not using HTTPS` (yellow)
 
 **Use for:**
+
 - Non-fatal issues
 - Deprecation notices
 - Configuration warnings
@@ -313,6 +322,7 @@ Blue info symbol with message.
 **Output:** `i Application will restart after config change` (blue)
 
 **Use for:**
+
 - Helpful tips
 - Additional context
 - Non-critical information
@@ -327,6 +337,7 @@ Hourglass symbol for ongoing operations.
 **Output:** `⏳ Building application...` (cyan)
 
 **Use for:**
+
 - Long-running operations
 - Build/deployment progress
 - Processing indicators
@@ -355,6 +366,7 @@ Text displayed in a bordered panel/box.
 ```
 
 **Use for:**
+
 - Important summaries
 - Grouped information
 - Highlighted messages
@@ -384,6 +396,7 @@ Data displayed in a formatted table.
 ```
 
 **Use for:**
+
 - List commands (apps, backups, services)
 - Status displays
 - Any tabular data
@@ -483,10 +496,12 @@ In quiet mode (`--quiet`), most message types are suppressed. Only errors are sh
 ### Implementation Reference
 
 The message type system is implemented in:
+
 - **Server:** `packages/hop3-server/src/hop3/commands/_response.py` - Response builder helpers
 - **CLI:** `packages/hop3-cli/src/hop3_cli/ui/rich_printer.py` - Message rendering
 
 **Key components:**
+
 - `RichPrinter` - Renders messages with the Rich library
 - `text()`, `success()`, `error()`, `warning()`, `table()`, ... - Build individual response items
 - A command's `call()` method returns a plain `list` of these items

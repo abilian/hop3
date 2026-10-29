@@ -37,6 +37,7 @@ packages/<package-name>/
 ```
 
 The pages in this directory mirror each package's `internals.md`:
+
 - `hop3-server.md` ← `packages/hop3-server/docs/internals.md`
 - `hop3-cli.md` ← `packages/hop3-cli/docs/internals.md`
 - etc.

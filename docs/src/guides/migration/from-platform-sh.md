@@ -4,7 +4,7 @@ Platform.sh (and its successor Upsun) is a capable managed platform: git-driven 
 
 ## What's Similar
 
-The core mental model carries over almost unchanged:
+The core mental model stays almost unchanged:
 
 | Platform.sh | Hop3 |
 |-------------|------|
@@ -19,7 +19,7 @@ The core mental model carries over almost unchanged:
 
 You still push git and you still declare your build and run steps. Your database credentials are still injected for you. The big change is consolidation: where Platform.sh splits configuration across `.platform.app.yaml`, `.platform/services.yaml`, and `.platform/routes.yaml`, Hop3 keeps everything in one `hop3.toml`.
 
-One syntactic note: the Hop3 CLI uses spaces, not colons. The app you're targeting is always the `--app` flag, never part of the command. So `platform variable:set FOO=bar -e main` becomes `hop3 env set FOO=bar --app myapp`.
+The Hop3 CLI separates words with spaces and always takes the target app as the `--app` flag. So `platform variable:set FOO=bar -e main` becomes `hop3 env set FOO=bar --app myapp`.
 
 ## What's Different
 
@@ -28,11 +28,11 @@ One syntactic note: the Hop3 CLI uses spaces, not colons. The app you're targeti
 | Managed platform | Self-hosted |
 | Branch-as-environment + review apps | Not supported; deploy staging apps by name |
 | Automatic scaling | Manual scaling (`hop3 ps scale`) |
-| Many managed services (Elasticsearch, RabbitMQ, …) | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
+| Many managed services (Elasticsearch, RabbitMQ, …) | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Multi-region, grid/dedicated tiers | Single server |
 | YAML across three files | One `hop3.toml` |
 
-Hop3 is simpler and cheaper, and you own the box. There is a trade-off: Platform.sh's branch-as-environment and review apps have no Hop3 equivalent, and its richer managed services (Elasticsearch, RabbitMQ, and friends) aren't Hop3 addons. We come back to both below. Neither is a dealbreaker; both change how you work.
+Hop3 is simpler and cheaper, and you own the box. There is a trade-off: Platform.sh's branch-as-environment and review apps have no Hop3 equivalent, and its richer managed services (Elasticsearch, RabbitMQ, and friends) aren't Hop3 addons.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -46,25 +46,26 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
-Connect the CLI to your server. On a first install this also creates the
-admin account and stores your API token:
+Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Platform.sh Configuration
 
-Pull your current environment variables off Platform.sh so you can carry over the application-level ones:
+Pull your current environment variables off Platform.sh so you can keep the application-level ones:
 
 ```bash
 platform variable:list -e main
 ```
 
-Note which variables you set yourself versus the ones Platform.sh injects from `relationships` (database, cache, search). You only carry over the former; Hop3 injects the addon URLs on its own (see Step 4). Drop:
+Note which variables you set yourself versus the ones Platform.sh injects from `relationships` (database, cache, search). You only keep the former; Hop3 injects the addon URLs on its own (see Step 4). Drop:
 
 - `DATABASE_URL` / the `database` relationship (Hop3's addon sets it)
 - `REDIS_URL` / the `redis` relationship (Hop3's addon sets it)
@@ -161,7 +162,7 @@ path = "/health/"
 list = ["myapp.example.com"]
 ```
 
-The mapping, primitive by primitive:
+This table maps each primitive:
 
 | Platform.sh | Hop3 |
 |-------------|------|
@@ -175,20 +176,20 @@ The mapping, primitive by primitive:
 | `.platform/services.yaml` | `hop3 addon create <type> <name>` |
 | `.platform/routes.yaml` | `[domains]` + `hop3 domain add` (Hop3 generates the nginx config) |
 | `crons` | system cron (see below) |
-| `resources` / sizes | `[limits]` (Docker builder) and `hop3 ps scale` |
+| `resources` / sizes | `[limits]` and `hop3 ps scale` |
 
-A few notes on the translation:
+The translation changes a few things:
 
 - **`type:` → toolchain.** Hop3 auto-detects the language (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET) from your project files, so you can often drop `[build] toolchain` entirely. Multi-language builds (your Python app that also compiles a JS bundle) map cleanly: keep the primary toolchain and put the asset build in `before-build`, exactly as the example does.
 - **`web` → `$PORT`.** Platform.sh exports `$PORT`; so does Hop3. Bind to it in your start command and the reverse proxy routes to you.
-- **`relationships` are the part that disappears.** On Platform.sh you map a relationship name to a service and read the injected credentials. On Hop3 you create the addon and attach it, and Hop3 injects `DATABASE_URL` / `REDIS_URL` for you; there is no relationship block to write. Step 4 covers this.
+- **`relationships` are the part that disappears.** On Platform.sh you map a relationship name to a service and read the injected credentials. On Hop3 you create the addon and attach it. Hop3 then injects `DATABASE_URL` / `REDIS_URL`, with no relationship block to write. Step 4 covers this.
 - **No automatic importer.** There is no `import` or `convert` command for Platform.sh YAML. Translate it by hand using the table above. If your app happens to have a `Procfile`, `hop3 app migrate procfile <dir>` will scaffold the process model into `hop3.toml` for you as a starting point.
 
 ## Step 4: Migrate Your Services and Data
 
 ### Services → addons
 
-Each entry in `services.yaml` that Hop3 supports becomes an addon you create and attach. Hop3 ships PostgreSQL, MySQL, Redis, and S3/MinIO; the list is growing.
+Each entry in `services.yaml` that Hop3 supports becomes an addon you create and attach. Hop3 ships PostgreSQL, MySQL, Redis, and S3 (Garage); the list is growing.
 
 ```bash
 # From services.yaml: db (postgresql) and rediscache (redis)
@@ -235,13 +236,13 @@ hop3 addon redis import myapp-cache --confirm=myapp-cache < dump.rdb
 
 If your `services.yaml` lists Elasticsearch, OpenSearch, RabbitMQ, Kafka, Memcached, MongoDB, or similar, stop here: those are not Hop3 addons. Two options:
 
-1. **Run them externally** and point `[env]` at the managed URL. Hop3 doesn't care where a service lives; if your app reads `ELASTICSEARCH_URL` from the environment, set it:
+1. **Run them externally** and point the app's environment at the managed URL. Hop3 doesn't care where a service lives; if your app reads `ELASTICSEARCH_URL` from the environment, set it:
 
    ```bash
    hop3 env set ELASTICSEARCH_URL=https://es.example.com:9243 --app myapp
    ```
 
-   The same trick keeps an existing managed database you're not ready to move: leave it where it is and point `DATABASE_URL` at it instead of creating an addon.
+   The same trick keeps an existing managed database you're not ready to move: leave it where it is and set `DATABASE_URL` to its connection string with `hop3 env set`.
 
 2. **Drop the dependency** if it was incidental (a search index you can rebuild from Postgres, a queue you can replace with a simpler worker).
 
@@ -256,7 +257,7 @@ git remote add hop3 hop3@your-server.com:myapp
 git push hop3 main
 ```
 
-(Equivalently, from the project directory: `hop3 deploy`.) Hop3 detects the language, runs your `before-build`, builds the app, runs `before-run`, configures nginx, then starts the workers you declared.
+You can also run `hop3 deploy` from the project directory. Hop3 detects the language, runs your `before-build`, builds the app, runs `before-run`, configures nginx, then starts the workers you declared.
 
 ## Step 6: Routes and Domains
 
@@ -278,10 +279,10 @@ Out of the box a fresh server serves a self-signed certificate. Once you've poin
 
 ### Workers and the process model
 
-Platform.sh's `web` command maps onto Hop3's `[run] start` (the main process), and each entry under `workers` becomes a named entry under `[run.workers]`. If you'd rather keep the whole process model in the familiar format, a `Procfile` works too; both are supported. Scale each process type manually:
+Platform.sh's `web` command maps onto Hop3's `[run] start` (the main process). Each entry under `workers` becomes a named entry under `[run.workers]`. If you'd rather keep the whole process model in the familiar format, a `Procfile` works too; both are supported. Scale each process type manually:
 
 ```bash
-hop3 ps scale myapp web=3 queue=2
+hop3 ps scale --app myapp web=3 queue=2
 ```
 
 There's no autoscaling. Scaling is a `ps scale` call you make on purpose, not a reaction to load.
@@ -291,16 +292,16 @@ There's no autoscaling. Scaling is a `ps scale` call you make on purpose, not a 
 Platform.sh `crons` don't have a direct config equivalent, so use system cron on the server, invoking your command through the app context:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# 0 * * * *  hop3 app run --app myapp python manage.py cleanup
+# Add: 0 * * * * hop3 app run --app myapp python manage.py cleanup
 ```
 
 A short-lived scheduled task can also live as a worker if it self-schedules (e.g. Celery beat). For "run this every hour" jobs, system cron is the simplest mapping.
 
 ### Mounts → volumes
 
-A Platform.sh `mount` is a writable directory that survives deploys. Hop3's `[[volumes]]` is the same idea. You need it: each deploy replaces the source tree, so anything written inside it is lost otherwise. List every writable path your app expects (`uploads/`, `var/`, a SQLite file) as a `[[volumes]]` entry.
+A Platform.sh `mount` is a writable directory that persists across deploys. Hop3's `[[volumes]]` is the same idea. You need it: each deploy replaces the source tree, so anything written inside it is lost otherwise. List every writable path your app expects (`uploads/`, `var/`, a SQLite file) as a `[[volumes]]` entry.
 
 ### Runtime versions
 
@@ -311,7 +312,7 @@ Platform.sh pins the runtime in `type: python:3.12`. Hop3 uses the system runtim
 builder = "docker"
 ```
 
-The Docker builder is also where `[limits]` (memory/CPU caps, the rough analogue of Platform.sh resource sizing) is enforced.
+`[limits]` (memory/CPU caps, the rough analogue of Platform.sh resource sizing) applies to this build as it does to a native one.
 
 ### Branch-as-environment and review apps
 
@@ -343,7 +344,7 @@ It's manual where Platform.sh was automatic. If per-PR review apps are central t
 
 ## Cost and Lock-In
 
-Platform.sh prices per project and per environment. The YAML config (relationships, the three-file split, the platform-specific runtime types) runs only on Platform.sh. You get managed everything, review apps, and multi-region; you also get the bill and the coupling.
+You pay Platform.sh per project and per environment. The YAML config (relationships, the three-file split, the platform-specific runtime types) runs only on Platform.sh. You get managed everything, review apps, and multi-region; you also get the bill and the coupling.
 
 Hop3 inverts the trade. You run one VPS at VPS prices, your whole deployment is one `hop3.toml` that describes standard primitives (a toolchain, some workers, a Postgres addon, a volume), and nothing in it is bound to a vendor. The cost is the operational surface: you patch the server, you scale by hand, and you don't get review apps or Elasticsearch-as-a-checkbox. For a single app or a small fleet that never used those features, that's a clear win. For a large team leaning hard on branch environments and a wide service graph, it's a real loss of convenience; go in with eyes open.
 

@@ -47,18 +47,11 @@ hop3_tui/
 
 ## Immediate mode
 
-turbodesk has no widget tree. The whole app is a function `(UI) -> View` that the
-runtime re-runs whenever a frame is marked dirty: state changed, an event arrived, the
-terminal resized, a timer fired. It diffs the returned grid row by row. Nothing
-survives a frame except hook slots, so there is no `compose()`, no `reactive`, no
-`watch_*`, no `query_one`, and no stylesheet. A `View` is an immutable grid of styled
-cells composed with `hcat`, `vcat` and `zcat`; layout is arithmetic and styles are
-`Style` values in Python.
+turbodesk has no widget tree. The whole app is a function `(UI) -> View` that the runtime re-runs whenever a frame is marked dirty: state changed, an event arrived, the terminal resized, a timer fired. It diffs the returned grid row by row. Only hook slots persist from one frame to the next, so there is no `compose()`, no `reactive`, no `watch_*`, no `query_one`, and no stylesheet. A `View` is an immutable grid of styled cells composed with `hcat`, `vcat` and `zcat`; layout is arithmetic and styles are `Style` values in Python.
 
 ### Main Application
 
-`app.py` holds no widget state. Navigation is one immutable `Nav` value in `ui.state`
-(a mode plus a stack of pushed screens), plus a table of render functions:
+`app.py` holds no widget state. Navigation is one immutable `Nav` value in `ui.state` (a mode plus a stack of pushed screens), plus a table of render functions:
 
 ```python
 class Nav(NamedTuple):
@@ -89,19 +82,13 @@ def app(hop3: Hop3TUI) -> Callable[[UI], View]:
     return render
 ```
 
-`Hop3TUI` is now only what outlives a frame: the API client, the config, and the
-consecutive-failure count behind the connection indicator.
+`Hop3TUI` is now only what outlives a frame: the API client, the config, and the consecutive-failure count behind the connection indicator.
 
-The `ui.scope(screen)` call holds the render together. Hook slots (`ui.state`,
-`ui.every`) are matched between frames **by call order**, so without a per-screen
-scope, switching screens hands one screen's state slot to whatever the next screen
-calls first.
+The `ui.scope(screen)` call holds the render together. Hook slots (`ui.state`, `ui.every`) are matched between frames **by call order**, so without a per-screen scope, switching screens hands one screen's state slot to whatever the next screen calls first.
 
 ### Screen Pattern
 
-A screen is a function with a fixed signature returning a `View`. Key bindings are a
-dict, which covers the job Textual's `BINDINGS` list did with its `action_*` naming
-convention:
+A screen is a function with a fixed signature returning a `View`. Key bindings are a dict, which covers the job Textual's `BINDINGS` list did with its `action_*` naming convention:
 
 ```python
 def render(
@@ -129,8 +116,7 @@ def render(
     return fill(ui, table(ui, COLUMNS, rows, ...), size)
 ```
 
-Modal dialogs are awaited, so there is no pending-action state to
-carry between a dialog and its response handler:
+Modal dialogs are awaited, so no pending-action state has to pass between a dialog and its response handler:
 
 ```python
 async def ask() -> None:
@@ -142,10 +128,7 @@ ui.spawn(ask())
 
 ## API Client
 
-The API client is async, built on httpx. The TUI talks to the same JSON-RPC endpoint
-as `hop3-cli`: a single `cli` method that forwards the CLI argv (`cli_args`)
-to the server. The TUI therefore shares the server's command surface. 
-each typed client method is a thin wrapper that builds the matching argv.
+The API client is async, built on httpx. The TUI talks to the same JSON-RPC endpoint as `hop3-cli`: a single `cli` method that forwards the CLI argv (`cli_args`) to the server. The TUI therefore shares the server's command surface. each typed client method is a thin wrapper that builds the matching argv.
 
 ```python
 class Hop3Client:
@@ -190,15 +173,11 @@ class Hop3Client:
         return True
 ```
 
-Each typed method (`list_apps`, `get_app`, `start_app`, `stop_app`,
-`restart_app`, `get_app_logs`, `get_system_status`, `list_addons`,
-`list_backups`, `get_env_vars`, ...) builds the corresponding CLI argv and
-parses the rich-text payload the server returns (`{"t": "table", ...}` or
-`{"t": "text", ...}`).
+Each typed method (`list_apps`, `get_app`, `start_app`, `stop_app`, `restart_app`, `get_app_logs`, `get_system_status`, `list_addons`, `list_backups`, `get_env_vars`, ...) builds the corresponding CLI argv and parses the rich-text payload the server returns (`{"t": "table", ...}` or `{"t": "text", ...}`).
 
 ## Data Models
 
-Pydantic models carry the types (`api/models.py`):
+Pydantic models define the types (`api/models.py`):
 
 ```python
 class App(BaseModel):
@@ -226,8 +205,7 @@ class SystemStatus(BaseModel):
     apps_failed: int = 0
 ```
 
-`AppState` is an enum (`STOPPED`, `STARTING`, `RUNNING`, `STOPPING`, `FAILED`).
-The other models are `EnvVar`, `Addon`, and `Backup`.
+`AppState` is an enum (`STOPPED`, `STARTING`, `RUNNING`, `STOPPING`, `FAILED`). The other models are `EnvVar`, `Addon`, and `Backup`.
 
 ## Screens Detail
 
@@ -247,25 +225,19 @@ The other models are `EnvVar`, `Addon`, and `Backup`.
 +----------------------------------+----------------------------------+
 ```
 
-The system panel is empty because `Hop3Client.get_system_status` makes the RPC call
-but does not yet parse the response, so it displays "not reported by the server": see
-[Nothing is invented](#nothing-is-invented).
+The system panel is empty because `Hop3Client.get_system_status` makes the RPC call but does not yet parse the response, so it displays "not reported by the server": see [Nothing is invented](#nothing-is-invented).
 
 ### Apps Screen
 
-Features: sortable data table, real-time status updates, filter and search,
-keyboard shortcuts for actions.
+Features: sortable data table, real-time status updates, filter and search, keyboard shortcuts for actions.
 
 ### Log Viewer
 
-The viewer retrieves a fixed number of recent lines via
-`get_app_logs(name, lines)`, which calls `app logs <name> --lines N` on the
-server. Streaming/follow mode is not implemented; refresh re-fetches.
+The viewer retrieves a fixed number of recent lines via `get_app_logs(name, lines)`, which calls `app logs <name> --lines N` on the server. Streaming/follow mode is not implemented; refresh re-fetches.
 
 ### Chat Interface
 
-The command bar is a REPL-style interface over turbodesk's `textbox`. The transcript is a tuple in
-`ui.state`; submitting a line appends to it and dispatches:
+The command bar is a REPL-style interface over turbodesk's `textbox`. The transcript is a tuple in `ui.state`; submitting a line appends to it and dispatches:
 
 ```python
 def render(ui: UI, hop3, size: Size, ...) -> View:
@@ -275,10 +247,7 @@ def render(ui: UI, hop3, size: Size, ...) -> View:
         ui.spawn(run_command(box.value))
 ```
 
-Tab completion is a hint line under the prompt, since `textbox` has no suggester hook
-for an inline ghost completion. The first word is completed against a static command
-list; the second, for app-related commands, against app names fetched via
-`list_apps()`.
+Tab completion is a hint line under the prompt, since `textbox` has no suggester hook for an inline ghost completion. The first word is completed against a static command list; the second, for app-related commands, against app names fetched via `list_apps()`.
 
 ```python
 COMMANDS = [
@@ -289,8 +258,7 @@ COMMANDS = [
 
 ## Layout, in place of CSS
 
-There is no stylesheet. Every layout in hop3-tui is a grid of halves or a single
-scrolling pane, and `screens/_common.py` covers all of it in about a dozen lines:
+There is no stylesheet. Every layout in hop3-tui is a two-column split or a single scrolling pane, and `screens/_common.py` covers all of it in about a dozen lines:
 
 ```python
 def halves(width: int) -> tuple[int, int]:
@@ -305,23 +273,15 @@ def rows(size: Size, *fractions: float) -> list[int]:
     return [*heights, max(1, size.height - sum(heights))]
 ```
 
-The dashboard's `layout: grid; grid-size: 2` becomes
-`vcat([hcat([a, b]), hcat([c, d])])` over a computed cell size. Colours come from the
-theme's role names (`ui.theme.green`, `ui.theme.role("subtext1")`) where CSS
-variables used to be. The status-badge rules become a `match` returning a `Style`.
+The dashboard's `layout: grid; grid-size: 2` becomes `vcat([hcat([a, b]), hcat([c, d])])` over a computed cell size. Colours come from the theme's role names (`ui.theme.green`, `ui.theme.role("subtext1")`) where CSS variables used to be. The status-badge rules become a `match` returning a `Style`.
 
-It costs one thing: a hand-computed panel crops when the terminal is too short, where CSS
-would have scrolled. Panels mark the corner with `…` when they crop, so a vanished row
-does not read as a data bug.
+It costs one thing: a hand-computed panel crops when the terminal is too short, where CSS would have scrolled. Panels mark the corner with `…` when they crop, so a vanished row does not read as a data bug.
 
 ## Configuration
 
 ### Config Loading
 
-Configuration is a frozen-style `TUIConfig` dataclass loaded by
-`TUIConfig.load()`. Sources are merged in increasing priority: the hop3-cli
-config file (lowest), then the TUI config file, then `HOP3_*` environment
-variables (highest).
+Configuration is a frozen-style `TUIConfig` dataclass loaded by `TUIConfig.load()`. Sources are merged in increasing priority: the hop3-cli config file (lowest), then the TUI config file, then `HOP3_*` environment variables (highest).
 
 ```python
 @dataclass
@@ -357,10 +317,7 @@ candidates = [
 ]
 ```
 
-The server URL and auth token can also be inherited from the hop3-cli config
-file (`api_url` / `api_token`), and overridden by environment variables
-(`HOP3_SERVER_URL`/`HOP3_URL`, `HOP3_AUTH_TOKEN`/`HOP3_TOKEN`,
-`HOP3_VERIFY_SSL`, `HOP3_SSL_CERT`, `HOP3_TUI_THEME`, `HOP3_TUI_REFRESH`).
+The server URL and auth token can also be inherited from the hop3-cli config file (`api_url` / `api_token`), and overridden by environment variables (`HOP3_SERVER_URL`/`HOP3_URL`, `HOP3_AUTH_TOKEN`/`HOP3_TOKEN`, `HOP3_VERIFY_SSL`, `HOP3_SSL_CERT`, `HOP3_TUI_THEME`, `HOP3_TUI_REFRESH`).
 
 ### Config File Format
 
@@ -381,10 +338,7 @@ confirm_destructive = true
 
 ## Real-Time Updates
 
-Updates are poll-based. Timers are `ui.every(seconds, callback)` hooks, cancelled
-automatically when the screen that registered them stops being rendered; a one-off call
-is `ui.spawn(coro())`. The app health-checks every 30s. Each screen re-fetches on
-its own interval (the dashboard on the configured `refresh_interval`).
+Updates are poll-based. Timers are `ui.every(seconds, callback)` hooks, cancelled automatically when the screen that registered them stops being rendered; a one-off call is `ui.spawn(coro())`. The app health-checks every 30s. Each screen re-fetches on its own interval (the dashboard on the configured `refresh_interval`).
 
 ```python
 async def refresh() -> None:
@@ -400,46 +354,28 @@ async def refresh() -> None:
 ui.every(float(hop3.config.refresh_interval), refresh)
 ```
 
-WebSocket / push streaming is not implemented; there is no streaming RPC endpoint and
-no WebSocket dependency. All refreshes go through the same poll-and-fetch path.
+WebSocket / push streaming is not implemented; there is no streaming RPC endpoint and no WebSocket dependency. All refreshes go through the same poll-and-fetch path.
 
-A background task that raises does not fail silently: turbodesk records the failure and
-the next render re-raises it, so a broken command cannot look like an unbound key.
+A background task that raises does not fail silently: turbodesk records the failure and the next render re-raises it, so a broken command cannot look like an unbound key.
 
 ## Nothing is invented
 
-A panel shows what the server reported or says that it does not know. It never shows a
-plausible-looking constant.
+A panel shows what the server reported or says that it does not know. It never shows a plausible-looking constant.
 
-This is not hypothetical tidiness. Before it was fixed, the log pane served eight
-hardcoded lines and appended an invented one roughly every three seconds, so it
-showed `[ERROR] Failed to connect to redis` for an app that was fine. The log
-download wrote those invented lines to a file an operator could attach to a bug
-report. The system screen reported CPU/memory/disk as the constants 42/63/81 on a
-timer, four services as `RUNNING` whatever the server said, and a host called
-`hop3.dev` running `v0.5.0` with 14 days of uptime.
+Before it was fixed, the log pane served eight hardcoded lines and appended an invented one roughly every three seconds, so it showed `[ERROR] Failed to connect to redis` for an app that was fine. The log download wrote those invented lines to a file an operator could attach to a bug report. The system screen reported CPU/memory/disk as the constants 42/63/81 on a timer, four services as `RUNNING` whatever the server said, plus a host called `hop3.dev` running `v0.5.0` with 14 days of uptime.
 
 The code now follows these rules:
 
-- A missing measurement renders as `not reported by the server` (`widgets.util.UNAVAILABLE`).
-  `None` means no measurement; `0%` is a measurement and renders as one.
-- A services dict of `None` means nothing was reported; `{}` means reported, and empty.
-  They read differently on screen.
-- The log pane's heading drops from `LIVE` to `UNREACHABLE`, showing the error, when a
-  poll fails. It keeps the lines it already had, because a blink of RPC failure should not
-  blank a pane someone is reading, and it stops claiming to be live.
-- Pressing `r` on the system screen says "System metrics are not reported by the server
-  yet." rather than "refreshed". Claiming a refresh that fetched nothing is the same
-  defect one layer up.
+- A missing measurement renders as `not reported by the server` (`widgets.util.UNAVAILABLE`). `None` means no measurement; `0%` is a measurement and renders as one.
+- A services dict of `None` means the server sent no report; `{}` means reported, and empty. They read differently on screen.
+- The log pane's heading drops from `LIVE` to `UNREACHABLE`, showing the error, when a poll fails. It keeps the lines it already had, because a blink of RPC failure should not blank a pane someone is reading. The heading change ends its claim to be live.
+- Pressing `r` on the system screen says "System metrics are not reported by the server yet." Claiming a refresh that fetched no data would be the same defect one layer up.
 
-`tests/test_no_fabricated_data.py` asserts the absence of each specific fabrication as
-well as the presence of the real values, because none of this ever failed: that is
-why it lasted.
+`tests/test_no_fabricated_data.py` checks the absence of each specific fabrication as well as the presence of the real values, because none of this ever failed: that is why it lasted.
 
 ## Testing
 
-Rendering has no side effect on the screen, so a test calls the app function at any
-size and asserts on what came out. There is no pilot, event loop or async harness.
+Rendering has no side effect on the screen, so a test calls the app function at any size and inspects what came out. There is no pilot, event loop or async harness.
 
 ### Rendering a screen
 
@@ -459,14 +395,11 @@ def test_the_system_screen_invents_no_services():
     assert "not reported by the server" in text
 ```
 
-`render(app, size=..., events=[KeyPress("q")])` feeds input; `to_text` gives the
-grid's characters. Geometry is assertable too (`view.width`, `view.height`).
+`render(app, size=..., events=[KeyPress("q")])` feeds input; `to_text` gives the grid's characters. Geometry is assertable too (`view.width`, `view.height`).
 
 ### Testing the pure parts directly
 
-Anything that is a decision, not a drawing, is a plain function, tested as one.
-Most of what used to be spread across `reactive` attributes and `watch_*` methods was
-just that:
+Each decision is a plain function, tested as one. Most of what used to be spread across `reactive` attributes and `watch_*` methods was just that:
 
 ```python
 def test_a_failed_fetch_stops_the_pane_claiming_to_be_live():
@@ -495,13 +428,8 @@ uv run pytest packages/hop3-tui/tests
 
 ## Performance
 
-Network calls run as turbodesk tasks (`ui.every`, `ui.spawn`) so they never block a
-render. Screens refresh on an interval, and each screen fetches its own data on
-demand.
+Network calls run as turbodesk tasks (`ui.every`, `ui.spawn`) so they never block a render. Screens refresh on an interval, and each screen fetches its own data on demand.
 
-Rendering itself is cheap by construction: a frame produces an immutable grid, and the
-runtime diffs it row by row, writing escape codes only for rows that changed.
+Rendering itself is cheap by construction: a frame produces an immutable grid, which the runtime diffs row by row, writing escape codes only for rows that changed.
 
-Pagination, response caching, and input debouncing are design goals for large
-deployments and are not yet implemented across all screens.
-all screens.
+Pagination, response caching, and input debouncing are design goals for large deployments and are not yet implemented across all screens. all screens.

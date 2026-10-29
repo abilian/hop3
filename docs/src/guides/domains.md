@@ -9,7 +9,7 @@ An app's hostnames drive the domain(s) it responds to. You can manage them in tw
 - The first-class `hop3 domain` command group (`add`, `remove`, `set`, `list`, `clear`).
 - The `HOST_NAME` environment variable, which the `domain` commands write under the hood.
 
-When hostnames are set, Hop3 automatically:
+When hostnames are set, Hop3 takes these steps:
 
 1. Configures the reverse proxy (Nginx/Caddy/Traefik) with the appropriate virtual host settings
 2. Requests and manages SSL/TLS certificates (Let's Encrypt via certbot when the engine is configured, otherwise self-signed)
@@ -123,7 +123,7 @@ For local testing, you can use services like:
 - **sslip.io**: `myapp.192.168.1.100.sslip.io` resolves to `192.168.1.100`
 - **dnsmasq**: Configure local wildcard DNS
 
-Example using nip.io for local testing:
+For local testing, use nip.io:
 
 ```bash
 hop3 domain set --app myapp myapp.127.0.0.1.nip.io
@@ -133,7 +133,7 @@ hop3 domain set --app myapp myapp.127.0.0.1.nip.io
 
 ### Automatic Certificates (Let's Encrypt)
 
-Hop3 uses pluggable TLS issuance engines. When the certbot engine is configured on the server (`ACME_ENGINE=certbot` with `ACME_EMAIL` set) and you bind a valid public domain, Hop3 automatically:
+Hop3 uses pluggable TLS issuance engines. When the certbot engine is configured on the server (`ACME_ENGINE=certbot` with `ACME_EMAIL` set) and you bind a valid public domain, Hop3 handles the certificate itself:
 
 1. Requests a certificate from Let's Encrypt via certbot's webroot challenge
 2. Configures the reverse proxy to use HTTPS
@@ -144,7 +144,7 @@ If the certbot engine cannot issue a certificate for a public domain, issuance f
 
 ### Certificate Requirements
 
-For automatic certificates to work:
+Automatic certificates need these conditions:
 
 - Domain must resolve to your Hop3 server's public IP
 - Port 80 must be accessible (for ACME HTTP-01 challenge)
@@ -156,7 +156,6 @@ For internal or development deployments where Let's Encrypt isn't available, Hop
 
 - Using the special `_` (underscore) hostname
 - Using local/private IP addresses
-- Let's Encrypt requests fail
 
 ### Certificate Status
 
@@ -206,7 +205,7 @@ This is appropriate for:
 
 ## Reverse Proxy Backends
 
-Hop3 has three reverse proxy plugins. The server runs one of them, named by `HOP3_PROXY_TYPE` in `hop3-server.toml`, and an app's configuration is the same whichever it is. The installer sets up nginx; it does not yet install Caddy or Traefik.
+Hop3 has three reverse proxy plugins. The server runs one of them, named by `HOP3_PROXY_TYPE` in `hop3-server.toml`. An app's configuration is the same whichever it is. The installer sets up nginx; it does not yet install Caddy or Traefik.
 
 All three serve every hostname of an app, over HTTPS with a certificate from Hop3, and redirect plain HTTP to HTTPS unless the app sets `[deploy].allow-http`. They differ in what else they can do:
 
@@ -219,7 +218,7 @@ All three serve every hostname of an app, over HTTPS with a certificate from Hop
 | Web application firewall (`[waf]`) | yes | no | no |
 | Sign-in gate (`[access]`) | yes | yes | yes |
 
-Hop3 obtains and renews Let's Encrypt certificates through nginx; on Caddy and Traefik, use `ACME_ENGINE = "self-signed"` for now. A deploy that needs something the server's proxy cannot do is refused, and the error names what is missing.
+Hop3 obtains and renews Let's Encrypt certificates through nginx; on Caddy and Traefik, use `ACME_ENGINE = "self-signed"` for now. The sign-in gate sends visitors to the sign-in on the admin domain, which the installer routes on nginx only, so a server running Caddy or Traefik cannot use it yet. A deploy that needs something the server's proxy cannot do is refused with an error naming what is missing.
 
 ## Troubleshooting
 
@@ -262,7 +261,7 @@ Hop3 obtains and renews Let's Encrypt certificates through nginx; on Caddy and T
 
 ### Proxy Not Updating
 
-After changing an app's hostnames:
+After changing an app's hostnames, follow these steps:
 
 1. Redeploy the application (a hostname change affects the proxy config, so a
    restart alone is not enough):
@@ -312,7 +311,7 @@ hop3 deploy --app myapp-staging
 
 ### Multi-Tenant Application
 
-For applications that handle multiple customer domains:
+An application that serves multiple customer domains sets one primary domain and routes tenants in its own code:
 
 ```bash
 # Set primary domain for the app

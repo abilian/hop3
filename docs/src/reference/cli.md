@@ -1,7 +1,7 @@
 # Hop3 CLI Reference
 
-**Version:** 0.6.0
-**Last Updated:** 2026-04-17
+**Version:** 0.8.0
+**Last Updated:** 2026-10-28
 
 This document provides a complete reference for all Hop3 CLI commands.
 
@@ -47,24 +47,23 @@ curl -LsSf https://hop3.cloud/install-cli.py | python3 -
 pip install hop3-cli
 
 # Or as an isolated uv tool
-uv tool install hop3-cli
+uv tool install hop3
 ```
 
 ### Configuration
 
-Set your API endpoint and authenticate:
+Sign in over SSH, then bind each project checkout to the server:
 
 ```bash
-# Set API endpoint
-export HOP3_API_URL="https://your-hop3-server.com"
-# or
-export HOP3_API_URL="ssh://user@your-hop3-server.com"
+# Sign in (stores the token in the per-server credential store)
+hop3 login root@your-hop3-server.com
 
-# Login (interactive; stores the token in the per-server credential store)
-hop3 auth login
+# Inside a project: bind this checkout to the context the login recorded
+hop3 context use default
 
 # The token is stored in the per-server credential store
-# ~/.config/hop3-cli/credentials.toml (or override with HOP3_API_TOKEN)
+# ~/.config/hop3-cli/credentials.toml (or override with HOP3_API_TOKEN;
+# HOP3_API_URL names a server for one shell, e.g. in CI)
 ```
 
 ### Basic Usage
@@ -102,8 +101,8 @@ All commands support these global flags (per ADR 036 D6). Flags may appear befor
 ### Context and App Selection
 
 - **`-c, --context <name>`** - The context (server) for this command, ahead of `HOP3_CONTEXT`, the checkout's binding and the global current context (ADR 042, see [Where a command goes](#where-a-command-goes)). A name that matches no context aborts. There is no `--server` flag.
-- **`-a, --app <name>`** - Target app explicitly. Always a flag, never positional (D5). If not set, the resolver walks the D7 chain (see [App Resolution](#app-resolution) below).
-- **`--via-ssh`** - Send this one command through the context's SSH bootstrap route instead of its everyday address. The rescue path, for when the everyday route is what broke: an expired certificate, a stopped proxy, DNS pointing elsewhere. Refuses when the target has no recorded SSH route; it never falls back to the ordinary route in silence.
+- **`-a, --app <name>`** - Target app explicitly. It is always a flag (D5). If not set, the resolver walks the D7 chain (see [App Resolution](#app-resolution) below).
+- **`--via-ssh`** - Send this one command through the context's SSH bootstrap route. The rescue path, for when the everyday route is what broke: an expired certificate, a stopped proxy, DNS pointing elsewhere. Refuses when the target has no recorded SSH route; it never falls back to the ordinary route in silence.
 
 ### Diagnostics
 
@@ -122,6 +121,7 @@ Verbosity controls how much output is displayed. The verbosity level is passed t
 | Debug | 3 | `-vv`, `--debug` | Maximum verbosity (all internal operations) |
 
 **Flag stacking:** You can use multiple `-v` flags for increased verbosity:
+
 - `-v` = verbose (level 2)
 - `-vv` = debug (level 3)
 - `-vvv` = debug (capped at level 3)
@@ -182,8 +182,8 @@ App-scoped commands (like `hop3 app logs`, `hop3 app restart`, `hop3 env set`) d
 5. **`hop3.toml [contexts.<name>].app`** - the app's name in the selected
    context's block (see [What differs per deployment](#what-differs-per-deployment)).
 6. **`hop3.toml [metadata].id`** - the project's canonical name (same value
-   the server uses). The "I'm physically standing in this project" fallback,
-   used when no higher-priority source is set in this directory tree.
+   the server uses). It is the "I'm physically standing in this project"
+   fallback, used when no higher-priority source is set in this directory tree.
 
 Set `--why` on any app-scoped command to see the trace:
 
@@ -207,9 +207,9 @@ without needing `--app` or a positional argument.
 
 ## Context Management
 
-A **context** is a server you can reach: a name, an address, and the SSH route that renews its token. Contexts are yours: they live in `~/.config/hop3-cli/config.toml`, and a login creates one. `hop3.toml` describes the app and never says where it is deployed (ADR 042).
+A **context** is a server you can reach: a name, an address, and the SSH route that renews its token. Contexts are yours: they live in `~/.config/hop3-cli/config.toml`. A login creates one. `hop3.toml` describes the app and never says where it is deployed (ADR 042).
 
-What is local is the **binding**: which context a checkout uses. It is written by `hop3 context use` into `.hop3-local.toml`, beside the project's `hop3.toml`, and gitignored. Switching a checkout from `dev` to `demo` touches no committed file.
+The **binding** is local: it records which context a checkout uses. It is written by `hop3 context use` into `.hop3-local.toml`, beside the project's `hop3.toml`, and gitignored. Switching a checkout from `dev` to `demo` touches no committed file.
 
 ### Where a command goes
 
@@ -222,7 +222,7 @@ The CLI chooses the context in this order, stopping at the first that supplies o
 | 3 | Inside a project: the checkout's binding (`hop3 context use`) | One checkout |
 | 4 (lowest) | Outside a project: the global current context (`[cli].default_context`) | Per developer |
 
-A project is a directory with a `hop3.toml` at or above where you stand. **Inside a project with no binding, every command that reaches a server is refused**, unless `-c` or `HOP3_CONTEXT` names the context; the global current context is never used there. The refusal names the fix:
+A project is a directory with a `hop3.toml` at or above where you stand. Inside a project with no binding, every command that reaches a server is refused, unless `-c` or `HOP3_CONTEXT` names the context; the global current context is never used there. The error lists the known contexts and the two ways to pick one:
 
 ```
 Error: this checkout (/home/me/myapp) is not bound to a context.
@@ -260,7 +260,7 @@ LOG_LEVEL = "debug"
 list = ["myapp.com", "www.myapp.com"]
 ```
 
-A checkout bound to `demo` deploys `myapp-demo` with its domains and env, to the server *your* `demo` context names. So a team names its contexts alike (`dev`, `demo`, `prod`). In a project that declares blocks, a context matching none of them is refused; a project without blocks deploys its base configuration to any context. `domains` replaces the top-level `[domains]`; `env` merges over `[env]` key by key. A block never carries `server` or `bootstrap`: the CLI and the server refuse them, naming the `hop3 context add` that replaces them.
+A checkout bound to `demo` deploys `myapp-demo` with its domains and env, to the server *your* `demo` context names. So a team names its contexts alike (`dev`, `demo`, `prod`). In a project that declares blocks, a context matching none of them is refused; a project without blocks deploys its base configuration to any context. `domains` replaces the top-level `[domains]`; `env` merges over `[env]` key by key. A block holds no `server` or `bootstrap` key: the CLI and the server refuse them, naming the `hop3 context add` that replaces them.
 
 ### `hop3 context`
 
@@ -281,7 +281,7 @@ hop3 context add <name> --server <address> [--bootstrap ssh://user@host]
 
 ### `hop3 context list` / `hop3 context show`
 
-`list` shows every context; `*` marks the one a command here would use, and the global current context is labelled. `show [<name>]` shows one context's addresses and, inside a project, its `[contexts.<name>]` block.
+`list` shows every context; `*` marks the one a command here would use. A label marks the global current context. `show [<name>]` shows one context's addresses and, inside a project, its `[contexts.<name>]` block.
 
 ```
 $ hop3 context list
@@ -315,7 +315,7 @@ Bound /home/me/myapp to 'demo', in .hop3-local.toml (not committed).
 hop3 context unset [--global]
 ```
 
-Removes this checkout's binding, or (outside a project, or with `--global`) the global current context. Same scope rule, same question.
+Removes this checkout's binding, or (outside a project, or with `--global`) the global current context. The same scope rule and the same question apply.
 
 ### `hop3 context remove` / `hop3 context rename`
 
@@ -324,7 +324,7 @@ hop3 context remove <name>
 hop3 context rename <old> <new>
 ```
 
-Both edit `config.toml` only. `rename` carries the global current context and this checkout's binding along, and says when the project's `hop3.toml` has a block under the old name (blocks follow the name, so rename it there too, or keep the old name). `remove` says when this checkout is still bound to the removed context.
+Both edit `config.toml` only. `rename` moves the global current context and this checkout's binding along, and says when the project's `hop3.toml` has a block under the old name (blocks follow the name, so rename it there too, or keep the old name). `remove` says when this checkout is still bound to the removed context.
 
 ### Using contexts
 
@@ -352,7 +352,7 @@ export HOP3_CONTEXT=prod
 |----------|-------------|
 | `HOP3_CONTEXT` | The context for this shell (rank 2) |
 | `HOP3_API_URL` | A server address for this shell, as the context `env` (rank 2); for CI |
-| `HOP3_API_TOKEN` | The token to send, instead of the stored one |
+| `HOP3_API_TOKEN` | The token to send, overriding the stored one |
 | `HOP3_SSH_KEY` | Private key for every `ssh` the CLI spawns: the `ssh://` tunnel, `hop3 tunnel`, `hop3 app shell`, the `hop3 login` bootstrap, and `--via-ssh`. Default: ssh's own keys and config. |
 | `HOP3_SSH_PORT` | SSH port when the server address has none (`ssh://root@host`). A port in the address, or in a `hop3 login root@host:2222` target, wins. |
 | `HOP3_SSH_OPTIONS` | Extra `ssh -o` values, whitespace-separated, for every `ssh` the CLI spawns: `"ProxyJump=bastion UserKnownHostsFile=/path"`. |
@@ -380,7 +380,7 @@ bootstrap = "ssh://root@dev.example.com"
 server = "https://hop3.example.com"
 ```
 
-**Credential store** (`~/.config/hop3-cli/credentials.toml`): bearer tokens keyed by the canonical server address, written only by `hop3 auth login` / `hop3 init`, created `0o600`; you never edit it by hand:
+**Credential store** (`~/.config/hop3-cli/credentials.toml`): bearer tokens keyed by the canonical server address, written only by `hop3 login` / `hop3 init`, created `0o600`; you never edit it by hand:
 
 ```toml
 [servers."https://hop3.example.com"]
@@ -399,6 +399,7 @@ hop3 user add <username> <email> [password] [--role ROLE | --admin]
 ```
 
 **Arguments:**
+
 - `username` - Desired username (alphanumeric, underscores, hyphens)
 - `email` - Valid email address
 - `password` - Password (minimum 8 characters recommended); prefer `--stdin` or `--password-file`, which keep it out of shell history
@@ -410,21 +411,21 @@ echo "$PW" | hop3 user add alice alice@example.com --stdin --role deployer
 ```
 
 **Notes:**
-- The first account is created by the installer, or by `hop3 login --ssh` on a server that has none, and it is an admin
+
+- The first account is created by `hop3-deploy-server`, or by `hop3 login root@host` on a server that has none; that account is an admin
 - Passwords are hashed with bcrypt (work factor 12)
 - Email must be unique
 
-### `hop3 auth login`
+### `hop3 login`
 
-Log in to a server. `hop3 login` is the short form of this command.
+Log in to a server. `hop3 auth login` is the old spelling and still works.
 
 This is the interactive, full-featured login: it supports SSH bootstrap, token
-URLs, magic links (`--web`) and password entry, and it stores the resulting
-token in the per-server credential store (`credentials.toml`). It also makes that
-server the default target for project-less commands. Pass `--context <name>` to
-**name** that server as a global context (`config.toml`) and make it the default
-context in one step, so `hop3 app list --context <name>` works afterwards with no
-project. It takes no positional username/password; for a non-interactive,
+URLs, magic links (`--browser`) and password entry, and it stores the resulting
+token in the per-server credential store (`credentials.toml`). It records the
+server as a context, and makes it the global current context only when none is
+set yet. Pass `--context <name>` to **name** that context (`config.toml`), so
+`hop3 app list --context <name>` works afterwards with no project. It takes no positional username/password; for a non-interactive,
 scriptable token use [`hop3 auth get-token`](#hop3-auth-get-token).
 
 **Usage:**
@@ -438,10 +439,11 @@ hop3 login --browser                             # magic link for the web dashbo
 ```
 
 **Notes:**
+
 - The target is positional. SSH is the only transport a bootstrap has, so naming it in a flag said nothing; `--ssh <target>` is the old spelling and still works, as does `--web` for `--browser`.
 - The login asks the server for its own public address. With an admin domain and a certificate this machine trusts, that becomes the everyday address (`https://…`) and the SSH target is kept only to renew the token. Without one, everything tunnels over SSH and the login says why.
 - Token stored in the per-server credential store (`~/.config/hop3-cli/credentials.toml`), keyed by the server address.
-- The server is recorded as a global context (`default` when `--context <name>` is not given) and becomes the current target. Logging a *different* address into `default` without naming it is refused.
+- The server is recorded as a global context (`default` when `--context <name>` is not given); it becomes the global current context only when none is set. A later login prints the `hop3 context use` that would switch. Logging a *different* address into `default` without naming it is refused.
 - Token valid for 24 hours by default (`HOP3_TOKEN_EXPIRY_HOURS` on the server); the Web UI's browser session lasts 14 days and is a separate credential. An expired token is re-minted over the recorded SSH route without asking.
 - Set `HOP3_API_TOKEN` environment variable to override; `HOP3_API_URL` declares the context named `env`, which outranks anything stored.
 
@@ -489,6 +491,7 @@ hop3 auth logout
 ```
 
 **Notes:**
+
 - Revokes the token on the server, then removes it from the per-server credential store (`~/.config/hop3-cli/credentials.toml`)
 - If the server can't be reached to revoke, the local token is still cleared and the revoke failure is reported
 
@@ -539,6 +542,7 @@ hop3 app create <repo_url> --app <app_name>
 ```
 
 **Arguments:**
+
 - `repo_url` - Git repository URL: `https://`, `http://`, `ssh://`, `git://`, or the scp form `git@host:user/repo.git`
 - `--app <app_name>` - Name for the application (alphanumeric, hyphens, underscores)
 
@@ -548,6 +552,7 @@ hop3 app create https://github.com/user/myapp.git --app myapp
 ```
 
 **Notes:**
+
 - Clones repository to server
 - Does not deploy automatically (use `hop3 deploy` afterwards)
 - Repository must be accessible from server
@@ -566,10 +571,12 @@ hop3 deploy [--app <app_name>] [options] [directory]
 ```
 
 **Arguments:**
+
 - `--app <app_name>` - Name of application to deploy (else resolved from context)
 - `directory` - Source directory (default: current directory)
 
 **Options:**
+
 - `--env KEY=VALUE` or `-e KEY=VALUE` - Set environment variable (can be repeated)
 - `--no-stream` - Disable real-time log streaming (use batch output)
 - `--stream` - Enable real-time log streaming (default)
@@ -612,6 +619,7 @@ By default, `hop3 deploy` streams deployment logs in real-time via Server-Sent E
 Use `--no-stream` to fall back to batch output (all logs shown at end).
 
 **Process:**
+
 1. Uploads source code as tarball
 2. Extracts on server
 3. Detects language/framework (Python, Node.js, Ruby, Go, Static)
@@ -631,10 +639,11 @@ start-timeout = 900  # 15 minutes
 Or change the server-wide default via the `APP_START_TIMEOUT` environment variable.
 
 **Notes:**
+
 - A `hop3.toml` configures the build and runtime, and the detected toolchain supplies a default process model, so most apps deploy without any process file
 - Automatically detects the toolchain based on files present
 - Use `-v` or `-vv` for more verbose output (see [Global Flags](#global-flags))
-- Build logs are also saved and can be retrieved with `app build-logs`
+- Build logs are also saved and can be retrieved with `hop3 app logs --build`
 - Streaming requires direct HTTP connection (SSH tunnel falls back to batch mode)
 - See [Packaging Applications](../guides/packaging-applications.md) for details
 
@@ -672,11 +681,12 @@ hop3 app logs [--app <app>] [-n N] [--grep PATTERN] [--since-deploy] [--build]
 ```
 
 **Options:**
+
 - `--app <app>` - Target application (else resolved from context)
 - `-n N`, `--lines N` - Number of lines to show (default: 100)
 - `--grep PATTERN` - Show only lines containing PATTERN (case-insensitive substring)
 - `--since-deploy` - Show only logs since the last deployment
-- `--build` - Show build logs instead of runtime logs (equivalent to `app build-logs`)
+- `--build` - Show build logs (equivalent to `app build-logs`)
 
 **Example:**
 ```bash
@@ -695,7 +705,7 @@ hop3 app logs --app myapp --since-deploy
 
 ### `hop3 app build-logs`
 
-Show build logs for an application (Docker build output). Equivalent to `hop3 app logs --build`.
+Show build logs for an application (Docker build output). Deprecated and hidden from help: use `hop3 app logs --build`, which it is equivalent to.
 
 **Usage:**
 ```bash
@@ -726,6 +736,7 @@ Duration: 45.3s
 ```
 
 **Notes:**
+
 - Shows the most recent Docker build output
 - Useful for debugging deployment failures
 - Logs are stored in `{app_path}/log/build.log`
@@ -746,6 +757,7 @@ hop3 app restart --app myapp
 ```
 
 **Notes:**
+
 - Graceful restart (waits for requests to complete)
 - Reloads environment variables
 - Zero-downtime for apps with multiple processes
@@ -769,6 +781,7 @@ hop3 app stop [--app <app>]
 ```
 
 **Notes:**
+
 - Gracefully stops all processes
 - Application remains configured (can be restarted)
 
@@ -782,6 +795,7 @@ hop3 app debug [--app <app>]
 ```
 
 **Notes:**
+
 - Collects environment, logs, process status, and configuration
 - Useful for troubleshooting deployment issues
 
@@ -801,6 +815,7 @@ hop3 app ping --app myapp /health  # a specific endpoint
 ```
 
 **Notes:**
+
 - Performs HTTP health check on the application
 - Returns response status and time
 
@@ -820,6 +835,7 @@ Type the app name to confirm: myapp
 ```
 
 **What Gets Deleted:**
+
 - All source code
 - All data in `/data` directory
 - All environment variables
@@ -863,6 +879,7 @@ LOG_LEVEL=info
 ```
 
 **Notes:**
+
 - Sensitive values masked by default
 - Use `env get` to retrieve specific values
 
@@ -894,6 +911,7 @@ hop3 env set [--app <app>] KEY            # prompt, input hidden
 ```
 
 **Arguments:**
+
 - `--app <app>` - Target application (else resolved from context)
 - `KEY=value` - One or more key-value pairs
 
@@ -930,6 +948,7 @@ A value that legitimately begins with `@` has to come through one of those forms
 too, or it will be read as a file path: `printf '@handle' | hop3 env set --app myapp X=-`.
 
 **Notes:**
+
 - Requires app restart to take effect: `hop3 app restart --app myapp`
 - Values are stored encrypted in database
 - No leading/trailing whitespace in keys
@@ -945,6 +964,7 @@ hop3 env unset [--app <app>] KEY1 [KEY2 ...]
 ```
 
 **Arguments:**
+
 - `--app <app>` - Target application (else resolved from context)
 - `KEY` - One or more keys to remove
 
@@ -967,9 +987,11 @@ hop3 env live [--app <app>] [--show-secrets]
 ```
 
 **Options:**
-- `--show-secrets` - Reveal full values instead of redacting secrets
+
+- `--show-secrets` - Reveal the full values of secrets, which are redacted by default
 
 **Notes:**
+
 - Shows environment as currently loaded by running processes
 - Useful for debugging configuration issues
 - Fails with a clear error if the running environment can't be inspected (use `env show` for configured values)
@@ -984,10 +1006,12 @@ hop3 app migrate <from-format> <app-dir> [--dry-run] [--backup]
 ```
 
 **Arguments:**
+
 - `from-format` - Source format. Currently only `procfile` is supported.
 - `app-dir` - Path to the application directory containing the source file.
 
 **Options:**
+
 - `--dry-run` - Preview the generated `hop3.toml` without writing it
 - `--backup` - Back up the original file before writing (on by default)
 
@@ -1037,7 +1061,7 @@ hop3 domain add --app abilian-cms fermigier.com www.fermigier.com \
 
 ### `hop3 domain remove`
 
-Remove one or more hostnames from an app. Errors if any of the requested hostnames is not currently bound.
+Remove one or more hostnames from an app. It fails if any of the requested hostnames is not currently bound.
 
 **Usage:**
 ```bash
@@ -1071,7 +1095,7 @@ hop3 domain clear [--app <app>]
 
 ### `hop3 nix eject`
 
-Print the `hop3.nix` a `[nix]` template generates for a deployed app, to take it over by hand. Once you commit it and remove the `[nix]` section from `hop3.toml` (a build refuses an app that has both), the NixBuilder uses the committed `hop3.nix` instead of regenerating from the template.
+Print the `hop3.nix` a `[nix]` template generates for a deployed app, to take it over by hand. Once you commit it and remove the `[nix]` section from `hop3.toml` (a build refuses an app that has both), the NixBuilder uses the committed `hop3.nix`.
 
 Use `nix eject` when you've outgrown the templates and need to customise the generated Nix expression directly.
 
@@ -1081,6 +1105,7 @@ hop3 nix eject [--app <app-name>] > hop3.nix
 ```
 
 **Behavior:**
+
 - Reads the `[nix]` section from the deployed app's `hop3.toml`
 - Generates the Nix expression using the same template engine that
   the NixBuilder uses at deploy time
@@ -1097,10 +1122,12 @@ hop3 nix eject --app myapp > hop3.nix
 ```
 
 **Errors:**
-- "App has no hop3.toml" — the app source has no `hop3.toml`
-- "No `[nix]`.template in hop3.toml" — the app isn't using template mode
+
+- "App has no hop3.toml": the app source has no `hop3.toml`
+- "No `[nix]`.template in hop3.toml" means the app isn't using template mode
 
 **See also:**
+
 - [Nix deployment guide](../guides/nix-deployment.md)
 - [hop3.toml `[nix]` section](config.md#nix-template-based-nix-builds)
 
@@ -1116,6 +1143,7 @@ hop3 backup create [--app <app>] [--no-addons]
 ```
 
 **Options:**
+
 - `--app <app>` - Application to backup (else resolved from context)
 - `--no-addons` - Skip backing up attached addons (databases, etc.)
 
@@ -1125,6 +1153,7 @@ hop3 backup create --app myapp
 ```
 
 **What Gets Backed Up:**
+
 - Application source code (git archive if available)
 - Data directory (`/data`)
 - Environment variables
@@ -1139,7 +1168,7 @@ Creating backup for myapp...
 └─ Backing up services (postgres: myapp-db)... ✓
 
 Backup created: 20251112_143022_a8f3d9
-Location: /home/hop3/.hop3/backups/apps/myapp/20251112_143022_a8f3d9/
+Location: /home/hop3/backups/apps/myapp/20251112_143022_a8f3d9/
 Size: 45.2 MB
 ```
 
@@ -1216,9 +1245,11 @@ hop3 backup restore <backup_id> [--target-app NAME]
 ```
 
 **Arguments:**
+
 - `backup_id` - ID of backup to restore
 
 **Options:**
+
 - `--target-app` - Restore to a different app name (default: original app name)
 
 **Examples:**
@@ -1231,6 +1262,7 @@ hop3 backup restore 20251112_143022_a8f3d9 --target-app myapp-restored
 ```
 
 **Process:**
+
 1. Creates application if it doesn't exist
 2. Restores source code
 3. Restores data directory
@@ -1239,6 +1271,7 @@ hop3 backup restore 20251112_143022_a8f3d9 --target-app myapp-restored
 6. Verifies checksums
 
 **Notes:**
+
 - Does not automatically start the app (use `hop3 app restart --app <app>`)
 - Restoring to existing app overwrites data (confirmation required)
 
@@ -1276,6 +1309,7 @@ hop3 addon create <service_type> <service_name>
 ```
 
 **Arguments:**
+
 - `service_type` - Type of service (postgres, redis, etc.)
 - `service_name` - Name for this service instance
 
@@ -1293,6 +1327,7 @@ To attach this service to an app, run:
 ```
 
 **Notes:**
+
 - Service created but not yet attached to any app
 - Credentials generated and stored encrypted
 - Use `addon attach` to connect to an application
@@ -1307,10 +1342,12 @@ hop3 addon attach <service_name> --app <app_name> [--service-type <type>]
 ```
 
 **Arguments:**
+
 - `service_name` - Name of service to attach
 - `--app` - Name of application
 
 **Options:**
+
 - `--service-type` (or `--type`) - The addon's type, needed only when two addons of different types share the name; otherwise the name decides
 - `--primary` - Make this the primary addon of its type for the app (see below)
 
@@ -1327,6 +1364,7 @@ never clobber each other. Use `--primary` to attach-and-promote (demoting the
 current primary), or `hop3 addon promote` later.
 
 **What Happens:**
+
 - Service connection details added as environment variables (namespaced as above)
 - Credentials stored encrypted in database
 - App must be redeployed to use new variables
@@ -1346,6 +1384,7 @@ hop3 addon detach myapp-db --app myapp
 ```
 
 **Notes:**
+
 - Removes the addon's environment variables from the app (both the unprefixed
   and any prefixed spelling).
 - Does not destroy the service itself; credentials removed from the app.
@@ -1369,11 +1408,13 @@ Type the service name to confirm: myapp-db
 ```
 
 **What Gets Deleted:**
+
 - All data in the service (database, cache, etc.)
 - All credentials across all apps
 - Service configuration
 
 **Notes:**
+
 - Service must be detached from all apps first (or use `--force`)
 - Backups are NOT automatically created (use `backup create` first)
 
@@ -1408,6 +1449,7 @@ hop3 addon list [--app <app>] [--type <type>]
 ```
 
 **Options:**
+
 - `--app` - Only addons attached to this application
 - `--type` - Filter by addon type (postgres, mysql, redis)
 
@@ -1442,6 +1484,7 @@ hop3 addon status <service_name> [--type <type>]
 ```
 
 **Notes:**
+
 - Shows connection status, health checks, and resource usage
 - More detailed than `addon show`
 
@@ -1455,12 +1498,13 @@ hop3 addon endpoint <name>
 ```
 
 **Notes:**
+
 - Prints the connection URL plus host and port.
 - Errors if the name is unknown, or ambiguous across two addon types.
 
 ### `hop3 addon exists`
 
-Predicate for scripts/CI: exits **0** if the addon exists, **1** if it doesn't. Prints nothing in normal mode (use the exit code); with `--json` it also prints `{"exists": true|false}`. Type-agnostic; pass `--type` to require a specific type.
+This predicate is meant for scripts and CI: it exits **0** if the addon exists, **1** if it doesn't. Prints nothing in normal mode (use the exit code); with `--json` it also prints `[{"t": "data", "data": {"exists": true|false, "name": "<name>"}}]`. Type-agnostic; pass `--type` to require a specific type.
 
 **Usage:**
 ```bash
@@ -1471,12 +1515,12 @@ hop3 addon exists <name> [--type <type>]
 ```bash
 hop3 addon exists mydb && hop3 addon promote mydb --app web
 hop3 addon exists mydb --type postgres
-hop3 addon exists mydb --json   # -> {"exists": true}
+hop3 addon exists mydb --json   # -> [{"t": "data", "data": {"exists": true, "name": "mydb"}}]
 ```
 
 ### `hop3 addon expose`
 
-Make an addon reachable from outside the server on a stable, persisted host port, and print a connection URL. The addon normally listens only on `127.0.0.1`; `expose` allocates a public port, opens the firewall for it, and starts a per-addon `systemd-socket-proxyd` forwarder to the addon's loopback port. The port survives server and addon restarts. Type-agnostic (the type is resolved from the name).
+Make an addon reachable from outside the server on a stable, persisted host port, and print a connection URL. The addon normally listens only on `127.0.0.1`; `expose` allocates a public port, opens the firewall for it, and starts a per-addon `systemd-socket-proxyd` forwarder to the addon's loopback port. The port stays the same across server and addon restarts. Type-agnostic (the type is resolved from the name).
 
 **Usage:**
 ```bash
@@ -1484,6 +1528,7 @@ hop3 addon expose <name> --source <cidr|any> [--host <fqdn>] [--type <type>]
 ```
 
 **Options:**
+
 - `--source <cidr|any>` - **Required.** Who may reach the port: a CIDR (e.g. `203.0.113.0/24`), or `any` to open it to the whole internet. Set `EXPOSE_DEFAULT_SOURCE` in `hop3-server.toml` to make a CIDR the per-server default; with no default and no flag, the command refuses (no accidental public database).
 - `--host <fqdn>` - External hostname for the printed URL. Defaults to the server's canonical domain (`ADMIN_DOMAIN`); required if that isn't set.
 - `--type <type>` - Disambiguate when one name exists across two addon types.
@@ -1496,8 +1541,9 @@ hop3 addon expose mydb --source any --host db.example.com
 ```
 
 **Notes:**
+
 - The returned URL contains the addon password; treat it as a secret.
-- `--source any` exposes the database to the entire internet; only the addon credentials protect it. Scope with a CIDR when you can.
+- `--source any` exposes the database to the internet; only the addon credentials protect it. Scope with a CIDR when you can.
 - Idempotent: re-running returns the existing endpoint (no second port).
 - `hop3 addon destroy` automatically unexposes first.
 
@@ -1512,7 +1558,7 @@ hop3 addon unexpose <name> [--type <type>]
 
 ### `hop3 addon promote`
 
-Make an addon the **primary** one of its type for an app. When several same-type addons are attached, the primary injects the unprefixed connection vars (`DATABASE_URL`, …) and the others are prefixed (`<NAME>_DATABASE_URL`). This flips which one is primary; the previous primary becomes prefixed. Type-agnostic (type resolved from the name).
+Make an addon the **primary** one of its type for an app. When several same-type addons are attached, the primary injects the unprefixed connection vars (`DATABASE_URL`, …) and the others are prefixed (`<NAME>_DATABASE_URL`). This flips which one is primary; the previous primary becomes prefixed. The command resolves the type from the name.
 
 **Usage:**
 ```bash
@@ -1526,6 +1572,7 @@ hop3 addon promote replica-db --app myapp
 ```
 
 **Notes:**
+
 - Idempotent: promoting the addon that is already primary is a no-op.
 - Errors if the addon isn't attached to the app, or the type is ambiguous (pass `--type`).
 - Redeploy the app for the env change to take effect.
@@ -1598,9 +1645,10 @@ hop3 addon s3 import <name> --confirm=<name> < dump.tar   # Load a dump
 | `info` | | | ✓ | |
 
 **Notes:**
+
 - `credentials` prints the addon's connection variables (`DATABASE_URL`, `REDIS_URL`, `S3_*`, …); treat the output as sensitive.
 - `restore` and `redis flush` are destructive and prompt for confirmation (bypass with `-y` / `--confirm=<name>`).
-- `dump` writes to the server's backup area (`/home/hop3/backups/<type>/`) and reports the path. `restore` takes a path **on the server**, inside `/home/hop3/backups`, and refuses any other: to load a dump from your machine, use `import`. An s3 dump is a tar of the bucket's objects with their content types; its restore writes every object back, then deletes the ones the dump does not hold. An s3 dump from before 0.8 holds no objects, and its restore is refused.
+- `dump` writes to the server's backup area (`/home/hop3/backups/<type>/`) and reports the path. `restore` takes a path **on the server**, inside `/home/hop3/backups`, and refuses any other: to load a dump from your machine, use `import`. An s3 dump is a tar of the bucket's objects with their content types; its restore writes every object back, then deletes the ones the dump does not hold. An s3 dump from before 0.8 holds no objects, so its restore is refused.
 - `query` runs the statement as the addon's own (least-privilege) database user, confined to that addon's database. A SELECT renders as a table; other statements report the affected row count. The SQL/command is passed via `--command "…"`.
 - `clone` creates a brand-new addon and loads a dump of the source into it (it refuses if the target already exists). It builds on `restore`.
 - `export` streams a dump to the client's **stdout** (redirect to a file); `import` reads a dump from the client's **stdin**. Because `import` overwrites data *and* stdin is the dump (so it can't prompt), pass `--confirm=<name>` or `--yes` with it. A PostgreSQL dump needs no `OWNER TO` lines: a dump taken with `pg_dump --no-owner`, or on another platform, is given to the addon's user.
@@ -1612,7 +1660,7 @@ These manage the Layer-7 WAF's runtime state. The per-app *policy* (enable, allo
 
 ### `hop3 waf status`
 
-Per-app proxy port, whether the proxy is supervised, and the active ban count, for every WAF-enabled app.
+Shows, for every WAF-enabled app, its proxy port, its active ban count and whether the proxy is supervised.
 
 ### `hop3 waf logs [<app>]`
 
@@ -1620,7 +1668,7 @@ Recent blocked-request audit entries (time, source, action, rule, path) across a
 
 ### `hop3 waf bans list [<app>]`
 
-Active bans (app, source, reason, expiry). Bans are recorded by the scorer when a source crosses the `[waf.bans]` threshold within the window.
+This command lists the active bans with their app, source, reason and expiry. Bans are recorded by the scorer when a source crosses the `[waf.bans]` threshold within the window.
 
 ### `hop3 waf bans clear <app> [<ip>]`
 
@@ -1642,7 +1690,7 @@ hop3 network rm office
 
 ## Admin Commands
 
-Admin commands require the `admin` role. The server's first account, created by the installer or by `hop3 login --ssh` on a server that has none, is an admin.
+Admin commands require the `admin` role. The server's first account, created by `hop3-deploy-server` or by `hop3 login root@host` on a server that has none, is an admin.
 
 ### `hop3 user list`
 
@@ -1763,6 +1811,7 @@ eyJ0eXAiOiJKV1QiLCJhbGc...
 ```
 
 **Notes:**
+
 - Useful for CI/CD or automated scripts
 - Token does not expire by default (set expiration in config)
 
@@ -1777,11 +1826,11 @@ Four subcommands answer four distinct questions about the server:
 | `system logs` | *What happened?*: server log tail with filters |
 | `system cleanup` | *Reclaim Docker resources*: networks, images, build cache |
 
-The pre-0.5 commands `system check`, `system uptime`, and `system ps` were removed: `check` was renamed to `status` (it was always the rich health view), `uptime` is now part of the `status` and `info` identity header, and `ps` returned the entire host's process table over RPC and was removed as a security smell. For per-app process info, use `hop3 ps --app <app>`.
+The pre-0.5 commands `system check`, `system uptime`, and `system ps` were removed: `check` was renamed to `status` (it was always the rich health view), `uptime` is now part of the `status` and `info` identity header, and `ps` returned the host's whole process table over RPC and was removed as a security smell. For per-app process info, use `hop3 ps --app <app>`.
 
 ### `hop3 system status`
 
-Show full health status of the Hop3 server. Default output: one-line identity header (host, IP, version, uptime) followed by per-section health items, then a bottom-line summary.
+Show full health status of the Hop3 server. The default output is a one-line identity header (host, IP, version, uptime) followed by per-section health items, then a bottom-line summary.
 
 **Usage:**
 ```bash
@@ -1789,6 +1838,7 @@ hop3 system status [--quiet|-q] [--json]
 ```
 
 **Options:**
+
 - `--quiet`, `-q`: One-line summary only. For scripts.
 - `--json`: Machine-readable JSON. For dashboards and external monitors.
 
@@ -1820,7 +1870,7 @@ Certificates
 Status: ⚠ 2 warnings
 ```
 
-Severity legend: `✓` ok · `⚠` warning · `✗` failure. Optional services (Redis, Docker) report `⚠` when unreachable and `✗` never appears for them, so the overall status stays *degraded*, never *failed*.
+The severity legend reads `✓` ok · `⚠` warning · `✗` failure. Optional services (Redis, Docker) report `⚠` when unreachable and never `✗`, so the overall status stays *degraded*.
 
 ### `hop3 system info`
 
@@ -1832,6 +1882,7 @@ hop3 system info [--verbose|-v]
 ```
 
 **Options:**
+
 - `--verbose`, `-v`: Also list loaded plugins (builders, deployers, toolchains) and key filesystem paths.
 
 **Example output:**
@@ -1855,6 +1906,7 @@ hop3 system logs [-n N] [--since DURATION] [--level LEVEL] [--grep PATTERN]
 ```
 
 **Options:**
+
 - `-n`, `--lines N`: Number of lines to show (default: 100).
 - `--since DURATION`: Show logs since a duration ago (e.g. `1h`, `30m`, `1d`).
 - `--level LEVEL`: Filter by log level (`DEBUG`, `INFO`, `WARNING`, `ERROR`).
@@ -1870,6 +1922,7 @@ hop3 system cleanup [--dry-run] [--all] [--volumes]
 ```
 
 **Options:**
+
 - `--dry-run`: Show what would be cleaned without doing it.
 - `--all`: Also remove unused images (not just dangling).
 - `--volumes`: Also prune unused volumes. *May cause data loss.*
@@ -1916,6 +1969,7 @@ hop3 help commands
 ```
 
 **Notes:**
+
 - Returns plain text list of command names
 - Used internally by shell completion scripts
 
@@ -1929,6 +1983,7 @@ hop3 completion <shell>
 ```
 
 **Arguments:**
+
 - `shell` - Shell type: `bash`, `zsh`, or `fish`
 
 **Installation Examples:**
@@ -1947,6 +2002,7 @@ hop3 completion fish > ~/.config/fish/completions/hop3.fish
 ```
 
 **Options:**
+
 - `--refresh` - Update cached command list from server
 - `--status` - Show cache status
 
@@ -1969,6 +2025,7 @@ hop3 tunnel <addon-name> [--port <localport>]
 ```
 
 **Options:**
+
 - `--port <localport>` - Local port to bind (default: the addon's own port). Use this if the default port is already in use.
 
 **Examples:**
@@ -2012,6 +2069,7 @@ hop3 app run [--app <app>] <command> [args...] [--input <data>]
 ```
 
 **Options:**
+
 - `--input <data>` - Data to send to the command's stdin (non-interactive)
 
 **Examples:**
@@ -2030,7 +2088,7 @@ hop3 app run --app myapp node scripts/cleanup.js
 
 Open an interactive shell in an app's runtime context. `hop3 ssh` is a top-level alias. The shell starts in the app's working tree with the environment its processes see (addon URLs, the `[env]` block, the toolchain on `PATH`), as the `hop3` user. It is `hop3 app run` with a terminal attached: REPLs, `tail -f`, pagers and debuggers work. Exit the shell to end the session; its exit status becomes the command's.
 
-This is a client-side command over SSH, not RPC: the CLI opens `ssh -t` to the configured `ssh://` server and hands the terminal to the server. It needs an `ssh://` server. With stdin redirected, no terminal is allocated and the shell runs what it is piped, then exits.
+This is a client-side command over SSH: the CLI opens `ssh -t` to the configured `ssh://` server and hands the terminal to the server. It needs an `ssh://` server. With stdin redirected, no terminal is allocated and the shell runs what it is piped, then exits.
 
 **Usage:**
 ```bash
@@ -2059,6 +2117,7 @@ hop3 app sbom [--app <app>]
 ```
 
 **Output:**
+
 - CycloneDX format JSON
 - Lists all dependencies with versions
 - Security scanning metadata
@@ -2084,26 +2143,24 @@ The Hop3 CLI uses the exit-code table defined in ADR 036 D16. Scripts can distin
 
 JSON output (`--json`) includes `error.exit_code` in the envelope so programmatic consumers don't have to mirror this mapping.
 
-**Script tip.** Code `10` is your friend: use it to distinguish a user typing "no" at a confirmation prompt from an actual operation failure. Non-interactive scripts should pass `--confirm=<name>` or `--yes` to avoid it altogether, or `--no-input` to fail fast with an actionable message instead of hanging.
+**Script tip.** Code `10` is your friend: use it to distinguish a user typing "no" at a confirmation prompt from an actual operation failure. Non-interactive scripts should pass `--confirm=<name>` or `--yes` to avoid it altogether, or `--no-input` to fail fast with an actionable message.
 
 ## Machine-readable help
 
-`hop3 help --all --json` emits every command as JSON instead of a page of prose,
-so scripts, dashboards, and generated documentation never have to parse help
-output:
+`hop3 help --all --json` emits every command as JSON, so scripts, dashboards,
+and generated documentation can read it without parsing help output:
 
 ```bash
 hop3 help --all --json | jq -r '.[] | select(.t=="data") | .data.commands[] | select(.hidden|not) | "\(.name)\t\(.summary)"'
 ```
 
-Each entry carries `name`, `summary`, `usage`, `examples`, `aliases`, and the
+Each entry holds `name`, `summary`, `usage`, `examples`, `aliases`, and the
 flags `namespace`, `hidden`, `destructive` and `requires_auth`. Hidden commands
 are included and marked, so each consumer applies its own
 rule.
 
 Help itself also works before the CLI has a server: `hop3` and `hop3 help` on a
-fresh install print the built-in command list and how to connect, instead of a
-configuration error.
+fresh install print the built-in command list and how to connect.
 
 ## Environment Variables
 
@@ -2111,7 +2168,7 @@ configuration error.
 
 - **`HOP3_API_URL`** - Server URL (http://server or ssh://user@server)
 - **`HOP3_API_TOKEN`** - API authentication token (overrides the token stored in the per-server credential store)
-- **`HOP3_CONTEXT`** - Select a deploy environment / context (see [Context Management](#context-management))
+- **`HOP3_CONTEXT`** - Select the context (server) for this shell (see [Context Management](#context-management))
 - **`HOP3_VERBOSITY`** - Default verbosity level (0=quiet, 1=normal, 2=verbose, 3=debug)
 - **`HOP3_APP`** - Sticky app name for the current shell session (app-resolution chain, ADR 036 D7)
 - **`HOP3_NO_INPUT`** - When set to `1`, interactive prompts are refused with an actionable error. Set automatically when `--no-input` is passed; can be set manually to propagate through subprocesses.
@@ -2132,7 +2189,7 @@ configuration error.
 
 1. **Never use** `HOP3_UNSAFE` **in production** - This completely disables authentication
 2. **Protect your token** - The token lives in `~/.config/hop3-cli/credentials.toml` (created `0o600`, parent dir `0o700`); keep that file readable only by you
-3. **Rotate tokens regularly** - Use `auth logout` and `auth login` to refresh
+3. **Rotate tokens regularly** - Use `hop3 logout` and `hop3 login` to refresh
 4. **Backup HOP3_SECRET_KEY** - Required to decrypt service credentials
 5. **Use SSH connections** - Preferred over HTTP for remote servers
 
@@ -2158,7 +2215,7 @@ configuration error.
 
 4. **Use `--json` for automation:**
    ```bash
-   apps=$(hop3 app list --json | jq -r '.apps[].name')
+   apps=$(hop3 app list --json | jq -r '.[] | select(.t=="table") | .rows[][0]')
    for app in $apps; do
      hop3 backup create --app "$app"
    done
@@ -2167,6 +2224,7 @@ configuration error.
 ### Confirmation Prompts
 
 Destructive commands require confirmation:
+
 - **Type the resource name** - For `app destroy` and `addon destroy`, type the resource name
 - **Type 'DELETE'** - For `backup destroy`
 - **Skip with `-y`** - Use `--yes` flag to auto-confirm (use carefully!)
@@ -2199,7 +2257,6 @@ hop3 <command> --help
 - **GitHub Issues:** https://github.com/abilian/hop3/issues
 - **Documentation:** https://docs.hop3.cloud
 
-**Last Updated:** 2026-04-17
-**CLI Version:** 0.5.0dev
-**Server Version:** 0.5.0dev
-v
+**Last Updated:** 2026-10-28
+**CLI Version:** 0.8.0
+**Server Version:** 0.8.0

@@ -11,6 +11,7 @@ Hop3 follows the "Convention over Configuration" principle:
 - **Precedence**: `hop3.toml` > `Procfile` > defaults
 
 You can use:
+
 - **Procfile only** - Simple, works out of the box
 - **hop3.toml only** - Full configuration control
 - **Both together** - Use Procfile for basics, override with hop3.toml for advanced features
@@ -42,6 +43,7 @@ start = "uvicorn app:app"  # Overrides 'web' from Procfile
 ## File Location
 
 Place `hop3.toml` in one of these locations (checked in order):
+
 1. `src/hop3/hop3.toml`
 2. `src/hop3.toml`
 3. `hop3.toml` (project root)
@@ -50,7 +52,7 @@ Place `hop3.toml` in one of these locations (checked in order):
 
 ### `[metadata]` - Application Metadata
 
-Optional section for application identification.
+This optional section identifies the application.
 
 ```toml
 [metadata]
@@ -61,6 +63,7 @@ author = "Your Name <you@example.com>"  # Author information
 ```
 
 **Fields:**
+
 - `id` (string): Unique identifier for the application
 - `version` (string): Semantic version number
 - `title` (string): Display name for the application
@@ -84,35 +87,29 @@ before-build = "./fetch-assets.sh"
 # Commands to run after the build
 after-build = "python manage.py collectstatic --noinput"
 
-# Test commands (smoke tests)
-test = "npm test"
-
 # System packages needed for build
 packages = ["nodejs", "gcc", "make"]
-
-# Python packages to install during build
-pip-install = ["setuptools", "wheel"]
 ```
 
 **Fields:**
+
 - `builder` (string): Which builder to use for deployment:
-  - `"auto"` (default): Auto-detect based on project files (Dockerfile → docker, otherwise local)
-  - `"local"`: Use native language toolchains (Python, Node, Ruby, etc.) directly on host
-  - `"docker"`: Build and run using Docker (requires Dockerfile)
-  - `"nix"`: Build with Nix (hand-crafted `hop3.nix` or a generated `[nix]` template — see [`[nix]`](#nix-template-based-nix-builds))
-- `toolchain` (string): Force a specific language toolchain (`python`, `node`, `ruby`, `go`, `rust`, `static`, …), overriding auto-detection. Rarely needed — toolchains are normally detected from project files.
-- `build` (string | array): Commands that build the app in place of the toolchain's own install: a Python app declaring one gets no `pip install`, a Node app no `npm install`. Only the local builder runs a toolchain, so a Docker or Nix app declaring `build` is refused; its build belongs in the Dockerfile or the derivation.
+    - `"auto"` (default): Auto-detect based on project files (Dockerfile → docker, otherwise local)
+    - `"local"`: Use native language toolchains (Python, Node, Ruby, etc.) directly on host
+    - `"docker"`: Build and run using Docker (requires Dockerfile)
+    - `"nix"`: Build with Nix (a hand-crafted `hop3.nix` or a generated `[nix]` template; see [`[nix]`](#nix-template-based-nix-builds))
+- `toolchain` (string): Force a specific language toolchain (`python`, `node`, `ruby`, `go`, `rust`, `static`, …), overriding auto-detection. It is rarely needed, since toolchains are normally detected from project files.
+- `build` (string | array): Commands that build the app in place of the toolchain's install: a Python app declaring one gets no `pip install`, a Node app no `npm install`. Only the local builder runs a toolchain, so a Docker or Nix app declaring `build` is refused; its build belongs in the Dockerfile or the derivation.
 - `before-build` (string | array): Commands run before the build, for every builder (maps to Procfile `prebuild`)
 - `after-build` (string | array): Commands run after the build, with the app's dependencies installed and on `PATH`, for every builder (maps to Procfile `postbuild`). Use it to add a step, such as compiling assets, to the toolchain's install.
-- `test` (string | array): Test commands to run after build
 - `packages` (array): System packages required for building
-- `pip-install` (array): Python packages to install during build
 - `ignore` (array): Gitignore-style patterns excluded from the `hop3 deploy` upload (see below)
 - `static-dir` (string): For a static site (`toolchain = "static"`), the directory to serve, relative to the app root (e.g. `"site"`, `"html"`, `"dist"`). Defaults to `"public"`. See [Static sites](#static-sites) below.
-- `document-root` (string): For a PHP app, the directory nginx serves, relative to the app root. Needed only when it cannot be detected: a front controller (`index.php`) in `public/`, `web/`, `htdocs/` or `www/` is found automatically, in that order, and the project root is the fallback. Declaring the wrong root publishes the application's own source, so a value that is not a directory is refused at build time rather than silently ignored. See [PHP apps](#php-apps) below.
+- `document-root` (string): For a PHP app, the directory the proxy serves, relative to the app root. Needed only when it cannot be detected: a front controller (`index.php`) in `public/`, `web/`, `htdocs/` or `www/` is found automatically, in that order, and the project root is the fallback. Declaring the wrong root publishes the application's own source, so a value that is not a directory, or that lies outside the application, is refused at build time. See [PHP apps](#php-apps) below.
 - `node-version` (string): Pin the Node.js version for this app (e.g. `"22.11.0"`), installed into the app's virtualenv with `nodeenv`. Use when the app needs a Node other than the host's.
 
 **Procfile Mapping:**
+
 - `build.before-build` → Procfile `prebuild`
 
 #### `ignore` - Excluding files from the upload
@@ -124,9 +121,9 @@ When you run `hop3 deploy`, the CLI tars your working tree and uploads it. `[bui
 ignore = ["*.log", "tmp/", "coverage/", "*.sqlite3"]
 ```
 
-Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults — VCS metadata and dependency/build/cache dirs that the server regenerates (`.git/`, `node_modules/`, `target/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all. (`target/` is Rust/Maven build output — the server rebuilds it from source.)
+Patterns use gitignore syntax (including `!` negation), and are added **on top of** Hop3's built-in defaults: VCS metadata and dependency/build/cache dirs that the server regenerates (`.git/`, `node_modules/`, `target/`, `.venv/`, `venv/`, `__pycache__/`, `*.py[cod]`, `.idea/`, `.DS_Store`, `.mypy_cache/`, `.pytest_cache/`, `.ruff_cache/`, `*.egg-info/`). So most apps need no `ignore` at all. (`target/` is Rust/Maven build output, which the server rebuilds from source.)
 
-**Other ignore files are scoped to their own deployment method — they do *not* affect the `hop3 deploy` upload:**
+**Other ignore files are scoped to their deployment method and do *not* affect the `hop3 deploy` upload:**
 
 - **`.gitignore`** applies to the **git-push** deploy path (git itself decides what reaches the server). It is not consulted for the `hop3 deploy` upload.
 - **`.dockerignore`** applies to the server-side **`docker build`** context when `builder = "docker"` (Docker honors it there). It is not applied to the upload.
@@ -135,7 +132,7 @@ Patterns use gitignore syntax (including `!` negation), and are added **on top o
 
 #### Static sites
 
-A static site (`toolchain = "static"`) is served straight from disk by nginx — no app process, and **no Procfile required**. Point Hop3 at the directory of files with `static-dir`:
+A static site (`toolchain = "static"`) is served straight from disk by the proxy (nginx or Caddy; Traefik serves no files, so a static site is refused there). It runs no app process and needs **no Procfile**. Point Hop3 at the directory of files with `static-dir`:
 
 ```toml
 [build]
@@ -145,16 +142,16 @@ static-dir = "site"     # "html", "dist", … — defaults to "public"
 
 The served directory is resolved in this order (first match wins):
 
-1. `[build].static-dir` — the canonical, first-class key.
-2. `[run.workers].static` — the equivalent worker spelling (back-compat).
+1. `[build].static-dir`: the canonical, first-class key.
+2. `[run.workers].static`: the equivalent worker spelling (back-compat).
 3. A Procfile `static: <dir>` line.
-4. `public` — the default when nothing is declared.
+4. `public`, the default when nothing is declared.
 
 So `[build].static-dir` (or just relying on the `public` default) is all a static site needs; the worker and Procfile forms exist only for compatibility.
 
 #### PHP apps
 
-A PHP app is served by a **php-fpm pool behind nginx**, and like a static site it needs **no start command**: nginx serves static files off disk, hands `.php` requests to the pool, and falls back to the front controller (`try_files $uri $uri/ /index.php?$query_string`) so framework routing works unconfigured.
+A PHP app is served by a **php-fpm pool behind nginx or Caddy** (Traefik speaks no FastCGI, so a PHP app is refused there). Like a static site, it needs **no start command**: the proxy serves static files off disk, hands `.php` requests to the pool, and falls back to the front controller (`try_files $uri $uri/ /index.php?$query_string`) so framework routing works unconfigured.
 
 ```toml
 [build]
@@ -164,15 +161,15 @@ toolchain = "php"
 
 The document root is resolved in this order (first match wins):
 
-1. `[build].document-root` — the canonical, first-class key.
+1. `[build].document-root`: the canonical, first-class key.
 2. The first of `public/`, `web/`, `htdocs/`, `www/` that contains an `index.php`.
 3. The project root.
 
-Getting this wrong publishes the application's own source over HTTP — a framework's `.env`, its `composer.json`, its whole `vendor/` tree — so a `document-root` naming something that is not a directory is refused at build time, and only the resolved document root is made readable by the web server. Everything above it stays unreadable.
+Getting this wrong publishes the application's source over HTTP (a framework's `.env`, its `composer.json`, its `vendor/` tree), so a `document-root` naming something that is not a directory is refused at build time, and only the resolved document root is made readable by the web server. Everything above it is unreadable.
 
-Inside the document root, the proxy never serves a hidden file or anything under a hidden directory (`.env`, `.htaccess`, `.git/`), except `/.well-known/`, which stays open for discovery endpoints. An app that keeps its own data under the document root (a SQLite file, compiled templates, uploads) protects it upstream with an `.htaccess`, which only Apache reads: list those paths in [`[proxy] deny`](#proxy-transfer-limits-and-denied-paths) and the proxy answers them with 404.
+Inside the document root, the proxy never serves a hidden file or anything under a hidden directory (`.env`, `.htaccess`, `.git/`), except `/.well-known/`, which stays open for discovery endpoints. An app that keeps data under the document root (a SQLite file, compiled templates, uploads) protects it upstream with an `.htaccess`, which only Apache reads: list those paths in [`[proxy] deny`](#proxy-transfer-limits-and-denied-paths) and the proxy answers them with 404.
 
-Declaring `[run].start` overrides all of this and runs your command instead, which is how you would use a long-running application server (Laravel Octane, FrankenPHP, RoadRunner). `php -S` and `php artisan serve` are **development** servers: single-threaded, so an app that makes an HTTP request to itself deadlocks against its own only worker.
+Declaring `[run].start` overrides all of this and runs your command, which is how you would use a long-running application server (Laravel Octane, FrankenPHP, RoadRunner). `php -S` and `php artisan serve` are **development** servers: single-threaded, so an app that makes an HTTP request to itself deadlocks against its only worker.
 
 ### `[run]` - Runtime Configuration
 
@@ -194,12 +191,14 @@ start-timeout = 120
 ```
 
 **Fields:**
+
 - `start` (string | array): Main application start command (maps to Procfile `web`)
 - `before-run` (string | array): Pre-run commands (maps to Procfile `prerun`)
 - `packages` (array): System packages required at runtime
 - `start-timeout` (number): Maximum time in seconds to wait for the app to start (default: 60)
 
 **Procfile Mapping:**
+
 - `run.start` → Procfile `web`
 - `run.before-run` → Procfile `prerun`
 
@@ -228,13 +227,13 @@ LOG_LEVEL = "info"
 
 **Notes:**
 
-- Sensitive values should be injected through `hop3 env set`, not hardcoded in hop3.toml. For secrets the app needs to *exist* before its first boot, use a generated secret (below) instead of a manual `config set`.
-- The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments for troubleshooting—never in production.
-- **`[env]` values are literal.** They are exported verbatim, so a `${PGHOST}` written here reaches the app as those nine characters rather than as the host — the app then falls back to its own default and nothing says so. Interpolation belongs in [`[env.computed]`](#envcomputed-values-assembled-from-other-variables); `$PORT` belongs in `[run].start`, which runs through a shell, because the port is allocated after every env section is resolved. A `${...}` in a literal section is a hop3.toml validation error, so `hop3check` catches it before a deploy.
+- Sensitive values should be injected through `hop3 env set`. For secrets the app needs to *exist* before its first boot, use a generated secret (below).
+- The `DEBUG` environment variable defaults to `false`. Only set `DEBUG = "true"` in development environments, for troubleshooting.
+- **`[env]` values are literal.** They are exported verbatim, so a `${PGHOST}` written here reaches the app as those nine characters. The app then falls back to its default without a word. Interpolation belongs in [`[env.computed]`](#envcomputed-values-assembled-from-other-variables); `$PORT` belongs in `[run].start`, which runs through a shell, because the port is allocated after every env section is resolved. A `${...}` in a literal section, or a value that is only `$NAME` (`NITRO_PORT = "$PORT"`), is a hop3.toml validation error, so `hop3check` catches it before a deploy. A `$` inside a longer value is legal.
 
 #### Generated secrets
 
-Some apps require a secret or key to exist *before they boot* (e.g. Phoenix `SECRET_KEY_BASE`, Laravel `APP_KEY`, Rails `secret_key_base`) — the release crashes without it, so there is no chance to set it afterwards. Declare such a value as a generated secret and Hop3 creates it for you on first deploy:
+Some apps require a secret or key to exist *before they boot* (e.g. Phoenix `SECRET_KEY_BASE`, Laravel `APP_KEY`, Rails `secret_key_base`): the release crashes without it, so there is no chance to set it afterwards. Declare such a value as a generated secret and Hop3 creates it for you on first deploy:
 
 ```toml
 [env]
@@ -256,13 +255,13 @@ SESSION_ID      = { generate = "uuid" }
 **Semantics:**
 
 - The value is generated with a cryptographically secure RNG only when the variable is currently **unset**, then stored as a normal app env var (visible in `hop3 env show`).
-- It is **generated once and never rotated** on redeploy — so redeploys stay idempotent and a regenerated secret never silently invalidates existing sessions or data. Setting `_policy = "override"` does *not* force rotation.
+- It is **generated once and never rotated** on redeploy. Redeploys stay idempotent, and existing sessions and data stay valid. Setting `_policy = "override"` does *not* force rotation.
 - To rotate a generated secret, run `hop3 env unset --app <app> KEY` and redeploy.
-- A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error — it fails the deploy loudly rather than producing a bad secret.
+- A malformed spec (unknown generator, `length < 1`, unknown field) is a hop3.toml validation error, which fails the deploy before any secret is produced.
 
 #### Dynamic references
 
-Most apps need nothing here: attaching an addon already injects its standard variables (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …), and `[env.computed]` assembles custom strings from them. A reference is for the cases those can't express — copying one specific attribute, or reading an app fact:
+Most apps need nothing here: attaching an addon already injects its standard variables (`DATABASE_URL`, `PGHOST`, `REDIS_URL`, …), and `[env.computed]` assembles custom strings from them. A reference covers the cases those can't express, such as copying one specific attribute or reading an app fact:
 
 ```toml
 [env]
@@ -281,17 +280,17 @@ APP_FQDN = { key = "domain" }
 |-------|------|-------------|
 | `from` | string | Name of an addon attached to this app. Omit for app facts. |
 | `key` | string | The attribute to copy: an addon variable name (with `from`), or an app fact (`domain`, `hostname`, `name`). |
-| `external_ip` | boolean | The host's public IP. **Not implemented yet** — declaring it fails the deploy with a clear message; use `hop3 env set` meanwhile. |
+| `external_ip` | boolean | The host's public IP. **Not implemented yet**: declaring it fails the deploy with a clear message; use `hop3 env set` meanwhile. |
 
 **Semantics:**
 
-- References are **derived** values resolved fresh on every deploy (like `[env.computed]`), so they overwrite. Resolution order is: addon auto-injection → static `[env]` → generated secrets → **references** → `[env.computed]`. A `{ key = "domain" }` ref therefore sees the hostname from `[domains]`, and a `[env.computed]` template can interpolate a resolved reference.
-- Resolution **fails the deploy loudly** if the addon isn't attached, the key doesn't exist (the error lists the available keys), or the app fact is unknown — never a wrong or empty value.
-- `{ from = ..., key = ... }` resolves against this app's own addons only; it can't read another app's credentials.
+- References are **derived** values resolved fresh on every deploy (like `[env.computed]`), so they overwrite. Resolution order is: addon auto-injection → static `[env]` → generated secrets → **references** → `[env.computed]`. A `{ key = "domain" }` ref therefore sees the hostname from `[domains]`. A `[env.computed]` template can interpolate a resolved reference.
+- Resolution **fails the deploy loudly** if the addon isn't attached, the key doesn't exist (the error lists the available keys), or the app fact is unknown.
+- `{ from = ..., key = ... }` resolves against this app's addons only; it can't read another app's credentials.
 
 #### `[env.computed]` - Values assembled from other variables
 
-The one section that interpolates. Use it to hand an app an addon's credentials under whatever name that app expects:
+This is the one section that interpolates. Use it to give an app an addon's credentials under whatever name that app expects:
 
 ```toml
 [env.computed]
@@ -302,11 +301,11 @@ APP_URL          = "${HOP3_PUBLIC_URL}"
 
 **Semantics:**
 
-- Templates are resolved **after** addon injection, static `[env]`, generated secrets and references, so every addon variable (`PGHOST`, `MYSQL_USER`, `REDIS_URL`, …) plus `HOST_NAME` and `HOP3_PUBLIC_URL` is in scope.
-- Computed values are **derived**: recomputed and overwritten on every deploy, never treated as defaults.
-- A template naming a variable the app doesn't have **fails the deploy**, listing what is available — the same treatment as an unresolvable reference. It is never stored as-is: an app handed `GTS_HOST=${HOST_NAME}` has nine characters of shell syntax where a hostname belongs.
-- The form is `${VAR}` and only that — there is no `${VAR:-default}`. Write the plain reference, or do the defaulting in `[run].start`, which a shell reads.
-- `$PORT` is **not** available here. Hop3 allocates it after this section is resolved, so an app that takes its port from a setting of its own must get it from the start command, where a shell expands it: `start = "env GF_SERVER_HTTP_PORT=$PORT ./bin/grafana-server"`.
+- Templates are resolved **after** addon injection, static `[env]`, generated secrets and references, so the addon variables (`PGHOST`, `MYSQL_USER`, `REDIS_URL`, …) plus `HOST_NAME` and `HOP3_PUBLIC_URL` are in scope.
+- Computed values are **derived**: recomputed and overwritten on every deploy.
+- A template naming a variable the app doesn't have **fails the deploy**, listing what is available, as an unresolvable reference does. It is never stored as-is: an app handed `GTS_HOST=${HOST_NAME}` has nine characters of shell syntax where a hostname belongs.
+- The form is `${VAR}` and only that: there is no `${VAR:-default}`. Write the plain reference, or do the defaulting in `[run].start`, which a shell reads.
+- `$PORT` is **not** available here. Hop3 allocates it after this section is resolved, so an app that takes its port from a setting must get it from the start command, where a shell expands it: `start = "env GF_SERVER_HTTP_PORT=$PORT ./bin/grafana-server"`.
 
 ### `[domains]` - Application Hostnames
 
@@ -325,7 +324,7 @@ _policy = "keep-existing"   # optional; "override" to overwrite on every deploy
 
 **Notes:**
 
-- `[domains].list` is mutually exclusive with `HOST_NAME` under `[env]`. Setting both is a hop3.toml validation error — use one or the other.
+- `[domains].list` is mutually exclusive with `HOST_NAME` under `[env]`. Setting both is a hop3.toml validation error.
 - At deploy time, the section is translated into the `HOST_NAME` env var that the reverse-proxy plugins (nginx / caddy / traefik) read.
 - An empty list (`list = []`) is a no-op: HOST_NAME is **not** unset. Use `hop3 domain clear --app <app>` to remove the binding explicitly.
 - For CRUD from the CLI, see `hop3 domain` in the CLI reference.
@@ -340,20 +339,20 @@ allow-http = false      # optional; true serves plain HTTP instead of redirectin
 
 **Fields:**
 
-- `deployer` (string, optional, default `"auto"`): force a specific deployer instead of auto-selecting by artifact kind. Unknown names are rejected at deploy time against the installed deployers.
+- `deployer` (string, optional, default `"auto"`): force a specific deployer, overriding the selection by artifact kind. Unknown names are rejected at deploy time against the installed deployers.
 - `allow-http` (bool, optional, default `false`): serve the app over plain HTTP as well as HTTPS.
 
-**Why `allow-http` defaults to false.** Hop3 redirects HTTP to HTTPS for every app. An app told it is served over HTTPS (via `HOP3_PUBLIC_URL`, echoed in its own `ROOT_URL` or equivalent) issues **`Secure`** session and CSRF cookies, which a browser will not send back over plain HTTP. Serving both schemes therefore gives you an app that looks healthy but whose logins fail over HTTP — typically reported by the app as "these credentials do not match our records", blaming the password rather than the scheme. Enable `allow-http` only for an app that genuinely must answer on HTTP.
+**Why `allow-http` defaults to false.** Hop3 redirects HTTP to HTTPS for every app. Hop3 tells the app it is served over HTTPS (via `HOP3_PUBLIC_URL`, echoed in `ROOT_URL` or equivalent), so the app issues **`Secure`** session and CSRF cookies, which a browser will not send back over plain HTTP. Serving both schemes therefore gives you an app that looks healthy but whose logins fail over HTTP. The app typically reports "these credentials do not match our records" and blames the password. Only an app that has to answer on HTTP should enable `allow-http`.
 
 **Notes:**
 
 - The ACME challenge path (`/.well-known/acme-challenge`) stays on HTTP either way, so certificate issuance and renewal are unaffected.
-- The setting is honoured identically by every proxy plugin (nginx / caddy / traefik) — declare it once, whichever proxy the server runs.
+- The setting is honoured identically by every proxy plugin (nginx / caddy / traefik): declare it once, whichever proxy the server runs.
 - The per-app env vars `NGINX_HTTPS_ONLY` / `CADDY_HTTPS_ONLY` / `TRAEFIK_HTTPS_ONLY` still work and take precedence, as an escape hatch.
 
 ### `[admin]` - Initial Admin Account
 
-Declares the initial admin account Hop3 bootstraps on first deploy (ADR 056), so an installed app is ready to log into instead of dropping you at a login wall with no credentials. Hop3 generates the password (strong, CSPRNG, generated-once), resolves the email, stores the credential encrypted, and surfaces it once after deploy — retrieve it later with `hop3 app credentials --app <app>`.
+Declares the initial admin account Hop3 bootstraps on first deploy (ADR 056), so an installed app is ready to log into. Hop3 generates the password (strong, CSPRNG, generated-once), resolves the email, stores the credential encrypted, and shows it once after deploy. Retrieve it later with `hop3 app credentials --app <app>`.
 
 ```toml
 [admin]
@@ -368,9 +367,9 @@ verify   = "…"                             # optional but recommended: proves 
 
 - The generated password and the resolved identity are injected into the app's runtime as `HOP3_ADMIN_USER`, `HOP3_ADMIN_EMAIL`, and `HOP3_ADMIN_PASSWORD`. The recipe maps these to whatever its app expects (Django `DJANGO_SUPERUSER_*`, Keycloak `KC_BOOTSTRAP_ADMIN_*`, or an entrypoint that reads `CREATE_SUPERUSER=email:password`).
 - `email = "operator"` uses the server's `OPERATOR_EMAIL` (which defaults to `ACME_EMAIL`). A recipe that needs an admin email fails loud at deploy if no operator email is set.
-- The account is created either by the app's own `[run] before-run` (consuming the injected vars — the usual path, correct timing after migrations) or by an optional `[admin].create` command the platform runs once after deploy. `create` is **not** supported for Docker-Compose apps (they self-bootstrap in the container entrypoint); declaring it on one is a loud error.
-- The stored password is the **initial** one — if the user changes it inside the app it is stale. Retrieve it any time with `hop3 app credentials --app <app>`; to change it, change it inside the app.
-- **A zero exit from `create` does not prove the account exists.** Gitea and Forgejo reject the reserved name `admin` by printing an error and exiting 0, which once had Hop3 hand an operator a password for an account that was never made. Declare `verify` — a command that fails when the account is absent — and the platform runs it after `create` and refuses to mark the bootstrap done unless it succeeds. Without it Hop3 reports only that the command ran, and says so.
+- The account is created either by the app's `[run] before-run` (consuming the injected vars; this is the usual path, and it runs after migrations) or by an optional `[admin].create` command the platform runs once after deploy. `create` is **not** supported for Docker-Compose apps (they self-bootstrap in the container entrypoint); declaring it on one is a loud error.
+- The stored password is the **initial** one. If the user changes it inside the app, the stored copy is stale. Retrieve it any time with `hop3 app credentials --app <app>`; to change it, change it inside the app.
+- **A zero exit from `create` does not prove the account exists.** Gitea and Forgejo reject the reserved name `admin` by printing an error and exiting 0, which once had Hop3 hand an operator a password for an account that was never made. If you declare `verify`, a command that fails when the account is missing, the platform runs it after `create` and refuses to mark the bootstrap done unless it succeeds. Without it Hop3 reports only that the command ran, and says so.
 
 **Fields:**
 
@@ -384,7 +383,7 @@ verify   = "…"                             # optional but recommended: proves 
 
 ### `[probe]` - Hop3's Own Verification Account
 
-Declares a second account, owned by Hop3 rather than the operator, that the app's smoke test signs in as. Optional: an app that omits it is still checked, using the admin credential, and the result says so.
+Declares a second account, owned by Hop3, that the app's smoke test signs in as. Optional: an app that omits it is still checked, using the admin credential, and the result says so.
 
 ```toml
 [probe]
@@ -394,31 +393,32 @@ create   = "app-cli user create ..."       # REQUIRED: idempotent, run once afte
 verify   = "app-cli user show hop3probe"   # optional but recommended: proves the account exists
 ```
 
-**Why a second account.** The `[admin]` credential is handed to the operator, so Hop3 stops owning it the moment they change the password. A later sign-in failure then means either the app broke or the password moved, and from outside those look identical — a check that cannot tell them apart cries wolf. Nobody else uses the probe account, so a refused probe sign-in means the app broke.
+**Why a second account.** The `[admin]` credential is handed to the operator, so Hop3 stops owning it the moment they change the password. A later sign-in failure then means either the app broke or the password moved. From outside the two look identical. A check that cannot tell them apart cries wolf. Only Hop3 uses the probe account, so a refused probe sign-in means the app broke.
 
-**Why sign in at all.** A login page renders perfectly against a dead database, and for some apps is not even dynamic. Signing in is what traverses app code, session, database and password verification — the whole stack the operator depends on.
+**Why sign in at all.** A login page renders perfectly against a dead database, and for some apps is not even dynamic. Signing in traverses app code, session, database and password verification: the stack the operator depends on.
 
-**Not an administrator.** Signing in is the entire diagnostic value, and a plain account carries a fraction of the privilege. Omit the section for an app whose data is sensitive enough that no standing Hop3 account is acceptable; the check then verifies the handover only, and says so rather than silently testing less.
+**Not an administrator.** The diagnostic value lies in signing in, which a plain account can do with a fraction of the privilege. Omit the section for an app whose data is sensitive enough that no standing Hop3 account is acceptable. The check then verifies the handover only and reports that it did.
 
 **How it works:**
 
-- The username, optional email and a generated password are injected as `HOP3_PROBE_USER`, `HOP3_PROBE_EMAIL` and `HOP3_PROBE_PASSWORD`. The password is generated once and reused across deploys — regenerating it would break the account it created.
+- The username, optional email and a generated password are injected as `HOP3_PROBE_USER`, `HOP3_PROBE_EMAIL` and `HOP3_PROBE_PASSWORD`. The password is generated once and reused across deploys, since regenerating it would break the account it created.
 - After the app is up, Hop3 runs `create` and checks its exit status. Only then is the account recorded as existing, and only then is the credential offered to `check.py`.
-- If `create` fails, the deploy still succeeds — the probe verifies the app, it is not part of it — but the failure is reported and the smoke test falls back to the admin credential, labelled `verified the handover only`.
+- If `create` fails, the deploy still succeeds, because the probe only verifies the app. The failure is reported. The smoke test then falls back to the admin credential, labelled `verified the handover only`.
 
-**`create` is required, deliberately.** It was once optional, meaning "the app builds this account itself from the injected vars". Hop3 has no way to confirm that it did, so it could never hand the credential to a check, and the whole section did nothing while looking like configuration. Both recipes that used that form had silently stopped creating their probe — each did so only in the branch where it also created the admin, so any instance that already had one got no probe and nothing noticed. If Hop3 cannot create the account, it cannot trust it.
+**`create` is required.** It was once optional, meaning "the app builds this account itself from the injected vars". Hop3 has no way to confirm that it did, so it could not pass the credential to a check: the section looked like configuration and did nothing. Both recipes that used that form had stopped creating their probe without any error. Each created it only in the branch where it also created the admin, so an instance that already had an admin got no probe. If Hop3 cannot create the account, it cannot trust it.
 
 **Fields:**
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `username` | string | no (default `hop3probe`) | Login name. Avoid names the app reserves — Gitea and Forgejo reject `admin` while still exiting 0. |
+| `username` | string | no (default `hop3probe`) | Login name. Avoid names the app reserves: Gitea and Forgejo reject `admin` while still exiting 0. |
 | `email` | string | no | A literal address, when the app requires one. Never the operator's: the account is Hop3's and receives nothing. |
 | `create` | string | **yes** | Idempotent create-if-absent command; receives `HOP3_PROBE_*` in its env and must exit non-zero if the account does not end up existing. |
+| `verify` | string | no | Command that exits non-zero when the account does not exist. Run after `create`. On failure the account is not recorded and the smoke test falls back to the admin credential. |
 
 ### `[contexts.<name>]` - Per-Deployment Settings
 
-A **context** is a server you can reach: a name and an address, kept in your own `~/.config/hop3-cli/config.toml` and created by a login or by `hop3 context add`. `hop3.toml` never says where the app is deployed. What it can say is how the app differs from one deployment to the next: its name there, its domains and its environment. Each `[contexts.<name>]` block holds those differences for the context of that **name**, merged over the base configuration. See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model, and the [CLI reference](cli.md#context-management) for how a command picks its context.
+A **context** is a server you can reach: a name and an address, kept in your `~/.config/hop3-cli/config.toml` and created by a login or by `hop3 context add`. `hop3.toml` names no server. It says how the app differs from one deployment to the next: its name there, domains and environment. Each `[contexts.<name>]` block holds those differences for the context of that **name**, merged over the base configuration. See [ADR 042](https://github.com/abilian/hop3/blob/main/notes/adrs/042-cli-context-model.md) for the full model, and the [CLI reference](cli.md#context-management) for how a command picks its context.
 
 ```toml
 [metadata]
@@ -448,7 +448,7 @@ A checkout bound to `demo` (`hop3 context use demo`) deploys `myapp-demo` with i
 
 **Notes:**
 
-- **A block never carries `server` or `bootstrap`.** Where the app goes is the context's business, in your `config.toml`; the CLI and the server both refuse these keys in `hop3.toml` and name the `hop3 context add` that replaces them.
+- **`server` and `bootstrap` are not block keys.** Where the app goes is the context's business, in your `config.toml`; the CLI and the server both refuse these keys in `hop3.toml` and name the `hop3 context add` that replaces them.
 - **Matching.** In a project that declares blocks, a context matching none of them is refused (by `hop3 context use` already, and by every command). A project without blocks deploys its base configuration to any context.
 - **Context names** must match `^[A-Za-z0-9][A-Za-z0-9_-]{0,63}$`: start with a letter or digit, then letters, digits, `-` or `_`, up to 64 characters. (They appear unquoted on the CLI and as TOML keys, so they are kept shell-friendly.)
 - **Resolution and flattening happen client-side, on deploy.** The CLI selects the context (`-c`, `$HOP3_CONTEXT`, or the checkout's binding in `.hop3-local.toml`), computes the effective config (the block's `app`, its `domains` replacing the top-level ones, its `env` merged over the top-level one) and applies it. Every `[contexts.*]` block is then **stripped from the uploaded file**, so what the server validates and deploys is the flattened result (preview == deploy). The deployer never interprets `[contexts.*]`.
@@ -458,19 +458,19 @@ A checkout bound to `demo` (`hop3 context use demo`) deploys `myapp-demo` with i
 
 ### Zero secrets in `hop3.toml`
 
-`hop3.toml` is **committed and shared, and must hold no secrets.** This is not only convention: the schema **rejects** committed `[env]` (and `[contexts.*.env]`) values that look like a secret — a **committed-credential tripwire** that fails validation loudly rather than letting an obvious credential slip into version control. It flags known API-key shapes (`sk_live_…`, `sk_test_…`, `ghp_…`, `github_pat_…`, `xoxb-…`, `AKIA…`, …) and connection strings with embedded credentials (`scheme://user:password@…`). It is best-effort, not a proof — a novel secret shape could still slip through — so treat it as a backstop, not a license to put secrets in the file.
+`hop3.toml` is committed and shared, and must hold no secrets. The schema enforces it: a **committed-credential tripwire** **rejects** committed `[env]` (and `[contexts.*.env]`) values that look like a secret, so an obvious credential fails validation before it reaches version control. It flags known API-key shapes (`sk_live_…`, `sk_test_…`, `ghp_…`, `github_pat_…`, `xoxb-…`, `AKIA…`, …) and connection strings with embedded credentials (`scheme://user:password@…`). The check is best-effort: a novel secret shape could still slip through, so treat it as a backstop.
 
-Secrets are never put in `hop3.toml`. They live **server-side, per app instance**, in three forms:
+Hop3 keeps secrets **server-side, per app instance**, in three forms:
 
-1. **Autogenerated keys** (e.g. `FLASK_SECRET_KEY`, `SECRET_KEY_BASE`, session keys) — provisioned automatically on first deploy with a CSPRNG and stored as encrypted env vars (generated-once). Declare these as [generated secrets](#generated-secrets) — the spec, not the value, lives in `hop3.toml`.
-2. **Addon credentials** (`DATABASE_URL`, `REDIS_URL`, …) — managed entirely by the platform: provisioned, encrypted, and injected automatically when you attach an addon. You never write them down.
-3. **Third-party secrets** (Stripe, Sentry, OAuth client secrets, …) — set manually, per app, with `hop3 env set` (which stores them as encrypted `EnvVar`s). Because each context deploys a distinct app instance, these are already scoped per environment.
+1. **Autogenerated keys** (e.g. `FLASK_SECRET_KEY`, `SECRET_KEY_BASE`, session keys): provisioned automatically on first deploy with a CSPRNG and stored as encrypted env vars (generated-once). Declare these as [generated secrets](#generated-secrets): `hop3.toml` keeps the spec only.
+2. **Addon credentials** (`DATABASE_URL`, `REDIS_URL`, …): the platform provisions, encrypts and injects them when you attach an addon.
+3. **Third-party secrets** (Stripe, Sentry, OAuth client secrets, …): set manually, per app, with `hop3 env set` (which stores them as encrypted `EnvVar`s). Because each context deploys a distinct app instance, these are already scoped per environment.
 
-Because each context targets a distinct app instance (`myapp` vs `myapp-dev`), per-environment secrets are already isolated by per-app server-side storage — no secret machinery in the repo.
+Because each context targets a distinct app instance (`myapp` vs `myapp-dev`), per-environment secrets are already isolated by per-app server-side storage, with no secret machinery in the repo.
 
 ### Where bearer tokens live (not in `hop3.toml`)
 
-The bearer token used to *talk to* a server is **not** in `hop3.toml` (it is shared) — nor in `config.toml`. It lives in the per-server **credential store** at `~/.config/hop3-cli/credentials.toml` (file mode `0o600`, keyed by canonical server address), written by `hop3 auth login` / `hop3 init`. The context's `server` (in your `config.toml`) names the address; the CLI looks up that address's token in the credential store at deploy time. The credential store is documented more fully in the [CLI reference](cli.md).
+The bearer token used to *talk to* a server is in neither `hop3.toml` (which is shared) nor `config.toml`. It lives in the per-server **credential store** at `~/.config/hop3-cli/credentials.toml` (file mode `0o600`, keyed by canonical server address), written by `hop3 login` / `hop3 init`. The context's `server` (in your `config.toml`) names the address; the CLI looks up that address's token in the credential store at deploy time. The credential store is documented more fully in the [CLI reference](cli.md).
 
 ### `[port]` - Port Configuration
 
@@ -485,9 +485,9 @@ metrics = 9090
 
 ### `[[ports]]` - Fixed Host Ports (non-HTTP)
 
-For HTTP/HTTPS apps you don't declare ports at all — Hop3 assigns a dynamic `$PORT` and the reverse proxy routes by hostname, so any number of apps share `:80`/`:443`. But non-HTTP services (SMTP, XMPP, RTMP, Matrix federation, …) have no proxy and no virtual hosting: the app binds a fixed host port directly, so **exactly one app can own a given port** on the server.
+HTTP/HTTPS apps declare no ports: Hop3 assigns a dynamic `$PORT` and the reverse proxy routes by hostname, so any number of apps share `:80`/`:443`. Non-HTTP services such as SMTP, XMPP, RTMP and Matrix federation get neither a proxy nor virtual hosting. The app binds a fixed host port directly, so **exactly one app can own a given port** on the server.
 
-Declare those ports with `[[ports]]`. Hop3 records each in a host-wide registry, **refuses a second app that declares the same port — before it builds — with a clear error**, opens the firewall for it on a successful deploy, and closes it on teardown.
+Declare those ports with `[[ports]]`. Hop3 records each in a host-wide registry, refuses, before it builds, a second app that declares the same port, with a clear error, opens the firewall for it on a successful deploy, and closes it on teardown.
 
 ```toml
 [[ports]]
@@ -518,13 +518,13 @@ source = "10.0.0.0/8"   # restrict to a private network instead of the whole int
 
 **Notes:**
 
-- Don't list your HTTP port here — that one is dynamic (`$PORT`) and proxied. `[[ports]]` is only for ports the app binds directly to the host.
+- Don't list your HTTP port here: that one is dynamic (`$PORT`) and proxied. `[[ports]]` is only for ports the app binds directly to the host.
 - Two apps declaring the same `(number, protocol)` cannot coexist (there is no proxy to multiplex them). The second deploy is rejected up front with a message naming the app that already holds the port.
-- Ports `22`, `80`, and `443` are reserved by Hop3 (SSH and the reverse proxy) and rejected — HTTP apps use `$PORT` and are proxied.
-- By default a declared port is opened to the **whole internet** (`source = "any"`). Set `source` to an IPv4 CIDR (e.g. `"10.0.0.0/8"`) to restrict it to a network — useful for an addon or admin port that should only be reachable over a VPN or private link. IPv6 source CIDRs aren't supported yet.
+- Ports `22`, `80`, and `443` are reserved by Hop3 (SSH and the reverse proxy) and rejected. HTTP apps use `$PORT` and are proxied.
+- By default a declared port is opened to the **whole internet** (`source = "any"`). Set `source` to an IPv4 CIDR (e.g. `"10.0.0.0/8"`) to restrict it to a network, for example an addon or admin port that should only be reachable over a VPN or private link. IPv6 source CIDRs aren't supported yet.
 - See what is currently claimed and whether the firewall is actually open with `hop3 ports`.
-- **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host, so for Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
-- Opening the firewall needs the `hop3-rootd` daemon. If it isn't running the port is still *claimed* (so the conflict check works), but it won't be reachable externally until rootd applies the rule.
+- **Native/Nix builds only.** A Docker-deployed app's container does not yet publish declared ports to the host. For Docker apps the port is *claimed* (conflict-checked) but the firewall is not opened. Use a native or Nix build for an app that needs a fixed host port.
+- Opening the firewall needs the `hop3-rootd` daemon. While it is down the port is still *claimed* (so the conflict check works); it becomes reachable externally once rootd applies the rule.
 
 ### `[access]` - Sign-In Gate
 
@@ -540,7 +540,7 @@ public-paths = ["/webhook", "/api/public/.*"]
 - A visitor without a session is sent to the Hop3 sign-in on the server's admin domain, then back to the page they asked for. One sign-in covers every gated app on the server, and signing out of Hop3 signs out of all of them.
 - `role` is checked on every request, so a demoted or disabled account loses access at once. An account below the role gets a 403 page naming the role it needs and the command that grants it.
 - `public-paths` are reachable without signing in: a webhook, or a health check an external monitor calls. They are regexes full-matched against the path, as in `[waf]`. A path Hop3 cannot read unambiguously (dot segments, `//`, encoded slashes, double encoding) is never treated as public.
-- The app receives `X-Hop3-User` and `X-Hop3-Role`, the signed-in account's name and role. The proxy sets them on every request and never takes them from the client, so the app can trust them. The app never receives the gate's own cookie.
+- The app receives `X-Hop3-User` and `X-Hop3-Role`, the signed-in account's name and role. The proxy sets them on every request and never takes them from the client, so the app can trust them. The app does not receive the gate's cookie.
 - `/_hop3/` is reserved on a gated app's hostname: the sign-in hands the session over there.
 
 A deploy with `require = "auth"` is refused when the server has no admin domain, when the app has no hostname, when it sets `[deploy].allow-http` (the gate's cookie only travels over HTTPS), or when the server's proxy cannot enforce the gate. Every request to a gated app asks hop3-server first, so while hop3-server is down, the app is down too.
@@ -559,15 +559,15 @@ ruleset = "owasp-crs"      # managed attack ruleset
 paranoia = 1               # CRS aggressiveness, 1 (default) … 4
 ```
 
-The access policy has exactly two constructs — pick the one that fits your app. Both match the request **path** (no query string) as a Python regex, **full-matched** (`/admin/.*` does not match `/administrator`; write the bare prefix as `/admin(/.*)?`).
+The access policy has exactly two constructs; pick the one that fits your app. Both match the request **path** (no query string) as a Python regex, **full-matched** (`/admin/.*` does not match `/administrator`; write the bare prefix as `/admin(/.*)?`).
 
-**Use case 1 — positive model (default-deny).** List the path patterns the app actually serves; everything else is denied (and counts as a probe for the ban scorer). Best for an app with a known, small URL surface:
+**Use case 1: positive model (default-deny).** List the path patterns the app actually serves; everything else is denied (and counts as a probe for the ban scorer). Best for an app with a known, small URL surface:
 
 ```toml
 allow = ["/", "/static/.*", "/api/.*", "/health"]
 ```
 
-**Use case 2 — conditional access (gate).** Make some paths reachable only from a **named network** (operator-managed; see below). Best for an admin area on an app with too many routes for an allowlist (e.g. WordPress):
+**Use case 2: conditional access (gate).** Make some paths reachable only from a **named network** (operator-managed; see below). It suits an admin area on an app with too many routes for an allowlist (e.g. WordPress):
 
 ```toml
 [[waf.gate]]
@@ -575,7 +575,7 @@ paths   = ["/wp-admin/.*", "/wp-login\\.php"]
 require = "office"          # a named network
 ```
 
-**Tuning — silence CRS false positives**, scoped to paths (omit `paths` to apply globally). Keys are imperatives, so the direction is never ambiguous:
+**Tuning: silence CRS false positives**, scoped to paths (omit `paths` to apply globally). Keys are imperatives, so the direction is unambiguous:
 
 ```toml
 [[waf.tuning]]
@@ -585,7 +585,7 @@ skip_body_inspection = true               # don't scan request bodies on these p
 reason               = "Nextcloud sync clients are not browsers"
 ```
 
-**Bans — cut off repeat offenders.** A source that trips the threshold within the window is denied for the TTL. Operator-named networks are always exempt, so a too-narrow `allow` can't lock out trusted users:
+**Bans: cut off repeat offenders.** A source that trips the threshold within the window is denied for the TTL. Operator-named networks are always exempt, so a too-narrow `allow` can't lock out trusted users:
 
 ```toml
 [waf.bans]
@@ -604,16 +604,16 @@ hop3 network list
 
 **Operating it:**
 
-- `hop3 waf status` — per-app proxy port, supervision, active ban count.
-- `hop3 waf logs [<app>]` — recent blocked-request audit entries.
-- `hop3 waf bans list` / `hop3 waf bans clear <app> [<ip>]` — inspect/lift bans.
+- `hop3 waf status`: per-app proxy port, supervision, active ban count.
+- `hop3 waf logs [<app>]`: recent blocked-request audit entries.
+- `hop3 waf bans list` / `hop3 waf bans clear <app> [<ip>]`: inspect/lift bans.
 
 **Notes:**
 
-- The `waf` engine (`hop3-server[waf]`: LeWAF 0.7.6 + uvicorn, Python 3.12+) is **installed by default** on every server; a WAF-enabled app whose policy can't compile, or whose engine is somehow absent, **fails the deploy loudly** rather than running unprotected.
-- **Fail-closed:** if the WAF proxy is down, the app returns 5xx — it never silently serves unprotected traffic.
+- The `waf` engine (`hop3-server[waf]`: LeWAF 0.7.6 + uvicorn, Python 3.12+) is **installed by default** on every server; a WAF-enabled app whose policy can't compile, or whose engine is missing, **fails the deploy loudly**.
+- **Fail-closed:** if the WAF proxy is down, the app returns 5xx and serves no unprotected traffic.
 - **Bans reconcile automatically:** the server scores each audit stream in-process (~every 60s), banning repeat offenders and expiring elapsed bans; `hop3 waf reconcile-bans` forces a pass immediately.
-- The WAF covers the nginx-proxied HTTP path only. Services on direct host ports (`[[ports]]`) get L3/L4 firewalling, not request inspection.
+- The WAF covers the nginx-proxied HTTP path only: on a Caddy or Traefik server, a deploy that enables `[waf]` is refused. Services on direct host ports (`[[ports]]`) get L3/L4 firewalling only.
 - Roll out with `mode = "detect"` first (logs, doesn't block), watch `hop3 waf logs`, then switch to `mode = "block"`.
 
 ### `[[volumes]]` - Volumes
@@ -633,8 +633,8 @@ type = "scratch"
 
 Hop3 keeps the directory outside `src/` and links `target` to it on every deploy. Two types are implemented:
 
-- **`persist`** (the default) keeps its contents across deploys, under `<app>/volumes/<name>/`, and is included in backups. Use it for anything the app must not lose: uploads, repositories, a SQLite database, configuration the app writes itself.
-- **`scratch`** is writable and disposable, under `<app>/scratch/<name>/`. Every deploy that replaces the source resets it to what the build left at `target`, and it is never backed up. Use it for caches a new version of the app must not inherit (compiled templates, a framework's bootstrap cache).
+- **`persist`** (the default) keeps its contents across deploys, under `<app>/volumes/<name>/`, and is included in backups. Use it for anything the app must not lose: uploads, repositories, a SQLite database, configuration the app writes.
+- **`scratch`** is writable and disposable, under `<app>/scratch/<name>/`. Every deploy that replaces the source resets it to what the build left at `target`. Backups skip it. Use it for caches a new version of the app must not inherit (compiled templates, a framework's bootstrap cache).
 
 **When volumes are linked.** After the build and before the app starts, so the build (a `before-build` that downloads and unpacks the application, say) works on the source tree as it always did, and `before-run` and the app find the volumes in place.
 
@@ -652,12 +652,12 @@ Hop3 keeps the directory outside `src/` and links `target` to it on every deploy
 
 **Notes:**
 
-- `target` must be a **directory** path relative to the app's source tree; absolute paths and `..` are rejected. A file already at `target` is an error — volume targets are directories.
-- Volumes need no `hop3-rootd`: the link lives under the app's own directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
+- `target` must be a **directory** path relative to the app's source tree; absolute paths and `..` are rejected. A file already at `target` is an error, since volume targets are directories.
+- Volumes need no `hop3-rootd`: the link lives under the app's directories. `tmpfs`/`bind` will need privileged mounts and are deferred.
 - `persist` volumes are included in `hop3 backup create` by default; set `[volumes.backup]` `include = false` to opt one out. A `scratch` volume takes no `[volumes.backup]`.
 - Not available for Docker-built apps yet (the deploy refuses them).
 
-**`HOME` and `TMPDIR`.** Your app's processes (its workers, `before-run`, the `[admin]` and `[probe]` `create` commands, `hop3 run` and `hop3 app shell`) run with a `HOME` and a `TMPDIR` of their own, `<app>/home/` and `<app>/tmp/`, never the server's. Both survive a deploy and are removed with the app, but neither is backed up: something the app must keep goes in a `persist` volume, not in `~`. Build steps (`before-build`, the toolchain's install) still run with the server's `HOME`, which is where its toolchains and download caches live.
+**`HOME` and `TMPDIR`.** Your app's processes (its workers, `before-run`, the `[admin]` and `[probe]` `create` commands, `hop3 run` and `hop3 app shell`) run with a private `HOME` and `TMPDIR`, `<app>/home/` and `<app>/tmp/`. Both persist across deploys and are removed with the app, but neither is backed up: data the app must keep goes in a `persist` volume. Build steps (`before-build`, the toolchain's install) still run with the server's `HOME`, which is where its toolchains and download caches live.
 
 ### `[limits]` - Resource Caps
 
@@ -680,12 +680,12 @@ processes = 256     # max processes/threads
 
 **Notes:**
 
-- A declared limit is a **safety guarantee**: if it can't be enforced, the deploy fails loudly rather than running an app that only *looks* capped.
-- Enforcement is implemented for the **Docker builder** (compose `mem_limit` / `cpus` / `pids_limit`). Native/Nix enforcement needs cgroups via `hop3-rootd` and isn't available yet, so declaring `[limits]` on a non-Docker app **aborts the deploy** with a clear message until then.
+- A declared limit is a **safety guarantee**: if it can't be enforced, the deploy fails loudly.
+- Enforcement is implemented for the **Docker builder** (compose `mem_limit` / `cpus` / `pids_limit`) and, for native and Nix apps, through a cgroup v2 leaf that `hop3-rootd` places the app's processes in once it starts. If the cap cannot be applied, the deploy stops the app and fails.
 
 ### `[proxy]` - Transfer Limits and Denied Paths
 
-What the reverse proxy will carry for this app:
+This section sets what the reverse proxy accepts for this app:
 
 ```toml
 [proxy]
@@ -704,11 +704,11 @@ deny = ["/data", "/storage"]  # answered with 404, with everything beneath them
 
 **Notes:**
 
-- An app that accepts file uploads **must** raise `max-body-size`: past the limit the proxy refuses the request before the app sees it, so the app cannot report the error itself. The deploy stays green and the upload never works — declare the size you need.
-- `request-buffering = false` matters for large uploads in its own right: with buffering on, the proxy writes the whole body to its own disk first, so a 2 GB upload needs 2 GB of proxy scratch space and the app's first byte arrives only after the client's last one.
-- This is not a proxy passthrough. Each key renders to the active proxy's own directive — nginx `client_max_body_size` / `proxy_request_buffering`, Caddy `request_body max_size`, Traefik a `buffering` middleware — so the declaration survives a proxy swap.
-- Two proxy-specific caveats: **Caddy** streams request bodies by default and has no buffering switch, so `request-buffering` changes nothing there. **Traefik** can only enforce a body limit *through* its buffering middleware, so an app that asks for both a limit and streaming gets the limit, and the deploy says so.
-- `deny` is for data an app keeps inside the tree it serves, which upstream protects with an `.htaccess` that nginx and Caddy never read. A denied path reaches neither the app nor the disk, and a PHP script under it is refused rather than run. nginx and Caddy honour it; **Traefik** cannot refuse a path, so the deploy of an app that declares one is refused before anything is built.
+- An app that accepts file uploads **must** raise `max-body-size`: past the limit the proxy refuses the request before the app sees it, so the app cannot report the error itself. The deploy stays green and the upload fails, so declare the size you need.
+- `request-buffering = false` matters for large uploads in its own right: with buffering on, the proxy writes the body to its disk first, so a 2 GB upload needs 2 GB of proxy scratch space and the app's first byte arrives only after the client's last one.
+- Each key renders to the active proxy's directive (nginx `client_max_body_size` / `proxy_request_buffering`, Caddy `request_body max_size`, Traefik a `buffering` middleware), so the declaration holds across a proxy swap.
+- Two proxy-specific caveats: **Caddy** streams request bodies by default and has no buffering switch, so `request-buffering` changes nothing there. **Traefik** can only enforce a body limit *through* its buffering middleware. An app that asks for both a limit and streaming gets the limit; the deploy output reports the trade.
+- `deny` is for data an app keeps inside the tree it serves, which upstream protects with an `.htaccess` that nginx and Caddy never read. A denied path reaches neither the app nor the disk. A PHP script under it is refused. nginx and Caddy honour it; **Traefik** cannot refuse a path, so the deploy of an app that declares one is refused before anything is built.
 
 ### `[healthcheck]` - Health Check Configuration
 
@@ -723,15 +723,16 @@ interval = 60                # Check interval in seconds
 ```
 
 **Fields:**
+
 - `path` (string): HTTP path for health checks. Preferred over the legacy `[run].healthcheck`; used by the deploy-time readiness probe.
-- `contains` (string): Expected substring in the health-check response body. When set, the deploy is considered ready only once the endpoint returns a body containing it — a status-only 200 can be a placeholder, an error page, or another app's `default_server` content. The `hop3-test` harness mirrors this as the default validation's body assertion.
+- `contains` (string): Expected substring in the health-check response body. When set, the deploy is considered ready only once the endpoint returns a body containing it. A status-only 200 can be a placeholder, an error page, or another app's `default_server` content. The `hop3-test` harness mirrors this as the default validation's body assertion.
 - `timeout` (number): Timeout for health check requests
 - `interval` (number): How often to run health checks
 - `retries` (number): Number of failed checks before the app is marked unhealthy
 
 ### `[backup]` - Backup Configuration
 
-Backups are created **on demand** with `hop3 backup create --app <app>` and restored with `hop3 backup restore <id>` (where `<id>` is the backup id, not the app). A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit) — so persistent data round-trips through restore.
+Backups are created **on demand** with `hop3 backup create --app <app>` and restored with `hop3 backup restore <id>` (where `<id>` is the backup id). A backup captures the app's source, environment variables, attached addons (e.g. a Postgres dump), the app's `data/` directory, **and every `[[volumes]]` volume** (each archived as its own unit), so persistent data round-trips through restore.
 
 ```toml
 [backup]
@@ -740,10 +741,12 @@ exclude = ["*.tmp", "cache/*", "node_modules"]  # patterns to prune
 ```
 
 **Fields:**
+
 - `exclude` (array): glob patterns pruned from the source and `data/` archives. A pattern matches the full path relative to the archived root (`cache/*`), a basename (`*.tmp`), or any single path segment (`node_modules`). Use it to keep regenerable or bulky files out of backups.
-- `paths` (array): **additional** app-relative directories to archive (into `extra.tar.gz`), beyond the whole source tree captured by default. Resolved relative to the app's source dir and **confined to the app tree** — an entry that escapes it (absolute path or `..`) fails the backup loudly. A declared directory that doesn't exist yet is skipped. Restored back into place on `hop3 backup restore`.
+- `paths` (array): **additional** app-relative directories to archive (into `extra.tar.gz`), beyond the source tree captured by default. Resolved relative to the app's source dir and **confined to the app tree**: an entry that escapes it (absolute path or `..`) fails the backup loudly. A declared directory that doesn't exist yet is skipped. Restored back into place on `hop3 backup restore`.
 
 **Notes:**
+
 - A `[[volumes]]` volume can opt out of backup with `[volumes.backup]` `include = false`.
 - Automated scheduling and retention are not implemented yet; run `hop3 backup create` from a cron job if you need a schedule.
 
@@ -771,7 +774,7 @@ type = "s3"
 
 | Field | Type | Required | Description |
 |-------|------|----------|-------------|
-| `type` | string | yes | Addon type: `postgres`, `mysql`, `redis`, `s3` |
+| `type` | string | yes | Addon type: `postgres`, `mysql`, `redis`, `s3`, `email` |
 | `name` | string | no | Instance name; defaults to the app name. Multiple addons of the same type on one app should set distinct names |
 
 **Addon-specific fields:**
@@ -780,7 +783,7 @@ type = "s3"
 
 | Field | Type | Description |
 |-------|------|-------------|
-| `extensions` | `list[string]` | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["postgis", "pgvector", "bloom"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and do not need to be listed here. The platform enforces an allow-list — see `docs/src/guides/addons.md` for the default set, the operator override (`HOP3_EXTRA_PG_EXTENSIONS`), and the hard-deny set. |
+| `extensions` | `list[string]` | Non-trusted PostgreSQL extensions to install as superuser (e.g. `["postgis", "pgvector", "bloom"]`). Trusted extensions (`pg_trgm`, `uuid-ossp`, etc.) can be installed by the per-app user via migrations and need no entry here. The platform enforces an allow-list; see `docs/src/guides/addons.md` for the default set, the operator override (`HOP3_EXTRA_PG_EXTENSIONS`), and the hard-deny set. |
 
 Example:
 
@@ -803,7 +806,7 @@ For CLI-level addon management (`addon create`, `addon attach`, `addon detach`, 
 
 ### `[test]` - Test Harness Metadata
 
-Optional section for the `hop3-test` framework. Holds fields that are test-specific; everything else (app name, description, addons, healthcheck path) is derived from the rest of `hop3.toml`. Replaces the separate `test.toml` file (removed 2026-04-21 — one source of truth per app).
+This optional section configures the `hop3-test` framework with test-specific fields; everything else (app name, description, addons, healthcheck path) is derived from the rest of `hop3.toml`. It replaces the separate `test.toml` file (removed 2026-04-21), so each app has one source of truth.
 
 ```toml
 [test]
@@ -828,7 +831,7 @@ status = 200
 | Field | Type | Description |
 |-------|------|-------------|
 | `priority` | string | `P0`, `P1`, or `P2`. Determines which test profile (`dev`, `ci`, `release`) runs this app |
-| `tier` | string | `fast`, `medium`, `slow`, or `very-slow`. **Report label only** — no longer drives any timeout (all builds + deploys share a single 30-minute budget). |
+| `tier` | string | `fast`, `medium`, `slow`, or `very-slow`. **Report label only**; it drives no timeout (all builds + deploys share a single 30-minute budget). |
 | `targets` | array | Which `hop3-test` targets support this app: `"docker"`, `"remote"` |
 | `author` | string | Optional documentation |
 | `covers` | array | Free-form tags for what the test exercises |
@@ -837,11 +840,11 @@ status = 200
 **Notes:**
 
 - The `[test]` section is entirely optional. When absent, `hop3-test` uses sensible defaults (priority P1, single healthcheck-path HTTP probe at status 200).
-- **Derived automatically** from the rest of `hop3.toml` — do not duplicate in `[test]`:
-  - Test name: from `[metadata].id` or directory path.
-  - Category: from `[build].builder` (`"nix"` → `nix-app`, `"docker"` → `docker-app`, `"local"` → `deployment`).
-  - Required services: from `[[addons]]` plus implicit `nix` / `docker` based on builder.
-  - Base healthcheck path: from `[healthcheck].path`.
+- **Derived automatically** from the rest of `hop3.toml`, so do not duplicate them in `[test]`:
+    - Test name: from `[metadata].id` or directory path.
+    - Category: from `[build].builder` (`"nix"` → `nix-app`, `"docker"` → `docker-app`, `"local"` → `deployment`).
+    - Required services: from `[[addons]]` plus implicit `nix` / `docker` based on builder.
+    - Base healthcheck path: from `[healthcheck].path`.
 
 ## Command Format
 
@@ -900,7 +903,6 @@ version = "1.0.0"
 
 [build]
 before-build = ["npm ci", "npm run build"]
-test = "npm test"
 
 [run]
 start = "node dist/server.js"
@@ -913,25 +915,25 @@ web = 3000
 type = "postgres"
 ```
 
-## `[nix]` — Template-Based Nix Builds
+## `[nix]` - Template-Based Nix Builds
 
-When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression automatically from a `[nix]` section instead of requiring a hand-crafted `hop3.nix` file. This removes the Nix learning curve for most deployments.
+When `builder = "nix"` is set in `[build]`, Hop3 can generate a Nix expression automatically from a `[nix]` section, so no hand-crafted `hop3.nix` file is needed. This removes the Nix learning curve for most deployments.
 
 ### How It Works
 
 1. If a `hop3.nix` file exists in the source directory, it is used directly (hand-crafted mode).
-2. If no `hop3.nix` exists but `[nix].template` is set, Hop3 generates one at build time from the template.
-3. Run `hop3 nix eject --app <app>` to materialize the generated file for manual customization.
+2. If `[nix].template` is set and there is no `hop3.nix`, Hop3 generates the expression (`.hop3-generated.nix`) at build time from the template. A build refuses an app that has both a `hop3.nix` and a `[nix].template`.
+3. Run `hop3 nix eject --app <app> > hop3.nix` to print the generated expression for manual customization, then remove the `[nix]` section.
 
 ### Template Types
 
-Eleven templates are available. Prefer the higher tiers when possible — see [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
+Eleven templates are available. Prefer the higher tiers when possible; see the [Nix reference](nix.md#reproducibility-tiers) for the reproducibility implications.
 
 | Template | Use case | Tier |
 |----------|----------|------|
-| `nixpkgs-wrapper` | Apps already packaged in nixpkgs (best — multi-arch, source-built) | 1 |
+| `nixpkgs-wrapper` | Apps already packaged in nixpkgs (best: multi-arch, source-built) | 1 |
 | `python-venv` | Python apps installed via pip into a virtualenv | 2 |
-| `php-app` | PHP apps served with `php -S` or `artisan serve` | 2 |
+| `php-app` | PHP apps served by a php-fpm pool (or `php -S` / `artisan serve`, on request) | 2 |
 | `go-source` | Go apps compiled from source with `buildGoModule` (fetched, or the recipe directory itself) | 2 |
 | `ruby-bundler` | Ruby apps using `bundlerEnv` from `gemset.nix` | 2 |
 | `node-pnpm-install` | Node.js apps built from a committed `pnpm-lock.yaml` | 2 |
@@ -941,11 +943,11 @@ Eleven templates are available. Prefer the higher tiers when possible — see [N
 | `prebuilt-binary` | Pre-compiled single binary from upstream releases | 3 |
 | `prebuilt-archive` | Pre-compiled archive with multiple files | 3 |
 
-**Tier 1 = packaged by nixpkgs** (use when available: multi-arch and maintained upstream). **Tier 2 = built from source by Hop3** against a committed lockfile — equally sealed and reproducible, but the lockfile is yours to refresh. **Tier 3 = upstream artefact fetched by digest** — reproducible but not auditable, so use it when upstream ships no buildable source, or for software distributed only as a binary.
+**Tier 1 = packaged by nixpkgs** (use when available: multi-arch and maintained upstream). **Tier 2 = built from source by Hop3** against a committed lockfile: equally sealed and reproducible, though you refresh the lockfile yourself. **Tier 3 = upstream artefact fetched by digest**: reproducible but not auditable, so use it when upstream ships no buildable source, or for software distributed only as a binary.
 
 ### Fetching an App, or Building Your Own
 
-Most templates *fetch* the application — `url` names a release tarball, `nixpkgs-package` an attribute, `npm-package` a registry package. Omit the source and the recipe directory itself is the application, which is the git-push case: your own code, built by Nix.
+Most templates fetch the application: `url` names a release tarball, `nixpkgs-package` an attribute, `npm-package` a registry package. Omit the source and the recipe directory is the application, which is the git-push case: your code, built by Nix.
 
 Supported by `go-source`, `ruby-bundler` and `php-app`, which build the directory when the source is omitted, and by `python-venv` and `node-pnpm-install`, which say so explicitly (`pip-local-source = true`, `node-local-source = true`): neither ever reads a `url`, so its absence means nothing there. For `go-source`, a module that requires nothing declares `go-vendor-hash = "none"` (there is no dependency set to pin); a module with dependencies still needs a real hash. A local `php-app` refuses `needs-composer` and `needs-writable-dir`. The tutorial [Your Own Flask App, Built Hermetically by Nix](../tutorials/nix/nix-gen-flask.md) walks through the Python case.
 
@@ -958,7 +960,7 @@ go-vendor-hash = "none"      # no `require` block in go.mod
 
 ### Keys Belong to One Template
 
-Each key below is claimed either by the shared core or by exactly one template. A key that no template claims (usually a typo), or that belongs to a template other than the one selected, is a **build error** rather than something quietly ignored:
+Each key below is claimed either by the shared core or by exactly one template. A key that no template claims (usually a typo), or that belongs to a template other than the one selected, is a **build error**:
 
 ```
 [nix].gradle-jar-glob belongs to the java-gradle template(s), not to 'php-app'.
@@ -982,7 +984,7 @@ exec-args = ["serve"]          # Arguments appended to exec
 extra-paths = ["${php}/bin"]   # PATH entries for runtime.json
 ```
 
-A source hosted on GitHub is named by repository and ref instead of by URL. The hash is that of the unpacked tree, which GitHub keeps stable; the bytes of its generated archives are not, and a `url` pointing at `github.com/<owner>/<repo>/archive/…` is refused for that reason:
+A source hosted on GitHub is named by repository and ref. The hash is that of the unpacked tree, which GitHub keeps stable. The bytes of its generated archives change, so a `url` pointing at `github.com/<owner>/<repo>/archive/…` is refused:
 
 ```toml
 [nix]
@@ -991,7 +993,7 @@ rev = "v${version}"            # a tag or a commit
 hash = "sha256-..."            # SRI hash of the unpacked tree (a failed build prints it)
 ```
 
-A release asset (`github.com/<owner>/<repo>/releases/download/…`) is a file upstream uploaded, not a generated archive, and stays a `url`.
+A release asset (`github.com/<owner>/<repo>/releases/download/…`) is a file upstream uploaded. Its bytes do not change, so it stays a `url`.
 
 ### Wrapper Script Fields
 
@@ -1015,7 +1017,7 @@ value = "postgres://${PGUSER}@${PGHOST}:${PGPORT}/${PGDATABASE}"
 
 ### Config File Generation
 
-Generate config files with the app's environment substituted. They are written once per deploy, before the workers start and before `[run] before-run`, and then `[nix] pre-exec` runs (a schema migration, a first-run install): both are the build's own before-run step, not part of the wrapper's start, so they never count against `start-timeout`. A failing step fails the deploy. The files land in `src/`, which the next deploy replaces, so they are rewritten on every deploy: anything the application must keep goes in a `[[volumes]]` entry.
+Generate config files with the app's environment substituted. They are written once per deploy, before the workers start and before `[run] before-run`, and then `[nix] pre-exec` runs (a schema migration, a first-run install): both are the build's own before-run step, so they do not count against `start-timeout`. A failing step fails the deploy. The files land in `src/`, which the next deploy replaces, so they are rewritten on every deploy: anything the application must keep goes in a `[[volumes]]` entry.
 
 ```toml
 [[nix.config-files]]
@@ -1077,7 +1079,7 @@ exec-target = "gunicorn"                # a script in the venv's bin
 exec-args = ["app:app", "--bind", "0.0.0.0:${PORT:-8080}"]
 ```
 
-A package that ships per-architecture wheels makes the downloaded set, and `pip-deps-hash`, depend on the build machine. Listing it in `pip-source-packages` fetches its source distribution instead, the same bytes everywhere, so one hash holds on every architecture.
+A package that ships per-architecture wheels makes the downloaded set, and `pip-deps-hash`, depend on the build machine. Listing it in `pip-source-packages` fetches its source distribution instead, the same bytes everywhere, so one hash fits all architectures.
 
 ### Node-Specific Fields
 
@@ -1099,9 +1101,9 @@ runtime-package = "nodejs_22"
 
 ### Ruby-Specific Fields
 
-The gem set comes from a committed `Gemfile`, `Gemfile.lock` and `gemset.nix` (generated by `bundix`) beside `hop3.toml`, resolved with `BUNDLE_FORCE_RUBY_PLATFORM=true` so every gem is built from source.
+The gem set comes from a committed `Gemfile`, `Gemfile.lock` and `gemset.nix` (generated by `bundix`) beside `hop3.toml`, resolved with `BUNDLE_FORCE_RUBY_PLATFORM=true` so gems are built from source.
 
-A gem with a Rust extension (commonmarker 2, needed by Redmine 6) runs `cargo build` as it compiles, and the build sandbox has no network. List each such gem with the hash of its vendored crates; a build without it fails and prints the value as `got:`:
+A gem with a Rust extension (commonmarker 2, needed by Redmine 6) runs `cargo build` as it compiles. The build sandbox has no network. List each such gem with the hash of its vendored crates; a build without it fails and prints the value as `got:`:
 
 ```toml
 [nix]
@@ -1109,7 +1111,7 @@ template = "ruby-bundler"
 gem-cargo-hashes = { commonmarker = "sha256-..." }
 ```
 
-### Complete Example (Gitea via nixpkgs-wrapper — Tier 1)
+### Complete Example (Gitea via nixpkgs-wrapper, Tier 1)
 
 This is the recommended pattern: wrap a nixpkgs source build with a startup script that generates the app.ini config from environment variables.
 

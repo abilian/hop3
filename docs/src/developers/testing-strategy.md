@@ -76,6 +76,7 @@ A test's layer is decided by **what it needs**: Docker, root, or host-mutation. 
 **Purpose**: Test individual functions and classes in complete isolation.
 
 **Characteristics**:
+
 - Fast execution (< 1 second total)
 - No external dependencies (uses in-memory SQLite for database)
 - Test business logic and service behavior
@@ -108,6 +109,7 @@ pytest packages/hop3-server/tests/a_unit/ -v
 **Purpose**: Test multiple components working together within subsystems.
 
 **Characteristics**:
+
 - Fast execution (~10 seconds)
 - Uses real database (in-memory SQLite)
 - Uses Litestar TestClient for HTTP
@@ -115,6 +117,7 @@ pytest packages/hop3-server/tests/a_unit/ -v
 - Tests component interactions
 
 **Coverage**:
+
 - Authentication commands (register, login, whoami, logout)
 - RPC endpoint security
 - Command authentication and authorization
@@ -155,6 +158,7 @@ pytest packages/hop3-server/tests/b_integration/ -v
 **Purpose**: Test complete workflows in a production-like Docker environment with real deployments.
 
 **Characteristics**:
+
 - Slow execution (real Docker deploys, includes image build)
 - Docker containers with the full hop3 stack (server, SSH, HTTP, apps)
 - Real deployment workflows (backups, git-push, tarball deploy)
@@ -162,6 +166,7 @@ pytest packages/hop3-server/tests/b_integration/ -v
 - `HOP3_UNSAFE=true` configured in the Dockerfile
 
 **Coverage**:
+
 - App deployment via tarball and git hook
 - App lifecycle (deploy, list, destroy)
 - Python Flask/Django app deployment
@@ -270,7 +275,7 @@ Everything else (name, category, services, deployment type) is derived automatic
 
 #### Legacy `test.toml` Configuration
 
-This format is for Procfile-only apps, demos, tutorials, and negative-test cases. It carries the same fields, wrapped in a top-level `[test]`:
+This format is for Procfile-only apps, demos, tutorials, and negative-test cases. It takes the same fields, wrapped in a top-level `[test]`:
 
 ```toml
 [test]
@@ -333,6 +338,7 @@ hop3-test run --docker --reuse <app-path>    # Reuse the running container
 ```
 
 **What happens**:
+
 1. Starts a Docker container (default image `debian:bookworm`)
 2. Runs `hop3-deploy-server --docker --from local` to install Hop3
 3. Starts services (nginx, PostgreSQL, uWSGI emperor, hop3-server)
@@ -460,6 +466,7 @@ test-logs/
 ```
 
 The diagnostics cover these phases:
+
 - `setup` - Target initialization
 - `deploy` - Deployment command
 - `health_check` - Health verification
@@ -704,6 +711,7 @@ hop3-test run --docker --clean
 ### Authentication Issues
 
 For Docker tests, `HOP3_UNSAFE=true` is set in the container. If tests fail with auth errors:
+
 1. Check the Dockerfile includes `HOP3_UNSAFE=true`
 2. Check the container started correctly
 
@@ -788,7 +796,7 @@ hop3-test run --host server.example.com --reuse
 
 The Hetzner server (`HETZNER_SERVER_ID`, a dedicated throwaway box) and API token
 (`HETZNER_API_TOKEN`) come from the environment. A rebuild wipes the box, so it
-refuses any server that does not carry the Hetzner label `hop3-throwaway=true`;
+refuses any server without the Hetzner label `hop3-throwaway=true`;
 set the label once, on that server only (`hcloud server add-label <id>
 hop3-throwaway=true`), and never on a box anyone deploys to. pytest strips both
 variables for the whole session: provisioning is a CLI operation, never a test.

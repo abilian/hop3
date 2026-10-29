@@ -14,6 +14,10 @@ icon: lucide/cloud
 !!! warning "Development Status"
     Hop3 is beta-quality software: its architecture and APIs can still change between releases.
 
+## In six slides
+
+<div class="deck" data-pdf="pdf/hop3.pdf"><a href="pdf/hop3.pdf">Hop3, in six slides (PDF)</a></div>
+
 ## Quick Links
 
 <div class="grid cards" markdown>
@@ -44,23 +48,25 @@ Maintain complete control over your data and infrastructure. Deploy on your own 
 
 ### Simple by Design
 
-Deploy applications with `git push` simplicity, using familiar toolchains (Python, Node.js, Go, Ruby, Rust, and more). Kubernetes is not involved, and Docker is optional: native, Nix, and Docker builds are all supported.
+Deploy applications with `git push` simplicity, using familiar toolchains (Python, Node.js, Go, Ruby, Rust, and more). Kubernetes is not involved. Docker is optional: apps build natively, with Nix or with Docker.
 
 ### Secure by Default
 
 - Automatic HTTPS with Let's Encrypt
 - Privilege separation: the server runs unprivileged, and root-level actions go through a narrow, audited daemon
-- Primitives for GDPR and CRA compliance: encryption at rest, audit logging, backups
-- Continuous security review
+- A role for each account, checked on every command and dashboard page
+- A web application firewall ([LeWAF](reference/config.md#waf-web-application-firewall-layer-7), the OWASP Core Rule Set) in front of any app that declares one
+- Addon credentials encrypted in the server's database
 
 ### Sustainable Computing
 
-Lightweight architecture optimized for efficiency. Run multiple applications on modest hardware with minimal resource overhead.
+Hop3 itself needs few resources, so several applications run side by side on modest hardware.
 
 ## Features
 
 === "Application Deployment"
 
+    - **App catalog**: Install Nextcloud, Forgejo, WordPress and other ready-made apps from the dashboard or with `hop3 catalog install` ([guide](guides/app-catalog.md))
     - **Git-based deploys**: Push to deploy your applications
     - **Multiple languages**: Python, Node.js, Go, Ruby, Rust, PHP, Java, Elixir, Clojure, .NET, plus static sites
     - **Multiple builders**: Native toolchains, Nix, or Docker
@@ -71,22 +77,25 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
     - **Service addons**: PostgreSQL, MySQL, Redis, S3/MinIO object storage, email/SMTP
     - **Backup and restore**: Snapshot and restore app data and addons
     - **SSL certificates**: Let's Encrypt integration
-    - **Reverse proxy**: Nginx (Caddy and Traefik are experimental)
+    - **Reverse proxy**: Nginx, Caddy or Traefik. Traefik serves no static files or PHP. The web application firewall and the sign-in gate need nginx
 
 === "Administration"
 
     - **Web dashboard**: Monitor and manage your apps from the browser
     - **CLI tools**: Full command-line interface
     - **API access**: JSON-RPC API for automation
-    - **Multi-user**: Named accounts, with admin and non-admin roles
+    - **Multi-user**: Named accounts, each with a role: `admin`, `deployer`, `viewer` or `member`
+    - **Sign-in gate**: [`[access]`](reference/config.md#access-sign-in-gate) puts an app behind a Hop3 sign-in
 
 ## Getting Started
 
 1. **Install the CLI** on your local machine:
 
     ```bash
-    curl -LsSf https://hop3.cloud/install-cli.py | python3 -
+    uv tool install hop3
     ```
+
+    Without [uv](https://docs.astral.sh/uv/): `curl -LsSf https://hop3.cloud/install-cli.py | python3 -`.
 
 2. **Install the server** on your deployment target:
 
@@ -94,16 +103,17 @@ Lightweight architecture optimized for efficiency. Run multiple applications on 
     curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
     ```
 
-3. **Point the CLI at your server and log in**:
+3. **Sign in to your server** over SSH, from your own machine:
 
     ```bash
-    hop3 init  --ssh root@hop3.example.com
-    hop3 auth login --ssh root@hop3.example.com
+    hop3 login root@hop3.example.com
     ```
 
-4. **Deploy your first app**, from its source directory:
+4. **Deploy your first app**, from its source directory. The first time, bind the checkout to the server you signed in to:
 
     ```bash
+    cd myapp
+    hop3 context use default
     hop3 deploy --app myapp
     ```
 

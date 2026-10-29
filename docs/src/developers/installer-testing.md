@@ -52,7 +52,7 @@ These options are added by the E2E suite's `conftest.py` and apply to the whole 
 | Option | Description |
 |--------|-------------|
 | `--docker` | Enable the Docker backend (the default with no flags) |
-| `--ssh-host HOST` | Enable the SSH backend against `HOST` in `user@hostname` form (the only way to run against a real box) |
+| `--ssh-host HOST` | Enable the SSH backend against `HOST` in `user@hostname` form (the only way to target a real box) |
 | `--vagrant` | Enable the Vagrant backend (slow; starts VMs) |
 
 ## Docker Backend
@@ -154,7 +154,7 @@ The suite passes other installer flags to keep runs fast and offline:
 
 ## Markers
 
-Installer E2E tests carry the `e2e` marker (and `needs_docker` when stamped from the `c_e2e` layer; see the root `conftest.py`). The heavier systemd/service and deploy tests add the `slow` marker:
+Installer E2E tests are marked `e2e` (and `needs_docker` when stamped from the `c_e2e` layer; see the root `conftest.py`). The heavier systemd/service and deploy tests add the `slow` marker:
 
 ```bash
 # Run only the faster E2E tests, skipping the slow service/deploy ones

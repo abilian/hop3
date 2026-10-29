@@ -51,7 +51,7 @@ hop3 addon attach mydb --app myapp
 
 ### Automatic SSL/TLS
 
-Free SSL certificates via Let's Encrypt with automatic renewal:
+Free SSL certificates via Let's Encrypt with automatic renewal, once the server uses the certbot engine (`--acme-email` at install; it needs nginx). Otherwise each app gets a self-signed certificate:
 
 - Automatic provisioning when HOST_NAME is configured
 - Automatic renewal before expiration
@@ -59,7 +59,7 @@ Free SSL certificates via Let's Encrypt with automatic renewal:
 
 ### Reverse Proxy
 
-Hop3 configures Nginx automatically for each application:
+Hop3 configures the server's reverse proxy (nginx by default, or Caddy or Traefik) automatically for each application:
 
 - HTTP/HTTPS routing
 - WebSocket support
@@ -200,7 +200,7 @@ hop3 system status
 ```
 
 Checks:
-- Core services (hop3-server, nginx, uwsgi)
+- Core services (hop3-server, the reverse proxy, uwsgi)
 - Database addons
 - Disk space
 - SSL certificates

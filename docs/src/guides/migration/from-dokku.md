@@ -1,8 +1,8 @@
 # Migrating from Dokku to Hop3
 
-If you run Dokku, you already believe in the core idea behind Hop3: deploy with `git push`, describe your app with a `Procfile`, and keep the whole thing on a server you control. Of all the platforms you could migrate from, Dokku is the closest cousin. You swap one self-hosted PaaS for another; most of what you know carries straight over.
+If you run Dokku, you already believe in the core idea behind Hop3: deploy with `git push`, describe your app with a `Procfile`, and keep the whole thing on a server you control. Of all the platforms you could migrate from, Dokku is the closest cousin. You swap one self-hosted PaaS for another; most of what you know still applies.
 
-So why move at all? The usual reasons: you want Hop3's declarative `hop3.toml` instead of remembering a chain of `dokku ...:set` commands, you want native multi-language toolchains without thinking about buildpacks or maintaining a Dockerfile, or you want Hop3's broader platform direction (built-in addons, reverse-proxy choice, backups). This guide walks an existing Dokku app over to Hop3, primitive by primitive.
+So why move at all? Hop3 replaces a remembered chain of `dokku ...:set` commands with a declarative `hop3.toml`. It builds with native multi-language toolchains, so you stop thinking about buildpacks or maintaining a Dockerfile. Its platform direction is also broader: built-in addons, reverse-proxy choice, backups. This guide walks an existing Dokku app over to Hop3, primitive by primitive.
 
 ## What's Similar
 
@@ -27,17 +27,17 @@ The one syntactic shift to internalize: Dokku uses a colon and a positional app 
 |-------|------|
 | Imperative, per-command config | Declarative `hop3.toml` |
 | Buildpacks / Dockerfile / herokuish | Native toolchains, Docker builder, or Nix builder |
-| Large plugin ecosystem (many datastores) | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
+| Large plugin ecosystem (many datastores) | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Manual scaling | Manual scaling |
 | Single server | Single server |
 
 Two conceptual changes go deeper than the syntax:
 
-**Declarative config.** In Dokku, your app's configuration lives as accumulated state on the server: every `config:set`, every `domains:add`, every `ps:scale` is a command you ran once and have to remember. In Hop3 the same facts live in a `hop3.toml` checked into your repo. The server reads it on deploy. Your config becomes reviewable, diffable, and reproducible: re-deploying to a fresh server reproduces the app, instead of requiring you to replay a runbook of commands.
+**Declarative config.** In Dokku, your app's configuration lives as accumulated state on the server: every `config:set`, every `domains:add`, every `ps:scale` is a command you ran once and have to remember. In Hop3 the same facts live in a `hop3.toml` checked into your repo. The server reads it on deploy. Your config becomes reviewable, diffable, and reproducible: re-deploying to a fresh server reproduces the app.
 
 **Native toolchains instead of buildpacks.** Dokku builds with herokuish buildpacks by default, or a Dockerfile if you provide one. Hop3 auto-detects the language and uses a native toolchain (Python, Node.js, Go, Ruby, Rust, Java, PHP, Elixir, .NET). If you've been maintaining a Dockerfile purely to get a build, you can usually drop it. If you prefer to keep your Dockerfile, Hop3 has a Docker builder plus a Nix builder if you want fully reproducible builds.
 
-One caveat: Dokku's plugin ecosystem is large, and people lean on it for datastores Hop3 doesn't ship (MongoDB, RabbitMQ, Elasticsearch, and more). Hop3's built-in addons are PostgreSQL, MySQL, Redis, and S3/MinIO. If your app depends on something outside that set, see [Data and Addon Migration](#step-4-migrate-your-data-and-addons) below: you keep it as an external service and point an env var at it.
+Many Dokku apps lean on its large plugin ecosystem for datastores Hop3 doesn't ship (MongoDB, RabbitMQ, Elasticsearch, and more). Hop3's built-in addons are PostgreSQL, MySQL, Redis, and S3 (Garage). If your app depends on something outside that set, see [Data and Addon Migration](#step-4-migrate-your-data-and-addons) below: you keep it as an external service and point an env var at it.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -51,15 +51,16 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
-Connect the CLI to your server. On a first install this also creates the
-admin account and stores your API token:
+Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 You can run Hop3 on the same box as Dokku during the migration, but the cleaner path is a fresh server: that way the two never contend for ports 80/443, so you can cut over with DNS when you're ready.
 
@@ -124,7 +125,7 @@ list = ["your-app.example.com"]
 path = "/up"
 ```
 
-A few notes on the translation:
+Each part of the file maps onto something you did in Dokku:
 
 - Your `Procfile`'s `web:` process is detected and run automatically; declare extra worker processes under `[run.workers]` (the equivalent of the non-`web` lines in your Procfile or your `ps:scale` workers).
 - `before-run` replaces the release-phase command you'd run by hand or in a Dokku `app.json` predeploy hook: migrations, asset precompiles, and the like.
@@ -161,13 +162,9 @@ Now move your data. Export from Dokku's database container and import on the Hop
 # On the Dokku host: dump the database
 dokku postgres:export your-app-db > your-app.dump
 
-# Copy the dump to the Hop3 server
-scp your-app.dump root@your-server.com:/tmp/
-
-# SSH to the Hop3 server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/your-app.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f your-app.sql your-app.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < your-app.sql
 ```
 
 If your Dokku app used Postgres extensions (for example `pg_stat_statements` or `pgcrypto`), enable them through the addon command (no manual `psql` needed):
@@ -187,7 +184,7 @@ hop3 addon create redis your-app-cache
 hop3 addon attach your-app-cache --app your-app
 ```
 
-Most Redis data is cache and can start fresh. If you do need to carry it over, export from Dokku's redis container and reload it on the new server; for the common case, attaching a fresh Redis addon and letting it warm up is simpler.
+Most Redis data is cache and can start fresh. If you do need it, export from Dokku's redis container and reload it on the new server; for the common case, attaching a fresh Redis addon and letting it warm up is simpler.
 
 ### MySQL and object storage
 
@@ -311,7 +308,7 @@ You gain a declarative, version-controlled description of each app, with no more
 
 You trade Dokku's large plugin ecosystem. If you relied on community plugins for exotic datastores, you'll run those as external services and point env vars at them. For the common stack (a web app, a Postgres database, maybe Redis and object storage), Hop3 covers it natively.
 
-Setup effort stays roughly level; the configuration becomes easier to express. Be clear-eyed about the gaps, though: like Dokku, Hop3 is a single-server platform, so there is no multi-region or cluster. Scaling is manual, via `hop3 ps scale`, and there are no review apps or deployment pipelines. If you came to Dokku precisely because you didn't want any of that, you'll feel at home.
+Setup effort stays roughly level; the configuration becomes easier to express. Be clear-eyed about the gaps, though: like Dokku, Hop3 is a single-server platform, so there is no multi-region or cluster. Scaling is manual, via `hop3 ps scale`, and there are no review apps or deployment pipelines. If you came to Dokku because you didn't want any of that, you'll feel at home.
 
 ## Rollback Plan
 

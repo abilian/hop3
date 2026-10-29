@@ -34,11 +34,11 @@ Then bake the **public** key into the build that your nodes run:
   non-comment line; the full file text also works).
 - Commit and release. From then on, those nodes verify catalogs against this key.
 
-**Key custody.** Losing the private key forces a rotation (§5). A *leaked* key is a break-glass event: rotate **and** ship a release that drops the compromised key from the trust set. Keep the `.key` offline (hardware token or sealed secret), never commit it, never copy it to a node.
+**Key custody.** Losing the private key forces a rotation (§5). A *leaked* key is a break-glass event: rotate **and** ship a release that drops the compromised key from the trust set. Keep the `.key` offline (hardware token or sealed secret), out of git and off every node.
 
 ## 2. Build and sign (each release): `make build`
 
-Content is one directory per app under `apps/<status>/<app-id>/`. The directory naming the status records it ([ADR 059](adrs/059-catalog-maturity-status.md)). Each app directory holds at least a `hop3.toml`, plus an optional `readme.md` and a raster `icon.png`/`icon.webp`. Publish walks the hierarchy and emits a **flat** `<app-id>/…` tree, so the signed artifact's shape is unchanged. A recipe whose status is not publishable is refused with a message, never dropped in passing. `make build` validates then signs:
+Content is one directory per app under `apps/<status>/<app-id>/`. The directory naming the status records it ([ADR 059](adrs/059-catalog-maturity-status.md)). Each app directory holds at least a `hop3.toml`, plus an optional `readme.md` and a raster `icon.png`/`icon.webp`. Publish walks the hierarchy and emits a **flat** `<app-id>/…` tree, so the signed artifact's shape is unchanged. A recipe whose status is not publishable is refused with a message. `make build` validates then signs:
 
 ```bash
 make build                       # = validate, then:
@@ -60,7 +60,7 @@ make verify        # = verify_minisign(dist/catalog.tar.gz, .minisig, keys/catal
 
 ## 4. Deploy the site: `make stage` + `make deploy`
 
-`apps.hop3.cloud` is itself a **Hop3-deployed static app**, and this repo *is* that app: a `hop3.toml` (a `static` app bound to host `apps.hop3.cloud`) plus a `public/` web root. `make stage` copies the signed artifacts into `public/catalog/v1/`, named after the index format they carry, and into `public/catalog/` for servers before 0.8; then `make deploy` ships the site with `hop3`:
+`apps.hop3.cloud` is itself a **Hop3-deployed static app**, deployed from this repo: a `hop3.toml` (a `static` app bound to host `apps.hop3.cloud`) plus a `public/` web root. `make stage` copies the signed artifacts into `public/catalog/v1/`, named after their index format, and into `public/catalog/` for servers before 0.8; then `make deploy` ships the site with `hop3`:
 
 ```bash
 make stage                     # cp dist/catalog.tar.gz{,.minisig} → public/catalog/v1/ and public/catalog/
@@ -69,7 +69,7 @@ make deploy CONTEXT=<ctx>      # hop3 --context <ctx> deploy --app apps-hop3-clo
 
 so nodes fetch them at `https://apps.hop3.cloud/catalog/v1/catalog.tar.gz` (+ `.minisig`). A server refuses an index whose `format` it does not read, and keeps the catalog it holds; a new format is published under its own `v<N>/` beside the old one.
 
-**The signing key never ships.** `hop3 deploy` uploads a tar of the working directory, and this repo also holds `keys/catalog.key`. An allowlist guards against that, declared as `[build].ignore` in the site's own `hop3.toml`:
+**The signing key never ships.** `hop3 deploy` uploads a tar of the working directory, which in this repo includes `keys/catalog.key`. An allowlist declared as `[build].ignore` in the site's own `hop3.toml` keeps it out:
 
 ```toml
 ignore = ["**", "!/public/", "!/public/**", "!/hop3.toml"]

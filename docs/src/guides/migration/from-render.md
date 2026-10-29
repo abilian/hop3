@@ -1,6 +1,6 @@
 # Migrating from Render to Hop3
 
-Render made the right first impression: connect a GitHub repo, get a `render.yaml`, push, and your service is live. The trouble usually starts later: the free tier shrank, and free web services spin down and cold-start on the next request. As soon as you add a paid instance plus a managed Postgres plus a Redis, the monthly bill creeps past what a single VPS costs outright. If what you want is a predictable fixed-cost box that you control, Hop3 gives you the same git-push, declarative-config, managed-addons experience on your own server. This guide helps you migrate a Render service to Hop3.
+Render made the right first impression: connect a GitHub repo, get a `render.yaml`, push, and your service is live. The trouble usually starts later: the free tier shrank, and free web services spin down and cold-start on the next request. As soon as you add a paid instance plus a managed Postgres plus a Redis, the monthly bill creeps past what a single VPS costs outright. If you want a predictable fixed-cost box that you control, Hop3 gives you the same git-push, declarative-config, managed-addons experience on it. This guide helps you migrate a Render service to Hop3.
 
 ## What's Similar
 
@@ -14,9 +14,9 @@ Hop3 and Render share the same shape: a declarative file in the repo, addons for
 | Managed Postgres / Redis | `hop3 addon create` |
 | Env groups | `[env]` |
 
-The mental model carries over. A Render *service* is a Hop3 *app*. The build and start commands you set in the dashboard (or in `render.yaml`) become the `[build]` and `[run]` sections of `hop3.toml`. Your env group becomes `[env]`.
+The mental model stays the same. A Render *service* is a Hop3 *app*. The build and start commands you set in the dashboard (or in `render.yaml`) become the `[build]` and `[run]` sections of `hop3.toml`. Your env group becomes `[env]`.
 
-One workflow difference: Render auto-deploys whenever you push to the connected GitHub branch. Hop3 deploys when you push to its own remote (`git push hop3 main`), so deploying stays an explicit act rather than a side effect of pushing to GitHub. In CLI commands the app is always the `--app` flag, never a positional argument (`hop3 env set FOO=bar --app myapp`).
+Render auto-deploys whenever you push to the connected GitHub branch. Hop3 deploys when you push to its remote (`git push hop3 main`), so deploying stays an explicit act. In CLI commands the app is always the `--app` flag (`hop3 env set FOO=bar --app myapp`).
 
 ## What's Different
 
@@ -24,7 +24,7 @@ One workflow difference: Render auto-deploys whenever you push to the connected 
 |--------|------|
 | Managed platform | Self-hosted, so you run the updates |
 | Autoscaling | Manual scaling (`hop3 ps scale`) |
-| Many service types + many addons | One app model; PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
+| Many service types + many addons | One app model; PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 | Preview environments | Not yet supported (use staging apps) |
 | Multi-region | Single server |
 
@@ -58,15 +58,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Render Configuration
 
@@ -173,13 +175,9 @@ hop3 addon show myapp-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d myapp_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import myapp-db --confirm=myapp-db < latest.sql
 ```
 
 Once the addon is attached, Hop3 injects `DATABASE_URL` into the app automatically; that's why you removed it from your env in Step 2.
@@ -203,7 +201,7 @@ hop3 addon create redis myapp-cache
 hop3 addon attach myapp-cache --app myapp
 ```
 
-Most Render Redis instances hold cache data, so starting fresh is usually fine: the addon injects `REDIS_URL` and your app repopulates the cache on its own. If you need to carry data across, dump and restore it explicitly.
+Most Render Redis instances hold cache data, so starting fresh is usually fine: the addon injects `REDIS_URL` and your app repopulates the cache. To keep the data, dump and restore it explicitly.
 
 ### Keeping a managed database (optional)
 
@@ -223,9 +221,9 @@ scheduler = "celery -A myapp beat"
 For a plain "run this command at 03:00" job (the closest match to a Render cron), use system cron on the server:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 3 * * * /home/hop3/apps/myapp/venv/bin/python /home/hop3/apps/myapp/src/manage.py cleanup
+# Add: 0 3 * * * hop3 app run --app myapp python manage.py cleanup
 ```
 
 ## Step 6: Deploy to Hop3
@@ -302,7 +300,7 @@ Render's pricing is reasonable per line item, but it compounds: a paid web insta
 | Managed Redis (Starter) | ~$10/month | - |
 | **Total (this example)** | ~$43/month | ~$10–30/month (one VPS) |
 
-The numbers move with your plan, but the structure is the point: on Render you pay per service and per addon; on Hop3 the web process, the worker, the cron, Postgres, and Redis all run on one box you rent at a fixed price. The trade-off: you own the server, the OS updates, and the backups. The upside is no per-meter creep, no cold starts, and a `hop3.toml` that runs anywhere Hop3 runs, so you're not locked to one provider's Blueprint format.
+The numbers move with your plan, but the structure is the point: on Render you pay per service and per addon; on Hop3 the web process, the worker, the cron, Postgres, and Redis all run on one box you rent at a fixed price. In return, you are responsible for the server, the OS updates, and the backups. You get a fixed bill without cold starts. Your `hop3.toml` runs anywhere Hop3 runs, so you're not locked to one provider's Blueprint format.
 
 ## Where Hop3 Falls Short of Render
 
@@ -318,7 +316,7 @@ None of these block a typical small-to-medium service migration, but if preview 
 Keep your Render service running during the migration:
 
 1. Deploy to Hop3 with a test domain.
-2. Verify the app, its workers, and its scheduled jobs all run.
+2. Verify the app, its workers and scheduled jobs all run.
 3. Switch DNS to the Hop3 server.
 4. Keep the Render service (and its database) running for 1–2 weeks.
 5. Suspend, then delete, the Render service once you're confident.

@@ -251,7 +251,7 @@ mkdir -p storage tmp/pids tmp/cache tmp/sockets log
 
 ### Create a Procfile
 
-Create a `Procfile` in your project root:
+Optionally, create a `Procfile` in your project root, for tools that read one. Hop3 does not need it: where both files declare the same process, `hop3.toml` wins.
 
 ```file path=hop3-tuto-rails/Procfile
 # Pre-build: Compile assets (bundle install is handled by Ruby toolchain)
@@ -266,7 +266,7 @@ web: bundle exec puma -C config/puma.rb
 
 ### Create hop3.toml
 
-Create a `hop3.toml` for advanced configuration:
+Create a `hop3.toml`, which tells Hop3 how to build and start the app:
 
 ```file path=hop3-tuto-rails/hop3.toml
 [metadata]
@@ -303,9 +303,8 @@ path = "/up"
 timeout = 30
 interval = 60
 
-[[provider]]
-name = "postgres"
-plan = "standard"
+[[addons]]
+type = "postgres"
 ```
 
 ## Step 5: Configure Puma
@@ -438,14 +437,14 @@ Initial Rails 8 application
 
 ## Step 8: Deploy to Hop3
 
-The following steps require a Hop3 server. Log into yours first — for example, `hop3 auth login --ssh root@your-server.com` — so the CLI knows where to deploy.
+The following steps require a Hop3 server.
 
 ### Configure the CLI
 
-If this is your first deployment, initialize Hop3:
+If this is your first deployment, sign in to your server:
 
 ```bash skip
-hop3 init --ssh root@your-server.example.com
+hop3 login root@your-server.example.com
 ```
 
 From the project directory, bind this checkout to that server. Signing in recorded it as the context `default`; until a checkout is bound, commands that reach a server are refused inside it:
@@ -651,7 +650,7 @@ timeout = 30
 interval = 60
 ```
 
-For a custom health check that verifies database connectivity:
+A custom health check can also verify database connectivity:
 
 ```ruby
 # config/routes.rb
@@ -707,10 +706,10 @@ worker: bin/rails solid_queue:start
 
 ### Create a Backup
 
-Before major changes, always backup:
+Before major changes, always take a backup:
 
 ```bash skip
-hop3 backup create hop3-tuto-rails
+hop3 backup create --app hop3-tuto-rails
 ```
 
 This backs up:
@@ -722,9 +721,8 @@ This backs up:
 ### Restore from Backup
 
 ```bash skip
-hop3 backup list --app myapp
+hop3 backup list --app hop3-tuto-rails
 hop3 backup restore <backup-id>
-hop3 app restart --app hop3-tuto-rails
 ```
 
 ## Troubleshooting
@@ -737,8 +735,9 @@ Check the logs for errors:
 hop3 app logs --app hop3-tuto-rails
 ```
 
-Common issues:
-- **Missing SECRET_KEY_BASE**: Set it with `hop3 env set`
+These issues come up most often:
+
+- **Missing SECRET_KEY_BASE**: `hop3.toml` generates it on the first deploy; check `hop3 env show --app hop3-tuto-rails` that it is set
 - **Database not connected**: Ensure the addon is attached
 - **Asset compilation failed**: Check for JavaScript/CSS errors
 
@@ -867,14 +866,11 @@ enabled = true
 schedule = "0 3 * * *"
 retention = 14
 
-[[provider]]
-name = "postgres"
-plan = "standard"
-version = "15"
+[[addons]]
+type = "postgres"
 
-[[provider]]
-name = "redis"
-plan = "basic"
+[[addons]]
+type = "redis"
 ```
 
 ### Complete Procfile for Rails

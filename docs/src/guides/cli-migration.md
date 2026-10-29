@@ -20,6 +20,7 @@ The core functionality is unchanged, so most scripts will continue to work witho
 ### 1. Destructive Commands Now Require Confirmation
 
 **Affected commands:**
+
 - `hop3 app destroy --app <app>`
 - `hop3 backup destroy <backup-id>`
 - `hop3 addon destroy <name>`
@@ -60,7 +61,7 @@ EOF
 
 ### 2. Use JSON Output for Parsing
 
-**Why:** Rich formatted output (tables, colors) is easy for humans to read and hard for scripts to parse. Use `--json` for machine-readable output.
+**Why:** Rich formatted output (tables, colors) is easy for humans to read and hard for scripts to parse, so scripts should pass `--json` for machine-readable output.
 
 **Migration:**
 
@@ -78,13 +79,14 @@ fi
 ```bash
 #!/bin/bash
 # Robust - works with any output format changes
-STATUS=$(hop3 app status --app myapp --json | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 if [ "$STATUS" = "RUNNING" ]; then
     echo "App is running"
 fi
 ```
 
 **Benefits:**
+
 - Stable API (the JSON structure will not change)
 - Easy parsing with `jq`
 - No dependency on output formatting
@@ -123,7 +125,7 @@ hop3 deploy --quiet
 RESULT=$(hop3 deploy --json --quiet)
 if [ $? -eq 0 ]; then
     echo "Deploy succeeded"
-    echo "$RESULT" | jq -r '.data.url'
+    echo "$RESULT" | jq -r '.[] | select(.t=="success") | .text'
 else
     echo "Deploy failed"
     echo "$RESULT" | jq -r '.error.message'
@@ -142,7 +144,7 @@ Some commands have been renamed for consistency and clarity.
 | `hop3 status <app>` | `hop3 app status --app <app>` | Namespaced under `app` |
 | `hop3 restart <app>` | `hop3 app restart --app <app>` | Namespaced under `app` |
 
-The CLI uses space-separated commands (no colon syntax such as `app:status`), and the target app is always passed with the `--app` flag rather than as a positional argument. When you run inside an app's directory, or have set a sticky app for the context, `--app` can be omitted and the app is resolved automatically.
+The CLI uses space-separated commands (no colon syntax such as `app:status`). The target app is always passed with the `--app` flag. When you run inside an app's directory, or have pinned one there with `hop3 use <app>`, `--app` can be omitted and the app is resolved automatically.
 
 **Migration:**
 
@@ -191,7 +193,7 @@ echo "Deploying application..."
 hop3 deploy --quiet
 
 echo "Checking status..."
-STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 
 if [ "$STATUS" = "RUNNING" ]; then
     echo "Deployment complete! App is running."
@@ -229,7 +231,7 @@ set -e
 # Create backup and capture ID
 echo "Creating backup..."
 BACKUP_RESPONSE=$(hop3 backup create --app myapp --json --quiet)
-BACKUP_ID=$(echo "$BACKUP_RESPONSE" | jq -r '.data.backup_id')
+BACKUP_ID=$(echo "$BACKUP_RESPONSE" | jq -r '.[] | select(.t=="summary") | .text | capture("created backup (?<id>[^ ]+) of").id')
 echo "Backup created: $BACKUP_ID"
 
 # Deploy new version
@@ -237,18 +239,17 @@ echo "Deploying..."
 hop3 deploy --quiet
 
 # Test deployment
-STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 if [ "$STATUS" != "RUNNING" ]; then
     echo "Deployment failed! Rolling back..."
     hop3 backup restore "$BACKUP_ID" -y
-    hop3 app restart --app myapp -y
     exit 1
 fi
 
 # Delete old backups (keep last 5)
 echo "Cleaning up old backups..."
 OLD_BACKUPS=$(hop3 backup list --app myapp --json --quiet | \
-    jq -r '.data | sort_by(.created) | reverse | .[5:] | .[].id')
+    jq -r '[.[] | select(.t=="table") | .rows[]] | sort_by(.[3]) | reverse | .[5:] | .[][0]')
 
 for backup_id in $OLD_BACKUPS; do
     echo "Deleting backup: $backup_id"
@@ -280,7 +281,7 @@ echo "========================"
 FAILED=0
 
 for app in app1 app2 app3; do
-    STATUS=$(hop3 app status --app "$app" --json --quiet 2>/dev/null | jq -r '.data.state')
+    STATUS=$(hop3 app status --app "$app" --json --quiet 2>/dev/null | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 
     if [ "$STATUS" = "RUNNING" ]; then
         echo "✓ $app: RUNNING"
@@ -330,7 +331,7 @@ hop3 env set --app myapp \
 
 # Verify variables are set
 echo "Verifying configuration..."
-VARS=$(hop3 env show --app myapp --json --quiet | jq -r '.data | keys[]')
+VARS=$(hop3 env show --app myapp --json --quiet | jq -r '.[] | select(.t=="table") | .rows[][0]')
 echo "Set variables: $VARS"
 
 # Restart application
@@ -338,7 +339,7 @@ echo "Restarting application..."
 hop3 app restart --app myapp --quiet
 
 # Verify restart
-STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
+STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 if [ "$STATUS" = "RUNNING" ]; then
     echo "Configuration updated and app restarted successfully!"
 else
@@ -355,7 +356,7 @@ Always test migrated scripts in a development or staging environment first:
 
 ```bash
 # Authenticate against a test server (SSH-based auth)
-hop3 auth login --ssh root@dev.hop3.example.com
+hop3 login root@dev.hop3.example.com
 
 # Run your migrated script
 ./deploy.sh
@@ -370,8 +371,8 @@ Check that your JSON parsing is correct:
 hop3 app status --app myapp --json | jq .
 
 # Test your jq queries
-hop3 app status --app myapp --json | jq -r '.data.state'
-hop3 backup list --app myapp --json | jq -r '.data[].id'
+hop3 app status --app myapp --json | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]'
+hop3 backup list --app myapp --json | jq -r '.[] | select(.t=="table") | .rows[][0]'
 ```
 
 ### 3. Test Error Handling
@@ -422,7 +423,7 @@ exit 1
 
 echo "Waiting for app to start..."
 for i in {1..30}; do
-    STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
+    STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 
     if [ "$STATUS" = "RUNNING" ]; then
         echo "App is running!"
@@ -443,7 +444,7 @@ exit 1
 #!/bin/bash
 
 # Only deploy if app is currently running
-CURRENT_STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.data.state')
+CURRENT_STATUS=$(hop3 app status --app myapp --json --quiet | jq -r '.[] | select(.t=="table") | .rows[] | select(.[0]=="Status") | .[1]')
 
 if [ "$CURRENT_STATUS" != "RUNNING" ]; then
     echo "App is not running. Start it first with: hop3 app start --app myapp"
@@ -452,7 +453,7 @@ fi
 
 # Create backup before deploy
 echo "Creating pre-deployment backup..."
-BACKUP_ID=$(hop3 backup create --app myapp --json --quiet | jq -r '.data.backup_id')
+BACKUP_ID=$(hop3 backup create --app myapp --json --quiet | jq -r '.[] | select(.t=="summary") | .text | capture("created backup (?<id>[^ ]+) of").id')
 
 # Deploy
 if hop3 deploy --quiet; then
@@ -460,7 +461,6 @@ if hop3 deploy --quiet; then
 else
     echo "Deploy failed! Restoring from backup $BACKUP_ID"
     hop3 backup restore "$BACKUP_ID" -y
-    hop3 app restart --app myapp -y
     exit 1
 fi
 ```
@@ -469,7 +469,7 @@ fi
 
 ### Q: Will my old scripts break?
 
-**A:** Most scripts will continue to work. The main breaking change is that destructive commands now require confirmation. Add the `-y` flag to skip confirmations.
+**A:** Most scripts will continue to work. The main breaking change is that destructive commands now require confirmation. Add the `-y` flag to skip confirmations. Since 0.8, a script run inside a project checkout also needs that checkout bound to a context (`hop3 context use <name>`), or `-c <name>` / `HOP3_CONTEXT` set, and a command missing an argument exits with code 2.
 
 ### Q: Do I need to migrate to JSON output?
 
@@ -490,7 +490,7 @@ export NO_COLOR=1
 
 **A:** Install `jq`; it is the best tool for JSON parsing. Alternatively, use Python:
 ```bash
-hop3 app status --app myapp --json | python3 -c "import sys, json; print(json.load(sys.stdin)['data']['state'])"
+hop3 app status --app myapp --json | python3 -c "import sys, json; print(next(r[1] for i in json.load(sys.stdin) if i['t'] == 'table' for r in i['rows'] if r[0] == 'Status'))"
 ```
 
 ### Q: How do I debug script issues?

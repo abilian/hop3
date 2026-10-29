@@ -30,14 +30,16 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 See [Server Setup](../get-started/server-setup.md) for the full detail.
 
@@ -95,7 +97,7 @@ To deploy the same project to more than one server, use contexts and keep a sing
 
 ## Verify
 
-After deploying, before cutting DNS over:
+Check the deployment before you cut DNS over:
 
 ```bash
 hop3 app status --app myapp
@@ -152,7 +154,7 @@ Coming from something not listed? The method above still applies, and [an issue]
 
 ## Migrating between Hop3 versions
 
-Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise. See [CLI Migration](cli-migration.md).
+Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise. See [CLI Migration](cli-migration.md). For an upgrade from 0.7 to 0.8, read "Upgrading from 0.7" in the [changelog](../reference/changelog.md#upgrading-from-07).
 
 ## Need help?
 

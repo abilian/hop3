@@ -1,8 +1,8 @@
 # Migrating from Google Cloud Run to Hop3
 
-Thinking about leaving Google Cloud Run? Maybe the per-request billing was supposed to be cheap and the invoice surprised you. Maybe a cold start added a second to the first request after every idle stretch. Maybe you're tired of wiring up Secret Manager, a Cloud SQL connector, a VPC connector, and an IAM policy just to run one web service. Or maybe the service is busy enough that it never actually scales to zero, so you're paying for an always-on container with a serverless tax on top. Whatever the reason: Hop3 runs the same container you already ship, on a single server you understand. This guide helps you migrate existing Cloud Run services to Hop3.
+Thinking about leaving Google Cloud Run? Maybe the per-request billing was supposed to be cheap and the invoice surprised you. Maybe a cold start delayed the first request after every idle stretch. Maybe you're tired of wiring up Secret Manager, a Cloud SQL connector, a VPC connector, and an IAM policy just to run one web service. Or maybe the service is busy enough that it never actually scales to zero, so you're paying for an always-on container with a serverless tax on top. Whatever the reason: Hop3 runs the same container you already ship, on a single server you understand. This guide helps you migrate existing Cloud Run services to Hop3.
 
-The trade-off, before you spend an afternoon on it: Cloud Run is built for elastic, request-driven workloads. It scales to zero when idle, starts instances on demand, and bills you per request and per CPU-second of actual work. Hop3 does none of that. It keeps your process warm on one server, all the time, for a flat monthly cost. You give up scale-to-zero, per-request autoscaling, and Google's multi-region front end. In exchange you get no cold starts, one predictable bill, and your data in exactly one place you chose. If your service is spiky (idle most of the day, then a thundering herd), Cloud Run's elasticity is earning its keep. Keep it. If it's a web app that's effectively always on anyway, Hop3 will feel both cheaper and simpler. Because you already ship a container, the move is small.
+Weigh the trade-off before you spend an afternoon on it. Cloud Run is built for elastic, request-driven workloads. It scales to zero when idle, starts instances on demand, and bills you per request and per CPU-second of actual work. Hop3 does none of that. It keeps your process warm on one server, all the time, for a flat monthly cost. You give up scale-to-zero, per-request autoscaling, and Google's multi-region front end. In exchange you get no cold starts, one predictable bill, and your data in exactly one place you chose. If your service is spiky (idle most of the day, then a thundering herd), Cloud Run's elasticity is earning its keep. Keep it. If it's a web app that's effectively always on anyway, Hop3 will feel both cheaper and simpler. Because you already ship a container, the move is small.
 
 ## What's Similar
 
@@ -18,7 +18,7 @@ Hop3 was designed with the same ship-a-container, configure-from-a-file workflow
 
 The shape is the same: a container, some environment, one command to ship. Where Cloud Run drives everything through `gcloud run <verb>` with a long string of flags, Hop3 uses space-separated `hop3 <noun> <verb>`. The app you're targeting is always the `--app` flag, never baked into a `gcloud config` project context. So `gcloud run deploy myapp --set-env-vars FOO=bar` becomes, roughly, `hop3 env set FOO=bar --app myapp` followed by a deploy.
 
-There's no automated importer for Cloud Run's `service.yaml` (the Knative manifest). The translation is short and mechanical. The sections below walk through it field by field. (If your service keeps its process model in a `Procfile` rather than a container entrypoint, `hop3 app migrate procfile . --dry-run` will scaffold a starting `hop3.toml` from that. Nothing else has an importer.)
+There's no automated importer for Cloud Run's `service.yaml` (the Knative manifest). The translation is short and mechanical. The sections below walk through it field by field. (If your service keeps its process model in a `Procfile`, `hop3 app migrate procfile . --dry-run` will scaffold a starting `hop3.toml` from that. Nothing else has an importer.)
 
 ## What's Different
 
@@ -28,9 +28,9 @@ There's no automated importer for Cloud Run's `service.yaml` (the Knative manife
 | Per-request autoscaling | Manual via `hop3 ps scale` |
 | Per-request / per-CPU-second billing | Flat VPS cost |
 | Multi-region front end | Single server |
-| Secret Manager, Cloud SQL, Memorystore, … | PostgreSQL, MySQL, Redis, S3/MinIO, and growing |
+| Secret Manager, Cloud SQL, Memorystore, … | PostgreSQL, MySQL, Redis, S3 (Garage), and growing |
 
-Hop3 is simpler: one server instead of a serverless platform wired into half a dozen other Google Cloud products.
+Hop3 is simpler: it runs on one server, with no serverless platform wired into half a dozen other Google Cloud products.
 
 ## Step 1: Set Up Your Hop3 Server
 
@@ -44,15 +44,17 @@ curl -LsSf https://hop3.cloud/install-server.py | sudo python3 -
 Install the CLI on your local machine:
 
 ```bash
-hop3-install cli
+uv tool install hop3
 ```
 
 Connect the CLI to your server. On a first install this also creates the
 admin account and stores your API token:
 
 ```bash
-hop3 init --ssh root@your-server.com
+hop3 login root@your-server.com
 ```
+
+Once your project has a `hop3.toml`, bind its checkout to this server, once, from the project directory: `hop3 context use default`. Until then, `hop3` refuses the commands you run there.
 
 ## Step 2: Export Your Cloud Run Configuration
 
@@ -145,7 +147,7 @@ A few things changed. Each one is a Cloud Run primitive landing on a Hop3 one:
 - **Plain `env` entries → `[env]`.** Straight copy.
 - **`secretKeyRef` (Secret Manager) → `[env]` or `hop3 env set`.** There's no separate secret store to wire up; Hop3 stores env values encrypted at rest in its database. Resolve the Secret Manager reference to its value and set it like any other variable (keep it out of the repo with `hop3 env set` if you'd rather not commit it).
 - **`cloudsql-instances` annotation → a Hop3 addon (or an external URL).** The Cloud SQL connector disappears. Either attach a Hop3 Postgres addon (Step 4) and let it inject `DATABASE_URL`, or keep your existing Cloud SQL instance and point `[env]` at its URL (see "Keeping an External Managed Database").
-- **`resources.limits` → `[limits]`.** Same idea: a memory and CPU cap. One caveat. `[limits]` is enforced for the Docker builder (it maps to the container's `mem_limit` / `cpus`); on a native or Nix build the cap isn't enforced yet, and declaring `[limits]` there aborts the deploy with a clear message without silently ignoring it.
+- **`resources.limits` → `[limits]`.** Same idea: a memory and CPU cap. The Docker builder maps it to the container's `mem_limit` / `cpus`; a native or Nix build runs under a cgroup v2 cap that hop3-rootd sets up. A cap the server cannot apply aborts the deploy with a clear message.
 - **`containerConcurrency` and `maxScale` simply disappear.** There's no per-request autoscaler to configure. Concurrency and instance count become a fixed number of uWSGI workers on one host. See "Concurrency and Scaling" below. These two lines are the most visible thing you lose. They are also the whole point of the trade-off.
 
 ## Step 4: Migrate Your Database
@@ -180,13 +182,9 @@ hop3 addon show your-app-db
 Import the dump:
 
 ```bash
-# Copy dump to server
-scp latest.dump root@your-server.com:/tmp/
-
-# SSH to server and import
-ssh root@your-server.com
-sudo -u postgres pg_restore --verbose --no-owner \
-    -d your_app_db /tmp/latest.dump
+# Turn the dump into SQL and load it into the addon (where the hop3 CLI runs)
+pg_restore --no-owner --no-acl -f latest.sql latest.dump
+hop3 addon postgres import your-app-db --confirm=your-app-db < latest.sql
 ```
 
 ## Step 5: Deploy to Hop3
@@ -238,10 +236,10 @@ Keep `builder = "docker"` when your image does something Hop3's toolchains don't
 
 ### Concurrency and Scaling
 
-This is the part of Cloud Run with no one-to-one replacement; the difference is concrete. On Cloud Run, `containerConcurrency` sets how many requests one instance handles at once, and the autoscaler adds and removes instances (down to zero) based on load. Hop3 has neither knob. You run a fixed number of worker processes on one server, and you set that number yourself:
+This is the part of Cloud Run with no one-to-one replacement; the difference is concrete. On Cloud Run, `containerConcurrency` sets how many requests one instance handles at once. The autoscaler adds and removes instances (down to zero) based on load. Hop3 has neither knob. You run a fixed number of worker processes on one server and set that number yourself:
 
 ```bash
-hop3 ps scale your-app web=4
+hop3 ps scale --app your-app web=4
 ```
 
 Four web workers handle requests concurrently, always on, with no cold start and no autoscaler. There's no scale-to-zero: the workers stay warm whether or not anyone is hitting the service. There's no automatic scale-up under a spike, either. If load grows, you raise the worker count (or the size of the box) by hand. For a steady workload that's a feature: predictable capacity, predictable cost. For a bursty one, it's the trade-off you accept in return for no cold starts and a flat bill.
@@ -252,18 +250,17 @@ Cloud Run resolves Secret Manager references at instance start and injects them 
 
 ```bash
 hop3 env set --app your-app SECRET_KEY=… STRIPE_KEY=…
-hop3 app restart your-app
+hop3 app restart --app your-app
 ```
 
-There's no separate secret-store product to provision and grant IAM access to. The env var *is* the secret, encrypted where it lives. Database and cache credentials are a special case: you don't copy them over at all. When you attach an addon, Hop3 injects `DATABASE_URL`, `REDIS_URL`, and friends for you, so drop those from your list entirely.
+There's no separate secret-store product to provision and grant IAM access to. The env var holds the secret itself, encrypted where it is stored. Database and cache credentials are a special case: you don't copy them over at all. When you attach an addon, Hop3 injects `DATABASE_URL`, `REDIS_URL`, and friends for you, so drop those from your list entirely.
 
 ### Keeping an External Managed Database
 
-Maybe you're moving the app off Cloud Run but Cloud SQL stays where it is for now. It's backed up, it's tuned, and migrating data is a separate project. Skip the addon and point `[env]` at the existing instance:
+Maybe you're moving the app off Cloud Run but Cloud SQL stays where it is for now. It's backed up, it's tuned, and migrating data is a separate project. Skip the addon and set the existing instance's URL on the server (`hop3.toml` refuses a connection string with credentials in it):
 
-```toml
-[env]
-DATABASE_URL = "postgresql://user:pass@PUBLIC_IP:5432/mydb"
+```bash
+hop3 env set --app your-app DATABASE_URL="postgresql://user:pass@PUBLIC_IP:5432/mydb"
 ```
 
 You'll need to enable a public IP (or another reachable path) on the Cloud SQL instance and allow your Hop3 server's address, since there's no Cloud SQL connector doing the networking for you anymore. Hop3 won't manage that database; your app talks to it exactly as before. You can adopt a Hop3 addon later, when you're ready.
@@ -280,7 +277,7 @@ Extensions are allow-listed, so only the ones Hop3 ships support for will instal
 
 ### Persistent Files
 
-Cloud Run's filesystem is ephemeral. Anything an instance writes vanishes when it's recycled, which is why you put uploads in Cloud Storage. Hop3's source tree is also replaced on each deploy, but you can declare a directory that survives redeploys with `[[volumes]]`:
+Cloud Run's filesystem is ephemeral. Anything an instance writes vanishes when it's recycled, which is why you put uploads in Cloud Storage. Hop3's source tree is also replaced on each deploy, but you can declare a directory that redeploys leave in place with `[[volumes]]`:
 
 ```toml
 [[volumes]]
@@ -288,7 +285,7 @@ name = "uploads"
 target = "data/uploads"
 ```
 
-Storage lives under the app's data root, outside the source tree that gets replaced on each deploy. If you were already using Cloud Storage and want object storage over a local directory, Hop3 has an S3/MinIO addon. Attach it and point your app's S3 client at the injected `S3_*` variables.
+Storage lives under the app's data root, outside the source tree that gets replaced on each deploy. If you were already using Cloud Storage and want object storage over a local directory, Hop3 has an S3 (Garage) addon. Attach it and point your app's S3 client at the injected `S3_*` variables.
 
 ### Scheduled Jobs (Cloud Scheduler)
 
@@ -302,9 +299,9 @@ scheduler = "celery -A myapp beat"
 Or use system cron on the one box:
 
 ```bash
-ssh root@your-server.com
+# On a machine where the hop3 CLI is signed in to the server
 crontab -e
-# Add: 0 * * * * /home/hop3/apps/your-app/venv/bin/python /home/hop3/apps/your-app/src/manage.py cleanup
+# Add: 0 * * * * hop3 app run --app your-app python manage.py cleanup
 ```
 
 ### Cold Starts
@@ -334,7 +331,7 @@ Cloud Run can run the same service in several regions behind a global load balan
 
 ## Cost and Lock-In
 
-Cloud Run's pricing is per-request, per-CPU-second, and per-GiB-second of memory, with a free tier and then metered usage on top, plus whatever Cloud SQL, Secret Manager, and egress add. For a service that is spiky and idle half the day, that can be very cheap. For an always-on service, you're paying serverless rates for a container that never scales to zero; the bill moves with traffic in ways that are hard to predict. Hop3's bill doesn't move: you rent a VPS, you know the number, and adding traffic or a second app doesn't change it.
+Cloud Run's pricing is per-request, per-CPU-second, and per-GiB-second of memory, with a free tier and then metered usage on top, plus whatever Cloud SQL, Secret Manager, and egress add. For a service that is spiky and idle half the day, that can be very cheap. For an always-on service, you're paying serverless rates for a container that never scales to zero; the bill moves with traffic in ways that are hard to predict. Hop3's bill doesn't move: you rent a VPS, you know the number, and adding traffic or apps doesn't change it.
 
 | | Cloud Run | Hop3 (self-hosted) |
 |-|-----------|-------------------|
@@ -345,7 +342,7 @@ Cloud Run's pricing is per-request, per-CPU-second, and per-GiB-second of memory
 | **Spiky app** | can be very cheap (scales to zero) | flat (no scale-to-zero) |
 | **Always-on app** | serverless rates, climbs with traffic | ~$10–30/month (VPS) |
 
-The second win is lock-in. On Cloud Run your service is shaped around an image in Artifact Registry, Secret Manager references, a Cloud SQL connector, IAM bindings, and a Knative manifest. On Hop3 it's a Dockerfile (or a plain native build), env vars you own, a Postgres you can `pg_dump`, and a config file in your repo. Nothing there runs only on one vendor. Because you were already shipping a container, you arrive at Hop3 with the artifact you need and almost nothing to rewrite. If you ever leave Hop3 too, you leave with a standard app, not a platform-shaped one. The trade-off is the usual one: you manage the server, and everything on it is under your control.
+Lock-in is the other win. On Cloud Run your service is shaped around an image in Artifact Registry, Secret Manager references, a Cloud SQL connector, IAM bindings, and a Knative manifest. On Hop3 it's a Dockerfile (or a plain native build), env vars you own, a Postgres you can `pg_dump`, and a config file in your repo. Nothing there runs only on one vendor. Because you were already shipping a container, you arrive at Hop3 with the artifact you need and almost nothing to rewrite. If you ever leave Hop3 too, you leave with a standard app, not a platform-shaped one. The trade-off is the usual one: you manage the server and control everything on it.
 
 ## Rollback Plan
 
