@@ -7,7 +7,6 @@
     "R9-hedge/work-to-Level": "'delegates that work to Level 2 LanguageToolchains': 'work' is a noun (the delegated work), not the hedge verb 'work to'. Parse artifact on en_core_web_sm.",
     "R34-verbless/inline-code+verb": "'Only the `LocalBuilder` delegates to LanguageToolchains': the verb 'delegates' is present; the parser loses it at the inline-code span. Parse artifact on en_core_web_sm.",
     "R34-verbless/list-question": "'What resources?' sits in a bullet list; rule 34 exempts list items. Same class: 'What package manager?', 'How to isolate?'.",
-    "R34-verbless/docstring-fence": "hook-specifications.md:390 fires inside a ```python fence nested in a ```` fence; the linter fails to mask the inner fence and reads the docstring as prose. The line is docstring prose, exempt under rule 34's fence exemption.",
     "R34-verbless/screenshot-alt": "Rule 34 exempts figure captions; the parser reads consecutive markdown image lines '![alt](src)' as one prose sentence with no verb. The alt text is a caption, not a claim.",
     "R34-verbless/report-tagline": "Experience-report series: the one-line app descriptor under the H1 ('Open source ERP and CRM for small and medium businesses.') is a subtitle, present verbatim-shaped in every sibling report (matomo, kanboard, gitea). A label, not a claim.",
     "R34-verbless/tr-title-label": "reports/README.md: the bold '[TR-nn](...). <Full report title>' heading at the head of each entry is a label (link + verbatim report title), not a claim; the entry prose that follows carries the verbs.",
@@ -28,7 +27,7 @@
     "R34-verbless/reference-entries": "TR-01.md §9 References: each '[n] Author. \"Title.\" Venue, year.' entry is a verbatim bibliographic record, not a claim; rule 34's running-prose scope does not extend to reference lists. Covers lines 354-376 (Borg/Omega, Dolstra, NixOS, Unikraft, Pluggy) and the PhD thesis line.",
     "R37-bold/reference-venue": "TR-01.md §9: italicised venue names (*Proc. 13th ACM SIGPLAN ICFP*, *Proc. 16th EuroSys*) are citation formatting, not bold punchlines.",
     "R31-runon/template-pattern-list": "TR-01.md 3.5: the 58-word sentence ends in an eight-item serial enumeration of template patterns; rule 31's list exemption applies and splitting would hide that the list is the subject's predicate.",
-    "R29-synonym/document-root": "TR-01.md 4.2: 'a fixed document root' is the nginx term (the web server's root directory), not a synonym rotation with 'deployer'/'file'. False positive on 'document'.",
+    "R29-synonym/document-root": "TR-01.md 4.2 and tutorials/php/symfony.md: 'document root' is the web server's term (nginx `root`, Symfony's `public/`), not a synonym rotation with 'file'. False positive on 'document'.",
     "R34-verbless/privacy-data-list": "privacy-policy.md: '- Browser, operating system and device type.' sits in the bullet list of data Umami collects; rule 34 exempts list items, and a bare enumeration of data categories is the correct shape there.",
     "R30-frozen/code-of-conduct": "privacy-policy.md: 'Code of Conduct violation' is the policy document's proper name; 'conduct' is the noun of the title, not a nominalised verb.",
     "R34-verbless/link-definitions": "CHANGES.md ends with a block of markdown link-reference definitions ('[0.7.4]: https://github.com/.../compare/...'). They are link syntax, not running prose; the parser reads the run of them as one verbless sentence. Same class as rule 34's exemption for labels and table cells.",
@@ -37,10 +36,9 @@
     "R27-aphorism/url-tails-NOT-allowed": "NOT exempted, recorded so the next pass does not chase it: the rule-27 count on README.md is a false positive. The sentence splitter breaks markdown link targets at the dot, so 'https://hop3.cloud/get-started/installer/).' becomes a short final 'sentence' with no digit and trips the aphorism test. Seven of the eight counted closers are URL tails, one is a list lead-in ('The stack includes:'). The fix belongs in the linter's masking, not in the prose. Do not silence it with a ')' pattern, which would blind rule 27 across the project.",
     "R34-verbless/principle-implementation": "core-values.md pairs '- **Principle**: …' with '- **Implementation**: …' under each numbered security heading. They are nested list items, which rule 34 exempts; the linter does not read a bullet indented under an ordered item as a list item, so all twenty fired. The label-value shape is the point of the section and rewriting them into sentences would lose the parallel.",
     "R31-runon/threat-model-scope-lists": "security-model.md:49,51 are the threat model's 'In scope:' / 'Out of scope:' enumerations. Each item carries its own commas, so semicolons are the correct separator and the count (5 and 8) is list length, not stitching. Rule 31 names this case as its exemption and reports it as 'inspect'.",
-    "R34-verbless/nested-fence-leak": "external-plugins.md:356,400 and hook-specifications.md:393 are code-fence CONTENT, reported as prose. The masker toggles on any line starting with ``` and ignores fence length, so a nested example desyncs it and everything after leaks. external-plugins.md's outer README example was widened to four backticks in this pass, which is what CommonMark requires and fixes the rendering; the masker still desyncs because it does not compare fence lengths. Reported upstream.",
     "R34-verbless/bullet-character": "notes/ngi-2024/annex.md lists milestones as '• M2.1 …' with U+2022, not '-'. The linter reads only '-'/'*' as list markers, so each run of bullets is parsed as one verbless sentence. Rule 34 exempts list items. The annex is the contractual Annexe I submitted to NLnet; its wording is not ours to edit for style.",
     "R34-verbless/report-front-matter": "results-links-2026-*.md open with 'Status: … / Date: …' label lines and a one-line scope note under the H1. Front matter and a caption, not running prose. The 06 report is marked final and was submitted; it is a record of what was sent and is not edited for style.",
-    "R3-foil/table-header-row": "release-plan-0.6.md:16 is a markdown table header, '| Milestone | 0.5 Status | 0.6 Outcome |'. The nlp foil detector matches across the pipe delimiters. A table row is not prose.",
+    "R3-foil/table-header-row": "release-plan-0.6.md:16 is a markdown table header, '| Milestone | 0.5 Status | 0.6 Outcome |'. The nlp foil detector matches across the pipe delimiters. A table row is not prose. Also authentication.md's '| Symptom | Cause | Fix |' troubleshooting table.",
     "R8-triad/two-item-condition": "release-plan-0.7.md:93 'an empty or non-zero recording' is a two-branch failure condition, not a triad assembled for cadence.",
     "R31-runon/checklist-headers": "release-plan-0.7.md:160,170 are italic headers introducing checkbox lists ('*Ships in 0.7, supported (experimental):*'); the semicolons counted belong to the list items merged in after them. Same class as the threat-model scope lists.",
     "R34-verbless/annex-deliverable-text": "annex.md:51 'Package 20 popular or useful open-source applications…' is the T4 deliverable description, an imperative the parser reads as a noun. It is contractual text from Annexe I as submitted to NLnet, so it is not rewritten for style.",
@@ -73,7 +71,11 @@
     "R31-runon/ngi-funding-statement": "README.md: the NLnet / NGI0 Commons Fund acknowledgement is the funder's standard wording (fund, programme, DG CONNECT, grant agreement number), reproduced as funded projects are asked to. Not ours to split for style; same class as R12-inflated/next-generation-internet.",
     "R34-verbless/slogan": "'Your code, your data, your rules.' is Hop3's slogan, kept verbatim wherever it appears; a slogan is a label, which rule 34 exempts.",
     "R39-overused/refused+refuses": "Hop3's word for input validation rejecting a request, from the fail-loud doctrine; the platform's own error messages use it, so the changelog names each check by the word the user sees.",
-    "R39-overused/probe": "The `[probe]` section of hop3.toml and the probe account it declares: a term of art, not a register word."
+    "R39-overused/probe": "The `[probe]` section of hop3.toml and the probe account it declares: a term of art, not a register word.",
+    "R39-overused/bound": "cli.md: 'bound' is the CLI's term for the context binding (a checkout bound to a context, `.hop3-local.toml`) and for hostnames bound to an app (`hop3 domain`). A term of art, not a register word.",
+    "R31-runon/cli-bullet-lists": "cli.md '**Notes:**' and '**Behavior:**' are bullet lists whose items carry no full stop; the splitter reads each list as one long sentence. Rule 31 exempts lists.",
+    "R39-overused/audit-terms": "developers/security-model.md: 'finding' (a reported security defect) and 'round' (one audit pass, as in the per-round audit reports) are the security-review vocabulary the page teaches; each use names that thing, so rotating synonyms would blur it.",
+    "R34-verbless/quickstart-list-item": "quickstart.md step 3: 'A bare `hop3 deploy` works too, because Hop3 reads…' has the finite verb 'works'; inside a four-space-indented list item the parser loses the head at the inline-code span. Same class as R34-verbless/inline-code+verb."
   },
   "allowlist": {
     "R33-taboo": [
@@ -87,7 +89,8 @@
       "file",
       "record",
       "codebase",
-      "repository"
+      "repository",
+      "document"
     ],
     "R9-hedge": [
       "work to Level",
@@ -97,7 +100,6 @@
     "R34-verbless": [
       "LocalBuilder` delegates",
       "What resources?",
-      "python from dishka import Provider",
       "Sign-in page",
       "Open source ERP and CRM",
       "An application that ships",
@@ -119,9 +121,6 @@
       "<img src=",
       "**principle**",
       "**implementation**",
-      "bash hop3 deploy --app myapp",
-      "yaml # myframework.yaml",
-      "class MyPluginProvider(Provider)",
       "• m",
       "status: final",
       "evidence for the nlnet/ngi",
@@ -156,7 +155,8 @@
       "A PHP application that resolves its own public URL",
       "A simple CalDAV and CardDAV server",
       "Two toolchains in one derivation",
-      "Your code, your data, your rules"
+      "Your code, your data, your rules",
+      "a bare `hop3 deploy` works too"
     ],
     "R37-bold": [
       "whether a packet may reach a port",
@@ -187,7 +187,9 @@
       "functionality lost)",
       "documentation links resolve",
       "live at submission",
-      "partly funded through the"
+      "partly funded through the",
+      "**notes:**",
+      "**behavior:**"
     ],
     "R12-inflated": [
       "Next Generation Internet",
@@ -202,12 +204,16 @@
       "polkit not always present",
       "|-------|",
       "conflict detection is db-based",
-      "freshness beyond monotonic serial"
+      "freshness beyond monotonic serial",
+      "| symptom | cause | fix |"
     ],
     "R39-overused": [
       "refused",
       "refuses",
-      "probe"
+      "probe",
+      "bound",
+      "finding",
+      "round"
     ]
   }
 }
