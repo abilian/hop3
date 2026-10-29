@@ -10,10 +10,9 @@ import argparse
 import dataclasses
 import importlib.metadata
 import os
-import sys
 from collections.abc import Callable
 
-from hop3_cli.commands.arguments import read_value_source
+from hop3_cli.commands.arguments import read_secret_source
 from turbodesk import run
 
 from hop3_tui.app import FOOTER_BINDINGS, TITLE, Hop3TUI, app
@@ -62,7 +61,7 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: list[str] | None = None) -> None:
     parser = build_parser()
     args = parser.parse_args(argv)
-    token = read_token(args.token, parser) if args.token else None
+    token = read_token(args.token, parser) if args.token is not None else None
     if args.token == "-":
         reattach_terminal(parser)
 
@@ -112,25 +111,11 @@ def reattach_terminal(
 
 
 def read_token(source: str, parser: argparse.ArgumentParser) -> str:
-    """
-    The ``--token`` value from stdin (``-``) or a file (``@PATH``).
-
-    A token on argv stays in the shell history and in `ps`. A literal still
-    works, for the scripts that pass one, and says on stderr why it should go.
-    """
-    if source != "-" and not source.startswith("@"):
-        print(
-            "hop3-tui: warning: a token on the command line is kept by the shell "
-            "history and visible in `ps`; pass --token - or --token @PATH.",
-            file=sys.stderr,
-        )
+    """The ``--token`` value from stdin (``-``) or a file (``@PATH``)."""
     try:
-        token = read_value_source(source, label="--token").strip()
+        return read_secret_source(source, label="--token")
     except ValueError as e:
         parser.error(str(e))
-    if not token:
-        parser.error("--token: the token is empty")
-    return token
 
 
 if __name__ == "__main__":

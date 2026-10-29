@@ -14,16 +14,20 @@ from __future__ import annotations
 
 import sys
 from dataclasses import dataclass, field
-from typing import NoReturn
+from types import MappingProxyType
+from typing import TYPE_CHECKING, NoReturn
 
 from hop3_cli.exit_codes import ExitCode
+
+if TYPE_CHECKING:
+    from collections.abc import Mapping
 
 
 @dataclass(frozen=True)
 class LocalArgs:
     """What ``parse_local_args`` found: flag values, switches, positionals."""
 
-    values: dict[str, str | None] = field(default_factory=dict)
+    values: Mapping[str, str | None] = field(default_factory=dict)
     switches: frozenset[str] = frozenset()
     positionals: tuple[str, ...] = ()
 
@@ -77,7 +81,7 @@ def parse_local_args(
     if len(positionals) > max_positionals:
         extra = " ".join(positionals[max_positionals:])
         usage_failure(f"unexpected argument(s): {extra}", usage)
-    return LocalArgs(values, frozenset(seen), tuple(positionals))
+    return LocalArgs(MappingProxyType(values), frozenset(seen), tuple(positionals))
 
 
 def usage_failure(message: str, usage: str) -> NoReturn:

@@ -141,6 +141,34 @@ class TestBrowserTargetIsOptional:
         assert username == "alice"
 
 
+class TestATypedTargetIsNeverDropped:
+    """A target the user typed is used or refused, never replaced by the context."""
+
+    @pytest.mark.parametrize("bad", ["https://prod.example.com", "host?x", "a;b"])
+    def test_the_browser_form_refuses_a_bad_target(self, monkeypatch, capsys, bad):
+        monkeypatch.setattr(login_cmd, "_get_ssh_target_from_config", lambda _c: TARGET)
+        with pytest.raises(SystemExit) as excinfo:
+            _parse_login_web_args(["--browser", bad], Config(data={}))
+        assert excinfo.value.code == 2
+        assert bad in capsys.readouterr().err
+
+    def test_the_ssh_form_refuses_a_bad_target(self, capsys):
+        with pytest.raises(SystemExit) as excinfo:
+            _parse_login_ssh_args(["--ssh", "-oProxyCommand=x"])
+        assert excinfo.value.code == 2
+
+    @pytest.mark.parametrize("form", [["--browser"], []])
+    def test_ssh_and_a_positional_is_refused(self, monkeypatch, form):
+        monkeypatch.setattr(login_cmd, "_get_ssh_target_from_config", lambda _c: None)
+        args = [*form, "--ssh", TARGET, "other@host"]
+        with pytest.raises(SystemExit) as excinfo:
+            if form:
+                _parse_login_web_args(args, Config(data={}))
+            else:
+                _parse_login_ssh_args(args)
+        assert excinfo.value.code == 2
+
+
 class TestDispatch:
     """The whole point: which handler each form reaches."""
 

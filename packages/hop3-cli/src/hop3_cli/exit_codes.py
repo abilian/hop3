@@ -87,6 +87,9 @@ def map_rpc_code_to_exit(code: int) -> int:
         HTTP_PAYLOAD_TOO_LARGE: ExitCode.USAGE_ERROR,
         HTTP_SERVER_ERROR: ExitCode.NETWORK_ERROR,
         # JSON-RPC error codes
+        # The request could not be taken as sent: a malformed envelope, or a
+        # protocol this server does not speak. Exit 2 by code, never by prose.
+        RPC_INVALID_REQUEST: ExitCode.USAGE_ERROR,
         RPC_METHOD_NOT_FOUND: ExitCode.RESOLUTION_ERROR,
         RPC_INVALID_PARAMS: ExitCode.USAGE_ERROR,
         RPC_INTERNAL_ERROR: ExitCode.GENERAL_ERROR,

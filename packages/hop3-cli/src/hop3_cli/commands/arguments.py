@@ -210,6 +210,28 @@ def read_value_source(value: str, *, label: str) -> str:
     return value
 
 
+def read_secret_source(source: str, *, label: str) -> str:
+    """
+    A secret from stdin (``-``) or a file (``@<path>``): stripped, never empty.
+
+    A literal still works, for the scripts that pass one, and says on stderr
+    why it should go: a secret on argv stays in the shell history and in `ps`.
+    Raises ValueError when the source cannot be read or holds nothing.
+    """
+    if source != "-" and not source.startswith("@"):
+        print(
+            f"Warning: a secret on the command line is kept by the shell history "
+            f"and visible in `ps`. Pass it with {label} - (stdin) or "
+            f"{label} @<path>.",
+            file=sys.stderr,
+        )
+    secret = read_value_source(source, label=label).strip()
+    if not secret:
+        msg = f"{label}: the value is empty."
+        raise ValueError(msg)
+    return secret
+
+
 # Flags whose value follows the §D14 source convention, per command prefix.
 _VALUE_SOURCE_FLAGS: list[tuple[tuple[str, ...], str]] = [
     *((command, flag) for command in sorted(RUN_COMMANDS) for flag in RUN_VALUE_FLAGS),

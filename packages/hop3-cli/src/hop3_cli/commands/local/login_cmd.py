@@ -15,14 +15,14 @@ from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
 
-from hop3_cli.commands.arguments import read_value_source
+from hop3_cli.commands.arguments import read_secret_source
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
 from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_target_from_address
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import bearer_header, extract_jwt
 from hop3_cli.ui.prompts import NoInputError, require_input_allowed
 
-from ._argv import parse_local_args, usage_failure
+from ._argv import LocalArgs, parse_local_args, usage_failure
 from .help_text import print_login_help
 from .ssh_ops import (
     BootstrapError,
@@ -67,20 +67,13 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
         print_login_help()
         return
 
-    # Check for URL with embedded token (e.g., http://localhost:8000?token=eyJ...)
-    if args and not args[0].startswith("-"):
-        potential_url = args[0]
-        if "?" in potential_url and "token=" in potential_url:
-            parsed = urlparse(potential_url)
-            query_params = parse_qs(parsed.query)
-            if "token" in query_params:
-                token = query_params["token"][0]
-                # Reconstruct server URL without the token parameter
-                server_url = f"{parsed.scheme}://{parsed.netloc}{parsed.path}"
-                handle_login_token(
-                    ["--token", token, "--url", server_url], config, printer
-                )
-                return
+    # The old `<url>?token=<jwt>` form put the secret on argv; it is refused.
+    if args and "token" in parse_qs(urlparse(args[0]).query):
+        usage_failure(
+            "a token in the URL is kept by the shell history and visible in "
+            "`ps`. Pass it on stdin: `hop3 login --token - --url <url>`.",
+            TOKEN_USAGE,
+        )
 
     # Dispatch based on which client gets a credential.
     if is_browser_form(args):
@@ -401,6 +394,29 @@ def _warn_dashboard_unreachable(ssh_target: str, base: str) -> None:
     )
 
 
+#: The browser form's usage line, printed with every refusal of its argv.
+BROWSER_USAGE = (
+    "Usage: hop3 login --browser [<user>@<host> | --ssh <user>@<host>] "
+    "[--username <name>]"
+)
+
+
+def _typed_target(parsed: LocalArgs, usage: str) -> str | None:
+    """
+    The SSH target the user typed, as a positional or ``--ssh``; None if neither.
+
+    A typed target that is not a plain ``[user@]host[:port]`` is refused: it
+    used to be dropped, and the login then went to the current context's
+    server, one the user did not name.
+    """
+    if parsed.get("--ssh") and parsed.positionals:
+        usage_failure("name the target once: as an argument or with --ssh.", usage)
+    target = parsed.get("--ssh") or next(iter(parsed.positionals), None)
+    if target is not None and not is_safe_ssh_target(target):
+        usage_failure(f"`{target}` is not an SSH target ([user@]host[:port]).", usage)
+    return target
+
+
 def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     """
     Parse arguments for the browser form.
@@ -410,7 +426,7 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     """
     parsed = parse_local_args(
         args,
-        usage="Usage: hop3 login --browser [<user>@<host>] [--username <name>]",
+        usage=BROWSER_USAGE,
         value_flags=frozenset({"--ssh", "--username"}),
         switches=frozenset(BROWSER_FLAGS),
         max_positionals=1,
@@ -420,10 +436,8 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     # The target is optional: bare `--browser` uses the current context, which
     # is the everyday case once you have logged in. An explicit one is what
     # makes the form work on a machine that has no context yet.
-    ssh_target = (
-        parsed.get("--ssh")
-        or ssh_target_argument(args)
-        or _get_ssh_target_from_config(config)
+    ssh_target = _typed_target(parsed, BROWSER_USAGE) or _get_ssh_target_from_config(
+        config
     )
 
     if not ssh_target:
@@ -702,21 +716,13 @@ def _read_token(source: str | None) -> str:
     """
     if source is None:
         token = _prompt_token()
-    else:
-        if source != "-" and not source.startswith("@"):
-            print(
-                "Warning: a token on the command line is kept by the shell "
-                "history and visible in `ps`. Pass it with --token - (stdin) "
-                "or --token @<path>.",
-                file=sys.stderr,
-            )
-        try:
-            token = read_value_source(source, label="--token").strip()
-        except ValueError as e:
-            usage_failure(str(e), TOKEN_USAGE)
-    if not token:
-        usage_failure("the token is empty.", TOKEN_USAGE)
-    return token
+        if not token:
+            usage_failure("the token is empty.", TOKEN_USAGE)
+        return token
+    try:
+        return read_secret_source(source, label="--token")
+    except ValueError as e:
+        usage_failure(str(e), TOKEN_USAGE)
 
 
 def _prompt_token() -> str:
@@ -846,7 +852,7 @@ def _determine_save_url(
     ssh_target: str,
     token: str,
     config: Config,
-    debug_level: int,
+    debug: bool,
 ) -> tuple[str, str | None]:
     """
     The ``(everyday address, bootstrap address)`` to record for this login.
@@ -863,14 +869,14 @@ def _determine_save_url(
     """
     if api_url:
         # User explicitly provided URL - use HTTP API
-        if debug_level >= 1:
+        if debug:
             print(f"[debug] Will use HTTP API at: {api_url}")
         # For HTTPS, verify the connection works with system CA bundle
         # (aborts the login on an untrusted certificate). The operator named
         # this URL, so a broken one is a mistake to surface, not to route past.
         if api_url.startswith("https://"):
             config_data = {"api_url": api_url, "api_token": token}
-            _verify_https_connection(api_url, token, config, config_data, debug_level)
+            _verify_https_connection(api_url, token, config, config_data, debug)
         return api_url, _build_ssh_url(ssh_target)
 
     ssh_url = _build_ssh_url(ssh_target)
@@ -879,7 +885,7 @@ def _determine_save_url(
         if problem := _https_unusable_because(public_url, token):
             _explain_ssh_fallback(ssh_target, f"{public_url} {problem}")
             return ssh_url, None
-        if debug_level >= 1:
+        if debug:
             print(f"[debug] Will use the server's public URL: {public_url}")
         return public_url, ssh_url
 
@@ -974,9 +980,9 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> N
     """
     ssh_target, username, api_url = _parse_login_ssh_args(args)
     # `-d` is a global flag (parse_flags), so it reaches us on the printer.
-    debug_level = 1 if printer.debug else 0
+    debug = printer.debug
 
-    if debug_level >= 1:
+    if debug:
         print(f"[debug] SSH target: {ssh_target}")
         print(f"[debug] Username: {username or '(auto)'}")
         print(f"[debug] API URL override: {api_url or '(none, will use SSH tunnel)'}")
@@ -996,16 +1002,13 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> N
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
 
-    if debug_level >= 2:
-        print(f"[debug] Token received: {token[:20]}...{token[-10:]}")
-
     # Determine API URL to save
     save_url, bootstrap_url = _determine_save_url(
-        api_url, ssh_target, token, config, debug_level
+        api_url, ssh_target, token, config, debug
     )
 
     record_server_login(config, save_url, token, bootstrap=bootstrap_url)
-    if debug_level >= 1:
+    if debug:
         print(f"[debug] Token stored for: {save_url}")
         print(f"[debug] Bootstrap route: {bootstrap_url or '(none)'}")
 
@@ -1050,7 +1053,7 @@ def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None]
     )
     # The positional form: `hop3 login root@server.com`. `--ssh` is the old
     # spelling of the same thing and still works.
-    ssh_target = parsed.get("--ssh") or ssh_target_argument(args)
+    ssh_target = _typed_target(parsed, SSH_USAGE)
     if not ssh_target:
         usage_failure(
             "this form needs a target, e.g. `hop3 login root@server.com`.", SSH_USAGE
@@ -1063,7 +1066,7 @@ def _verify_https_connection(
     token: str,
     config: Config,
     config_data: dict,
-    debug_level: int = 0,
+    debug: bool = False,
 ) -> None:
     """
     Verify HTTPS connection works with the system CA bundle.
@@ -1076,13 +1079,13 @@ def _verify_https_connection(
         token: The API token for authentication
         config: Config object for saving settings
         config_data: Config data dict to update
-        debug_level: Debug verbosity level
+        debug: Whether to print debug lines
     """
     import requests  # ruff:ignore[import-outside-top-level]
 
     from hop3_cli.exit_codes import ExitCode  # ruff:ignore[import-outside-top-level]
 
-    if debug_level >= 1:
+    if debug:
         print(f"[debug] Verifying HTTPS connection to {api_url}")
 
     try:
@@ -1127,7 +1130,7 @@ def _verify_https_connection(
         sys.exit(ExitCode.AUTH_ERROR)
 
     except requests.exceptions.RequestException as e:
-        if debug_level >= 1:
+        if debug:
             print(f"[debug] Connection error: {e}")
         print(f"Warning: Could not verify connection to {api_url}")
 

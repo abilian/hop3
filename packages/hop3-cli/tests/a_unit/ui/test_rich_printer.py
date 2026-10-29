@@ -9,6 +9,7 @@ from __future__ import annotations
 import base64
 import json
 
+import pytest
 from hop3_cli.ui.rich_printer import RichPrinter
 
 
@@ -543,3 +544,15 @@ def test_hint_keeps_the_app_it_names(capsys):
     out = _render_hint(capsys, item, context="prod", app="original")
     assert "hop3 app status --app restored --context prod" in out
     assert "original" not in out
+
+
+@pytest.mark.parametrize(
+    ("command", "dropped"),
+    [("logs -a restored", "original"), ("status --context staging", "prod")],
+)
+def test_hint_keeps_a_selector_it_names_in_either_spelling(capsys, command, dropped):
+    """A hint that names `-a` or `--context` gets no second one appended."""
+    item = {"t": "hint", "command": command, "message": "Run {cmd}."}
+    out = _render_hint(capsys, item, context="prod", app="original")
+    assert f"hop3 {command}" in out
+    assert dropped not in out

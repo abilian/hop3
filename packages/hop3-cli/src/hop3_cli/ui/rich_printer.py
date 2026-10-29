@@ -190,15 +190,17 @@ class RichPrinter:
         """
         Build ``hop3 <command>`` + the typed --context/--app selectors.
 
-        A command that names its own ``--app`` (the app a backup was restored into)
-        keeps it: that app is the one the hint is about.
+        A command that names its own ``--app`` or ``--context``, in either
+        spelling (the app a backup was restored into), keeps it: that one is the
+        one the hint is about.
         """
         parts = ["hop3", command]
+        words = set(command.split())
         ctx = self._suggest.get("context")
         app = self._suggest.get("app")
-        if ctx:
+        if ctx and not words & {"--context", "-c"}:
             parts.append(f"--context {ctx}")
-        if app and "--app" not in command.split():
+        if app and not words & {"--app", "-a"}:
             parts.append(f"--app {app}")
         return " ".join(p for p in parts if p)
 

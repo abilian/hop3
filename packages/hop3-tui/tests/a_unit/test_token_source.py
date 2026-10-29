@@ -9,7 +9,13 @@ import io
 import os
 
 import pytest
-from hop3_tui.__main__ import STDIN_FILENO, build_parser, read_token, reattach_terminal
+from hop3_tui.__main__ import (
+    STDIN_FILENO,
+    build_parser,
+    main,
+    read_token,
+    reattach_terminal,
+)
 
 
 def test_token_from_a_file(tmp_path):
@@ -32,6 +38,14 @@ def test_a_missing_file_is_a_usage_error(tmp_path):
     with pytest.raises(SystemExit) as exc:
         read_token(f"@{tmp_path / 'absent'}", build_parser())
     assert exc.value.code == 2
+
+
+def test_an_empty_token_is_refused_not_dropped(capsys):
+    """`--token "$UNSET"` must not fall back to the stored token."""
+    with pytest.raises(SystemExit) as exc:
+        main(["--token", ""])
+    assert exc.value.code == 2
+    assert "empty" in capsys.readouterr().err
 
 
 def test_the_terminal_goes_back_on_stdin_after_a_piped_token():

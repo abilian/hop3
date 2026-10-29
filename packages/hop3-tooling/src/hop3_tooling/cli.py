@@ -6,13 +6,14 @@
 from __future__ import annotations
 
 import io
+import shlex
 import subprocess
 import tarfile
 from collections import Counter
 from contextlib import contextmanager
 from dataclasses import replace
 from pathlib import Path
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 import click
 import tomllib
@@ -190,13 +191,17 @@ def nix() -> None:
 
 
 def _ssh(
-    host: str, remote_cmd: str, *, check: bool, **kwargs
-) -> subprocess.CompletedProcess:
+    host: str, remote_cmd: str, *, check: bool, **kwargs: Any
+) -> subprocess.CompletedProcess[Any]:
     return subprocess.run(ssh_argv(f"root@{host}", remote_cmd), check=check, **kwargs)
 
 
 def _copy_dir(app_dir: Path, host: str, remote_dir: str) -> None:
-    """Copy ``app_dir`` into a fresh ``remote_dir``, as a tar stream over ssh."""
+    """
+    Copy ``app_dir`` into a fresh ``remote_dir``, as a tar stream over ssh.
+
+    ``remote_dir`` goes into a root shell line as is: quote it (`_remote_dir`).
+    """
     archive = io.BytesIO()
     with tarfile.open(fileobj=archive, mode="w") as tar:
         tar.add(app_dir, arcname=".")
@@ -206,6 +211,11 @@ def _copy_dir(app_dir: Path, host: str, remote_dir: str) -> None:
         input=archive.getvalue(),
         check=True,
     )
+
+
+def _remote_dir(purpose: str, app_dir: Path) -> str:
+    """The remote scratch directory for ``app_dir``, quoted for a shell line."""
+    return shlex.quote(f"/tmp/{purpose}/{app_dir.name}")
 
 
 def _build_locally(nix_file: Path) -> subprocess.CompletedProcess[str]:
@@ -226,7 +236,7 @@ def _build_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str
     actually run the app. The whole app directory is copied because the
     expression references its lockfiles by relative path.
     """
-    remote_dir = f"/tmp/hop3-vendor-hash/{app_dir.name}"
+    remote_dir = _remote_dir("hop3-vendor-hash", app_dir)
     _copy_dir(app_dir, host, remote_dir)
     try:
         return _ssh(
@@ -565,7 +575,7 @@ def _rebuild_locally(nix_file: Path) -> subprocess.CompletedProcess[str]:
 
 
 def _rebuild_over_ssh(app_dir: Path, host: str) -> subprocess.CompletedProcess[str]:
-    remote_dir = f"/tmp/hop3-repro/{app_dir.name}"
+    remote_dir = _remote_dir("hop3-repro", app_dir)
     _copy_dir(app_dir, host, remote_dir)
     try:
         return _ssh(

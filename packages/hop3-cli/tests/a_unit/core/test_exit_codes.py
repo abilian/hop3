@@ -207,6 +207,7 @@ def test_protocol_mismatch_says_which_side_to_upgrade(capsys, server, upgrade) -
         "client_protocol": 1,
         "server_protocol": server,
     }
-    with pytest.raises(SystemExit):
+    with pytest.raises(SystemExit) as exc:
         handle_error_response(-32600, "Protocol mismatch: ...", data=data)
     assert upgrade in capsys.readouterr().err
+    assert exc.value.code == ExitCode.USAGE_ERROR  # by code: the message says nothing

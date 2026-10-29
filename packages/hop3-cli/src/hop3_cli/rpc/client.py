@@ -31,15 +31,15 @@ if TYPE_CHECKING:
 
     from hop3_cli.config import Config
 
-# SECURITY (audit M8): bound the RPC request so a malicious or unresponsive
-# server can't hang the CLI forever with the bearer token in transit. Mirrors
-# the SSE path's timeouts (streaming.py). (connect, read) seconds.
 #: The /rpc contract this client speaks, sent as ``params.protocol``. The
 #: server refuses a version it does not speak, and names its own in the
 #: ``PROTOCOL_HEADER`` response header (absent from servers that predate it).
 RPC_PROTOCOL_VERSION = 1
 PROTOCOL_HEADER = "Hop3-RPC-Protocol"
 
+# SECURITY (audit M8): bound the RPC request so a malicious or unresponsive
+# server can't hang the CLI forever with the bearer token in transit. Mirrors
+# the SSE path's timeouts (streaming.py). (connect, read) seconds.
 _RPC_CONNECT_TIMEOUT_SECONDS = 30.0
 _RPC_READ_TIMEOUT_SECONDS = 300.0
 

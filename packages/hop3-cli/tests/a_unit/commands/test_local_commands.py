@@ -709,15 +709,17 @@ class TestHandleLogin:
         "server",
         ["http://localhost:8000", "https://my-server.com/api"],
     )
-    def test_login_url_with_token(self, temp_config, printer, monkeypatch, server):
-        """The old `<url>?token=` form still logs in (it is no longer taught)."""
-        monkeypatch.setattr("hop3_cli.rpc.Client", _whoami("testuser"))
+    def test_login_url_with_token_is_refused(
+        self, temp_config, printer, capsys, server
+    ):
+        """The old `<url>?token=` form put the secret on argv: refused, not used."""
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login([f"{server}?token={_FAKE_JWT_TEST}"], temp_config, printer)
 
-        handle_login([f"{server}?token={_FAKE_JWT_TEST}"], temp_config, printer)
-
-        # ADR 042 r2: token to the per-server store keyed by the embedded URL.
-        assert cs.get_token(server) == _FAKE_JWT_TEST
-        assert temp_config.get_context_server(DEFAULT_CONTEXT_NAME) == server
+        assert exc_info.value.code == ExitCode.USAGE_ERROR
+        assert "--token -" in capsys.readouterr().err
+        assert cs.get_token(server) is None
+        assert not temp_config.data.get("contexts")
 
 
 class TestHandleVersion:
