@@ -426,17 +426,18 @@ def robust_rmtree(path: Path | str) -> None:
     def handle_remove_readonly(
         func: Callable[..., object], filepath: str, exc: BaseException
     ) -> None:
-        """Error handler that fixes read-only permissions and retries."""
-        # If it's a permission error, try to fix permissions and retry
-        if isinstance(exc, PermissionError):
-            try:
-                os.chmod(filepath, stat.S_IRWXU | stat.S_IRWXG | stat.S_IRWXO)
-                func(filepath)
-                return
-            except OSError:
-                pass
-        # Re-raise the original exception
-        raise exc
+        """Make the entry and its directory writable, then retry once."""
+        if not isinstance(exc, PermissionError):
+            raise exc
+        # Removing an entry needs write permission on the directory holding
+        # it, not on the entry: Go's module cache, for one, is made of
+        # read-only (0555) directories. A read-only directory is also
+        # unreadable to scandir until it is made traversable.
+        parent = os.path.dirname(filepath)
+        os.chmod(parent, os.stat(parent).st_mode | stat.S_IRWXU)
+        if os.path.isdir(filepath) and not os.path.islink(filepath):
+            os.chmod(filepath, os.stat(filepath).st_mode | stat.S_IRWXU)
+        func(filepath)
 
     last_error = None
     for attempt in range(RMTREE_MAX_RETRIES):
@@ -453,6 +454,8 @@ def robust_rmtree(path: Path | str) -> None:
     # All retries failed - try one last time with ignore_errors as fallback
     shutil.rmtree(path, ignore_errors=True)
 
-    # Check if it's really gone
+    # Check if it's really gone. The error names the tree: rmtree's own names
+    # only the entry, relative to its directory ("Permission denied: '.gitignore'").
     if path.exists():
-        raise last_error or OSError(f"Failed to remove directory: {path}")
+        msg = f"can't remove {path}: {last_error}"
+        raise OSError(msg) from last_error

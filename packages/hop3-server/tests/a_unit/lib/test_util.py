@@ -255,3 +255,16 @@ class TestRobustRmtree:
         robust_rmtree(directory)
 
         assert not directory.exists()
+
+    def test_removes_readonly_directories(self, tmp_path):
+        """Go's module cache: files inside 0555 directories, nested."""
+        tree = tmp_path / "home" / "go" / "pkg" / "mod"
+        module = tree / "github.com" / "gin-gonic" / "gin@v1.9.1"
+        module.mkdir(parents=True)
+        (module / ".gitignore").write_text("x")
+        for d in (module, module.parent, module.parent.parent, tree):
+            os.chmod(d, 0o555)
+
+        robust_rmtree(tmp_path / "home")
+
+        assert not (tmp_path / "home").exists()
