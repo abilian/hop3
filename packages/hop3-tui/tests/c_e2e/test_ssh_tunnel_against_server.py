@@ -34,8 +34,12 @@ if TYPE_CHECKING:
 def test_a_tunnel_as_the_hop3_user_fails_with_an_actionable_message(
     hop3_server: TargetInfo, monkeypatch, tmp_path
 ):
+    # The container is ours: one that exposes no key or port is a broken image.
     if not hop3_server.ssh_key or not hop3_server.ssh_port:
-        pytest.skip("container exposed no SSH key/port to tunnel through")
+        pytest.fail(
+            "the e2e container exposed no SSH key/port to tunnel through "
+            f"(ssh_key={hop3_server.ssh_key!r}, ssh_port={hop3_server.ssh_port!r})"
+        )
 
     monkeypatch.setenv("HOP3_CONFIG_DIR", str(tmp_path))
     (tmp_path / "config.toml").write_text(

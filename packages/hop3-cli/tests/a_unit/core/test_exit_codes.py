@@ -50,7 +50,8 @@ def test_d16_numbering() -> None:
         (500, ExitCode.NETWORK_ERROR),
         (-32601, ExitCode.RESOLUTION_ERROR),  # method not found
         (-32602, ExitCode.USAGE_ERROR),  # invalid params
-        (-32603, ExitCode.NETWORK_ERROR),  # internal error
+        (-32603, ExitCode.GENERAL_ERROR),  # a command failed: see its message
+        (-32004, ExitCode.CONFLICT_ERROR),  # the command slot is in use
         (-32001, ExitCode.AUTH_ERROR),  # unauthenticated
         (-32003, ExitCode.AUTHZ_ERROR),  # role too low (ADR 061)
     ],
@@ -161,3 +162,51 @@ def test_a_refused_role_exits_5_with_the_servers_hint(capsys) -> None:
 
     out = capsys.readouterr()
     assert "hop3 user set-role vera deployer" in out.out + out.err
+
+
+@pytest.mark.parametrize(
+    ("message", "expected"),
+    [
+        # -32603 is a command that failed while running, never the network.
+        ("No space left on device", ExitCode.GENERAL_ERROR),
+        ("App 'shop' not found", ExitCode.RESOLUTION_ERROR),
+    ],
+)
+def test_a_command_failure_exits_by_its_message(capsys, message, expected) -> None:
+    with pytest.raises(SystemExit) as exc:
+        handle_error_response(-32603, message)
+    assert exc.value.code == expected
+    assert message in capsys.readouterr().err
+
+
+def test_server_busy_names_the_running_command(capsys) -> None:
+    data = {"kind": "server_busy", "running": "deploy --app shop", "running_for": 42}
+    with pytest.raises(SystemExit) as exc:
+        handle_error_response(-32004, "Server busy: ...", data=data)
+    assert exc.value.code == ExitCode.CONFLICT_ERROR
+    err = capsys.readouterr().err
+    assert "'hop3 deploy --app shop' has been running for 42s" in err
+    assert "Retry" in err
+
+
+def test_server_busy_with_no_named_holder_quotes_no_duration(capsys) -> None:
+    data = {"kind": "server_busy", "running": None, "running_for": None}
+    with pytest.raises(SystemExit):
+        handle_error_response(-32004, "Server busy: ...", data=data)
+    err = capsys.readouterr().err
+    assert "another command is running" in err
+    assert "Nones" not in err
+
+
+@pytest.mark.parametrize(
+    ("server", "upgrade"), [(2, "Upgrade this hop3-cli"), (0, "Upgrade the server")]
+)
+def test_protocol_mismatch_says_which_side_to_upgrade(capsys, server, upgrade) -> None:
+    data = {
+        "kind": "protocol_mismatch",
+        "client_protocol": 1,
+        "server_protocol": server,
+    }
+    with pytest.raises(SystemExit):
+        handle_error_response(-32600, "Protocol mismatch: ...", data=data)
+    assert upgrade in capsys.readouterr().err

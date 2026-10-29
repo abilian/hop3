@@ -18,6 +18,7 @@ from hop3_cli.core.deploy_preview import (
     domain_target_warnings,
     render_plan,
 )
+from hop3_cli.exceptions import ConfigError
 
 # ---- GitState ------------------------------------------------------------
 
@@ -294,19 +295,12 @@ def test_build_plan_ancestor_walk_stops_at_home(tmp_path: Path) -> None:
     assert plan.ancestor_hop3_toml is None
 
 
-def test_build_plan_unparseable_hop3_toml_safe(tmp_path: Path) -> None:
-    """Broken TOML in source dir should not raise; treat as empty."""
+def test_build_plan_refuses_an_unparseable_hop3_toml(tmp_path: Path) -> None:
+    """Broken TOML is named, never previewed as an empty config."""
     tmp_path.joinpath("hop3.toml").write_text("not [ valid toml")
     runner = _stub_runner({("git", "rev-parse", "HEAD"): None})
-    plan = build_plan(
-        source_path=tmp_path,
-        context=None,
-        app="x",
-        git_runner=runner,
-    )
-    assert plan.domains == ()
-    assert plan.addons == ()
-    assert plan.env_keys == ()
+    with pytest.raises(ConfigError, match=r"hop3\.toml is not valid TOML"):
+        build_plan(source_path=tmp_path, context=None, app="x", git_runner=runner)
 
 
 # ---- render_plan ---------------------------------------------------------

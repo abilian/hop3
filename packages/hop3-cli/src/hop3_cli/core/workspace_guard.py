@@ -19,8 +19,9 @@ actionable message, rather than let it quietly install the wrong code. The
 escape hatch is explicit: pin the sibling to a released version (``==``) to opt
 into the PyPI release on purpose, or pass ``--force``.
 
-Detection is pure and best-effort: any unreadable/odd pyproject yields no
-issue, so the guard never blocks a deploy on its own parsing quirks.
+A pyproject.toml of an unexpected shape yields no issue. One that is not valid
+TOML raises ``ConfigError`` naming it: the guard cannot tell whether it
+declares the source a member, and a guess either way would be silent.
 """
 
 from __future__ import annotations
@@ -30,7 +31,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
-import tomllib
+from hop3_cli.core.toml_file import read_toml
 
 #: A PEP 508 requirement starts with the distribution name; capture it before
 #: any extras ``[...]``, version specifier, or ``;`` marker.
@@ -78,9 +79,9 @@ def find_workspace_dependency_issue(
     home = (home or Path.home()).resolve()
     source_dir = source_dir.resolve()
 
-    src_data = _read_toml(source_dir / "pyproject.toml")
+    src_data = read_toml(source_dir / "pyproject.toml")
     if not src_data:
-        # No pyproject (or unreadable) -> nothing to reason about.
+        # No pyproject -> nothing to reason about.
         return None
 
     found = _find_enclosing_workspace(source_dir, home)
@@ -123,7 +124,7 @@ def _find_enclosing_workspace(
     """
     current = source_dir.parent
     while True:
-        data = _read_toml(current / "pyproject.toml")
+        data = read_toml(current / "pyproject.toml")
         members = _workspace_members(data)
         if members is not None:
             member_dirs = _resolve_members(current, members)
@@ -148,7 +149,7 @@ def _member_package_names(member_dirs: set[Path]) -> set[str]:
     """The normalized distribution names declared by each member package."""
     names = set()
     for directory in member_dirs:
-        name = _normalize(_project_name(_read_toml(directory / "pyproject.toml")))
+        name = _normalize(_project_name(read_toml(directory / "pyproject.toml")))
         if name:
             names.add(name)
     return names
@@ -157,7 +158,7 @@ def _member_package_names(member_dirs: set[Path]) -> set[str]:
 def _format_message(
     source_dir: Path, siblings: tuple[str, ...], workspace_root: Path
 ) -> str:
-    app = _project_name(_read_toml(source_dir / "pyproject.toml")) or source_dir.name
+    app = _project_name(read_toml(source_dir / "pyproject.toml")) or source_dir.name
     rel = _display_path(source_dir)
     sib_list = ", ".join(f"{s!r}" for s in siblings)
     plural = "s" if len(siblings) > 1 else ""
@@ -185,15 +186,6 @@ def _display_path(path: Path) -> str:
         return str(path.relative_to(Path.cwd()))
     except ValueError:
         return str(path)
-
-
-def _read_toml(path: Path) -> dict[str, Any]:
-    """Parse a pyproject.toml; ``{}`` on any read/parse failure (best-effort)."""
-    try:
-        with path.open("rb") as f:
-            return tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}
 
 
 def _workspace_members(data: dict[str, Any]) -> list[str] | None:

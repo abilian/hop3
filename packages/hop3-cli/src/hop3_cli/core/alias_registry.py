@@ -22,14 +22,17 @@ Collision handling (D9):
 
 from __future__ import annotations
 
-import os
 import sys
 from dataclasses import dataclass, field
-from pathlib import Path
+from typing import TYPE_CHECKING
 
 import tomllib
 
 from .aliases import CORE_ALIASES, Alias
+from .suggest import load_cached_commands
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 @dataclass
@@ -252,102 +255,38 @@ def build_subcommand_index(command_names: list[str]) -> dict[str, set[str]]:
     return index
 
 
+#: Subcommands of the namespaces the built-in aliases expand into, for a CLI
+#: whose command cache is still empty. Only those namespaces matter: the index
+#: decides whether `hop3 addons create` means `addon create`. A test pins every
+#: set to the server's registry (plus the CLI's own `auth login`), so a new or
+#: renamed subcommand fails it.
+FALLBACK_SUBCOMMANDS: dict[str, frozenset[str]] = {
+    "addon": frozenset({
+        "attach", "create", "destroy", "detach", "email", "endpoint", "exists",
+        "expose", "list", "mysql", "postgres", "promote", "redis", "s3", "show",
+        "status", "types", "unexpose",
+    }),
+    "app": frozenset({
+        "build-logs", "check", "create", "credentials", "debug", "destroy",
+        "launch", "list", "logs", "migrate", "ping", "restart", "rollback", "run",
+        "sbom", "shell", "start", "status", "stop", "upgrade",
+    }),
+    "auth": frozenset({
+        "get-token", "login", "logout", "magic-link", "register", "whoami",
+    }),
+    "network": frozenset({"add", "list", "rm"}),
+    "plugin": frozenset({"list"}),
+    "port": frozenset({"list"}),
+}  # fmt: skip
+
+
 def cached_subcommand_index() -> dict[str, set[str]]:
     """
-    Load the subcommand index from the completion cache if available.
+    The subcommand index from the command cache, else ``FALLBACK_SUBCOMMANDS``.
 
-    Falls back to a static subset sufficient for the core alias set. This
-    keeps alias resolution robust even on first-run (cache cold).
+    The cache is the one ``hop3 completion --refresh`` and every login write
+    (``paths.commands_cache_path``); a corrupt one reads as absent.
     """
-    # Try the cache that `hop3 completion --refresh` writes.
-    cache = (
-        Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-        / "hop3"
-        / "commands.txt"
-    )
-    if cache.is_file():
-        try:
-            names = [
-                line.strip() for line in cache.read_text().splitlines() if line.strip()
-            ]
-            return build_subcommand_index(names)
-        except OSError:
-            pass
-
-    # Static fallback: subcommand sets for the namespaces that core aliases target.
-    # These are the names we documented in the command catalog.
-    return {
-        "app": {
-            "create",
-            "destroy",
-            "rename",
-            "show",
-            "list",
-            "launch",
-            "sbom",
-            "env",
-            "debug",
-            "ping",
-            "build-logs",
-            "migrate",
-            "start",
-            "stop",
-            "restart",
-            "shell",
-        },
-        "addon": {
-            "list",
-            "create",
-            "destroy",
-            "attach",
-            "detach",
-            "show",
-            "status",
-            "console",
-            "tunnel",
-            "credentials",
-            "logs",
-            "wait",
-            "backup",
-        },
-        "config": {
-            "show",
-            "get",
-            "set",
-            "unset",
-            "live",
-            "migrate",
-        },
-        "auth": {
-            "login",
-            "logout",
-            "whoami",
-            "register",
-            "magic-link",
-        },
-        "plugin": {"list", "show", "install", "uninstall"},
-        "backup": {"create", "list", "show", "restore", "destroy"},
-        "context": {"list", "show", "use", "add", "remove", "rename"},
-        "user": {
-            "add",
-            "remove",
-            "show",
-            "list",
-            "enable",
-            "disable",
-            "grant-admin",
-            "revoke-admin",
-            "set-password",
-            "set-role",
-            "generate-token",
-        },
-        "system": {
-            "check",
-            "info",
-            "status",
-            "uptime",
-            "ps",
-            "logs",
-            "cleanup",
-        },
-    }
+    if names := load_cached_commands():
+        return build_subcommand_index(names)
+    return {ns: set(verbs) for ns, verbs in FALLBACK_SUBCOMMANDS.items()}

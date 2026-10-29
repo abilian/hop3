@@ -16,6 +16,7 @@ from hop3_cli.core.local_overlay import (
     read_overlay,
     write_overlay,
 )
+from hop3_cli.exceptions import ConfigError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -59,23 +60,6 @@ def test_read_overlay_walks_up_to_home(tmp_path: Path) -> None:
     sub.mkdir(parents=True)
     overlay = read_overlay(cwd=sub, home=tmp_path)
     assert overlay.current_context == "prod"
-
-
-def test_read_overlay_unparseable_returns_empty_data_keeps_path(
-    tmp_path: Path,
-) -> None:
-    """
-    A broken TOML file yields empty data but the path is preserved.
-
-    Lets callers distinguish 'no overlay' from 'broken overlay' if they
-    need to (e.g., to warn the operator about the parse failure).
-    """
-    overlay_path = tmp_path / LOCAL_OVERLAY_FILENAME
-    overlay_path.write_text("not valid toml [[[")
-    overlay = read_overlay(cwd=tmp_path, home=tmp_path)
-    assert overlay.path == overlay_path
-    assert overlay.data == {}
-    assert overlay.current_context is None
 
 
 def test_current_context_handles_missing_section(tmp_path: Path) -> None:
@@ -335,3 +319,26 @@ def test_find_overlay_file_stops_at_home(tmp_path: Path) -> None:
     cwd.mkdir()
     (outer / LOCAL_OVERLAY_FILENAME).write_text("[current]\n")
     assert find_overlay_file(cwd, home) is None
+
+
+def test_a_malformed_overlay_raises_instead_of_reading_as_empty(
+    tmp_path: Path,
+) -> None:
+    """
+    The overlay holds the checkout's context binding. Read as empty, a broken
+    file sent the checkout to its default context, and the next binding write
+    overwrote the operator's file.
+    """
+    overlay_file = tmp_path / LOCAL_OVERLAY_FILENAME
+    overlay_file.write_text("[local\ncontext = 'staging'\n")
+
+    with pytest.raises(ConfigError, match=r"\.hop3-local\.toml is not valid TOML"):
+        read_overlay(cwd=tmp_path, home=tmp_path)
+    with pytest.raises(ConfigError):
+        write_overlay(
+            {"local": {"context": "prod"}},
+            cwd=tmp_path,
+            home=tmp_path,
+            ensure_gitignore=False,
+        )
+    assert overlay_file.read_text() == "[local\ncontext = 'staging'\n"

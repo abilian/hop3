@@ -8,9 +8,6 @@ from __future__ import annotations
 
 import base64
 import json
-import sys
-from io import BytesIO, StringIO
-from unittest.mock import patch
 
 from hop3_cli.ui.rich_printer import RichPrinter
 
@@ -30,19 +27,16 @@ def test_rich_printer_creation():
     assert printer.json_output is True
 
 
-def test_rich_printer_print_text_normal():
+def test_rich_printer_print_text_normal(capsys):
     """Test printing text in normal mode."""
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([{"t": "text", "text": "Hello, world!"}])
-
-    output = stdout_capture.getvalue()
+    printer.print([{"t": "text", "text": "Hello, world!"}])
+    output = capsys.readouterr().out
     assert "Hello, world!" in output
 
 
-def test_rich_printer_print_text_preserves_square_brackets():
+def test_rich_printer_print_text_preserves_square_brackets(capsys):
     """
     Plain text with square brackets must print literally (not as Rich markup).
 
@@ -53,26 +47,23 @@ def test_rich_printer_print_text_preserves_square_brackets():
     """
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([
-            {
-                "t": "text",
-                "text": (
-                    "  addon attach    [addon]   Attach a service.\n"
-                    "Add it under the [aliases] section.\n"
-                    "  3. .hop3-local.toml [local].context"
-                ),
-            }
-        ])
-
-    output = stdout_capture.getvalue()
+    printer.print([
+        {
+            "t": "text",
+            "text": (
+                "  addon attach    [addon]   Attach a service.\n"
+                "Add it under the [aliases] section.\n"
+                "  3. .hop3-local.toml [local].context"
+            ),
+        }
+    ])
+    output = capsys.readouterr().out
     assert "[addon]" in output
     assert "[aliases]" in output
     assert "[local]" in output
 
 
-def test_rich_printer_does_not_wrap_long_single_line_value():
+def test_rich_printer_does_not_wrap_long_single_line_value(capsys):
     """
     A long single-line value must not be word-wrapped.
 
@@ -87,17 +78,14 @@ def test_rich_printer_does_not_wrap_long_single_line_value():
     )
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([{"t": "text", "text": token}])
-
-    output = stdout_capture.getvalue()
+    printer.print([{"t": "text", "text": token}])
+    output = capsys.readouterr().out
     lines = [ln.strip() for ln in output.splitlines() if ln.strip()]
     # Mirrors the script-side parser: a single line that IS the JWT.
     assert token in lines, f"token was wrapped across lines: {output!r}"
 
 
-def test_summary_and_error_lines_are_not_wrapped():
+def test_summary_and_error_lines_are_not_wrapped(capsys):
     """
     The two items a quiet client prints stay one line each when piped.
 
@@ -106,126 +94,99 @@ def test_summary_and_error_lines_are_not_wrapped():
     """
     line = "DEGRADED: redis unreachable — Error 111 connecting to 127.0.0.1:6379. " * 2
     printer = RichPrinter(quiet=True)
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "summary", "text": line}, {"t": "error", "text": line}])
+    printer.print([{"t": "summary", "text": line}, {"t": "error", "text": line}])
+    err = capsys.readouterr().err
 
-    lines = [ln for ln in stderr_capture.getvalue().splitlines() if ln.strip()]
+    lines = [ln for ln in err.splitlines() if ln.strip()]
     assert len(lines) == 2, lines
 
 
-def test_rich_printer_print_blob_writes_raw_bytes_to_stdout():
+def test_rich_printer_print_blob_writes_raw_bytes_to_stdout(capsysbinary):
     """
     A blob item (base64) is decoded and written verbatim to stdout.buffer.
 
     Used by `addon <type> export` so a dump can be redirected to a file.
     """
     printer = RichPrinter()
-    raw_buffer = BytesIO()
+    printer.print([
+        {"t": "blob", "data": base64.b64encode(b"DUMP-BYTES\x00\x01").decode()}
+    ])
 
-    class _FakeStdout:
-        buffer = raw_buffer
-
-        def flush(self):
-            pass
-
-    with patch.object(sys, "stdout", _FakeStdout()):
-        printer.print([
-            {"t": "blob", "data": base64.b64encode(b"DUMP-BYTES\x00\x01").decode()}
-        ])
-
-    assert raw_buffer.getvalue() == b"DUMP-BYTES\x00\x01"
+    assert capsysbinary.readouterr().out == b"DUMP-BYTES\x00\x01"
 
 
-def test_rich_printer_print_text_quiet():
+def test_rich_printer_print_text_quiet(capsys):
     """Test that quiet mode suppresses text output."""
     printer = RichPrinter(quiet=True)
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([{"t": "text", "text": "Hello, world!"}])
-
-    output = stdout_capture.getvalue()
+    printer.print([{"t": "text", "text": "Hello, world!"}])
+    output = capsys.readouterr().out
     assert output == ""
 
 
-def test_rich_printer_print_text_json():
+def test_rich_printer_print_text_json(capsys):
     """Test that JSON mode buffers text for later output."""
     printer = RichPrinter(json_output=True)
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([{"t": "text", "text": "Hello, world!"}])
+    printer.print([{"t": "text", "text": "Hello, world!"}])
+    out = capsys.readouterr().out
 
     # Should not print immediately
-    output = stdout_capture.getvalue()
+    output = out
     assert output == ""
 
     # Should buffer for later
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.flush_json()
-
-    output = stdout_capture.getvalue()
+    printer.flush_json()
+    output = capsys.readouterr().out
     data = json.loads(output)
     assert len(data) == 1
     assert data[0]["t"] == "text"
     assert data[0]["text"] == "Hello, world!"
 
 
-def test_rich_printer_print_error():
+def test_rich_printer_print_error(capsys):
     """Test printing errors to stderr."""
     printer = RichPrinter()
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "error", "text": "Something went wrong"}])
+    printer.print([{"t": "error", "text": "Something went wrong"}])
+    err = capsys.readouterr().err
 
-    output = stderr_capture.getvalue()
+    output = err
     assert "Something went wrong" in output
 
 
-def test_rich_printer_print_error_quiet():
+def test_rich_printer_print_error_quiet(capsys):
     """Test that errors are NOT suppressed in quiet mode."""
     printer = RichPrinter(quiet=True)
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "error", "text": "Something went wrong"}])
+    printer.print([{"t": "error", "text": "Something went wrong"}])
+    err = capsys.readouterr().err
 
-    output = stderr_capture.getvalue()
+    output = err
     assert "Something went wrong" in output
 
 
-def test_rich_printer_print_success():
+def test_rich_printer_print_success(capsys):
     """Test printing success messages with checkmark."""
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([{"t": "success", "text": "Deployment complete"}])
-
-    output = stdout_capture.getvalue()
+    printer.print([{"t": "success", "text": "Deployment complete"}])
+    output = capsys.readouterr().out
     assert "Deployment complete" in output
 
 
-def test_rich_printer_print_warning():
+def test_rich_printer_print_warning(capsys):
     """Test printing warning messages — routed to stderr per ADR 036 D19."""
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    stderr_capture = StringIO()
-    with (
-        patch.object(sys, "stdout", stdout_capture),
-        patch.object(sys, "stderr", stderr_capture),
-    ):
-        printer.print([{"t": "warning", "text": "This is deprecated"}])
+    printer.print([{"t": "warning", "text": "This is deprecated"}])
+    out, err = capsys.readouterr()
 
-    assert "This is deprecated" in stderr_capture.getvalue()
-    assert "This is deprecated" not in stdout_capture.getvalue()
+    assert "This is deprecated" in err
+    assert "This is deprecated" not in out
 
 
-def test_rich_printer_print_table():
+def test_rich_printer_print_table(capsys):
     """Test printing tables using Rich."""
     printer = RichPrinter()
 
@@ -238,11 +199,8 @@ def test_rich_printer_print_table():
         ],
     }
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([table_data])
-
-    output = stdout_capture.getvalue()
+    printer.print([table_data])
+    output = capsys.readouterr().out
     # Rich table should contain headers and data
     assert "Name" in output
     assert "Status" in output
@@ -252,7 +210,7 @@ def test_rich_printer_print_table():
     assert "8000" in output
 
 
-def test_rich_printer_print_table_json():
+def test_rich_printer_print_table_json(capsys):
     """Test that JSON mode preserves table structure."""
     printer = RichPrinter(json_output=True)
 
@@ -262,12 +220,9 @@ def test_rich_printer_print_table_json():
         "rows": [["my-app", "RUNNING"]],
     }
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([table_data])
-        printer.flush_json()
-
-    output = stdout_capture.getvalue()
+    printer.print([table_data])
+    printer.flush_json()
+    output = capsys.readouterr().out
     data = json.loads(output)
     assert len(data) == 1
     assert data[0]["t"] == "table"
@@ -275,7 +230,7 @@ def test_rich_printer_print_table_json():
     assert data[0]["rows"] == [["my-app", "RUNNING"]]
 
 
-def test_rich_printer_multiple_messages():
+def test_rich_printer_multiple_messages(capsys):
     """Test printing multiple messages at once."""
     printer = RichPrinter()
 
@@ -285,29 +240,23 @@ def test_rich_printer_multiple_messages():
         {"t": "text", "text": "Deploy complete"},
     ]
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print(messages)
-
-    output = stdout_capture.getvalue()
+    printer.print(messages)
+    output = capsys.readouterr().out
     assert "Starting deployment..." in output
     assert "Build successful" in output
     assert "Deploy complete" in output
 
 
-def test_rich_printer_flush_json_empty():
+def test_rich_printer_flush_json_empty(capsys):
     """Test flushing JSON with empty buffer."""
     printer = RichPrinter(json_output=True)
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.flush_json()
-
-    output = stdout_capture.getvalue()
+    printer.flush_json()
+    output = capsys.readouterr().out
     assert output == "[]\n"
 
 
-def test_rich_printer_flush_json_multiple():
+def test_rich_printer_flush_json_multiple(capsys):
     """Test flushing JSON with multiple buffered messages."""
     printer = RichPrinter(json_output=True)
 
@@ -315,11 +264,8 @@ def test_rich_printer_flush_json_multiple():
     printer.print([{"t": "text", "text": "Message 2"}])
     printer.print([{"t": "success", "text": "Done"}])
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.flush_json()
-
-    output = stdout_capture.getvalue()
+    printer.flush_json()
+    output = capsys.readouterr().out
     data = json.loads(output)
     assert len(data) == 3
     assert data[0]["text"] == "Message 1"
@@ -327,7 +273,7 @@ def test_rich_printer_flush_json_multiple():
     assert data[2]["text"] == "Done"
 
 
-def test_rich_printer_table_with_none_values():
+def test_rich_printer_table_with_none_values(capsys):
     """Test that table handles None values gracefully."""
     printer = RichPrinter()
 
@@ -340,42 +286,43 @@ def test_rich_printer_table_with_none_values():
         ],
     }
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([table_data])
-
-    output = stdout_capture.getvalue()
+    printer.print([table_data])
+    output = capsys.readouterr().out
     # Should handle None without crashing
     assert "key1" in output
     assert "key2" in output
     assert "value2" in output
 
 
-def test_rich_printer_unknown_message_type():
-    """Test handling of unknown message types."""
+def test_rich_printer_unknown_message_type(capsys):
+    """An item type this client does not know still shows its text."""
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        # Should not crash on unknown type
-        printer.print([{"t": "unknown", "data": "something"}])
+    printer.print([{"t": "from-a-newer-server", "text": "something"}])
 
-    # Should produce some output or handle gracefully
-    stdout_capture.getvalue()
-    # Unknown types might be printed as-is or ignored
-    # Implementation-specific behavior
+    assert "something" in capsys.readouterr().out
 
 
-def test_rich_printer_empty_message_list():
+def test_rich_printer_unknown_type_without_text_is_shown_not_dropped(capsys):
+    """It printed an empty line: the item's content vanished."""
+    printer = RichPrinter(quiet=True)
+
+    printer.print([{"t": "gauge", "value": 42, "label": "[disk]"}])
+
+    captured = capsys.readouterr()
+    assert captured.out == ""
+    assert "Unknown output item" in captured.err
+    assert '"t": "gauge"' in captured.err
+    assert '"label": "[disk]"' in captured.err  # literal, not Rich markup
+
+
+def test_rich_printer_empty_message_list(capsys):
     """Test printing empty message list."""
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([])
+    printer.print([])
 
-    output = stdout_capture.getvalue()
-    assert output == ""
+    assert capsys.readouterr().out == ""
 
 
 def test_rich_printer_verbose_flag():
@@ -400,17 +347,14 @@ def test_rich_printer_immutability():
         pass
 
 
-def test_rich_printer_json_output_format():
+def test_rich_printer_json_output_format(capsys):
     """Test that JSON output is valid and properly formatted."""
     printer = RichPrinter(json_output=True)
 
     printer.print([{"t": "text", "text": "Test message"}])
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.flush_json()
-
-    output = stdout_capture.getvalue()
+    printer.flush_json()
+    output = capsys.readouterr().out
 
     # Should be valid JSON
     data = json.loads(output)
@@ -423,92 +367,82 @@ def test_rich_printer_json_output_format():
 # ---- Summary rendering (ADR 036 D19c) ----
 
 
-def test_summary_routes_to_stderr():
+def test_summary_routes_to_stderr(capsys):
     """Summary lines go to stderr so stdout pipelines stay clean."""
     printer = RichPrinter()
     printer.set_scope(context="prod", app="myapp")
 
-    stdout_capture = StringIO()
-    stderr_capture = StringIO()
-    with (
-        patch.object(sys, "stdout", stdout_capture),
-        patch.object(sys, "stderr", stderr_capture),
-    ):
-        printer.print([{"t": "summary", "text": "set FOO=bar; restarted web."}])
+    printer.print([{"t": "summary", "text": "set FOO=bar; restarted web."}])
+    out, err = capsys.readouterr()
 
-    assert stdout_capture.getvalue() == ""
-    assert "set FOO=bar; restarted web." in stderr_capture.getvalue()
+    assert out == ""
+    assert "set FOO=bar; restarted web." in err
 
 
-def test_summary_includes_context_and_app_prefix():
+def test_summary_includes_context_and_app_prefix(capsys):
     """The [context / app] prefix is built from the scope set by main."""
     printer = RichPrinter()
     printer.set_scope(context="prod", app="myapp")
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "summary", "text": "deployed rev abc123."}])
+    printer.print([{"t": "summary", "text": "deployed rev abc123."}])
+    out, err = capsys.readouterr()
 
-    out = stderr_capture.getvalue()
+    out = err
     assert "[prod / myapp]" in out
     assert "deployed rev abc123." in out
 
 
-def test_summary_with_only_context():
+def test_summary_with_only_context(capsys):
     """No app set -> prefix shows only the context."""
     printer = RichPrinter()
     printer.set_scope(context="prod", app=None)
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "summary", "text": "context updated."}])
+    printer.print([{"t": "summary", "text": "context updated."}])
+    out, err = capsys.readouterr()
 
-    out = stderr_capture.getvalue()
+    out = err
     assert "[prod]" in out
     assert " / " not in out
 
 
-def test_summary_without_scope_omits_prefix():
+def test_summary_without_scope_omits_prefix(capsys):
     """No context and no app -> just the text, no empty brackets."""
     printer = RichPrinter()  # no set_scope call
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "summary", "text": "alias added."}])
+    printer.print([{"t": "summary", "text": "alias added."}])
+    out, err = capsys.readouterr()
 
-    out = stderr_capture.getvalue()
+    out = err
     assert "alias added." in out
     assert "[" not in out
 
 
-def test_summary_in_json_mode_buffers():
+def test_summary_in_json_mode_buffers(capsys):
     """JSON mode should buffer summary items like everything else."""
     printer = RichPrinter(json_output=True)
     printer.set_scope(context="prod", app="myapp")
 
     printer.print([{"t": "summary", "text": "deployed rev abc."}])
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.flush_json()
+    printer.flush_json()
+    out = capsys.readouterr().out
 
-    data = json.loads(stdout_capture.getvalue())
+    data = json.loads(out)
     assert data == [{"t": "summary", "text": "deployed rev abc."}]
 
 
-def test_summary_survives_quiet_mode():
+def test_summary_survives_quiet_mode(capsys):
     """Summary is the one signal scripts can scrape; --quiet must not eat it."""
     printer = RichPrinter(quiet=True)
     printer.set_scope(context="prod", app="myapp")
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        printer.print([{"t": "summary", "text": "set FOO=bar."}])
+    printer.print([{"t": "summary", "text": "set FOO=bar."}])
+    err = capsys.readouterr().err
 
-    assert "set FOO=bar." in stderr_capture.getvalue()
+    assert "set FOO=bar." in err
 
 
-def test_rich_printer_table_empty_rows():
+def test_rich_printer_table_empty_rows(capsys):
     """Test table with headers but no rows."""
     printer = RichPrinter()
 
@@ -518,17 +452,14 @@ def test_rich_printer_table_empty_rows():
         "rows": [],
     }
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([table_data])
-
-    output = stdout_capture.getvalue()
+    printer.print([table_data])
+    output = capsys.readouterr().out
     # Should show headers even with no rows
     assert "Name" in output
     assert "Status" in output
 
 
-def test_print_error_with_bracketed_text_does_not_crash():
+def test_print_error_with_bracketed_text_does_not_crash(capsys):
     """
     Server-supplied error text routinely contains brackets that are NOT Rich
     markup — MSBuild appends ``[/path/app.csproj]`` to every diagnostic. Such a
@@ -542,67 +473,64 @@ def test_print_error_with_bracketed_text_does_not_crash():
         "[/home/hop3/apps/myapp/src/myapp.csproj]"
     )
 
-    stderr_capture = StringIO()
-    with patch.object(sys, "stderr", stderr_capture):
-        # Must not raise rich.errors.MarkupError.
-        printer.print([{"t": "error", "text": msbuild_line}])
+    # Must not raise rich.errors.MarkupError.
+    printer.print([{"t": "error", "text": msbuild_line}])
+    err = capsys.readouterr().err
 
-    output = stderr_capture.getvalue()
+    output = err
     assert "CS1002" in output
     assert "myapp.csproj" in output  # the bracketed path survives, not stripped
 
 
-def test_print_success_with_bracketed_text_does_not_crash():
+def test_print_success_with_bracketed_text_does_not_crash(capsys):
     """A success line carrying bracketed dynamic text must not trip Rich markup."""
     printer = RichPrinter()
 
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([{"t": "success", "text": "built [/tmp/out] ok"}])
+    printer.print([{"t": "success", "text": "built [/tmp/out] ok"}])
+    out = capsys.readouterr().out
 
-    assert "/tmp/out" in stdout_capture.getvalue()
+    assert "/tmp/out" in out
 
 
-def _render_hint(item, *, context=None, app):
+def _render_hint(capsys, item, *, context=None, app):
     """Render a single `hint` item with the given typed selectors; return stdout."""
     printer = RichPrinter()
     printer.set_suggestion_selectors(context=context, app=app)
-    stdout_capture = StringIO()
-    with patch.object(sys, "stdout", stdout_capture):
-        printer.print([item])
-    return stdout_capture.getvalue()
+    printer.print([item])
+    out = capsys.readouterr().out
+    return out
 
 
-def test_hint_echoes_typed_context():
+def test_hint_echoes_typed_context(capsys):
     """
     A follow-up suggestion carries the --context the user typed, so a
     copy-paste stays on the same server (it never reaches the server itself).
     """
     item = {"t": "hint", "command": "deploy", "message": "Run {cmd} to apply."}
-    out = _render_hint(item, context="prod", app=None)
+    out = _render_hint(capsys, item, context="prod", app=None)
     assert "hop3 deploy --context prod" in out
     assert "{cmd}" not in out  # placeholder was substituted
 
 
-def test_hint_echoes_typed_app():
+def test_hint_echoes_typed_app(capsys):
     item = {"t": "hint", "command": "deploy", "message": "Run {cmd}."}
-    out = _render_hint(item, context="prod", app="myapp")
+    out = _render_hint(capsys, item, context="prod", app="myapp")
     assert "hop3 deploy --context prod --app myapp" in out
 
 
-def test_hint_omits_implicit_selectors():
+def test_hint_omits_implicit_selectors(capsys):
     """
     No --app/--context typed (implicit resolution) → suggestion omits them and
     resolves the same way on the next run.
     """
     item = {"t": "hint", "command": "deploy", "message": "Run {cmd}."}
-    out = _render_hint(item, context=None, app=None)
+    out = _render_hint(capsys, item, context=None, app=None)
     assert "hop3 deploy" in out
     assert "--context" not in out
     assert "--app" not in out
 
 
-def test_hint_keeps_the_app_it_names():
+def test_hint_keeps_the_app_it_names(capsys):
     """
     A restore into another app points at that app's status: the --app the
     user typed must not be appended beside it.
@@ -612,6 +540,6 @@ def test_hint_keeps_the_app_it_names():
         "command": "app status --app restored",
         "message": "Run {cmd}.",
     }
-    out = _render_hint(item, context="prod", app="original")
+    out = _render_hint(capsys, item, context="prod", app="original")
     assert "hop3 app status --app restored --context prod" in out
     assert "original" not in out

@@ -8,8 +8,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 from hop3_cli.core.project_guard import check_project_mismatch
 from hop3_cli.core.resolution import AppSource, is_cwd_rooted
+from hop3_cli.exceptions import ConfigError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -222,19 +224,18 @@ def test_walk_stops_at_home(tmp_path: Path) -> None:
 # ---- toml read failure modes --------------------------------------------
 
 
-def test_unparseable_hop3_toml_is_skipped(tmp_path: Path) -> None:
-    """Broken TOML → treat as if no metadata id; don't fire, don't crash."""
+def test_unparseable_hop3_toml_is_refused(tmp_path: Path) -> None:
+    """Broken TOML is named: skipping it skipped the guard, silently."""
     tmp_path.joinpath("hop3.toml").write_text("not [ valid toml")
-    result = check_project_mismatch(
-        resolved_app="other",
-        resolved_source="$HOP3_APP",
-        resolved_kind=AppSource.ENV,
-        verb="deploy",
-        cwd=tmp_path,
-        home=tmp_path.parent,
-    )
-    assert result.is_mismatch is False
-    assert result.cwd_app is None
+    with pytest.raises(ConfigError, match=r"hop3\.toml is not valid TOML"):
+        check_project_mismatch(
+            resolved_app="other",
+            resolved_source="$HOP3_APP",
+            resolved_kind=AppSource.ENV,
+            verb="deploy",
+            cwd=tmp_path,
+            home=tmp_path.parent,
+        )
 
 
 def test_hop3_toml_without_metadata_id_skipped(tmp_path: Path) -> None:

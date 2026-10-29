@@ -208,7 +208,7 @@ su - hop3 -c '/home/hop3/venv/bin/hop3-server admin:create admin admin@example.c
 
 Then log into the server from your local CLI (the printed token is the API token):
 ```bash
-hop3 login --token <paste-token-here> --url https://your-server.com
+hop3 login --token --url https://your-server.com   # prompts for the token (hidden)
 ```
 
 ### Generating API Tokens

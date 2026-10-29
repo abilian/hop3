@@ -49,8 +49,8 @@ EXAMPLES
   # Log in to an existing server
   hop3 login root@your-server.com
 
-  # Log in with a URL containing a token (for local dev)
-  hop3 login "http://localhost:8000?token=eyJ..."
+  # Log in with a pre-generated token, read from stdin
+  hop3 login --token - --url http://localhost:8000 < token.txt
 
   # Check the current user (requires server connection)
   hop3 auth whoami

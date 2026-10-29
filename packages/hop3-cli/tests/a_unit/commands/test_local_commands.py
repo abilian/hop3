@@ -7,9 +7,10 @@
 from __future__ import annotations
 
 import io
+import subprocess
+from dataclasses import dataclass, field
 from pathlib import Path
-from tempfile import TemporaryDirectory
-from unittest.mock import MagicMock, Mock, patch
+from typing import Any, Self
 
 import pytest
 import requests
@@ -54,6 +55,75 @@ _FAKE_JWT_ADMIN = (
 _FAKE_JWT_USER = (
     f"{_JWT_HEADER}.eyJzdWIiOiJ1c2VyIiwicm9sZSI6InVzZXIiLCJpYXQiOjE3MDAwMH0.{_JWT_SIG}"
 )
+
+
+@pytest.fixture
+def temp_config(tmp_path: Path) -> Config:
+    """A real config, written under the test's own directory."""
+    return Config(data={}, config_file=tmp_path / "config.toml")
+
+
+@pytest.fixture
+def printer() -> RichPrinter:
+    """A real printer: what a command shows is asserted on captured output."""
+    return RichPrinter()
+
+
+@dataclass
+class FakeSsh:
+    """
+    ``subprocess.run`` for the ssh bootstrap: records argv, answers ``stdout``.
+
+    The commands are real; only the process boundary is replaced, so a test
+    sees the exact command line the CLI would have run.
+    """
+
+    stdout: str
+    calls: list[list[str]] = field(default_factory=list)
+
+    def __call__(self, argv: list[str], **_kwargs: Any) -> subprocess.CompletedProcess:
+        self.calls.append(argv)
+        return subprocess.CompletedProcess(argv, 0, stdout=self.stdout, stderr="")
+
+
+@dataclass
+class FakeClient:
+    """
+    The RPC client: answers every call with ``result`` and records the calls.
+
+    Built by the code under test (``Client(config=...)``), so the instance
+    keeps the config it was given and ``FakeClient.made`` lists every one.
+    """
+
+    result: list[dict]
+    made: list[FakeClient] = field(default_factory=list)
+    config: Config | None = None
+    calls: list[tuple[str, list[str]]] = field(default_factory=list)
+
+    def __call__(self, config: Config, **_kwargs: Any) -> FakeClient:
+        client = FakeClient(self.result, config=config)
+        self.made.append(client)
+        return client
+
+    def __enter__(self) -> Self:
+        return self
+
+    def __exit__(self, *_exc: object) -> bool:
+        return False
+
+    def rpc(self, method: str, params: list[str]) -> Ok:
+        self.calls.append((method, params))
+        return Ok(id=1, result=self.result)
+
+
+def _whoami(name: str) -> FakeClient:
+    return FakeClient([{"t": "text", "text": f"Logged in as: {name}"}])
+
+
+def _scripted(*answers: str):
+    """A prompt (``input``, ``getpass``) that answers ``answers`` in order."""
+    queue = list(answers)
+    return lambda _prompt="": queue.pop(0)
 
 
 class TestIsLocalCommand:
@@ -155,31 +225,19 @@ class TestVerifyToken:
     against healthy servers (the Docker demo login failure).
     """
 
-    def test_verify_token_builds_resolvable_config(self):
+    def test_verify_token_builds_resolvable_config(self, monkeypatch):
         """The temp Config passed to Client must resolve api_url + token."""
-        captured: dict = {}
+        client = _whoami("alice")
+        monkeypatch.setattr("hop3_cli.rpc.Client", client)
 
-        class _FakeClient:
-            def __init__(self, config, **_kwargs):
-                captured["config"] = config
-
-            def __enter__(self):
-                return self
-
-            def __exit__(self, *_a):
-                return False
-
-            def rpc(self, _method, _params):
-                return Ok(id=1, result=[{"t": "text", "text": "Logged in as: alice"}])
-
-        with patch("hop3_cli.rpc.Client", _FakeClient):
-            username = _verify_token("http://localhost:18000", "tok-123")
+        username = _verify_token("http://localhost:18000", "tok-123")
 
         assert username == "alice"
         # The crux: the verify config must be resolvable, not a flat dict.
-        cfg = captured["config"]
-        assert cfg.get_api_url() == "http://localhost:18000"
-        assert cfg.get_api_token() == "tok-123"
+        (made,) = client.made
+        assert made.config.get_api_url() == "http://localhost:18000"
+        assert made.config.get_api_token() == "tok-123"
+        assert made.calls == [("cli", ["auth", "whoami"])]
 
     def test_verify_token_sends_the_new_token_not_a_stored_one(self, monkeypatch):
         """
@@ -194,26 +252,30 @@ class TestVerifyToken:
         cs.set_token("http://localhost:8000", "stale-token")
         monkeypatch.setenv("HOP3_API_TOKEN", "env-token")
         monkeypatch.setenv("HOP3_API_URL", "http://elsewhere:8000")
-        captured: dict = {}
+        client = _whoami("admin")
+        monkeypatch.setattr("hop3_cli.rpc.Client", client)
 
-        class _FakeClient:
-            def __init__(self, config, **_kwargs):
-                captured["url"] = config.get_api_url()
-                captured["token"] = config.get_api_token()
+        _verify_token("http://localhost:8000", "new-token")
 
-            def __enter__(self):
-                return self
+        (made,) = client.made
+        assert made.config.get_api_url() == "http://localhost:8000"
+        assert made.config.get_api_token() == "new-token"
 
-            def __exit__(self, *_a):
-                return False
 
-            def rpc(self, _method, _params):
-                return Ok(id=1, result=[{"t": "text", "text": "Logged in as: admin"}])
+@dataclass
+class FakeHttp:
+    """``requests.get``: raises ``error`` if set, else answers ``status``."""
 
-        with patch("hop3_cli.rpc.Client", _FakeClient):
-            _verify_token("http://localhost:8000", "new-token")
+    status: int = 200
+    error: Exception | None = None
 
-        assert captured == {"url": "http://localhost:8000", "token": "new-token"}
+    def __call__(self, url: str, **_kwargs: Any) -> requests.Response:
+        if self.error is not None:
+            raise self.error
+        response = requests.Response()
+        response.status_code = self.status
+        response.url = url
+        return response
 
 
 class TestVerifyHttpsConnection:
@@ -233,24 +295,19 @@ class TestVerifyHttpsConnection:
             config_file=None,
         )
 
-    def test_self_signed_cert_aborts_login(self):
-        with (
-            patch(
-                "requests.get",
-                side_effect=requests.exceptions.SSLError("self-signed"),
-            ),
-            pytest.raises(SystemExit) as exc,
-        ):
+    def test_self_signed_cert_aborts_login(self, monkeypatch, capsys):
+        error = requests.exceptions.SSLError("self-signed")
+        monkeypatch.setattr("requests.get", FakeHttp(error=error))
+        with pytest.raises(SystemExit) as exc:
             _verify_https_connection("https://hop3.dev", "tok", self._config(), {})
         assert exc.value.code == ExitCode.AUTH_ERROR
+        assert "Refusing to log in" in capsys.readouterr().err
 
-    def test_valid_cert_does_not_abort(self):
-        ok = Mock()
-        ok.ok = True
-        ok.status_code = 200
-        with patch("requests.get", return_value=ok):
-            # Must return normally (no SystemExit) for a trusted cert.
-            _verify_https_connection("https://hop3.dev", "tok", self._config(), {})
+    def test_valid_cert_does_not_abort(self, monkeypatch, capsys):
+        monkeypatch.setattr("requests.get", FakeHttp(status=200))
+        # Must return normally (no SystemExit) for a trusted cert.
+        _verify_https_connection("https://hop3.dev", "tok", self._config(), {})
+        assert "HTTPS connection verified" in capsys.readouterr().out
 
 
 class TestInferServerUrl:
@@ -274,33 +331,20 @@ class TestInferServerUrl:
 class TestSettingsCommands:
     """Tests for settings subcommands."""
 
-    @pytest.fixture
-    def temp_config(self):
-        """Create a temporary config file."""
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.toml"
-            config = Config(data={}, config_file=config_path)
-            yield config
-
-    @pytest.fixture
-    def mock_printer(self):
-        """Create a mock printer."""
-        return MagicMock(spec=RichPrinter)
-
-    def test_settings_show_empty(self, temp_config, mock_printer, capsys):
+    def test_settings_show_empty(self, temp_config, printer, capsys):
         """Test settings show with no settings."""
-        settings_show(temp_config, mock_printer)
+        settings_show(temp_config, printer)
 
         captured = capsys.readouterr()
         assert "No settings configured" in captured.out
 
-    def test_settings_show_with_data(self, temp_config, mock_printer, capsys):
+    def test_settings_show_with_data(self, temp_config, printer, capsys):
         """Test settings show with settings."""
         # Use a token longer than 20 chars to trigger masking
         long_token = _FAKE_JWT_TEST
         temp_config.data = {"api_url": "https://test.com", "api_token": long_token}
 
-        settings_show(temp_config, mock_printer)
+        settings_show(temp_config, printer)
 
         captured = capsys.readouterr()
         assert "api_url = https://test.com" in captured.out
@@ -309,36 +353,36 @@ class TestSettingsCommands:
         # Full token should not appear
         assert long_token not in captured.out
 
-    def test_settings_set(self, temp_config, mock_printer, capsys):
+    def test_settings_set(self, temp_config, printer, capsys):
         """Test setting a settings value."""
-        settings_set(["ssl_cert", "/etc/ssl/server.crt"], temp_config, mock_printer)
+        settings_set(["ssl_cert", "/etc/ssl/server.crt"], temp_config, printer)
 
         # Verify it was saved
         assert temp_config.data["ssl_cert"] == "/etc/ssl/server.crt"
 
     @pytest.mark.parametrize("key", ["server", "api_url", "token", "api_token"])
     def test_the_server_and_token_are_not_settings(
-        self, temp_config, mock_printer, capsys, key
+        self, temp_config, printer, capsys, key
     ):
         """Nothing reads these keys: writing one would only pretend to work."""
         with pytest.raises(SystemExit) as exc:
-            settings_set([key, "value"], temp_config, mock_printer)
+            settings_set([key, "value"], temp_config, printer)
         assert exc.value.code == ExitCode.USAGE_ERROR
         assert "hop3 " in capsys.readouterr().err
         assert key not in temp_config.data
 
     def test_settings_set_non_connection_key_does_not_warn(
-        self, temp_config, mock_printer, capsys
+        self, temp_config, printer, capsys
     ):
-        settings_set(["verify_ssl", "false"], temp_config, mock_printer)
+        settings_set(["verify_ssl", "false"], temp_config, printer)
         assert "deprecated" not in capsys.readouterr().err.lower()
         assert temp_config.data["verify_ssl"] == "false"
 
-    def test_settings_get(self, temp_config, mock_printer, capsys):
+    def test_settings_get(self, temp_config, printer, capsys):
         """Test getting a settings value."""
         temp_config.data = {"api_url": "https://test.com"}
 
-        settings_get(["api_url"], temp_config, mock_printer)
+        settings_get(["api_url"], temp_config, printer)
 
         captured = capsys.readouterr()
         assert "https://test.com" in captured.out
@@ -347,69 +391,44 @@ class TestSettingsCommands:
 class TestHandleInit:
     """Tests for handle_init command."""
 
-    @pytest.fixture
-    def temp_config(self):
-        """Create a temporary config file."""
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.toml"
-            config = Config(data={}, config_file=config_path)
-            yield config
-
-    @pytest.fixture
-    def mock_printer(self):
-        """Create a mock printer."""
-        return MagicMock(spec=RichPrinter)
-
-    def test_init_help(self, temp_config, mock_printer, capsys):
+    def test_init_help(self, temp_config, printer, capsys):
         """Test init --help shows help."""
-        handle_init(["--help"], temp_config, mock_printer)
+        handle_init(["--help"], temp_config, printer)
 
         captured = capsys.readouterr()
         assert "Usage: hop3 init --ssh" in captured.out
 
-    def test_init_missing_ssh(self, temp_config, mock_printer):
-        """Test init without --ssh fails."""
+    def test_init_missing_ssh(self, temp_config, printer, capsys):
+        """Init without --ssh is a usage error, exit 2."""
         with pytest.raises(SystemExit) as exc_info:
-            handle_init([], temp_config, mock_printer)
-        assert exc_info.value.code == 1
+            handle_init([], temp_config, printer)
+        assert exc_info.value.code == ExitCode.USAGE_ERROR
+        assert "--ssh is required" in capsys.readouterr().err
 
-    def test_init_success(self, temp_config, mock_printer, capsys):
-        """Test successful init via SSH."""
-        mock_token = _FAKE_JWT_ADMIN
+    def test_init_success(self, temp_config, printer, monkeypatch):
+        """Test successful init via SSH, with every credential prompted."""
+        ssh = FakeSsh(f"Admin user created.\nToken: {_FAKE_JWT_ADMIN}")
+        monkeypatch.setattr("hop3_cli.commands.local.ssh_ops.subprocess.run", ssh)
+        monkeypatch.setattr("getpass.getpass", _scripted("pass123", "pass123"))
+        monkeypatch.setattr("builtins.input", _scripted("admin", "admin@example.com"))
 
-        # Mock SSH execution
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = f"Admin user created.\nToken: {mock_token}"
-        mock_result.stderr = ""
+        handle_init(["--ssh", "root@test.com", "-y"], temp_config, printer)
 
-        with (
-            patch(
-                "hop3_cli.commands.local.ssh_ops.subprocess.run",
-                return_value=mock_result,
-            ),
-            patch(
-                "hop3_cli.commands.local.init_cmd.getpass.getpass",
-                side_effect=["pass123", "pass123"],
-            ),
-            patch("builtins.input", side_effect=["admin", "admin@example.com", ""]),
-        ):
-            handle_init(
-                ["--ssh", "root@test.com", "-y"],
-                temp_config,
-                mock_printer,
-            )
-
+        # The ssh bootstrap was asked for the admin the prompts named.
+        (argv,) = ssh.calls
+        assert "root@test.com" in argv
+        assert "admin" in argv[-1]
         # ADR 042 r2: token goes to the per-server store, server becomes default.
-        assert cs.get_token("https://test.com") == mock_token
+        assert cs.get_token("https://test.com") == _FAKE_JWT_ADMIN
         assert (
             temp_config.get_context_server(DEFAULT_CONTEXT_NAME) == "https://test.com"
         )
         # The context is written address-only; config.toml stays secret-free.
-        assert mock_token not in repr(temp_config.data)
+        assert _FAKE_JWT_ADMIN not in repr(temp_config.data)
 
-    def test_init_password_stdin_does_not_prompt_for_server(
-        self, temp_config, mock_printer
+    @pytest.mark.parametrize("host", ["hop3.example.com", "host.example.com"])
+    def test_init_password_stdin_never_prompts_for_the_server(
+        self, temp_config, printer, monkeypatch, host
     ):
         """
         Regression: `hop3 init --ssh <target> --password-stdin` must NOT
@@ -418,202 +437,103 @@ class TestHandleInit:
         password empty ("Password cannot be empty"). (ADR 042 removed the
         global `--server` override this used to rely on.)
         """
-        captured = {}
+        ssh = FakeSsh(f"Token: {_FAKE_JWT_ADMIN}")
+        monkeypatch.setattr("hop3_cli.commands.local.ssh_ops.subprocess.run", ssh)
+        monkeypatch.setattr("sys.stdin", io.StringIO("s3cret\n"))
 
-        def fake_create(ssh_target, username, email, password):
-            captured["password"] = password
-            return _FAKE_JWT_ADMIN
-
-        with (
-            patch(
-                "hop3_cli.commands.local.init_cmd.create_admin_via_ssh",
-                side_effect=fake_create,
-            ),
-            patch(
-                "hop3_cli.commands.local.init_cmd.sys.stdin", io.StringIO("s3cret\n")
-            ),
-        ):
-            handle_init(
-                [
-                    "--ssh",
-                    "root@hop3.example.com",
-                    "--username",
-                    "admin",
-                    "--email",
-                    "admin@example.com",
-                    "--password-stdin",
-                ],
-                temp_config,
-                mock_printer,
-            )
-
-        assert captured["password"] == "s3cret"
-        assert (
-            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
-            == "https://hop3.example.com"
+        handle_init(
+            [
+                "--ssh",
+                f"root@{host}",
+                "--username",
+                "admin",
+                "--email",
+                "admin@example.com",
+                "--password-stdin",
+            ],
+            temp_config,
+            printer,
         )
-        assert cs.get_token("https://hop3.example.com") == _FAKE_JWT_ADMIN
 
-    def test_init_password_stdin_does_not_prompt_when_no_server(
-        self, temp_config, mock_printer
-    ):
-        """
-        With --password-stdin and no server, infer silently — never prompt.
-
-        A non-tty stdin carries the password; an interactive Server URL prompt
-        would eat it. The server URL is inferred from the SSH target instead.
-        """
-        captured = {}
-
-        def fake_create(ssh_target, username, email, password):
-            captured["password"] = password
-            return _FAKE_JWT_ADMIN
-
-        with (
-            patch(
-                "hop3_cli.commands.local.init_cmd.create_admin_via_ssh",
-                side_effect=fake_create,
-            ),
-            patch("hop3_cli.commands.local.init_cmd.sys.stdin", io.StringIO("pw42\n")),
-        ):
-            handle_init(
-                [
-                    "--ssh",
-                    "root@host.example.com",
-                    "--username",
-                    "admin",
-                    "--email",
-                    "admin@example.com",
-                    "--password-stdin",
-                ],
-                temp_config,
-                mock_printer,
-            )
-
-        assert captured["password"] == "pw42"
+        # The piped password reached the bootstrap, on its stdin (never argv).
+        (argv,) = ssh.calls
+        assert "s3cret" not in " ".join(argv)
         # URL inferred from the SSH host, not prompted.
-        assert (
-            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
-            == "https://host.example.com"
-        )
+        assert temp_config.get_context_server(DEFAULT_CONTEXT_NAME) == f"https://{host}"
+        assert cs.get_token(f"https://{host}") == _FAKE_JWT_ADMIN
 
 
 class TestHandleLogin:
     """Tests for handle_login command."""
 
-    @pytest.fixture
-    def temp_config(self):
-        """Create a temporary config file."""
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.toml"
-            config = Config(data={}, config_file=config_path)
-            yield config
-
-    @pytest.fixture
-    def mock_printer(self):
-        """Create a mock printer."""
-        return MagicMock(spec=RichPrinter)
-
-    def test_login_help(self, temp_config, mock_printer, capsys):
+    def test_login_help(self, temp_config, printer, capsys):
         """Test login --help shows help."""
-        handle_login(["--help"], temp_config, mock_printer)
+        handle_login(["--help"], temp_config, printer)
 
         captured = capsys.readouterr()
         assert "Usage: hop3 login" in captured.out
-        assert "--ssh" in captured.out
+        assert "--token -|@<path>" in captured.out
 
-    def test_login_ssh_success(self, temp_config, mock_printer, capsys):
+    def test_login_ssh_success(self, temp_config, printer, monkeypatch):
         """Test successful login via SSH."""
-        mock_token = _FAKE_JWT_USER
+        ssh = FakeSsh(f"Token generated.\nToken: {_FAKE_JWT_USER}")
+        monkeypatch.setattr("hop3_cli.commands.local.ssh_ops.subprocess.run", ssh)
 
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = f"Token generated.\nToken: {mock_token}"
-        mock_result.stderr = ""
-
-        with (
-            patch(
-                "hop3_cli.commands.local.ssh_ops.subprocess.run",
-                return_value=mock_result,
-            ),
-            patch("builtins.input", return_value="testuser"),  # username
-        ):
-            handle_login(
-                ["--ssh", "root@test.com"],
-                temp_config,
-                mock_printer,
-            )
+        handle_login(["--ssh", "root@test.com"], temp_config, printer)
 
         # ADR 042 r2: SSH login stores the token in the per-server store keyed by
         # the SSH-tunnel URL, and sets it as the default server.
-        assert cs.get_token("ssh://root@test.com") == mock_token
+        assert cs.get_token("ssh://root@test.com") == _FAKE_JWT_USER
         assert (
             temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
             == "ssh://root@test.com"
         )
-        assert mock_token not in repr(temp_config.data)
+        assert _FAKE_JWT_USER not in repr(temp_config.data)
 
-    def test_login_web_invokes_colon_command(self, temp_config, mock_printer, capsys):
+    def test_login_web_invokes_colon_command(self, temp_config, printer, monkeypatch):
         """
         Regression: `hop3 login --browser` must call `hop3-server auth:magic-link`.
 
         The space form (`auth magic-link`) makes hop3-server parse `auth` as the
         command and fail with "Unknown command 'auth'", breaking web login.
         """
-        mock_result = Mock()
-        mock_result.returncode = 0
-        mock_result.stdout = _FAKE_JWT_ADMIN
-        mock_result.stderr = ""
+        ssh = FakeSsh(_FAKE_JWT_ADMIN)
+        monkeypatch.setattr("hop3_cli.commands.local.ssh_ops.subprocess.run", ssh)
 
-        with patch(
-            "hop3_cli.commands.local.ssh_ops.subprocess.run",
-            return_value=mock_result,
-        ) as mock_run:
-            handle_login(
-                ["--web", "root@test.com"],
-                temp_config,
-                mock_printer,
-            )
+        handle_login(["--web", "root@test.com"], temp_config, printer)
 
-        remote_cmd = mock_run.call_args[0][0][-1]  # ["ssh", ..., target, remote_cmd]
+        remote_cmd = ssh.calls[0][-1]  # ["ssh", ..., target, remote_cmd]
         assert "auth:magic-link" in remote_cmd
         assert "auth magic-link" not in remote_cmd
 
-    def test_login_web_bare_token_uses_https_for_a_real_host(
-        self, temp_config, mock_printer, capsys
+    @pytest.mark.parametrize(
+        ("target", "link"),
+        [
+            # A production Hop3 with a domain is TLS-fronted on 443; the old
+            # http://{host}:8000 sent the single-use login token in cleartext
+            # to the wrong port.
+            ("root@test.com", f"https://test.com/auth/magic/{_FAKE_JWT_ADMIN}"),
+            # A local dev server has no TLS: keep http://localhost:8000.
+            (
+                "root@localhost",
+                f"http://localhost:8000/auth/magic/{_FAKE_JWT_ADMIN}",
+            ),
+        ],
+    )
+    def test_login_web_bare_token_builds_the_link_for_the_host(
+        self, temp_config, printer, monkeypatch, capsys, target, link
     ):
-        """
-        Bare token -> magic link must be https for a real host, not http://:8000.
+        ssh = FakeSsh(_FAKE_JWT_ADMIN)
+        monkeypatch.setattr("hop3_cli.commands.local.ssh_ops.subprocess.run", ssh)
 
-        A production Hop3 with a domain is TLS-fronted on 443; the old
-        http://{host}:8000 sent the single-use login token in cleartext to the
-        wrong port. localhost dev still gets :8000 (see the test below).
-        """
-        with patch(
-            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
-            return_value=_FAKE_JWT_ADMIN,
-        ):
-            handle_login(["--web", "root@test.com"], temp_config, mock_printer)
+        handle_login(["--web", target], temp_config, printer)
 
         out = capsys.readouterr().out
-        assert f"https://test.com/auth/magic/{_FAKE_JWT_ADMIN}" in out
-        assert ":8000" not in out
-
-    def test_login_web_bare_token_uses_app_port_for_localhost(
-        self, temp_config, mock_printer, capsys
-    ):
-        """A local dev server has no TLS: keep http://localhost:8000."""
-        with patch(
-            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
-            return_value=_FAKE_JWT_ADMIN,
-        ):
-            handle_login(["--web", "root@localhost"], temp_config, mock_printer)
-
-        out = capsys.readouterr().out
-        assert f"http://localhost:8000/auth/magic/{_FAKE_JWT_ADMIN}" in out
+        assert link in out
+        assert out.count(":8000") == link.count(":8000")
 
     def test_login_web_honors_context_override_for_target(
-        self, temp_config, mock_printer, capsys
+        self, temp_config, printer, monkeypatch, capsys
     ):
         """
         `--context prod login --browser` targets prod, not the default server.
@@ -623,90 +543,77 @@ class TestHandleLogin:
         """
         temp_config.set_context_server("prod", "ssh://root@prod.example.com")
         temp_config.set_context_override("prod")
+        ssh = FakeSsh(_FAKE_JWT_ADMIN)
+        monkeypatch.setattr("hop3_cli.commands.local.ssh_ops.subprocess.run", ssh)
 
-        captured: dict = {}
+        handle_login(["--web"], temp_config, printer)  # no explicit target
 
-        def _fake_magic(ssh_target, username="admin"):
-            captured["ssh_target"] = ssh_target
-            return _FAKE_JWT_ADMIN
-
-        with patch(
-            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
-            side_effect=_fake_magic,
-        ):
-            handle_login(["--web"], temp_config, mock_printer)  # no explicit target
-
-        assert captured["ssh_target"] == "root@prod.example.com"
+        assert "root@prod.example.com" in ssh.calls[0]
         out = capsys.readouterr().out
         assert f"https://prod.example.com/auth/magic/{_FAKE_JWT_ADMIN}" in out
 
-    def test_login_web_aborts_on_undefined_context(self, temp_config, mock_printer):
+    def test_login_web_aborts_on_undefined_context(self, temp_config, printer):
         """An explicit --context that names no context fails loud, not silently."""
         temp_config.set_context_override("staging")  # never defined
         with pytest.raises(SystemExit) as exc_info:
-            handle_login(["--web"], temp_config, mock_printer)
+            handle_login(["--web"], temp_config, printer)
         assert exc_info.value.code == 1
 
     def test_login_web_uses_full_url_from_server(
-        self, temp_config, mock_printer, capsys
+        self, temp_config, printer, monkeypatch, capsys
     ):
         """When the server returns a full URL (admin domain), print it verbatim."""
         full = f"https://admin.example.com/auth/magic/{_FAKE_JWT_ADMIN}"
-        with patch(
-            "hop3_cli.commands.local.login_cmd.get_magic_link_via_ssh",
-            return_value=full,
-        ):
-            handle_login(["--web", "root@test.com"], temp_config, mock_printer)
+        monkeypatch.setattr(
+            "hop3_cli.commands.local.ssh_ops.subprocess.run", FakeSsh(full)
+        )
+
+        handle_login(["--web", "root@test.com"], temp_config, printer)
 
         assert full in capsys.readouterr().out
 
-    def test_login_password_unconfigured(self, temp_config, mock_printer):
+    def test_login_password_unconfigured(self, temp_config, printer):
         """Password login with no server refuses, saying how to sign in."""
         with pytest.raises(TargetError, match="no context selected"):
-            handle_login([], temp_config, mock_printer)
+            handle_login([], temp_config, printer)
 
-    def test_auth_login_dispatches_to_local_handler(self, temp_config, mock_printer):
+    def test_auth_login_runs_the_local_login(self, temp_config, printer, capsys):
         """`hop3 auth login ...` runs the rich local handler, not an RPC call."""
-        with patch(
-            "hop3_cli.commands.local.auth_cmd.handle_login"
-        ) as mock_handle_login:
-            handled = handle_auth(
-                ["login", "--ssh", "root@test.com"], temp_config, mock_printer
-            )
+        handled = handle_auth(["login", "--help"], temp_config, printer)
 
         assert handled is True
-        mock_handle_login.assert_called_once_with(
-            ["--ssh", "root@test.com"], temp_config, mock_printer
-        )
+        assert "Usage: hop3 login" in capsys.readouterr().out
 
-    def test_logout_not_logged_in(self, temp_config, mock_printer, capsys):
+    def test_logout_not_logged_in(self, temp_config, printer, monkeypatch, capsys):
         """Logout with no token just reports it — no server call."""
-        with patch("hop3_cli.rpc.Client") as mock_client:
-            handle_logout([], temp_config, mock_printer)
-        mock_client.assert_not_called()
+        client = FakeClient([])
+        monkeypatch.setattr("hop3_cli.rpc.Client", client)
+
+        handle_logout([], temp_config, printer)
+
+        assert client.made == []
         assert "Not logged in" in capsys.readouterr().out
 
-    def test_logout_revokes_and_clears_token(self, temp_config, mock_printer, capsys):
+    def test_logout_revokes_and_clears_token(
+        self, temp_config, printer, monkeypatch, capsys
+    ):
         """Logout revokes the token server-side and clears it from the store."""
         # The token lives in the per-server store, keyed by the global
         # current context's server.
         temp_config.set_context_server(DEFAULT_CONTEXT_NAME, "https://test.com")
         temp_config.set_default_context(DEFAULT_CONTEXT_NAME)
         cs.set_token("https://test.com", _FAKE_JWT_USER)
+        client = FakeClient([])
+        monkeypatch.setattr("hop3_cli.rpc.Client", client)
 
-        client_instance = MagicMock()
-        client_cm = MagicMock()
-        client_cm.__enter__.return_value = client_instance
+        handle_logout([], temp_config, printer)
 
-        with patch("hop3_cli.rpc.Client", return_value=client_cm):
-            handle_logout([], temp_config, mock_printer)
-
-        client_instance.rpc.assert_called_once_with("cli", ["auth", "logout"])
+        assert client.made[0].calls == [("cli", ["auth", "logout"])]
         assert cs.get_token("https://test.com") is None
         assert "Logged out" in capsys.readouterr().out
 
     def test_logout_after_login_finds_the_server(
-        self, temp_config, mock_printer, capsys
+        self, temp_config, printer, monkeypatch
     ):
         """
         A login records a default context, which logout must find.
@@ -715,150 +622,110 @@ class TestHandleLogin:
         the retired `default_server`, and `get_api_url` read only the latter:
         logout after any login said "Not logged in" and left the token.
         """
-        with patch(
-            "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
-        ):
-            handle_login_token(
-                ["--token", _FAKE_JWT_TEST, "--url", "https://test.com"],
-                temp_config,
-                mock_printer,
-            )
+        monkeypatch.setattr("hop3_cli.rpc.Client", _whoami("testuser"))
+        handle_login_token(
+            ["--token", _FAKE_JWT_TEST, "--url", "https://test.com"],
+            temp_config,
+            printer,
+        )
         # The logout is another process: it reads only what the login saved.
         saved = get_config(temp_config.config_file)
+        client = FakeClient([])
+        monkeypatch.setattr("hop3_cli.rpc.Client", client)
 
-        client_instance = MagicMock()
-        client_cm = MagicMock()
-        client_cm.__enter__.return_value = client_instance
-        with patch("hop3_cli.rpc.Client", return_value=client_cm):
-            handle_logout([], saved, mock_printer)
+        handle_logout([], saved, printer)
 
-        client_instance.rpc.assert_called_once_with("cli", ["auth", "logout"])
+        assert client.made[0].calls == [("cli", ["auth", "logout"])]
         assert cs.get_token("https://test.com") is None
 
-    def test_login_token_success(self, temp_config, mock_printer, capsys):
-        """Test successful token-based login."""
-        mock_token = _FAKE_JWT_TEST
+    def test_login_token_success(self, temp_config, printer, monkeypatch, capsys):
+        """Test successful token-based login, the token read from a file."""
+        (Path.cwd() / "token").write_text(_FAKE_JWT_TEST + "\n")
+        client = _whoami("testuser")
+        monkeypatch.setattr("hop3_cli.rpc.Client", client)
 
-        with patch(
-            "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
-        ):
-            handle_login_token(
-                ["--token", mock_token, "--url", "http://localhost:8000"],
-                temp_config,
-                mock_printer,
-            )
+        handle_login_token(
+            ["--token", "@token", "--url", "http://localhost:8000"],
+            temp_config,
+            printer,
+        )
 
+        # The token sent for verification is the one in the file.
+        assert client.made[0].config.get_api_token() == _FAKE_JWT_TEST
         # ADR 042 r2: token to the per-server store keyed by the --url server.
-        assert cs.get_token("http://localhost:8000") == mock_token
+        assert cs.get_token("http://localhost:8000") == _FAKE_JWT_TEST
         assert (
             temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
             == "http://localhost:8000"
         )
+        assert "Logged in as testuser" in capsys.readouterr().out
 
-    def test_login_token_with_existing_server(self, temp_config, mock_printer, capsys):
+    def test_login_token_with_existing_server(self, temp_config, printer, monkeypatch):
         """Test token login uses the existing default server when no --url given."""
-        mock_token = _FAKE_JWT_TEST
         # Pre-configure the global context (no --url on the command line).
         temp_config.set_context_server(
             DEFAULT_CONTEXT_NAME, "https://existing-server.com"
         )
         temp_config.set_default_context(DEFAULT_CONTEXT_NAME)
+        monkeypatch.setattr("hop3_cli.rpc.Client", _whoami("testuser"))
+        monkeypatch.setattr("sys.stdin", io.StringIO(_FAKE_JWT_TEST))
 
-        with patch(
-            "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
-        ):
-            handle_login_token(
-                ["--token", mock_token],
-                temp_config,
-                mock_printer,
-            )
+        handle_login_token(["--token", "-"], temp_config, printer)
 
-        assert cs.get_token("https://existing-server.com") == mock_token
+        assert cs.get_token("https://existing-server.com") == _FAKE_JWT_TEST
         assert (
             temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
             == "https://existing-server.com"
         )
 
-    def test_login_token_missing_token(self, temp_config, mock_printer):
-        """Test token login fails when token not provided."""
+    def test_login_token_missing_token(self, temp_config, printer, monkeypatch):
+        """`--token` with no value and no terminal to prompt on is a usage error."""
+        monkeypatch.setattr("sys.stdin", io.StringIO(""))
         with pytest.raises(SystemExit) as exc_info:
-            handle_login_token(["--token"], temp_config, mock_printer)
+            handle_login_token(["--token"], temp_config, printer)
+        assert exc_info.value.code == ExitCode.USAGE_ERROR
+
+    def test_login_token_verification_fails(self, temp_config, printer, monkeypatch):
+        """A token the server refuses is not saved."""
+
+        def refusing_client(config: Config, **_kwargs: Any) -> FakeClient:
+            msg = "connection refused"
+            raise requests.exceptions.ConnectionError(msg)
+
+        monkeypatch.setattr("hop3_cli.rpc.Client", refusing_client)
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login_token(
+                ["--token", _FAKE_JWT_TEST, "--url", "http://localhost:8000"],
+                temp_config,
+                printer,
+            )
         assert exc_info.value.code == 1
 
-    def test_login_token_verification_fails(self, temp_config, mock_printer):
-        """Test token login fails when verification fails."""
-        mock_token = _FAKE_JWT_TEST
-
-        with patch(
-            "hop3_cli.commands.local.login_cmd._verify_token", return_value=None
-        ):
-            with pytest.raises(SystemExit) as exc_info:
-                handle_login_token(
-                    ["--token", mock_token, "--url", "http://localhost:8000"],
-                    temp_config,
-                    mock_printer,
-                )
-            assert exc_info.value.code == 1
-
         # Config should NOT be saved (no contexts created)
-        assert "contexts" not in temp_config.data or not temp_config.data.get(
-            "contexts"
-        )
+        assert not temp_config.data.get("contexts")
+        assert cs.get_token("http://localhost:8000") is None
 
-    def test_login_url_with_token(self, temp_config, mock_printer, capsys):
-        """Test login with URL containing embedded token."""
-        mock_token = _FAKE_JWT_TEST
-        url_with_token = f"http://localhost:8000?token={mock_token}"
+    @pytest.mark.parametrize(
+        "server",
+        ["http://localhost:8000", "https://my-server.com/api"],
+    )
+    def test_login_url_with_token(self, temp_config, printer, monkeypatch, server):
+        """The old `<url>?token=` form still logs in (it is no longer taught)."""
+        monkeypatch.setattr("hop3_cli.rpc.Client", _whoami("testuser"))
 
-        with patch(
-            "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
-        ):
-            handle_login([url_with_token], temp_config, mock_printer)
-
-        # ADR 042 r2: token to the per-server store keyed by the embedded URL.
-        assert cs.get_token("http://localhost:8000") == mock_token
-        assert (
-            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
-            == "http://localhost:8000"
-        )
-
-    def test_login_url_with_token_and_path(self, temp_config, mock_printer, capsys):
-        """Test login with URL containing path and embedded token."""
-        mock_token = _FAKE_JWT_TEST
-        url_with_token = f"https://my-server.com/api?token={mock_token}"
-
-        with patch(
-            "hop3_cli.commands.local.login_cmd._verify_token", return_value="testuser"
-        ):
-            handle_login([url_with_token], temp_config, mock_printer)
+        handle_login([f"{server}?token={_FAKE_JWT_TEST}"], temp_config, printer)
 
         # ADR 042 r2: token to the per-server store keyed by the embedded URL.
-        assert cs.get_token("https://my-server.com/api") == mock_token
-        assert (
-            temp_config.get_context_server(DEFAULT_CONTEXT_NAME)
-            == "https://my-server.com/api"
-        )
+        assert cs.get_token(server) == _FAKE_JWT_TEST
+        assert temp_config.get_context_server(DEFAULT_CONTEXT_NAME) == server
 
 
 class TestHandleVersion:
     """Tests for handle_version command."""
 
-    @pytest.fixture
-    def temp_config(self):
-        """Create a temporary config file."""
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.toml"
-            config = Config(data={}, config_file=config_path)
-            yield config
-
-    @pytest.fixture
-    def mock_printer(self):
-        """Create a mock printer."""
-        return MagicMock(spec=RichPrinter)
-
-    def test_version_shows_cli_version(self, temp_config, mock_printer, capsys):
+    def test_version_shows_cli_version(self, temp_config, printer, capsys):
         """Test version command shows CLI version."""
-        handle_version([], temp_config, mock_printer)
+        handle_version([], temp_config, printer)
 
         captured = capsys.readouterr()
         assert "hop3-cli" in captured.out
@@ -867,31 +734,18 @@ class TestHandleVersion:
 class TestHandleAuth:
     """Tests for handle_auth command."""
 
-    @pytest.fixture
-    def temp_config(self):
-        """Create a temporary config file."""
-        with TemporaryDirectory() as tmpdir:
-            config_path = Path(tmpdir) / "config.toml"
-            config = Config(data={}, config_file=config_path)
-            yield config
-
-    @pytest.fixture
-    def mock_printer(self):
-        """Create a mock printer."""
-        return MagicMock(spec=RichPrinter)
-
-    def test_auth_shows_help(self, temp_config, mock_printer, capsys):
+    def test_auth_shows_help(self, temp_config, printer, capsys):
         """Test auth command shows authentication help."""
-        handle_auth([], temp_config, mock_printer)
+        handle_auth([], temp_config, printer)
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out
         assert "auth login" in captured.out
         assert "auth whoami" in captured.out
 
-    def test_auth_with_help_flag(self, temp_config, mock_printer, capsys):
+    def test_auth_with_help_flag(self, temp_config, printer, capsys):
         """Test auth --help shows help."""
-        handle_auth(["--help"], temp_config, mock_printer)
+        handle_auth(["--help"], temp_config, printer)
 
         captured = capsys.readouterr()
         assert "Authentication commands" in captured.out

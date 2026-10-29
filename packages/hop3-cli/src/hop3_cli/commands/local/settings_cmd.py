@@ -96,7 +96,7 @@ def settings_set(args: list[str], config: Config, printer: RichPrinter) -> None:
         canonical = (
             "hop3 context add <name> --server <address>"
             if key in {"server", "api_url"}
-            else "hop3 login --token <token> --url <address>"
+            else "hop3 login --token @<path> --url <address>"
         )
         print(
             f"Error: {key!r} is not a setting: the server and its token are a "

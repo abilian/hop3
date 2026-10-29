@@ -28,13 +28,8 @@ from hop3_cli.core.suggest import (
     load_cached_commands,
 )
 from hop3_cli.exceptions import DeploymentError
-from hop3_cli.exit_codes import (
-    HTTP_PAYLOAD_TOO_LARGE,
-    ExitCode,
-    map_message_to_exit,
-    map_rpc_code_to_exit,
-)
-from hop3_cli.rpc.client import resolve_ssl_verification
+from hop3_cli.exit_codes import HTTP_PAYLOAD_TOO_LARGE, ExitCode, exit_code_for
+from hop3_cli.rpc.client import RPC_PROTOCOL_VERSION, resolve_ssl_verification
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:
@@ -286,16 +281,13 @@ def handle_error_response(
             # If parsing fails, treat as normal error message
             pass
 
-    prefixes_to_strip = [
-        "Command execution failed: ",
-        "Deployment failed: ",
-    ]
-    for prefix in prefixes_to_strip:
-        clean_message = clean_message.removeprefix(prefix)
+    clean_message = clean_message.removeprefix("Deployment failed: ")
 
     # Add helpful hints for specific error codes (ADR 036 D10 — did-you-mean).
     if code == HTTP_PAYLOAD_TOO_LARGE:  # 413 — deploy archive too big
         clean_message = _payload_too_large_message(clean_message)
+    elif rendered := _render_structured_error(data):
+        clean_message = rendered
     else:
         suggestion = _structured_suggestion(data) or _scraped_suggestion(
             code, clean_message
@@ -306,10 +298,7 @@ def handle_error_response(
             clean_message += "\n\nRun 'hop3 help' to see available commands."
 
     # Determine exit code from RPC code, falling back to message analysis
-    exit_code = map_rpc_code_to_exit(code)
-    if exit_code == ExitCode.GENERAL_ERROR:
-        # Try to infer from message content
-        exit_code = map_message_to_exit(clean_message)
+    exit_code = exit_code_for(code, clean_message)
 
     # Display logs first if we have them (so user sees deployment progress)
     if logs_to_display and printer:
@@ -332,6 +321,44 @@ def handle_error_response(
         err(clean_message)
 
     sys.exit(exit_code)
+
+
+def _render_structured_error(data: object) -> str | None:
+    """
+    The client's own phrasing of a structured error, or None for the others.
+
+    Built from ``data``, so it reads the same whatever wording the server
+    chose, and says what to do from this side of the connection.
+    """
+    if not isinstance(data, dict):
+        return None
+    match data.get("kind"):
+        case "server_busy":
+            running, running_for = data.get("running"), data.get("running_for")
+            # Both are null in the moment the slot changes hands.
+            what = (
+                f"'hop3 {running}' has been running for {running_for}s"
+                if running and running_for is not None
+                else "another command is running"
+            )
+            return (
+                f"Server busy: {what}, and the server runs one command at "
+                "a time. Retry when it finishes."
+            )
+        case "protocol_mismatch":
+            server = data.get("server_protocol")
+            older = (
+                "this hop3-cli"
+                if isinstance(server, int) and server > RPC_PROTOCOL_VERSION
+                else "the server"
+            )
+            return (
+                f"Protocol mismatch: this hop3-cli speaks /rpc protocol "
+                f"{RPC_PROTOCOL_VERSION}, the server speaks {server}. "
+                f"Upgrade {older}."
+            )
+        case _:
+            return None
 
 
 def _structured_suggestion(data: object) -> str | None:

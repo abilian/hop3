@@ -8,14 +8,18 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 from hop3_cli.core.alias_registry import (
+    FALLBACK_SUBCOMMANDS,
     AliasRegistry,
     build_registry,
     build_subcommand_index,
+    cached_subcommand_index,
     load_user_aliases_from_config,
     resolve_aliases,
 )
 from hop3_cli.core.aliases import CORE_ALIASES, Alias
+from hop3_cli.core.paths import commands_cache_path
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -215,3 +219,34 @@ def test_build_subcommand_index_basic() -> None:
 def test_registry_empty_has_no_aliases() -> None:
     r = AliasRegistry()
     assert r.find("anything") is None
+
+
+# ---- the subcommand index: the cache the CLI writes, else a pinned fallback ----
+
+
+def test_the_index_reads_the_cache_the_cli_writes() -> None:
+    """The reader looked in $XDG_CACHE_HOME, the writer in commands_cache_path()."""
+    path = commands_cache_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("app list\napp frobnicate\n")
+
+    assert cached_subcommand_index() == {"app": {"list", "frobnicate"}}
+
+
+def test_without_a_cache_the_fallback_is_used() -> None:
+    assert cached_subcommand_index()["addon"] >= {"create", "list"}
+
+
+def test_the_fallback_matches_the_servers_registry() -> None:
+    """Every namespace a core alias expands into, against the real registry."""
+    rpc = pytest.importorskip(
+        "hop3.server.controllers.rpc", reason="hop3-server is not installed"
+    )
+    local = {"auth": {"login", "logout"}}
+    namespaces = {alias.expansion[0] for alias in CORE_ALIASES}
+    server = {
+        ns: {name[1] for name in rpc.commands if len(name) >= 2 and name[0] == ns}
+        | local.get(ns, set())
+        for ns in namespaces
+    }
+    assert {ns: set(v) for ns, v in FALLBACK_SUBCOMMANDS.items()} == server

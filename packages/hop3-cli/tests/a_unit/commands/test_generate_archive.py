@@ -7,7 +7,9 @@ import tarfile
 import tempfile
 from pathlib import Path
 
+import pytest
 from hop3_cli.commands.arguments import describe_archive, generate_archive
+from hop3_cli.exceptions import ConfigError
 
 # hop3.toml whose [build].ignore is the canonical, declarative ignore list for
 # the `hop3 deploy` upload (ADR 046 §5).
@@ -56,6 +58,14 @@ def test_build_ignore_drives_the_upload():
         assert "debug.log" not in names
         assert "config.local.json" not in names
         assert "dist/bundle.js" not in names
+
+
+def test_a_malformed_hop3_toml_stops_the_upload(tmp_path: Path):
+    """Read as empty, it dropped [build].ignore and uploaded what it excludes."""
+    (tmp_path / "hop3.toml").write_text(HOP3_TOML + "[build\n")
+    (tmp_path / "config.local.json").touch()
+    with pytest.raises(ConfigError, match=r"hop3\.toml is not valid TOML"):
+        generate_archive(tmp_path)
 
 
 def test_builtin_defaults_apply_without_any_config():

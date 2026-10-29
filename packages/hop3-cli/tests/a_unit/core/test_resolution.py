@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import re
 from dataclasses import FrozenInstanceError
 from typing import TYPE_CHECKING
 from unittest.mock import MagicMock, patch
@@ -18,6 +19,7 @@ from hop3_cli.core.resolution import (
     resolve_app,
     resolve_context,
 )
+from hop3_cli.exceptions import ConfigError
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.main import _inject_resolved_app, run_command_from_args
 
@@ -188,17 +190,15 @@ def test_trace_captured(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None
     assert "hop3.toml" in trace
 
 
-def test_unreadable_dotfile_is_ignored(
+def test_an_unparseable_hop3_toml_is_named(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    """An unparseable hop3.toml should not crash resolution."""
+    """An unparseable hop3.toml is an error naming it, never an empty config."""
     monkeypatch.delenv("HOP3_APP", raising=False)
     (tmp_path / "hop3.toml").write_text("this is not valid toml [[[ ")
 
-    r = resolve_app(cli_app=None, cwd=tmp_path, home=tmp_path)
-    # The unparseable hop3.toml is ignored; nothing else resolves.
-    assert not r.resolved
-    assert r.app is None
+    with pytest.raises(ConfigError, match=re.escape(str(tmp_path / "hop3.toml"))):
+        resolve_app(cli_app=None, cwd=tmp_path, home=tmp_path)
 
 
 def test_appresolution_dataclass_is_frozen() -> None:

@@ -19,7 +19,7 @@ from typing import TYPE_CHECKING
 import pathspec
 
 from hop3_cli.core.app_scope import RUN_COMMANDS, RUN_VALUE_FLAGS
-from hop3_cli.core.hop3_toml import read_hop3_toml
+from hop3_cli.core.toml_file import read_toml
 from hop3_cli.ui.prompts import require_input_allowed
 
 if TYPE_CHECKING:
@@ -673,8 +673,8 @@ def _get_build_ignore_patterns(source_dir: Path) -> list[str] | None:
         source_dir / "hop3" / "hop3.toml",
         source_dir / "hop3.toml",
     ):
-        # read_hop3_toml returns {} for a missing or unparseable file.
-        build_section = read_hop3_toml(hop3_toml_path).get("build", {})
+        # read_toml returns {} for a missing file and raises on a bad one.
+        build_section = read_toml(hop3_toml_path).get("build", {})
         if not isinstance(build_section, dict):
             continue
         patterns = build_section.get("ignore")

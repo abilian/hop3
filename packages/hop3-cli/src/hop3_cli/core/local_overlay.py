@@ -32,7 +32,8 @@ from pathlib import Path
 from typing import Any
 
 import toml
-import tomllib
+
+from hop3_cli.core.toml_file import read_toml
 
 LOCAL_OVERLAY_FILENAME = ".hop3-local.toml"
 GITIGNORE_FILENAME = ".gitignore"
@@ -96,9 +97,10 @@ def read_overlay(cwd: Path | None = None, home: Path | None = None) -> LocalOver
     """
     Return the materialised overlay for the nearest ``.hop3-local.toml``.
 
-    On parse error, returns an overlay with ``data == {}`` and the
-    discovered path preserved. (The caller can distinguish "no overlay"
-    from "broken overlay" via ``overlay.path is not None`` if needed.)
+    A file that is there but cannot be read or parsed raises ``ConfigError``
+    naming it. It holds this checkout's context binding, and the binding is
+    written back through this read: a broken file read as empty sent the
+    checkout to its default context and was then overwritten.
     """
     cwd = cwd or Path.cwd()
     home = home or Path.home()
@@ -106,12 +108,7 @@ def read_overlay(cwd: Path | None = None, home: Path | None = None) -> LocalOver
     path = find_overlay_file(cwd, home)
     if path is None:
         return LocalOverlay(path=None, data={})
-    try:
-        with path.open("rb") as f:
-            data = tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
-        return LocalOverlay(path=path, data={})
-    return LocalOverlay(path=path, data=data)
+    return LocalOverlay(path=path, data=read_toml(path))
 
 
 def read_binding(project_dir: Path) -> str | None:

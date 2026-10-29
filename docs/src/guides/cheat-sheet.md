@@ -127,7 +127,7 @@ Most app-scoped commands don't need `--app` if one is resolvable from the curren
 
 ```bash
 # Pin an app for this directory (writes .hop3-app)
-hop3 use myapp
+hop3 use --app myapp
 hop3 app logs          # no positional needed
 hop3 app restart
 hop3 env show

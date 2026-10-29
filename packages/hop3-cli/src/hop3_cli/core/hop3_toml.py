@@ -23,15 +23,17 @@ The two public helpers are:
 - ``first_hop3_toml(start, home) -> (path, data)``
 - ``iter_hop3_toml(start, home) -> Iterator[(path, data)]``
 
-Both return ``(Path | None, dict)`` tuples; ``data`` is ``{}`` on read
-or parse failure (callers never observe exceptions from this module).
+Both return ``(Path | None, dict)`` tuples. A file that is there but cannot
+be read or parsed raises ``ConfigError`` naming it: a malformed hop3.toml
+read as empty dropped ``[build].ignore`` (so a deploy uploaded the files it
+excluded) and skipped the project checks, with nothing said.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
-import tomllib
+from hop3_cli.core.toml_file import read_toml
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
@@ -46,9 +48,6 @@ def first_hop3_toml(start: Path, home: Path) -> tuple[Path | None, dict[str, Any
 
     Returns ``(path, parsed_data)`` for the first file found, or
     ``(None, {})`` when no hop3.toml exists in the walked range.
-    Unparseable files yield ``(path, {})`` so the caller can distinguish
-    "file was here but couldn't read it" from "no file at all" via the
-    presence of ``path``.
     """
     for path, data in iter_hop3_toml(start, home):
         return path, data
@@ -68,21 +67,7 @@ def iter_hop3_toml(start: Path, home: Path) -> Iterator[tuple[Path, dict[str, An
     while True:
         candidate = current / HOP3_TOML
         if candidate.is_file():
-            yield candidate, read_hop3_toml(candidate)
+            yield candidate, read_toml(candidate)
         if current in {stop_at, current.parent}:
             return
         current = current.parent
-
-
-def read_hop3_toml(path: Path) -> dict[str, Any]:
-    """
-    Parse a single hop3.toml; return ``{}`` on OSError or TOMLDecodeError.
-
-    Public because callers that open a specific hop3.toml path (already
-    located by the walkers above) need the same error-swallowing contract.
-    """
-    try:
-        with path.open("rb") as f:
-            return tomllib.load(f)
-    except (OSError, tomllib.TOMLDecodeError):
-        return {}

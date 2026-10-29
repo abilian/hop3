@@ -8,7 +8,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+import pytest
 from hop3_cli.core.workspace_guard import find_workspace_dependency_issue
+from hop3_cli.exceptions import ConfigError
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -85,3 +87,14 @@ def test_non_workspace_dir_is_fine(tmp_path):
 def test_no_pyproject_is_fine(tmp_path):
     """A source dir without a pyproject (e.g. a Procfile app) is never flagged."""
     assert find_workspace_dependency_issue(tmp_path, home=tmp_path) is None
+
+
+def test_a_malformed_pyproject_is_named_not_guessed(tmp_path: Path) -> None:
+    """The guard reads TOML through the one reader, which refuses bad files."""
+    root = tmp_path / "ws"
+    member = root / "packages" / "app"
+    member.mkdir(parents=True)
+    (member / "pyproject.toml").write_text('[project]\nname = "app"\n')
+    (root / "pyproject.toml").write_text("[tool.uv.workspace\n")
+    with pytest.raises(ConfigError, match=r"pyproject\.toml is not valid TOML"):
+        find_workspace_dependency_issue(member, home=tmp_path)

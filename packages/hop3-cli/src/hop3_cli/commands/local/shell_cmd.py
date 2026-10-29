@@ -23,12 +23,12 @@ Two ways in, chosen by the configured SSH user:
 
 from __future__ import annotations
 
-import re
 import shlex
 import subprocess
 import sys
 from typing import TYPE_CHECKING, NoReturn
 
+from hop3_cli.core.resolution import APP_NAME_RE
 from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_base_argv
 from hop3_cli.exit_codes import ExitCode
 
@@ -43,9 +43,6 @@ if TYPE_CHECKING:
 SHELL_COMMANDS: tuple[tuple[str, ...], ...] = (("app", "shell"), ("ssh",))
 
 _HOP3_USER = "hop3"
-# The server's app-name charset. The name lands unquoted in the SSH forced
-# command's `$SSH_ORIGINAL_COMMAND`, so it must stay one shell word.
-_APP_NAME_RE = re.compile(r"\A[A-Za-z0-9][A-Za-z0-9_-]*\Z")
 
 
 def shell_command_args(cli_args: list[str]) -> list[str] | None:
@@ -102,7 +99,7 @@ def _app_from_args(args: list[str]) -> str:
     (ADR 036 D5), so a stray token can only be a positional the user typed.
     """
     app, stray = (args[1], args[2:]) if args[:1] == ["--app"] else (None, args)
-    if app is not None and not stray and _APP_NAME_RE.match(app):
+    if app is not None and not stray and APP_NAME_RE.match(app):
         return app
     if stray:
         message = (

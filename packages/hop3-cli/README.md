@@ -34,7 +34,7 @@ export HOP3_API_URL="ssh://user@hop3.example.com"
 hop3 apps
 
 # Bind a default app for this shell/context (sticky)
-hop3 use myapp
+hop3 use --app myapp
 
 # From here on, app-scoped commands resolve myapp automatically:
 hop3 app logs

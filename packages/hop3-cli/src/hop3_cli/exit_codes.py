@@ -46,13 +46,18 @@ class ExitCode:
 
 
 # JSON-RPC error codes
+RPC_INVALID_REQUEST = -32600
 RPC_METHOD_NOT_FOUND = -32601
 RPC_INVALID_PARAMS = -32602
+#: A command that failed while running: a full disk, an unknown app. Not a
+#: network error; its exit code comes from the message (`exit_code_for`).
 RPC_INTERNAL_ERROR = -32603
 # Hop3's application errors (-32000..-32099 is the range JSON-RPC reserves).
 RPC_UNAUTHENTICATED = -32001
 # Signed in, but the account's role is below the command's (ADR 061).
 RPC_FORBIDDEN = -32003
+#: Another command holds the server's one command slot (HTTP 503).
+RPC_SERVER_BUSY = -32004
 
 # HTTP status codes
 HTTP_UNAUTHORIZED = 401
@@ -84,11 +89,21 @@ def map_rpc_code_to_exit(code: int) -> int:
         # JSON-RPC error codes
         RPC_METHOD_NOT_FOUND: ExitCode.RESOLUTION_ERROR,
         RPC_INVALID_PARAMS: ExitCode.USAGE_ERROR,
-        RPC_INTERNAL_ERROR: ExitCode.NETWORK_ERROR,
+        RPC_INTERNAL_ERROR: ExitCode.GENERAL_ERROR,
         RPC_UNAUTHENTICATED: ExitCode.AUTH_ERROR,
         RPC_FORBIDDEN: ExitCode.AUTHZ_ERROR,
+        # The command slot is in use: D16's "locked, in use", retryable.
+        RPC_SERVER_BUSY: ExitCode.CONFLICT_ERROR,
     }
     return mapping.get(code, ExitCode.GENERAL_ERROR)
+
+
+def exit_code_for(code: int, message: str) -> int:
+    """The exit code of an RPC error: by its code, else by what its message says."""
+    exit_code = map_rpc_code_to_exit(code)
+    if exit_code == ExitCode.GENERAL_ERROR:
+        return map_message_to_exit(message)
+    return exit_code
 
 
 # Ordered table mapping (any-substring-match) → ExitCode. First match wins, so

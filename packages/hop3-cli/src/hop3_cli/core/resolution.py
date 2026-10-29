@@ -41,6 +41,7 @@ from __future__ import annotations
 
 import enum
 import os
+import re
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -48,6 +49,11 @@ from typing import Any
 from hop3_cli.config import ENV_CONTEXT_NAME
 from hop3_cli.core.hop3_toml import first_hop3_toml
 from hop3_cli.core.local_overlay import LOCAL_OVERLAY_FILENAME, read_binding
+
+#: The server's app-name rule (``hop3.core.identifiers.APP_NAME_RE``), so a
+#: name the server would refuse is refused here before it is written down or
+#: put on an ssh line. A test pins the two together.
+APP_NAME_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9_-]{1,61}[A-Za-z0-9]$")
 
 
 class AppSource(enum.Enum):

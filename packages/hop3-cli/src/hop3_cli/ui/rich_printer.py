@@ -106,7 +106,7 @@ class RichPrinter:
 
         for item in msg:
             t = item.get("t", "text")
-            meth = getattr(self, f"print_{t}", self.print_text)
+            meth = getattr(self, f"print_{t}", self.print_unknown)
             meth(item)
 
     def flush_json(self) -> None:
@@ -216,6 +216,23 @@ class RichPrinter:
 
         sys.stdout.buffer.write(base64.b64decode(obj.get("data", "")))
         sys.stdout.flush()
+
+    def print_unknown(self, obj: dict) -> None:
+        """
+        Render an item of a type this client does not know.
+
+        One carrying ``text`` prints as text (a newer server's type degrades
+        to its words). One without used to print an empty line: it is now
+        shown raw on stderr, even in quiet mode, like an error, so a response
+        this client cannot render is never dropped.
+        """
+        if "text" in obj:
+            self.print_text(obj)
+            return
+        raw = rich_escape(json.dumps(obj, default=str))
+        self.console_err.print(
+            f"[bold yellow]Unknown output item:[/bold yellow] {raw}", soft_wrap=True
+        )
 
     def print_error(self, obj: dict) -> None:
         """Print error messages in red."""

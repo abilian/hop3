@@ -61,7 +61,12 @@ from .core.resolution import (
 from .core.target import check_project_blocks, resolve_target
 from .core.workspace_guard import find_workspace_dependency_issue
 from .exceptions import AuthenticationError, CliError, TargetError
-from .exit_codes import ExitCode, map_message_to_exit, map_rpc_code_to_exit
+from .exit_codes import (
+    ExitCode,
+    exit_code_for,
+    map_message_to_exit,
+    map_rpc_code_to_exit,
+)
 from .rpc import Client, handle_response
 from .rpc.errors import PROTECTED_NEEDS_CONFIRMATION, PROTECTED_NEEDS_EXPLICIT
 from .ui import (
@@ -222,9 +227,9 @@ def _exit_no_app_resolved(
         f"Error: '{cmd_display}' requires an app, but no app could be resolved.\n"
         f"\nTried (in order):\n  {sources_tried}\n"
         f"\nTo fix, choose one:\n"
-        f"  hop3 use <app>                # set sticky app for this context\n"
+        f"  hop3 use --app <app>          # pin it for this directory\n"
         f"  export HOP3_APP=<app>         # set for this shell session\n"
-        f"  echo <app> > .hop3-app        # set for this directory\n"
+        f"  echo <app> > .hop3-app        # the same, by hand\n"
         f"  hop3 {cmd_display} --app <app>   # one-time override",
         file=sys.stderr,
     )
@@ -671,11 +676,11 @@ def _context_deploy_override(cli_args: list[str], config: Config) -> bytes | Non
     from hop3_cli.core.deploy_preview import (  # ruff:ignore[import-outside-top-level]
         flatten_for_context,
     )
-    from hop3_cli.core.hop3_toml import (  # ruff:ignore[import-outside-top-level]
-        read_hop3_toml,
+    from hop3_cli.core.toml_file import (  # ruff:ignore[import-outside-top-level]
+        read_toml,
     )
 
-    raw = read_hop3_toml(own)
+    raw = read_toml(own)
     if "contexts" not in raw:
         return None  # nothing to merge or strip — upload the file as-is
     target = config.require_target()
@@ -1069,6 +1074,6 @@ def verify_authentication(config: Config) -> None:
             raise AuthenticationError(msg)
         case Error(code=code, message=message):
             err(f"The Hop3 server could not check your credential: {message}")
-            sys.exit(map_rpc_code_to_exit(code))
+            sys.exit(exit_code_for(code, message))
         case _ as unreachable:
             assert_never(unreachable)

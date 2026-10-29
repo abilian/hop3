@@ -141,7 +141,7 @@ runuser -u hop3 -- /home/hop3/venv/bin/hop3-server admin:list
 Then sign the local CLI in with a token you printed that way:
 
 ```bash
-hop3 login --token <paste-token-here> --url https://your-server.com
+hop3 login --token --url https://your-server.com   # prompts for the token (hidden)
 ```
 
 Either way the server is recorded as a context, named `default` unless you pass `--context <name>`. Before deploying from a project directory, bind the checkout to it once:

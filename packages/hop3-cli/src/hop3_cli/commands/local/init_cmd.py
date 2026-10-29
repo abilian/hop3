@@ -10,6 +10,7 @@ import getpass
 import sys
 from typing import TYPE_CHECKING
 
+from ._argv import parse_local_args, usage_failure
 from .help_text import print_init_help
 from .login_cmd import record_server_login
 from .ssh_ops import BootstrapError, create_admin_via_ssh, infer_server_url
@@ -30,7 +31,7 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
         echo "password" | hop3 init --ssh user@server --username admin \
             --email admin@example.com --password-stdin
     """
-    parsed = _parse_init_args(args)
+    parsed = _parse_init_args(args, config)
     if parsed is None:
         return  # Help was shown
 
@@ -68,8 +69,12 @@ def handle_init(args: list[str], config: Config, printer: RichPrinter) -> None:
     _print_init_success(username, server_url)
 
 
+#: The usage line printed with every refusal of the init argv.
+INIT_USAGE = "Usage: hop3 init --ssh <user@server> [options]  (see hop3 init --help)"
+
+
 def _parse_init_args(
-    args: list[str],
+    args: list[str], config: Config
 ) -> tuple[str, str | None, str | None, str | None, bool, bool] | None:
     """
     Parse arguments for init command.
@@ -78,47 +83,24 @@ def _parse_init_args(
         Tuple of (ssh_target, username, email, server_url, password_stdin, auto_yes)
         or None if help was shown
     """
-    ssh_target = None
-    username = None
-    email = None
-    server_url = None
-    password_stdin = False
-    auto_yes = False
-
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--ssh" and i + 1 < len(args):
-            ssh_target = args[i + 1]
-            i += 2
-        elif arg == "--username" and i + 1 < len(args):
-            username = args[i + 1]
-            i += 2
-        elif arg == "--email" and i + 1 < len(args):
-            email = args[i + 1]
-            i += 2
-        elif arg == "--url" and i + 1 < len(args):
-            server_url = args[i + 1]
-            i += 2
-        elif arg == "--password-stdin":
-            password_stdin = True
-            i += 1
-        elif arg in {"--yes", "-y"}:
-            auto_yes = True
-            i += 1
-        elif arg in {"--help", "-h"}:
-            print_init_help()
-            return None
-        else:
-            i += 1
-
-    if not ssh_target:
+    if "--help" in args or "-h" in args:
         print_init_help()
-        print("\nError: --ssh argument is required", file=sys.stderr)
-        sys.exit(1)
-
-    # Type narrowing: ssh_target is str after the check above
-    assert ssh_target is not None
+        return None
+    parsed = parse_local_args(
+        args,
+        usage=INIT_USAGE,
+        value_flags=frozenset({"--ssh", "--username", "--email", "--url"}),
+        switches=frozenset({"--password-stdin", "--yes", "-y"}),
+    )
+    ssh_target = parsed.get("--ssh")
+    if not ssh_target:
+        usage_failure("--ssh is required.", INIT_USAGE)
+    username = parsed.get("--username")
+    email = parsed.get("--email")
+    server_url = parsed.get("--url")
+    password_stdin = "--password-stdin" in parsed.switches
+    # `-y` is a global flag, so it normally arrives on the config.
+    auto_yes = bool({"--yes", "-y"} & parsed.switches) or config.assume_yes()
 
     return (
         ssh_target,

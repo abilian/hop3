@@ -16,8 +16,8 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 from hop3_cli.core import credential_store
-from hop3_cli.core.hop3_toml import read_hop3_toml
 from hop3_cli.core.resolution import ContextResolution, ContextSource
+from hop3_cli.core.toml_file import read_toml
 from hop3_cli.exceptions import TargetError
 
 if TYPE_CHECKING:
@@ -100,7 +100,7 @@ def _unresolved_message(config: Config) -> str:
     return (
         "not connected to a server yet.\n"
         "  Sign in over SSH:   hop3 login <user>@<host>\n"
-        "  or with a token:    hop3 login --token <token> --url https://<host>"
+        "  or with a token:    hop3 login --token @<path> --url https://<host>"
     )
 
 
@@ -128,7 +128,7 @@ def _refuse_env_url_conflict(
 
 def check_project_blocks(project: Path, name: str) -> None:
     """Refuse a project whose blocks name a server, or name other contexts only."""
-    blocks = _context_blocks(read_hop3_toml(project))
+    blocks = _context_blocks(read_toml(project))
     for block_name, block in blocks.items():
         if not any(key in block for key in _ADDRESS_KEYS):
             continue

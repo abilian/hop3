@@ -24,7 +24,8 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 from urllib.parse import urlparse
 
-from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
+from hop3_cli.core.hop3_toml import first_hop3_toml
+from hop3_cli.core.toml_file import read_toml
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -131,7 +132,7 @@ def build_plan(
     git = _collect_git_state(source_path, git_runner)
 
     own_path = source_path / "hop3.toml"
-    raw = read_hop3_toml(own_path) if own_path.is_file() else {}
+    raw = read_toml(own_path) if own_path.is_file() else {}
     # Flatten the selected context in (merge env, replace domains, strip
     # [contexts.*]) so the preview reflects EXACTLY the effective config the
     # deploy uploads — preview == deploy (ADR 042 r2 §E1). With the context

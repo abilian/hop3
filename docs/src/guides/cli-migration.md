@@ -144,7 +144,7 @@ Some commands have been renamed for consistency and clarity.
 | `hop3 status <app>` | `hop3 app status --app <app>` | Namespaced under `app` |
 | `hop3 restart <app>` | `hop3 app restart --app <app>` | Namespaced under `app` |
 
-The CLI uses space-separated commands (no colon syntax such as `app:status`). The target app is always passed with the `--app` flag. When you run inside an app's directory, or have pinned one there with `hop3 use <app>`, `--app` can be omitted and the app is resolved automatically.
+The CLI uses space-separated commands (no colon syntax such as `app:status`). The target app is always passed with the `--app` flag. When you run inside an app's directory, or have pinned one there with `hop3 use --app <app>`, `--app` can be omitted and the app is resolved automatically.
 
 **Migration:**
 

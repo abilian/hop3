@@ -26,7 +26,7 @@ from typing import TYPE_CHECKING, Any, NoReturn
 
 from hop3_cli.commands.local.help_text import print_context_help
 from hop3_cli.config import ENV_CONTEXT_NAME
-from hop3_cli.core.hop3_toml import first_hop3_toml, read_hop3_toml
+from hop3_cli.core.hop3_toml import first_hop3_toml
 from hop3_cli.core.local_overlay import (
     LOCAL_OVERLAY_FILENAME,
     atomic_write_toml,
@@ -35,6 +35,7 @@ from hop3_cli.core.local_overlay import (
     write_overlay,
 )
 from hop3_cli.core.target import check_project_blocks
+from hop3_cli.core.toml_file import read_toml
 from hop3_cli.exceptions import TargetError
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.ui.prompts import is_no_input
@@ -139,7 +140,7 @@ def _confirm(question: str, config: Config) -> None:
 
 
 def _project_blocks(project_dir: Path) -> dict[str, dict[str, Any]]:
-    contexts = read_hop3_toml(project_dir / "hop3.toml").get("contexts")
+    contexts = read_toml(project_dir / "hop3.toml").get("contexts")
     if not isinstance(contexts, dict):
         return {}
     return {k: v for k, v in contexts.items() if isinstance(v, dict)}

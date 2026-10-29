@@ -104,8 +104,9 @@ Options:
                          it becomes the global context only if none is set
   --username <name>      Specific user (optional, defaults to auto-select)
   --url <url>            Server URL (HTTP API; pair with --token for token auth)
-  --token <token>        Use a pre-generated API token
-  -d, -dd, -ddd          Debug output (more d's = more verbose)
+  --token -|@<path>      Use a pre-generated API token, read from stdin (-) or
+                         a file; with no value, prompt for it (hidden)
+  -d                     Debug output
 
 Examples:
   # Authenticate the CLI (simplest - just works)
@@ -120,8 +121,8 @@ Examples:
   # Sign in to it again later: the context records its SSH route
   hop3 login --context prod
 
-  # URL with embedded token (for local development)
-  hop3 login "http://localhost:8000?token=eyJ..."
+  # A pre-generated token, kept off the command line
+  hop3 login --token @token.txt --url http://localhost:8000
 
   # Password-based login (for users without SSH access)
   hop3 login
@@ -272,7 +273,7 @@ Examples:
 """
 
 
-USE_HELP = """Usage: hop3 use [app]
+USE_HELP = """Usage: hop3 use [--app <app> | --clear]
 
 Pin / show / clear the app for the current directory (ADR 042).
 
@@ -280,7 +281,7 @@ Writes a `.hop3-app` file in the current directory — the app then resolves
 from the CWD (app-resolution source #4). There is no per-context default app.
 
 Examples:
-  hop3 use myapp        # Pin myapp for this directory (writes .hop3-app)
+  hop3 use --app myapp  # Pin myapp for this directory (writes .hop3-app)
   hop3 use              # Show the currently resolved app and its source
   hop3 use --clear      # Remove the .hop3-app pin for this directory
 """

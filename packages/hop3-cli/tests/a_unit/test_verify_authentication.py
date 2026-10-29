@@ -70,7 +70,8 @@ def test_a_server_error_is_reported_as_itself(answer, capsys):
     with pytest.raises(SystemExit) as exit_:
         main.verify_authentication(config=None)
 
-    assert exit_.value.code == ExitCode.NETWORK_ERROR
+    # A command that failed on the server; nothing went wrong on the network.
+    assert exit_.value.code == ExitCode.GENERAL_ERROR
     assert "database is locked" in capsys.readouterr().err
 
 

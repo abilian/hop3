@@ -15,11 +15,14 @@ from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
 
+from hop3_cli.commands.arguments import read_value_source
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
 from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_target_from_address
 from hop3_cli.exit_codes import ExitCode
 from hop3_cli.tokens import bearer_header, extract_jwt
+from hop3_cli.ui.prompts import NoInputError, require_input_allowed
 
+from ._argv import parse_local_args, usage_failure
 from .help_text import print_login_help
 from .ssh_ops import (
     BootstrapError,
@@ -55,8 +58,8 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
         hop3 login user@server                           # this CLI, over SSH
         hop3 login --context <name>                      # its recorded SSH route
         hop3 login --browser [user@server]               # a link for the browser
-        hop3 login "http://localhost:8000?token=eyJ..."  # URL with embedded token
-        hop3 login --token <token> --url <url>           # Separate token and server
+        hop3 login --token - --url <url>                 # token on stdin
+        hop3 login --token @<path> --url <url>           # token in a file
         hop3 login                                       # Username/password auth
     """
     # Check for help first
@@ -212,8 +215,8 @@ def handle_login_password(
         hop3 login
         hop3 login --username admin
     """
-    _ensure_server_configured(config)
     username = _parse_username_arg(args)
+    _ensure_server_configured(config)
     username, password = _prompt_credentials(username)
 
     # Verify the password and mint a token via the server's get-token primitive.
@@ -241,13 +244,13 @@ def _ensure_server_configured(config: Config) -> None:
 
 
 def _parse_username_arg(args: list[str]) -> str | None:
-    """Parse --username argument from args."""
-    i = 0
-    while i < len(args):
-        if args[i] == "--username" and i + 1 < len(args):
-            return args[i + 1]
-        i += 1
-    return None
+    """Parse the password form's only flag, ``--username``."""
+    parsed = parse_local_args(
+        args,
+        usage="Usage: hop3 login [--username <name>]",
+        value_flags=frozenset({"--username"}),
+    )
+    return parsed.get("--username")
 
 
 def _prompt_credentials(username: str | None) -> tuple[str, str]:
@@ -405,16 +408,23 @@ def _parse_login_web_args(args: list[str], config: Config) -> tuple[str, str]:
     Returns:
         Tuple of (ssh_target, username)
     """
-    username = "admin"  # Default to admin user
-    for index, arg in enumerate(args):
-        if arg == "--username" and index + 1 < len(args):
-            username = args[index + 1]
-            break
+    parsed = parse_local_args(
+        args,
+        usage="Usage: hop3 login --browser [<user>@<host>] [--username <name>]",
+        value_flags=frozenset({"--ssh", "--username"}),
+        switches=frozenset(BROWSER_FLAGS),
+        max_positionals=1,
+    )
+    username = parsed.get("--username") or "admin"  # Default to admin user
 
     # The target is optional: bare `--browser` uses the current context, which
     # is the everyday case once you have logged in. An explicit one is what
     # makes the form work on a machine that has no context yet.
-    ssh_target = ssh_target_argument(args) or _get_ssh_target_from_config(config)
+    ssh_target = (
+        parsed.get("--ssh")
+        or ssh_target_argument(args)
+        or _get_ssh_target_from_config(config)
+    )
 
     if not ssh_target:
         print(
@@ -637,13 +647,21 @@ def _login_context_name(config: Config, server_url: str) -> str:
     return DEFAULT_CONTEXT_NAME
 
 
+#: The token form's usage line, printed with every refusal of its argv.
+TOKEN_USAGE = "Usage: hop3 login --token [-|@<path>] [--url <url>]"
+
+
 def handle_login_token(args: list[str], config: Config, printer: RichPrinter) -> None:
     """
     Handle token-based login for local development or automation.
 
+    The token never needs to be on the command line, where the shell history
+    and `ps` would keep it (ADR 036 §D14):
+
     Usage:
-        hop3 login --token <token> --url http://localhost:8000
-        hop3 login --token <token>  # Uses existing server config
+        hop3 login --token - --url http://localhost:8000   # token on stdin
+        hop3 login --token @token.txt                      # token in a file
+        hop3 login --token                                 # hidden prompt
     """
     token, server_url = _parse_token_args(args)
     server_url = _resolve_server_url(server_url, config)
@@ -662,34 +680,58 @@ def handle_login_token(args: list[str], config: Config, printer: RichPrinter) ->
 
 
 def _parse_token_args(args: list[str]) -> tuple[str, str | None]:
-    """Parse --token and --url arguments."""
-    token = None
-    server_url = None
-
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--token" and i + 1 < len(args):
-            token = args[i + 1]
-            i += 2
-        elif arg == "--url" and i + 1 < len(args):
-            server_url = args[i + 1]
-            i += 2
-        else:
-            i += 1
-
-    if not token:
-        print_login_help()
-        print("\nError: --token requires a token value", file=sys.stderr)
-        sys.exit(1)
-
-    # Type narrowing: token is str after the check above
-    assert token is not None
-
+    """Parse ``--token [-|@<path>|<token>]`` and ``--url``."""
+    parsed = parse_local_args(
+        args,
+        usage=TOKEN_USAGE,
+        value_flags=frozenset({"--url"}),
+        optional_value_flags=frozenset({"--token"}),
+    )
+    token = _read_token(parsed.get("--token"))
     if not token.startswith("eyJ"):
         print("Warning: Token doesn't look like a JWT token", file=sys.stderr)
+    return token, parsed.get("--url")
 
-    return token, server_url
+
+def _read_token(source: str | None) -> str:
+    """
+    The token from stdin (``-``), a file (``@<path>``) or a hidden prompt.
+
+    A literal still works, so scripts written before §D14 keep running, but
+    it is no longer documented and says on stderr why it should go.
+    """
+    if source is None:
+        token = _prompt_token()
+    else:
+        if source != "-" and not source.startswith("@"):
+            print(
+                "Warning: a token on the command line is kept by the shell "
+                "history and visible in `ps`. Pass it with --token - (stdin) "
+                "or --token @<path>.",
+                file=sys.stderr,
+            )
+        try:
+            token = read_value_source(source, label="--token").strip()
+        except ValueError as e:
+            usage_failure(str(e), TOKEN_USAGE)
+    if not token:
+        usage_failure("the token is empty.", TOKEN_USAGE)
+    return token
+
+
+def _prompt_token() -> str:
+    """Ask for the token with no echo; refuse when nobody can answer."""
+    try:
+        require_input_allowed("--token without a value")
+    except NoInputError as e:
+        usage_failure(str(e), TOKEN_USAGE)
+    if not sys.stdin.isatty():
+        usage_failure(
+            "--token has no value and stdin is not a terminal; "
+            "pass --token - to read it from stdin.",
+            TOKEN_USAGE,
+        )
+    return getpass.getpass("API token (input is hidden): ")
 
 
 def _resolve_server_url(server_url: str | None, config: Config) -> str:
@@ -928,9 +970,11 @@ def handle_login_ssh(args: list[str], config: Config, printer: RichPrinter) -> N
         hop3 login user@server                    # Auto-auth (recommended)
         hop3 login user@server --username admin   # Specific user (legacy)
         hop3 login user@server --url https://...  # Name the HTTP API explicitly
-        hop3 login user@server -d                 # Show debug info
+        hop3 login -d user@server                 # Show debug info
     """
-    ssh_target, username, api_url, debug_level = _parse_login_ssh_args(args)
+    ssh_target, username, api_url = _parse_login_ssh_args(args)
+    # `-d` is a global flag (parse_flags), so it reaches us on the printer.
+    debug_level = 1 if printer.debug else 0
 
     if debug_level >= 1:
         print(f"[debug] SSH target: {ssh_target}")
@@ -987,50 +1031,31 @@ def _build_ssh_url(ssh_target: str) -> str:
     return f"ssh://root@{ssh_target}"
 
 
-def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None, int]:
+#: The SSH form's usage line, printed with every refusal of its argv.
+SSH_USAGE = "Usage: hop3 login <user>@<host> [--username <name>] [--url <url>]"
+
+
+def _parse_login_ssh_args(args: list[str]) -> tuple[str, str | None, str | None]:
     """
     Parse arguments for the SSH bootstrap form.
 
     Returns:
-        Tuple of (ssh_target, username, api_url, debug_level)
+        Tuple of (ssh_target, username, api_url)
     """
-    ssh_target = None
-    username = None
-    api_url = None
-    debug_level = 0
-
-    i = 0
-    while i < len(args):
-        arg = args[i]
-        if arg == "--ssh" and i + 1 < len(args):
-            ssh_target = args[i + 1]
-            i += 2
-        elif arg == "--username" and i + 1 < len(args):
-            username = args[i + 1]
-            i += 2
-        elif arg == "--url" and i + 1 < len(args):
-            api_url = args[i + 1]
-            i += 2
-        elif arg.startswith("-d"):
-            # Count consecutive 'd's: -d = 1, -dd = 2, -ddd = 3
-            debug_level += arg.count("d")
-            i += 1
-        else:
-            i += 1
-
+    parsed = parse_local_args(
+        args,
+        usage=SSH_USAGE,
+        value_flags=frozenset({"--ssh", "--username", "--url"}),
+        max_positionals=1,
+    )
     # The positional form: `hop3 login root@server.com`. `--ssh` is the old
     # spelling of the same thing and still works.
-    ssh_target = ssh_target or ssh_target_argument(args)
-
+    ssh_target = parsed.get("--ssh") or ssh_target_argument(args)
     if not ssh_target:
-        print_login_help()
-        print(
-            "\nError: this form needs a target, e.g. `hop3 login root@server.com`.",
-            file=sys.stderr,
+        usage_failure(
+            "this form needs a target, e.g. `hop3 login root@server.com`.", SSH_USAGE
         )
-        sys.exit(1)
-
-    return ssh_target, username, api_url, debug_level
+    return ssh_target, parsed.get("--username"), parsed.get("--url")
 
 
 def _verify_https_connection(

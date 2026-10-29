@@ -5,30 +5,35 @@
 """
 `hop3 use` — pin / show / clear the app for the current directory.
 
-Per ADR 042 the app resolves from the CWD only. `hop3 use <app>` writes a
+Per ADR 042 the app resolves from the CWD only. `hop3 use --app <app>` writes a
 `.hop3-app` file in the current directory (app-resolution source #4 in
 `hop3_cli.core.resolution`); `--clear` removes it. There is no per-context
 default app anymore.
 
 Usage:
-    hop3 use <app>        Pin <app> for this directory (writes .hop3-app).
+    hop3 use --app <app>  Pin <app> for this directory (writes .hop3-app).
     hop3 use              Show the currently resolved app and its source.
     hop3 use --clear      Remove the .hop3-app pin for this directory.
+
+The app is a flag like everywhere else (ADR 036 D5). The old positional form,
+``hop3 use <app>``, still works and is no longer documented.
 """
 
 from __future__ import annotations
 
-import sys
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from hop3_cli.core.resolution import resolve_app
+from hop3_cli.core.resolution import APP_NAME_RE, resolve_app
+
+from ._argv import parse_local_args, usage_failure
 
 if TYPE_CHECKING:
     from hop3_cli.config import Config
     from hop3_cli.ui.rich_printer import RichPrinter
 
 _APP_PIN = Path(".hop3-app")
+USE_USAGE = "Usage: hop3 use [--app <app> | --clear]"
 
 
 def handle_use(args: list[str], config: Config, printer: RichPrinter) -> None:
@@ -37,19 +42,30 @@ def handle_use(args: list[str], config: Config, printer: RichPrinter) -> None:
         _show_help()
         return
 
-    clear = "--clear" in args
-    positional = [a for a in args if not a.startswith("-")]
+    # `--app` is a global flag, consumed by parse_flags onto the config.
+    parsed = parse_local_args(
+        args, usage=USE_USAGE, switches=frozenset({"--clear"}), max_positionals=1
+    )
+    app = config.get_app_override()
+    if parsed.positionals:
+        if app:
+            usage_failure("name the app once, with --app.", USE_USAGE)
+        app = parsed.positionals[0]  # the old spelling, kept dispatching
 
-    if clear and positional:
-        print("Error: cannot combine --clear with an app name.", file=sys.stderr)
-        return
-
-    if clear:
+    if "--clear" in parsed.switches:
+        if app:
+            usage_failure("cannot combine --clear with an app name.", USE_USAGE)
         _clear(config)
         return
 
-    if positional:
-        _set(positional[0], config)
+    if app:
+        if not APP_NAME_RE.match(app):
+            usage_failure(
+                f"invalid app name {app!r}: 3-63 letters, digits, '-' or '_', "
+                "starting and ending with a letter or digit.",
+                USE_USAGE,
+            )
+        _set(app, config)
         return
 
     # No args: show current resolved app and source.
@@ -89,8 +105,8 @@ def _show(config: Config) -> None:
         print()
         print(
             "No app is set. Try one of:\n"
-            "  hop3 use <app>                # set for the current context\n"
+            "  hop3 use --app <app>          # set for this directory\n"
             "  export HOP3_APP=<app>         # set for this shell session\n"
-            "  echo <app> > .hop3-app        # set for this directory\n"
+            "  echo <app> > .hop3-app        # the same, by hand\n"
             "  hop3 <cmd> --app <app>        # one-time override"
         )

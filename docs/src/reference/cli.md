@@ -10,7 +10,7 @@ This document provides a complete reference for all Hop3 CLI commands.
 > Key changes from 0.4.x:
 >
 > - Commands use spaces, not colons: `hop3 env set` (was `hop3 config:set`).
-> - Implicit `--app` resolution chain, with a per-directory app pin (`hop3 use <app>`).
+> - Implicit `--app` resolution chain, with a per-directory app pin (`hop3 use --app <app>`).
 > - Alias mechanism: `hop3 apps`, `hop3 addons`, `hop3 plugins`, `hop3 whoami` are built-in aliases (`env` is a real command group, with `config` as its back-compat alias).
 > - Did-you-mean suggestions on typos for both commands and app names.
 - `hop3 help --all --json` emits the whole command tree as data (see [Machine-readable help](#machine-readable-help)).
@@ -195,12 +195,12 @@ hop3 --why logs
 **Sticky app:**
 
 ```bash
-hop3 use myapp        # Pin app 'myapp' for this directory (writes .hop3-app)
+hop3 use --app myapp  # Pin app 'myapp' for this directory (writes .hop3-app)
 hop3 use              # Show the currently pinned app
 hop3 use --clear      # Remove the .hop3-app pin
 ```
 
-`hop3 use <app>` writes a `.hop3-app` file in the current directory (item 3 of the
+`hop3 use --app <app>` writes a `.hop3-app` file in the current directory (item 3 of the
 [App Resolution](#app-resolution) chain). Once pinned, `hop3 app logs`,
 `hop3 app restart`, etc. all default to `myapp` from within that directory tree
 without needing `--app` or a positional argument.
@@ -434,7 +434,7 @@ hop3 login root@server                           # SSH bootstrap (no password ne
 hop3 login --context devel root@server           # same, recorded as the context 'devel'
 hop3 login --context devel                       # again, through the SSH route 'devel' records
 hop3 login                                       # password (prompted) for the current server
-hop3 login --token <tok> --url <url>             # pre-generated token + server address
+hop3 login --token @<file> --url <url>           # pre-generated token (also - for stdin)
 hop3 login --browser                             # magic link for the web dashboard
 ```
 

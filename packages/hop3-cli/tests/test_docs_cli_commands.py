@@ -12,6 +12,7 @@ against the real dispatch table, and this pins it in the fast lane.
 from __future__ import annotations
 
 import importlib.util
+import os
 import sys
 from pathlib import Path
 
@@ -29,7 +30,17 @@ def _load_linter():
         raise RuntimeError(msg)
     module = importlib.util.module_from_spec(spec)
     sys.modules[spec.name] = module
-    spec.loader.exec_module(module)
+    # The linter points HOP3_ROOT at a temp dir for its own process. In the
+    # shared test process that leaked into every later test that reads the
+    # server config live.
+    saved_root = os.environ.get("HOP3_ROOT")
+    try:
+        spec.loader.exec_module(module)
+    finally:
+        if saved_root is None:
+            os.environ.pop("HOP3_ROOT", None)
+        else:
+            os.environ["HOP3_ROOT"] = saved_root
     return module
 
 

@@ -34,6 +34,12 @@ if TYPE_CHECKING:
 # SECURITY (audit M8): bound the RPC request so a malicious or unresponsive
 # server can't hang the CLI forever with the bearer token in transit. Mirrors
 # the SSE path's timeouts (streaming.py). (connect, read) seconds.
+#: The /rpc contract this client speaks, sent as ``params.protocol``. The
+#: server refuses a version it does not speak, and names its own in the
+#: ``PROTOCOL_HEADER`` response header (absent from servers that predate it).
+RPC_PROTOCOL_VERSION = 1
+PROTOCOL_HEADER = "Hop3-RPC-Protocol"
+
 _RPC_CONNECT_TIMEOUT_SECONDS = 30.0
 _RPC_READ_TIMEOUT_SECONDS = 300.0
 
@@ -276,6 +282,7 @@ class Client:
             # server can refuse a change nobody named it for.
             "context_source": target.source.name.lower() if target else None,
             "protected_confirmed": self.protected_confirmed,
+            "protocol": RPC_PROTOCOL_VERSION,
         }
         json_request = request(method, args)
 
@@ -310,6 +317,8 @@ class Client:
                 allow_redirects=False,
             )
 
+        if PROTOCOL_HEADER not in response.headers:
+            logger.debug(f"{self.rpc_url} sent no {PROTOCOL_HEADER}: an older server")
         return self._parse_response(response, json_request)
 
     def _get_ssl_verification(self) -> bool | str:
