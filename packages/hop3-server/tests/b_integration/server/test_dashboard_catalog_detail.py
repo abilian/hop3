@@ -19,7 +19,6 @@ from typing import TYPE_CHECKING
 import pytest
 from litestar.testing import TestClient
 
-import hop3.config
 from hop3.config import HopConfig
 from hop3.orm import reset_session_factory_cache
 from hop3.server.asgi import create_app
@@ -84,7 +83,9 @@ def test_client(tmp_path: Path, monkeypatch):
     monkeypatch.setattr(service_module, "_default_catalog_dir", lambda: cat)
     CatalogService.reset()
     CatalogService.get_instance().load(cat)
-    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)  # bypass the role guards
+    monkeypatch.setattr(
+        HopConfig, "HOP3_UNSAFE", property(lambda _self: True)
+    )  # bypass the role guards
 
     client = TestClient(create_app())
     yield client

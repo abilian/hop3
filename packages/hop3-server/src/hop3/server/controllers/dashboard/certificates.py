@@ -6,16 +6,17 @@
 
 from __future__ import annotations
 
+import anyio
+from dishka.integrations.litestar import FromDishka, inject
 from litestar import Controller, get
 from litestar.response import Template
 
 from hop3.core.roles import Role
-from hop3.orm import AppRepository
+from hop3.orm import AppRepository  # ruff:ignore[typing-only-first-party-import]
 from hop3.platform.cert_health import cert_health
 from hop3.platform.domain_health import DomainHealth, all_domain_health
 from hop3.platform.health_alerts import collect_alerts
 from hop3.server.guards import RoleGuard
-from hop3.server.lib.database import get_session
 
 
 class CertificatesController(Controller):
@@ -24,12 +25,17 @@ class CertificatesController(Controller):
     path = "/dashboard/certificates"
     guards = [RoleGuard(Role.VIEWER)]  # ruff:ignore[mutable-class-default]
 
-    @get("/", sync_to_thread=False)
-    def dashboard_certificates(self) -> Template:
+    @get("/")
+    @inject
+    async def dashboard_certificates(
+        self, app_repo: FromDishka[AppRepository]
+    ) -> Template:
         """Display per-app cert + domain/DNS health, with a problem banner."""
-        with get_session() as db_session:
-            certs = cert_health(AppRepository(session=db_session).list_all_ordered())
+        return await anyio.to_thread.run_sync(self._certificates, app_repo)
 
+    @staticmethod
+    def _certificates(app_repo: AppRepository) -> Template:
+        certs = cert_health(app_repo.list_all_ordered())
         domains = all_domain_health()
         alerts = collect_alerts(certs, domains)
         rows = [

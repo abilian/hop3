@@ -10,6 +10,7 @@ import json
 import pathlib
 import shutil
 import tarfile
+from pathlib import Path
 
 import pytest
 from advanced_alchemy.base import BigIntAuditBase
@@ -329,6 +330,29 @@ class TestBackupListCommand:
         # Check row data
         row = result[0]["rows"][0]
         assert row[1] == "test-app"  # App name
+
+    def test_a_backup_without_its_manifest_is_listed_as_unreadable(
+        self, app_repo, backup_repo, addon_credential_repo, test_app
+    ):
+        """It used to be skipped with a log line, as if it did not exist."""
+        create_cmd = BackupCreateCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
+        create_cmd.call("--app", "test-app", "--no-addons")
+        (record,) = backup_repo.list()
+        (Path(record.remote_path) / "metadata.json").unlink()
+
+        list_cmd = BackupListCmd(
+            app_repo=app_repo,
+            backup_repo=backup_repo,
+            addon_credential_repo=addon_credential_repo,
+        )
+        (row,) = list_cmd.call()[0]["rows"]
+
+        assert row[1] == "test-app"
+        assert row[4].startswith("UNREADABLE: no manifest at")
 
     def test_list_filter_by_app(
         self, app_repo, backup_repo, addon_credential_repo, test_app

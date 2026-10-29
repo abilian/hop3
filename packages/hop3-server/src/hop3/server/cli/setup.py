@@ -35,6 +35,28 @@ if TYPE_CHECKING:
     from argparse import ArgumentParser
 
 
+#: PID 1's name: the process manager that runs hop3-server on this host.
+PID1_COMM = Path("/proc/1/comm")
+
+
+def server_restart_command(pid1_comm: Path = PID1_COMM) -> str:
+    """
+    The command that restarts hop3-server under this host's process manager.
+
+    systemd when it is PID 1, supervisor otherwise (the Docker target has no
+    systemd: `systemctl` there would do nothing). Read from ``/proc/1/comm``,
+    as the installer does, because a systemd package can be installed where
+    systemd is not running.
+    """
+    try:
+        init = pid1_comm.read_text().strip()
+    except OSError:
+        init = ""
+    if init == "systemd":
+        return "systemctl restart hop3-server"
+    return "supervisorctl restart hop3-server"
+
+
 def _write_secret_config(config_file: Path, config_data: dict) -> None:
     """
     Atomically write ``config_data`` (holding the JWT signing key) at 0600.
@@ -257,7 +279,7 @@ class SetupCmd(Command):
             "  IMPORTANT: Restart the hop3 service to load the key:",
             fg="yellow",
         )
-        echo("    sudo systemctl restart hop3", fg="white")
+        echo(f"    {server_restart_command()}", fg="white")
         echo("")
         echo(
             "  IMPORTANT: Keep this key secret! It's used to sign authentication tokens",

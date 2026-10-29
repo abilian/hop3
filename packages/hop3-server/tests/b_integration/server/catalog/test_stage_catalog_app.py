@@ -74,6 +74,15 @@ def test_stage_rejects_unknown_blueprint(rooted) -> None:
         stage_catalog_app("ghost", "myapp", "", session)
 
 
+@pytest.mark.parametrize("name", ["-foo", "foo-", "caf\u00e9", "dashboard"])
+def test_stage_applies_the_platform_app_name_rule(rooted, name) -> None:
+    """One rule for app names (``validate_app_name``), plus reserved routes."""
+    session = get_session_factory()()
+    with pytest.raises(CatalogInstallError):
+        stage_catalog_app("nextcloud", name, "", session)
+    assert session.query(App).count() == 0
+
+
 def test_stage_rejects_when_recipe_dir_is_gone(rooted, monkeypatch) -> None:
     # Loaded into the catalog, but the on-disk recipe vanished before install:
     # must fail loud, not stage an empty (undeployable) app.

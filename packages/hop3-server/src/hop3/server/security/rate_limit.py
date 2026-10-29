@@ -23,7 +23,7 @@ from __future__ import annotations
 
 import threading
 import time
-from collections import defaultdict, deque
+from collections import deque
 from dataclasses import dataclass, field
 
 __all__ = [
@@ -73,9 +73,7 @@ class RateLimiter:
 
     max_requests: int = 5
     window_seconds: float = 60.0
-    _buckets: dict[str, deque[float]] = field(
-        default_factory=lambda: defaultdict(deque)
-    )
+    _buckets: dict[str, deque[float]] = field(default_factory=dict)
     _lock: threading.Lock = field(default_factory=threading.Lock)
 
     def check(self, key: str) -> None:
@@ -92,7 +90,8 @@ class RateLimiter:
         cutoff = now - self.window_seconds
 
         with self._lock:
-            bucket = self._buckets[key]
+            self._forget_idle(cutoff)
+            bucket = self._buckets.setdefault(key, deque())
             while bucket and bucket[0] < cutoff:
                 bucket.popleft()
 
@@ -102,6 +101,19 @@ class RateLimiter:
                 raise RateLimitError(key, max(retry_after, 0.0))
 
             bucket.append(now)
+
+    def _forget_idle(self, cutoff: float) -> None:
+        """
+        Drop the buckets of keys with no request in the window.
+
+        Without this every IP that ever tried kept its bucket for the life of
+        the process, so an attacker cycling source addresses grew memory without
+        bound. ponytail: a full scan per check, bounded by the keys active in
+        one window; sweep on a timer if that ever shows in a profile.
+        """
+        idle = [k for k, b in self._buckets.items() if not b or b[-1] < cutoff]
+        for key in idle:
+            del self._buckets[key]
 
     def reset(self, key: str | None = None) -> None:
         """

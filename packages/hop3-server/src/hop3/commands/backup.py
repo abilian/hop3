@@ -10,7 +10,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import ClassVar
 
-from hop3.core.backup import BackupManager, format_size
+from hop3.core.backup import BackupManager, UnreadableBackup, format_size
 from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args, pop_app_flag, reject_extra_args
 from hop3.lib.decorators import register
@@ -171,6 +171,16 @@ class BackupListCmd(Command):
 
         rows = []
         for backup in backups:
+            if isinstance(backup, UnreadableBackup):
+                rows.append([
+                    backup.backup_id,
+                    backup.app_name,
+                    "-",
+                    "-",
+                    f"UNREADABLE: {backup.reason}",
+                    "-",
+                ])
+                continue
             # Extract date from backup_id (YYYYMMDD_HHMMSS_random)
             backup_id_parts = backup.backup_id.split("_")
             if len(backup_id_parts) >= 2:

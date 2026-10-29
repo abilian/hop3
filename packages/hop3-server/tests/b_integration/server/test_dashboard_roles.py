@@ -16,11 +16,10 @@ from typing import TYPE_CHECKING
 import pytest
 from litestar.testing import TestClient
 
-from hop3 import config
+from hop3.config import HopConfig
 from hop3.core.roles import Role
 from hop3.orm import User
 from hop3.server.asgi import create_app
-from hop3.server.security import web_auth
 from hop3.server.security.web_auth import AUTH_COOKIE
 
 if TYPE_CHECKING:
@@ -32,9 +31,9 @@ if TYPE_CHECKING:
 @pytest.fixture(autouse=True)
 def _real_auth(monkeypatch):
     monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-dashboard-roles")
-    monkeypatch.setattr(config, "HOP3_UNSAFE", False)
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: False))
     # The auth cookie is `Secure`; the test client speaks plain HTTP.
-    monkeypatch.setattr(web_auth, "HOP3_DEBUG", True)
+    monkeypatch.setattr(HopConfig, "HOP3_DEBUG", property(lambda _self: True))
 
 
 @pytest.fixture

@@ -14,7 +14,8 @@ structured logs. That is the fake success the project's fail-loud rule
 forbids.
 
 These tests assert the *observable* contract: the redirect distinguishes the
-two outcomes and carries the reason.
+two outcomes and carries the reason, in a signed flash the server issued, so a
+crafted link cannot put its own words on the page.
 """
 
 from __future__ import annotations
@@ -25,11 +26,12 @@ import pytest
 from litestar.testing import TestClient
 from sqlalchemy.exc import IntegrityError
 
-import hop3.config
+from hop3.config import HopConfig
 from hop3.core.backup import BackupManager
-from hop3.orm import App, get_session_factory
+from hop3.orm import App, AppStateEnum, get_session_factory
 from hop3.orm.session import reset_session_factory_cache
 from hop3.server.asgi import create_app
+from hop3.server.controllers.dashboard.helpers import flash_url, read_flash
 
 
 @pytest.fixture
@@ -49,7 +51,8 @@ def isolated_database(monkeypatch, worker_id, request):
 
 @pytest.fixture
 def authenticated_client(isolated_database, monkeypatch):
-    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
+    monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-dashboard-flash-0123")
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: True))
     return TestClient(create_app())
 
 
@@ -66,8 +69,12 @@ def an_app(isolated_database, request):
     return name
 
 
-def _query_of(response) -> dict[str, list[str]]:
-    return parse_qs(urlparse(response.headers["location"]).query)
+def _flash_of(response) -> dict:
+    """The outcome the redirect carries, as the next page will read it."""
+    location = urlparse(response.headers["location"])
+    flash = read_flash(parse_qs(location.query)["flash"][0], location.path)
+    assert flash is not None, "the redirect carries no valid flash"
+    return flash
 
 
 def test_a_failing_restart_reports_failure_not_success(
@@ -83,9 +90,11 @@ def test_a_failing_restart_reports_failure_not_success(
         f"/dashboard/apps/{an_app}/restart", follow_redirects=False
     )
 
-    query = _query_of(response)
-    assert query["success"] == ["false"], "a failed restart reported success"
-    assert "uwsgi socket is gone" in query["error"][0]
+    flash = _flash_of(response)
+    assert not flash["ok"], "a failed restart reported success"
+    assert "uwsgi socket is gone" in flash["text"]
+    page = authenticated_client.get(response.headers["location"])
+    assert "uwsgi socket is gone" in page.text
 
 
 def test_a_successful_restart_reports_success(
@@ -97,9 +106,9 @@ def test_a_successful_restart_reports_success(
         f"/dashboard/apps/{an_app}/restart", follow_redirects=False
     )
 
-    query = _query_of(response)
-    assert query["success"] == ["true"]
-    assert "error" not in query
+    flash = _flash_of(response)
+    assert flash["ok"]
+    assert "restarting" in flash["text"]
 
 
 def test_the_two_outcomes_are_distinguishable(
@@ -120,7 +129,7 @@ def test_the_two_outcomes_are_distinguishable(
         f"/dashboard/apps/{an_app}/stop", follow_redirects=False
     )
 
-    assert ok.headers["location"] != bad.headers["location"]
+    assert _flash_of(ok)["ok"] != _flash_of(bad)["ok"]
 
 
 def test_a_failing_backup_restore_reports_failure(authenticated_client, monkeypatch):
@@ -134,9 +143,63 @@ def test_a_failing_backup_restore_reports_failure(authenticated_client, monkeypa
         "/dashboard/backups/20260101_000000_x/restore", follow_redirects=False
     )
 
-    query = _query_of(response)
-    assert query["success"] == ["false"], "a failed restore reported success"
-    assert "archive checksum mismatch" in query["error"][0]
+    flash = _flash_of(response)
+    assert not flash["ok"], "a failed restore reported success"
+    assert "archive checksum mismatch" in flash["text"]
+    page = authenticated_client.get(response.headers["location"])
+    assert "archive checksum mismatch" in page.text
+
+
+@pytest.mark.parametrize(
+    "page", ["/dashboard/apps/{app}", "/dashboard/backups"], ids=["app", "backups"]
+)
+def test_a_crafted_link_cannot_put_text_on_the_page(authenticated_client, an_app, page):
+    """The old banners printed `?error=` and `?message=` verbatim."""
+    bait = "Your session expired, sign in again at evil.example"
+    path = page.format(app=an_app)
+    query = f"action=restore&success=false&error={bait}&message={bait}"
+
+    response = authenticated_client.get(f"{path}?{query}&flash={bait}")
+
+    assert response.status_code == 200
+    assert "evil.example" not in response.text
+
+
+def test_a_flash_for_another_page_is_not_shown(authenticated_client, an_app):
+    """A genuine flash cannot be transplanted onto a page it was not issued for."""
+    other = flash_url("/dashboard/backups", ok=False, text="genuine elsewhere")
+    query = urlparse(other).query
+
+    response = authenticated_client.get(f"/dashboard/apps/{an_app}?{query}")
+
+    assert "genuine elsewhere" not in response.text
+
+
+def test_polling_the_status_does_not_probe_or_write(
+    authenticated_client, an_app, monkeypatch
+):
+    """
+    ``GET .../status`` is a read (HTMX polls it every 5 s on every open page).
+
+    It used to run ``sync_state()`` and commit, a mutation on a GET that also
+    answered 500 for an app no deployer accepts.
+    """
+    factory = get_session_factory()
+    with factory() as session:
+        app = session.query(App).filter_by(name=an_app).one()
+        app.run_state = AppStateEnum.RUNNING
+        session.commit()
+
+    def probe(self) -> None:
+        msg = "no deployer accepts this app"
+        raise RuntimeError(msg)
+
+    monkeypatch.setattr(App, "sync_state", probe)
+
+    response = authenticated_client.get(f"/dashboard/apps/{an_app}/status")
+
+    assert response.status_code == 200
+    assert 'data-state="RUNNING"' in response.text
 
 
 def test_two_apps_cannot_share_a_name(isolated_database):

@@ -7,7 +7,7 @@ from __future__ import annotations
 import types
 from typing import TYPE_CHECKING, ClassVar, Protocol
 
-from hop3.config import HOP3_PROXY_TYPE
+from hop3 import config as c
 from hop3.core.plugins import get_plugin_manager
 from hop3.lib.console import bold, dim, echo, green
 from hop3.lib.registry import register
@@ -211,7 +211,7 @@ class Plugins(Command):
         """Get the currently configured proxy type."""
         # HOP3_PROXY_TYPE is a str constant; .lower() cannot fail. The
         # try/except that used to wrap this guarded nothing.
-        return HOP3_PROXY_TYPE.lower()
+        return c.HOP3_PROXY_TYPE.lower()
 
     def _get_detected_os(self, pm: PluginManager) -> str | None:
         """

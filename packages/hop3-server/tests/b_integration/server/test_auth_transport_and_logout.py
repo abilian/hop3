@@ -19,8 +19,6 @@ May 2026 round:
 
 from __future__ import annotations
 
-from urllib.parse import unquote
-
 import pytest
 from litestar.testing import TestClient
 
@@ -48,9 +46,9 @@ def test_login_over_plain_http_is_refused_with_a_reason(client: TestClient) -> N
     )
 
     assert response.status_code in {302, 303}
-    location = unquote(response.headers["location"])
-    assert "/auth/login?error=" in location
-    assert "plain HTTP" in location
+    location = response.headers["location"]
+    assert location == "/auth/login?error=insecure_transport"
+    assert "plain HTTP" in client.get(location).text
     # No credential was issued: the point is to not pretend the login worked.
     assert "hop3_auth" not in response.cookies
 
@@ -74,7 +72,22 @@ def test_magic_link_over_plain_http_does_not_burn_the_token(
     response = client.get("/auth/magic/some-token", follow_redirects=False)
 
     assert response.status_code in {302, 303}
-    assert "plain HTTP" in unquote(response.headers["location"])
+    assert response.headers["location"] == "/auth/login?error=insecure_transport"
+
+
+def test_the_login_page_shows_only_its_own_messages(client: TestClient) -> None:
+    """A link cannot put its own words on the sign-in page."""
+    bait = "Your password expired. Call +1 555 0100 to reset it."
+
+    response = client.get(f"/auth/login?error={bait}")
+
+    assert "555 0100" not in response.text
+
+
+def test_the_login_page_names_a_known_error(client: TestClient) -> None:
+    response = client.get("/auth/login?error=rate_limited&retry=42")
+
+    assert "Too many login attempts. Try again in 42s." in response.text
 
 
 def test_logout_is_not_reachable_by_get(client: TestClient) -> None:

@@ -20,6 +20,7 @@ from types import SimpleNamespace
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.server.security.proxy_headers import request_is_secure
 from hop3.server.security.web_auth import cookie_would_be_dropped
 
@@ -73,5 +74,5 @@ def test_rightmost_forwarded_proto_wins() -> None:
     ],
 )
 def test_cookie_would_be_dropped(monkeypatch, debug, scheme, dropped) -> None:
-    monkeypatch.setattr("hop3.server.security.web_auth.HOP3_DEBUG", debug)
+    monkeypatch.setattr(HopConfig, "HOP3_DEBUG", property(lambda _self: debug))
     assert cookie_would_be_dropped(_conn(scheme)) is dropped

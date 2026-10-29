@@ -15,9 +15,8 @@ from litestar.testing import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import hop3.config
 from hop3.config import HopConfig
-from hop3.orm import App, reset_session_factory_cache
+from hop3.orm import App, AppRepository, reset_session_factory_cache
 from hop3.server.asgi import create_app
 from hop3.server.lib.database import get_session
 
@@ -88,7 +87,7 @@ def test_client(tmp_path: Path, monkeypatch):
     (tmp_path / "logs").mkdir(exist_ok=True)
 
     # Enable unsafe mode to bypass authentication
-    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: True))
 
     # Create Litestar app - will use in-memory database via environment variable
     # Uses real App.create() and all real business logic
@@ -147,7 +146,7 @@ def test_app_create_validation_short_name(test_client):
     )
 
     assert response.status_code == 200
-    assert b"at least 3 characters" in response.content
+    assert b"3-63 characters" in response.content
 
 
 def test_app_create_validation_long_name(test_client):
@@ -163,7 +162,7 @@ def test_app_create_validation_long_name(test_client):
     )
 
     assert response.status_code == 200
-    assert b"less than 64 characters" in response.content
+    assert b"3-63 characters" in response.content
 
 
 def test_app_create_validation_invalid_chars(test_client):
@@ -178,7 +177,27 @@ def test_app_create_validation_invalid_chars(test_client):
     )
 
     assert response.status_code == 200
-    assert b"letters, numbers, hyphens, and underscores" in response.content
+    assert b"letters, digits, hyphens, and underscores" in response.content
+
+
+@pytest.mark.parametrize("name", ["-foo", "foo-", "_foo", "caf\u00e9"])
+def test_app_create_refuses_what_the_platform_refuses(test_client, name):
+    """
+    The dashboard applies the platform's one app-name rule.
+
+    Its own validator used ``str.isalnum``, which accepts any Unicode letter,
+    and let a name start or end with ``-`` or ``_``: names every other surface
+    refuses, created here and then unreachable from the CLI.
+    """
+    response = test_client.post(
+        "/dashboard/apps/new",
+        data={"app_name": name, "builder": "python", "env_vars": ""},
+    )
+
+    assert response.status_code == 200
+    assert b"Invalid app name" in response.content
+    with get_session() as session:
+        assert AppRepository(session=session).get_by_name(name) is None
 
 
 def test_app_create_success(test_client, tmp_path: Path):

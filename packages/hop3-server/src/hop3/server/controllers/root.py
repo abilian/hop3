@@ -22,7 +22,8 @@ class RootController(Controller):
 
     path = "/"
 
-    @get("/", sync_to_thread=False)
+    # `current_identity` checks the token's revocation in the database.
+    @get("/", sync_to_thread=True)
     def root_redirect(self, request: Request) -> Redirect:
         """
         Redirect root to the dashboard when authenticated, else to login.

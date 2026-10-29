@@ -25,7 +25,7 @@ import threading
 import pytest
 from litestar.testing import TestClient
 
-import hop3.config
+from hop3.config import HopConfig
 from hop3.orm import get_session_factory
 from hop3.orm.session import reset_session_factory_cache
 from hop3.server.asgi import create_app
@@ -41,7 +41,7 @@ def client(monkeypatch, worker_id, request):
     )
     reset_session_factory_cache()
     get_session_factory()
-    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: True))
     yield TestClient(create_app())
     reset_session_factory_cache()
 

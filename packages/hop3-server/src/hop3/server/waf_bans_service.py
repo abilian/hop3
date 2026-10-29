@@ -19,13 +19,14 @@ the cycle.
 
 from __future__ import annotations
 
-import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.deployers.waf import reconcile_bans
 from hop3.lib import log
 from hop3.lib.logging import server_log
 from hop3.orm import AppRepository
+
+from .periodic_service import PeriodicService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -38,7 +39,7 @@ RECONCILE_INTERVAL_SECONDS = 60.0
 INITIAL_DELAY_SECONDS = 60.0
 
 
-class WafBansService:
+class WafBansService(PeriodicService):
     """
     Background service that reconciles WAF bans from the audit stream.
 
@@ -48,6 +49,8 @@ class WafBansService:
         initial_delay: Seconds to wait before the first cycle (let the server settle).
     """
 
+    name: ClassVar[str] = "waf-bans"
+
     def __init__(
         self,
         session_factory: Callable[[], Session],
@@ -55,44 +58,8 @@ class WafBansService:
         interval: float = RECONCILE_INTERVAL_SECONDS,
         initial_delay: float = INITIAL_DELAY_SECONDS,
     ) -> None:
+        super().__init__(interval=interval, initial_delay=initial_delay)
         self.session_factory = session_factory
-        self.interval = interval
-        self.initial_delay = initial_delay
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
-
-    def start(self) -> None:
-        """Start the background reconcile thread."""
-        if self._thread is not None and self._thread.is_alive():
-            log("WAF ban service already running", level=2, fg="yellow")
-            return
-        self._stop_event.clear()
-        self._thread = threading.Thread(target=self._run, name="waf-bans", daemon=True)
-        self._thread.start()
-        log("WAF ban service started", level=1, fg="green")
-
-    def stop(self, timeout: float = 5.0) -> None:
-        """Stop the background reconcile thread."""
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=timeout)
-            self._thread = None
-        log("WAF ban service stopped", level=1, fg="yellow")
-
-    def is_running(self) -> bool:
-        """Check if the service is currently running."""
-        return self._thread is not None and self._thread.is_alive()
-
-    def _run(self) -> None:
-        """Main loop: a short settle delay, then a cycle every interval."""
-        delay = self.initial_delay
-        while not self._stop_event.wait(delay):
-            delay = self.interval
-            try:
-                self.run_once()
-            except Exception as e:
-                log(f"WAF ban reconcile error: {e}", level=1, fg="red")
-                server_log.exception("WAF ban reconcile cycle failed", error=str(e))
 
     def run_once(self) -> int:
         """

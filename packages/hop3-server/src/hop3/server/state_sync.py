@@ -18,13 +18,14 @@ actual process status.
 
 from __future__ import annotations
 
-import threading
 from datetime import UTC, datetime, timedelta
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.config import config
 from hop3.lib import log
 from hop3.orm import App, AppRepository, AppStateEnum
+
+from .periodic_service import PeriodicService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
     from sqlalchemy.orm import Session
 
 
-class StateSyncService:
+class StateSyncService(PeriodicService):
     """
     Background service that syncs transitional app states with reality.
 
@@ -48,6 +49,8 @@ class StateSyncService:
         timeout: Max seconds an app can stay in transitional state (default: 60.0)
     """
 
+    name: ClassVar[str] = "state-sync"
+
     def __init__(
         self,
         session_factory: Callable[[], Session],
@@ -62,11 +65,9 @@ class StateSyncService:
             interval: How often to check transitional states (seconds)
             timeout: How long before a transitional state is considered timed out
         """
+        super().__init__(interval=interval, initial_delay=interval)
         self.session_factory = session_factory
-        self.interval = interval
         self.timeout = timeout
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
         # Re-attach native cgroup caps every ~60s, not every cycle: attaching is
         # an idempotent rootd round-trip per capped app, so doing it on the 3s
         # babysitter cadence would be wasteful. ponytail: a respawned vassal
@@ -75,47 +76,7 @@ class StateSyncService:
         self._cycle = 0
         self._reattach_every = max(1, round(60.0 / interval))
 
-    def start(self) -> None:
-        """Start the background sync thread."""
-        if self._thread is not None and self._thread.is_alive():
-            log("State sync service already running", level=2, fg="yellow")
-            return
-
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run,
-            name="state-sync",
-            daemon=True,
-        )
-        self._thread.start()
-        log("State sync service started", level=1, fg="green")
-
-    def stop(self, timeout: float = 5.0) -> None:
-        """
-        Stop the background sync thread.
-
-        Args:
-            timeout: Max seconds to wait for thread to stop
-        """
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=timeout)
-            self._thread = None
-        log("State sync service stopped", level=1, fg="yellow")
-
-    def is_running(self) -> bool:
-        """Check if the service is currently running."""
-        return self._thread is not None and self._thread.is_alive()
-
-    def _run(self) -> None:
-        """Main loop - runs until stopped."""
-        while not self._stop_event.wait(self.interval):
-            try:
-                self._sync_cycle()
-            except Exception as e:
-                log(f"State sync error: {e}", level=1, fg="red")
-
-    def _sync_cycle(self) -> None:
+    def run_once(self) -> None:
         """Run one sync cycle - check all transitional apps."""
         self._cycle += 1
         with self.session_factory() as session:

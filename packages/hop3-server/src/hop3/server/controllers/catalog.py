@@ -15,11 +15,15 @@ This controller handles all catalog routes including:
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Annotated
+from urllib.parse import urlencode
 
+import anyio
+from dishka.integrations.litestar import FromDishka, inject
 from litestar import Controller, get, post
 from litestar.enums import RequestEncodingType
 from litestar.params import Body, FromPath
 from litestar.response import File, Redirect, Template
+from sqlalchemy.orm import Session  # ruff:ignore[typing-only-third-party-import]
 
 from hop3.commands._deploy import deploy_app_streaming
 from hop3.core.roles import Role
@@ -27,7 +31,6 @@ from hop3.server.catalog import CatalogService
 from hop3.server.catalog.install import CatalogInstallError, stage_catalog_app
 from hop3.server.catalog.loader import find_icon, find_screenshots
 from hop3.server.guards import RoleGuard
-from hop3.server.lib.database import get_session
 
 if TYPE_CHECKING:
     from hop3.server.catalog.models import CatalogApp
@@ -52,7 +55,7 @@ class CatalogController(Controller):
     # Catalog Home
     # -------------------------------------------------------------------------
 
-    @get("/", status_code=200, sync_to_thread=False)
+    @get("/", status_code=200, sync_to_thread=True)
     def catalog_index(self) -> Template:
         """
         Display the catalog home page.
@@ -76,7 +79,7 @@ class CatalogController(Controller):
 
     # AUDIT: guards=[] is intentional — the catalog is
     # public by design. See notes/security.md §3.6.1.
-    @get("/icons/{app_id:str}", status_code=200, sync_to_thread=False, guards=[])
+    @get("/icons/{app_id:str}", status_code=200, sync_to_thread=True, guards=[])
     def catalog_icon(self, app_id: FromPath[str]) -> File | Redirect:
         """
         Serve a catalog app's icon (raster only; never SVG — ADR 049 F6).
@@ -109,7 +112,7 @@ class CatalogController(Controller):
     @get(
         "/screenshots/{app_id:str}/{filename:str}",
         status_code=200,
-        sync_to_thread=False,
+        sync_to_thread=True,
         guards=[],
     )
     def catalog_screenshot(
@@ -144,7 +147,7 @@ class CatalogController(Controller):
     # All Apps Listing
     # -------------------------------------------------------------------------
 
-    @get("/apps", status_code=200, sync_to_thread=False)
+    @get("/apps", status_code=200, sync_to_thread=True)
     def catalog_list(self) -> Template:
         """
         Display all catalog apps.
@@ -168,7 +171,7 @@ class CatalogController(Controller):
     # App Detail
     # -------------------------------------------------------------------------
 
-    @get("/apps/{app_id:str}", status_code=200, sync_to_thread=False)
+    @get("/apps/{app_id:str}", status_code=200, sync_to_thread=True)
     def catalog_detail(self, app_id: FromPath[str]) -> Template | Redirect:
         """
         Display catalog app detail page.
@@ -211,7 +214,7 @@ class CatalogController(Controller):
     # Category Browsing
     # -------------------------------------------------------------------------
 
-    @get("/category/{category_id:str}", status_code=200, sync_to_thread=False)
+    @get("/category/{category_id:str}", status_code=200, sync_to_thread=True)
     def catalog_category(self, category_id: FromPath[str]) -> Template | Redirect:
         """Display apps in a specific category."""
         service = CatalogService.get_instance()
@@ -235,15 +238,16 @@ class CatalogController(Controller):
     @post(
         "/apps/{app_id:str}/install",
         status_code=303,
-        sync_to_thread=True,
         guards=[RoleGuard(Role.DEPLOYER)],
     )
-    def catalog_install(
+    @inject
+    async def catalog_install(
         self,
         app_id: FromPath[str],
         data: Annotated[
             dict[str, str], Body(media_type=RequestEncodingType.URL_ENCODED)
         ],
+        db_session: FromDishka[Session],
     ) -> Template | Redirect:
         """
         Install a catalog app: stage its recipe, then start a live deploy.
@@ -251,10 +255,15 @@ class CatalogController(Controller):
         Staging (create app, copy the verified recipe, set env) is shared with
         the ``hop3 catalog install`` CLI via ``stage_catalog_app``. The build and
         run then happen in the background through the same streaming path as
-        ``hop3 deploy`` — we do NOT claim success here: the app page reflects the
-        real run state (DEPLOYING → RUNNING/FAILED), and a failed deploy alerts
-        the operator (ADR 054).
+        ``hop3 deploy`` — we do NOT claim success here: the app page shows the
+        deploy's stream (its log, then its outcome, a refusal included) and the
+        app's recorded state, and a failed deploy alerts the operator (ADR 054).
         """
+        return await anyio.to_thread.run_sync(self._install, app_id, data, db_session)
+
+    def _install(
+        self, app_id: str, data: dict[str, str], db_session: Session
+    ) -> Template | Redirect:
         service = CatalogService.get_instance()
         catalog_app = service.get_app(app_id)
         if not catalog_app:
@@ -264,19 +273,18 @@ class CatalogController(Controller):
         env_vars = data.get("env_vars", "")
         domain = data.get("domain", "").strip()
         try:
-            with get_session() as db_session:
-                app = stage_catalog_app(
-                    app_id, app_name, env_vars, db_session, domain=domain
-                )
-                deploy_app_streaming(app, db_session)
+            app = stage_catalog_app(
+                app_id, app_name, env_vars, db_session, domain=domain
+            )
+            started = deploy_app_streaming(app, db_session)
         except CatalogInstallError as exc:
+            db_session.rollback()
             return self._render_install_errors(
                 service, catalog_app, app_id, app_name, exc.errors, domain=domain
             )
 
-        return Redirect(
-            path=f"/dashboard/apps/{app_name}?deploying=true", status_code=303
-        )
+        query = urlencode({"stream": started["stream_id"]})
+        return Redirect(path=f"/dashboard/apps/{app_name}?{query}", status_code=303)
 
     def _render_install_errors(
         self,

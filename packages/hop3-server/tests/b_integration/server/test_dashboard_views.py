@@ -14,7 +14,7 @@ from litestar.testing import TestClient
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 
-import hop3.config
+from hop3.config import HopConfig
 from hop3.core.credentials import get_credential_encryptor
 from hop3.orm import (
     AddonCredential,
@@ -94,7 +94,7 @@ def authenticated_client(isolated_database, monkeypatch):
     Uses HOP3_UNSAFE mode to bypass authentication for testing.
     """
     # Enable unsafe mode to bypass authentication guards
-    monkeypatch.setattr(hop3.config, "HOP3_UNSAFE", True)
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: True))
 
     # Create a new app with authentication bypassed
     app = create_app()

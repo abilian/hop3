@@ -6,16 +6,58 @@
 
 from __future__ import annotations
 
+import time
 from pathlib import Path
 from typing import TYPE_CHECKING
+from urllib.parse import urlencode
+
+import jwt
 
 from hop3.orm import App, AppRepository
 from hop3.orm.app import AppStateEnum
 from hop3.project.config import AppConfig
+from hop3.server.security.tokens import get_secret_key
 from hop3.server.streaming import has_active_deploy
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
+
+
+# A mutation's outcome travels to the next page as a signed token, never as
+# query text: a page that printed `?error=...` let any link put arbitrary words
+# on an authenticated page (audit 2026-10). The token is bound to the page it
+# was issued for and expires, so it cannot be transplanted or replayed later.
+FLASH_PARAM = "flash"
+_FLASH_AUDIENCE = "hop3-dashboard-flash"
+_FLASH_TTL_SECONDS = 600
+
+
+def flash_url(path: str, *, ok: bool, text: str) -> str:
+    """``path`` carrying a signed outcome (success or the real error) to show."""
+    payload = {
+        "aud": _FLASH_AUDIENCE,
+        "path": path,
+        "ok": ok,
+        "text": text,
+        "exp": int(time.time()) + _FLASH_TTL_SECONDS,
+    }
+    token = jwt.encode(payload, get_secret_key(), algorithm="HS256")
+    return f"{path}?{urlencode({FLASH_PARAM: token})}"
+
+
+def read_flash(token: str | None, path: str) -> dict | None:
+    """The outcome a ``flash_url`` token carries for ``path``, or None."""
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(
+            token, get_secret_key(), algorithms=["HS256"], audience=_FLASH_AUDIENCE
+        )
+    except jwt.InvalidTokenError:
+        return None
+    if payload.get("path") != path:
+        return None
+    return {"ok": bool(payload.get("ok")), "text": str(payload.get("text", ""))}
 
 
 def get_app_or_none(db_session: Session, app_name: str) -> App | None:

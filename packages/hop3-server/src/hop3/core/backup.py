@@ -23,6 +23,7 @@ import shutil
 import tarfile
 from dataclasses import asdict, dataclass, field, replace
 from datetime import datetime, timezone
+from itertools import starmap
 from pathlib import Path
 from typing import Any
 
@@ -208,6 +209,16 @@ def resolve_backup_file(path: Path | str, backup_root: Path) -> Path:
         raise FileNotFoundError(msg)
 
     return resolved
+
+
+@dataclass(frozen=True)
+class UnreadableBackup:
+    """A backup record whose manifest is missing or cannot be loaded."""
+
+    backup_id: str
+    app_name: str
+    state: str
+    reason: str
 
 
 @dataclass
@@ -611,35 +622,47 @@ class BackupManager:
             raise RuntimeError(msg) from e
 
     def list_backups(
-        self, app_name: str | None = None, limit: int = 20
-    ) -> list[BackupManifest]:
+        self, app_name: str | None = None, limit: int = 20, offset: int = 0
+    ) -> list[BackupManifest | UnreadableBackup]:
         """
-        List available backups.
+        List backups, most recent first, one entry per backup record.
+
+        A backup whose manifest is missing or cannot be loaded is listed as an
+        `UnreadableBackup` saying why. It used to be skipped with a log line:
+        the dashboard's counts then disagreed with its rows, and a rollback
+        whose latest backup was broken said there was no backup at all.
 
         Args:
             app_name: Optional filter by application name
             limit: Maximum number of backups to return
-
-        Returns:
-            List of BackupManifest objects
+            offset: How many of the most recent backups to skip
         """
-        backups = self.backup_repo.list_by_app_name(app_name, limit)
+        return list(
+            starmap(
+                self._listed, self.backup_repo.list_by_app_name(app_name, limit, offset)
+            )
+        )
 
-        manifests = []
-        for backup in backups:
-            backup_dir = Path(backup.remote_path)
-            manifest_file = backup_dir / "metadata.json"
-
-            if manifest_file.exists():
-                try:
-                    manifest = BackupManifest.from_file(manifest_file)
-                    # Stamp the live DB state so the listing shows the real
-                    # status instead of assuming every backup is COMPLETED.
-                    manifests.append(replace(manifest, state=backup.state.name))
-                except Exception as e:
-                    log(f"Error loading manifest for {backup.remote_path}: {e}")
-
-        return manifests
+    @staticmethod
+    def _listed(backup: Backup, app_name: str) -> BackupManifest | UnreadableBackup:
+        backup_dir = Path(backup.remote_path)
+        manifest_file = backup_dir / "metadata.json"
+        try:
+            manifest = BackupManifest.from_file(manifest_file)
+        except FileNotFoundError:
+            reason = f"no manifest at {manifest_file}"
+        except (OSError, ValueError, KeyError, TypeError) as e:
+            reason = f"manifest {manifest_file} cannot be loaded: {e}"
+        else:
+            # Stamp the live DB state so the listing shows the real status
+            # instead of assuming every backup is COMPLETED.
+            return replace(manifest, state=backup.state.name)
+        return UnreadableBackup(
+            backup_id=backup_dir.name,
+            app_name=app_name,
+            state=backup.state.name,
+            reason=reason,
+        )
 
     def get_backup_info(self, backup_id: str) -> BackupManifest:
         """

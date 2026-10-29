@@ -351,22 +351,24 @@ class BackupRepository(BaseRepository[Backup]):
         self,
         app_name: str | None = None,
         limit: int = 20,
-    ) -> list[Backup]:
+        offset: int = 0,
+    ) -> list[tuple[Backup, str]]:
         """
-        List backups, optionally filtered by app name.
+        List backups with their app's name, optionally filtered by app name.
 
         Args:
             app_name: Optional app name to filter by
             limit: Maximum number of backups to return
+            offset: How many of the most recent backups to skip
 
         Returns:
-            List of backups, most recent first
+            ``(backup, app name)`` pairs, most recent first
         """
-        stmt = select(Backup).join(App)
+        stmt = select(Backup, App.name).join(App)
         if app_name:
             stmt = stmt.where(App.name == app_name)
-        stmt = stmt.order_by(Backup.created_at.desc()).limit(limit)
-        return list(self.session.scalars(stmt).all())
+        stmt = stmt.order_by(Backup.created_at.desc()).offset(offset).limit(limit)
+        return [(backup, name) for backup, name in self.session.execute(stmt).all()]
 
     def list_all_with_apps(self) -> list[Backup]:
         """

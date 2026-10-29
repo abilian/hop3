@@ -26,7 +26,7 @@ import json
 import threading
 import uuid
 from collections import deque
-from contextlib import contextmanager, suppress
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -44,6 +44,11 @@ STREAM_TTL_SECONDS = 3600  # 1 hour
 #: chatty maintenance job grows the server's memory until it is killed. A live
 #: subscriber still sees every line; only the replay is trimmed.
 STREAM_LOG_BUFFER = 5000
+
+#: Events queued for one live subscriber before it counts as fallen behind.
+SUBSCRIBER_QUEUE_SIZE = 1000
+#: Seconds without an event before a subscriber sends a keepalive.
+KEEPALIVE_SECONDS = 30.0
 
 # Thread-local storage for current stream context
 # This ensures concurrent deployments don't interleave logs
@@ -108,6 +113,8 @@ class DeploymentStream:
     # keepalive timeout --- making every deploy appear to take ~30s. We route
     # puts back onto the loop with call_soon_threadsafe so they arrive at once.
     _loop: asyncio.AbstractEventLoop | None = field(default=None, repr=False)
+    #: Log lines a subscriber missed since its last marker (see _safe_put).
+    _dropped: dict[asyncio.Queue, int] = field(default_factory=dict, repr=False)
 
     def write(self, msg: str, level: int = 0, fg: str = "") -> None:
         """
@@ -157,11 +164,52 @@ class DeploymentStream:
             else:
                 self._safe_put(queue, item)
 
-    @staticmethod
-    def _safe_put(queue: asyncio.Queue, item: tuple[str, Any]) -> None:
-        # Skip slow consumers rather than block the producer.
-        with suppress(asyncio.QueueFull):
-            queue.put_nowait(item)
+    def _safe_put(self, queue: asyncio.Queue, item: tuple[str, Any]) -> None:
+        """
+        Queue ``item`` for one subscriber without ever blocking the producer.
+
+        A subscriber that falls behind loses log lines, never silently: the
+        count is kept and a "N lines dropped" line takes the gap's place once
+        there is room. The terminal ``complete`` is never dropped; the oldest
+        queued lines make room for it, so the client always learns the outcome.
+        """
+        if item[0] == "complete":
+            self._put_complete(queue, item)
+            return
+        dropped = self._dropped.get(queue, 0)
+        needed = 2 if dropped else 1
+        if queue.maxsize and queue.maxsize - queue.qsize() < needed:
+            self._dropped[queue] = dropped + 1
+            return
+        if dropped:
+            queue.put_nowait(("log", _dropped_marker(dropped)))
+            del self._dropped[queue]
+        queue.put_nowait(item)
+
+    def _put_complete(self, queue: asyncio.Queue, item: tuple[str, Any]) -> None:
+        """
+        Queue the terminal event, evicting the oldest lines if there is no room.
+
+        Each marker sits where its gap is: lines evicted now are the oldest, so
+        their marker goes first; lines refused earlier were the newest at the
+        time, so theirs goes after what is still queued. Runs on the consumer's
+        loop (or with no loop at all), so draining and refilling is atomic.
+        """
+        kept = []
+        while not queue.empty():
+            kept.append(queue.get_nowait())
+        tail_dropped = self._dropped.pop(queue, 0)
+        # Room for the kept lines: the queue less `complete` and the tail marker.
+        room = queue.maxsize - 1 - (1 if tail_dropped else 0)
+        if queue.maxsize and len(kept) > room:
+            head_dropped = len(kept) - (room - 1)  # one slot for the head marker
+            kept = kept[head_dropped:]
+            queue.put_nowait(("log", _dropped_marker(head_dropped)))
+        for entry in kept:
+            queue.put_nowait(entry)
+        if tail_dropped:
+            queue.put_nowait(("log", _dropped_marker(tail_dropped)))
+        queue.put_nowait(item)
 
     async def subscribe(self) -> AsyncIterator[str]:
         """
@@ -172,7 +220,7 @@ class DeploymentStream:
         """
         # Capture the loop so background-thread writers can wake us (_notify).
         self._loop = asyncio.get_running_loop()
-        queue: asyncio.Queue = asyncio.Queue(maxsize=1000)
+        queue: asyncio.Queue = asyncio.Queue(maxsize=SUBSCRIBER_QUEUE_SIZE)
         self.subscribers.append(queue)
 
         try:
@@ -192,8 +240,15 @@ class DeploymentStream:
             # Stream new logs as they arrive
             while True:
                 try:
-                    event_type, data = await asyncio.wait_for(queue.get(), timeout=30.0)
+                    event_type, data = await asyncio.wait_for(
+                        queue.get(), timeout=KEEPALIVE_SECONDS
+                    )
                 except TimeoutError:
+                    # The stream may have finished without its event reaching
+                    # this queue (finish() before the loop was captured).
+                    if self._ended_for(queue):
+                        yield self._completion_event()
+                        return
                     # Send keepalive comment to prevent connection timeout
                     yield ": keepalive\n\n"
                     continue
@@ -207,6 +262,11 @@ class DeploymentStream:
         finally:
             if queue in self.subscribers:
                 self.subscribers.remove(queue)
+            self._dropped.pop(queue, None)
+
+    def _ended_for(self, queue: asyncio.Queue) -> bool:
+        """Finished, with nothing left queued for this subscriber."""
+        return self.complete and queue.empty()
 
     def _completion_event(self) -> str:
         """Generate SSE completion event."""
@@ -233,6 +293,14 @@ class DeploymentStream:
             "created_at": self.created_at.isoformat(),
             "duration": (datetime.now(UTC) - self.created_at).total_seconds(),
         }
+
+
+def _dropped_marker(count: int) -> LogEntry:
+    """The line that stands in for ``count`` lines a slow client missed."""
+    return LogEntry(
+        msg=f"[{count} log line(s) dropped: this client fell behind the stream]",
+        fg="yellow",
+    )
 
 
 def create_stream(app_name: str) -> DeploymentStream:

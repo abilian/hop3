@@ -16,14 +16,14 @@ stores the result for the dashboard. WHOIS is rate-limited, so it runs daily.
 
 from __future__ import annotations
 
-import threading
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, ClassVar
 
 from hop3.lib import log
-from hop3.lib.logging import server_log
 from hop3.orm import AppRepository
 from hop3.platform.cert_renewal import app_cert_domain
 from hop3.platform.domain_health import check_domain, server_ips, set_domain_health
+
+from .periodic_service import PeriodicService
 
 if TYPE_CHECKING:
     from collections.abc import Callable
@@ -37,8 +37,10 @@ CHECK_INTERVAL_SECONDS = 24 * 60 * 60
 INITIAL_DELAY_SECONDS = 120.0
 
 
-class DomainHealthService:
+class DomainHealthService(PeriodicService):
     """Background service probing app domains' WHOIS + DNS health."""
+
+    name: ClassVar[str] = "domain-health"
 
     def __init__(
         self,
@@ -47,42 +49,8 @@ class DomainHealthService:
         interval: float = CHECK_INTERVAL_SECONDS,
         initial_delay: float = INITIAL_DELAY_SECONDS,
     ) -> None:
+        super().__init__(interval=interval, initial_delay=initial_delay)
         self.session_factory = session_factory
-        self.interval = interval
-        self.initial_delay = initial_delay
-        self._stop_event = threading.Event()
-        self._thread: threading.Thread | None = None
-
-    def start(self) -> None:
-        if self._thread is not None and self._thread.is_alive():
-            log("Domain health service already running", level=2, fg="yellow")
-            return
-        self._stop_event.clear()
-        self._thread = threading.Thread(
-            target=self._run, name="domain-health", daemon=True
-        )
-        self._thread.start()
-        log("Domain health service started", level=1, fg="green")
-
-    def stop(self, timeout: float = 5.0) -> None:
-        self._stop_event.set()
-        if self._thread is not None:
-            self._thread.join(timeout=timeout)
-            self._thread = None
-        log("Domain health service stopped", level=1, fg="yellow")
-
-    def is_running(self) -> bool:
-        return self._thread is not None and self._thread.is_alive()
-
-    def _run(self) -> None:
-        delay = self.initial_delay
-        while not self._stop_event.wait(delay):
-            delay = self.interval
-            try:
-                self.run_once()
-            except Exception as e:
-                log(f"Domain health error: {e}", level=1, fg="red")
-                server_log.exception("Domain health cycle failed", error=str(e))
 
     def run_once(self) -> dict[str, DomainHealth]:
         """Probe every app domain and refresh the snapshot. Public for testing."""

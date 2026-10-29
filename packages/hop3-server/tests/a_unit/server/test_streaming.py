@@ -101,3 +101,100 @@ async def test_cross_thread_notify_is_scheduled_on_the_loop() -> None:
         assert entry.msg == "building..."
     finally:
         setattr(loop, "call_soon_threadsafe", real_call_soon_threadsafe)  # ruff:ignore[set-attr-with-constant]
+
+
+def _drain(queue: asyncio.Queue) -> list[tuple[str, object]]:
+    items = []
+    while not queue.empty():
+        items.append(queue.get_nowait())
+    return items
+
+
+def test_completion_reaches_a_subscriber_whose_queue_is_full() -> None:
+    """Regression: QueueFull dropped `complete`, so the client never ended."""
+    stream = create_stream("slowclient")
+    queue: asyncio.Queue = asyncio.Queue(maxsize=3)
+    stream.subscribers.append(queue)
+    for i in range(5):
+        stream.write(f"line {i}")
+
+    stream.finish(success=True)
+
+    items = _drain(queue)
+    assert items[-1] == ("complete", None)
+    kind, marker = items[-2]
+    assert kind == "log"
+    assert "dropped" in marker.msg
+
+
+def test_dropped_lines_are_reported_where_they_were_lost() -> None:
+    stream = create_stream("slowclient")
+    queue: asyncio.Queue = asyncio.Queue(maxsize=2)
+    stream.subscribers.append(queue)
+    for i in range(5):  # two fit, three are dropped
+        stream.write(f"line {i}")
+    _drain(queue)
+
+    stream.write("line 5")
+
+    assert [entry.msg for _, entry in _drain(queue)] == [
+        "[3 log line(s) dropped: this client fell behind the stream]",
+        "line 5",
+    ]
+
+
+def test_lines_evicted_for_completion_are_marked_where_they_were() -> None:
+    """The oldest lines make room for `complete`; their marker comes first."""
+    stream = create_stream("slowclient")
+    queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+    stream.subscribers.append(queue)
+    for i in range(4):
+        stream.write(f"line {i}")
+
+    stream.finish(success=True)
+
+    items = _drain(queue)
+    assert [entry.msg for _, entry in items[:-1]] == [
+        "[2 log line(s) dropped: this client fell behind the stream]",
+        "line 2",
+        "line 3",
+    ]
+    assert items[-1] == ("complete", None)
+
+
+def test_both_gaps_are_marked_in_place() -> None:
+    """Lines refused earlier were the newest: their marker follows the kept."""
+    stream = create_stream("slowclient")
+    queue: asyncio.Queue = asyncio.Queue(maxsize=4)
+    stream.subscribers.append(queue)
+    for i in range(6):  # four fit, two are refused
+        stream.write(f"line {i}")
+
+    stream.finish(success=True)
+
+    assert [entry.msg if kind == "log" else kind for kind, entry in _drain(queue)] == [
+        "[3 log line(s) dropped: this client fell behind the stream]",
+        "line 3",
+        "[2 log line(s) dropped: this client fell behind the stream]",
+        "complete",
+    ]
+
+
+@pytest.mark.asyncio
+async def test_a_waiting_subscriber_ends_when_the_stream_is_complete(
+    monkeypatch,
+) -> None:
+    """Regression: the keepalive branch never looked at `complete`."""
+    monkeypatch.setattr("hop3.server.streaming.KEEPALIVE_SECONDS", 0.01)
+    stream = create_stream("lostevent")
+    events = stream.subscribe()
+    first = asyncio.ensure_future(anext(events))
+    await asyncio.sleep(0.02)  # subscribed, waiting, one keepalive sent
+    assert first.result() == ": keepalive\n\n"
+
+    # Finished without its event reaching this queue.
+    stream.complete = True
+    stream.success = True
+
+    event = await asyncio.wait_for(anext(events), timeout=1.0)
+    assert event.startswith("event: complete")

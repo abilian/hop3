@@ -140,11 +140,7 @@ class AdminCreate(Command):
             print("API Token (save this - it won't be shown again):")
             print(token)
             print()
-            print("Quick login (replace SERVER_URL with your server address):")
-            print(f'  hop3 login "SERVER_URL?token={token}"')
-            print()
-            print("Example for local development:")
-            print(f'  hop3 login "http://localhost:8000?token={token}"')
+            _print_login_hint()
 
 
 @register
@@ -202,11 +198,7 @@ class AdminToken(Command):
             print("Token:")
             print(token)
             print()
-            print("Quick login (replace SERVER_URL with your server address):")
-            print(f'  hop3 login "SERVER_URL?token={token}"')
-            print()
-            print("Example for local development:")
-            print(f'  hop3 login "http://localhost:8000?token={token}"')
+            _print_login_hint()
 
 
 @register
@@ -480,3 +472,11 @@ class AuthMagicLink(Command):
                 print(f"https://{config.ADMIN_DOMAIN}/auth/magic/{token}")
             else:
                 print(token)
+
+
+def _print_login_hint() -> None:
+    """Show how to sign the CLI in without the token on a command line."""
+    print("Sign the CLI in with it (paste the token at the hidden prompt;")
+    print("on a command line it would land in shell history and `ps`):")
+    print("  hop3 login --url SERVER_URL --token")
+    print("Or read it from a file: hop3 login --url SERVER_URL --token @token.txt")

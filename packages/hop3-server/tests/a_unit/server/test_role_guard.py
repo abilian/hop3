@@ -26,6 +26,7 @@ import anyio
 import pytest
 from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
 
+from hop3.config import HopConfig
 from hop3.core.roles import Role
 from hop3.server import guards
 from hop3.server.guards import RoleGuard
@@ -80,7 +81,7 @@ ACCOUNTS = {
 @pytest.fixture(autouse=True)
 def _force_safe_mode(monkeypatch: pytest.MonkeyPatch) -> None:
     """Exercise the real auth path (not the UNSAFE bypass) with a stable key."""
-    monkeypatch.setattr(guards.config, "HOP3_UNSAFE", False)
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: False))
     monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-for-auth-guard-padding")
     monkeypatch.setattr(guards, "lookup_account", ACCOUNTS.get)
 
@@ -140,7 +141,7 @@ def test_garbage_cookie_rejected() -> None:
 
 
 def test_unsafe_mode_skips_auth(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setattr(guards.config, "HOP3_UNSAFE", True)
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: True))
     _run_guard(_FakeConnection())  # no creds at all — must not raise
 
 

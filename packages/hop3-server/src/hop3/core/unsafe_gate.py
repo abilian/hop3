@@ -24,18 +24,21 @@ This module enforces two interlocks called once at server startup:
    regardless of what the operator asked for, and the event is logged at
    CRITICAL. The server still starts, but with auth enabled.
 
-The auth guards read the module-level ``config.HOP3_UNSAFE`` constant, which is
-a snapshot taken at import time — NOT the live ``HopConfig`` property. So
-overwriting ``os.environ["HOP3_UNSAFE"]`` alone would never reach them (the
-production override would silently do nothing). This module therefore also
-re-grounds that snapshot to the sanitized value, so the enforcement points see
-the policy decision.
+The gate reads the three settings through the live config, as the auth
+guards do: the environment first, then ``hop3-server.toml``. Reading only
+``os.environ`` let ``HOP3_UNSAFE = true`` in the file disable authentication
+with no acknowledgement and no production override. The environment outranks
+the file, so forcing ``os.environ["HOP3_UNSAFE"]`` is what reaches the guards.
+Never pin the value on the ``hop3.config`` module: a module attribute shadows
+the live setting.
 """
 
 from __future__ import annotations
 
 import logging
 import os
+
+from hop3 import config as c
 
 __all__ = [
     "UnsafeModeError",
@@ -45,16 +48,11 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 ACK_VALUE = "yes-I-understand"
-_TRUE_VALUES = frozenset({"true", "1", "yes", "on"})
 _PRODUCTION_MODES = frozenset({"production", "prod"})
 
 
 class UnsafeModeError(RuntimeError):
     """Raised when ``HOP3_UNSAFE`` is set without the required ACK flag."""
-
-
-def _is_truthy(raw: str | None) -> bool:
-    return (raw or "").strip().lower() in _TRUE_VALUES
 
 
 def enforce_unsafe_mode_policy() -> None:
@@ -68,11 +66,10 @@ def enforce_unsafe_mode_policy() -> None:
         UnsafeModeError: if ``HOP3_UNSAFE`` is requested without a correct
             ``HOP3_UNSAFE_ACK`` value.
     """
-    if not _is_truthy(os.environ.get("HOP3_UNSAFE")):
+    if not c.HOP3_UNSAFE:
         return
 
-    ack = os.environ.get("HOP3_UNSAFE_ACK", "")
-    if ack != ACK_VALUE:
+    if c.HOP3_UNSAFE_ACK != ACK_VALUE:
         msg = (
             "HOP3_UNSAFE is enabled but HOP3_UNSAFE_ACK is not set to "
             f"'{ACK_VALUE}'. This is a safety interlock to prevent "
@@ -82,7 +79,7 @@ def enforce_unsafe_mode_policy() -> None:
         )
         raise UnsafeModeError(msg)
 
-    mode = os.environ.get("MODE", "production").strip().lower()
+    mode = c.MODE.strip().lower()
     if mode in _PRODUCTION_MODES:
         logger.critical(
             "SECURITY: HOP3_UNSAFE=true with MODE=%s. Forcing "
@@ -92,11 +89,3 @@ def enforce_unsafe_mode_policy() -> None:
             mode,
         )
         os.environ["HOP3_UNSAFE"] = "false"
-
-    # Re-ground the import-time snapshot (``config.HOP3_UNSAFE``) that the auth
-    # guards actually read, to the sanitized live value. Without this the
-    # production override above forces the env var but never reaches the
-    # enforcement points — a silent full-auth bypass.
-    import hop3.config as config_module  # ruff:ignore[import-outside-top-level]
-
-    config_module.HOP3_UNSAFE = config_module.config.HOP3_UNSAFE

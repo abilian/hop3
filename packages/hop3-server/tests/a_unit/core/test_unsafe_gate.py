@@ -17,6 +17,7 @@ from hop3.core.unsafe_gate import (
     UnsafeModeError,
     enforce_unsafe_mode_policy,
 )
+from hop3.lib.config import Config as ConfigLoader
 
 
 @pytest.fixture
@@ -28,23 +29,10 @@ def clean_env(monkeypatch):
     return monkeypatch
 
 
-@pytest.fixture(autouse=True)
-def _restore_unsafe_snapshot():
+def test_production_force_reaches_the_live_setting(clean_env) -> None:
     """
-    The gate re-grounds the module-level config.HOP3_UNSAFE snapshot; restore
-    it after each test so re-grounding can't leak across the suite.
-    """
-
-    original = cfg.HOP3_UNSAFE
-    yield
-    cfg.HOP3_UNSAFE = original
-
-
-def test_production_force_regrounds_module_snapshot(clean_env) -> None:
-    """
-    The forced-off policy must reach config.HOP3_UNSAFE — the snapshot the
-    auth guards actually read — not just os.environ (regression for a silent
-    full-auth bypass in production).
+    The forced-off policy must reach config.HOP3_UNSAFE, the value the auth
+    guards read (regression for a silent full-auth bypass in production).
     """
 
     clean_env.setenv("HOP3_UNSAFE", "true")
@@ -57,8 +45,8 @@ def test_production_force_regrounds_module_snapshot(clean_env) -> None:
     assert cfg.HOP3_UNSAFE is False  # what the role guards read
 
 
-def test_dev_passthrough_regrounds_snapshot_true(clean_env) -> None:
-    """In development the bypass really is on — and the snapshot reflects it."""
+def test_dev_passthrough_keeps_the_bypass_on(clean_env) -> None:
+    """In development the bypass really is on, as the guards read it."""
 
     clean_env.setenv("HOP3_UNSAFE", "true")
     clean_env.setenv("HOP3_UNSAFE_ACK", ACK_VALUE)
@@ -130,19 +118,58 @@ def test_unsafe_default_mode_is_production(clean_env, caplog) -> None:
     assert os.environ["HOP3_UNSAFE"] == "false"
 
 
-@pytest.mark.parametrize("truthy", ["true", "TRUE", "1", "yes", "on"])
-def test_unsafe_accepts_common_truthy_spellings(clean_env, truthy: str, caplog) -> None:
+@pytest.mark.parametrize("truthy", ["true", "TRUE", "1"])
+def test_unsafe_accepts_the_spellings_the_guards_accept(clean_env, truthy) -> None:
     clean_env.setenv("HOP3_UNSAFE", truthy)
-    clean_env.setenv("HOP3_UNSAFE_ACK", ACK_VALUE)
-    clean_env.setenv("MODE", "production")
-    with caplog.at_level(logging.CRITICAL):
+    with pytest.raises(UnsafeModeError):
         enforce_unsafe_mode_policy()
 
-    assert os.environ["HOP3_UNSAFE"] == "false"
+
+@pytest.mark.parametrize("unparsable", ["yes", "on", "no", "off", ""])
+def test_a_value_the_guards_cannot_parse_refuses_to_boot(clean_env, unparsable) -> None:
+    """
+    The gate parses ``HOP3_UNSAFE`` as the guards do. It used to accept
+    ``yes``/``on`` while the guards raised on them, and to ignore ``no``.
+    """
+    clean_env.setenv("HOP3_UNSAFE", unparsable)
+    with pytest.raises(ValueError, match="HOP3_UNSAFE"):
+        enforce_unsafe_mode_policy()
 
 
-@pytest.mark.parametrize("falsy", ["", "false", "0", "no", "off"])
-def test_unsafe_falsy_values_are_noops(clean_env, falsy: str) -> None:
+@pytest.mark.parametrize("falsy", ["false", "FALSE", "0"])
+def test_unsafe_falsy_values_are_noops(clean_env, falsy) -> None:
     clean_env.setenv("HOP3_UNSAFE", falsy)
-    # No ACK, no MODE — must not raise.
-    enforce_unsafe_mode_policy()
+    enforce_unsafe_mode_policy()  # no raise
+    assert os.environ["HOP3_UNSAFE"] == falsy
+
+
+def test_unsafe_set_in_the_config_file_needs_the_ack(clean_env, tmp_path) -> None:
+    """
+    ``HOP3_UNSAFE = true`` in hop3-server.toml reaches the auth guards, so it
+    must meet the gate too. The gate used to read only the environment, and
+    the file disabled authentication with no ACK and no production override.
+    """
+    config_file = tmp_path / "hop3-server.toml"
+    config_file.write_text("HOP3_UNSAFE = true\n")
+    previous = cfg.HopConfig.get_instance()
+    cfg.HopConfig.set_instance(cfg.HopConfig(ConfigLoader(file=config_file)))
+    try:
+        assert cfg.HOP3_UNSAFE is True  # what the guards read
+        with pytest.raises(UnsafeModeError, match="HOP3_UNSAFE_ACK"):
+            enforce_unsafe_mode_policy()
+    finally:
+        cfg.HopConfig.set_instance(previous)
+
+
+def test_unsafe_in_the_config_file_is_forced_off_in_production(
+    clean_env, tmp_path
+) -> None:
+    config_file = tmp_path / "hop3-server.toml"
+    config_file.write_text(f'HOP3_UNSAFE = true\nHOP3_UNSAFE_ACK = "{ACK_VALUE}"\n')
+    previous = cfg.HopConfig.get_instance()
+    cfg.HopConfig.set_instance(cfg.HopConfig(ConfigLoader(file=config_file)))
+    try:
+        enforce_unsafe_mode_policy()
+        assert cfg.HOP3_UNSAFE is False  # the environment outranks the file
+    finally:
+        cfg.HopConfig.set_instance(previous)

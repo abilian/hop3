@@ -20,10 +20,10 @@ import pytest
 from litestar.testing import TestClient
 
 from hop3 import config as config_module
+from hop3.config import HopConfig
 from hop3.core.roles import Role
 from hop3.orm import App
 from hop3.server.asgi import create_app
-from hop3.server.security import web_auth
 from hop3.server.security.access_gate import (
     GATE_COOKIE,
     STATE_COOKIE,
@@ -45,8 +45,10 @@ HOST = "notes.example.org"
 @pytest.fixture(autouse=True)
 def _real_auth(monkeypatch):
     monkeypatch.setenv("HOP3_SECRET_KEY", "test-secret-key-for-the-access-gate")
-    monkeypatch.setattr(config_module, "HOP3_UNSAFE", False)
-    monkeypatch.setattr(web_auth, "HOP3_DEBUG", True)  # the test client is HTTP
+    monkeypatch.setattr(HopConfig, "HOP3_UNSAFE", property(lambda _self: False))
+    monkeypatch.setattr(
+        HopConfig, "HOP3_DEBUG", property(lambda _self: True)
+    )  # the test client is HTTP
     monkeypatch.setattr(
         type(config_module.config), "ADMIN_DOMAIN", property(lambda _self: ADMIN)
     )

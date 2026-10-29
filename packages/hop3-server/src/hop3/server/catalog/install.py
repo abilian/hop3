@@ -16,7 +16,6 @@ through the exact same streaming path as ``hop3 deploy``.
 
 from __future__ import annotations
 
-import re
 import shutil
 from importlib.metadata import version
 from pathlib import Path
@@ -26,7 +25,11 @@ import tomllib
 
 from hop3.commands._helpers import find_hostname_conflict, parse_hostname_string
 from hop3.config import config
-from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
+from hop3.core.identifiers import (
+    InvalidIdentifierError,
+    validate_app_name,
+    validate_hostname,
+)
 from hop3.deployers import make_way_for_new_source
 from hop3.deployers.volumes import keep_delivered_source
 from hop3.lib import log
@@ -42,7 +45,6 @@ if TYPE_CHECKING:
 
 # Names the platform reserves for its own routes / conventions.
 _RESERVED_NAMES = {"admin", "api", "app", "apps", "dashboard", "hop3", "static", "www"}
-_APP_NAME_RE = re.compile(r"^[a-z][a-z0-9-]*$")
 
 
 class CatalogInstallError(Exception):
@@ -175,22 +177,15 @@ def _check_server_can_install(catalog_app: CatalogApp, app_id: str) -> None:
 
 def _validate_app_name(app_name: str) -> list[str]:
     """Validate an app name; return a list of error strings (empty = valid)."""
-    errors: list[str] = []
     if not app_name:
-        errors.append("App name is required")
-        return errors
-    if len(app_name) < 2:
-        errors.append("App name must be at least 2 characters")
-    if len(app_name) > 50:
-        errors.append("App name must be at most 50 characters")
-    if not _APP_NAME_RE.match(app_name):
-        errors.append(
-            "App name must start with a letter and contain only lowercase "
-            "letters, numbers, and hyphens"
-        )
+        return ["App name is required"]
+    try:
+        validate_app_name(app_name)
+    except InvalidIdentifierError as e:
+        return [str(e)]
     if app_name in _RESERVED_NAMES:
-        errors.append(f"'{app_name}' is a reserved name")
-    return errors
+        return [f"'{app_name}' is a reserved name"]
+    return []
 
 
 def _existing_app(app_name: str, db_session: Session) -> App | None:

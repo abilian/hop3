@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import contextlib
 import json
+import time
 import traceback
+from contextlib import asynccontextmanager
 from typing import TYPE_CHECKING
 
 import anyio
@@ -22,7 +24,8 @@ from hop3.commands import Command
 from hop3.commands._errors import CommandFailedError
 from hop3.core.plugins import get_plugin_manager
 from hop3.core.roles import Role
-from hop3.lib import format_diagnosis
+from hop3.di.providers import REPOSITORY_TYPES
+from hop3.lib import Abort, format_diagnosis
 from hop3.lib.console import verbosity_context
 from hop3.lib.logging import server_log
 from hop3.lib.registry import lookup
@@ -36,22 +39,10 @@ from hop3.lib.suggestions import (
     closest_matches,
 )
 from hop3.orm import get_session_factory
-from hop3.orm.repositories import (
-    AddonCredentialRepository,
-    AppRepository,
-    BackupRepository,
-    EnvVarRepository,
-    PortClaimRepository,
-    RevokedTokenRepository,
-    UserRepository,
-)
 from hop3.server.security.authorization import lookup_account
 from hop3.server.security.proxy_headers import client_ip
 from hop3.server.security.rate_limit import AUTH_RATE_LIMITER, RateLimitError
 from hop3.server.security.web_auth import current_identity
-
-#: One command at a time — see the note at the call site in handle_rpc.
-_COMMAND_SLOT = anyio.Semaphore(1)
 
 # JSON-RPC application error codes. The spec reserves -32000..-32099 for
 # implementation-defined errors; HTTP status codes (401/429) are a different
@@ -74,25 +65,118 @@ PROTECTED_NEEDS_EXPLICIT = "protected_needs_explicit_target"
 #: ``error.data.kind`` of a change that waits for the typed confirmation.
 PROTECTED_NEEDS_CONFIRMATION = "protected_needs_confirmation"
 RPC_ERROR_INTERNAL = -32603
+#: Another command holds the one command slot past the wait below.
+RPC_ERROR_SERVER_BUSY = -32004
 
-# Mapping of repository types to their classes for dependency injection
-REPOSITORY_TYPES: dict[str, type] = {
-    "user_repo": UserRepository,
-    "app_repo": AppRepository,
-    "addon_credential_repo": AddonCredentialRepository,
-    "backup_repo": BackupRepository,
-    "env_var_repo": EnvVarRepository,
-    "revoked_token_repo": RevokedTokenRepository,
-    "port_claim_repo": PortClaimRepository,
-}
+#: Version of the /rpc contract (envelope, params, error ``data``). Reported on
+#: every response in the `PROTOCOL_HEADER` header; a client that sends
+#: ``params.protocol`` is refused loudly when it differs. Bump it on a change a
+#: client of the previous version would misread.
+RPC_PROTOCOL_VERSION = 1
+PROTOCOL_HEADER = "Hop3-RPC-Protocol"
+
+#: How long a call waits for the command slot before answering "server busy".
+COMMAND_SLOT_WAIT_SECONDS = 30.0
 
 if TYPE_CHECKING:
+    from collections.abc import AsyncIterator, Iterable
+
     from sqlalchemy.orm import Session
 
     from hop3.lib.types import Json, JsonDict
 
+
+class ServerBusyError(Exception):
+    """The command slot stayed taken for the whole wait."""
+
+    def __init__(self, holder: str | None, held_for: float | None) -> None:
+        running = f"'hop3 {holder}'" if holder else "another command"
+        super().__init__(f"server busy: {running} is running")
+        #: None between one command's release and the next one's start: the
+        #: slot is taken but its holder is not named yet, so no duration.
+        self.holder = holder
+        self.held_for = held_for
+
+
+class CommandSlot:
+    """
+    One command at a time, with a bounded wait and the holder's name.
+
+    Commands run one at a time (see the note at the call site in handle_rpc).
+    An unbounded wait made a long backup look like a hung server to every
+    other caller, `hop3 login` included; a caller now waits at most
+    ``wait_seconds`` and is told which command holds the slot.
+    """
+
+    def __init__(self, wait_seconds: float) -> None:
+        self.wait_seconds = wait_seconds
+        self._semaphore = anyio.Semaphore(1)
+        # One tuple, set and cleared together, so a reader never pairs one
+        # command's name with another's start time.
+        self._held: tuple[str | None, float | None] = (None, None)
+
+    @asynccontextmanager
+    async def hold(self, display_name: str) -> AsyncIterator[None]:
+        """Hold the slot for ``display_name``, or raise `ServerBusyError`."""
+        acquired = False
+        with anyio.move_on_after(self.wait_seconds):
+            await self._semaphore.acquire()
+            acquired = True
+        if not acquired:
+            holder, since = self._held
+            raise ServerBusyError(
+                holder, None if since is None else time.monotonic() - since
+            )
+        self._held = (display_name, time.monotonic())
+        try:
+            yield
+        finally:
+            self._held = (None, None)
+            self._semaphore.release()
+
+    @property
+    def holder(self) -> str | None:
+        """The command holding the slot, if one has been named."""
+        return self._held[0]
+
+
+_COMMAND_SLOT = CommandSlot(COMMAND_SLOT_WAIT_SECONDS)
+_PROTOCOL_HEADERS = {PROTOCOL_HEADER: str(RPC_PROTOCOL_VERSION)}
+
 # Scan and register all CLI commands (including aliases)
 scan_package("hop3.commands")
+
+
+def register_command(
+    table: dict[tuple[str, ...], type[Command]], cmd: type[Command]
+) -> None:
+    """
+    Add ``cmd`` under its name and aliases, refusing a name already taken.
+
+    A silent overwrite let the later of two commands (a plugin's, say) take a
+    name or alias from the earlier one, depending on import order.
+    """
+    # ADR 036 D1/D18: names and aliases are tuples of tokens.
+    for key in (cmd.name, *getattr(cmd, "aliases", [])):
+        taken = table.get(key)
+        if taken is not None and taken is not cmd:
+            msg = (
+                f"Command name 'hop3 {format_command_name(key)}' is claimed by "
+                f"both {taken.__module__}.{taken.__qualname__} and "
+                f"{cmd.__module__}.{cmd.__qualname__}; rename one or drop the alias."
+            )
+            raise RuntimeError(msg)
+        table[key] = cmd
+
+
+def build_command_table(
+    command_classes: Iterable[type[Command]],
+) -> dict[tuple[str, ...], type[Command]]:
+    """A dispatch table for ``command_classes``; raises on a name collision."""
+    table: dict[tuple[str, ...], type[Command]] = {}
+    for command in command_classes:
+        register_command(table, command)
+    return table
 
 
 def _build_command_table() -> dict[tuple[str, ...], type[Command]]:
@@ -105,23 +189,9 @@ def _build_command_table() -> dict[tuple[str, ...], type[Command]]:
     commands such as `addon postgres credentials`. Calling the hook also
     forces plugin loading, so this works regardless of import order.
     """
-    table: dict[tuple[str, ...], type[Command]] = {}
-
-    def add(cmd: type[Command]) -> None:
-        # Register primary name (ADR 036 D1/D18: name is a tuple of tokens)
-        table[cmd.name] = cmd
-        # Register aliases (legacy server-side aliases; tuples too)
-        for alias in getattr(cmd, "aliases", []):
-            table[alias] = cmd
-
-    for command in lookup(Command):
-        add(command)
-
-    for contributed in get_plugin_manager().hook.cli_commands():
-        for command in contributed or []:
-            add(command)
-
-    return table
+    contributed = get_plugin_manager().hook.cli_commands()
+    plugin_commands = [cmd for group in contributed for cmd in group or []]
+    return build_command_table([*lookup(Command), *plugin_commands])
 
 
 _commands: dict[tuple[str, ...], type[Command]] = _build_command_table()
@@ -283,7 +353,9 @@ def call(
         Command execution result
 
     Raises:
-        ValueError: If command not found or execution fails
+        DidYouMeanError: If the command is not found
+        Exception: Whatever the command raised, unchanged, after a rollback;
+            `RPCController._execute_command` maps each kind to its error code
     """
     display_name = format_command_name(command_name)
     command_class = commands.get(command_name)
@@ -309,17 +381,7 @@ def call(
     db_session = session_factory()
     try:
         class_args = _injected_args(command_class, db_session, display_name)
-
-        try:
-            command = command_class(**class_args)
-        except Exception as e:
-            error_msg = f"Failed to create command: {e}"
-            server_log.error(
-                "Failed to create command instance",
-                command=display_name,
-                error=str(e),
-            )
-            raise ValueError(error_msg) from e
+        command = command_class(**class_args)
 
         try:
             server_log.debug(
@@ -339,24 +401,20 @@ def call(
             )
             # Commit any pending changes (if not already committed by command)
             db_session.commit()
-        except DidYouMeanError:
-            # Carries its own message and candidates: re-raise it intact rather
-            # than flattening it into a generic "Command execution failed".
-            with contextlib.suppress(Exception):
-                db_session.rollback()
-            raise
         except Exception as e:
-            # Rollback on any error to clean up transaction state
+            # Roll back, then re-raise unchanged: the exception's type is what
+            # picks the JSON-RPC code (-32602 bad params, -32603 a failure while
+            # running) and a RepositoryError's cause is its Diagnosis. Wrapping
+            # everything in ValueError answered -32602 for a full disk.
             with contextlib.suppress(Exception):
                 db_session.rollback()
-            error_msg = f"Command execution failed: {e}"
             server_log.error(
                 "Command.call() raised exception",
                 command=display_name,
                 error_type=type(e).__name__,
                 error=str(e),
             )
-            raise ValueError(error_msg) from e
+            raise
 
         return result
     finally:
@@ -428,10 +486,19 @@ class RPCController(Controller):
             request_id=request_id,
         )
 
-        # Check authentication (before revealing if command exists)
-        auth_error = self._check_authentication(request, command_class, request_id)
-        if auth_error:
-            return auth_error
+        # Authenticate (before revealing whether the command exists) and
+        # authorize, off the event loop: validating the token reads the
+        # revocation list and authorizing reads the account, both database
+        # reads. The identity is resolved once and reused below.
+        refusal, identity = await anyio.to_thread.run_sync(
+            self._authenticate_and_authorize,
+            request,
+            command_class,
+            display_name,
+            request_id,
+        )
+        if refusal:
+            return refusal
 
         # Throttle credential-verifying commands (see Command.rate_limited)
         rate_error = self._check_rate_limit(request, command_class, request_id)
@@ -451,17 +518,16 @@ class RPCController(Controller):
                 data=unknown.data,
             )
 
-        # Authorize: the caller's account, read now, must hold the command's
-        # role; and a protected server takes changes only from an explicit
-        # selection (ADR 042, rule D).
-        if refusal := self._check_authorization(
-            request, command_class, display_name, request_id
-        ) or self._check_protection(command_class, display_name, params, request_id):
+        # A protected server takes changes only from an explicit selection
+        # (ADR 042, rule D).
+        if refusal := self._check_protection(
+            command_class, display_name, params, request_id
+        ):
             return refusal
 
         # Prepare arguments and execute
         prepared_args, prepared_extra_args = self._prepare_command_args(
-            request, command_class, args, extra_args
+            request, identity, command_class, args, extra_args
         )
         # Off the event loop. `_execute_command` is fully synchronous and runs
         # the command to completion — `subprocess.run`, tar, database work —
@@ -474,14 +540,58 @@ class RPCController(Controller):
         # `hop3.lib.console._verbosity` is process-global, so letting two
         # commands run at once would have them overwrite each other's verbosity.
         # Lifting that ceiling means making verbosity a ContextVar first.
-        async with _COMMAND_SLOT:
-            return await anyio.to_thread.run_sync(
-                self._execute_command,
-                command_name,
-                prepared_args,
-                prepared_extra_args,
-                request_id,
-            )
+        return await self._run_in_slot(
+            command_name, prepared_args, prepared_extra_args, request_id
+        )
+
+    async def _run_in_slot(
+        self,
+        command_name: tuple[str, ...],
+        args: tuple,
+        extra_args: JsonDict,
+        request_id: object,
+    ) -> Response:
+        """Run the command in a worker thread once it holds the command slot."""
+        display_name = format_command_name(command_name)
+        try:
+            async with _COMMAND_SLOT.hold(display_name):
+                return await anyio.to_thread.run_sync(
+                    self._execute_command, command_name, args, extra_args, request_id
+                )
+        except ServerBusyError as busy:
+            return self._busy_response(busy, display_name, request_id)
+
+    def _busy_response(
+        self, busy: ServerBusyError, display_name: str, request_id: object
+    ) -> Response:
+        """Say which command holds the slot, so a wait never reads as a hang."""
+        running_for = None if busy.held_for is None else round(busy.held_for)
+        server_log.warning(
+            "RPC call refused: server busy",
+            command=display_name,
+            running=busy.holder,
+            running_for=running_for,
+        )
+        running = (
+            f"'hop3 {busy.holder}' has been running for {running_for}s"
+            if busy.holder and running_for is not None
+            else "another command is running"
+        )
+        return self._build_error_response(
+            code=RPC_ERROR_SERVER_BUSY,
+            message=(
+                f"Server busy: {running} and commands run one at a time. "
+                f"'hop3 {display_name}' waited {_COMMAND_SLOT.wait_seconds:.0f}s; "
+                "retry when it finishes."
+            ),
+            request_id=request_id,
+            status_code=503,
+            data={
+                "kind": "server_busy",
+                "running": busy.holder,
+                "running_for": running_for,
+            },
+        )
 
     def _validate_envelope(self, data: object, request_id: object) -> Response | None:
         """
@@ -553,6 +663,29 @@ class RPCController(Controller):
                     request_id=request_id,
                     status_code=status,
                 )
+
+        # Optional: clients that predate it send none, and are served as before.
+        protocol = params.get("protocol")
+        # Exact int: `true == 1` and an unhashable value must not slip past or
+        # crash this check into an HTML 500.
+        if protocol is not None and not (
+            type(protocol) is int and protocol == RPC_PROTOCOL_VERSION
+        ):
+            return self._build_error_response(
+                code=RPC_ERROR_INVALID_REQUEST,
+                message=(
+                    f"Protocol mismatch: the client speaks /rpc protocol "
+                    f"{protocol!r}, this server speaks {RPC_PROTOCOL_VERSION}. "
+                    "Upgrade whichever side is older."
+                ),
+                request_id=request_id,
+                status_code=400,
+                data={
+                    "kind": "protocol_mismatch",
+                    "client_protocol": protocol,
+                    "server_protocol": RPC_PROTOCOL_VERSION,
+                },
+            )
         return None
 
     def _build_error_response(
@@ -588,6 +721,7 @@ class RPCController(Controller):
             content=json.dumps(error_rpc),
             media_type="application/json",
             status_code=status_code,
+            headers=_PROTOCOL_HEADERS,
         )
 
     def _build_success_response(
@@ -607,34 +741,55 @@ class RPCController(Controller):
         return Response(
             content=json.dumps(result_rpc),
             media_type="application/json",
+            headers=_PROTOCOL_HEADERS,
         )
+
+    def _authenticate_and_authorize(
+        self,
+        request: Request,
+        command_class: type[Command] | None,
+        display_name: str,
+        request_id: object,
+    ) -> tuple[Response | None, dict | None]:
+        """
+        Resolve the caller once; refuse an unauthenticated or unauthorized call.
+
+        Runs in a worker thread: the token check reads the revocation list and
+        the role check reads the account. Returns ``(refusal, identity)``, the
+        refusal None when the call may proceed. Authentication comes before the
+        unknown-command answer, so an anonymous caller learns nothing about
+        which commands exist; authorization needs a known command.
+        """
+        identity = current_identity(request)
+        if refusal := self._check_authentication(identity, command_class, request_id):
+            return refusal, identity
+        if command_class is not None:
+            refusal = self._check_authorization(
+                identity, command_class, display_name, request_id
+            )
+        return refusal, identity
 
     def _check_authentication(
         self,
-        request: Request,
+        identity: dict | None,
         command_class: type[Command] | None,
         request_id: object = None,
     ) -> Response | None:
         """
-        Check if the request is authenticated when required.
-
-        For security, authentication is checked BEFORE revealing if the command
-        exists. This prevents information disclosure about available commands.
+        Check that the request is authenticated when required.
 
         The credential is the stateless signed JWT (``current_identity``),
         accepted from the ``Authorization: Bearer`` header (CLI / API) or the
         ``hop3_auth`` cookie (dashboard) — no server-side session.
 
         Args:
-            request: HTTP request
+            identity: The validated token payload, or None
             command_class: The command class (may be None if not found)
             request_id: The caller's JSON-RPC id, echoed in the error
 
         Returns:
             Error response if authentication failed, None if OK
         """
-        authenticated = current_identity(request) is not None
-
         # Skip authentication enforcement in unsafe testing mode
         if config.HOP3_UNSAFE:
             return None
@@ -643,7 +798,7 @@ class RPCController(Controller):
         if command_class is not None and not requires_authentication(command_class):
             return None
 
-        if authenticated:
+        if identity is not None:
             return None
 
         # Authentication failed
@@ -662,7 +817,7 @@ class RPCController(Controller):
 
     def _check_authorization(
         self,
-        request: Request,
+        identity: dict | None,
         command_class: type[Command],
         display_name: str,
         request_id: object,
@@ -677,8 +832,7 @@ class RPCController(Controller):
         if config.HOP3_UNSAFE or not requires_authentication(command_class):
             return None
 
-        identity = current_identity(request) or {}
-        username = str(identity.get("username", ""))
+        username = str((identity or {}).get("username", ""))
         account = lookup_account(username)
 
         if account is None or not account.active:
@@ -835,6 +989,7 @@ class RPCController(Controller):
     def _prepare_command_args(
         self,
         request: Request,
+        identity: dict | None,
         command_class: type[Command],
         args: list[str],
         extra_args: JsonDict,
@@ -844,6 +999,7 @@ class RPCController(Controller):
 
         Args:
             request: HTTP request
+            identity: The validated token payload, or None
             command_class: The command class
             args: Positional arguments
             extra_args: Keyword arguments
@@ -856,7 +1012,6 @@ class RPCController(Controller):
 
         # Pass authenticated username to commands that need it
         if command_needs_username(command_class):
-            identity = current_identity(request)
             if identity and identity.get("username"):
                 prepared_args = (identity["username"], *prepared_args)
 
@@ -913,24 +1068,28 @@ class RPCController(Controller):
                 kind=e.data.get("kind"),
             )
             return self._build_error_response(
-                code=-32602,  # Invalid params
+                code=RPC_ERROR_INVALID_PARAMS,
                 message=str(e),
                 request_id=request_id,
                 data=e.data,
             )
-        except CommandFailedError as e:
-            # The command ran and failed (disk, subprocess, database). That is
-            # -32603 Internal error, not -32602: the caller's params were fine.
-            # Must precede the ValueError arm — CommandFailedError subclasses it.
+        except (CommandFailedError, Abort) as e:
+            # The command ran and failed (disk, subprocess, database), or gave
+            # up with an Abort. That is -32603 Internal error, not -32602: the
+            # caller's params were fine. Must precede the ValueError arm —
+            # CommandFailedError subclasses it. An Abort carries its message in
+            # `msg` (its args may be empty) and the hint or the failing
+            # command's output in `explanation`: the client needs both.
+            message = _abort_message(e) if isinstance(e, Abort) else str(e)
             server_log.error(
                 "Command failed while executing",
                 command=display_name,
-                error=str(e),
+                error=message,
             )
             traceback.print_exc()
             return self._build_error_response(
                 code=RPC_ERROR_INTERNAL,
-                message=str(e),
+                message=message,
                 request_id=request_id,
             )
         except ValueError as e:
@@ -961,7 +1120,7 @@ class RPCController(Controller):
             )
             traceback.print_exc()
             return self._build_error_response(
-                code=-32603,  # Internal error
+                code=RPC_ERROR_INTERNAL,
                 message=error_msg,
                 request_id=request_id,
             )
@@ -974,12 +1133,14 @@ class RPCController(Controller):
             )
             traceback.print_exc()
             return self._build_error_response(
-                code=-32603,  # Internal error
+                code=RPC_ERROR_INTERNAL,
                 message=f"{type(e).__name__}: {e!s}",
                 request_id=request_id,
             )
 
 
-# RepositoryError → Diagnosis helpers live in hop3.lib.repository_errors
-# so the CLI `git-hook` path can unwrap them with the same logic. The
-# aliases above preserve the names used by existing tests.
+def _abort_message(abort: Abort) -> str:
+    """An Abort's message followed by its explanation, when it has one."""
+    if not abort.explanation:
+        return abort.msg
+    return f"{abort.msg}\n{abort.explanation}"

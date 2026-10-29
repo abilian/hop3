@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 import anyio
+from dishka.integrations.litestar import FromDishka, inject
 from litestar import Controller, get
 
 # Runtime import (not TYPE_CHECKING): Litestar resolves the FromPath path-param
@@ -20,10 +21,8 @@ from litestar.params import FromPath  # ruff:ignore[typing-only-third-party-impo
 from litestar.response import Redirect, Response, Stream, Template
 
 from hop3.core.roles import Role
+from hop3.orm import AppRepository  # ruff:ignore[typing-only-first-party-import]
 from hop3.server.guards import RoleGuard
-from hop3.server.lib.database import get_session
-
-from .helpers import get_app_or_none
 
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
@@ -99,66 +98,69 @@ class LogsController(Controller):
     path = "/dashboard/apps/{app_name:str}/logs"
     guards = [RoleGuard(Role.DEPLOYER)]  # ruff:ignore[mutable-class-default]
 
-    @get("/", sync_to_thread=False)
-    def app_logs(self, app_name: FromPath[str]) -> Template | Redirect:
+    # `get_logs` reads log files and, for a Docker app, runs `docker logs`:
+    # every handler here does that work on a worker thread, off the loop.
+
+    @get("/")
+    @inject
+    async def app_logs(
+        self, app_name: FromPath[str], app_repo: FromDishka[AppRepository]
+    ) -> Template | Redirect:
         """Display application logs page."""
-        with get_session() as db_session:
-            app = get_app_or_none(db_session, app_name)
+        return await anyio.to_thread.run_sync(self._logs, app_repo, app_name)
 
-            if not app:
-                return Redirect(path="/dashboard")
+    @staticmethod
+    def _logs(app_repo: AppRepository, app_name: str) -> Template | Redirect:
+        app = app_repo.get_by_name(app_name)
+        if not app:
+            return Redirect(path="/dashboard")
 
-            logs = app.get_logs(lines=500)
-
-            ctx = {
-                "app_name": app.name,
-                "logs": logs,
-                "log_count": len(logs),
-                "now": datetime.now(timezone.utc),
-            }
-
+        logs = app.get_logs(lines=500)
+        ctx = {
+            "app_name": app.name,
+            "logs": logs,
+            "log_count": len(logs),
+            "now": datetime.now(timezone.utc),
+        }
         return Template(template_name="dashboard/logs.html", context=ctx)
 
-    @get("/download", sync_to_thread=False)
-    def app_logs_download(self, app_name: FromPath[str]) -> Response | Redirect:
+    @get("/download")
+    @inject
+    async def app_logs_download(
+        self, app_name: FromPath[str], app_repo: FromDishka[AppRepository]
+    ) -> Response | Redirect:
         """Download application logs as a text file."""
-        with get_session() as db_session:
-            app = get_app_or_none(db_session, app_name)
+        return await anyio.to_thread.run_sync(self._download, app_repo, app_name)
 
-            if not app:
-                return Redirect(path="/dashboard")
+    @staticmethod
+    def _download(app_repo: AppRepository, app_name: str) -> Response | Redirect:
+        app = app_repo.get_by_name(app_name)
+        if not app:
+            return Redirect(path="/dashboard")
 
-            logs = app.get_logs(lines=10000)
-            log_content = "\n".join(logs)
-
-            timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-            filename = f"{app_name}_logs_{timestamp}.txt"
-
-            return Response(
-                content=log_content,
-                media_type="text/plain",
-                headers={
-                    "Content-Disposition": f'attachment; filename="{filename}"',
-                },
-            )
+        log_content = "\n".join(app.get_logs(lines=10000))
+        timestamp = datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
+        filename = f"{app_name}_logs_{timestamp}.txt"
+        return Response(
+            content=log_content,
+            media_type="text/plain",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     @get("/stream")
-    async def app_logs_stream(self, app_name: FromPath[str]) -> Stream | Response:
+    @inject
+    async def app_logs_stream(
+        self, app_name: FromPath[str], app_repo: FromDishka[AppRepository]
+    ) -> Stream | Response:
         """Stream application logs via Server-Sent Events (SSE)."""
-        with get_session() as db_session:
-            app = get_app_or_none(db_session, app_name)
-
-            if not app:
-                return Response(
-                    content="App not found",
-                    status_code=404,
-                    media_type="text/plain",
-                )
-
-            log_dir = Path(app.log_path)
+        app = await anyio.to_thread.run_sync(app_repo.get_by_name, app_name)
+        if not app:
+            return Response(
+                content="App not found", status_code=404, media_type="text/plain"
+            )
 
         return Stream(
-            content=_create_log_generator(log_dir),
+            content=_create_log_generator(Path(app.log_path)),
             media_type="text/event-stream",
             headers={
                 "Cache-Control": "no-cache",

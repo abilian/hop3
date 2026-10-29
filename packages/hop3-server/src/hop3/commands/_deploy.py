@@ -86,6 +86,9 @@ def deploy_app_streaming(app: App, request_session: Session) -> dict:
         # Refused, and said so where the operator is already looking: the
         # stream they are about to connect to. `subscribe()` replays a
         # finished stream, so a client that connects late still gets this.
+        # Recorded on the app as well: the stream expires, and a browser that
+        # never opened it would otherwise see a staged app that says nothing.
+        record_deploy_failure(request_session, app_id, e)
         log_stream.finish(success=False, error_message=str(e))
     else:
         if ahead >= build_queue.workers:

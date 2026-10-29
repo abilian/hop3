@@ -24,7 +24,7 @@ from typing import TYPE_CHECKING, Any
 
 from litestar.datastructures import Cookie
 
-from hop3.config import HOP3_DEBUG
+from hop3 import config as c
 from hop3.server.security.proxy_headers import request_is_secure
 from hop3.server.security.tokens import create_token, validate_token
 
@@ -91,7 +91,7 @@ def cookie_would_be_dropped(connection: ASGIConnection) -> bool:
     Both halves matter: with `HOP3_DEBUG` the cookie is not `Secure` and plain
     HTTP works fine, which is what makes local development possible.
     """
-    return not HOP3_DEBUG and not request_is_secure(connection)
+    return not c.HOP3_DEBUG and not request_is_secure(connection)
 
 
 def auth_cookie(token: str) -> Cookie:
@@ -101,7 +101,7 @@ def auth_cookie(token: str) -> Cookie:
         value=token,
         max_age=_MAX_AGE_SECONDS,
         httponly=True,
-        secure=not HOP3_DEBUG,
+        secure=not c.HOP3_DEBUG,
         samesite="lax",
         path="/",
     )
@@ -114,7 +114,7 @@ def expired_auth_cookie() -> Cookie:
         value="",
         max_age=0,
         httponly=True,
-        secure=not HOP3_DEBUG,
+        secure=not c.HOP3_DEBUG,
         samesite="lax",
         path="/",
     )

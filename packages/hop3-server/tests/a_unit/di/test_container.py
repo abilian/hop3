@@ -21,24 +21,19 @@ from hop3.config import HopConfig
 from hop3.core.backup import BackupManager
 from hop3.di import create_container
 from hop3.di.container import _get_plugin_providers
-from hop3.orm.repositories import (
-    AddonCredentialRepository,
-    AppRepository,
-    BackupRepository,
-    EnvVarRepository,
-    RevokedTokenRepository,
-    UserRepository,
-)
+from hop3.di.providers import REPOSITORY_TYPES
+from hop3.orm.repositories import AppRepository, PortClaimRepository, UserRepository
 from hop3.platform.certificates import CertificatesManager
 
-REQUEST_SCOPED_REPOSITORIES = [
-    UserRepository,
-    AppRepository,
-    AddonCredentialRepository,
-    BackupRepository,
-    EnvVarRepository,
-    RevokedTokenRepository,
-]
+#: Every repository a command can declare: the dispatcher's injection table and
+#: the container's providers are one list, so a repository added for commands
+#: (port_claim_repo once was) cannot be missing from the container.
+REQUEST_SCOPED_REPOSITORIES = list(REPOSITORY_TYPES.values())
+
+
+def test_the_port_claim_repository_is_provided():
+    # Regression: the dispatcher injected it while the container had none.
+    assert REPOSITORY_TYPES["port_claim_repo"] is PortClaimRepository
 
 
 @pytest.fixture

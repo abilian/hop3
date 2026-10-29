@@ -19,9 +19,10 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from dishka import make_async_container, make_container
+from dishka import Provider, make_async_container, make_container
 
 from .providers import (
+    AsyncDatabaseProvider,
     ConfigProvider,
     DatabaseProvider,
     HopCoreProvider,
@@ -56,9 +57,13 @@ def _get_plugin_providers() -> list:
     return [provider for sublist in provider_lists for provider in sublist]
 
 
-def _build_providers() -> list:
+def _build_providers(database: Provider) -> list:
     """
     Assemble the full provider list (core providers + plugin providers).
+
+    Args:
+        database: The REQUEST-scoped session provider: the sync one for a sync
+            container, the one that closes off the event loop for an async one.
 
     Returns:
         List of provider instances to register in a container.
@@ -66,7 +71,7 @@ def _build_providers() -> list:
     # Collect core providers
     providers = [
         ConfigProvider(),
-        DatabaseProvider(),
+        database,
         HopCoreProvider(),
         RepositoryProvider(),
     ]
@@ -99,7 +104,7 @@ def create_container() -> Container:
         finally:
             container.close()
     """
-    return make_container(*_build_providers())
+    return make_container(*_build_providers(DatabaseProvider()))
 
 
 def create_async_container() -> AsyncContainer:
@@ -121,4 +126,4 @@ def create_async_container() -> AsyncContainer:
         container = create_async_container()
         setup_dishka(container, app=app)
     """
-    return make_async_container(*_build_providers())
+    return make_async_container(*_build_providers(AsyncDatabaseProvider()))

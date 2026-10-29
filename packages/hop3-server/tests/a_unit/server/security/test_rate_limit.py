@@ -77,3 +77,15 @@ def test_retry_after_is_positive():
         limiter.check("x")
     # Should be close to the window size on first overflow
     assert 9.0 < exc_info.value.retry_after <= 10.0
+
+
+def test_an_idle_key_is_forgotten():
+    """Regression: every key kept its bucket forever, so memory only grew."""
+    limiter = RateLimiter(max_requests=5, window_seconds=0.05)
+    for i in range(100):
+        limiter.check(f"198.51.100.{i}")
+    time.sleep(0.1)  # > window: every bucket is idle
+
+    limiter.check("192.0.2.1")
+
+    assert list(limiter._buckets) == ["192.0.2.1"]

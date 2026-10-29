@@ -5,6 +5,7 @@ import logging
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+import anyio.to_thread
 from dishka.integrations.litestar import setup_dishka
 from litestar import Litestar, Request
 from litestar.exceptions import NotAuthorizedException, PermissionDeniedException
@@ -14,9 +15,11 @@ from litestar.response import Redirect, Response, Template
 from litestar.static_files import create_static_files_router
 from litestar.template.config import TemplateConfig
 
-from hop3.config import HOP3_DEBUG
+from hop3 import config as c
 from hop3.core.unsafe_gate import enforce_unsafe_mode_policy
 from hop3.di import create_async_container
+from hop3.di.providers import current_request_session, roll_back_if_uncommitted
+from hop3.lib.logging import server_log
 from hop3.orm import get_session_factory
 from hop3.server.security.web_auth import current_identity
 
@@ -49,9 +52,7 @@ from .waf_bans_service import start_waf_bans_service, stop_waf_bans_service
 
 if TYPE_CHECKING:
     from litestar.template import TemplateEngineProtocol
-    from litestar.types import ControllerRouterHandler
-
-DEBUG = HOP3_DEBUG
+    from litestar.types import ControllerRouterHandler, Scope
 
 
 class SuppressHTTPExceptionTraceback(logging.Filter):
@@ -84,9 +85,69 @@ class SuppressHTTPExceptionTraceback(logging.Filter):
         return True
 
 
-def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect:
-    """Redirect to login page on authentication failure."""
-    return Redirect(path="/auth/login")
+LOGIN_PATH = "/auth/login"
+
+
+UNSAVED_CHANGE_MESSAGE = (
+    "The change was not saved: the server answered before committing it, and "
+    "rolled it back. This is a Hop3 bug; the server log names the page."
+)
+
+
+async def refuse_uncommitted_writes(response: Response) -> Response:
+    """
+    Answer an error, not the handler's success, when it left writes uncommitted.
+
+    The request scope closes after the response is sent, so its own check can
+    only reach the log: the browser would have been told the change worked.
+    This runs before the response goes out and replaces it.
+    """
+    session = current_request_session()
+    if session is None:
+        return response
+    if not await anyio.to_thread.run_sync(roll_back_if_uncommitted, session):
+        return response
+    server_log.error(
+        "A handler answered without committing its database writes; "
+        "they were rolled back and the response replaced with an error",
+    )
+    return Response(
+        content=UNSAVED_CHANGE_MESSAGE, status_code=500, media_type="text/plain"
+    )
+
+
+async def roll_back_on_exception(_exc: Exception, _scope: Scope) -> None:
+    """
+    Roll back the request's session when its handler raised.
+
+    Litestar turns the exception into a response before the request scope
+    closes, so the scope never learns the handler failed: its writes would
+    still be pending there and be reported as a forgotten commit.
+    """
+    session = current_request_session()
+    if session is not None:
+        await anyio.to_thread.run_sync(session.rollback)
+
+
+def handle_401(request: Request, exc: NotAuthorizedException) -> Redirect | Response:
+    """
+    Send an unauthenticated caller to sign in, in the form it can act on.
+
+    ``/api/`` clients (the CLI streaming a deploy) get JSON with the status,
+    as `handle_403` gives them; a redirect to an HTML page is a body they
+    cannot parse. An HTMX request gets ``HX-Redirect``: a plain redirect would
+    be followed by the XHR and the login page swapped into the fragment.
+    """
+    if request.url.path.startswith("/api/"):
+        return Response(
+            content={"status_code": 401, "detail": exc.detail},
+            status_code=401,
+        )
+    if request.headers.get("HX-Request") == "true":
+        return Response(
+            content=b"", status_code=401, headers={"HX-Redirect": LOGIN_PATH}
+        )
+    return Redirect(path=LOGIN_PATH)
 
 
 def handle_403(request: Request, exc: PermissionDeniedException) -> Template | Response:
@@ -217,7 +278,7 @@ def create_app() -> Litestar:
     # with Litestar's types (JinjaTemplateEngine is a valid engine, Redirect is a Response)
     app = Litestar(
         route_handlers=route_handlers,
-        debug=DEBUG,
+        debug=c.HOP3_DEBUG,
         template_config=template_config,  # type: ignore[arg-type]
         logging_config=logging_config,
         exception_handlers={  # type: ignore[arg-type]
@@ -226,6 +287,8 @@ def create_app() -> Litestar:
         },
         on_startup=[on_startup],
         on_shutdown=[on_shutdown],
+        after_request=refuse_uncommitted_writes,
+        after_exception=[roll_back_on_exception],
         request_max_body_size=200 * 1024 * 1024,  # 200MB for large deployments
     )
 
@@ -235,7 +298,3 @@ def create_app() -> Litestar:
     setup_dishka(container=container, app=app)
 
     return app
-
-
-# Create module-level app instance for Litestar CLI
-app = create_app()

@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 import jwt
 import pytest
 
+from hop3.config import HopConfig
 from hop3.server.security import tokens as tokens_module
 from hop3.server.security.tokens import (
     MAGIC_LINK_EXPIRY_MINUTES,
@@ -73,7 +74,7 @@ def test_secret_key_falls_back_to_config_when_file_and_env_absent(
         "hop3.server.security.tokens.SECRET_KEY_FILE", tmp_path / "absent"
     )
     monkeypatch.delenv("HOP3_SECRET_KEY", raising=False)
-    monkeypatch.setattr("hop3.config.HOP3_SECRET_KEY", _TOML_KEY)
+    monkeypatch.setattr(HopConfig, "HOP3_SECRET_KEY", property(lambda _self: _TOML_KEY))
     assert get_secret_key() == _TOML_KEY
 
 
@@ -219,7 +220,7 @@ def test_create_token_without_secret_key(monkeypatch):
     keeps it hermetic (env is restored after the test).
     """
     monkeypatch.delenv("HOP3_SECRET_KEY", raising=False)
-    monkeypatch.setattr("hop3.config.HOP3_SECRET_KEY", None)
+    monkeypatch.setattr(HopConfig, "HOP3_SECRET_KEY", property(lambda _self: None))
 
     with pytest.raises(ValueError, match="HOP3_SECRET_KEY must be set"):
         create_token("testuser")
