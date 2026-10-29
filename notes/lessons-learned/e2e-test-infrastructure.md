@@ -185,6 +185,8 @@ These rules came out of it:
 - A missing prerequisite on a target the harness provisioned is a harness failure, reported under the test's name.
 - The April 2026 precedent is the same rule from the other side: the Python toolchain's tests were skipped on macOS because `virtualenv` was not installed there. The fix was `python -m venv`, which removed the dependency for every platform. Before adding a skip, ask what code paths go untested and whether the failure is a platform gap in disguise.
 
+**Audit (October 2026):** a pass over the e2e layers found seven more skips of this kind: a failed server install, a backend that was selected but would not set up, an SSH tunnel to a container the harness had started, a missing in-repo fixture, a workspace package that always exists. Each is now a failure or an assert. Read every `pytest.skip` reason against the rule when reviewing an e2e change.
+
 ## The sanitized Docker config must keep its contexts
 
 The shared pytest plugin hands every subprocess a `DOCKER_CONFIG` copied from the developer's, minus the credential helpers that would pop a keychain prompt. The copy kept `currentContext: orbstack` without the `contexts/` directory the CLI resolves it through, so every `docker` the tests shelled out to (`hop3-deploy-server`, `docker build`) failed with "context not found", which the deployer summarized as "Docker is not available". The SDK-driven tests in the same session passed, because docker-py ignores contexts. OrbStack, Colima and Docker Desktop all run under a named context. The copy now symlinks `contexts/`. The deployer quotes the CLI's own error in place of the bare verdict.

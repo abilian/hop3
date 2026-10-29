@@ -1,6 +1,6 @@
 # Lessons Learned: Web Auth, CSRF & Cookie Secrets
 
-**Updated**: 2026-09-08, adding the Litestar idioms. 2026-06-25: written from the hop3-testlab "can't log in / `CSRF token verification failed`" investigation.
+**Updated**: 2026-10-29, adding untrusted text on the dashboard (the log viewer XSS, reflected messages). 2026-09-08, adding the Litestar idioms. 2026-06-25: written from the hop3-testlab "can't log in / `CSRF token verification failed`" investigation.
 
 Cookie-based CSRF and session auth (Litestar's CSRF middleware, used by **hop3-testlab**) has two sharp edges that combine into a permanent, self-inflicted lockout. Both are platform bugs.
 
@@ -117,3 +117,16 @@ These come from the Starlette-to-Litestar migration notes (2025).
 - **Authentication is a guard at the controller.** Mixing the previous framework's middleware pattern with Litestar's guards is where the migration first went wrong.
 - **Tests bypass guards with the platform's own test mode** (`HOP3_UNSAFE`). The Docker e2e configuration named the variable differently from the code (`HOP3_ENABLE_AUTH`); every e2e failed with "Authentication required" after the migration while the unit and integration layers passed. Test infrastructure is coupled to the code it tests: change both in the same commit, and run every layer.
 r.
+
+## Text an app or a URL produced is rendered as text
+
+Two ways text the operator did not write reached the dashboard as content:
+
+- The log viewer inserted each streamed log line as HTML (htmx `sse-swap` with `beforeend`). An app logs what its clients send it, so a request path such as `<img src=x onerror=...>` ran script in the operator's signed-in session: stored XSS from any visitor of any hosted app. Lines now go in through `x-text`, and a static test fails if the log template uses an HTML sink.
+- The app and backups pages displayed `?error=` and `?message=` from the query string. Autoescaping stopped script, not a crafted link that showed "Restore complete" or "run curl ... | sh" on an authenticated page. Outcomes now travel as a signed flash token bound to the page and expiring after ten minutes, and the login page accepts only error codes from a fixed list.
+
+Treat log lines, app output and query strings as data: render them as text, and never let a link choose the words a page shows.
+
+## A safety interlock reads the setting the way the guarded code does
+
+`HOP3_UNSAFE=true` disables authentication, so a startup check requires `HOP3_UNSAFE_ACK` and forces the bypass off in production. The check read `os.environ`; the guards read the live config, which is the environment first and `hop3-server.toml` after it. `HOP3_UNSAFE = true` in the file therefore reached the guards and skipped the check: authentication off, no acknowledgement, no production override. The two also parsed the value differently: the check took `yes` and `on` as true, while the guards' parser rejected them. The check now reads the three settings through the same config and the same parser, and a test sets the bypass in the file. An interlock that reads its input from a different source than the code it protects protects a different setting.

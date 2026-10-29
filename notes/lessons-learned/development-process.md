@@ -1,6 +1,6 @@
 # Lessons Learned: Development Process
 
-**Updated**: 2026-09-08, consolidated from internal notes (December 2025 to April 2026) and the September 2026 review of the shell branch.
+**Updated**: 2026-10-29, adding a fallback's premise, and the sibling plugins that drifted. 2026-09-08, consolidated from internal notes (December 2025 to April 2026) and the September 2026 review of the shell branch.
 
 These habits cost time when skipped. Each entry names the incident that made it a rule.
 
@@ -28,6 +28,8 @@ A tier-aware build timeout was "done" for the Docker builder while the Nix build
 
 Before claiming a cross-cutting fix, grep for the concern (the constant, the function, the config key) and find every sibling. If two implementations share logic by convention, move it to a shared module so the next change cannot forget one. The fix is real when the grep finds one helper.
 
+The October 2026 audit found the same drift across sibling plugins: MySQL refused to adopt a foreign database and PostgreSQL did not; Nginx and Caddy failed on a bad reload while Traefik printed a warning; the three proxies each split `HOST_NAME` themselves instead of calling `parse_hostname_string`. A shared helper on the base class is what stops the next fix from landing in one sibling only.
+
 ## A signature change is workspace-wide
 
 Packages import each other's internals: hop3-tui uses hop3-cli's `SshTunnel` and its config; hop3-testing is a pytest plugin every package loads. Renaming `SshTunnel(key=…)` to `settings=…` was grepped only inside hop3-cli, so the TUI kept the old keyword and `make test-e2e` failed in the TUI suite. The same rename then broke the TUI's own integration test, whose stub of the tunnel still took `key=`, and left a CLI test checking a keyword the client no longer sent. Grep the whole tree for callers and for test stubs of the class, and run the check tier (`make test`), because the fast tier does not run the integration suites.
@@ -49,6 +51,20 @@ The credential store was added above the config's token (ADR 042 r2), and the on
 ## A warning that the deploy carries on past is a failure nobody reads
 
 Two bugs in `hop3-deploy-server`'s CLI step, a readiness race and the token above, printed ⚠ lines and the deploy still ended with "Deployment complete!". The race failed first and hid the token bug. The .NET SDK 9 install, which no feed carries for Ubuntu 24.04, failed on every such server the same way. Every e2e run log carried five to nine such lines, for weeks, and every reader scrolled past them. A warning-and-continue is not caught by review: it has to fail something mechanically.
+
+## Read a fallback's premise before keeping or replacing it
+
+Three fixes in the October 2026 audit turned on whether a guard's case could occur at all:
+
+- The PostgreSQL and MySQL health checks reported "driver not installed (skipped)" as a pass. The drivers are required dependencies and imported unconditionally, so that branch could never run; it was deleted, not wrapped in a shared helper.
+- `HealthCheck.is_configured()` was in the protocol and never called. Wiring it in would have made `False` mean "skip this check", a silent skip; it was removed instead.
+- A package scanner returned an eager list because its callers relied on the import side effects. Turning it into a generator, as the audit first suggested, would have imported nothing for callers that ignore the result.
+
+Before adding, sharing or removing a fallback, establish whether its premise can happen and what the callers do with the result.
+
+## A catch-all can hide that the feature never worked
+
+The nginx cache-prefix code wrapped its template expansion in `except Exception` and logged "ignoring". Removing the catch-all to fail loud on a bad operator value showed that the happy path had never run: the template was expanded with `locals()`, where `cache_path` was a `Path`, so the expansion always raised, and `$app` was never substituted, so the zone names could not match. Nginx caching had never worked on any server. Before deleting a catch-all, run the path it guards with valid input; what it swallowed may be the feature itself.
 
 ## Related
 

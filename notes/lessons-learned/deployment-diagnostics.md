@@ -1,6 +1,6 @@
 # Lessons Learned: Deployment Diagnostics
 
-**Updated**: 2026-09-08, adding the rootd reload check and disk exhaustion. 2026-04-22: CLI examples migrated from colon syntax to space form per ADR 036.
+**Updated**: 2026-10-29, adding the probes that answered "absent", teardown leftovers, the re-wrapped RPC error and the log page's fake "Live" (October 2026 audit). 2026-09-08, adding the rootd reload check and disk exhaustion. 2026-04-22: CLI examples migrated from colon syntax to space form per ADR 036.
 
 How deployment failures become diagnosable, and the patterns behind "silent nothing" failures.
 
@@ -212,3 +212,31 @@ A deploy timed out and the platform said "the app's port is listening but it did
 The cost is not the wrong words. The message routed the reader to workers, boot order and the timeout, and offered a longer deadline, when the answer was one string in the recipe. A named cause is trusted more than a generic one, so a confidently wrong name costs more than "failed to start".
 
 The failure path now asks the app one more question before it speaks, and reports what came back: the path probed, the status, the marker that did not match, and the first 200 characters served instead. When a diagnosis has two possible causes and distinguishing them costs one request, make the request. Write the fallback so it is true whenever it is reached, including cases outside the one you had in mind.
+
+## A probe that could not ask must not answer "absent"
+
+The October 2026 audit found the same shape in five places, and in each the empty answer turned into a decision that reported success:
+
+- `PostgresAddon.exists()` returned False on any exception. With PostgreSQL down, `hop3 addon destroy` said the addon "does not exist", exited 0 and left the database in place.
+- `docker ps` ran under `suppress(Exception)` and returned `[]`. A missing or hung Docker read as "no containers", so stop reported STOPPED and destroy reported a clean teardown.
+- A detach turned an unreadable credential into `{}`, removed no environment variables, then deleted the credential: the app kept a `DATABASE_URL` nothing could find any more.
+- The CLI read a malformed `hop3.toml` as `{}` and dropped `[build].ignore`, so the upload included the files the user had excluded.
+- The installer's secret readers caught every `OSError`, so a permission error on a redeploy generated a new JWT key and new database passwords.
+
+A reader or a probe returns its empty value for the one case that means absent (`FileNotFoundError`, no row), and raises for everything else. A caller cannot tell "there is none" from "I could not look", and it will act on the first. In review, read every `suppress(Exception)`, `except Exception: return ...` and `or {}` for what the caller does with the empty value.
+
+## Teardown is clean when the combined leftovers are empty
+
+`hop3 app destroy` collected failures into `cleanup_failed`, but three steps never reported into it: the firewall close logged and carried on, the WAF teardown ran under `suppress(Exception)`, and the native-limits removal swallowed `RootdError` without a log line. A leaked addon was reported only when every other step was clean, next to "has been destroyed". Each teardown step now returns what it could not remove, the command prints every leftover and exits non-zero, and "destroyed" appears only when the list is empty.
+
+## A re-wrapped exception loses the branch that handles it
+
+The RPC layer's `call()` caught every exception and raised `ValueError("Command execution failed: ...")`. The dispatcher maps `ValueError` to -32602 "Invalid params", and its -32603 branches for `CommandFailedError` and `RepositoryError` sat below that arm and never ran: a full disk was reported as a bad argument, and the `Diagnosis` attached to a repository error was dropped. The CLI then had to guess from the message text. Re-raise the original at a layer boundary and let the one mapping layer dispatch on the type; test the codes end to end, from a command that raises to the code the client receives. When the server's codes change, move the client's exit-code mapping in the same change: -32603 used to mean "network error" to the CLI.
+
+## A failure path must not replace the cause with its own problem
+
+Moving WSGI discovery out of core raised a question for the "no web worker" diagnosis: abort when the build artifact is missing? Eight tests pinned the message an operator needs at that point ("crashed repeatedly", the port the app actually bound). Aborting on the diagnosis helper's own minor problem would have replaced that message with a less useful one. A diagnosis step reports what it measured and stays quiet about what it could not, as long as the real failure is still reported.
+
+## A "Live" badge must be bound to the stream
+
+The dashboard's log page said "Live" from the day it shipped, while its stream had never delivered a line: `App.log_path` is a directory and the stream opened it as a file, so every connection ended with an SSE error event. htmx dropped the event, and the page's status was a hard-coded word. A status shown to the operator is bound to the state it names (connected, paused, disconnected), and an error event from the server is shown where the operator looks.

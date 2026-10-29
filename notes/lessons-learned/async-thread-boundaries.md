@@ -1,6 +1,6 @@
 # Lessons Learned: Async â†” Thread Boundaries
 
-**Updated**: 2026-06-07, written after the "every deploy takes ~30s" investigation.
+**Updated**: 2026-10-29, adding the single event loop (handlers that do I/O run in a thread). 2026-06-07, written after the "every deploy takes ~30s" investigation.
 
 How a background thread talking to an `asyncio` primitive made *every* deployment appear to take ~30s, how it was diagnosed (after a wrong first guess), plus the rule that prevents the whole class.
 
@@ -145,3 +145,7 @@ The deploy request stopped the previous instance in its own session (STARTING â†
 - **Commit before a hand-off.** The build helper's docstring already required the app to be committed before the call; nothing enforced it. `deploy_app_streaming` now takes the request session and commits it before submitting, so the contract is kept by the code that relies on it.
 - **An ORM write is a diff against what was loaded.** A value that returns to its loaded value is not written, so a concurrent writer's change stands. Two sessions updating the same row is a lost update whichever order they commit in.
 - **A failure path records the failure.** The readiness gate set FAILED in memory and raised, and the caller's rollback discarded it, leaving STARTING. A failed deploy now records FAILED, with the underlying error, after the rollback.
+
+## The single event loop: every handler that does I/O runs in a thread
+
+hop3-server runs one worker. The October 2026 audit found 25 handlers declared `sync_to_thread=False` that touched the database, files or a subprocess, plus `async def` handlers that ran bcrypt and synchronous SQLAlchemy directly. Opening a backup's detail page checksummed the whole archive on the loop and froze `/rpc`, sign-in and every log stream until it finished; each sign-in blocked the server for the bcrypt cost; `/rpc` validated the caller's token three times on the loop, each a database read. The comments in the controllers already stated the rule. A route-map test now fails for any sync handler kept on the loop unless it is on a short allow-list of handlers that do no I/O, and `/rpc` resolves the identity once, in one `to_thread` call. A rule that only lives in comments is broken by the next handler.

@@ -1,6 +1,6 @@
 # Lessons Learned: Dependency Injection
 
-**Updated**: 2026-09-08, consolidated from the internal notes written while adopting Dishka (ADR 028, Pluggy + Dishka integration).
+**Updated**: 2026-10-29, adding Dishka's coroutine-only `@inject` and one table for the repository registry. 2026-09-08, consolidated from the internal notes written while adopting Dishka (ADR 028, Pluggy + Dishka integration).
 
 This note covers when a class should be a DI-managed service, which scope it gets, and how to test it. The testing side is spelled out in [`docs/src/developers/di-testing-guide.md`](../../docs/src/developers/di-testing-guide.md).
 
@@ -42,6 +42,20 @@ A plugin returns its providers from `get_di_providers()`; the container discover
 Use the `di_container` fixture and let it build the real graph against SQLite in memory. A mocked session tests the mock. Fixtures own setup and teardown; a `try/finally` around a container in a test body means a fixture is missing, and so does touching `os.environ` outside one.
 
 An in-memory SQLite database belongs to the connection that opened it. Litestar's `TestClient` serves the app on another thread, so a test that writes an account in memory and then calls the app over HTTP meets an empty database: the RPC authorization tests of September 2026 failed with `no such table: sec_user`. A test that crosses the HTTP boundary uses a file under `tmp_path` (the `file_db` fixture in `tests/b_integration/server/conftest.py`).
+
+## Dishka's Litestar `@inject` only wraps coroutines
+
+Migrating the dashboard controllers to `@inject` + `FromDishka` hit two constraints. The integration refuses sync functions, so the injected handlers are `async def` and hand their blocking work to `anyio.to_thread.run_sync` (see [`async-thread-boundaries.md`](./async-thread-boundaries.md)). And the provider's commit runs in its finalizer, after the response has been sent: a handler that writes and then redirects must commit inside its worker thread before returning, or the next page can read the old state. Check what an integration wraps before planning a migration around it.
+
+## Read the finalizer contract before writing `except` around `yield`
+
+The REQUEST-scoped session provider committed after `yield` and rolled back in an `except` around it. Dishka *sends* the handler's exception into the generator instead of throwing it, so the `except` branch never ran: a request whose handler failed was committed anyway. The scope no longer commits at all. Handlers commit inside their worker thread, and the finalizer rolls back and raises if writes are still pending when it closes, so a forgotten commit fails loud instead of being written after the response. Check how a library ends a generator before relying on `try`/`except` around its `yield`.
+
+Under Litestar the scope's finalizer also runs after the response, and it never learns that the handler raised: Litestar turns the exception into a response first. So the outcome is decided by two app hooks, around the scope rather than inside it. `after_request` checks the request's session (kept in a context variable by the provider) for uncommitted writes and replaces the success with an error; `after_exception` rolls back. A check in the finalizer can only reach the log.
+
+## One table builds the registry and its consumers
+
+The RPC layer resolved repositories from its own `REPOSITORY_TYPES` table while `di/providers.py` declared them again, and the copies drifted (`port_claim_repo` was missing from the provider). The table now lives in `di/providers.py`, the provider is built from it, and the container test iterates the same table. When two places list the same things, build one from the other and test by iterating the source.
 
 ## Decision tree
 

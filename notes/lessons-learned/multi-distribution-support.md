@@ -140,3 +140,19 @@ Etherpad absorbed three breaking pnpm changes this way, two of them patched into
 The fix has three parts. The second is the one usually forgotten. Pin an exact version in a named constant, with a comment saying what to re-run when it is bumped. Reconcile it on every install, even when the program exists: "already installed" does not mean "installed correctly". A skip freezes whatever a box happens to carry. Finally, verify that the version on `PATH` is the one installed. A package manager put there by another route (corepack, a standalone script) shadows npm's global bin. Reporting the version you meant to install is then the same silent drift with your name on it.
 
 The version was established by running the command under each major, without reasoning from changelogs: 9, 10 and 11 accept the flag, 12 does not. A version claim in a comment is worth what it cost to make.
+
+## The bundle runs on its minimum Python, not on the workspace's
+
+The bundled installers declare Python 3.10 as their minimum, and bundled `common.py` used `typing.Self` and `datetime.UTC`, both 3.11 additions: the one-liner crashed at import on Ubuntu 22.04's `python3`. Ruff's target version does not catch a stdlib name that does not exist yet. The first fix then imported `Self` from `typing_extensions`, which is not in the standard library; the bundler drops non-stdlib imports, and its ruff F821 check over the bundle caught the undefined name. A `TYPE_CHECKING` guard does not help either: the bundler hoists conditional imports to the top of the bundle. A bundle test now scans the source tree for names newer than the minimum, and the bundler's undefined-name check stays in the check tier.
+
+## Reuse a secret only when its file is absent
+
+A redeploy reuses the JWT key, the Garage tokens and the database superuser password from disk. The readers caught every `OSError` and returned `None`, and the caller generated new ones, so a permission or I/O error on a redeploy rotated every secret and logged out every client. Read the existing value; generate only on `FileNotFoundError`; abort on any other error with the path.
+
+## A reconcile step has no early return
+
+The Nix step returned early when Nix was already installed, and again when `.bashrc` already sourced the profile. Both returns skipped writing `nix.conf` (`sandbox = relaxed`) and restarting the daemon, so a box installed before that setting existed never got it. Every config write in an install step is "write if it differs", every restart after it is unconditional, and the step runs on every install, so a redeploy converges to what a fresh install produces.
+
+## `check=True` holds on every branch
+
+`run_cmd` returned a failed `CompletedProcess` from its `TimeoutExpired` branch before the `check` test, so a timed-out command never raised, even with `check=True`: the install carried on past a hung `apt-get`. The `FileNotFoundError` branch already fell through to the check. When a helper has several failure branches, each one ends at the same check, and the timeout message names the timeout that was hit.

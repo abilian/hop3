@@ -140,3 +140,9 @@ The PostgreSQL addon derives its database and role from the addon name, so an ad
 ## Rails and MySQL Over a Self-Signed Certificate
 
 The `mysql2` gem under Rails ignored every client-side `ssl_mode: disabled` spelling in `database.yml`; only `skip_ssl` on the server side worked. Some driver and framework pairs have SSL quirks that no client configuration reaches; document the server-side setting and prefer PostgreSQL for Rails apps where the choice exists.
+
+## Derived identifiers collide after the service rewrites them
+
+PostgreSQL maps `-` to `_` in database names and truncates identifiers at 63 bytes; MySQL user names stop at 32 characters. So addons `a-b` and `a_b` shared one database, and two long MySQL names shared one user: creating the second rotated the first one's password and granted it the second database. PostgreSQL also adopted an existing database that had no stored secrets and reset its password, where MySQL already refused a foreign database.
+
+Check a new name for clashes the way the service stores it, after its rewriting and truncation, and refuse the create before touching `pg_hba` or creating a role. Check only new addons: an existing pair that already shares identifiers keeps deploying instead of being locked out. Renaming existing users (a hash suffix) was rejected because their stored credentials would stop working. A fix made in one database plugin (MySQL's foreign-database refusal) goes to its siblings in the same change; see [`development-process.md`](./development-process.md).

@@ -1,6 +1,6 @@
 # Lessons Learned: CLI Ergonomics & Surface Evolution
 
-**Updated**: 2026-09-25, adding the two parsers that read one argv. 2026-09-08 added the `app shell` round (validate before you confirm, global flags, one ssh settings object). 2026-09-01 added the September round (a corrupt cache, a hand-copied registry, scraping the peer's prose, and secrets on the command line), from measuring a maintainer's shell history against the shipped CLI.
+**Updated**: 2026-10-29, adding declared flags only, and the platform's own hints and scripts as argv (October 2026 audit). 2026-09-25, adding the two parsers that read one argv. 2026-09-08 added the `app shell` round (validate before you confirm, global flags, one ssh settings object). 2026-09-01 added the September round (a corrupt cache, a hand-copied registry, scraping the peer's prose, and secrets on the command line), from measuring a maintainer's shell history against the shipped CLI.
 
 How to evolve the CLI command surface (rename, de-duplicate, deprecate) without breaking users. The design decisions behind it are in [ADR 036](../adrs/036-cli-ergonomics.md).
 
@@ -107,3 +107,11 @@ The client parses argv before the server sees it. It keeps its own flags (`--app
 Each fix is small; the lesson is the missing link. `test_app_scope_matches_server.py` now reads both sides. Every flag a server command reads must pass through the client's parser intact. Every command that reads `--app` must be in the client's table. Every `hop3 …` line in a command's help, and in the docs' code blocks, must reach a command that accepts it. A server command whose argument name collides with a client flag renames it (`--force-renewal`) or reads what the client forwards (`get_verbosity()`, `json_output`).
 
 The usage text had the same flaw inside one side: each command wrote its usage twice, in the docstring and in a `return [text("Usage: …")]` that exited 0 (`export > dump.sql` with no name wrote the usage into the dump). `Command.usage_error()` raises the docstring's own `Usage:` line, so a missing argument fails with exit 2 and the text cannot drift from `hop3 help`.
+
+## Parse local commands against declared flags
+
+Three hand-written argv loops in `login` and `init` ended with `else: i += 1`, so `--usernme x` was dropped without a word. Rewriting them on one small parser that refuses unknown tokens (exit 2) also showed that `-d` and `-y` never reached these handlers, because they are global flags consumed earlier: `login`'s debug output and `init -y` had never worked. Declare each command's flags and refuse the rest; a flag a test never passes through the real entry point may be dead.
+
+## The platform's own hints and scripts are argv too
+
+`hop3 login --token` took the JWT only as an argument, the server's admin commands printed `hop3 login "SERVER_URL?token=<jwt>"` for the operator to copy, `hop3-deploy-server` called the CLI with the admin token on its command line, and the demos ran the login through `sh -c` with the token or an echoed password inside the shell line. `--token` now reads `-` (stdin), `@file` or a hidden prompt; the literal form still works, hidden from help, with a warning. The hints and the platform's own callers moved to the same forms. When a secret moves off argv, grep the hints that teach the old form and the scripts that call it.

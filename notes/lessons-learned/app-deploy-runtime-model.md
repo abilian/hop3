@@ -164,3 +164,19 @@ A `Procfile` entry is not a worker declaration either; toolchains declare their 
 ## A shell into the app: exec the spec, build the environment from scratch
 
 `hop3 app shell` (September 2026) is `hop3 run` with a terminal. Three decisions made it safe to ship after a deleted first attempt. The session spec (`argv`, `cwd`, `env`) is a pure function of the app and its artifact, with no I/O. The environment comes from the same `build_app_env` as everything else, so the server's own `HOP3_SECRET_KEY`, database URL and the forced command's `FINGERPRINT` never reach the child. The process is replaced by `execve`, so the shell's exit status is the session's and there is no timeout to trip over. The transport is `ssh -t`, and sshd owns the pty, resizes and keepalives. bash starts with `--norc` so the `hop3` account's rc files cannot rewrite the toolchain's `PATH`, and `HISTFILE` is empty so an operator's keystrokes do not land in a shared history. The command changes duration and observability and grants no authority; see [`privilege-and-isolation.md`](./privilege-and-isolation.md).
+
+## Every builder declares itself, and deployers gate on it
+
+Core and the uWSGI deployer chose their path from hardcoded sets of language kinds (`python`, `buildpack`, `virtualenv`): the opposite of "gate on `builder`, no language detection in core". Moving WSGI discovery into the Python toolchain, which now writes the web worker into its `RuntimeConfig`, and making uWSGI accept by builder exposed one more gap: the Docker builder never set `builder` on its artifact, so it defaulted to `local` and uWSGI's new rule would have accepted a Docker image. When a deployer gates on a field, check that every producer sets it.
+
+## Several toolchains make one artifact
+
+When more than one toolchain accepted a source tree, the local builder combined their artifacts into kind `multi-language` with no runtime, which no deployer accepts: the deploy failed after a full build. The layouts that reach this are common (Django, Rails or Laravel with a `package.json`; a static site with `requirements.txt`). A toolchain can now declare that it defers the runtime (Node does); the first toolchain that does not defer serves the app with its own workers, and the others contribute their environment, `PATH` entries and build steps.
+
+## An optional session hides the caller that passes none
+
+`do_deploy` took `db_session: Session | None`, and addon provisioning, admin creation and the smoke test each did nothing on `None`. Every direct caller passed a session except one: `App.deploy()`, which backup restore calls. Every restore since then deployed without its addons, its admin account and its smoke test, and reported success. Making the parameter required found it at once. An optional dependency in a pipeline is a list of steps that can silently not happen; find the caller that passes `None` before deciding the branch is dead.
+
+## Several plugins accepting is often a precedence
+
+Builder selection took the first `accept()` in pluggy's registration order, so an app with both a `Dockerfile` and a `hop3.nix` built with Docker without a word. Aborting whenever more than one builder accepted would have broken 23 of the 241 catalog apps, fixtures and demos: the local builder accepts most source trees that also carry a Dockerfile, and Docker is meant to win there. The precedence is now explicit: the local builder is marked as a fallback, chosen only when no other builder accepts, and two non-fallback builders accepting is an error that asks for `[build].builder`. Before turning "first wins" into "ambiguity is an error", run the real selection over the whole catalog.
