@@ -79,6 +79,16 @@ _VERSION_PROBE = (
 CLI_CONTEXT_NAME = "hop3-docker"
 
 
+def _as_hop3(command: str) -> str:
+    """
+    `command`, run by the hop3 user with its own login environment.
+
+    The server installer runs hop3's commands the same way (`run_as_hop3`).
+    The caller quotes the values inside `command`.
+    """
+    return f"su - hop3 -c {shlex.quote(command)}"
+
+
 class Deployer:
     """Handles Hop3 deployment to various targets."""
 
@@ -623,6 +633,8 @@ class Deployer:
         if self.config.admin_email:
             install_cmd += f" --operator-email {shlex.quote(self.config.admin_email)}"
 
+        if self.config.skip_migrations:
+            install_cmd += " --skip-migrations"
         install_cmd += " --verbose"
 
         self.log(f"Running: {install_cmd}")
@@ -678,6 +690,8 @@ class Deployer:
         if self.config.install_features:
             cmd += f" --with {','.join(self.config.install_features)}"
         cmd += " --skip-nginx --skip-acme --skip-package-install"
+        if self.config.skip_migrations:
+            cmd += " --skip-migrations"
         if self.config.acme_email:
             cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
         if self.config.admin_email:
@@ -757,7 +771,7 @@ class Deployer:
         self.log("Running database migrations")
         hop3_server = str(HOP3_SERVER_BIN)
         result = self.backend.run(
-            f"sudo -u hop3 {hop3_server} db:upgrade",
+            _as_hop3(f"{hop3_server} db:upgrade"),
             check=False,
         )
         if not result.success:
@@ -1405,8 +1419,8 @@ class Deployer:
         self.backend.run(f"chmod 755 {acme_challenge_dir}", check=False)
 
         # Issue certificate using webroot mode
-        issue_cmd = (
-            f"sudo -u hop3 {acme_sh} --issue "
+        issue_cmd = _as_hop3(
+            f"{acme_sh} --issue "
             f"-d {safe_domain} "
             f"--webroot {acme_webroot} "
             f"--accountemail {safe_email} "
@@ -1477,8 +1491,8 @@ class Deployer:
         # itself, as root, in _update_nginx_for_ssl below.
         key_file = f"{cert_dir}/key.pem"
         full_file = f"{cert_dir}/fullchain.pem"
-        install_cmd = (
-            f"sudo -u hop3 {acme_sh} --install-cert "
+        install_cmd = _as_hop3(
+            f"{acme_sh} --install-cert "
             f"-d {safe_domain} "
             f"--key-file {shlex.quote(key_file)} "
             f"--fullchain-file {shlex.quote(full_file)} "
@@ -1571,7 +1585,7 @@ class Deployer:
         hop3_server = str(HOP3_SERVER_BIN)
 
         # Check if admin user already exists
-        check_cmd = f"sudo -u hop3 {hop3_server} admin:list | grep -q '^{user} '"
+        check_cmd = _as_hop3(f"{hop3_server} admin:list") + f" | grep -q '^{user} '"
         result = self.backend.run(check_cmd, check=False)
         user_exists = result.success
 
@@ -1582,13 +1596,12 @@ class Deployer:
         # User doesn't exist - create it
         self.log(f"Creating admin user '{user}'")
         # SECURITY: pipe the password via subprocess stdin, not via the
-        # shell ``echo {pw} | sudo …`` form. The latter puts the password
+        # shell ``echo {pw} | …`` form. The latter puts the password
         # in the spawned ``echo``'s argv (visible in /proc/<pid>/cmdline
         # for the deploy window). The remote command reads it from its
         # own stdin via --password-stdin.
-        cmd = (
-            f"sudo -u hop3 {hop3_server} "
-            f"admin:create {safe_user} {safe_email} --password-stdin"
+        cmd = _as_hop3(
+            f"{hop3_server} admin:create {safe_user} {safe_email} --password-stdin"
         )
         result = self.backend.run(cmd, check=False, stdin=password)
         if not result.success:
@@ -1670,14 +1683,15 @@ class Deployer:
         # Create the admin user with --password-stdin (a no-op if it exists).
         # See _create_admin_user above for the stdin-vs-echo rationale.
         self.backend.run(
-            f"sudo -u hop3 {hop3_server} "
-            f"admin:create {safe_user} {safe_email} --password-stdin",
+            _as_hop3(
+                f"{hop3_server} admin:create {safe_user} {safe_email} --password-stdin"
+            ),
             check=False,
             stdin=self.config.admin_password,
         )
 
         result = self.backend.run(
-            f"sudo -u hop3 {hop3_server} admin:token {safe_user}",
+            _as_hop3(f"{hop3_server} admin:token {safe_user}"),
             check=False,
         )
         if not result.success or not result.stdout.strip():

@@ -34,6 +34,8 @@ class ServerInstallerConfig:
     # reinstalling from PyPI would clobber it (downgrading to whatever
     # PyPI's latest stable is).
     skip_package_install: bool = False
+    # Skip `hop3-server db:upgrade`, for an operator who runs it themselves.
+    skip_migrations: bool = False
     # Apply only the platform's own configuration to an existing install.
     reconcile_only: bool = False
     domain: str | None = None
@@ -104,6 +106,7 @@ class ServerInstallerConfig:
             skip_postgres=env_bool("HOP3_SKIP_POSTGRES"),
             skip_acme=env_bool("HOP3_SKIP_ACME"),
             skip_package_install=env_bool("HOP3_SKIP_PACKAGE_INSTALL"),
+            skip_migrations=env_bool("HOP3_SKIP_MIGRATIONS"),
             domain=env_str("HOP3_DOMAIN"),
             acme_email=env_str("HOP3_ACME_EMAIL"),
             operator_email=env_str("HOP3_OPERATOR_EMAIL"),

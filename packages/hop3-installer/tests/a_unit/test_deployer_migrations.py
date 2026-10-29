@@ -65,14 +65,14 @@ def _make_deployer(config: DeployConfig, backend) -> Deployer:
 class TestRunMigrations:
     """Tests for Deployer._run_migrations."""
 
-    def test_invokes_db_upgrade_via_sudo(self, config, backend):
+    def test_invokes_db_upgrade_as_hop3(self, config, backend):
         """The deployer must run 'hop3-server db:upgrade' as the hop3 user."""
         d = _make_deployer(config, backend)
         assert d._run_migrations() is True
 
         backend.run.assert_called_once()
         cmd = backend.run.call_args.args[0]
-        assert "sudo -u hop3" in cmd
+        assert cmd.startswith("su - hop3 -c ")
         assert "db:upgrade" in cmd
 
     def test_failure_aborts_with_false(self, config, backend):

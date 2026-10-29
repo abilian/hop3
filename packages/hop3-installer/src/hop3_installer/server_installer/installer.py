@@ -56,6 +56,7 @@ from .postgres import setup_postgres
 from .python import (
     create_virtual_environment,
     install_package,
+    migrate_database,
     run_hop3_setup,
     setup_ssh_keys,
 )
@@ -187,6 +188,11 @@ def _run_critical_steps(distro: str, config: ServerInstallerConfig) -> bool:
     # Step 5: Run setup
     print_step(5, TOTAL_STEPS, "Running initial setup...")
     run_hop3_setup()
+    # Before step 7 restarts hop3-server on the new code.
+    if config.skip_migrations:
+        print_info("Skipping the database migration (--skip-migrations)")
+    else:
+        migrate_database()
 
     return True
 

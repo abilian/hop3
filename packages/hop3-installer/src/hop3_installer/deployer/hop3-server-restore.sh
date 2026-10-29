@@ -178,9 +178,9 @@ else
 fi
 
 if want postgres; then
-    sudo -u postgres psql -Atqc 'select 1' >/dev/null 2>&1 || fail "PostgreSQL is not answering; start it, then re-run with --only postgres"
+    runuser -u postgres -- psql -Atqc 'select 1' >/dev/null 2>&1 || fail "PostgreSQL is not answering; start it, then re-run with --only postgres"
     # The dump drops and recreates each database; a lingering connection blocks that.
-    sudo -u postgres psql -Atqc "select pg_terminate_backend(pid) from pg_stat_activity where pid <> pg_backend_pid() and datname is not null" >/dev/null
+    runuser -u postgres -- psql -Atqc "select pg_terminate_backend(pid) from pg_stat_activity where pid <> pg_backend_pid() and datname is not null" >/dev/null
     # `pg_dumpall --clean` also emits DROP ROLE and CREATE ROLE for the
     # bootstrap superuser, and the restoring session runs as that user, so
     # PostgreSQL refuses the drop ("current user cannot be dropped") and then
@@ -189,8 +189,8 @@ if want postgres; then
     # every other error still stops the restore.
     gunzip -c "$SNAPSHOT/postgres-all.sql.gz" \
         | grep -v -E '^(DROP ROLE IF EXISTS|CREATE ROLE) "?postgres"?;$' \
-        | sudo -u postgres psql -q -v ON_ERROR_STOP=1 -f - >/dev/null || fail "restoring the PostgreSQL dump"
-    ok "PostgreSQL ($(sudo -u postgres psql -Atqc "select count(*) from pg_database where not datistemplate") databases)"
+        | runuser -u postgres -- psql -q -v ON_ERROR_STOP=1 -f - >/dev/null || fail "restoring the PostgreSQL dump"
+    ok "PostgreSQL ($(runuser -u postgres -- psql -Atqc "select count(*) from pg_database where not datistemplate") databases)"
 else
     skip "PostgreSQL"
 fi
@@ -265,8 +265,8 @@ fi
 # --- Bring the schema to the installed code, and everything back up ----------
 echo "[4/5] migrating the restored database to hop3-server $INSTALLED"
 if want db; then
-    sudo -u hop3 "$VENV/bin/hop3-server" db:upgrade >/dev/null || fail "db:upgrade failed after the restore; the previous database is at $HOP3_ROOT/hop3.db.pre-restore-$STAMP"
-    ok "schema at $(sudo -u hop3 "$VENV/bin/hop3-server" db:current 2>/dev/null | tail -1)"
+    runuser -u hop3 -- "$VENV/bin/hop3-server" db:upgrade >/dev/null || fail "db:upgrade failed after the restore; the previous database is at $HOP3_ROOT/hop3.db.pre-restore-$STAMP"
+    ok "schema at $(runuser -u hop3 -- "$VENV/bin/hop3-server" db:current 2>/dev/null | tail -1)"
 else
     skip "migration (database not restored)"
 fi

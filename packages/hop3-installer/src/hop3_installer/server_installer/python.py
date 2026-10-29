@@ -369,9 +369,25 @@ def run_hop3_setup() -> None:
     hop_server = f"{VENV_DIR}/bin/hop3-server"
 
     with Spinner("Running initial setup..."):
-        run_as_hop3([hop_server, "setup"])
+        run_as_hop3([hop_server, "setup"], check=True)
 
     print_success("Hop3 initial setup complete")
+
+
+def migrate_database() -> None:
+    """
+    Bring hop3-server's database to the schema of the package just installed.
+
+    Runs before the restart that loads the new code (step 7), so a failed
+    migration aborts the install with the old server still running, on the
+    schema it knows. On a new server, it creates the schema at head.
+    """
+    hop_server = f"{VENV_DIR}/bin/hop3-server"
+
+    with Spinner("Migrating the database..."):
+        run_as_hop3([hop_server, "db:upgrade"], check=True)
+
+    print_success("Database schema up to date")
 
 
 def setup_ssh_keys() -> None:

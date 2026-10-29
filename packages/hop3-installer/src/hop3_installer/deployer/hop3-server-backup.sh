@@ -103,7 +103,7 @@ echo "[1/6] versions and state"
         "$PY" -c "import importlib.metadata as m; print(m.version('$pkg'))" 2>/dev/null || echo "not installed"
     done
     printf 'schema: '
-    sudo -u hop3 "$HOP3_SERVER" db:current 2>/dev/null | tail -1 || echo "unknown"
+    runuser -u hop3 -- "$HOP3_SERVER" db:current 2>/dev/null | tail -1 || echo "unknown"
     echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
     echo "python: $("$PY" --version 2>&1)"
 } > "$DEST/versions.txt"
@@ -192,11 +192,11 @@ echo "[5/6] backing services"
 # named, since its databases are then missing from the snapshot.
 if ! command -v pg_dumpall >/dev/null; then
     skip "PostgreSQL (not installed)"
-elif timeout 30 sudo -u postgres psql -Atqc 'select 1' >/dev/null 2>&1; then
-    sudo -u postgres pg_dumpall --clean --if-exists | gzip > "$DEST/postgres-all.sql.gz" || fail "pg_dumpall"
-    ok "postgres-all.sql.gz ($(sudo -u postgres psql -Atqc "select count(*) from pg_database where not datistemplate") databases)"
+elif timeout 30 runuser -u postgres -- psql -Atqc 'select 1' >/dev/null 2>&1; then
+    runuser -u postgres -- pg_dumpall --clean --if-exists | gzip > "$DEST/postgres-all.sql.gz" || fail "pg_dumpall"
+    ok "postgres-all.sql.gz ($(runuser -u postgres -- psql -Atqc "select count(*) from pg_database where not datistemplate") databases)"
 elif pgrep -x postgres >/dev/null; then
-    fail "PostgreSQL is running but not answering (sudo -u postgres psql -c 'select 1')"
+    fail "PostgreSQL is running but not answering (runuser -u postgres -- psql -c 'select 1')"
 else
     skip "PostgreSQL is stopped: its databases are NOT in this snapshot; start it and re-run to include them"
 fi
@@ -291,12 +291,12 @@ Platform rollback after a failed upgrade (apps untouched):
 
     systemctl stop hop3-server
     cp $DEST/hop3.db $HOP3_ROOT/hop3.db && chown hop3:hop3 $HOP3_ROOT/hop3.db   # SQLite; for PostgreSQL: gunzip -c hop3-db.sql.gz | psql "\$HOP3_DATABASE_URI"
-    sudo -u hop3 $VENV/bin/pip install hop3-server==<previous> hop3-rootd==<previous>
+    runuser -u hop3 -- $VENV/bin/pip install hop3-server==<previous> hop3-rootd==<previous>
     systemctl restart hop3-rootd.socket hop3-rootd.service hop3-server
 
 Config and secrets: tar xzf config.tar.gz -C / (paths are absolute; see config-files.txt).
 Apps tree: tar xzf apps.tar.gz -C $HOP3_ROOT (then systemctl restart uwsgi-hop3).
-PostgreSQL: gunzip -c postgres-all.sql.gz | sudo -u postgres psql
+PostgreSQL: gunzip -c postgres-all.sql.gz | runuser -u postgres -- psql
 MySQL: gunzip -c mysql-all.sql.gz | mysql
 Garage (S3): systemctl stop garage; tar xzf garage.tar.gz -C /; if garage-meta.sqlite is here, cp it to /var/lib/garage/meta/db.sqlite and remove db.sqlite-wal and db.sqlite-shm there; systemctl start garage
 Redis: systemctl stop redis-server; cp redis-dump.rdb <redis dir>/dump.rdb; chown redis:redis; systemctl start redis-server

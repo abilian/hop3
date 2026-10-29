@@ -143,6 +143,13 @@ Optional Features (--with):
         "Use when the package was installed separately (e.g. by hop3-deploy --local).",
     )
     parser.add_argument(
+        "--skip-migrations",
+        action="store_true",
+        default=env_config.skip_migrations,
+        help="Skip the database migration (hop3-server db:upgrade). "
+        "Use only if you intend to run it yourself before the server restarts.",
+    )
+    parser.add_argument(
         "--domain",
         metavar="DOMAIN",
         default=env_config.domain,
@@ -197,6 +204,7 @@ def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
         skip_postgres=args.skip_postgres,
         skip_acme=args.skip_acme,
         skip_package_install=args.skip_package_install,
+        skip_migrations=args.skip_migrations,
         reconcile_only=args.reconcile_only,
         domain=args.domain,
         acme_email=args.acme_email,
