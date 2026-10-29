@@ -155,8 +155,7 @@ class ArchStrategy(BaseOSStrategy):
         self.ensure_packages(self.packages, update=True)
 
         # Enable and start services
-        subprocess.run(["systemctl", "enable", "nginx"], check=True)
-        subprocess.run(["systemctl", "enable", "cronie"], check=True)
+        self.enable_services("nginx", "cronie")
 
 
 class ArchPlugin:

@@ -15,15 +15,7 @@ from typing import TYPE_CHECKING, ClassVar, assert_never
 
 from attrs import frozen
 
-from hop3.config import (
-    ACME_EMAIL,
-    ACME_ENGINE,
-    ACME_SERVER,
-    ACME_WWW,
-    HOP3_PROXY_TYPE,
-    HOP3_ROOT,
-    NGINX_ROOT,
-)
+from hop3 import config as c
 from hop3.core.plugins import get_proxy_class
 from hop3.lib import log
 from hop3.lib.rootd import LocalRootdClient, RootdError
@@ -31,13 +23,6 @@ from hop3.lib.rootd import LocalRootdClient, RootdError
 if TYPE_CHECKING:
     from pathlib import Path
 
-KEY_STORE = HOP3_ROOT / "certificates"
-KEY_STORE.mkdir(parents=True, exist_ok=True)
-
-# The ACME HTTP-01 webroot every proxy conf serves (root ${ACME_WWW}). Create it
-# so the challenge path exists even before the first issuance — its absence is
-# what blocked edrix.eu's certbot run.
-ACME_WWW.mkdir(parents=True, exist_ok=True)
 
 # Domain validation for certbot - must be a valid FQDN
 # Allows multi-level subdomains like "app.subdomain.example.com"
@@ -60,6 +45,39 @@ SELF_SIGNED_KEY_BITS = 4096
 
 class CertificateError(RuntimeError):
     """A certificate could not be issued. Raised loudly — never swallowed."""
+
+
+def key_store() -> Path:
+    """The directory holding every domain's ``.key`` and ``.crt``."""
+    return c.HOP3_ROOT / "certificates"
+
+
+def ensure_key_store() -> Path:
+    """Create the key store before a certificate is written into it."""
+    store = key_store()
+    try:
+        store.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        msg = f"Certificate store can't be created at {store}: {e}"
+        raise CertificateError(msg) from e
+    return store
+
+
+def ensure_acme_webroot() -> Path:
+    """
+    Create the ACME HTTP-01 webroot every proxy conf serves (``root ${ACME_WWW}``).
+
+    Called by each proxy before it renders a conf that references it, so the
+    challenge path exists before the first issuance: its absence is what
+    blocked edrix.eu's certbot run.
+    """
+    webroot = c.ACME_WWW
+    try:
+        webroot.mkdir(parents=True, exist_ok=True)
+    except OSError as e:
+        msg = f"ACME webroot can't be created at {webroot}: {e}"
+        raise CertificateError(msg) from e
+    return webroot
 
 
 def is_public_fqdn(domain_name: str) -> bool:
@@ -134,11 +152,11 @@ class Certificate:
 
     @property
     def key_file(self) -> Path:
-        return KEY_STORE / f"{self.domain_name}.key"
+        return key_store() / f"{self.domain_name}.key"
 
     @property
     def crt_file(self) -> Path:
-        return KEY_STORE / f"{self.domain_name}.crt"
+        return key_store() / f"{self.domain_name}.crt"
 
     def get_key(self) -> str:
         return self.key_file.read_text()
@@ -254,7 +272,7 @@ class Certificate:
         # A self-signed cert left over from a fallback should be upgraded to a
         # real one — but only if the domain could actually get one.
         return (
-            ACME_ENGINE == "certbot"
+            c.ACME_ENGINE == "certbot"
             and is_public_fqdn(self.domain_name)
             and self.is_self_signed()
         )
@@ -281,6 +299,7 @@ class Certificate:
         versions).
         """
         log("Generating self-signed certificate", level=2)
+        ensure_key_store()
         cmd = (
             f"openssl req -new -newkey rsa:{SELF_SIGNED_KEY_BITS} -days 365"
             " -nodes -x509 -subj"
@@ -303,12 +322,12 @@ class Certificate:
         covers the first deploy, when the app's own conf isn't written yet
         (setup_certificates runs before generate_config).
         """
-        certbot_root = HOP3_ROOT / "certbot"
+        certbot_root = c.HOP3_ROOT / "certbot"
         live_cert_file = certbot_root / f"config/live/{self.domain_name}/fullchain.pem"
         live_key_file = certbot_root / f"config/live/{self.domain_name}/privkey.pem"
 
         if force or not live_cert_file.exists() or not live_key_file.exists():
-            ACME_WWW.mkdir(parents=True, exist_ok=True)
+            ensure_acme_webroot()
 
             nginx_webroot_conf = dedent(
                 f"""
@@ -319,21 +338,21 @@ class Certificate:
 
                   location ^~ /.well-known/acme-challenge {{
                     allow all;
-                    root {ACME_WWW};
+                    root {c.ACME_WWW};
                   }}
                 }}
                 """
             )
-            (NGINX_ROOT / "__certbot_webroot.conf").write_text(nginx_webroot_conf)
+            (c.NGINX_ROOT / "__certbot_webroot.conf").write_text(nginx_webroot_conf)
             reload_nginx()
 
             cmd = (
-                f"certbot certonly --webroot -w {ACME_WWW} -d {self.domain_name} -n "
+                f"certbot certonly --webroot -w {c.ACME_WWW} -d {self.domain_name} -n "
                 f"--config-dir {certbot_root}/config "
                 f"--work-dir {certbot_root}/work "
                 f"--logs-dir {certbot_root}/logs "
-                f"--agree-tos --email {ACME_EMAIL}"
-                + (f" --server {ACME_SERVER}" if ACME_SERVER else "")
+                f"--agree-tos --email {c.ACME_EMAIL}"
+                + (f" --server {c.ACME_SERVER}" if c.ACME_SERVER else "")
                 + (" --force-renewal" if force else "")
             )
             try:
@@ -341,8 +360,9 @@ class Certificate:
             except subprocess.CalledProcessError as e:
                 raise CertificateError(self._certbot_error(e, certbot_root)) from e
             finally:
-                (NGINX_ROOT / "__certbot_webroot.conf").unlink(missing_ok=True)
+                (c.NGINX_ROOT / "__certbot_webroot.conf").unlink(missing_ok=True)
 
+        ensure_key_store()
         self.crt_file.write_text(live_cert_file.read_text())
         write_private_key(self.key_file, live_key_file.read_text())
 
@@ -470,12 +490,12 @@ class CertbotEngine(CertEngine):
     def unavailable_reason(self) -> str | None:
         if not shutil.which("certbot"):
             return "certbot is not installed"
-        if not ACME_EMAIL:
+        if not c.ACME_EMAIL:
             return "ACME_EMAIL is not set"
         if not get_proxy_class().hosts_certbot:
             return (
                 f"Hop3 answers certbot's challenge and installs its certificates "
-                f"through nginx only, and this server's proxy is {HOP3_PROXY_TYPE}"
+                f"through nginx only, and this server's proxy is {c.HOP3_PROXY_TYPE}"
             )
         return None
 
@@ -503,10 +523,10 @@ def select_engine(domain_name: str) -> CertEngine:
     if not is_public_fqdn(domain_name):
         return CERT_ENGINES["self-signed"]
 
-    engine = CERT_ENGINES.get(ACME_ENGINE)
+    engine = CERT_ENGINES.get(c.ACME_ENGINE)
     if engine is None:
         msg = (
-            f"Unknown ACME_ENGINE {ACME_ENGINE!r} "
+            f"Unknown ACME_ENGINE {c.ACME_ENGINE!r} "
             f"(known engines: {', '.join(sorted(CERT_ENGINES))})"
         )
         raise CertificateError(msg)
@@ -549,7 +569,7 @@ def verify_cert(domain_name: str) -> None:
         problems.append(f"it does not cover {domain_name!r}")
     if (
         is_public_fqdn(domain_name)
-        and ACME_ENGINE == "certbot"
+        and c.ACME_ENGINE == "certbot"
         and cert.is_self_signed()
     ):
         problems.append(

@@ -15,7 +15,7 @@ from __future__ import annotations
 
 import pytest
 
-from hop3 import config
+from hop3.config import HopConfig
 from hop3.core.artifacts import ARTIFACT_FILENAME, BuildArtifact, RuntimeConfig
 from hop3.core.env import Env
 from hop3.deployers.waf import _refuse_unless_proxy_fronts_waf
@@ -75,14 +75,14 @@ def test_traefik_refuses_to_serve_files(app):
 
 @pytest.mark.parametrize("proxy", ["caddy", "traefik"])
 def test_the_waf_is_refused_on_a_proxy_that_cannot_front_it(proxy, monkeypatch):
-    monkeypatch.setattr(config, "HOP3_PROXY_TYPE", proxy)
+    monkeypatch.setattr(HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: proxy))
 
     with pytest.raises(Abort, match=f"proxy \\({proxy}\\) cannot route"):
         _refuse_unless_proxy_fronts_waf(App(name="testapp"))
 
 
 def test_nginx_fronts_the_waf(monkeypatch):
-    monkeypatch.setattr(config, "HOP3_PROXY_TYPE", "nginx")
+    monkeypatch.setattr(HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: "nginx"))
 
     _refuse_unless_proxy_fronts_waf(App(name="testapp"))
 
@@ -92,8 +92,10 @@ def test_nginx_fronts_the_waf(monkeypatch):
 )
 def test_certbot_is_wired_for_nginx_only(proxy, available, monkeypatch):
     """Issuance writes a temporary nginx vhost; renewal installs into nginx."""
-    monkeypatch.setattr(config, "HOP3_PROXY_TYPE", proxy)
-    monkeypatch.setattr(certificates, "ACME_EMAIL", "ops@example.org")
+    monkeypatch.setattr(HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: proxy))
+    monkeypatch.setattr(
+        HopConfig, "ACME_EMAIL", property(lambda _self: "ops@example.org")
+    )
     monkeypatch.setattr(certificates.shutil, "which", lambda _name: "/usr/bin/certbot")
 
     reason = certificates.CertbotEngine().unavailable_reason()

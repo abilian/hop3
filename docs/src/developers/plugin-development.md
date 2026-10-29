@@ -52,6 +52,13 @@ Builders orchestrate the build process. There are two levels:
 - `accept() -> bool`: Return `True` if this strategy can build the app
 - `build() -> BuildArtifact`: Execute build and return artifact info
 
+**Optional attributes**:
+
+- `fallback` (bool, default `False`): a fallback builder is chosen only when no other builder accepts the app. The local builder is one: any source a toolchain recognises qualifies, so a `Dockerfile` or `hop3.nix` beside it wins.
+- `rejection_reason` / `acceptance_reason` (str): set by `accept()`; they appear in the error a deploy prints when no builder, or several, accept.
+
+**Selection**: `[build].builder` in `hop3.toml` names the builder. Otherwise Hop3 asks every builder. When more than one non-fallback builder accepts, the deploy aborts and names them, and the user sets `[build].builder`. When `accept()` raises, the deploy aborts with the exception: a crashed probe is not a refusal.
+
 **Example** (simplified Python builder):
 
 ```python
@@ -124,7 +131,7 @@ Deployers run build artifacts and manage their lifecycle.
 
 **Required methods**:
 
-- `accept() -> bool`: Return `True` if this strategy can deploy the artifact
+- `accept() -> bool`: Return `True` if this strategy can deploy the artifact (deployers accept disjoint artifact kinds: when two accept, the deploy aborts and asks for `[deploy].deployer`)
 - `deploy(deltas: dict | None = None) -> DeploymentInfo`: Deploy the artifact
 - `stop() -> None`: Stop the running application
 - `check_status() -> bool`: Check if app is actually running
@@ -299,9 +306,12 @@ Proxies configure reverse proxies for applications.
 - `env` (Env): Environment variables
 - `workers` (`dict[str, str]`): Worker configurations
 
+**Required class attribute**:
+
+- `name: ClassVar[str]`: the value of `HOP3_PROXY_TYPE` that selects this proxy ("nginx", "caddy", "traefik"), matched exactly; also the prefix of its environment variables (`NGINX_CACHE_SIZE`)
+
 **Required methods** (abstract):
 
-- `get_proxy_name() -> str`: Return proxy name ("nginx", "caddy", "traefik")
 - `setup_backend() -> None`: Configure backend connection
 - `setup_certificates() -> None`: Setup SSL certificates
 - `setup_cache() -> None`: Configure caching
@@ -326,14 +336,15 @@ The `setup()` method is already implemented in `BaseProxy` and orchestrates the 
 
 ```python
 from dataclasses import dataclass
+from typing import ClassVar
+
 from hop3.core.protocols import BaseProxy
 
 @dataclass(frozen=True)
 class NginxVirtualHost(BaseProxy):
     """Nginx reverse proxy configuration."""
 
-    def get_proxy_name(self) -> str:
-        return "nginx"
+    name: ClassVar[str] = "nginx"
 
     def setup_backend(self):
         """Configure backend connection."""
@@ -471,7 +482,7 @@ Internal plugins are automatically discovered by scanning the `hop3.plugins` pac
 ```
 hop3/plugins/
 ├── my_plugin/
-│   ├── __init__.py      # Must import plugin
+│   ├── __init__.py      # Re-exports strategy classes (optional)
 │   ├── plugin.py        # Plugin class with hooks
 │   ├── builder.py       # Strategy implementations
 │   └── deployer.py
@@ -509,16 +520,13 @@ plugin = MyPlugin()
 - `get_deployers()` - Return Deployer classes
 - `get_addons()` - Return Addon classes
 - `get_proxies()` - Return Proxy classes
+- `get_waf_engines()` - Return WafEngine classes
 - `get_os_implementations()` - Return OS classes
 - `get_di_providers()` - Return Dishka Provider instances
+- `get_health_checks()` - Return HealthCheck instances
 - `cli_commands()` - Register CLI commands
 
-**Important**: The `__init__.py` must import the plugin:
-```python
-from .plugin import plugin
-
-__all__ = ["plugin"]
-```
+**Discovery**: the plugin manager imports every module under `hop3.plugins` and registers each module's `plugin` instance. The package `__init__.py` needs no import of the plugin; in the tree it re-exports the strategy classes, if anything.
 
 ### External Plugins (via setuptools entry points)
 
@@ -528,16 +536,18 @@ External plugins are distributed as separate Python packages and registered via 
 
 ```toml
 # pyproject.toml
-[project.entry-points."hop3.plugins"]
+[project.entry-points."hop3"]
 my_plugin = "my_hop3_plugin.plugin:plugin"
 ```
+
+The group is `hop3`. A distribution declaring the plugin under `hop3.plugins` stops the server at startup with a message naming it, instead of being ignored.
 
 Or in `setup.py`:
 ```python
 setup(
     name="my-hop3-plugin",
     entry_points={
-        "hop3.plugins": [
+        "hop3": [
             "my_plugin = my_hop3_plugin.plugin:plugin"
         ]
     }
@@ -763,23 +773,7 @@ class MyPlugin:
 plugin = MyPlugin()
 ```
 
-### 2. Not Importing Plugin in `__init__.py`
-
-**Wrong**:
-```python
-# __init__.py
-# Empty or missing import
-```
-
-**Correct**:
-```python
-# __init__.py
-from .plugin import plugin
-
-__all__ = ["plugin"]
-```
-
-### 3. Returning Strategy Instances Instead of Classes
+### 2. Returning Strategy Instances Instead of Classes
 
 **Wrong**:
 ```python
@@ -797,7 +791,7 @@ def get_builders(self):
     return [MyBuilder]
 ```
 
-### 4. Hardcoding Paths
+### 3. Hardcoding Paths
 
 **Wrong**:
 ```python
@@ -813,7 +807,7 @@ def build(self):
     venv_path = cfg.APP_ROOT / self.context.app_name / "venv"
 ```
 
-### 5. Not Checking `check_status()` Properly
+### 4. Not Checking `check_status()` Properly
 
 **Wrong**:
 ```python

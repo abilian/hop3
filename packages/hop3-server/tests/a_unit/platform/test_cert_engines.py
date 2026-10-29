@@ -18,6 +18,7 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.platform import certificates
 from hop3.platform.certificates import (
     CertbotEngine,
@@ -48,19 +49,19 @@ def test_is_public_fqdn(domain, expected):
 
 
 def test_non_public_name_is_self_signed_even_under_certbot(monkeypatch):
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "certbot"))
     assert isinstance(select_engine("_"), SelfSignedEngine)
     assert isinstance(select_engine("edrix"), SelfSignedEngine)
     assert isinstance(select_engine("app.local"), SelfSignedEngine)
 
 
 def test_public_fqdn_self_signed_config(monkeypatch):
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "self-signed")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "self-signed"))
     assert isinstance(select_engine("edrix.eu"), SelfSignedEngine)
 
 
 def test_public_fqdn_certbot_when_available(monkeypatch):
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "certbot"))
     monkeypatch.setattr(CertbotEngine, "unavailable_reason", lambda self: None)
     assert isinstance(select_engine("edrix.eu"), CertbotEngine)
 
@@ -68,7 +69,7 @@ def test_public_fqdn_certbot_when_available(monkeypatch):
 def test_public_fqdn_certbot_unavailable_raises_loudly(monkeypatch):
     # The core contract: a public domain + an unavailable engine must RAISE,
     # never silently ship a self-signed (untrusted) cert.
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "certbot"))
     monkeypatch.setattr(
         CertbotEngine, "unavailable_reason", lambda self: "certbot is not installed"
     )
@@ -77,7 +78,7 @@ def test_public_fqdn_certbot_unavailable_raises_loudly(monkeypatch):
 
 
 def test_unknown_engine_raises(monkeypatch):
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "vault-acme")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "vault-acme"))
     with pytest.raises(CertificateError, match="Unknown ACME_ENGINE"):
         select_engine("edrix.eu")
 
@@ -89,8 +90,10 @@ def test_certbot_engine_availability(monkeypatch):
     assert "certbot" in eng.unavailable_reason()
 
     monkeypatch.setattr(certificates.shutil, "which", lambda _name: "/usr/bin/certbot")
-    monkeypatch.setattr(certificates, "ACME_EMAIL", "")
+    monkeypatch.setattr(HopConfig, "ACME_EMAIL", property(lambda _self: ""))
     assert "ACME_EMAIL" in eng.unavailable_reason()
 
-    monkeypatch.setattr(certificates, "ACME_EMAIL", "ops@example.com")
+    monkeypatch.setattr(
+        HopConfig, "ACME_EMAIL", property(lambda _self: "ops@example.com")
+    )
     assert eng.unavailable_reason() is None

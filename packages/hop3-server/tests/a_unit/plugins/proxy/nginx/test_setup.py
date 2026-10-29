@@ -1,10 +1,9 @@
 # Copyright (c) 2023-2025, Abilian SAS
 from __future__ import annotations
 
-from pathlib import Path
-
 import pytest
 
+from hop3.config import HopConfig
 from hop3.core.env import Env
 from hop3.core.identifiers import InvalidIdentifierError
 from hop3.orm import App
@@ -15,8 +14,10 @@ from hop3.plugins.proxy.nginx import (
 
 
 @pytest.fixture(autouse=True)
-def created_directory():
-    Path("/tmp/hop3/nginx/").mkdir(exist_ok=True, parents=True)
+def created_directory(tmp_path, monkeypatch):
+    """A throwaway HOP3_ROOT, so the vhost and key land in a dir that exists."""
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
+    (tmp_path / "nginx").mkdir()
 
 
 def test_get_static_paths_0() -> None:

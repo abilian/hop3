@@ -30,13 +30,16 @@ from __future__ import annotations
 import logging
 import os
 from logging.handlers import RotatingFileHandler
-from pathlib import Path
+from typing import TYPE_CHECKING
 
-# Import config module - may fail during early bootstrap
-try:
-    from hop3 import config as hop3_config
-except ImportError:
-    hop3_config = None  # type: ignore[assignment]
+# hop3.config imports hop3.lib (for its loader), whose __init__ imports this
+# module: when hop3.config is imported first, this binds the half-initialised
+# module. That is why nothing here reads the config at import time — only
+# when the logger is first used, by which point the import has completed.
+from hop3 import config as hop3_config
+
+if TYPE_CHECKING:
+    from pathlib import Path
 
 
 def _get_log_level() -> str:
@@ -45,33 +48,13 @@ def _get_log_level() -> str:
 
     Priority: environment variable > config file > default (INFO)
     """
-    # Check environment first (highest priority)
-    if os.environ.get("HOP3_LOG_LEVEL"):
-        return os.environ["HOP3_LOG_LEVEL"].upper()
-
-    # Try to read from config
-    if hop3_config is not None:
-        try:
-            return hop3_config.config.HOP3_LOG_LEVEL
-        except Exception:
-            pass
-
-    return "INFO"
+    return hop3_config.config.HOP3_LOG_LEVEL
 
 
-def _get_log_dir() -> Path:
-    """Get log directory from config or environment."""
-    if hop3_config is not None:
-        try:
-            return hop3_config.config.HOP3_ROOT / "log"
-        except Exception:
-            pass
-    return Path(os.environ.get("HOP3_ROOT", "/home/hop3")) / "log"
+def server_log_file() -> Path:
+    """The file the server log is written to: ``HOP3_ROOT/log/server.log``."""
+    return hop3_config.config.HOP3_ROOT / "log" / "server.log"
 
-
-# Default log location (computed at import time, but configure() uses fresh values)
-DEFAULT_LOG_DIR = _get_log_dir()
-DEFAULT_LOG_FILE = DEFAULT_LOG_DIR / "server.log"
 
 # Log rotation settings (still from environment - these are advanced options)
 # Default: 10MB
@@ -104,7 +87,7 @@ class ServerLogger:
             return
 
         # Use fresh values from config/environment
-        log_file = log_file or (_get_log_dir() / "server.log")
+        log_file = log_file or server_log_file()
         level = level or _get_log_level()
 
         # Ensure log directory exists

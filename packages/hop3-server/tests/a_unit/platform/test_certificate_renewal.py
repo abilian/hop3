@@ -16,6 +16,7 @@ import subprocess
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.platform import certificates
 from hop3.platform.certificates import Certificate, CertificatesManager
 
@@ -46,8 +47,8 @@ def _make_self_signed(store_dir, domain: str, days: int) -> None:
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    """Point the cert store at a throwaway dir (KEY_STORE is a module global)."""
-    monkeypatch.setattr(certificates, "KEY_STORE", tmp_path)
+    """Point the cert store at a throwaway dir."""
+    monkeypatch.setattr(certificates, "key_store", lambda: tmp_path)
     return tmp_path
 
 
@@ -94,7 +95,7 @@ def test_self_signed_is_renewed_under_certbot(store, monkeypatch):
     # A self-signed cert (a prior fallback) must be replaced when the engine is
     # certbot, even if it's not near expiry.
     _make_self_signed(store, "a.example.com", 90)
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "certbot"))
     assert Certificate("a.example.com").needs_renewal(threshold_days=30) is True
 
 

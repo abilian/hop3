@@ -164,10 +164,6 @@ def get_health_checks() -> list[HealthCheck]:  # type: ignore[empty-body]
         class MySQLHealthCheck:
             name = "mysql"
 
-            def is_configured(self) -> bool:
-                admin = MySQLAdmin.from_config()
-                return admin.superuser_password is not None
-
             def check(self) -> HealthCheckResult:
                 # ... perform check ...
                 return HealthCheckResult(name="MySQL", passed=True, message="OK")

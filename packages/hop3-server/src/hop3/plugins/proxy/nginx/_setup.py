@@ -9,7 +9,7 @@ import re
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3.config import ACME_WWW, CACHE_ROOT, NGINX_ROOT
+from hop3 import config as c
 from hop3.core.artifacts import load_backend_protocol
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import GATE_CHECK_UPSTREAM, BaseProxy
@@ -30,6 +30,7 @@ from hop3.lib.rootd import (
 )
 from hop3.platform.certificates import (
     CertificatesManager,
+    ensure_acme_webroot,
     verify_cert,
     write_private_key,
 )
@@ -64,6 +65,7 @@ _PASS_DIRECTIVE = re.compile(
 
 @dataclass(frozen=True)
 class NginxVirtualHost(BaseProxy):
+    name: ClassVar[str] = "nginx"
     backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
     fronts_waf: ClassVar[bool] = True
     hosts_certbot: ClassVar[bool] = True
@@ -103,28 +105,25 @@ class NginxVirtualHost(BaseProxy):
                 ),
             )
 
-    def get_proxy_name(self) -> str:
-        """Return the proxy name for environment variable construction."""
-        return "nginx"
-
     def __post_init__(self) -> None:
         # Validate each host in HOST_NAME before it lands in the nginx config.
         # The proxy template interpolates HOST_NAME straight into
         # `server_name $HOST_NAME;`, so an un-validated value with a newline
         # or `;` would inject arbitrary nginx directives.
         server_name_list = validate_hostname_list(self.env["HOST_NAME"])
-        self.env["HOST_NAME"] = " ".join(server_name_list) or "_"
+        self.env["HOST_NAME"] = " ".join(server_name_list)
 
         nginx_version = command_output("nginx -V")
         nginx_ssl = "443 ssl"
         if "--with-http_v2_module" in nginx_version:
             nginx_ssl += " http2"
 
+        ensure_acme_webroot()
         self.env.update(
             {
                 "NGINX_SSL": nginx_ssl,
-                "NGINX_ROOT": str(NGINX_ROOT),
-                "ACME_WWW": str(ACME_WWW),
+                "NGINX_ROOT": str(c.NGINX_ROOT),
+                "ACME_WWW": str(c.ACME_WWW),
             },
         )
 
@@ -160,10 +159,7 @@ class NginxVirtualHost(BaseProxy):
         A ``web``/``wsgi`` worker alongside ``static`` is a real backend app
         with static paths and must keep its upstream.
         """
-        if "static" not in self.workers:
-            return False
-        backend_workers = ("web", "wsgi", "jwsgi", "rwsgi")
-        return not any(w in self.workers for w in backend_workers)
+        return "static" in self.workers and not self.has_web_worker
 
     def setup_backend(self) -> None:
         # For static-only apps, skip backend configuration entirely
@@ -213,7 +209,7 @@ class NginxVirtualHost(BaseProxy):
         )
 
     def setup_certificates(self) -> None:
-        domain_name = self.env["HOST_NAME"].split()[0]
+        domain_name = self.hosts[0]
 
         # Engine choice (self-signed vs certbot) and the public-FQDN gate live in
         # select_engine (via get_certificate): the catch-all "_", bare app names,
@@ -225,9 +221,9 @@ class NginxVirtualHost(BaseProxy):
             certificate_manager = container.get(CertificatesManager)
             certificate = certificate_manager.get_certificate(domain_name)
             write_private_key(
-                NGINX_ROOT / f"{self.app_name}.key", certificate.get_key()
+                c.NGINX_ROOT / f"{self.app_name}.key", certificate.get_key()
             )
-            (NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+            (c.NGINX_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
             # Post-condition: a bad cert (expired, wrong domain, or silently
             # self-signed for a public domain) fails the deploy loudly instead
             # of quietly serving an untrusted/expired cert.
@@ -267,7 +263,7 @@ class NginxVirtualHost(BaseProxy):
 
     @property
     def conf_path(self) -> Path:
-        return NGINX_ROOT / f"{self.app_name}.conf"
+        return c.NGINX_ROOT / f"{self.app_name}.conf"
 
     def get_proxy_conf(self) -> str:
         """
@@ -279,12 +275,7 @@ class NginxVirtualHost(BaseProxy):
         based on conditions like HTTPS-only redirection, IPv6 disabling,
         uWSGI directives, and Cloudflare IP mapping.
         """
-        if (
-            "web" in self.workers
-            or "wsgi" in self.workers
-            or "jwsgi" in self.workers
-            or "rwsgi" in self.workers
-        ):
+        if self.has_web_worker:
             self.env["HOP3_INTERNAL_NGINX_PORTMAP"] = expand_vars(
                 self._backend_fragment(), self.env
             )
@@ -592,107 +583,66 @@ class NginxVirtualHost(BaseProxy):
         self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = ""
         self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
 
-        default_cache_path = CACHE_ROOT / self.app_name
+        default_cache_path = c.CACHE_ROOT / self.app_name
         if not default_cache_path.exists():
             default_cache_path.mkdir(parents=True)
 
         # Retrieve various cache parameters with defaults
-        cache_size = self._get_cache_param("CACHE_SIZE", "cache size", 1, "g")
-        cache_time_control = self._get_cache_param(
-            "CACHE_CONTROL", "cache control", 3600, "s"
-        )
-        cache_time_content = self._get_cache_param(
-            "CACHE_TIME", "cache time", 3600, "s"
-        )
-        cache_time_redirects = self._get_cache_param(
-            "CACHE_REDIRECTS", "cache redirects", 3600, "s"
-        )
-        cache_time_any = self._get_cache_param(
-            "CACHE_ANY", "cache expiry fallback", 3600, "s"
-        )
-        cache_time_expiry = self._get_cache_param(
-            "CACHE_EXPIRY", "cache expiry", 86400, "s"
-        )
+        cache_size = f"{self.cache_param('CACHE_SIZE', 1)}g"
+        cache_time_control = f"{self.cache_param('CACHE_CONTROL', 3600)}s"
+        cache_time_content = f"{self.cache_param('CACHE_TIME', 3600)}s"
+        cache_time_redirects = f"{self.cache_param('CACHE_REDIRECTS', 3600)}s"
+        cache_time_any = f"{self.cache_param('CACHE_ANY', 3600)}s"
+        cache_time_expiry = f"{self.cache_param('CACHE_EXPIRY', 86400)}s"
 
-        # Determine the cache path and create directory if it doesn't exist
+        cache_prefixes = self.cache_prefixes()
+        if not cache_prefixes:
+            return
+
+        # An operator-set cache path must exist: falling back to the default
+        # would put the cache on a disk nobody chose.
         cache_path = self.env.get_path("NGINX_CACHE_PATH", default_cache_path)
         if not cache_path.exists():
-            log(
-                f"Cache path {cache_path} does not exist, using default"
-                f" {default_cache_path}, be aware of disk usage.",
-                level=4,
-                fg="yellow",
+            self._refuse(
+                f"NGINX_CACHE_PATH={str(cache_path)!r} does not exist",
+                hint="create that directory, or unset NGINX_CACHE_PATH",
             )
-            cache_path = default_cache_path
-
-        cache_prefixes = self.env.get("NGINX_CACHE_PREFIXES", "")
-        if len(cache_prefixes):
-            prefixes = []
-            try:
-                items = cache_prefixes.split(",")
-                for item in items:
-                    if item[0] == "/":
-                        # Remove leading slash
-                        prefixes.append(item[1:])
-                    else:
-                        prefixes.append(item)
-                cache_prefixes = "|".join(prefixes)
-                log(
-                    f"nginx will cache /({cache_prefixes}) prefixes up to"
-                    f" {cache_time_expiry} or {cache_size} of disk space, with the"
-                    " following timings:",
-                    level=2,
-                )
-                log(f"nginx will cache content for {cache_time_content}.", level=2)
-                log(f"nginx will cache redirects for {cache_time_redirects}.", level=2)
-                log(f"nginx will cache everything else for {cache_time_any}.", level=2)
-                log(
-                    "nginx will send caching headers asking for"
-                    f" {cache_time_control} seconds of public caching.",
-                    level=2,
-                )
-                # Expand environment variables with current local variables
-                self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
-                    HOP3_INTERNAL_PROXY_CACHE_PATH,
-                    locals(),
-                )
-                self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
-                    HOP3_INTERNAL_NGINX_CACHE_MAPPING,
-                    locals(),
-                )
-                # Further expand using environment variables
-                self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
-                    self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"],
-                    self.env,
-                )
-            except Exception as e:
-                log(
-                    f"Error {e} in cache path spec: should be /prefix1:[,/prefix2],"
-                    " ignoring.",
-                )
-                self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = ""
-
-    def _get_cache_param(self, key: str, name: str, default: int, suffix: str) -> str:
-        """
-        Generate a cache parameter string by retrieving an integer value
-        from the environment.
-
-        This attempts to fetch an integer value from the environment using a key prefixed
-        with "NGINX_". If it fails to fetch or the fetched value is invalid, it logs a message and
-        defaults to the provided default value. The resulting integer is then converted to a string
-        with a specified suffix.
-
-        Input:
-        - key (str): The key to look up in the environment, prefixed with "NGINX_".
-        - name (str): The name of the parameter, used for logging in case of an error.
-        - default (int): The default integer value to use if retrieval from the environment fails.
-        - suffix (str): The string suffix to append to the retrieved or default integer value.
-
-        Returns:
-        - str: The resulting string composed of the fetched or default integer value and the suffix.
-        """
-        try:
-            return str(self.env.get_int("NGINX_" + key, default)) + suffix
-        except Exception:
-            log(f"Invalid {name}, defaulting to {default}{suffix}", level=2)
-            return str(default) + suffix
+        log(
+            f"nginx will cache /({cache_prefixes}) prefixes up to"
+            f" {cache_time_expiry} or {cache_size} of disk space, with the"
+            " following timings:",
+            level=2,
+        )
+        log(f"nginx will cache content for {cache_time_content}.", level=2)
+        log(f"nginx will cache redirects for {cache_time_redirects}.", level=2)
+        log(f"nginx will cache everything else for {cache_time_any}.", level=2)
+        log(
+            "nginx will send caching headers asking for"
+            f" {cache_time_control} seconds of public caching.",
+            level=2,
+        )
+        # The templates' lowercase placeholders. This used to be ``locals()``,
+        # whose Path value made expand_vars raise; a catch-all logged
+        # "ignoring" and caching silently never ran.
+        values = {
+            "app": self.app_name,
+            "cache_path": str(cache_path),
+            "cache_size": cache_size,
+            "cache_prefixes": cache_prefixes,
+            "cache_time_control": cache_time_control,
+            "cache_time_content": cache_time_content,
+            "cache_time_redirects": cache_time_redirects,
+            "cache_time_any": cache_time_any,
+            "cache_time_expiry": cache_time_expiry,
+        }
+        self.env["HOP3_INTERNAL_PROXY_CACHE_PATH"] = expand_vars(
+            HOP3_INTERNAL_PROXY_CACHE_PATH, values
+        )
+        self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
+            HOP3_INTERNAL_NGINX_CACHE_MAPPING, values
+        )
+        # Further expand using environment variables
+        self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"] = expand_vars(
+            self.env["HOP3_INTERNAL_NGINX_CACHE_MAPPINGS"],
+            self.env,
+        )

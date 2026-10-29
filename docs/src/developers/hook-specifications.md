@@ -190,12 +190,14 @@ from hop3.core.plugins import get_deployer
 deployer = get_deployer(context, artifact)
 ```
 
-2. **For lifecycle operations** (by name):
+2. **To probe whether an app is running** (by name):
 ```python
-from hop3.core.plugins import get_deployer_by_name
+from hop3.core.plugins import get_probe_deployer
 
-# Look up deployer by name for start/stop/restart/status
-deployer = get_deployer_by_name(app, "docker-compose")
+# The last deploy's artifact and no app config: check_status reads process
+# state only, so a malformed hop3.toml does not break `hop3 app status`.
+deployer = get_probe_deployer(app, "docker-compose")
+running = deployer.check_status()
 ```
 
 **Notes**:
@@ -203,7 +205,7 @@ deployer = get_deployer_by_name(app, "docker-compose")
 - Return the deployer **classes** themselves, uninstantiated
 - Each class must have a `name` attribute
 - Each class must implement the `Deployer` protocol
-- The `name` attribute is used by `get_deployer_by_name()` for lifecycle lookups
+- The `name` attribute is used by `get_probe_deployer()` to probe a running app
 - Multiple deployers can exist; selection is by `accept()` or by name
 
 ### get_addons
@@ -483,9 +485,6 @@ from hop3.core.protocols import HealthCheckResult
 class PostgresHealthCheck:
     name = "postgresql"
 
-    def is_configured(self) -> bool:
-        ...
-
     def check(self) -> HealthCheckResult:
         return HealthCheckResult(name="PostgreSQL", passed=True, message="OK")
 
@@ -503,7 +502,7 @@ Health checks run during server startup (failures are logged) and via
 **Notes**:
 
 - Return health check **instances**, already constructed
-- Each must implement `is_configured()` and `check()`
+- Each must implement `check()`; a check that cannot run (a driver or service missing) reports a failure or a warning, never a pass
 - `check()` returns a `HealthCheckResult`
 
 ### cli_commands

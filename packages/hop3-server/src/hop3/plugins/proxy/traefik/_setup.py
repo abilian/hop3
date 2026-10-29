@@ -9,7 +9,7 @@ from typing import TYPE_CHECKING, Any, ClassVar
 
 import yaml
 
-from hop3.config import TRAEFIK_ROOT
+from hop3 import config as c
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import GATE_CHECK_UPSTREAM, GATE_REQUEST_HEADERS, BaseProxy
 from hop3.di import create_container
@@ -64,6 +64,7 @@ class TraefikVirtualHost(BaseProxy):
     webroot and static paths are beyond it, and ``BaseProxy`` refuses them.
     """
 
+    name: ClassVar[str] = "traefik"
     serves_files: ClassVar[bool] = False
     gates_access: ClassVar[bool] = True
     refuses_paths: ClassVar[bool] = False
@@ -71,10 +72,6 @@ class TraefikVirtualHost(BaseProxy):
     app: App
     env: Env
     workers: dict[str, str]
-
-    def get_proxy_name(self) -> str:
-        """Return the proxy name for environment variable construction."""
-        return "traefik"
 
     def __post_init__(self) -> None:
         # SECURITY: validate every host before it reaches a router rule, where
@@ -86,13 +83,9 @@ class TraefikVirtualHost(BaseProxy):
         log(f"Using Traefik version: {traefik_version}", level=2)
 
     @property
-    def hosts(self) -> list[str]:
-        return self.env["HOST_NAME"].split()
-
-    @property
     def conf_path(self) -> Path:
         """Path to the Traefik configuration file for this app."""
-        return TRAEFIK_ROOT / f"{self.app_name}.yml"
+        return c.TRAEFIK_ROOT / f"{self.app_name}.yml"
 
     def setup_backend(self) -> None:
         """Point the service at the app's HTTP port."""
@@ -122,11 +115,11 @@ class TraefikVirtualHost(BaseProxy):
 
     @property
     def _crt_path(self) -> Path:
-        return TRAEFIK_ROOT / f"{self.app_name}.crt"
+        return c.TRAEFIK_ROOT / f"{self.app_name}.crt"
 
     @property
     def _key_path(self) -> Path:
-        return TRAEFIK_ROOT / f"{self.app_name}.key"
+        return c.TRAEFIK_ROOT / f"{self.app_name}.key"
 
     def setup_cache(self) -> None:
         """Cache headers are a middleware; see :meth:`_middlewares`."""
@@ -315,24 +308,24 @@ class TraefikVirtualHost(BaseProxy):
         """
         Reload traefik to apply configuration changes.
 
-        Unlike nginx/caddy, traefik commonly file-watches its dynamic config and
-        reloads itself, so a failed *explicit* reload is often benign — hence it
-        is surfaced LOUDLY (not silently) rather than raised, to avoid failing
-        legitimate file-watch deploys. (A stricter contract would detect whether
-        the file provider is configured before deciding.)
+        A failed reload is fatal, as for nginx and caddy. Traefik's file
+        provider may pick the change up on its own, but nothing here confirms
+        it did, and a deploy that cannot say its routes are live must not
+        report success.
         """
-        # Through hop3-rootd, like nginx and caddy — `sudo -n` fails on a host
-        # without passwordless sudo for the hop3 user. Unlike caddy this stays
-        # non-fatal: traefik's file provider watches its config directory, so
-        # the change lands without an explicit reload. The warning is what
-        # keeps that from being a silent assumption.
         try:
             method = reload_service("traefik")
-            log(f"traefik reloaded via {method} (hop3-rootd)", level=2)
         except (RootdError, RootdUnavailableError) as e:
-            log(
-                f"⚠ Could not explicitly reload traefik ({e}); relying on "
-                "its file-watch to apply the new config — verify the app is served.",
-                level=1,
-                fg="yellow",
+            abort_with_diagnosis(
+                Diagnosis(
+                    component="Traefik",
+                    action=f"publish the routes of '{self.app_name}'",
+                    reason=f"hop3-rootd could not reload traefik: {e}",
+                    hint=(
+                        "make sure traefik runs under the process manager and "
+                        "hop3-rootd is up, then redeploy"
+                    ),
+                    troubleshooting=[f"cat {self.conf_path}"],
+                )
             )
+        log(f"traefik reloaded via {method} (hop3-rootd)", level=2)

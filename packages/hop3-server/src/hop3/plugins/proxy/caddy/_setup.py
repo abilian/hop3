@@ -8,7 +8,7 @@ import subprocess
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar, NoReturn
 
-from hop3.config import ACME_EMAIL, ACME_WWW, CADDY_ROOT
+from hop3 import config as c
 from hop3.core.artifacts import load_backend_protocol
 from hop3.core.identifiers import validate_hostname_list
 from hop3.core.protocols import GATE_CHECK_UPSTREAM, GATE_REQUEST_HEADERS, BaseProxy
@@ -23,6 +23,7 @@ from hop3.lib import (
 from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.platform.certificates import (
     CertificatesManager,
+    ensure_acme_webroot,
     verify_cert,
     write_private_key,
 )
@@ -59,16 +60,13 @@ VALIDATE_TIMEOUT = 5
 
 @dataclass(frozen=True)
 class CaddyVirtualHost(BaseProxy):
+    name: ClassVar[str] = "caddy"
     backend_protocols: ClassVar[frozenset[str]] = frozenset({"http", "fastcgi"})
     gates_access: ClassVar[bool] = True
 
     app: App
     env: Env
     workers: dict[str, str]
-
-    def get_proxy_name(self) -> str:
-        """Return the proxy name for environment variable construction."""
-        return "caddy"
 
     def __post_init__(self) -> None:
         # SECURITY: validate each host before it lands in the Caddy
@@ -90,11 +88,12 @@ class CaddyVirtualHost(BaseProxy):
         caddy_version = command_output("caddy version") or "???"
         log(f"Using Caddy version: {caddy_version}", level=2)
 
+        ensure_acme_webroot()
         self.env.update(
             {
-                "CADDY_ROOT": str(CADDY_ROOT),
-                "ACME_WWW": str(ACME_WWW),
-                "CADDY_ACME_EMAIL": ACME_EMAIL,
+                "CADDY_ROOT": str(c.CADDY_ROOT),
+                "ACME_WWW": str(c.ACME_WWW),
+                "CADDY_ACME_EMAIL": c.ACME_EMAIL,
             },
         )
 
@@ -112,7 +111,7 @@ class CaddyVirtualHost(BaseProxy):
 
     def setup_certificates(self) -> None:
         """Setup SSL certificates for the application."""
-        domain_name = self.env["HOST_NAME"].split()[0]
+        domain_name = self.hosts[0]
 
         # Check if we should use automatic HTTPS or manual certificates
         use_auto_https = self.env.get_bool("CADDY_AUTO_HTTPS", default=False)
@@ -131,9 +130,11 @@ class CaddyVirtualHost(BaseProxy):
                 certificate_manager = container.get(CertificatesManager)
                 certificate = certificate_manager.get_certificate(domain_name)
                 write_private_key(
-                    CADDY_ROOT / f"{self.app_name}.key", certificate.get_key()
+                    c.CADDY_ROOT / f"{self.app_name}.key", certificate.get_key()
                 )
-                (CADDY_ROOT / f"{self.app_name}.crt").write_text(certificate.get_crt())
+                (c.CADDY_ROOT / f"{self.app_name}.crt").write_text(
+                    certificate.get_crt()
+                )
                 # Same post-condition as nginx: never serve an untrusted/expired
                 # cert for a public domain under a green deploy (the edrix bug).
                 verify_cert(domain_name)
@@ -206,7 +207,7 @@ class CaddyVirtualHost(BaseProxy):
         The `.caddyfile` extension is how Caddy recognises the format; the
         platform's Caddyfile imports `*.caddyfile`.
         """
-        return CADDY_ROOT / f"{self.app_name}.caddyfile"
+        return c.CADDY_ROOT / f"{self.app_name}.caddyfile"
 
     def get_proxy_conf(self) -> str:
         """
@@ -241,7 +242,7 @@ class CaddyVirtualHost(BaseProxy):
 
     def _backend_fragment(self) -> str:
         """How requests reach the app's port, by what the port speaks."""
-        if not any(w in self.workers for w in ("web", "wsgi", "jwsgi", "rwsgi")):
+        if not self.has_web_worker:
             return ""
         if load_backend_protocol(self.app_path) == "fastcgi":
             return expand_vars(CADDY_FASTCGI_FRAGMENT, self.env)
@@ -360,15 +361,11 @@ class CaddyVirtualHost(BaseProxy):
         external caching layer. This method sets up basic cache headers.
         """
         self.env["HOP3_INTERNAL_CADDY_CACHE_MAPPINGS"] = ""
-        cache_prefixes = self.env.get("CADDY_CACHE_PREFIXES", "")
-        if not cache_prefixes:
+        prefix_pattern = self.cache_prefixes()
+        if not prefix_pattern:
             return
 
-        prefixes = [p.strip().lstrip("/") for p in cache_prefixes.split(",")]
-        prefix_pattern = "|".join(p for p in prefixes if p)
-        cache_time_control = self._get_cache_param(
-            "CACHE_CONTROL", "cache control", 3600
-        )
+        cache_time_control = self.cache_param("CACHE_CONTROL", 3600)
         log(
             f"caddy will set cache headers for /({prefix_pattern}) prefixes"
             f" with max-age={cache_time_control}",
@@ -382,21 +379,3 @@ class CaddyVirtualHost(BaseProxy):
                 "CADDY_BACKEND": self.env["CADDY_BACKEND"],
             },
         )
-
-    def _get_cache_param(self, key: str, name: str, default: int) -> int:
-        """
-        Get a cache parameter integer value from the environment.
-
-        Input:
-        - key (str): The key to look up in the environment, prefixed with "CADDY_".
-        - name (str): The name of the parameter, used for logging in case of an error.
-        - default (int): The default integer value to use if retrieval fails.
-
-        Returns:
-        - int: The retrieved or default integer value.
-        """
-        try:
-            return self.env.get_int("CADDY_" + key, default)
-        except Exception:
-            log(f"Invalid {name}, defaulting to {default}", level=2)
-            return default

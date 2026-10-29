@@ -577,19 +577,20 @@ Configure the proxy for this application.
 | `app_path` | `Path` | Application directory (from `app.app_path`) |
 | `src_path` | `Path` | Source directory (from `app.src_path`) |
 
-**Abstract Methods** (must be implemented):
+**Class attribute** (required):
 
-#### `get_proxy_name() -> str`
+#### `name: ClassVar[str]`
 
-Return the proxy name for environment variable prefixes.
-
-**Returns**: One of "nginx", "caddy", "traefik", etc.
+The proxy's name, lowercase: `"nginx"`, `"caddy"`, `"traefik"`. Hop3 selects a proxy by an exact match on it, and it is the prefix of the proxy's environment variables (`NGINX_*`). The base class's `get_proxy_name()` returns it; don't override that method.
 
 **Example**:
 ```python
-def get_proxy_name(self) -> str:
-    return "nginx"
+@dataclass(frozen=True)
+class NginxVirtualHost(BaseProxy):
+    name: ClassVar[str] = "nginx"
 ```
+
+**Abstract Methods** (must be implemented):
 
 #### `setup_backend() -> None`
 
@@ -914,7 +915,7 @@ When implementing a strategy, use this checklist to ensure protocol compliance:
 ### BaseProxy
 - [ ] Inherits from `BaseProxy`
 - [ ] Uses `@dataclass(frozen=True)` decorator
-- [ ] `get_proxy_name()` returns lowercase name
+- [ ] Declares `name: ClassVar[str]`, lowercase and unique among proxies
 - [ ] All abstract methods implemented
 - [ ] `setup()` not overridden (use template method)
 - [ ] `reload_proxy()` is graceful

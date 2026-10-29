@@ -22,6 +22,14 @@ from typing import assert_never
 _PACKAGE_NAME_RE = re.compile(r"^[A-Za-z0-9_+.@][A-Za-z0-9._+@-]*$")
 
 
+def has_systemd() -> bool:
+    """True if systemd is PID 1 (``/proc/1/comm``); the package alone is no sign."""
+    try:
+        return Path("/proc/1/comm").read_text().strip() == "systemd"
+    except OSError:
+        return False
+
+
 class BaseOSStrategy:
     """
     Base class providing common functionality for OS setup strategies.
@@ -194,6 +202,25 @@ class BaseOSStrategy:
 
         # Create new symlink
         Path(path).symlink_to(target)
+
+    def enable_services(self, *names: str) -> None:
+        """
+        Enable and start ``names`` under systemd.
+
+        Raises:
+            RuntimeError: systemd is not PID 1. ``systemctl enable`` there
+                writes symlinks nobody reads and reports success.
+        """
+        if not has_systemd():
+            msg = (
+                f"OS setup can't start {', '.join(names)}: systemd is not the "
+                "init system (PID 1) here, so systemctl would only pretend. "
+                "Install with hop3-install, which drives the process manager "
+                "this host runs."
+            )
+            raise RuntimeError(msg)
+        for name in names:
+            subprocess.run(["systemctl", "enable", "--now", name], check=True)
 
     def read_os_release(self) -> dict[str, str]:
         """

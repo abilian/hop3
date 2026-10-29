@@ -6,25 +6,19 @@ import pkgutil
 from typing import TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from collections.abc import Iterable, Iterator
+    from collections.abc import Iterator
+    from types import ModuleType
 
 
-def scan_packages(package_names: Iterable[str]) -> list:
-    """Scan all packages from the given list."""
-    assert not isinstance(package_names, str)
+def scan_package(package_name: str) -> list[ModuleType]:
+    """
+    Import every module in a package (recursively) and return them.
 
-    for package_name in package_names:
-        scan_package(package_name)
-
-    return []
-
-
-def scan_package(package_name: str) -> None:
-    """Import all modules in a package (recursively), for side effects."""
-    assert isinstance(package_name, str)
-
-    for module_name in _iter_module_names(package_name):
-        importlib.import_module(module_name)
+    Callers import for the side effects (registration on import) and, like the
+    plugin manager, may also use the modules. The import is eager: a lazy
+    generator would import nothing for a caller that discards the result.
+    """
+    return [importlib.import_module(name) for name in _iter_module_names(package_name)]
 
 
 def _iter_module_names(package_name: str) -> Iterator[str]:

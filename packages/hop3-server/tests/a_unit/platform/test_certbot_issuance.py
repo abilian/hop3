@@ -16,6 +16,8 @@ from __future__ import annotations
 
 import pytest
 
+from hop3 import config as c
+from hop3.config import HopConfig
 from hop3.platform import certificates
 from hop3.platform.certificates import Certificate
 
@@ -25,12 +27,16 @@ DOMAIN = "app.example.com"
 @pytest.fixture
 def certbot_env(tmp_path, monkeypatch):
     """Point cert dirs at a throwaway tree and capture the certbot command."""
-    monkeypatch.setattr(certificates, "KEY_STORE", tmp_path / "certs")
-    monkeypatch.setattr(certificates, "HOP3_ROOT", tmp_path)
-    monkeypatch.setattr(certificates, "ACME_WWW", tmp_path / "acme")
-    monkeypatch.setattr(certificates, "NGINX_ROOT", tmp_path / "nginx")
-    monkeypatch.setattr(certificates, "ACME_EMAIL", "ops@example.com")
-    (tmp_path / "certs").mkdir()
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
+    monkeypatch.setattr(
+        HopConfig, "ACME_WWW", property(lambda _self: tmp_path / "acme")
+    )
+    monkeypatch.setattr(
+        HopConfig, "NGINX_ROOT", property(lambda _self: tmp_path / "nginx")
+    )
+    monkeypatch.setattr(
+        HopConfig, "ACME_EMAIL", property(lambda _self: "ops@example.com")
+    )
     (tmp_path / "nginx").mkdir()
 
     captured: dict[str, str] = {}
@@ -47,14 +53,16 @@ def certbot_env(tmp_path, monkeypatch):
 
 
 def test_certbot_command_includes_acme_server_and_installs(certbot_env, monkeypatch):
-    monkeypatch.setattr(certificates, "ACME_SERVER", "https://pebble:14000/dir")
+    monkeypatch.setattr(
+        HopConfig, "ACME_SERVER", property(lambda _self: "https://pebble:14000/dir")
+    )
 
     cert = Certificate(DOMAIN)
     cert.generate_with_certbot(force=True)
 
     cmd = certbot_env["cmd"]
     assert "certbot certonly --webroot -w" in cmd
-    assert str(certificates.ACME_WWW) in cmd  # webroot == ACME_WWW (edrix fix)
+    assert str(c.ACME_WWW) in cmd  # webroot == ACME_WWW (edrix fix)
     assert f"-d {DOMAIN}" in cmd
     assert "--server https://pebble:14000/dir" in cmd
     assert "--force-renewal" in cmd
@@ -64,7 +72,7 @@ def test_certbot_command_includes_acme_server_and_installs(certbot_env, monkeypa
 
 
 def test_certbot_command_omits_server_by_default(certbot_env, monkeypatch):
-    monkeypatch.setattr(certificates, "ACME_SERVER", "")
+    monkeypatch.setattr(HopConfig, "ACME_SERVER", property(lambda _self: ""))
 
     Certificate(DOMAIN).generate_with_certbot(force=False)
 

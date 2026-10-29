@@ -40,7 +40,7 @@ import urllib.request
 from http import HTTPStatus
 from pathlib import Path
 
-from hop3.config import CACHE_ROOT
+from hop3 import config as c
 
 __all__ = ["CACHE_ENV_VAR", "FetchError", "cache_dir", "fetch", "main"]
 
@@ -68,7 +68,7 @@ class FetchError(Exception):
 def cache_dir() -> Path:
     """The directory holding downloaded build inputs."""
     override = os.environ.get(CACHE_ENV_VAR)
-    return Path(override) if override else CACHE_ROOT / "downloads"
+    return Path(override) if override else c.CACHE_ROOT / "downloads"
 
 
 def fetch(

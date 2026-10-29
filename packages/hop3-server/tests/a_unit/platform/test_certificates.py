@@ -14,10 +14,13 @@ from __future__ import annotations
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.platform.certificates import (
-    KEY_STORE,
     RE_DOMAIN_VALIDATOR,
     Certificate,
+    CertificateError,
+    ensure_key_store,
+    key_store,
 )
 
 
@@ -105,11 +108,11 @@ def test_validator_accepts_reserved_tld_shape():
 
 
 def test_certificate_paths_derive_from_domain_and_key_store():
-    """key_file / crt_file live in KEY_STORE, named <domain>.key / .crt."""
+    """key_file / crt_file live in key_store(), named <domain>.key / .crt."""
     cert = Certificate(domain_name="example.com")
 
-    assert cert.key_file == KEY_STORE / "example.com.key"
-    assert cert.crt_file == KEY_STORE / "example.com.crt"
+    assert cert.key_file == key_store() / "example.com.key"
+    assert cert.crt_file == key_store() / "example.com.crt"
 
 
 def test_certificate_paths_share_stem_differ_by_suffix():
@@ -119,7 +122,7 @@ def test_certificate_paths_share_stem_differ_by_suffix():
     assert cert.key_file.suffix == ".key"
     assert cert.crt_file.suffix == ".crt"
     assert cert.key_file.with_suffix("") == cert.crt_file.with_suffix("")
-    assert cert.key_file.parent == cert.crt_file.parent == KEY_STORE
+    assert cert.key_file.parent == cert.crt_file.parent == key_store()
 
 
 def test_certificate_is_value_object_equal_by_domain():
@@ -128,3 +131,26 @@ def test_certificate_is_value_object_equal_by_domain():
         domain_name="example.com"
     )
     assert Certificate(domain_name="a.com") != Certificate(domain_name="b.com")
+
+
+# --- Key store location ------------------------------------------------------
+
+
+def test_the_key_store_follows_hop3_root_and_is_created_on_write(tmp_path, monkeypatch):
+    """Read on use: a HOP3_ROOT set after import is where certificates go."""
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=tmp_path))
+    store = tmp_path / "certificates"
+
+    assert key_store() == store
+    assert not store.exists()  # deriving the path writes nothing
+    assert ensure_key_store() == store
+    assert store.is_dir()
+
+
+def test_a_key_store_that_cannot_be_created_names_its_path(tmp_path, monkeypatch):
+    (tmp_path / "file").write_text("")  # a file where the root dir should be
+    root = tmp_path / "file"
+    monkeypatch.setattr(HopConfig, "_instance", HopConfig(hop3_root=root))
+
+    with pytest.raises(CertificateError, match=str(root / "certificates")):
+        ensure_key_store()

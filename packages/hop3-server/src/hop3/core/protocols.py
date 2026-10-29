@@ -1,6 +1,7 @@
 # Copyright (c) 2024-2025, Abilian SAS
 from __future__ import annotations
 
+import re
 from abc import ABC, abstractmethod
 from dataclasses import dataclass, field
 from pathlib import Path
@@ -9,12 +10,14 @@ from typing import TYPE_CHECKING, Any, ClassVar, Literal, NoReturn, Protocol
 # BuildArtifact is imported from artifacts.py - see ADR 035
 # It includes RuntimeConfig for build/run separation
 from hop3.core.artifacts import (
+    WEB_WORKER_KINDS,
     BuildArtifact,
     ProxySettings,
     RuntimeConfig,
     load_backend_protocol,
     load_proxy_settings,
 )
+from hop3.core.identifiers import parse_hostname_string
 from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis
 from hop3.lib.path import REJECTED_SUFFIX, restore_on_failure
 
@@ -47,7 +50,7 @@ class BuildContext:
     app_config: dict
 
     def __post_init__(self) -> None:
-        assert self.source_path.is_dir()
+        _require_source_dir(self.source_path)
 
 
 @dataclass
@@ -64,7 +67,7 @@ class DeploymentContext:
     app: App | None = None  # The full App object from the database
 
     def __post_init__(self) -> None:
-        assert self.source_path.is_dir()
+        _require_source_dir(self.source_path)
 
     # app_config: AppConfig
     # new_rev: str
@@ -76,6 +79,12 @@ class DeploymentInfo:
     protocol: str
     address: str
     port: int | None = None
+
+
+def _require_source_dir(source_path: Path) -> None:
+    if not source_path.is_dir():
+        msg = f"App source directory {source_path} does not exist"
+        raise FileNotFoundError(msg)
 
 
 #
@@ -100,6 +109,9 @@ class Builder(Protocol):
 
     name: str
     context: DeploymentContext
+    #: Optional (default False). A fallback builder is chosen only when no
+    #: other builder accepts the app; see ``get_builder``.
+    fallback: ClassVar[bool]
 
     def __init__(self, context: DeploymentContext) -> None:
         """Initialize the builder with a deployment context."""
@@ -293,6 +305,8 @@ class Proxy(Protocol):
         values as their respective settings.
     """
 
+    #: What HOP3_PROXY_TYPE names to select this proxy ("nginx", "caddy"...).
+    name: ClassVar[str]
     #: Capabilities a deploy checks before it relies on them; see BaseProxy.
     backend_protocols: ClassVar[frozenset[str]]
     serves_files: ClassVar[bool]
@@ -323,6 +337,10 @@ class Proxy(Protocol):
 #: The installer's HOP3_SERVER_BIND names the same port: it is a separate,
 #: stdlib-only package and keeps its own copy.
 SERVER_PORT = 8000
+
+# One URL path prefix in ``<PROXY>_CACHE_PREFIXES``: it lands in a location
+# regex, so only plain path characters are accepted.
+_CACHE_PREFIX = re.compile(r"[A-Za-z0-9._~-]+(?:/[A-Za-z0-9._~-]+)*")
 
 #: Where a proxy reaches hop3-server's access-gate check (ADR 062): the
 #: server's own port on loopback. It relied on Granian's default port, which
@@ -358,6 +376,9 @@ class BaseProxy(ABC):
     the abstract methods for proxy-specific behavior.
     """
 
+    #: What HOP3_PROXY_TYPE names to select this proxy; also the prefix of its
+    #: environment variables (``NGINX_CACHE_SIZE``...).
+    name: ClassVar[str]
     #: What the proxy can speak to an app's port (the build artifact's
     #: ``backend_protocol``). Proxying anything else publishes a 502.
     backend_protocols: ClassVar[frozenset[str]] = frozenset({"http"})
@@ -407,14 +428,64 @@ class BaseProxy(ABC):
         """
         return load_proxy_settings(self.app_path)
 
-    @abstractmethod
     def get_proxy_name(self) -> str:
-        """
-        Return the proxy name (e.g., 'nginx', 'caddy', 'traefik').
+        """The proxy name (e.g., 'nginx'), prefix of its environment variables."""
+        return self.name
 
-        This is used to construct proxy-specific environment variable names.
+    @property
+    def has_web_worker(self) -> bool:
+        """Whether a worker answers HTTP on the app's port."""
+        return not WEB_WORKER_KINDS.isdisjoint(self.workers)
+
+    @property
+    def hosts(self) -> list[str]:
+        """The app's hostnames, from HOST_NAME (validated by each proxy)."""
+        return parse_hostname_string(self.env.get("HOST_NAME"))
+
+    def cache_param(self, key: str, default: int) -> int:
         """
-        ...
+        The operator's ``<PROXY>_<key>`` as a non-negative integer, or ``default``.
+
+        A value that is not one aborts: replacing it with the default would
+        serve a cache policy nobody configured.
+        """
+        variable = f"{self.get_proxy_name().upper()}_{key}"
+        raw = self.env.get(variable, default)
+        try:
+            value = int(raw)
+        except (TypeError, ValueError):
+            value = -1
+        if value < 0:
+            self._refuse(
+                f"{variable}={raw!r} is not a non-negative whole number",
+                hint=f"set {variable} to a number (seconds or gigabytes), or unset it",
+            )
+        return value
+
+    def cache_prefixes(self) -> str:
+        """
+        The operator's ``<PROXY>_CACHE_PREFIXES`` as a regex alternation.
+
+        ``/static,/media`` gives ``static|media``; unset gives "". An empty or
+        malformed prefix aborts: dropping it would cache a set of paths nobody
+        configured, and the value is spliced into a location regex.
+        """
+        variable = f"{self.get_proxy_name().upper()}_CACHE_PREFIXES"
+        raw = self.env.get(variable, "")
+        if not raw:
+            return ""
+        prefixes = [item.strip().removeprefix("/") for item in raw.split(",")]
+        bad = [p for p in prefixes if not _CACHE_PREFIX.fullmatch(p)]
+        if bad:
+            self._refuse(
+                f"{variable}={raw!r} has an invalid prefix {bad[0]!r}",
+                hint=(
+                    f"set {variable} to comma-separated URL paths such as "
+                    "/static,/media (letters, digits, '.', '_', '~', '-'), "
+                    "or unset it"
+                ),
+            )
+        return "|".join(prefixes)
 
     def update_env(self, key: str, value: str = "", template: str = "") -> None:
         """
@@ -693,16 +764,6 @@ class HealthCheck(Protocol):
     """
 
     name: str
-
-    def is_configured(self) -> bool:
-        """
-        Check if this service is configured and should be checked.
-
-        Returns:
-            True if the service is configured (e.g., password set in config),
-            False if it should be skipped.
-        """
-        ...
 
     def check(self) -> HealthCheckResult:
         """

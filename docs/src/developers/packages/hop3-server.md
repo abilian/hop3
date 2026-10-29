@@ -34,8 +34,7 @@ server/
 │   └── rate_limit.py    # Request rate limiting
 ├── middleware/          # ASGI middleware
 └── lib/
-    ├── database.py      # DB session helpers
-    └── scanner.py       # Command / plugin auto-discovery
+    └── database.py      # DB session helpers
 ```
 
 ### Command Layer (`hop3/commands/`)

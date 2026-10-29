@@ -153,6 +153,18 @@ def validate_hostname(host: object) -> str:
     return host
 
 
+def parse_hostname_string(value: str | None) -> list[str]:
+    """
+    Split a HOST_NAME string into individual hostnames.
+
+    Accepts comma- or whitespace-separated forms. Does NOT validate
+    syntax — use ``validate_hostname_list`` for that. Use this when
+    reading already-stored values, where the canonical form is
+    space-separated but legacy data may use commas.
+    """
+    return [h for h in (value or "").replace(",", " ").split() if h]
+
+
 def validate_hostname_list(value: object) -> list[str]:
     """
     Parse and validate a comma- or whitespace-separated list of hostnames.

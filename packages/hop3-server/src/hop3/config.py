@@ -3,9 +3,8 @@
 from __future__ import annotations
 
 import os
-import re
 from pathlib import Path
-from typing import Any, ClassVar
+from typing import TYPE_CHECKING, Any, ClassVar
 
 from hop3.lib.config import Config as ConfigLoader
 
@@ -14,20 +13,21 @@ class HopConfig:
     """
     Hop3 configuration with lazy evaluation and testability.
 
-    This class provides:
-    - Lazy property evaluation (derived values auto-update)
-    - Dependency injection support for testing
-    - Type-safe configuration access
-    - Backward compatibility with module-level access
+    Every setting is a property, evaluated on each read (derived paths follow
+    HOP3_ROOT). One instance is the process-wide singleton.
 
     Usage:
-        # In production code
-        from hop3.config import config
-        app_path = config.APP_ROOT / "myapp"
+        # Read a setting: attribute access on the module serves the live
+        # singleton (see the module's ``__getattr__``).
+        from hop3 import config as c
+        app_path = c.APP_ROOT / "myapp"
 
-        # In tests
-        test_config = HopConfig(hop3_root=tmp_path)
-        app = App(name="test", config=test_config)
+        # In tests: swap the singleton, and every ``c.X`` read follows.
+        HopConfig.set_instance(HopConfig(hop3_root=tmp_path))
+
+    ``from hop3.config import APP_ROOT`` (or ``import config``) binds the value
+    once, when the importing module loads: it does not follow a later
+    ``set_instance``.
     """
 
     # Class variable for global singleton instance
@@ -110,6 +110,11 @@ class HopConfig:
     def HOP3_UNSAFE(self) -> bool:
         """UNSAFE MODE: Disables authentication. USE ONLY FOR TESTING."""
         return self._config_loader.get_bool("HOP3_UNSAFE", default=False)
+
+    @property
+    def HOP3_UNSAFE_ACK(self) -> str:
+        """The acknowledgement ``HOP3_UNSAFE`` requires (see ``core.unsafe_gate``)."""
+        return self._config_loader.get_str("HOP3_UNSAFE_ACK", default="")
 
     # Logging Configuration
 
@@ -473,20 +478,6 @@ class HopConfig:
         """Check if running in test mode."""
         return "PYTEST_VERSION" in os.environ
 
-    # Utility Methods
-
-    def get_parameters(self) -> dict[str, Any]:
-        """
-        Get all configuration parameters as a dict.
-
-        Useful for debugging and introspection.
-        """
-        return {
-            name: getattr(self, name)
-            for name in dir(self)
-            if name.isupper() and not name.startswith("_")
-        }
-
     @classmethod
     def get_instance(cls) -> HopConfig:
         """Get or create the global singleton instance."""
@@ -505,57 +496,48 @@ class HopConfig:
         cls._instance = None
 
 
-# Global singleton instance
-config = HopConfig.get_instance()
-
-
-# Explicit module-level exports for type checking
-# Type checkers will see these as real module attributes with proper types
-# They are evaluated once at import time, but __getattr__ provides dynamic access
-# For testing, use HopConfig.set_instance() to update the singleton
-
-# Base Configuration
-HOP3_ROOT: Path = config.HOP3_ROOT
-HOP3_USER: str = config.HOP3_USER
-HOP3_BIN: Path = config.HOP3_BIN
-HOP3_SCRIPT: str = config.HOP3_SCRIPT
-HOP3_DEBUG: bool = config.HOP3_DEBUG
-HOP3_SECRET_KEY: str = config.HOP3_SECRET_KEY
-HOP3_TOKEN_EXPIRY_HOURS: int = config.HOP3_TOKEN_EXPIRY_HOURS
-HOP3_UNSAFE: bool = config.HOP3_UNSAFE
-HOP3_LOG_LEVEL: str = config.HOP3_LOG_LEVEL
-HOP3_PROXY_TYPE: str = config.HOP3_PROXY_TYPE
-MODE: str = config.MODE
-APP_START_TIMEOUT: float = config.APP_START_TIMEOUT
-
-# Paths
-APP_ROOT: Path = config.APP_ROOT
-BACKUP_ROOT: Path = config.BACKUP_ROOT
-NGINX_ROOT: Path = config.NGINX_ROOT
-CADDY_ROOT: Path = config.CADDY_ROOT
-TRAEFIK_ROOT: Path = config.TRAEFIK_ROOT
-CACHE_ROOT: Path = config.CACHE_ROOT
-UWSGI_ROOT: Path = config.UWSGI_ROOT
-UWSGI_AVAILABLE: Path = config.UWSGI_AVAILABLE
-UWSGI_ENABLED: Path = config.UWSGI_ENABLED
-UWSGI_LOG_MAXSIZE: str = config.UWSGI_LOG_MAXSIZE
-
-# ACME Configuration
-ACME_ENGINE: str = config.ACME_ENGINE
-ACME_ROOT_CA: str = config.ACME_ROOT_CA
-ACME_EMAIL: str = config.ACME_EMAIL
-ACME_SERVER: str = config.ACME_SERVER
-ACME_WWW: Path = config.ACME_WWW
-
-# Catalog (ADR 049)
-CATALOG_SOURCE_URL: str = config.CATALOG_SOURCE_URL
-CATALOG_ROOT: Path = config.CATALOG_ROOT
-CATALOG_STATE_ROOT: Path = config.CATALOG_STATE_ROOT
-
-# Constants
-CRON_REGEXP: str = config.CRON_REGEXP
-ROOT_DIRS: list[Path] = config.ROOT_DIRS
-TESTING: bool = config.TESTING
+# Module-level access. `config` and the upper-case names below are not
+# stored on the module: each attribute access (`c.APP_ROOT`, `c.config`) goes
+# through `__getattr__` and reads the *current* singleton, so
+# `HopConfig.set_instance()` is seen everywhere. `from hop3.config import X`
+# binds the value once, when the importing module is loaded.
+# The annotations exist for type checkers only.
+if TYPE_CHECKING:
+    config: HopConfig
+    HOP3_ROOT: Path
+    HOP3_USER: str
+    HOP3_BIN: Path
+    HOP3_SCRIPT: str
+    HOP3_DEBUG: bool
+    HOP3_SECRET_KEY: str
+    HOP3_TOKEN_EXPIRY_HOURS: int
+    HOP3_UNSAFE: bool
+    HOP3_UNSAFE_ACK: str
+    HOP3_LOG_LEVEL: str
+    HOP3_PROXY_TYPE: str
+    MODE: str
+    APP_START_TIMEOUT: float
+    APP_ROOT: Path
+    BACKUP_ROOT: Path
+    NGINX_ROOT: Path
+    CADDY_ROOT: Path
+    TRAEFIK_ROOT: Path
+    CACHE_ROOT: Path
+    UWSGI_ROOT: Path
+    UWSGI_AVAILABLE: Path
+    UWSGI_ENABLED: Path
+    UWSGI_LOG_MAXSIZE: str
+    ACME_ENGINE: str
+    ACME_ROOT_CA: str
+    ACME_EMAIL: str
+    ACME_SERVER: str
+    ACME_WWW: Path
+    CATALOG_SOURCE_URL: str
+    CATALOG_ROOT: Path
+    CATALOG_STATE_ROOT: Path
+    CRON_REGEXP: str
+    ROOT_DIRS: list[Path]
+    TESTING: bool
 
 # Explicit exports for type checking and import discovery
 __all__ = [  # ruff:ignore[unsorted-dunder-all]
@@ -571,6 +553,7 @@ __all__ = [  # ruff:ignore[unsorted-dunder-all]
     "HOP3_SECRET_KEY",
     "HOP3_TOKEN_EXPIRY_HOURS",
     "HOP3_UNSAFE",
+    "HOP3_UNSAFE_ACK",
     "HOP3_LOG_LEVEL",
     "HOP3_PROXY_TYPE",
     "MODE",
@@ -600,32 +583,15 @@ __all__ = [  # ruff:ignore[unsorted-dunder-all]
     "CRON_REGEXP",
     "ROOT_DIRS",
     "TESTING",
-    # Utility functions
-    "get_parameters",
 ]
 
 
-# Backward compatibility: module-level constants
-# These delegate to the config object for lazy evaluation
-# New code should use: from hop3.config import config
-def get_parameters() -> dict[str, object]:
-    """Get all configuration parameters (backward compatibility)."""
-    return {k: v for k, v in globals().items() if re.match(r"[A-Z0-9_]+$", k)}
-
-
-# Module-level __getattr__ to make "constants" dynamically read from config singleton
-# This ensures that when tests update the config singleton, the module-level
-# constants also reflect the new values
 def __getattr__(name: str) -> object:
-    """
-    Dynamic attribute lookup for backward compatibility.
-
-    This allows code to use `from hop3.config import APP_ROOT` and have it
-    automatically use the current config singleton value, even if the singleton
-    changes during testing.
-    """
+    """Serve ``config`` and every upper-case setting from the live singleton."""
     cfg = HopConfig.get_instance()
-    if hasattr(cfg, name):
+    if name == "config":
+        return cfg
+    if name.isupper() and hasattr(cfg, name):
         return getattr(cfg, name)
     msg = f"module {__name__!r} has no attribute {name!r}"
     raise AttributeError(msg)

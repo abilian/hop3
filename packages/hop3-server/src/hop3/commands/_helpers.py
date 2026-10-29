@@ -12,6 +12,7 @@ from typing import TYPE_CHECKING
 from hop3.config import config
 from hop3.core.identifiers import (
     InvalidIdentifierError,
+    parse_hostname_string,
     validate_app_name,
     validate_env_var_key,
 )
@@ -214,18 +215,6 @@ def unset_env_var(app: App, key: str) -> bool:
             app.env_vars.remove(env_var)
             return True
     return False
-
-
-def parse_hostname_string(value: str | None) -> list[str]:
-    """
-    Split a HOST_NAME string into individual hostnames.
-
-    Accepts comma- or whitespace-separated forms. Does NOT validate
-    syntax — use ``validate_hostname_list`` for that. Use this when
-    reading already-stored values, where the canonical form is
-    space-separated but legacy data may use commas.
-    """
-    return [h for h in (value or "").replace(",", " ").split() if h]
 
 
 def find_hostname_conflict(

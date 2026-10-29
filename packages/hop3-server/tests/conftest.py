@@ -23,6 +23,8 @@ from hop3_testing.targets import (
 )
 from hop3_testing.targets.helpers import find_project_root
 
+from hop3 import config as hop3_config
+from hop3.config import HopConfig
 from hop3.orm import reset_session_factory_cache
 from hop3.server.security.rate_limit import AUTH_RATE_LIMITER
 
@@ -301,3 +303,40 @@ def reset_auth_rate_limiter():
     AUTH_RATE_LIMITER.reset()
     yield
     AUTH_RATE_LIMITER.reset()
+
+
+# 6. `hop3.config` serves settings live; a test must not pin one on the module
+#: Names `hop3.config.__getattr__` serves from the live `HopConfig` singleton.
+_LIVE_CONFIG_NAMES = frozenset(
+    {"config"}
+    | {name for name, v in vars(HopConfig).items() if isinstance(v, property)}
+)
+
+
+@pytest.hookimpl(wrapper=True)
+def pytest_runtest_teardown(item, nextitem):
+    """
+    Fail a test that leaves a real attribute on `hop3.config`.
+
+    `monkeypatch.setattr(c, "X", v)` (or `"hop3.config.X"`) reads the old value
+    through the module `__getattr__`, then *restores* it with `setattr`: the
+    module ends up with a real attribute that shadows the live singleton for
+    the rest of the session (every later `set_instance` is ignored for `X`).
+    Swap the singleton (`HopConfig.set_instance`) or patch the property
+    (`monkeypatch.setattr(HopConfig, "X", property(...))`) instead.
+
+    Checked here, after every fixture is finalized: monkeypatch's undo is what
+    leaves the attribute behind, and it can run after any fixture's teardown.
+    """
+    result = yield
+    pinned = sorted(_LIVE_CONFIG_NAMES & vars(hop3_config).keys())
+    if pinned:
+        for name in pinned:  # Drop them so the next tests read the live value.
+            delattr(hop3_config, name)
+        pytest.fail(
+            f"{item.nodeid} left {pinned} pinned on the hop3.config module, "
+            "shadowing the live HopConfig singleton; patch HopConfig "
+            "(set_instance, or the property on the class), never the module "
+            "attribute"
+        )
+    return result

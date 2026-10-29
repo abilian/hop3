@@ -45,7 +45,7 @@ def _app(name: str, host_name: str):
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    monkeypatch.setattr(certificates, "KEY_STORE", tmp_path)
+    monkeypatch.setattr(certificates, "key_store", lambda: tmp_path)
     return tmp_path
 
 

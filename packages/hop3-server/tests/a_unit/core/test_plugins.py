@@ -23,24 +23,22 @@ import pytest
 
 import hop3.plugins.redis as redis_pkg
 import hop3.plugins.redis.plugin  # ruff:ignore[unused-import] — binds redis_pkg.plugin attribute
+from hop3.config import HopConfig
 from hop3.core import plugins
+from hop3.core.artifacts import ARTIFACT_FILENAME
 from hop3.core.plugins import (
-    _build_deployment_hints,
-    _hints_for_docker_image,
-    _hints_for_static,
-    _hints_for_unknown_artifact,
-    _hints_for_virtualenv,
-    _iter_module_names,
+    NeverBuiltError,
     get_addon,
     get_builder,
     get_deployer,
-    get_deployer_by_name,
     get_os_strategy,
     get_plugin_manager,
+    get_probe_deployer,
     get_proxy_strategy,
     list_supported_os,
 )
 from hop3.core.protocols import BuildArtifact, DeploymentContext
+from hop3.lib.console import Abort
 
 # --- Test doubles ---------------------------------------------------------
 
@@ -99,6 +97,23 @@ def make_context(tmp_path: Path, app_config: dict | None = None) -> DeploymentCo
     )
 
 
+def make_builder(builder_name: str, accepts: bool, fallback_: bool = False) -> type:
+    """A builder class called ``builder_name`` whose accept() answers ``accepts``."""
+
+    class FakeBuilder:
+        name = builder_name
+        fallback = fallback_
+
+        def __init__(self, context) -> None:
+            self.context = context
+            self.rejection_reason = f"{builder_name} declined"
+
+        def accept(self) -> bool:
+            return accepts
+
+    return FakeBuilder
+
+
 # --- get_builder ----------------------------------------------------------
 
 
@@ -147,13 +162,15 @@ class TestGetBuilder:
         install_pm(get_builders=[[Picky]])
         context = make_context(tmp_path)
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_builder(context)
 
         message = str(exc_info.value)
-        assert "Could not find a suitable builder" in message
-        assert "Available builders: picky" in message
-        assert "no Procfile here" in message
+        assert "no builder recognises the source" in message
+        assert "picky: no Procfile here" in message
+        assert "[build].builder to one of: picky" in message
+        # The core names no language files: the reasons come from the plugins.
+        assert "requirements.txt" not in message
 
     def test_builder_constructor_error_is_recorded_in_message(
         self, install_pm, tmp_path
@@ -171,10 +188,12 @@ class TestGetBuilder:
         install_pm(get_builders=[[Exploding]])
         context = make_context(tmp_path)
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_builder(context)
 
-        assert "exploding: error - boom" in str(exc_info.value)
+        message = str(exc_info.value)
+        assert "'exploding' builder" in message
+        assert "ValueError: boom" in message
 
     def test_explicit_builder_selected_by_name(self, install_pm, tmp_path):
         accept_calls: list[str] = []
@@ -225,10 +244,12 @@ class TestGetBuilder:
             tmp_path, {"hop3_config": {"build": {"builder": "nonexistent"}}}
         )
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_builder(context)
 
-        assert "Configured builder 'nonexistent' not found" in str(exc_info.value)
+        message = str(exc_info.value)
+        assert "no builder named 'nonexistent' is loaded (loaded: local)" in message
+        assert "[build].builder to one of: local" in message
 
     def test_non_dict_hop3_config_falls_back_to_auto_detect(self, install_pm, tmp_path):
         class Accepting:
@@ -267,6 +288,49 @@ class TestGetBuilder:
         builder = get_builder(context)
 
         assert isinstance(builder, Accepting)
+
+    def test_two_accepting_builders_abort_naming_both(self, install_pm, tmp_path):
+        """A Dockerfile beside a hop3.nix used to build with Docker, silently."""
+        docker, nix = make_builder("docker", True), make_builder("nix", True)
+        install_pm(get_builders=[[docker], [nix], [make_builder("local", True, True)]])
+
+        with pytest.raises(Abort) as exc_info:
+            get_builder(make_context(tmp_path))
+
+        message = str(exc_info.value)
+        assert "several builders accept the app: docker, nix" in message
+        assert "set [build].builder in hop3.toml to one of: docker, nix" in message
+
+    def test_a_fallback_builder_yields_to_a_specific_one(self, install_pm, tmp_path):
+        local = make_builder("local", True, True)
+        docker = make_builder("docker", True)
+        install_pm(get_builders=[[local], [docker]])
+
+        assert isinstance(get_builder(make_context(tmp_path)), docker)
+
+    def test_a_fallback_builder_is_chosen_alone(self, install_pm, tmp_path):
+        local = make_builder("local", True, True)
+        install_pm(get_builders=[[make_builder("docker", False)], [local]])
+
+        assert isinstance(get_builder(make_context(tmp_path)), local)
+
+    def test_an_accept_that_raises_aborts_instead_of_moving_on(
+        self, install_pm, tmp_path
+    ):
+        class Crashing:
+            name = "crashing"
+
+            def __init__(self, context) -> None:
+                pass
+
+            def accept(self) -> bool:
+                msg = "probe bug"
+                raise KeyError(msg)
+
+        install_pm(get_builders=[[Crashing], [make_builder("local", True, True)]])
+
+        with pytest.raises(Abort, match="probe bug"):
+            get_builder(make_context(tmp_path))
 
     def test_hook_failure_is_reraised(self, install_pm, monkeypatch, tmp_path):
         pm = install_pm()
@@ -320,14 +384,35 @@ class TestGetDeployer:
         context = make_context(tmp_path)
         artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_deployer(context, artifact)
 
         message = str(exc_info.value)
-        assert "No deployer found for artifact kind 'virtualenv'" in message
-        # virtualenv-specific hint when uwsgi is loaded but did not accept.
-        assert "uWSGI deployer is available but did not accept" in message
-        assert "Available deployers: uwsgi" in message
+        assert "no loaded deployer accepts a 'virtualenv' artifact" in message
+        assert "(loaded: uwsgi)" in message
+
+    def test_two_accepting_deployers_abort(self, install_pm, tmp_path):
+        class Uwsgi:
+            name = "uwsgi"
+
+            def __init__(self, context, artifact) -> None:
+                pass
+
+            def accept(self) -> bool:
+                return True
+
+        class Other(Uwsgi):
+            name = "other"
+
+        install_pm(get_deployers=[[Uwsgi], [Other]])
+        artifact = BuildArtifact(kind="python", location="/tmp/venv")
+
+        with pytest.raises(Abort) as exc_info:
+            get_deployer(make_context(tmp_path), artifact)
+
+        message = str(exc_info.value)
+        assert "several deployers accept a 'python' artifact: uwsgi, other" in message
+        assert "[deploy].deployer" in message
 
     def test_explicit_deployer_selected_by_name(self, install_pm, tmp_path):
         accept_calls: list[str] = []
@@ -382,15 +467,14 @@ class TestGetDeployer:
         )
         artifact = BuildArtifact(kind="virtualenv", location="/tmp/venv")
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_deployer(context, artifact)
 
         message = str(exc_info.value)
-        assert "Configured deployer 'nonexistent' not found" in message
-        assert "Available deployers: uwsgi" in message
+        assert "no deployer named 'nonexistent' is loaded (loaded: uwsgi)" in message
 
 
-# --- get_deployer_by_name -------------------------------------------------
+# --- get_probe_deployer -------------------------------------------------
 
 
 class TestGetDeployerByName:
@@ -406,18 +490,26 @@ class TestGetDeployerByName:
                 return True
 
         install_pm(get_deployers=[[Uwsgi]])
-        venv = tmp_path / "venv"
-        app = types.SimpleNamespace(
-            name="myapp",
-            src_path=tmp_path,
-            virtualenv_path=venv,
-        )
+        app = make_built_app(tmp_path, kind="docker-image", location="hop3/myapp:7")
 
-        deployer = get_deployer_by_name(app, "uwsgi")
+        deployer = get_probe_deployer(app, "uwsgi")
 
         assert isinstance(deployer, Uwsgi)
         assert deployer.context.app_name == "myapp"
-        assert deployer.artifact.location == str(venv)
+        # The last deploy's artifact, not a placeholder of kind "unknown".
+        assert deployer.artifact.kind == "docker-image"
+        assert deployer.artifact.location == "hop3/myapp:7"
+
+    def test_a_malformed_hop3_toml_does_not_break_the_probe(self, install_pm, tmp_path):
+        """A running app with a syntax error in hop3.toml still reports status."""
+        install_pm(get_deployers=[[Uwsgi]])
+        app = make_built_app(tmp_path, kind="docker-image", location="hop3/myapp:7")
+        (app.app_path / "hop3.toml").write_text("[build\n")
+        (app.src_path / "hop3.toml").write_text("[build\n")
+
+        deployer = get_probe_deployer(app, "uwsgi")
+
+        assert deployer.context.app_config == {}
 
     def test_unknown_name_raises_with_available_list(self, install_pm):
         class Uwsgi:
@@ -433,32 +525,44 @@ class TestGetDeployerByName:
         app = types.SimpleNamespace(name="myapp", src_path=Path("/srv/myapp"))
 
         with pytest.raises(RuntimeError) as exc_info:
-            get_deployer_by_name(app, "docker-compose")
+            get_probe_deployer(app, "docker-compose")
 
         message = str(exc_info.value)
         assert "Deployer 'docker-compose' not found" in message
         assert "uwsgi" in message
 
-    def test_app_without_virtualenv_path_uses_empty_location(
-        self, install_pm, tmp_path
-    ):
-        captured: dict[str, BuildArtifact] = {}
-
-        class Uwsgi:
-            name = "uwsgi"
-
-            def __init__(self, context, artifact) -> None:
-                captured["artifact"] = artifact
-
-            def accept(self) -> bool:
-                return True
-
+    def test_a_never_built_app_raises_never_built(self, install_pm, tmp_path):
         install_pm(get_deployers=[[Uwsgi]])
-        app = types.SimpleNamespace(name="myapp", src_path=tmp_path)
+        app = types.SimpleNamespace(name="myapp", app_path=tmp_path, src_path=tmp_path)
 
-        get_deployer_by_name(app, "uwsgi")
+        with pytest.raises(NeverBuiltError, match="never built"):
+            get_probe_deployer(app, "uwsgi")
 
-        assert captured["artifact"].location == ""
+    def test_a_damaged_artifact_is_an_error(self, install_pm, tmp_path):
+        install_pm(get_deployers=[[Uwsgi]])
+        (tmp_path / ARTIFACT_FILENAME).write_text("{not json")
+        app = types.SimpleNamespace(name="myapp", app_path=tmp_path, src_path=tmp_path)
+
+        with pytest.raises(RuntimeError, match="unreadable build artifact") as e:
+            get_probe_deployer(app, "uwsgi")
+        assert not isinstance(e.value, NeverBuiltError)
+
+
+class Uwsgi:
+    name = "uwsgi"
+
+    def __init__(self, context, artifact) -> None:
+        self.context = context
+        self.artifact = artifact
+
+
+def make_built_app(app_path: Path, *, kind: str, location: str):
+    """An app directory with a saved artifact and a hop3.toml, as after a deploy."""
+    src = app_path / "src"
+    src.mkdir()
+    (src / "hop3.toml").write_text("[docker]\nport = 8080\n")
+    BuildArtifact(kind=kind, location=location).save(app_path / ARTIFACT_FILENAME)
+    return types.SimpleNamespace(name="myapp", app_path=app_path, src_path=src)
 
 
 # --- get_addon ------------------------------------------------------------
@@ -528,12 +632,25 @@ class TestOsStrategy:
 
         install_pm(get_os_implementations=[[Debian]])
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_os_strategy()
 
         message = str(exc_info.value)
-        assert "Could not detect a supported operating system" in message
+        assert "no OS strategy recognises this host" in message
         assert "Debian 12" in message
+
+    def test_two_detecting_strategies_abort(self, install_pm):
+        class Debian:
+            def detect(self) -> bool:
+                return True
+
+        class Ubuntu(Debian):
+            pass
+
+        install_pm(get_os_implementations=[[Debian], [Ubuntu]])
+
+        with pytest.raises(Abort, match="several OS strategies claim this host"):
+            get_os_strategy()
 
     def test_list_supported_os_returns_display_names(self, install_pm):
         class Debian:
@@ -559,102 +676,53 @@ class TestOsStrategy:
 
 
 class TestGetProxyStrategy:
-    def test_matches_by_class_name_substring(self, install_pm, monkeypatch):
-        class NginxProxy:
-            def __init__(self, app, env, workers) -> None:
-                self.app = app
-                self.env = env
-                self.workers = workers
-
-        install_pm(get_proxies=[[NginxProxy]])
-        monkeypatch.setattr("hop3.config.HOP3_PROXY_TYPE", "nginx")
-
-        proxy = get_proxy_strategy("app", "env", {"web": "sock"})
-
-        assert isinstance(proxy, NginxProxy)
-        assert proxy.workers == {"web": "sock"}
-
-    def test_matches_by_name_attribute(self, install_pm, monkeypatch):
-        class WeirdName:
+    def test_matches_by_name(self, install_pm, monkeypatch):
+        class Whatever:
             name = "caddy"
 
             def __init__(self, app, env, workers) -> None:
-                pass
+                self.workers = workers
 
-        install_pm(get_proxies=[[WeirdName]])
-        monkeypatch.setattr("hop3.config.HOP3_PROXY_TYPE", "caddy")
+        install_pm(get_proxies=[[Whatever]])
+        monkeypatch.setattr(
+            HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: "Caddy")
+        )
 
-        proxy = get_proxy_strategy("app", "env", {})
+        proxy = get_proxy_strategy("app", "env", {"web": "sock"})
 
-        assert isinstance(proxy, WeirdName)
+        assert isinstance(proxy, Whatever)
+        assert proxy.workers == {"web": "sock"}
 
-    def test_unknown_proxy_type_raises_with_available(self, install_pm, monkeypatch):
-        class NginxProxy:
+    def test_a_class_name_containing_the_type_is_no_match(
+        self, install_pm, monkeypatch
+    ):
+        """`proxy_type in class_name` once let "nginx" pick NginxCompatProxy."""
+
+        class NginxCompatProxy:
+            name = "nginx-compat"
+
             def __init__(self, app, env, workers) -> None:
                 pass
 
-        install_pm(get_proxies=[[NginxProxy]])
-        monkeypatch.setattr("hop3.config.HOP3_PROXY_TYPE", "traefik")
+        install_pm(get_proxies=[[NginxCompatProxy]])
+        monkeypatch.setattr(
+            HopConfig, "HOP3_PROXY_TYPE", property(lambda _self: "nginx")
+        )
 
-        with pytest.raises(RuntimeError) as exc_info:
+        with pytest.raises(Abort) as exc_info:
             get_proxy_strategy("app", "env", {})
 
         message = str(exc_info.value)
-        assert "Configured proxy type 'traefik' not found" in message
-        assert "NginxProxy" in message
+        assert "no proxy named 'nginx' is loaded (loaded: nginx-compat)" in message
+        assert "HOP3_PROXY_TYPE" in message
 
-
-# --- pure deployment-hint builders ----------------------------------------
-
-
-class TestDeploymentHints:
-    def test_docker_image_no_deployers_loaded(self):
-        hints = _hints_for_docker_image([])
-        assert hints == [
-            "No deployers are loaded. Check your hop3-server installation."
-        ]
-
-    def test_docker_image_compose_missing(self):
-        hints = _hints_for_docker_image(["uwsgi"])
-        assert "The Docker Compose deployer is not loaded." in hints
-
-    def test_docker_image_compose_present_but_rejected(self):
-        hints = _hints_for_docker_image(["docker-compose"])
-        assert any("did not accept" in hint for hint in hints)
-
-    def test_virtualenv_uwsgi_missing(self):
-        hints = _hints_for_virtualenv(["static"])
-        assert "The uWSGI deployer is not loaded." in hints
-
-    def test_virtualenv_uwsgi_present_but_rejected(self):
-        hints = _hints_for_virtualenv(["uwsgi"])
-        assert any("did not accept" in hint for hint in hints)
-        assert any("Procfile" in hint for hint in hints)
-
-    def test_static_deployer_missing(self):
-        assert _hints_for_static([]) == ["The Static deployer is not loaded."]
-
-    def test_static_deployer_present_but_rejected(self):
-        assert _hints_for_static(["static"]) == [
-            "The Static deployer is available but did not accept."
-        ]
-
-    def test_unknown_artifact_kind_hints(self):
-        hints = _hints_for_unknown_artifact("mystery")
-        assert any("'mystery' is not recognized" in hint for hint in hints)
-
-    def test_build_deployment_hints_appends_available_deployers(self):
-        hints = _build_deployment_hints("static", ["static", "uwsgi"])
-        joined = "\n".join(hints)
-        assert "Available deployers: static, uwsgi" in joined
-        assert "hop3 system info -v" in joined
-
-    def test_build_deployment_hints_dispatches_unknown_kind(self):
-        hints = _build_deployment_hints("mystery", [])
-        joined = "\n".join(hints)
-        assert "'mystery' is not recognized" in joined
-        # No available deployers -> the "Available deployers:" line is absent.
-        assert "Available deployers:" not in joined
+    def test_the_real_proxies_are_selected_by_name(self, monkeypatch):
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+        for name in ("nginx", "caddy", "traefik"):
+            monkeypatch.setattr(
+                HopConfig, "HOP3_PROXY_TYPE", property(lambda _self, n=name: n)
+            )
+            assert plugins.get_proxy_class().name == name
 
 
 # --- get_plugin_manager build (re-entrancy / submodule binding) -----------
@@ -681,17 +749,78 @@ class TestGetPluginManagerBuild:
         assert pm is not None
         assert pm.get_plugins()  # plugins were actually registered
 
+    def test_a_reexported_plugin_instance_registers_once(self, monkeypatch):
+        """An ``__init__`` doing ``from .plugin import plugin`` used to crash."""
 
-# --- _iter_module_names ---------------------------------------------------
+        class Mine:
+            name = "mine"
+
+        instance = Mine()
+        package = types.ModuleType("fake_pkg")
+        package.plugin = instance  # ty: ignore[unresolved-attribute]
+        module = types.ModuleType("fake_pkg.plugin")
+        module.plugin = instance  # ty: ignore[unresolved-attribute]
+        monkeypatch.setattr(plugins, "get_core_plugins", lambda: [package, module])
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+
+        pm = get_plugin_manager()
+
+        assert pm.get_plugin("mine") is instance
+
+    def test_two_plugins_claiming_one_name_still_raise(self, monkeypatch):
+        class Mine:
+            name = "mine"
+
+        first, second = types.ModuleType("a"), types.ModuleType("b")
+        first.plugin = Mine()  # ty: ignore[unresolved-attribute]
+        second.plugin = Mine()  # ty: ignore[unresolved-attribute]
+        monkeypatch.setattr(plugins, "get_core_plugins", lambda: [first, second])
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+
+        with pytest.raises(ValueError, match="mine"):
+            get_plugin_manager()
+
+    def test_a_plugin_under_the_wrong_entry_point_group_aborts(self, monkeypatch):
+        dist = types.SimpleNamespace(name="my-hop3-plugin")
+        wrong = types.SimpleNamespace(
+            group="hop3.plugins", name="mine", value="my_plugin:plugin", dist=dist
+        )
+        monkeypatch.setattr(
+            plugins,
+            "entry_points",
+            lambda group: [wrong] if group == "hop3.plugins" else [],
+        )
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+
+        with pytest.raises(Abort) as exc_info:
+            get_plugin_manager()
+
+        message = str(exc_info.value)
+        assert "my-hop3-plugin (hop3.plugins: mine = my_plugin:plugin)" in message
+        assert '[project.entry-points."hop3"]' in message
 
 
-class TestIterModuleNames:
-    def test_module_without_path_yields_nothing(self):
-        # A plain module (not a package) has no __path__; nothing is yielded.
-        names = list(_iter_module_names("hop3.core.plugins"))
-        assert names == []
+class TestRealBuilders:
+    """The shipped builders, through the real plugin manager."""
 
-    def test_package_yields_submodule_names(self):
-        names = list(_iter_module_names("hop3.core"))
-        assert "hop3.core.plugins" in names
-        assert all(name.startswith("hop3.core.") for name in names)
+    def test_dockerfile_and_hop3_nix_together_abort(self, monkeypatch, tmp_path):
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+        (tmp_path / "Dockerfile").write_text("FROM scratch\n")
+        (tmp_path / "hop3.nix").write_text("{}\n")
+        # The Nix builder refuses an app on a server without Nix before it
+        # can accept; this test is about the choice between builders.
+        monkeypatch.setattr(
+            "hop3.plugins.build.nix.builder.NixBuilder._require_nix", lambda self: None
+        )
+
+        with pytest.raises(Abort, match="several builders accept the app: docker, nix"):
+            get_builder(make_context(tmp_path))
+
+    def test_dockerfile_beside_python_source_builds_with_docker(
+        self, monkeypatch, tmp_path
+    ):
+        monkeypatch.setattr(plugins, "_plugin_manager", None)
+        (tmp_path / "Dockerfile").write_text("FROM scratch\n")
+        (tmp_path / "requirements.txt").write_text("flask\n")
+
+        assert get_builder(make_context(tmp_path)).name == "docker"

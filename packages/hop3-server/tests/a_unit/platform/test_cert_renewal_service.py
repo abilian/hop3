@@ -22,7 +22,7 @@ from hop3.platform.cert_renewal import app_cert_domain, renew_due_certs
 @pytest.fixture
 def key_store(tmp_path, monkeypatch):
     """Point the cert store at a throwaway dir (renewal only touches managed certs)."""
-    monkeypatch.setattr(certificates, "KEY_STORE", tmp_path)
+    monkeypatch.setattr(certificates, "key_store", lambda: tmp_path)
     return tmp_path
 
 

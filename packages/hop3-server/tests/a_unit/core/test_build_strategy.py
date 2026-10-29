@@ -11,6 +11,7 @@ import pytest
 
 from hop3.core.plugins import get_builder
 from hop3.core.protocols import DeploymentContext
+from hop3.lib.console import Abort
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -53,7 +54,7 @@ def test_get_builder_with_node_project(tmp_path: Path):
 
 
 def test_get_builder_no_builder_raises_error(tmp_path: Path):
-    """Test that get_builder raises RuntimeError when no builder accepts."""
+    """get_builder aborts, quoting each builder's reason, when none accepts."""
     # Create source directory without any recognized project files
     src_dir = tmp_path / "src"
     src_dir.mkdir()
@@ -62,6 +63,6 @@ def test_get_builder_no_builder_raises_error(tmp_path: Path):
     # Create DeploymentContext
     context = DeploymentContext(app_name="test-app", source_path=src_dir, app_config={})
 
-    # Without any recognized files, should raise RuntimeError
-    with pytest.raises(RuntimeError, match="Could not find a suitable builder"):
+    with pytest.raises(Abort, match="no builder recognises the source") as exc_info:
         get_builder(context)
+    assert "nix: no hop3.nix and no [nix].template" in str(exc_info.value)

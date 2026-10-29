@@ -17,7 +17,6 @@ The plugin auto-detects the distribution and version from /etc/os-release.
 
 from __future__ import annotations
 
-import subprocess
 from io import StringIO
 
 from hop3.core.hooks import hop3_hook_impl
@@ -152,8 +151,7 @@ class RedHatFamilyStrategy(RedHatBase):
 
         # Enable and start services
 
-        subprocess.run(["systemctl", "enable", "nginx"], check=True)
-        subprocess.run(["systemctl", "enable", "crond"], check=True)
+        self.enable_services("nginx", "crond")
 
 
 class RedHatFamilyPlugin:

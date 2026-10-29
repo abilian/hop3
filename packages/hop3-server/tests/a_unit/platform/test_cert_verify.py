@@ -15,6 +15,7 @@ import subprocess
 
 import pytest
 
+from hop3.config import HopConfig
 from hop3.lib.rootd import RootdUnavailableError
 from hop3.platform import certificates
 from hop3.platform.certificates import (
@@ -71,7 +72,7 @@ def _make(store_dir, name: str, *, cn: str, days: int = 90, sans=()):
 
 @pytest.fixture
 def store(tmp_path, monkeypatch):
-    monkeypatch.setattr(certificates, "KEY_STORE", tmp_path)
+    monkeypatch.setattr(certificates, "key_store", lambda: tmp_path)
     return tmp_path
 
 
@@ -122,7 +123,7 @@ def test_verify_cert_wrong_domain(store):
 
 def test_verify_cert_self_signed_under_certbot(store, monkeypatch):
     _make(store, "edrix.eu", cn="edrix.eu")  # self-signed
-    monkeypatch.setattr(certificates, "ACME_ENGINE", "certbot")
+    monkeypatch.setattr(HopConfig, "ACME_ENGINE", property(lambda _self: "certbot"))
     with pytest.raises(CertificateError, match="self-signed"):
         verify_cert("edrix.eu")
 

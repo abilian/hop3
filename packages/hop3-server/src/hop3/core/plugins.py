@@ -8,25 +8,27 @@
 
 from __future__ import annotations
 
-import importlib
 import inspect
-import pkgutil
-from typing import TYPE_CHECKING
+from importlib.metadata import entry_points
+from typing import TYPE_CHECKING, TypeVar
 
 import pluggy
 from pluggy import PluginManager
 
 from hop3.lib.console import Abort
 from hop3.lib.decision_log import get_decision_logger
+from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis, format_diagnosis
+from hop3.lib.scanner import scan_package
 
 from . import hookspecs
+from .artifacts import ARTIFACT_FILENAME
 from .protocols import (
     BuildArtifact,
     DeploymentContext,
 )
 
 if TYPE_CHECKING:
-    from collections.abc import Iterator
+    from types import ModuleType
 
     from hop3.core.env import Env
     from hop3.orm import App
@@ -40,56 +42,27 @@ if TYPE_CHECKING:
         WafEngine,
     )
 
+T = TypeVar("T")
+
+
+class NeverBuiltError(RuntimeError):
+    """A lifecycle operation on an app that has no build artifact."""
+
+
 # Singleton instance of the PluginManager.
 _plugin_manager: pluggy.PluginManager | None = None
 
 
-def get_core_plugins() -> Iterator:
-    """
-    Discover and import all core plugin modules.
+#: The entry-point group external plugins declare (`[project.entry-points."hop3"]`).
+ENTRY_POINT_GROUP = "hop3"
 
-    This scans the hop3.plugins package and imports all modules,
-    which causes plugin instances to be created and exported.
+#: Groups a distribution may declare by mistake; pluggy would ignore them.
+MISSPELLED_ENTRY_POINT_GROUPS = ("hop3.plugins", "hop3_plugins")
 
-    Returns:
-        Iterator of imported plugin modules
-    """
+
+def get_core_plugins() -> list[ModuleType]:
+    """Import every module under ``hop3.plugins`` and return them."""
     return scan_package("hop3.plugins")
-
-
-def scan_package(package_name: str) -> Iterator:
-    """
-    Import all modules in a package recursively for side effects.
-
-    Args:
-        package_name: The name of the package to scan and import modules from.
-
-    Returns:
-        Iterator that yields each module imported from the package.
-    """
-    for module_name in _iter_module_names(package_name):
-        yield importlib.import_module(module_name)
-
-
-def _iter_module_names(package_name: str) -> Iterator:
-    """
-    Generate an iterator over all module names within a given package.
-
-    Args:
-        package_name: The name of the package from which to list all modules.
-
-    Returns:
-        Iterator that yields the names of the modules within the specified package.
-    """
-    package_or_module = importlib.import_module(package_name)
-    if not hasattr(package_or_module, "__path__"):
-        # If the imported object is a module, not a package, exit the function.
-        return
-
-    path = package_or_module.__path__
-    prefix = package_or_module.__name__ + "."
-    for _, module_name, _ in pkgutil.walk_packages(path, prefix):
-        yield module_name
 
 
 def get_plugin_manager() -> PluginManager:
@@ -138,16 +111,23 @@ def get_plugin_manager() -> PluginManager:
         # Additionally register the plugin instance if it exists
         # This allows both module-level hooks and plugin-class hooks
         plugin = getattr(module, "plugin", None)
-        if plugin is not None and not inspect.ismodule(plugin):
-            # Register under the plugin's own `name`. Without it pluggy keys the
-            # plugin by str(id(obj)), so get_plugin("nginx") / set_blocked() /
-            # entry-point dedup can never find it despite every plugin
-            # declaring a name. A duplicate name now raises at startup, which
-            # is the correct answer to two plugins claiming one identity.
-            pm.register(plugin, name=getattr(plugin, "name", None) or None)
+        if plugin is None or inspect.ismodule(plugin):
+            continue
+        # A package whose ``__init__`` re-exports its ``plugin.py``'s instance
+        # shows the same object twice; it is one plugin, registered once. A
+        # *different* object under a taken name still raises below.
+        if pm.is_registered(plugin):
+            continue
+        # Register under the plugin's own `name`. Without it pluggy keys the
+        # plugin by str(id(obj)), so get_plugin("nginx") / set_blocked() /
+        # entry-point dedup can never find it despite every plugin
+        # declaring a name. A duplicate name now raises at startup, which
+        # is the correct answer to two plugins claiming one identity.
+        pm.register(plugin, name=getattr(plugin, "name", None) or None)
 
     # For plugins that are not built-in, we load them from setuptools entry points
-    pm.load_setuptools_entrypoints("hop3")
+    _refuse_misnamed_entry_points()
+    pm.load_setuptools_entrypoints(ENTRY_POINT_GROUP)
 
     # A hookimpl whose spec doesn't exist (a typo, or a hook that was renamed
     # without updating its implementers) is otherwise a permanent silent no-op.
@@ -159,310 +139,301 @@ def get_plugin_manager() -> PluginManager:
     return pm
 
 
+def _refuse_misnamed_entry_points() -> None:
+    """Abort when an installed distribution declares a plugin under a wrong group."""
+    misnamed = [
+        f"{ep.dist.name if ep.dist else '?'} ({ep.group}: {ep.name} = {ep.value})"
+        for group in MISSPELLED_ENTRY_POINT_GROUPS
+        for ep in entry_points(group=group)
+    ]
+    if misnamed:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Plugin manager",
+                action="load external plugins",
+                reason=(
+                    "these distributions declare a Hop3 plugin under an entry-point "
+                    f"group Hop3 does not read: {', '.join(misnamed)}"
+                ),
+                hint=(
+                    f'declare it under [project.entry-points."{ENTRY_POINT_GROUP}"] '
+                    "in the plugin's pyproject.toml and reinstall it"
+                ),
+            )
+        )
+
+
 #
 # Convenience Helper Functions
 #
+def _plugin_name(cls: type) -> str:
+    return getattr(cls, "name", None) or cls.__name__
+
+
+def _select_named(
+    classes: list[type[T]], name: str, *, what: str, hint: str
+) -> type[T]:
+    """The one class called ``name``, else abort naming the ones loaded."""
+    matches = [cls for cls in classes if getattr(cls, "name", None) == name]
+    if len(matches) != 1:
+        available = ", ".join(_plugin_name(cls) for cls in classes) or "none"
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Plugin manager",
+                action=f"select the {what} '{name}'",
+                reason=(
+                    f"no {what} named '{name}' is loaded (loaded: {available})"
+                    if not matches
+                    else f"{len(matches)} loaded {what}s are named '{name}'"
+                ),
+                hint=hint if not matches else "uninstall the duplicate plugin",
+                troubleshooting=[
+                    "Run 'hop3 system info -v' to see all loaded plugins."
+                ],
+            )
+        )
+    return matches[0]
+
+
+def _configured_name(context: DeploymentContext, section: str, key: str) -> str:
+    """``[section].key`` from the app's hop3.toml, or ``"auto"``."""
+    # Typed `object`: this is unvalidated app_config data, so a malformed
+    # section must stay visible to the isinstance guards below.
+    hop3_config = context.app_config.get("hop3_config", {})
+    config: object = (
+        hop3_config.get(section, {}) if isinstance(hop3_config, dict) else {}
+    )
+    name = config.get(key, "auto") if isinstance(config, dict) else "auto"
+    return name or "auto"
+
+
 def get_builder(context: DeploymentContext) -> Builder:
     """
     Finds and instantiates the appropriate builder.
 
-    This function encapsulates the logic of checking app configuration
-    and then auto-detecting a suitable builder.
-
-    Args:
-        context: DeploymentContext containing app information
-
-    Returns:
-        Builder instance (LocalBuilder, DockerBuilder, etc.)
+    ``[build].builder`` in hop3.toml names it; otherwise every builder is
+    asked whether it builds the app. A builder declaring ``fallback = True``
+    (the local builder: it accepts any source a toolchain recognises) is
+    chosen only when no other builder accepts, since a Dockerfile or a
+    hop3.nix is a deliberate choice of build. Two non-fallback builders
+    accepting is a contradiction the user must resolve.
 
     Raises:
-        RuntimeError: If no suitable builder is found
+        Abort: no builder, or several, accept the app; a builder failed.
     """
     pm = get_plugin_manager()
-
-    # The result is a list of lists, e.g., [[LocalBuilder], [DockerBuilder]]
-    builder_classes_list = pm.hook.get_builders()
-
-    # Flatten the list of lists into a single list of classes
     builder_classes: list[type[Builder]] = [
-        cls for sublist in builder_classes_list for cls in sublist
+        cls for sublist in pm.hook.get_builders() for cls in sublist
     ]
-
-    # Check app_config for explicit builder selection
-    # Users can set [build] builder = "docker" in hop3.toml
-    # The hop3.toml config is nested under "hop3_config" key
-    hop3_config = context.app_config.get("hop3_config", {})
-    # Typed `object`: this is unvalidated app_config data, so a malformed
-    # section must stay visible to the isinstance guards below.
-    build_config: object = (
-        hop3_config.get("build", {}) if isinstance(hop3_config, dict) else {}
-    )
-    if isinstance(build_config, dict):
-        builder_name_from_config = build_config.get("builder", "auto")
-    else:
-        builder_name_from_config = "auto"
-
+    available = [_plugin_name(cls) for cls in builder_classes]
     decision_logger = get_decision_logger()
 
-    # Auto-detect by finding the first one that "accepts" the context.
-    if builder_name_from_config == "auto":
-        rejection_reasons = []
-        available_builders = [
-            getattr(cls, "name", cls.__name__) for cls in builder_classes
-        ]
-        for builder_class in builder_classes:
-            builder_name = getattr(builder_class, "name", builder_class.__name__)
-            try:
-                builder = builder_class(context)
-                if builder.accept():
-                    # Log the auto-detection decision
-                    reason = getattr(
-                        builder, "acceptance_reason", "matched project files"
-                    )
-                    decision_logger.log_builder_decision(
-                        builder_name,
-                        f"auto-detected ({reason})",
-                        explicit=False,
-                        alternatives=available_builders,
-                    )
-                    return builder
-                # Builder didn't accept - record reason if available
-                reason = getattr(builder, "rejection_reason", "no matching files")
-                rejection_reasons.append(f"  - {builder_name}: {reason}")
-            except Abort:
-                # A builder's accept() raising Abort is a deliberate refusal of
-                # a misconfigured app (e.g. NixBuilder rejecting an app that has
-                # both hop3.nix and [nix].template). It is an answer, not a
-                # failed probe: swallowing it into a rejection reason falls
-                # through to the next builder and silently builds the app the
-                # wrong way. Let it reach the operator.
-                raise
-            except Exception as e:
-                rejection_reasons.append(f"  - {builder_name}: error - {e}")
-
-        # Build helpful error message
-        available_builders = [
-            getattr(cls, "name", cls.__name__) for cls in builder_classes
-        ]
-        msg = (
-            "Could not find a suitable builder for this application.\n\n"
-            "This usually means the application type was not recognized.\n"
-            "Make sure you have one of: Procfile, hop3.toml, requirements.txt, "
-            "package.json, Cargo.toml, go.mod, or similar.\n\n"
-            f"Available builders: {', '.join(available_builders)}\n\n"
-            f"Source path: {context.source_path}\n\n"
-            "Builder checks:\n" + "\n".join(rejection_reasons)
+    configured = _configured_name(context, "build", "builder")
+    if configured != "auto":
+        builder_class = _select_named(
+            builder_classes,
+            configured,
+            what="builder",
+            hint=f"set [build].builder to one of: {', '.join(available)}",
         )
-        raise RuntimeError(msg)
+        decision_logger.log_builder_decision(
+            configured, "explicitly set in hop3.toml [build].builder", explicit=True
+        )
+        return builder_class(context)
 
+    accepted: list[Builder] = []
+    rejections: list[str] = []
     for builder_class in builder_classes:
-        # We assume the name is a class attribute
-        if getattr(builder_class, "name", None) == builder_name_from_config:
-            # Log the explicit selection
-            decision_logger.log_builder_decision(
-                builder_name_from_config,
-                "explicitly set in hop3.toml [build].builder",
-                explicit=True,
+        name = _plugin_name(builder_class)
+        try:
+            builder = builder_class(context)
+            accepts = builder.accept()
+        except Abort:
+            # A deliberate refusal of a misconfigured app (e.g. NixBuilder
+            # rejecting both hop3.nix and [nix].template): an answer.
+            raise
+        except Exception as e:
+            # A probe that crashed has not said no: moving on to the next
+            # builder would build the app some other way without a word.
+            raise Abort(
+                format_diagnosis(
+                    Diagnosis(
+                        component="Builder selection",
+                        action=f"ask the '{name}' builder whether it builds "
+                        f"'{context.app_name}'",
+                        reason=f"{type(e).__name__}: {e}",
+                        hint=(
+                            f"this is a bug in the '{name}' builder plugin: report "
+                            "it, or set [build].builder to another builder"
+                        ),
+                    )
+                )
+            ) from e
+        if accepts:
+            accepted.append(builder)
+        else:
+            reason = getattr(builder, "rejection_reason", "declined")
+            rejections.append(f"{name}: {reason}")
+
+    specific = [b for b in accepted if not getattr(b, "fallback", False)]
+    candidates = specific or accepted
+    if not candidates:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Builder selection",
+                action=f"build '{context.app_name}'",
+                reason=f"no builder recognises the source at {context.source_path}",
+                hint=(
+                    "add what one of these builders looks for, or set "
+                    f"[build].builder to one of: {', '.join(available)}"
+                ),
+                troubleshooting=rejections,
             )
-            return builder_class(context)
-    msg = f"Configured builder '{builder_name_from_config}' not found."
-    raise RuntimeError(msg)
+        )
+    if len(candidates) > 1:
+        names = [_plugin_name(type(b)) for b in candidates]
+        reasons = [
+            f"{_plugin_name(type(b))}: "
+            f"{getattr(b, 'acceptance_reason', 'accepts the app')}"
+            for b in candidates
+        ]
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Builder selection",
+                action=f"build '{context.app_name}'",
+                reason=f"several builders accept the app: {', '.join(names)}",
+                hint=f"set [build].builder in hop3.toml to one of: {', '.join(names)}",
+                troubleshooting=reasons,
+            )
+        )
+    builder = candidates[0]
+    reason = getattr(builder, "acceptance_reason", "matched project files")
+    decision_logger.log_builder_decision(
+        _plugin_name(type(builder)),
+        f"auto-detected ({reason})",
+        explicit=False,
+        alternatives=available,
+    )
+    return builder
 
 
 def get_deployer(context: DeploymentContext, artifact: BuildArtifact) -> Deployer:
     """
-    Find and instantiate the appropriate deployer for an artifact.
+    Find and instantiate the deployer for an artifact.
 
-    This function is used during the build-deploy pipeline to auto-select
-    a deployer based on the artifact type.
-
-    Args:
-        context: Deployment context with app information
-        artifact: Build artifact to deploy
-
-    Returns:
-        Deployer instance that accepts the artifact
+    ``[deploy].deployer`` in hop3.toml names it, mirroring ``[build].builder``;
+    otherwise the one deployer accepting the artifact is chosen. Deployers
+    accept disjoint artifact kinds, so two accepting is a conflict between
+    plugins, never an order to resolve silently.
 
     Raises:
-        RuntimeError: If no compatible deployer is found
+        Abort: no deployer, or several, accept the artifact.
     """
     pm = get_plugin_manager()
-
     deployer_classes: list[type[Deployer]] = [
         cls for sublist in pm.hook.get_deployers() for cls in sublist
     ]
-
+    available = [_plugin_name(cls) for cls in deployer_classes]
     decision_logger = get_decision_logger()
 
-    # An app can force a specific deployer via [deploy].deployer, mirroring
-    # [build].builder; otherwise fall through to auto-selection by artifact kind.
-    hop3_config = context.app_config.get("hop3_config", {})
-    deploy_config: object = (
-        hop3_config.get("deploy", {}) if isinstance(hop3_config, dict) else {}
-    )
-    deployer_name = (
-        deploy_config.get("deployer", "auto")
-        if isinstance(deploy_config, dict)
-        else "auto"
-    )
-    if deployer_name and deployer_name != "auto":
-        for deployer_class in deployer_classes:
-            if getattr(deployer_class, "name", None) == deployer_name:
-                decision_logger.log_deployer_decision(
-                    deployer_class.name,
-                    "explicitly set in hop3.toml [deploy].deployer",
-                    artifact_kind=artifact.kind,
-                )
-                return deployer_class(context, artifact)
-        available = [cls.name for cls in deployer_classes]
-        msg = (
-            f"Configured deployer '{deployer_name}' not found. "
-            f"Available deployers: {', '.join(available)}"
+    configured = _configured_name(context, "deploy", "deployer")
+    if configured != "auto":
+        deployer_class = _select_named(
+            deployer_classes,
+            configured,
+            what="deployer",
+            hint=f"set [deploy].deployer to one of: {', '.join(available)}",
         )
-        raise RuntimeError(msg)
+        decision_logger.log_deployer_decision(
+            configured,
+            "explicitly set in hop3.toml [deploy].deployer",
+            artifact_kind=artifact.kind,
+        )
+        return deployer_class(context, artifact)
 
-    for deployer_class in deployer_classes:
-        deployer: Deployer = deployer_class(context, artifact)
-        if deployer.accept():
-            decision_logger.log_deployer_decision(
-                deployer_class.name,  # Required by Deployer protocol
-                f"matched artifact kind '{artifact.kind}'",
-                artifact_kind=artifact.kind,
+    candidates = [
+        deployer
+        for deployer in (cls(context, artifact) for cls in deployer_classes)
+        if deployer.accept()
+    ]
+    if len(candidates) != 1:
+        names = [_plugin_name(type(d)) for d in candidates]
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Deployer selection",
+                action=f"deploy '{context.app_name}'",
+                reason=(
+                    f"no loaded deployer accepts a '{artifact.kind}' artifact "
+                    f"(loaded: {', '.join(available) or 'none'})"
+                    if not candidates
+                    else f"several deployers accept a '{artifact.kind}' "
+                    f"artifact: {', '.join(names)}"
+                ),
+                hint=(
+                    "check that the builder produced the artifact you expect, "
+                    "or install the plugin that deploys it"
+                    if not candidates
+                    else f"set [deploy].deployer in hop3.toml to one of: "
+                    f"{', '.join(names)}"
+                ),
+                troubleshooting=[
+                    "Run 'hop3 system info -v' to see all loaded plugins."
+                ],
             )
-            return deployer
-
-    # No deployer accepted - build error message
-    available = [cls.name for cls in deployer_classes]
-    hints = _build_deployment_hints(artifact.kind, available)
-
-    msg = f"No deployer found for artifact kind '{artifact.kind}'."
-    if hints:
-        msg += "\n\n" + "\n".join(hints)
-    raise RuntimeError(msg)
+        )
+    deployer = candidates[0]
+    decision_logger.log_deployer_decision(
+        deployer.name,
+        f"matched artifact kind '{artifact.kind}'",
+        artifact_kind=artifact.kind,
+    )
+    return deployer
 
 
-def _build_deployment_hints(
-    artifact_kind: str, available_deployers: list[str]
-) -> list[str]:
-    """Build helpful hints when no deployer accepts an artifact."""
-    hints: list[str] = []
-
-    hint_builders = {
-        "docker-image": _hints_for_docker_image,
-        "virtualenv": _hints_for_virtualenv,
-        "static": _hints_for_static,
-    }
-
-    builder = hint_builders.get(artifact_kind)
-    if builder:
-        hints.extend(builder(available_deployers))
-    else:
-        hints.extend(_hints_for_unknown_artifact(artifact_kind))
-
-    if available_deployers:
-        hints.append(f"\nAvailable deployers: {', '.join(available_deployers)}")
-        hints.append("Run 'hop3 system info -v' to see all loaded plugins.")
-
-    return hints
-
-
-def _hints_for_docker_image(available_deployers: list[str]) -> list[str]:
-    """Build hints for docker-image artifact kind."""
-    if not available_deployers:
-        return ["No deployers are loaded. Check your hop3-server installation."]
-    if "docker-compose" not in available_deployers:
-        return [
-            "The Docker Compose deployer is not loaded.",
-            "Run 'hop3 system info -v' to see loaded plugins.",
-        ]
-    return [
-        "The Docker Compose deployer is available but did not accept.",
-        "This may indicate an internal error. Please report this issue.",
-    ]
-
-
-def _hints_for_virtualenv(available_deployers: list[str]) -> list[str]:
-    """Build hints for virtualenv artifact kind."""
-    if "uwsgi" not in available_deployers:
-        return [
-            "The uWSGI deployer is not loaded.",
-            "Run 'hop3 system info -v' to see loaded plugins.",
-        ]
-    return [
-        "The uWSGI deployer is available but did not accept.",
-        "Check your app configuration:",
-        "  - Ensure you have a Procfile or hop3.toml with a web worker",
-        "  - Example Procfile: web: gunicorn app:app",
-    ]
-
-
-def _hints_for_static(available_deployers: list[str]) -> list[str]:
-    """Build hints for static artifact kind."""
-    if "static" not in available_deployers:
-        return ["The Static deployer is not loaded."]
-    return ["The Static deployer is available but did not accept."]
-
-
-def _hints_for_unknown_artifact(artifact_kind: str) -> list[str]:
-    """Build hints for unknown artifact kinds."""
-    return [
-        f"Artifact kind '{artifact_kind}' is not recognized by any deployer.",
-        "Check your app configuration:",
-        "  - Verify hop3.toml [build] section if present",
-        "  - Ensure the build process completed successfully",
-    ]
-
-
-def get_deployer_by_name(app: App, runtime_name: str) -> Deployer:
+def get_probe_deployer(app: App, runtime_name: str) -> Deployer:
     """
-    Get a deployer by name for lifecycle operations.
+    The deployer named ``runtime_name``, to probe whether the app is running.
 
-    This function is used for lifecycle management (start, stop, restart, status)
-    where we need to look up a deployer by name rather than auto-detecting.
-
-    Args:
-        app: App instance (for creating deployment context)
-        runtime_name: Name of the deployer (e.g., 'uwsgi', 'docker-compose')
-
-    Returns:
-        Deployer instance for the named runtime
+    It gets the last deploy's saved artifact and no app config:
+    ``check_status`` reads process state only. Parsing hop3.toml here made a
+    syntax error in a running app's hop3.toml break ``hop3 app status`` and
+    the state sync, and re-parsed every app's config on each sync cycle.
 
     Raises:
-        RuntimeError: If the deployer name is not found
-
-    Example:
-        >>> deployer = get_deployer_by_name(app, 'uwsgi')
-        >>> is_running = deployer.check_status()
+        RuntimeError: no deployer has that name, or the app's build artifact
+            is unreadable.
+        NeverBuiltError: the app has no build artifact.
     """
     pm = get_plugin_manager()
-
     deployer_classes: list[type[Deployer]] = [
         cls for sublist in pm.hook.get_deployers() for cls in sublist
     ]
+    deployer_class = next(
+        (cls for cls in deployer_classes if _plugin_name(cls) == runtime_name), None
+    )
+    if deployer_class is None:
+        available = [_plugin_name(cls) for cls in deployer_classes]
+        msg = f"Deployer '{runtime_name}' not found. Available: {available}"
+        raise RuntimeError(msg)
 
-    # Find deployer by name
-    for deployer_class in deployer_classes:
-        if deployer_class.name == runtime_name:
-            # Create deployment context for lifecycle operations
-            context = DeploymentContext(
-                app_name=app.name,
-                source_path=app.src_path,
-                app_config={},
-                app=app,
-            )
-            # Create dummy artifact (not needed for lifecycle ops)
-            artifact = BuildArtifact(
-                kind="unknown",
-                location=str(app.virtualenv_path)
-                if hasattr(app, "virtualenv_path")
-                else "",
-            )
-            return deployer_class(context, artifact)
-
-    # Provide helpful error message with available deployers
-    available = [cls.name for cls in deployer_classes]
-    msg = f"Deployer '{runtime_name}' not found. Available: {available}"
-    raise RuntimeError(msg)
+    artifact_path = app.app_path / ARTIFACT_FILENAME
+    if not artifact_path.exists():
+        msg = f"App '{app.name}' was never built: {artifact_path} does not exist."
+        raise NeverBuiltError(msg)
+    artifact = BuildArtifact.load(artifact_path)
+    if artifact is None:
+        msg = (
+            f"App '{app.name}' has an unreadable build artifact at "
+            f"{artifact_path}. Redeploy the app to rebuild it."
+        )
+        raise RuntimeError(msg)
+    context = DeploymentContext(
+        app_name=app.name,
+        source_path=app.src_path,
+        app_config={},
+        app=app,
+    )
+    return deployer_class(context, artifact)
 
 
 def get_addon(addon_type: str, addon_name: str) -> Addon:
@@ -529,37 +500,40 @@ def get_waf_engine(name: str = "lewaf") -> WafEngine:
 
 def get_os_strategy() -> OS:
     """
-    Auto-detect and return the appropriate OS setup strategy for the current system.
+    The OS setup strategy for the current system.
 
-    This queries all registered OS strategies via the plugin system and asks each
-    one if it matches the current operating system (via the detect() method).
-
-    Returns:
-        An instance of the OS setup strategy that matches the current OS
+    Every registered strategy's ``detect()`` is asked; exactly one must claim
+    the host. Two claiming it is a plugin conflict, not an order to resolve.
 
     Raises:
-        RuntimeError: If no matching OS strategy is found
+        Abort: no strategy, or several, detect the current OS.
     """
-
     pm = get_plugin_manager()
-
-    strategy_classes_list = pm.hook.get_os_implementations()
     strategy_classes: list[type[OS]] = [
-        cls for sublist in strategy_classes_list for cls in sublist
+        cls for sublist in pm.hook.get_os_implementations() for cls in sublist
     ]
-
-    # Try each strategy's detect() method
-    for strategy_class in strategy_classes:
-        strategy = strategy_class()
-        if strategy.detect():
-            return strategy
-
-    available_oses = [getattr(cls, "display_name", "?") for cls in strategy_classes]
-    msg = (
-        f"Could not detect a supported operating system. "
-        f"Available OS strategies: {available_oses}"
-    )
-    raise RuntimeError(msg)
+    detected = [s for s in (cls() for cls in strategy_classes) if s.detect()]
+    if len(detected) != 1:
+        available = [getattr(cls, "display_name", "?") for cls in strategy_classes]
+        abort_with_diagnosis(
+            Diagnosis(
+                component="OS setup",
+                action="detect the operating system",
+                reason=(
+                    f"no OS strategy recognises this host (supported: {available})"
+                    if not detected
+                    else "several OS strategies claim this host: "
+                    + ", ".join(_plugin_name(type(s)) for s in detected)
+                ),
+                hint=(
+                    "run Hop3 on a supported distribution"
+                    if not detected
+                    else "uninstall the OS plugin that should not match this host"
+                ),
+                troubleshooting=["cat /etc/os-release"],
+            )
+        )
+    return detected[0]
 
 
 def list_supported_os() -> list[str]:
@@ -587,7 +561,7 @@ def get_proxy_strategy(app: App, env: Env, workers: dict[str, str]) -> Proxy:
         workers: Dictionary mapping worker names to their socket paths
 
     Raises:
-        RuntimeError: If the configured proxy type is not found
+        Abort: no proxy, or several, carry the configured name.
     """
     return get_proxy_class()(app, env, workers)
 
@@ -601,36 +575,19 @@ def get_proxy_class() -> type[Proxy]:
     class what it can do before it builds anything.
 
     Raises:
-        RuntimeError: If the configured proxy type is not found
+        Abort: no proxy, or several, carry the configured name.
     """
     # Import here to avoid circular dependency
     from hop3.config import HOP3_PROXY_TYPE  # ruff:ignore[import-outside-top-level]
 
     pm = get_plugin_manager()
-
-    strategy_classes_list = pm.hook.get_proxies()
     strategy_classes: list[type[Proxy]] = [
-        cls for sublist in strategy_classes_list for cls in sublist
+        cls for sublist in pm.hook.get_proxies() for cls in sublist
     ]
-
-    # Get the configured proxy type (server-wide setting)
-    proxy_type = HOP3_PROXY_TYPE.lower()
-
-    # Find the matching proxy strategy
-    for strategy_class in strategy_classes:
-        # The proxy plugin has a name like "nginx", "caddy", "traefik"
-        # We need to check the class name or look for a name attribute
-        class_name = strategy_class.__name__.lower()
-        if (
-            proxy_type in class_name
-            or getattr(strategy_class, "name", None) == proxy_type
-        ):
-            return strategy_class
-
-    available_proxies = [cls.__name__ for cls in strategy_classes]
-    msg = (
-        f"Configured proxy type '{HOP3_PROXY_TYPE}' not found. "
-        f"Available proxies: {available_proxies}. "
-        f"Set HOP3_PROXY_TYPE environment variable to one of: nginx, caddy, traefik"
+    names = ", ".join(_plugin_name(cls) for cls in strategy_classes)
+    return _select_named(
+        strategy_classes,
+        HOP3_PROXY_TYPE.lower(),
+        what="proxy",
+        hint=f"set HOP3_PROXY_TYPE in the server configuration to one of: {names}",
     )
-    raise RuntimeError(msg)

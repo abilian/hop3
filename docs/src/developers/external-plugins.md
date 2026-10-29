@@ -487,8 +487,8 @@ If Hop3 deprecates an API you use:
 Example:
 
 ```python
-from hop3.core.plugins import get_deployer_by_name
-strategy = get_deployer_by_name(app, app.runtime)
+from hop3.core.plugins import get_probe_deployer
+strategy = get_probe_deployer(app, app.runtime)
 ```
 
 ### Security Updates

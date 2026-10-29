@@ -15,7 +15,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
-from hop3.config import NGINX_ROOT
+from hop3 import config as c
 from hop3.platform.certificates import (
     Certificate,
     CertificatesManager,
@@ -53,8 +53,8 @@ def app_cert_domain(app: App) -> str | None:
 def install_cert_to_nginx(app_name: str, domain_name: str) -> None:
     """Copy a freshly issued cert into the proxy's per-app files."""
     cert = Certificate(domain_name=domain_name)
-    (NGINX_ROOT / f"{app_name}.crt").write_text(cert.get_crt())
-    write_private_key(NGINX_ROOT / f"{app_name}.key", cert.get_key())
+    (c.NGINX_ROOT / f"{app_name}.crt").write_text(cert.get_crt())
+    write_private_key(c.NGINX_ROOT / f"{app_name}.key", cert.get_key())
 
 
 def renew_due_certs(
