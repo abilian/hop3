@@ -866,8 +866,10 @@ class DeploymentSession:
                 )
                 # Both streams: the CLI printed "No credential for ..." on
                 # stdout, and stderr alone said "Unknown error".
+                # Whole: a teardown's leftovers are listed one per line, and a
+                # cut list hides the ones that block the next deploy.
                 output = (result.stderr + result.stdout).strip()
-                error_msg = output[:300] or "the CLI printed nothing"
+                error_msg = output or "the CLI printed nothing"
                 self.deployed = False
                 raise CleanupError(
                     f"Failed to destroy app '{self.app_name}': {error_msg}"
@@ -910,5 +912,13 @@ class DeploymentSession:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager exit with cleanup."""
-        self.cleanup()
+        """
+        Tear the app down; a teardown that left anything fails the block.
+
+        With no error in flight it raises ``CleanupError``. With one, the
+        block has failed already and the original error stays the one raised;
+        ``cleanup()`` has printed the teardown's problem beside it.
+        """
+        problem = self.cleanup()
+        if problem is not None and exc_val is None:
+            raise CleanupError(problem)

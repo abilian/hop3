@@ -14,8 +14,11 @@ from __future__ import annotations
 from typing import Any, cast
 from unittest.mock import MagicMock, patch
 
+import pytest
 from hop3_testing.apps.deployment import DeploymentSession
 from hop3_testing.exceptions import CleanupError
+from hop3_testing.runners.base import TestResult
+from hop3_testing.runners.deployment import DeploymentTestRunner
 
 
 def _session(*, deployed: bool) -> DeploymentSession:
@@ -53,3 +56,51 @@ def test_a_failed_destroy_is_reported_and_returned_not_raised():
     assert "boom" in problem
     cast("Any", s.console.error).assert_called_once()
     cast("Any", s._preparation.cleanup).assert_called_once()  # temp dir still cleaned
+
+
+def test_a_failed_teardown_fails_the_with_block():
+    """`with DeploymentSession(...)` must not pass while destroy left files."""
+    s = _session(deployed=True)
+    with (
+        patch.object(
+            DeploymentSession, "_destroy_app", side_effect=CleanupError("leftover")
+        ),
+        pytest.raises(CleanupError, match="leftover"),
+        s,
+    ):
+        pass
+
+
+def test_a_failed_teardown_does_not_replace_the_blocks_own_error():
+    s = _session(deployed=True)
+    with (
+        patch.object(
+            DeploymentSession, "_destroy_app", side_effect=CleanupError("leftover")
+        ),
+        pytest.raises(AssertionError, match="the real failure"),
+        s,
+    ):
+        msg = "the real failure"
+        raise AssertionError(msg)
+
+
+def _runner() -> DeploymentTestRunner:
+    return DeploymentTestRunner(target=MagicMock(), console=MagicMock())
+
+
+def _passed() -> TestResult:
+    return TestResult(test=MagicMock(), passed=True)
+
+
+def test_a_passing_test_whose_teardown_left_files_fails():
+    session = MagicMock(cleanup=MagicMock(return_value="Permission denied"))
+    result = _runner()._torn_down(_passed(), MagicMock(), session)
+    assert not result.passed
+    assert result.error == "Permission denied"
+
+
+def test_a_clean_teardown_keeps_the_result():
+    session = MagicMock(cleanup=MagicMock(return_value=None))
+    result = _runner()._torn_down(_passed(), MagicMock(), session)
+    assert result.passed
+    assert result.error is None

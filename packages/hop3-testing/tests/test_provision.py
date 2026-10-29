@@ -98,6 +98,9 @@ def test_run_provider_provisions_then_targets_the_new_ip(monkeypatch):
         lambda **_kw: "203.0.113.99",
     )
     monkeypatch.setattr(testmod, "_resolve_tests", lambda *a, **k: [_fake_test()])
+    # The plan's "N of M tests" scans the default paths, which the suites keep
+    # empty (no sibling catalog): stub it with the selection's own size.
+    monkeypatch.setattr(testmod, "_scan_count", lambda *a, **k: 1)
 
     captured: dict = {}
 

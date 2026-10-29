@@ -9,7 +9,7 @@ from __future__ import annotations
 import json
 import time
 import traceback
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from typing import TYPE_CHECKING, Any
 
 from hop3_testing.apps.catalog import AppSource
@@ -933,15 +933,18 @@ class DeploymentTestRunner:
                     validation_type="expects_failure",
                 )
             )
-            self._safe_cleanup(test, session)
-            return TestResult(
-                test=test,
-                passed=True,
-                error=deploy_error,
-                validation_results=validation_results,
-                deploy_logs=deploy_logs,
-                total_duration=time.time() - start_time,
-                deployed_app_name=session.app_name,
+            return self._torn_down(
+                TestResult(
+                    test=test,
+                    passed=True,
+                    error=deploy_error,
+                    validation_results=validation_results,
+                    deploy_logs=deploy_logs,
+                    total_duration=time.time() - start_time,
+                    deployed_app_name=session.app_name,
+                ),
+                test,
+                session,
             )
 
         # Unexpected success: the deploy went through on an app that
@@ -954,17 +957,20 @@ class DeploymentTestRunner:
         )
         runtime_logs = _collect_runtime_logs(self.target, session.app_name)
         bundle = self._collect_bundle(session, deploy_logs, err)
-        self._safe_cleanup(test, session)
-        return TestResult(
-            test=test,
-            passed=False,
-            validation_results=validation_results,
-            deploy_logs=deploy_logs,
-            total_duration=time.time() - start_time,
-            error=err,
-            deployed_app_name=session.app_name,
-            runtime_logs=runtime_logs,
-            bundle=bundle,
+        return self._torn_down(
+            TestResult(
+                test=test,
+                passed=False,
+                validation_results=validation_results,
+                deploy_logs=deploy_logs,
+                total_duration=time.time() - start_time,
+                error=err,
+                deployed_app_name=session.app_name,
+                runtime_logs=runtime_logs,
+                bundle=bundle,
+            ),
+            test,
+            session,
         )
 
     def _collect_bundle(
@@ -989,7 +995,7 @@ class DeploymentTestRunner:
             failure=failure,
         )
         # Point the developer at the durable copy NOW, at the failure. The app
-        # is torn down next (_safe_cleanup), so the deploy transcript's own
+        # is torn down next (_torn_down), so the deploy transcript's own
         # `hop3 app logs --app <app> --build` pointer is already dead here. The
         # bundle holds every section (build, deploy, journal, nginx, …).
         # Use warning: info is verbose-only, so on a normal run the one
@@ -1003,28 +1009,29 @@ class DeploymentTestRunner:
             self.console.warning(f"Full logs recorded → {bundle.why}")
         return bundle
 
-    def _safe_cleanup(self, test: TestDefinition, session: DeploymentSession) -> None:
+    def _torn_down(
+        self, result: TestResult, test: TestDefinition, session: DeploymentSession
+    ) -> TestResult:
         """
-        Run cleanup but swallow any error.
+        Tear the app down, and fail ``result`` if the teardown left anything.
 
-        A failed cleanup is interesting for debugging but must NOT
-        flip a computed test result. The main run() path already
-        behaves this way by placing cleanup outside its try/except;
-        this helper extends the same contract to the expects_failure
-        branch.
+        A leftover (a file destroy could not remove, a container, an addon
+        slot) blocks the next deploy of the name and turns a later, unrelated
+        test red: the platform's destroy failed, so this test fails, with the
+        teardown's own words after any earlier error. Never raises, so a run
+        goes on to the next test.
         """
         if not self.cleanup:
-            return
+            return result
         self.console.info(f"Cleaning up {test.name}...")
         try:
-            session.cleanup()
+            problem = session.cleanup()
         except Exception as exc:
-            # Surfaced (not swallowed): a failed cleanup leaks resources and
-            # is the leading cause of later cascade failures, so make it visible.
-            self.console.warning(
-                f"Cleanup FAILED for {test.name} — resources may leak "
-                f"(addons/disk): {exc}"
-            )
+            problem = f"cleanup of {test.name} raised: {exc}"
+        if problem is None:
+            return result
+        error = f"{result.error}; teardown: {problem}" if result.error else problem
+        return replace(result, passed=False, error=error)
 
     def _validate_app_path(
         self, test: TestDefinition, start_time: float
@@ -1103,8 +1110,7 @@ class DeploymentTestRunner:
                 bundle=self._collect_bundle(session, deploy_logs, err),
                 screenshots=self._failed_test_screenshots(test, None),
             )
-            self._safe_cleanup(test, session)
-            return result
+            return self._torn_down(result, test, session)
 
         try:
             deploy_logs, error, infra_failed = self._run_deploy_and_verify(
@@ -1174,22 +1180,24 @@ class DeploymentTestRunner:
             bundle = self._collect_bundle(session, deploy_logs, failure)
 
         # Cleanup AFTER collecting diagnostics so the app dir and docker
-        # containers are still around. Routed through _safe_cleanup so a
-        # cleanup failure is surfaced (not silent) and never crashes the run.
-        self._safe_cleanup(test, session)
-
-        return TestResult(
-            test=test,
-            passed=passed,
-            validation_results=validation_results,
-            deploy_logs=deploy_logs,
-            total_duration=time.time() - start_time,
-            error=error,
-            deployed_app_name=session.app_name,
-            runtime_logs=runtime_logs,
-            bundle=bundle,
-            unverified=unverified,
-            screenshots=shots,
+        # containers are still around. A teardown that left anything fails
+        # the test; it never crashes the run.
+        return self._torn_down(
+            TestResult(
+                test=test,
+                passed=passed,
+                validation_results=validation_results,
+                deploy_logs=deploy_logs,
+                total_duration=time.time() - start_time,
+                error=error,
+                deployed_app_name=session.app_name,
+                runtime_logs=runtime_logs,
+                bundle=bundle,
+                unverified=unverified,
+                screenshots=shots,
+            ),
+            test,
+            session,
         )
 
     def _create_app_source(self, test: TestDefinition) -> AppSource:
