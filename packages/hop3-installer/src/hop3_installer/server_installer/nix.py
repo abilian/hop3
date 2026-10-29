@@ -25,15 +25,17 @@ from typing import NoReturn
 
 from hop3_installer.common import (
     CommandError,
+    Runner,
     Spinner,
     cmd_exists,
+    control_service,
     has_systemd,
     print_detail,
     print_info,
     print_success,
     run_cmd,
 )
-from hop3_installer.constants import HOME_DIR
+from hop3_installer.constants import HOME_DIR, HOP3_USER
 
 from .user import run_as_hop3, run_as_hop3_shell
 
@@ -59,22 +61,30 @@ def install_nix() -> None:
     """
     print_info("Installing Nix package manager...")
 
-    # Check if Nix is already installed
+    use_daemon_mode = _has_systemd()
     if _is_nix_installed():
         print_success("Nix already installed")
-        if not _verify_nix_installation():
-            _fail("Nix is installed but the hop3 user cannot run it")
-        return
+    else:
+        _run_official_installer(daemon_mode=use_daemon_mode)
 
+    # On every install, not only the first: see _configure_hop3_nix_access.
+    _configure_hop3_nix_access(daemon_mode=use_daemon_mode)
+
+    if not _verify_nix_installation():
+        _fail("Nix is installed but the hop3 user cannot run `nix --version`")
+    mode_str = "multi-user" if use_daemon_mode else "single-user"
+    print_success(f"Nix package manager ready ({mode_str} mode)")
+
+
+def _run_official_installer(*, daemon_mode: bool) -> None:
+    """Download and run the official Nix installer; raise if either fails."""
     if not cmd_exists("xz"):
         _fail(
             "the Nix installer needs `xz`; the Nix prerequisite packages were "
             "not installed"
         )
 
-    # Determine installation mode
-    use_daemon_mode = _has_systemd()
-    if use_daemon_mode:
+    if daemon_mode:
         print_detail("Using multi-user (daemon) mode")
     else:
         print_detail("Using single-user mode (no systemd)")
@@ -85,17 +95,8 @@ def install_nix() -> None:
         _fail(f"could not download the Nix installer from {NIX_INSTALLER_URL}")
 
     # Run installer
-    if not _run_nix_installer(installer_path, daemon_mode=use_daemon_mode):
+    if not _run_nix_installer(installer_path, daemon_mode=daemon_mode):
         _fail("the Nix installer exited with an error (its output is above)")
-
-    # Configure hop3 user access
-    _configure_hop3_nix_access(daemon_mode=use_daemon_mode)
-
-    # Verify installation
-    if not _verify_nix_installation():
-        _fail("Nix installed but the hop3 user cannot run `nix --version`")
-    mode_str = "multi-user" if use_daemon_mode else "single-user"
-    print_success(f"Nix package manager installed ({mode_str} mode)")
 
 
 @dataclass
@@ -253,115 +254,91 @@ def _run_nix_installer(installer_path: Path, *, daemon_mode: bool) -> bool:
     return True
 
 
-def _write_nix_conf_setting(path: Path, *, as_hop3: bool) -> None:
+#: Settings Hop3 requires in nix.conf, rewritten on every install:
+#:  * sandbox = relaxed: allow __noChroot builds (apps that run
+#:    npm/pip/composer install during the build phase). The nix 2.x default,
+#:    `sandbox = true`, rejects those derivations outright.
+#:  * min-free = 0: pin auto-GC OFF. A disk-pressure garbage collect must
+#:    never reclaim a *running* app's nix closure mid-deploy: forgejo's
+#:    wrapper execs a hardcoded ${forgejo}/bin path, and a GC firing during a
+#:    rebuild would delete it, killing the daemon with "No such file or
+#:    directory". The builder holds per-app GC roots; this removes the trigger.
+NIX_SETTINGS = {"sandbox": "relaxed", "min-free": "0"}
+NIX_CONF_HEADER = "# Hop3 nix settings (see server_installer/nix.py)"
+ETC_NIX_CONF = Path("/etc/nix/nix.conf")
+
+
+def reconciled_nix_conf(existing: str) -> str:
     """
-    Write Hop3's required settings (``sandbox = relaxed``, ``min-free = 0``)
-    to a nix.conf, creating it if needed.
-
-    Args:
-        path: Target nix.conf path.
-        as_hop3: If True, the parent dir and file are created/owned
-            by the hop3 user (single-user install). Otherwise as root.
+    ``existing`` with Hop3's settings block at the end, and no other line
+    setting one of its keys (nix lets the last assignment win, but a reader
+    should not have to know that).
     """
-    # Two settings Hop3 requires in nix.conf:
-    #  * sandbox = relaxed — allow __noChroot builds (apps that run
-    #    npm/pip/composer install during the build phase).
-    #  * min-free = 0 — pin auto-GC OFF. A disk-pressure garbage collect must
-    #    never reclaim a *running* app's nix closure mid-deploy: forgejo's
-    #    wrapper execs a hardcoded ${forgejo}/bin path, and a GC firing during a
-    #    rebuild would delete it → the daemon dies "No such file or directory".
-    #    The builder holds per-app GC roots; this removes the external trigger.
-    settings = "sandbox = relaxed\nmin-free = 0"
-    header = "# Hop3 nix settings (see server_installer/nix.py)"
-    # Idempotency keys on the NEWEST setting so an upgrade from a nix.conf that
-    # only had `sandbox = relaxed` still appends `min-free = 0`.
-    marker = "min-free = 0"
-
-    if as_hop3:
-        # Single-user: ~/.config/nix/nix.conf must be created by hop3
-        # so it can read it later. Avoid quoting hell by writing the
-        # file as root and then chown'ing to hop3 — the file lives
-        # under the hop3 home so this is safe.
-        run_as_hop3(["mkdir", "-p", str(path.parent)])
-        existing = (
-            run_as_hop3_shell(
-                f"cat {shlex.quote(str(path))} 2>/dev/null || true"
-            ).stdout
-            or ""
-        )
-        if marker in existing:
-            print_detail(f"Nix settings already present in {path}")
-            return
-        with path.open("a") as f:
-            f.write(f"\n{header}\n{settings}\n")
-        run_cmd(["chown", "hop3:hop3", str(path)], check=False)
-        print_detail(f"Wrote nix settings to {path}")
-        return
-
-    # Daemon mode: write as root.
-    path.parent.mkdir(parents=True, exist_ok=True)
-    existing = path.read_text() if path.exists() else ""
-    if marker in existing:
-        print_detail(f"Nix settings already present in {path}")
-        return
-    with path.open("a") as f:
-        f.write(f"\n{header}\n{settings}\n")
-    print_detail(f"Wrote nix settings to {path}")
+    kept = [
+        line
+        for line in existing.splitlines()
+        if line.strip() != NIX_CONF_HEADER
+        and line.split("=", 1)[0].strip() not in NIX_SETTINGS
+    ]
+    while kept and not kept[-1].strip():
+        kept.pop()
+    block = [NIX_CONF_HEADER, *(f"{k} = {v}" for k, v in NIX_SETTINGS.items())]
+    return "\n".join([*kept, "", *block] if kept else block) + "\n"
 
 
-def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
+def _configure_hop3_nix_access(
+    *,
+    daemon_mode: bool,
+    home: Path = HOME_DIR,
+    etc_conf: Path = ETC_NIX_CONF,
+    run: Runner = run_cmd,
+    as_hop3_shell: Runner = run_as_hop3_shell,
+    systemd: bool | None = None,
+) -> None:
     """
-    Configure hop3 user to use Nix.
+    Point the hop3 user at Nix and bring nix.conf to Hop3's settings.
 
-    Adds the appropriate profile script to hop3's .bashrc.
+    Every step runs on every install, so a redeploy reconciles what a fresh
+    install writes: the ``.bashrc`` profile line, nix.conf, and a daemon
+    restart so the daemon reads it. An early return on "already in .bashrc"
+    used to skip the rest, and a server kept whatever nix.conf it first got.
 
-    Args:
-        daemon_mode: Whether daemon mode was used for installation.
+    Daemon mode reads /etc/nix/nix.conf; single-user mode reads
+    ~/.config/nix/nix.conf for the user that runs nix-build (hop3).
+
+    Everything under hop3's home is read and written *as hop3*: an app runs
+    as hop3 and can plant a symlink there (``~/.config/nix/nix.conf`` ->
+    ``/etc/passwd``), which root would follow on the next redeploy.
     """
-    bashrc_path = HOME_DIR / ".bashrc"
+    profile_script = NIX_DAEMON_PROFILE if daemon_mode else NIX_SINGLE_USER_PROFILE
+    _ensure_bashrc_sources(home / ".bashrc", profile_script, as_hop3_shell)
 
-    # Choose the appropriate profile script
     if daemon_mode:
-        profile_script = NIX_DAEMON_PROFILE
+        etc_conf.parent.mkdir(parents=True, exist_ok=True)
+        _reconcile_nix_conf_file(etc_conf)
+        # The daemon reads nix.conf at start: a failed restart leaves the
+        # sandbox setting unapplied and every __noChroot build failing later.
+        control_service("enable", "nix-daemon", run=run, systemd=systemd)
+        control_service("restart", "nix-daemon", run=run, systemd=systemd)
     else:
-        profile_script = NIX_SINGLE_USER_PROFILE
-
-    # Source line to add to .bashrc
-    source_line = f'[ -e "{profile_script}" ] && . "{profile_script}"'
-
-    # Check if already configured
-    if bashrc_path.exists():
-        content = bashrc_path.read_text()
-        if str(profile_script) in content:
-            print_detail("Nix already configured in hop3 .bashrc")
-            return
-
-    # Append source line to .bashrc
-    print_detail(f"Adding Nix profile ({profile_script}) to hop3 .bashrc")
-    with bashrc_path.open("a") as f:
-        f.write(f"\n# Nix package manager\n{source_line}\n")
-
-    # Configure Nix to allow __noChroot builds (needed for apps that
-    # run npm/pip/composer install during the build phase).
-    #
-    # Daemon mode reads /etc/nix/nix.conf; single-user mode reads
-    # ~/.config/nix/nix.conf for the user that runs nix-build (hop3).
-    # Both need `sandbox = relaxed` (or `false`) for __noChroot to
-    # take effect — the default in nix 2.x is `sandbox = true`, which
-    # rejects __noChroot derivations outright.
-    if daemon_mode:
-        _write_nix_conf_setting(Path("/etc/nix/nix.conf"), as_hop3=False)
-        with contextlib.suppress(Exception):
-            run_cmd(["systemctl", "restart", "nix-daemon"])
-    else:
-        _write_nix_conf_setting(HOME_DIR / ".config" / "nix" / "nix.conf", as_hop3=True)
+        user_conf = home / ".config" / "nix" / "nix.conf"
+        existing = _read_as_hop3(user_conf, as_hop3_shell)
+        wanted = reconciled_nix_conf(existing)
+        if wanted == existing:
+            print_detail(f"Nix settings up to date in {user_conf}")
+        else:
+            as_hop3_shell(
+                f"mkdir -p -- {shlex.quote(str(user_conf.parent))}", check=True
+            )
+            _write_as_hop3(user_conf, wanted, as_hop3_shell)
+            print_detail(f"Wrote nix settings to {user_conf}")
 
     # Belt-and-suspenders with min-free=0: also stop any periodic GC timer a
     # host/channel image may ship, so a scheduled `nix-collect-garbage` can't
-    # reclaim a running app's closure between deploys. Best-effort — absent on
-    # most hosts (hence check=False + suppress).
+    # reclaim a running app's closure between deploys. Absent on most hosts,
+    # hence check=False.
     with contextlib.suppress(Exception):
-        run_cmd(["systemctl", "disable", "--now", "nix-gc.timer"], check=False)
+        run(["systemctl", "disable", "--now", "nix-gc.timer"], check=False)
 
     # No nixpkgs channel is configured. Every Hop3 build expression pins its own
     # nixpkgs via `import (fetchTarball { url; sha256; })` at a specific nixos-24.11
@@ -371,6 +348,48 @@ def _configure_hop3_nix_access(*, daemon_mode: bool) -> None:
     # cache-miss / slow-build risk the channel used to guard against is gone.
 
 
+def _ensure_bashrc_sources(bashrc: Path, profile_script: Path, shell: Runner) -> None:
+    """Append the line sourcing ``profile_script`` to hop3's ``bashrc`` if absent."""
+    existing = _read_as_hop3(bashrc, shell)
+    if str(profile_script) in existing:
+        return
+    print_detail(f"Adding Nix profile ({profile_script}) to {bashrc}")
+    source_line = f'[ -e "{profile_script}" ] && . "{profile_script}"'
+    _write_as_hop3(bashrc, f"{existing}\n# Nix package manager\n{source_line}\n", shell)
+
+
+#: Exit status of `_read_as_hop3`'s script when the file does not exist.
+_ABSENT = 3
+
+
+def _read_as_hop3(path: Path, shell: Runner) -> str:
+    """The text of a file under hop3's home, read as hop3; ``""`` if absent."""
+    quoted = shlex.quote(str(path))
+    result = shell(f"test -e {quoted} || exit {_ABSENT}; cat -- {quoted}")
+    if result.returncode == _ABSENT:
+        return ""
+    if result.returncode != 0:
+        _fail(f"cannot read {path} as {HOP3_USER}: {result.stderr.strip()}")
+    return result.stdout
+
+
+def _write_as_hop3(path: Path, content: str, shell: Runner) -> None:
+    """Replace a file under hop3's home with ``content``, written as hop3."""
+    shell(f"cat > {shlex.quote(str(path))}", check=True, stdin_text=content)
+
+
+def _reconcile_nix_conf_file(path: Path) -> bool:
+    """Write Hop3's settings into the nix.conf at ``path``; True if it changed."""
+    existing = path.read_text() if path.exists() else ""
+    wanted = reconciled_nix_conf(existing)
+    if wanted == existing:
+        print_detail(f"Nix settings up to date in {path}")
+        return False
+    path.write_text(wanted)
+    print_detail(f"Wrote nix settings to {path}")
+    return True
+
+
 def _verify_nix_installation() -> bool:
     """
     Verify Nix installation works for hop3 user.
@@ -378,11 +397,8 @@ def _verify_nix_installation() -> bool:
     Returns:
         True if verification passed.
     """
-    # For daemon mode, try to start the service
-    if _has_systemd():
-        run_cmd(["systemctl", "enable", "nix-daemon"], check=False)
-        run_cmd(["systemctl", "start", "nix-daemon"], check=False)
-
+    # The daemon is enabled and restarted by _configure_hop3_nix_access; this
+    # only checks the result.
     # Try to find and source the profile script
     # Check both possible locations
     for profile_script in [NIX_DAEMON_PROFILE, NIX_SINGLE_USER_PROFILE]:

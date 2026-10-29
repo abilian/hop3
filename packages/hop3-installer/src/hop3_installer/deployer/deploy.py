@@ -52,6 +52,14 @@ _HEALTH_PROBE_TIMEOUT_S = 3
 #: be left at the old version beside a new server, and a botched upload once
 #: reinstalled the old server under a green message.
 _VERSIONED_PACKAGES = ("hop3-server", "hop3-rootd", "hop3-cli")
+
+#: Run by the server venv's python on the target: the verified nginx reload.
+_ROOTD_NGINX_RELOAD = (
+    "from hop3.lib.rootd import LocalRootdClient\n"
+    "with LocalRootdClient() as client:\n"
+    "    client.call('nginx.reload', {})\n"
+)
+
 _VERSION_PROBE = (
     "import importlib.metadata as m\n"
     "for p in ('hop3_server', 'hop3_rootd', 'hop3_cli'):\n"
@@ -540,60 +548,50 @@ class Deployer:
             args += " --pre"
         return args
 
-    def _ensure_python310_plus(self) -> str:
+    def _ensure_python310_plus(self) -> str | None:
         """
-        Ensure Python 3.10+ is available on the remote system.
+        The Python 3.10+ command to run the installer with; None (loud) if none.
 
         RHEL 9 clones (Rocky, AlmaLinux) ship with Python 3.9 by default,
         but Python 3.11/3.12 are available in the appstream repository.
-
-        Returns:
-            The python command to use (e.g., "python3" or "python3.11")
         """
-        # Check current Python version
         result = self.backend.run(
-            "python3 -c \"import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}')\"",
+            "python3 -c 'import sys; sys.exit(sys.version_info < (3, 10))'",
             check=False,
         )
+        if result.success:
+            return "python3"
 
-        if result.returncode == 0:
-            version = result.stdout.strip()
-            major, minor = map(int, version.split(".")[:2])
-            if major >= 3 and minor >= 10:
-                return "python3"
+        for candidate in ("python3.12", "python3.11"):
+            if self.backend.run(f"command -v {candidate}", check=False).success:
+                self.log(f"Using {candidate} for installation")
+                return candidate
 
-        # Check if python3.12 is available
-        result = self.backend.run("command -v python3.12", check=False)
-        if result.returncode == 0:
-            return "python3.12"
+        if not self.backend.run("command -v dnf", check=False).success:
+            self.log(
+                "No Python 3.10+ on the server (python3 is older or missing, "
+                "no python3.12/python3.11, no dnf to install one); install "
+                "Python 3.10 or newer and re-run",
+                "error",
+            )
+            return None
 
-        # Check if python3.11 is available
-        result = self.backend.run("command -v python3.11", check=False)
-        if result.returncode == 0:
-            return "python3.11"
-
-        # Need to install Python 3.11 or 3.12
-        # Check if we're on RHEL/Rocky/AlmaLinux (dnf-based)
-        result = self.backend.run("command -v dnf", check=False)
-        if result.returncode == 0:
-            self.log("Installing Python 3.12 (RHEL/Rocky/AlmaLinux)...")
-            # Try Python 3.12 first, fall back to 3.11
+        self.log("Installing Python 3.12 (RHEL/Rocky/AlmaLinux)...")
+        failures = []
+        for version in ("3.12", "3.11"):
             result = self.backend.run(
-                "dnf install -y python3.12 python3.12-pip python3.12-devel 2>&1",
+                f"dnf install -y python{version} python{version}-pip "
+                f"python{version}-devel",
                 check=False,
             )
-            if result.returncode == 0:
-                return "python3.12"
-
-            result = self.backend.run(
-                "dnf install -y python3.11 python3.11-pip python3.11-devel 2>&1",
-                check=False,
-            )
-            if result.returncode == 0:
-                return "python3.11"
-
-        # Default fallback
-        return "python3"
+            if result.success:
+                self.log(f"Using python{version} for installation")
+                return f"python{version}"
+            failures.append(result)
+        self.log("Could not install Python 3.12 or 3.11 with dnf", "error")
+        for result in failures:
+            self.log_output(result)
+        return None
 
     def _install(self, *, local_path: str | None = None) -> bool:
         """
@@ -602,10 +600,9 @@ class Deployer:
         Args:
             local_path: Path on the server where local code was uploaded (if any)
         """
-        # Ensure Python 3.10+ is available
         python_cmd = self._ensure_python310_plus()
-        if python_cmd != "python3":
-            self.log(f"Using {python_cmd} for installation")
+        if python_cmd is None:
+            return False
 
         # Upload installer script
         installer_path = self.config.installer_path
@@ -715,6 +712,8 @@ class Deployer:
         self.log(f"Reconciling the installation (features: {features})")
 
         python_cmd = self._ensure_python310_plus()
+        if python_cmd is None:
+            return False
 
         # Upload installer script
         installer_path = self.config.installer_path
@@ -871,7 +870,8 @@ class Deployer:
 
     def _installed_versions(self) -> dict[str, str]:
         """The version of each Hop3 package in the server venv, "" when absent."""
-        probe = f"{VENV_DIR}/bin/python -c {shlex.quote(_VERSION_PROBE)}"
+        # As hop3: the interpreter is in hop3's venv (see `_reload_nginx`).
+        probe = _as_hop3(f"{VENV_DIR}/bin/python -c {shlex.quote(_VERSION_PROBE)}")
         result = self.backend.run(probe, check=False)
         versions = dict.fromkeys(_VERSIONED_PACKAGES, "")
         for line in (result.stdout or "").splitlines():
@@ -1413,10 +1413,14 @@ class Deployer:
         # Ensure the ACME challenge directory exists and is writable by hop3
         acme_webroot = "/var/www/html"
         acme_challenge_dir = f"{acme_webroot}/.well-known/acme-challenge"
-        self.backend.run(f"mkdir -p {acme_challenge_dir}", check=False)
-        self.backend.run(f"chown -R hop3:hop3 {acme_webroot}/.well-known", check=False)
-        self.backend.run(f"chmod 755 {acme_webroot}/.well-known", check=False)
-        self.backend.run(f"chmod 755 {acme_challenge_dir}", check=False)
+        if not self._run_all(
+            "prepare the ACME challenge directory",
+            f"mkdir -p {acme_challenge_dir}",
+            f"chown -R hop3:hop3 {acme_webroot}/.well-known",
+            f"chmod 755 {acme_webroot}/.well-known",
+            f"chmod 755 {acme_challenge_dir}",
+        ):
+            return False
 
         # Issue certificate using webroot mode
         issue_cmd = _as_hop3(
@@ -1440,9 +1444,12 @@ class Deployer:
 
         self.log(f"Generating self-signed certificate for {domain}")
 
-        # Create cert directory
-        self.backend.run(f"mkdir -p {safe_cert_dir}", check=False)
-        self.backend.run("chown -R hop3:hop3 /home/hop3/ssl", check=False)
+        if not self._run_all(
+            "create the certificate directory",
+            f"mkdir -p {safe_cert_dir}",
+            "chown -R hop3:hop3 /home/hop3/ssl",
+        ):
+            return False
 
         # Generate self-signed certificate valid for 365 days
         # Note: domain is used in -subj which is already quoted by the shell
@@ -1458,10 +1465,14 @@ class Deployer:
             self.log_output(result)
             return False
 
-        # Set proper permissions
-        self.backend.run(f"chmod 600 {safe_cert_dir}/key.pem", check=False)
-        self.backend.run(f"chmod 644 {safe_cert_dir}/fullchain.pem", check=False)
-        self.backend.run(f"chown -R hop3:hop3 {safe_cert_dir}", check=False)
+        # A private key left world-readable is a failed deploy, not a detail.
+        if not self._run_all(
+            "set the certificate permissions",
+            f"chmod 600 {safe_cert_dir}/key.pem",
+            f"chmod 644 {safe_cert_dir}/fullchain.pem",
+            f"chown -R hop3:hop3 {safe_cert_dir}",
+        ):
+            return False
 
         # Update nginx config to use SSL
         if not self._update_nginx_for_ssl(domain, cert_dir):
@@ -1480,9 +1491,12 @@ class Deployer:
         safe_domain = shlex.quote(domain)
         acme_sh = "/home/hop3/.acme.sh/acme.sh"
 
-        # Ensure cert directory exists and is owned by hop3
-        self.backend.run(f"mkdir -p {shlex.quote(cert_dir)}", check=False)
-        self.backend.run("chown -R hop3:hop3 /home/hop3/ssl", check=False)
+        if not self._run_all(
+            "create the certificate directory",
+            f"mkdir -p {shlex.quote(cert_dir)}",
+            "chown -R hop3:hop3 /home/hop3/ssl",
+        ):
+            return False
 
         # acme.sh runs as the hop3 user, so its --reloadcmd must NOT shell out to
         # `sudo systemctl reload nginx`: the rootd security model (ADR 041 §12)
@@ -1516,6 +1530,16 @@ class Deployer:
             return False
 
         self.log(f"SSL certificate installed for {domain}", "success")
+        return True
+
+    def _run_all(self, what: str, *commands: str) -> bool:
+        """Run ``commands`` in order; on the first failure log it with its output."""
+        for command in commands:
+            result = self.backend.run(command, check=False)
+            if not result.success:
+                self.log(f"Could not {what}: `{command}` failed", "error")
+                self.log_output(result)
+                return False
         return True
 
     def _update_nginx_for_ssl(self, domain: str, cert_dir: str) -> bool:
@@ -1554,18 +1578,27 @@ class Deployer:
 
     def _reload_nginx(self) -> bool:
         """
-        Reload nginx, trying systemctl then ``nginx -s reload``.
+        Reload nginx through hop3-rootd's ``nginx.reload`` op; False (loud) if not.
 
-        Mirrors hop3-rootd's reload chain (``ops/nginx.py``): ``systemctl`` on
-        systemd hosts, ``nginx -s reload`` where there is no systemd — the
-        Docker deploy target runs nginx under supervisor, where a plain
-        ``systemctl reload`` silently no-ops. The caller validates the config
-        with ``nginx -t`` first, so a bad config never reaches here.
+        A reload exiting 0 is not an applied config: nginx signals the master
+        and a rejected config (a bind conflict) keeps the old workers. rootd's
+        op validates the config, reloads with the method fit for the process
+        manager (systemd or supervisor), and confirms a fresh worker forked.
+        It runs as hop3, the caller rootd admits for this op and the one the
+        platform reloads nginx as: the interpreter and its rootd client live in
+        hop3's own venv, so running them as root would run hop3-writable code
+        as root.
         """
-        for cmd in ("systemctl reload nginx", "nginx -s reload"):
-            if self.backend.run(cmd, check=False).success:
-                return True
-        return False
+        result = self.backend.run(
+            _as_hop3(f"{VENV_DIR}/bin/python3 -"),
+            check=False,
+            stdin=_ROOTD_NGINX_RELOAD,
+        )
+        if not result.success:
+            self.log("hop3-rootd could not reload nginx", "error")
+            self.log_output(result)
+            return False
+        return True
 
     def _create_admin_user(self) -> bool:
         """
@@ -1715,21 +1748,22 @@ class Deployer:
         — after a failed token fetch, after a failed write, always. A success
         line is a promise; this one reports the outcome it got.
         """
-        # The token travels on argv, where `ps` can see it for the length of the
-        # call. `hop3 login` has no stdin form for --token yet; the surface work
-        # in tasks/cli-auth-target-model.md Phase 3 is where that belongs.
+        # `--token -` reads the token from stdin: on argv, any local user could
+        # read it from /proc/<pid>/cmdline for the length of the call.
         argv = [
             "hop3",
             "login",
             "--token",
-            token,
+            "-",
             "--url",
             api_url,
             "--context",
             CLI_CONTEXT_NAME,
         ]
         try:
-            result = subprocess.run(argv, capture_output=True, check=False, text=True)
+            result = subprocess.run(
+                argv, input=token, capture_output=True, check=False, text=True
+            )
         except FileNotFoundError:
             self.log("hop3 CLI not found on PATH", "error")
             return False
@@ -1828,10 +1862,10 @@ class Deployer:
 
     def _server_installed_version(self) -> str | None:
         """Read the hop3-server version installed in the server's venv."""
+        probe = "import importlib.metadata as m; print(m.version('hop3_server'))"
+        # As hop3: the interpreter is in hop3's venv (see `_reload_nginx`).
         result = self.backend.run(
-            "/home/hop3/venv/bin/python -c "
-            "\"import importlib.metadata as m; print(m.version('hop3_server'))\"",
-            check=False,
+            _as_hop3(f"{VENV_DIR}/bin/python -c {shlex.quote(probe)}"), check=False
         )
         if result.success:
             return result.stdout.strip() or None

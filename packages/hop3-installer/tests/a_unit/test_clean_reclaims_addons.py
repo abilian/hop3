@@ -199,3 +199,18 @@ def _reclaim_script() -> str:
             return script
     msg = "no reclaim script was sent"
     raise AssertionError(msg)
+
+
+def test_nginx_is_reloaded_after_the_wipe_not_before() -> None:
+    """
+    nginx.conf includes /home/hop3/nginx/*.conf. Reloading before the wipe
+    re-validated the vhosts being cleaned, so one broken app vhost (what
+    `--clean` recovers from) failed the reload and aborted the clean.
+    """
+    backend = _Backend(installed=True)
+
+    backend.clean()
+
+    wipe_at = next(i for i, c in enumerate(backend.commands) if c == WIPE)
+    reload_at = next(i for i, c in enumerate(backend.commands) if "reload nginx" in c)
+    assert reload_at > wipe_at

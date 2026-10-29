@@ -125,11 +125,10 @@ def _existing_secret(key: str) -> str | None:
     hop3-server authenticates with. A redeploy that changed them would leave
     the addon unable to manage the buckets it created.
     """
-    if not GARAGE_CONFIG_FILE.exists():
-        return None
+    # Only absence means "fresh install"; an unreadable file propagates.
     try:
         content = GARAGE_CONFIG_FILE.read_text(encoding="utf-8")
-    except OSError:
+    except FileNotFoundError:
         return None
     match = re.search(rf'^\s*{re.escape(key)}\s*=\s*"([^"]+)"', content, re.MULTILINE)
     return match.group(1) if match else None

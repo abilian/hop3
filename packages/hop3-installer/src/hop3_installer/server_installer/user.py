@@ -86,6 +86,7 @@ def run_as_hop3_shell(
     *,
     check: bool = False,
     timeout: float | None = None,
+    stdin_text: str | None = None,
 ) -> subprocess.CompletedProcess:
     """
     Run a shell script fragment as the hop3 user.
@@ -108,6 +109,7 @@ def run_as_hop3_shell(
         ["su", "-", HOP3_USER, "-c", script],
         check=check,
         timeout=timeout,
+        stdin_text=stdin_text,
     )
 
 

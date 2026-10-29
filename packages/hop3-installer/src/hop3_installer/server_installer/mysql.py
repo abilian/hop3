@@ -103,7 +103,6 @@ def _find_mysql_admin_connection() -> tuple[list[str], dict[str, str]] | None:
     # must not appear in argv.
     candidates: list[tuple[list[str], dict[str, str]]] = [
         (["mysql"], {}),  # Socket auth as current user (root)
-        (["sudo", "mysql"], {}),  # Socket auth via sudo
         (["mysql", "-u", "root"], {}),  # Traditional root
     ]
 
@@ -329,7 +328,7 @@ def setup_mysql(config: ServerInstallerConfig, distro: str) -> str | None:
     admin = _find_mysql_admin_connection()
     if admin is None:
         msg = (
-            "no admin connection to MySQL works (socket auth as root, sudo, "
+            "no admin connection to MySQL works (socket auth as root, "
             "root without a password, the Debian maintenance user)"
         )
         raise InstallStepError(msg)

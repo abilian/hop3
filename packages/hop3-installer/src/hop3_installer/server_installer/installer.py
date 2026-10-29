@@ -46,6 +46,7 @@ from .deps_common import (
     install_leiningen,
     install_node_global_packages,
     install_rust_toolchain,
+    install_uv,
 )
 from .deps_debian import package_renames
 from .mailpit import install_mailpit
@@ -86,6 +87,7 @@ def _install_optional_toolchains(config: ServerInstallerConfig) -> None:
         config: Installation configuration.
     """
     install_node_global_packages()
+    install_uv()
     install_rust_toolchain(required=config.with_rust)
     install_leiningen(required=config.with_clojure)
     install_elixir(required=config.with_elixir)

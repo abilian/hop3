@@ -220,7 +220,8 @@ def backend(request: pytest.FixtureRequest) -> Generator[Backend]:
     backend_instance = get_backend(backend_type)
 
     if not backend_instance.setup():
-        pytest.skip(f"Failed to setup {backend_type} backend")
+        # The backend was selected: one that will not come up is a failure.
+        pytest.fail(f"Failed to setup the {backend_type} backend it was asked for")
 
     yield backend_instance
 
@@ -244,7 +245,8 @@ def systemd_backend(request: pytest.FixtureRequest) -> Generator[Backend]:
     backend_instance = get_backend(backend_type)
 
     if not backend_instance.setup():
-        pytest.skip(f"Failed to setup {backend_type} backend")
+        # The backend was selected: one that will not come up is a failure.
+        pytest.fail(f"Failed to setup the {backend_type} backend it was asked for")
 
     yield backend_instance
 

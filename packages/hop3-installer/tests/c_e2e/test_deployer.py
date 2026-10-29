@@ -10,7 +10,9 @@ to Docker containers and remote servers.
 from __future__ import annotations
 
 import os
+import shutil
 import subprocess
+from pathlib import Path
 
 import pytest
 
@@ -18,6 +20,10 @@ from .utils.backends import ssh_host_available, ssh_raw_host
 
 # Container name used by hop3-deploy
 DEPLOY_CONTAINER = "hop3-dev"
+
+#: The workspace's own hop3-deploy-server, never whatever is first on PATH.
+WORKSPACE_ROOT = Path(__file__).resolve().parents[4]
+DEPLOY_SERVER = ["uv", "run", "--project", str(WORKSPACE_ROOT), "hop3-deploy-server"]
 
 # A fresh --docker --local deploy takes about 4 min on a cached image. When the
 # image's package lists change, the deploy rebuilds it first, which measured
@@ -39,14 +45,9 @@ class TestDeployer:
 
     @pytest.fixture(autouse=True)
     def check_deploy_command(self):
-        """Skip if hop3-deploy is not available."""
-        result = subprocess.run(
-            ["which", "hop3-deploy-server"],
-            capture_output=True,
-            check=False,
-        )
-        if result.returncode != 0:
-            pytest.skip("hop3-deploy command not found in PATH")
+        """The workspace provides hop3-deploy-server; its absence is a failure."""
+        if shutil.which("uv") is None:
+            pytest.fail("uv not found on PATH: it runs the workspace's tools")
 
     @pytest.fixture(autouse=True)
     def cleanup_docker(self):
@@ -77,10 +78,10 @@ class TestDeployer:
         The deploy_target fixture is dynamically parametrized based on CLI options.
         """
         if deploy_target == "docker":
-            deploy_args = ["hop3-deploy-server", "--docker", "--local"]
+            deploy_args = [*DEPLOY_SERVER, "--docker", "--local"]
         else:  # ssh
             host = ssh_raw_host()
-            deploy_args = ["hop3-deploy-server", "--host", host, "--local", "--clean"]
+            deploy_args = [*DEPLOY_SERVER, "--host", host, "--local", "--clean"]
 
         try:
             result = subprocess.run(  # ty: ignore[no-matching-overload]
@@ -164,7 +165,7 @@ class TestDeployerHelp:
     def test_deploy_help(self) -> None:
         """Test hop3-deploy --help works."""
         result = subprocess.run(
-            ["hop3-deploy-server", "--help"],
+            [*DEPLOY_SERVER, "--help"],
             capture_output=True,
             text=True,
             check=False,
@@ -183,7 +184,7 @@ class TestDeployerHelp:
         target and deploy to a real host — it must report "no target".
         """
         result = subprocess.run(
-            ["hop3-deploy-server"],
+            DEPLOY_SERVER,
             capture_output=True,
             text=True,
             check=False,

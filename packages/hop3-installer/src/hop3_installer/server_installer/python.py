@@ -105,8 +105,6 @@ def install_package(config: ServerInstallerConfig) -> None:
         package_spec = f"{config.local_path}[waf]"
         source_desc = f"local path ({config.local_path})"
     elif config.use_git:
-        with Spinner("Installing build tools..."):
-            run_as_hop3([pip, "install", "uv"], check=True)
         package_spec = (
             f"{SERVER_PACKAGE_NAME}[waf] @ "
             f"git+{GIT_REPO}@{config.branch}#subdirectory={SERVER_PACKAGE_SUBDIR}"

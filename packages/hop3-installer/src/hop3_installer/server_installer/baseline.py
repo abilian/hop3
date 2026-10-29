@@ -27,6 +27,9 @@ import sys
 from dataclasses import dataclass
 from pathlib import Path
 
+# A dev-time generator (`python -m ...baseline`), never imported by the
+# installer itself, which reads the generated `baselines.py`: it may use 3.11's
+# tomllib while the installer supports Python 3.10.
 import tomllib
 
 from .package_aliases import PACKAGE_ALIASES, supported_os_families
@@ -120,11 +123,10 @@ def _read_declarations(toml_path: Path) -> list[BaselineSource]:
     app_name = toml_path.parent.name
     try:
         data = tomllib.loads(toml_path.read_text())
-    except tomllib.TOMLDecodeError:
-        # Malformed hop3.toml — leave it out of the baseline rather
-        # than crashing the installer. CI should catch the TOML error
-        # separately.
-        return []
+    except tomllib.TOMLDecodeError as e:
+        # Leaving it out would silently drop its packages from the baseline.
+        msg = f"malformed catalog recipe {toml_path}: {e}"
+        raise ValueError(msg) from e
 
     out: list[BaselineSource] = []
     for field in ("build", "run"):
@@ -208,11 +210,15 @@ def main() -> int:
     result = derive_baseline(args.apps_dir)
 
     if result.unknown:
+        # A baseline without them would install fine and leave the apps that
+        # declare them unbuildable, so refuse to write or check one.
         print(
-            "WARNING: packages declared in catalogue but missing from "
-            f"package_aliases.py: {result.unknown}",
+            "ERROR: packages declared in the catalogue but missing from "
+            f"package_aliases.py: {', '.join(sorted(result.unknown))}. "
+            "Add them there, then regenerate.",
             file=sys.stderr,
         )
+        return 1
 
     out_file = Path(__file__).parent / "baselines.py"
     text = format_baselines_module(result)

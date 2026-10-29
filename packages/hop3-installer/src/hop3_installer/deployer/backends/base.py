@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import shlex
 from abc import ABC, abstractmethod
 from typing import TYPE_CHECKING
 
@@ -154,6 +155,13 @@ class DeployBackend(ABC):
 
         return result.returncode
 
+    def make_world_readable(self, remote_path: str) -> bool:
+        """``chmod -R a+rX`` an uploaded tree; False, with the reason printed."""
+        result = self.run(f"chmod -R a+rX {shlex.quote(remote_path)}", check=False)
+        if not result.success:
+            print(f"  ✗ chmod -R a+rX {remote_path} failed: {result.stderr.strip()}")
+        return result.success
+
     @abstractmethod
     def upload_file(self, local_path: Path, remote_path: str) -> bool:
         """
@@ -227,6 +235,18 @@ class DeployBackend(ABC):
         on the target rather than a systemd-only one.
         """
         return f"systemctl restart {service}"
+
+    def service_stop_command(self, service: str) -> str:
+        """
+        Stop a managed service if it is installed; exits non-zero if it fails.
+
+        The guard makes "not installed" (a first install with `--clean`) a
+        no-op, so the caller can check the result instead of `|| true`.
+        """
+        return (
+            f"if systemctl cat {service} >/dev/null 2>&1; "
+            f"then systemctl stop {service}; fi"
+        )
 
     def service_logs_command(self, service: str) -> str:
         """

@@ -41,7 +41,7 @@ class _StubBackend:
     def __init__(self, acme_present: bool = True) -> None:
         self.acme_present = acme_present
 
-    def run(self, cmd, check=False):
+    def run(self, cmd, check=False, stdin=None):
         return SimpleNamespace(success=self.acme_present)
 
 
@@ -80,7 +80,7 @@ class _OpensslBackend:
         self._out = f"issuer={issuer}\nsubject={subject}\n"
         self._ok = ok
 
-    def run(self, cmd, check=False):
+    def run(self, cmd, check=False, stdin=None):
         return SimpleNamespace(success=self._ok, stdout=self._out)
 
 
@@ -118,7 +118,7 @@ class _RecordingBackend:
         self._acme_ok = acme_ok
         self._cert_present = cert_present
 
-    def run(self, cmd, check=False):
+    def run(self, cmd, check=False, stdin=None):
         self.commands.append(cmd)
         if "--install-cert" in cmd:
             ok = self._acme_ok

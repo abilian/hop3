@@ -28,9 +28,11 @@ SECRET_KEY_FILE = Path("/etc/hop3/secret-key")
 
 def _read_secret_key_file() -> str | None:
     """The signing key already persisted to the canonical file, or None."""
+    # Only absence means "generate one": any other read error (EACCES, EIO)
+    # propagates, so a redeploy never silently rotates the key.
     try:
         return SECRET_KEY_FILE.read_text().strip() or None
-    except OSError:
+    except FileNotFoundError:
         return None
 
 

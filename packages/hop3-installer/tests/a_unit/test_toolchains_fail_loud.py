@@ -61,6 +61,8 @@ def test_leiningen_is_best_effort_unless_requested(required, capsys):
 def test_the_toolchains_follow_their_with_flags(monkeypatch):
     seen: dict[str, bool] = {}
     monkeypatch.setattr(installer, "install_node_global_packages", lambda: None)
+    # uv belongs to every server, whatever the install source (it was --git only).
+    monkeypatch.setattr(installer, "install_uv", lambda: seen.__setitem__("uv", True))
     for name in ("rust_toolchain", "leiningen", "elixir"):
         monkeypatch.setattr(
             installer,
@@ -70,7 +72,12 @@ def test_the_toolchains_follow_their_with_flags(monkeypatch):
     installer._install_optional_toolchains(
         ServerInstallerConfig(features={"clojure", "elixir"})
     )
-    assert seen == {"rust_toolchain": False, "leiningen": True, "elixir": True}
+    assert seen == {
+        "uv": True,
+        "rust_toolchain": False,
+        "leiningen": True,
+        "elixir": True,
+    }
 
 
 def test_an_unknown_distribution_stops_the_install():

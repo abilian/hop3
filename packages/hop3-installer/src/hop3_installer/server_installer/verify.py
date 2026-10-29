@@ -56,9 +56,11 @@ def read_existing_server_config_value(key: str) -> str | None:
     key=value) — no TOML dependency, matching ``verify_mysql_config`` below.
     """
     config_file = HOME_DIR / "hop3-server.toml"
+    # Only absence means "first install"; an unreadable file propagates rather
+    # than rotating the secrets it holds.
     try:
         content = config_file.read_text()
-    except OSError:
+    except FileNotFoundError:
         return None
     for line in content.splitlines():
         key_part, sep, value_part = line.partition("=")
@@ -76,9 +78,10 @@ def _preserved_operator_lines() -> list[str]:
     managed keys are skipped.
     """
     config_file = HOME_DIR / "hop3-server.toml"
+    # An unreadable file propagates: dropping operator lines silently is data loss.
     try:
         content = config_file.read_text()
-    except OSError:
+    except FileNotFoundError:
         return []
     preserved: list[str] = []
     for line in content.splitlines():
@@ -290,7 +293,7 @@ def _verify_services() -> bool:
             else:
                 all_ok = False
                 print_error(f"{name} is not running")
-                print_detail(f"Check with: sudo systemctl status {service}")
+                print_detail(f"Check with: systemctl status {service}")
     else:
         for service in SUPERVISOR_SERVICES:
             result = run_cmd(
@@ -417,16 +420,28 @@ def print_final_message(config: ServerInstallerConfig) -> None:
     print(f"  {Colors.BOLD}Home:{Colors.RESET}      {HOME_DIR}")
     print(f"  {Colors.BOLD}Venv:{Colors.RESET}      {VENV_DIR}")
     print()
-    print(f"  {Colors.BOLD}Services:{Colors.RESET}")
-    print("    sudo systemctl status hop3-server")
-    print("    sudo systemctl status hop3-rootd")
-    print("    sudo systemctl status uwsgi-hop3")
-    print("    sudo systemctl status nginx")
-    print()
-    print(f"  {Colors.BOLD}Logs:{Colors.RESET}")
-    print("    sudo journalctl -u hop3-server -f")
+    for line in _service_hints():
+        print(line)
     print()
     print(f"  {Colors.BOLD}Next steps:{Colors.RESET}")
     print("    1. Add your SSH key:  ssh-copy-id hop3@your-server")
     print("    2. Deploy an app:     hop3 deploy --app your-app")
     print()
+
+
+def _service_hints() -> list[str]:
+    """Status and log commands for the process manager this host runs."""
+    if has_systemd():
+        services = ("hop3-server", "hop3-rootd", "uwsgi-hop3", "nginx")
+        status = [f"    systemctl status {service}" for service in services]
+        logs = "    journalctl -u hop3-server -f"
+    else:
+        status = ["    supervisorctl status"]
+        logs = "    supervisorctl tail -f hop3-server"
+    return [
+        f"  {Colors.BOLD}Services:{Colors.RESET}",
+        *status,
+        "",
+        f"  {Colors.BOLD}Logs:{Colors.RESET}",
+        logs,
+    ]

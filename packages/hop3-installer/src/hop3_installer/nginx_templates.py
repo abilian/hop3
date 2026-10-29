@@ -271,19 +271,6 @@ def generate_full_ssl_config(
 
 
 # =============================================================================
-# Sudoers Configuration
-# =============================================================================
-
-SUDOERS_CONTENT = """# Hop3 service management permissions
-# Allow hop3 user to reload/restart nginx for deployments
-hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl reload nginx
-hop3 ALL=(ALL) NOPASSWD: /usr/bin/systemctl restart nginx
-hop3 ALL=(ALL) NOPASSWD: /usr/sbin/nginx -s reload
-hop3 ALL=(ALL) NOPASSWD: /usr/sbin/nginx -t
-"""
-
-
-# =============================================================================
 # Systemd Units
 # =============================================================================
 

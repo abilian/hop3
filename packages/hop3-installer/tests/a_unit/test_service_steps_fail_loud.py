@@ -138,24 +138,6 @@ def test_redis_replica_setting_is_removed_from_the_config(tmp_path, monkeypatch)
     assert "port 6379" in conf.read_text()
 
 
-def test_redis_ping_authenticates_when_a_password_is_set(monkeypatch):
-    """Without it, a Redis with requirepass answers NOAUTH and fails the check."""
-    seen: dict = {}
-
-    def run(cmd, env=None, **_kw):
-        seen["env"] = env
-        return SimpleNamespace(returncode=0, stdout="PONG", stderr="")
-
-    monkeypatch.setattr(redis, "_write_redis_config", lambda: "s3cret")
-    monkeypatch.setattr(redis, "has_systemd", lambda: False)
-    monkeypatch.setattr(redis, "control_service", lambda *_a: True)
-    monkeypatch.setattr(redis, "_shutdown_redis", lambda: None)
-    monkeypatch.setattr(redis, "run_cmd", run)
-
-    redis.configure_redis()
-    assert seen["env"] == {"REDISCLI_AUTH": "s3cret"}
-
-
 def _systemd_calls(tmp_path, *, unit_on_disk: str | None) -> list[list[str]]:
     """The systemctl calls `setup_systemd` makes, with a given uwsgi unit present."""
     calls: list[list[str]] = []

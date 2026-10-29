@@ -12,6 +12,7 @@ from pathlib import Path
 from hop3_installer.common import (
     CommandError,
     InstallStepError,
+    Runner,
     control_service,
     has_systemd,
     print_detail,
@@ -165,29 +166,34 @@ def _update_redis_requirepass(content: str, password: str) -> tuple[str, bool]:
     return content, True
 
 
-def configure_redis() -> None:
+def configure_redis(*, run: Runner | None = None, systemd: bool | None = None) -> None:
     """
     Configure Redis for Hop3: a primary, bound for Docker access, running.
+
+    ``run`` and ``systemd`` default to the host's.
 
     Raises:
         CommandError, InstallStepError: Redis is not configured and answering.
     """
     print_info("Configuring Redis...")
     password = _write_redis_config()
+    run = run or run_cmd
+    if systemd is None:
+        systemd = has_systemd()
 
     # Through `control_service`, so this works without systemd and finds the
     # unit under its Debian or Fedora name.
-    if has_systemd():
-        control_service("enable", *_REDIS_SERVICE_NAMES)
-        control_service("restart", *_REDIS_SERVICE_NAMES)
+    if systemd:
+        control_service("enable", *_REDIS_SERVICE_NAMES, run=run, systemd=True)
+        control_service("restart", *_REDIS_SERVICE_NAMES, run=run, systemd=True)
     else:
-        _shutdown_redis()
-        control_service("start", *_REDIS_SERVICE_NAMES)
-    _await_redis_pong(password)
+        _shutdown_redis(run)
+        control_service("start", *_REDIS_SERVICE_NAMES, run=run, systemd=False)
+    _await_redis_pong(password, run)
     print_success("Redis configured and running")
 
 
-def _shutdown_redis() -> None:
+def _shutdown_redis(run: Runner) -> None:
     """
     Stop a running Redis by asking it, and wait until it has exited.
 
@@ -204,9 +210,9 @@ def _shutdown_redis() -> None:
     """
     password = REDIS_PASS_FILE.read_text().strip() if REDIS_PASS_FILE.exists() else ""
     env = {"REDISCLI_AUTH": password} if password else None
-    shutdown = run_cmd(["redis-cli", "SHUTDOWN"], check=False, env=env)
+    shutdown = run(["redis-cli", "SHUTDOWN"], check=False, env=env)
     for _ in range(_PING_ATTEMPTS):
-        if run_cmd(["pgrep", "-x", "redis-server"], check=False).returncode != 0:
+        if run(["pgrep", "-x", "redis-server"], check=False).returncode != 0:
             return
         time.sleep(_PING_DELAY)
     reply = (shutdown.stdout or shutdown.stderr or "").strip() or "no reply"
@@ -220,13 +226,13 @@ _PING_ATTEMPTS = 10
 _PING_DELAY = 0.5
 
 
-def _await_redis_pong(password: str | None) -> None:
+def _await_redis_pong(password: str | None, run: Runner) -> None:
     """Wait for Redis to answer PING (authenticated), or raise with its reply."""
     # With requirepass set, an unauthenticated PING answers NOAUTH.
     env = {"REDISCLI_AUTH": password} if password else None
     attempts = 0
     while True:
-        result = run_cmd(["redis-cli", "PING"], check=False, env=env)
+        result = run(["redis-cli", "PING"], check=False, env=env)
         if "PONG" in (result.stdout or ""):
             return
         attempts += 1

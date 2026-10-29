@@ -1,7 +1,6 @@
 # Copyright (c) 2026, Abilian SAS
 # SPDX-License-Identifier: Apache-2.0
 
-# ruff:file-ignore[suppressible-exception]
 
 """
 hop3-rootd installation and migration.
@@ -466,11 +465,26 @@ def uninstall_rootd() -> None:
     Uninstall hop3-rootd. Removes units, logrotate, state, and the
     `inet hop3` table.
 
-    Called by `hop3-install uninstall`. Not currently reachable from a
-    standard `hop3-install server` run.
+    Not reachable from a standard `hop3-install server` run. Raises
+    ``InstallStepError`` listing every step that failed; success is printed
+    only when all of them worked.
     """
-    run_cmd(["systemctl", "disable", "--now", "hop3-rootd.service"], check=False)
-    run_cmd(["systemctl", "disable", "--now", "hop3-rootd.socket"], check=False)
+    failures: list[str] = []
+
+    def run_step(cmd: list[str]) -> None:
+        result = run_cmd(cmd, check=False)
+        if result.returncode != 0:
+            output = (result.stderr or result.stdout or "").strip()
+            failures.append(f"`{' '.join(cmd)}` (exit {result.returncode}): {output}")
+
+    systemd = has_systemd()
+    if systemd:
+        for unit, unit_path in (
+            ("hop3-rootd.service", SERVICE_PATH),
+            ("hop3-rootd.socket", SOCKET_PATH),
+        ):
+            if unit_path.exists():
+                run_step(["systemctl", "disable", "--now", unit])
     for path in (
         SERVICE_PATH,
         SOCKET_PATH,
@@ -480,9 +494,14 @@ def uninstall_rootd() -> None:
     ):
         try:
             path.unlink(missing_ok=True)
-        except OSError:
-            pass
-    run_cmd(["systemctl", "daemon-reload"], check=False)
-    # Drop the table — uninstall removes everything.
-    run_cmd(["nft", "delete", "table", "inet", "hop3"], check=False, capture=True)
+        except OSError as e:
+            failures.append(f"could not remove {path}: {e}")
+    if systemd:
+        run_step(["systemctl", "daemon-reload"])
+    # Drop the table — uninstall removes everything. Absent table: nothing to do.
+    if run_cmd(["nft", "list", "table", "inet", "hop3"], check=False).returncode == 0:
+        run_step(["nft", "delete", "table", "inet", "hop3"])
+    if failures:
+        msg = "hop3-rootd uninstall incomplete:\n  " + "\n  ".join(failures)
+        raise InstallStepError(msg)
     print_success("hop3-rootd uninstalled")

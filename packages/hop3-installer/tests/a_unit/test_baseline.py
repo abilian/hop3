@@ -10,16 +10,16 @@ would make test updates a chore every time a new app is added.
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING
+import sys
+from pathlib import Path
 
+import pytest
+from hop3_installer.server_installer import baseline
 from hop3_installer.server_installer.baseline import (
     BaselineSource,
     derive_baseline,
     format_baselines_module,
 )
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 def _write_hop3_toml(
@@ -104,13 +104,32 @@ class TestDeriveBaseline:
         # CI signal.
         assert "a-package-not-in-the-table" in result.unknown
 
-    def test_malformed_toml_skipped_quietly(self, tmp_path):
-        (tmp_path / "broken").mkdir()
-        (tmp_path / "broken" / "hop3.toml").write_text("[build\npackages = [\n")
+    @pytest.mark.parametrize("check", [False, True])
+    def test_generator_fails_naming_unknown_packages(
+        self, tmp_path, monkeypatch, capsys, check
+    ):
+        # A warning let it write a baseline missing them, exiting 0.
+        _write_hop3_toml(tmp_path / "a", build=["zz-unknown-pkg", "ffmpeg"])
+        out_file = Path(baseline.__file__).parent / "baselines.py"
+        before = out_file.read_text()
+        argv = ["baseline", "--apps-dir", str(tmp_path), *(["--check"] * check)]
+        monkeypatch.setattr(sys, "argv", argv)
+        try:
+            assert baseline.main() == 1
+        finally:
+            written = out_file.read_text()
+            out_file.write_text(before)  # a regression must not clobber it
+        assert "zz-unknown-pkg" in capsys.readouterr().err
+        assert written == before
+
+    def test_malformed_toml_aborts_naming_the_file(self, tmp_path):
+        # Skipping it would drop its packages from the baseline unnoticed.
+        broken = tmp_path / "broken" / "hop3.toml"
+        broken.parent.mkdir()
+        broken.write_text("[build\npackages = [\n")
         _write_hop3_toml(tmp_path / "ok", build=["ffmpeg"])
-        result = derive_baseline([tmp_path])
-        # The good app still contributed.
-        assert result.canonical == ("ffmpeg",)
+        with pytest.raises(ValueError, match=str(broken)):
+            derive_baseline([tmp_path])
 
     def test_nonstring_package_entries_ignored(self, tmp_path):
         _write_hop3_toml(tmp_path / "ok", build=["ffmpeg"])

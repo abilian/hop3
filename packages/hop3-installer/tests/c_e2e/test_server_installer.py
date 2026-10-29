@@ -84,8 +84,7 @@ class TestServerInstaller:
 
         # Upload the hop3-server package to target
         server_package = hop3_packages_dir / "hop3-server"
-        if not server_package.exists():
-            pytest.skip(f"hop3-server package not found: {server_package}")
+        assert server_package.exists(), f"workspace package missing: {server_package}"
 
         remote_pkg_path = "/tmp/hop3-server"
         assert backend.upload_dir(server_package, remote_pkg_path), (
@@ -97,8 +96,7 @@ class TestServerInstaller:
         # what hop3-deploy-server uploads.
         for pkg in ("hop3-rootd", "hop3-cli"):
             src = hop3_packages_dir / pkg
-            if not src.exists():
-                pytest.skip(f"{pkg} package not found: {src}")
+            assert src.exists(), f"workspace package missing: {src}"
             assert backend.upload_dir(src, f"/tmp/{pkg}"), f"Failed to upload {pkg}"
 
         # Run installer with local path
@@ -190,8 +188,9 @@ class TestServerInstallerWithServices:
         )
 
         if not result.success:
-            pytest.skip(
-                f"Server installation failed: {result.stdout[:500]}\n{result.stderr[:500]}"
+            pytest.fail(
+                f"Server installation failed:\n{result.stdout[-2000:]}\n"
+                f"{result.stderr[-2000:]}"
             )
 
     def test_postgresql_configured(self, systemd_backend: Backend) -> None:

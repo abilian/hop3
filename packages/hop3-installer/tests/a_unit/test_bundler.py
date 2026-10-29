@@ -4,8 +4,12 @@
 
 from __future__ import annotations
 
+import ast
 import re
+from pathlib import Path
 
+import pytest
+import tomllib
 from hop3_installer.bundler import (
     CLI_MODULES,
     SERVER_MODULES,
@@ -16,6 +20,7 @@ from hop3_installer.bundler import (
     is_stdlib_module,
     validate_bundle,
 )
+from hop3_installer.common import MIN_PYTHON
 
 # =============================================================================
 # Import-symbol preservation (regression: `from typing import TypedDict`
@@ -43,11 +48,27 @@ class TestImportSymbolPreservation:
 
     def test_server_bundle_keeps_typeddict_symbol(self):
         # Not just `import typing` — the bare name must be importable at runtime.
-        # Order-independent: the symbol is co-imported (`from typing import Self,
+        # Order-independent: the symbol is co-imported (`from typing import
         # TypedDict, overload`), so match the name within a typing from-import
         # rather than a brittle exact string a linter can reorder.
         source = bundle_installer("server")
         assert re.search(r"^from typing import .*\bTypedDict\b", source, re.MULTILINE)
+
+    @pytest.mark.parametrize("installer_type", ["cli", "server"])
+    def test_bundle_runs_on_its_minimum_python(self, installer_type):
+        # The bundle's floor is MIN_PYTHON (3.10, Ubuntu 22.04's python3), below
+        # the package's own requires-python. These 3.11-only names imported
+        # cleanly in tests and crashed the curl-piped installer on 3.10.
+        source = bundle_installer(installer_type)
+        assert "MIN_PYTHON = (3, 10)" in source
+        used: set[str] = set()
+        for node in ast.walk(ast.parse(source)):
+            if isinstance(node, ast.Import | ast.ImportFrom):
+                used.update(alias.name for alias in node.names)
+                used.add(getattr(node, "module", None) or "")
+            elif isinstance(node, ast.Attribute):
+                used.add(node.attr)
+        assert not used & {"tomllib", "Self", "UTC", "StrEnum"}
 
 
 # =============================================================================
@@ -270,3 +291,14 @@ if __name__ == "__main__":
     sys.exit(main())
 """
         assert validate_bundle(source) is True
+
+
+def test_the_package_supports_the_bundles_minimum_python():
+    """
+    `pip install hop3-installer` must work where the one-liner does. The floor
+    was raised to 3.11 for a dev-time generator, which locked Ubuntu 22.04's
+    python3 out of the package while the bundle still supported it.
+    """
+    pyproject = Path(__file__).parents[2] / "pyproject.toml"
+    floor = tomllib.loads(pyproject.read_text())["project"]["requires-python"]
+    assert floor == ">={}.{}".format(*MIN_PYTHON)

@@ -19,71 +19,80 @@ a redis addon.
 One helper now, `control_service`, rather than a copy per service — this is the
 third time a hardcoded `systemctl` has silently no-opped on the Docker target
 (see also the deployer's `service_restart_command`).
+
+The tests pass a recording runner (and the init-script directory) through the
+helpers' own parameters, and assert the commands it recorded.
 """
 
 from __future__ import annotations
 
-from pathlib import Path
-from unittest.mock import patch
+import subprocess
+from collections.abc import Callable
 
 import pytest
-from hop3_installer import common
 from hop3_installer.common import CommandError, InstallStepError, control_service
 from hop3_installer.server_installer import mysql, redis
 
-
-@pytest.fixture
-def commands():
-    """Record every command run, reporting success for all of them."""
-    recorded: list[list[str]] = []
-
-    def fake_run(cmd, *args, **kwargs):
-        recorded.append(list(cmd))
-        return type("R", (), {"returncode": 0, "stderr": "", "stdout": ""})()
-
-    with patch.object(common, "run_cmd", side_effect=fake_run):
-        yield recorded
+Reply = Callable[[list[str]], tuple[int, str]]
 
 
-def test_systemd_hosts_use_systemctl(commands):
-    with patch.object(common, "has_systemd", return_value=True):
-        control_service("start", "mysql", "mariadb")
+class Recorder:
+    """A runner that records each command and answers through ``reply``."""
 
-    assert commands == [["systemctl", "start", "mysql"]]
+    def __init__(self, reply: Reply | None = None) -> None:
+        self.commands: list[list[str]] = []
+        self.envs: list[dict[str, str] | None] = []
+        self._reply = reply or (lambda _cmd: (0, ""))
+
+    def __call__(self, cmd, *, env=None, **_kwargs) -> subprocess.CompletedProcess:
+        self.commands.append(list(cmd))
+        self.envs.append(env)
+        returncode, stdout = self._reply(list(cmd))
+        stderr = "" if returncode == 0 else "unit failed"
+        return subprocess.CompletedProcess(cmd, returncode, stdout, stderr)
 
 
-def test_a_container_uses_the_init_script(commands):
+def _init_dir(tmp_path, *scripts: str):
+    for name in scripts:
+        (tmp_path / name).write_text("#!/bin/sh\n")
+    return tmp_path
+
+
+def test_systemd_hosts_use_systemctl():
+    run = Recorder()
+    control_service("start", "mysql", "mariadb", run=run, systemd=True)
+
+    assert run.commands == [["systemctl", "start", "mysql"]]
+
+
+def test_a_container_uses_the_init_script(tmp_path):
     """The branch that did not exist. `systemctl` is not even attempted."""
-    with (
-        patch.object(common, "has_systemd", return_value=False),
-        patch.object(Path, "is_file", return_value=True),
-    ):
-        control_service("start", "mysql", "mariadb")
+    run = Recorder()
+    init_dir = _init_dir(tmp_path, "mysql", "mariadb")
+    control_service(
+        "start", "mysql", "mariadb", run=run, systemd=False, init_dir=init_dir
+    )
 
-    assert commands == [["/etc/init.d/mysql", "start"]]
-    assert not any("systemctl" in c for c in commands)
-
-
-def test_the_second_name_is_tried_when_the_first_has_no_script(commands):
-    with (
-        patch.object(common, "has_systemd", return_value=False),
-        patch.object(Path, "is_file", lambda self: self.name == "mariadb"),
-    ):
-        control_service("start", "mysql", "mariadb")
-
-    assert commands == [["/etc/init.d/mariadb", "start"]]
+    assert run.commands == [[str(init_dir / "mysql"), "start"]]
 
 
-def test_no_init_script_at_all_is_a_failure(commands):
+def test_the_second_name_is_tried_when_the_first_has_no_script(tmp_path):
+    run = Recorder()
+    init_dir = _init_dir(tmp_path, "mariadb")
+    control_service(
+        "start", "mysql", "mariadb", run=run, systemd=False, init_dir=init_dir
+    )
+
+    assert run.commands == [[str(init_dir / "mariadb"), "start"]]
+
+
+def test_no_init_script_at_all_is_a_failure(tmp_path):
     """Not a silent success: the install stops, naming the services tried."""
-    with (
-        patch.object(common, "has_systemd", return_value=False),
-        patch.object(Path, "is_file", return_value=False),
-        pytest.raises(InstallStepError, match="no init script for mysql"),
-    ):
-        control_service("start", "mysql")
+    run = Recorder()
+    with pytest.raises(InstallStepError, match="no init script for mysql"):
+        control_service("start", "mysql", run=run, systemd=False, init_dir=tmp_path)
 
-    assert commands == []
+    assert run.commands == []
 
 
 def test_a_failed_systemctl_carries_its_output():
@@ -91,20 +100,11 @@ def test_a_failed_systemctl_carries_its_output():
     It returned False, and the caller aborted with "Redis did not restart"
     and nothing else: no stderr, no journal.
     """
-
-    def fake_run(cmd, *args, **kwargs):
-        if cmd[0] == "journalctl":
-            return type(
-                "R", (), {"returncode": 0, "stdout": "journal tail", "stderr": ""}
-            )()
-        return type("R", (), {"returncode": 1, "stdout": "", "stderr": "unit failed"})()
-
-    with (
-        patch.object(common, "has_systemd", return_value=True),
-        patch.object(common, "run_cmd", side_effect=fake_run),
-        pytest.raises(CommandError) as raised,
-    ):
-        control_service("restart", "redis-server", "redis")
+    run = Recorder(
+        lambda cmd: (0, "journal tail") if cmd[0] == "journalctl" else (1, "")
+    )
+    with pytest.raises(CommandError) as raised:
+        control_service("restart", "redis-server", "redis", run=run, systemd=True)
 
     assert "systemctl restart redis-server: unit failed" in raised.value.stderr
     assert raised.value.stdout == "journal tail"
@@ -112,95 +112,94 @@ def test_a_failed_systemctl_carries_its_output():
 
 def test_mysql_prefers_mysql_then_mariadb():
     """The distro-name preference is MySQL's to state, not the helper's."""
-    with patch.object(mysql, "control_service") as controlled:
-        mysql._start_mysql_service()
-
-    assert controlled.call_args[0] == ("start", "mysql", "mariadb")
+    assert mysql._MYSQL_SERVICE_NAMES == ("mysql", "mariadb")
 
 
-def _result(returncode: int = 0, stdout: str = ""):
-    return type("R", (), {"returncode": returncode, "stdout": stdout, "stderr": ""})()
+def test_mysql_admin_candidates_never_use_sudo(monkeypatch):
+    """The installer runs as root: socket auth needs no sudo, and Hop3 uses none."""
+    tried: list[list[str]] = []
+
+    def run(cmd, **_kwargs):
+        tried.append(list(cmd))
+        return subprocess.CompletedProcess(cmd, 1, "", "denied")
+
+    monkeypatch.setattr(mysql, "run_cmd", run)
+    monkeypatch.setattr(mysql, "_get_debian_mysql_credentials", lambda: None)
+    assert mysql._find_mysql_admin_connection() is None
+    assert tried, "no candidate was tried"
+    assert not any("sudo" in cmd for cmd in tried)
+
+
+# --- Redis --------------------------------------------------------------------
+
+
+@pytest.fixture(autouse=True)
+def redis_host(tmp_path, monkeypatch):
+    """The test's own password file and config; no waiting between polls."""
+    monkeypatch.setattr(redis, "REDIS_PASS_FILE", tmp_path / "redis-pass")
+    monkeypatch.setattr(redis, "_write_redis_config", lambda: None)
+    monkeypatch.setattr(redis, "_PING_DELAY", 0)
+
+
+def _pong(cmd: list[str]) -> tuple[int, str]:
+    return (0, "PONG") if cmd[:2] == ["redis-cli", "PING"] else (0, "")
 
 
 def test_redis_restart_goes_through_the_helper():
     """`systemctl restart redis-server` with check=False was a no-op here."""
-    with (
-        patch.object(redis, "control_service") as controlled,
-        patch.object(redis, "_write_redis_config", return_value=None),
-        patch.object(redis, "has_systemd", return_value=True),
-        patch.object(redis, "run_cmd", return_value=_result(stdout="PONG")),
-    ):
-        redis.configure_redis()
+    run = Recorder(_pong)
+    redis.configure_redis(run=run, systemd=True)
 
-    assert ("restart", "redis-server", "redis") in [
-        c.args for c in controlled.call_args_list
-    ]
+    assert ["systemctl", "enable", "redis-server"] in run.commands
+    assert ["systemctl", "restart", "redis-server"] in run.commands
 
 
-@pytest.fixture(autouse=True)
-def redis_pass_file(tmp_path, monkeypatch):
-    """The password file is the test's: the host's may be a real, unreadable one."""
-    monkeypatch.setattr(redis, "REDIS_PASS_FILE", tmp_path / "redis-pass")
-
-
-def test_redis_without_systemd_is_shut_down_by_asking_it():
+def test_redis_without_systemd_is_shut_down_by_asking_it(tmp_path, monkeypatch):
     """
     An init script's stop finds Redis by its pidfile and reports success
     without one, so a "restart" left the old Redis serving the old config.
     """
-    calls: list = []
+    monkeypatch.setattr(redis, "control_service", _control_in(tmp_path))
     running = iter([0, 1])  # pgrep: still there once, then gone
 
-    def run(cmd, *_a, **_kw):
-        calls.append(cmd)
-        if cmd[0] == "pgrep":
-            return _result(next(running))
-        return _result(stdout="PONG")
+    def reply(cmd):
+        return (next(running), "") if cmd[0] == "pgrep" else _pong(cmd)
 
-    with (
-        patch.object(redis, "control_service", side_effect=lambda *a: calls.append(a)),
-        patch.object(redis, "_write_redis_config", return_value=None),
-        patch.object(redis, "has_systemd", return_value=False),
-        patch.object(redis, "run_cmd", side_effect=run),
-        patch.object(redis.time, "sleep"),
-    ):
-        redis.configure_redis()
+    run = Recorder(reply)
+    redis.configure_redis(run=run, systemd=False)
 
-    shutdown = calls.index(["redis-cli", "SHUTDOWN"])
-    start = calls.index(("start", "redis-server", "redis"))
+    shutdown = run.commands.index(["redis-cli", "SHUTDOWN"])
+    start = run.commands.index([str(tmp_path / "redis-server"), "start"])
     assert shutdown < start
-    assert ("restart", "redis-server", "redis") not in calls
+    assert not any(cmd[0] == "systemctl" for cmd in run.commands)
 
 
-def test_a_redis_that_survives_its_shutdown_stops_the_install():
-    def run(cmd, *_a, **_kw):
-        return _result(0, "NOAUTH Authentication required.")
+def _control_in(init_dir):
+    """`control_service` reading init scripts from the test's directory."""
+    _init_dir(init_dir, "redis-server")
 
-    with (
-        patch.object(redis, "control_service") as controlled,
-        patch.object(redis, "_write_redis_config", return_value=None),
-        patch.object(redis, "has_systemd", return_value=False),
-        patch.object(redis, "run_cmd", side_effect=run),
-        patch.object(redis.time, "sleep"),
-        pytest.raises(InstallStepError, match="NOAUTH"),
-    ):
-        redis.configure_redis()
+    def control(action, *names, **kwargs):
+        control_service(action, *names, **kwargs, init_dir=init_dir)
 
-    controlled.assert_not_called()
+    return control
+
+
+def test_a_redis_that_survives_its_shutdown_stops_the_install(tmp_path, monkeypatch):
+    monkeypatch.setattr(redis, "control_service", _control_in(tmp_path))
+    run = Recorder(lambda _cmd: (0, "NOAUTH Authentication required."))
+
+    with pytest.raises(InstallStepError, match="NOAUTH"):
+        redis.configure_redis(run=run, systemd=False)
+
+    assert not any(cmd[-1] == "start" for cmd in run.commands)
 
 
 def test_redis_that_cannot_restart_stops_the_install():
     """A failure here is why an app's redis addon dies later, so stop now."""
-    failure = CommandError(
-        cmd=["systemctl", "restart"], returncode=1, stdout="", stderr="x"
-    )
-    with (
-        patch.object(redis, "control_service", side_effect=failure),
-        patch.object(redis, "_write_redis_config", return_value=None),
-        patch.object(redis, "has_systemd", return_value=False),
-        pytest.raises(CommandError),
-    ):
-        redis.configure_redis()
+    run = Recorder(lambda cmd: (1, "") if cmd[0] == "systemctl" else (0, ""))
+
+    with pytest.raises(CommandError):
+        redis.configure_redis(run=run, systemd=True)
 
 
 def test_redis_is_given_time_to_listen_after_a_restart():
@@ -210,15 +209,20 @@ def test_redis_is_given_time_to_listen_after_a_restart():
     """
     replies = iter(["", "", "PONG"])
 
-    def ping(*_a, **_kw):
-        return type("R", (), {"returncode": 0, "stdout": next(replies), "stderr": ""})()
+    def reply(cmd):
+        return (0, next(replies)) if cmd[:2] == ["redis-cli", "PING"] else (0, "")
 
-    with (
-        patch.object(redis, "control_service"),
-        patch.object(redis, "_write_redis_config", return_value=None),
-        patch.object(redis, "has_systemd", return_value=False),
-        patch.object(redis, "_shutdown_redis"),
-        patch.object(redis, "run_cmd", side_effect=ping),
-        patch.object(redis.time, "sleep"),
-    ):
-        redis.configure_redis()
+    run = Recorder(reply)
+    redis.configure_redis(run=run, systemd=True)
+
+    assert run.commands.count(["redis-cli", "PING"]) == 3
+
+
+def test_redis_ping_authenticates_when_a_password_is_set(monkeypatch):
+    """Without it, a Redis with requirepass answers NOAUTH and fails the check."""
+    monkeypatch.setattr(redis, "_write_redis_config", lambda: "s3cret")
+    run = Recorder(_pong)
+    redis.configure_redis(run=run, systemd=True)
+
+    ping = run.commands.index(["redis-cli", "PING"])
+    assert run.envs[ping] == {"REDISCLI_AUTH": "s3cret"}

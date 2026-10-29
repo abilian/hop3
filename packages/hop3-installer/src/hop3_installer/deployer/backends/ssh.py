@@ -243,7 +243,8 @@ class SSHDeployBackend(DeployBackend):
             text=True,
             check=False,
         )
-
+        if result.returncode != 0:
+            print(f"  ✗ scp failed: {(result.stderr or result.stdout).strip()}")
         return result.returncode == 0
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
@@ -276,12 +277,10 @@ class SSHDeployBackend(DeployBackend):
             text=True,
             check=False,
         )
-
-        if result.returncode == 0:
-            # Fix permissions
-            self.run(f"chmod -R a+rX {remote_path}", check=False)
-
-        return result.returncode == 0
+        if result.returncode != 0:
+            print(f"  ✗ rsync failed: {(result.stderr or result.stdout).strip()}")
+            return False
+        return self.make_world_readable(remote_path)
 
     def download_dir(self, remote_path: str, local_path: Path) -> bool:
         """
@@ -319,9 +318,9 @@ class SSHDeployBackend(DeployBackend):
         # Stop the apps FIRST: a running app holds an open connection to its
         # database, and PostgreSQL refuses to drop a database that anyone is
         # connected to. Reclaiming before this failed on exactly that.
+        for service in ("hop3-server", "uwsgi-hop3"):
+            self.run(self.service_stop_command(service), check=True)
         stop_commands = [
-            "systemctl stop hop3-server 2>/dev/null || true",
-            "systemctl stop uwsgi-hop3 2>/dev/null || true",
             "docker ps -q | xargs -r docker stop 2>/dev/null || true",
             "docker ps -aq | xargs -r docker rm 2>/dev/null || true",
         ]
@@ -336,13 +335,24 @@ class SSHDeployBackend(DeployBackend):
             "docker network prune -f 2>/dev/null || true",
             "rm -f /etc/nginx/sites-enabled/hop3-* 2>/dev/null || true",
             "rm -f /etc/nginx/sites-available/hop3-* 2>/dev/null || true",
-            "systemctl reload nginx 2>/dev/null || true",
-            "rm -rf /home/hop3",
-            "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3 2>/dev/null || true",
         ]
-
         for cmd in commands:
             self.run(cmd, check=False)
+
+        for cmd in (
+            "rm -rf /home/hop3",
+            "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3 2>/dev/null || true",
+        ):
+            self.run(cmd, check=False)
+        # Unload the removed vhosts, after /home/hop3 is gone: nginx.conf
+        # includes /home/hop3/nginx/*.conf, so reloading first re-validated the
+        # very vhosts being cleaned, and one broken app vhost (what `--clean`
+        # is used to recover from) aborted the clean. The install that follows
+        # reloads through hop3-rootd, which verifies the reload took.
+        self.run(
+            "if systemctl is-active --quiet nginx; then systemctl reload nginx; fi",
+            check=True,
+        )
 
     def _reclaim_addon_storage(self) -> None:
         """

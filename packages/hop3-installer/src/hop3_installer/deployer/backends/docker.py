@@ -591,8 +591,11 @@ class DockerDeployBackend(DeployBackend):
         result = subprocess.run(
             ["docker", "cp", str(local_path), f"{self.container_name}:{remote_path}"],
             capture_output=True,
+            text=True,
             check=False,
         )
+        if result.returncode != 0:
+            print(f"  ✗ docker cp failed: {(result.stderr or result.stdout).strip()}")
         return result.returncode == 0
 
     def upload_dir(self, local_path: Path, remote_path: str) -> bool:
@@ -607,12 +610,13 @@ class DockerDeployBackend(DeployBackend):
         result = subprocess.run(
             ["docker", "cp", str(local_path), f"{self.container_name}:{remote_path}"],
             capture_output=True,
+            text=True,
             check=False,
         )
-        if result.returncode == 0:
-            # Fix permissions
-            self.run(f"chmod -R a+rX {remote_path}", check=False)
-        return result.returncode == 0
+        if result.returncode != 0:
+            print(f"  ✗ docker cp failed: {(result.stderr or result.stdout).strip()}")
+            return False
+        return self.make_world_readable(remote_path)
 
     def clean(self) -> None:
         """
@@ -623,8 +627,8 @@ class DockerDeployBackend(DeployBackend):
         data are destroyed with the container itself. This is belt and braces on
         a container that is about to be replaced.
         """
+        self.run(self.service_stop_command("hop3-server"), check=True)
         commands = [
-            "systemctl stop hop3-server 2>/dev/null || true",
             "rm -rf /home/hop3",
             "userdel -r hop3 2>/dev/null || true",
             "groupdel hop3 2>/dev/null || true",
@@ -683,6 +687,12 @@ class DockerDeployBackend(DeployBackend):
         the old code serving while the deploy reports success.
         """
         return f"supervisorctl restart {service}"
+
+    def service_stop_command(self, service: str) -> str:
+        """Supervisor's stop, a no-op while supervisord is not running yet."""
+        return (
+            f"if pgrep -x supervisord >/dev/null; then supervisorctl stop {service}; fi"
+        )
 
     def service_logs_command(self, service: str) -> str:
         """Supervisor keeps the logs here; there is no journal in a container."""

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import re
 import subprocess
+import sys
 import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
@@ -16,6 +17,7 @@ from hop3_installer.common import (
     APT_NONINTERACTIVE_ENV,
     CommandError,
     InstallStepError,
+    Runner,
     Spinner,
     cmd_exists,
     create_symlink,
@@ -430,6 +432,59 @@ def _install_nodeenv() -> None:
         )
         raise InstallStepError(msg)
     print_success(f"nodeenv installed: {_NODEENV_BIN}")
+
+
+# =============================================================================
+# uv
+# =============================================================================
+
+#: The uv every Hop3 server builds `uv.lock` apps with. Pinned, and reconciled
+#: on every install, for the reason PNPM_VERSION is. It used to be installed
+#: (unpinned, into the server venv, off every PATH) only for `--from git`, so
+#: elsewhere the Python toolchain had to fetch uv from astral.sh at build time.
+UV_VERSION = "0.13.4"
+
+#: Root-owned, like nodeenv's. /usr/local/bin/uv is on the hop3 user's PATH,
+#: the server's, and in the Python toolchain's `_uv_candidates`.
+UV_VENV = Path("/opt/hop3/uv-venv")
+UV_BIN = Path("/usr/local/bin/uv")
+
+
+def install_uv(
+    *,
+    run: Runner = run_cmd,
+    as_hop3: Runner = run_as_hop3,
+    venv: Path = UV_VENV,
+    link: Path = UV_BIN,
+) -> None:
+    """
+    Install uv ``UV_VERSION`` and check the hop3 user's ``uv`` is that one.
+
+    Every step runs on every install: pip leaves a satisfied pin alone and
+    replaces any other version. The check is on what ``uv`` resolves to for
+    the hop3 user, since a copy ahead of ``link`` on PATH is what apps get.
+    """
+    uv = venv / "bin" / "uv"
+    if not (venv / "bin" / "python").exists():
+        run([sys.executable, "-m", "venv", str(venv)])
+    with Spinner(f"Installing uv {UV_VERSION}..."):
+        run([str(venv / "bin" / "pip"), "install", f"uv=={UV_VERSION}"])
+    if not create_symlink(uv, link):
+        msg = f"installed uv {UV_VERSION} in {venv} but could not link it to {link}"
+        raise InstallStepError(msg)
+
+    result = as_hop3(["uv", "--version"])
+    words = (result.stdout or "").split()
+    effective = words[1] if result.returncode == 0 and len(words) > 1 else ""
+    if effective != UV_VERSION:
+        output = (result.stdout or "") + (result.stderr or "")
+        msg = (
+            f"installed uv {UV_VERSION} at {link}, but `uv --version` as the hop3 "
+            f"user gives {output.strip() or 'nothing'!r}: another uv is ahead of "
+            f"it on PATH, or {link} is not on it"
+        )
+        raise InstallStepError(msg)
+    print_success(f"uv {UV_VERSION} installed: {link}")
 
 
 # =============================================================================

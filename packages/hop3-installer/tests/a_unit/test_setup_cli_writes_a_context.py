@@ -89,7 +89,24 @@ def test_writes_through_hop3_login_into_a_named_context(spawned):
     assert "--context" in argv
     assert argv[argv.index("--context") + 1] == CLI_CONTEXT_NAME
     assert argv[argv.index("--url") + 1] == "http://fedora.local:8000"
-    assert argv[argv.index("--token") + 1].startswith("eyJ")
+    assert argv[argv.index("--token") + 1] == "-"
+
+
+def test_the_token_travels_on_stdin_never_on_argv(monkeypatch):
+    """Any local user reads argv from /proc/<pid>/cmdline; stdin they cannot."""
+    seen: list[tuple[list[str], str | None]] = []
+
+    def fake_run(argv, **kwargs):
+        seen.append((list(argv), kwargs.get("input")))
+        return subprocess.CompletedProcess(argv, returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(deploy_mod.subprocess, "run", fake_run)
+    assert make_deployer(_Backend())._setup_cli()
+
+    [(argv, stdin)] = seen
+    assert argv[argv.index("--token") + 1] == "-"
+    assert "eyJhbGciOi.payload.sig" not in " ".join(argv)
+    assert stdin == "eyJhbGciOi.payload.sig"
 
 
 def test_the_context_is_never_the_operators_default(spawned):

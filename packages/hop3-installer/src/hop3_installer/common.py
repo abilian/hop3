@@ -23,9 +23,10 @@ import subprocess
 import sys
 import threading
 import time
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Self, TypedDict, overload
+from typing import TypedDict, final, overload
 
 # Argv tokens we'll redact when stringifying a CommandError. Defense in
 # depth: the right fix is to keep secrets off argv at the call site (we
@@ -161,6 +162,7 @@ def print_failure_output(stream: str, text: str | None, lines: int = 25) -> None
 # =============================================================================
 
 
+@final
 class Spinner:
     """
     A simple terminal spinner for long-running operations.
@@ -178,7 +180,7 @@ class Spinner:
         self._stop_event = threading.Event()
         self._thread: threading.Thread | None = None
 
-    def __enter__(self) -> Self:
+    def __enter__(self) -> Spinner:
         if sys.stdout.isatty():
             self._stop_event.clear()
             self._thread = threading.Thread(target=self._spin, daemon=True)
@@ -328,13 +330,14 @@ def run_cmd(
             stdin=subprocess.DEVNULL if stdin_text is None else None,
             input=stdin_text,
         )
-    except subprocess.TimeoutExpired:
-        # Return a failed result on timeout
-        return subprocess.CompletedProcess(
+    except subprocess.TimeoutExpired as e:
+        # A timeout is a failure: fall through so check=True raises below and
+        # check=False callers read returncode -1. Keep what the command printed.
+        result = subprocess.CompletedProcess(
             args=cmd,
             returncode=-1,
-            stdout="",
-            stderr="Command timed out",
+            stdout=_as_text(e.stdout),
+            stderr=f"{_as_text(e.stderr)}Command timed out after {timeout}s",
         )
     except FileNotFoundError:
         # Missing executable is a normal command failure (exit 127, "command
@@ -358,6 +361,13 @@ def run_cmd(
         )
 
     return result
+
+
+def _as_text(output: str | bytes | None) -> str:
+    """Decode partial output carried by ``TimeoutExpired`` (bytes on POSIX)."""
+    if isinstance(output, bytes):
+        return output.decode(errors="replace")
+    return output or ""
 
 
 def cmd_exists(cmd: str) -> bool:
@@ -386,7 +396,21 @@ def has_systemd() -> bool:
     return comm == "systemd"
 
 
-def control_service(action: str, *names: str) -> None:
+#: What runs a command: ``run_cmd``'s signature. Functions that take one let a
+#: test pass a recorder instead of patching ``run_cmd`` module-wide.
+Runner = Callable[..., "subprocess.CompletedProcess"]
+
+#: Where sysvinit scripts live.
+INIT_SCRIPT_DIR = Path("/etc/init.d")
+
+
+def control_service(
+    action: str,
+    *names: str,
+    run: Runner | None = None,
+    systemd: bool | None = None,
+    init_dir: Path = INIT_SCRIPT_DIR,
+) -> None:
     """
     Run ``action`` (start/restart/stop/enable) on the first of ``names`` that exists.
 
@@ -406,20 +430,25 @@ def control_service(action: str, *names: str) -> None:
             and its callers aborted with "Redis did not restart" and nothing
             else.
         InstallStepError: no init script exists for any of ``names``.
+
+    ``run``, ``systemd`` and ``init_dir`` default to the host's.
     """
-    if not has_systemd():
-        _control_with_init_script(action, names)
+    run = run or run_cmd
+    if systemd is None:
+        systemd = has_systemd()
+    if not systemd:
+        _control_with_init_script(action, names, run, init_dir)
         return
 
     attempts: list[str] = []
     returncode = 0
     for name in names:
-        result = run_cmd(["systemctl", action, name], check=False)
+        result = run(["systemctl", action, name], check=False)
         if result.returncode == 0:
             return
         returncode = result.returncode
         attempts.append(f"systemctl {action} {name}: {(result.stderr or '').strip()}")
-    journal = run_cmd(
+    journal = run(
         ["journalctl", "-u", names[-1], "-n", "30", "--no-pager"], check=False
     )
     raise CommandError(
@@ -430,13 +459,15 @@ def control_service(action: str, *names: str) -> None:
     )
 
 
-def _control_with_init_script(action: str, names: tuple[str, ...]) -> None:
-    """Run the first existing ``/etc/init.d/<name> <action>``, or raise."""
+def _control_with_init_script(
+    action: str, names: tuple[str, ...], run: Runner, init_dir: Path
+) -> None:
+    """Run the first existing ``<init_dir>/<name> <action>``, or raise."""
     for name in names:
-        script = Path("/etc/init.d") / name
+        script = init_dir / name
         if not script.is_file():
             continue
-        result = run_cmd([str(script), action], check=False)
+        result = run([str(script), action], check=False)
         if result.returncode != 0:
             raise CommandError(
                 cmd=[str(script), action],
@@ -446,7 +477,7 @@ def _control_with_init_script(action: str, names: tuple[str, ...]) -> None:
             )
         return
     msg = (
-        f"no init script for {' or '.join(names)} in /etc/init.d, so it "
+        f"no init script for {' or '.join(names)} in {init_dir}, so it "
         f"cannot be {action}ed on this host"
     )
     raise InstallStepError(msg)
@@ -876,5 +907,5 @@ def make_build_info(
         # Module-qualified: the single-file bundler rewrites
         # ``from datetime import datetime`` to ``import datetime``, so the bare
         # name would resolve to the module in the bundled installer.
-        "deployed_at": dt.datetime.now(dt.UTC).isoformat(timespec="seconds"),
+        "deployed_at": dt.datetime.now(dt.timezone.utc).isoformat(timespec="seconds"),
     }

@@ -75,7 +75,7 @@ def test_shell_variant_passes_the_script_through(spy) -> None:
 def test_kwargs_reach_run_cmd(spy) -> None:
     """check/timeout are forwarded, not silently dropped."""
     run_as_hop3(["true"], check=True, timeout=42)
-    assert spy.call_args.kwargs == {"check": True, "timeout": 42}
+    assert spy.call_args.kwargs == {"check": True, "timeout": 42, "stdin_text": None}
 
 
 def test_no_call_site_passes_a_bare_string() -> None:
