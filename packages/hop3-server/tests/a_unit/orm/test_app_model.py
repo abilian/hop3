@@ -604,7 +604,7 @@ def test_start_error_points_at_the_build_log():
     with pytest.raises(StateTransitionError) as exc_info:
         app.start()
 
-    assert "build-logs" in str(exc_info.value)
+    assert "app logs --build" in str(exc_info.value)
     assert "never-built-2" in str(exc_info.value)
 
 

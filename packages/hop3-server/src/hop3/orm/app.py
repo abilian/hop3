@@ -606,7 +606,7 @@ class App(BigIntAuditBase):
             msg = (
                 f"App '{self.name}' can't start: it has never deployed "
                 f"successfully, so there is nothing built to run. Check the "
-                f"build failure with `hop3 app build-logs --app {self.name}`, "
+                f"build failure with `hop3 app logs --build --app {self.name}`, "
                 f"fix it, then `hop3 deploy`."
             )
             raise StateTransitionError(msg)
@@ -711,8 +711,9 @@ class App(BigIntAuditBase):
         """
         Restart (or just start) a deployed app (non-blocking).
 
-        For uWSGI RUNNING apps: uses touch-based restart (emperor reloads vassal)
-        For Docker RUNNING apps: uses docker compose restart
+        For uWSGI RUNNING apps: stops, then spawns from the current settings
+        For Docker RUNNING apps: uses docker compose restart, which keeps the
+        environment written at the last deploy
         For STOPPED/FAILED apps: transitions through STARTING
         For STARTING/STOPPING apps: no-op (already in transition)
 
@@ -750,29 +751,20 @@ class App(BigIntAuditBase):
             self.start()
 
     def _restart_uwsgi(self) -> None:
-        """Restart uWSGI app using touch-based restart."""
-        # A touch-restart relaunches the vassal from its existing .ini, so it
-        # never reaches spawn_app — and therefore never reached the closure
-        # guard. That left the guard blind on the one path where a reclaimed
-        # Nix closure actually bites: collect garbage, restart, exec a store
-        # path that is gone, wait out the health-check timeout.
-        verify_nix_closure(self)
+        """
+        Restart a uWSGI app by stopping it and spawning it again.
 
-        cfg = HopConfig.get_instance()
-        config_files = list(cfg.UWSGI_ENABLED.glob(vassal_glob(self.name)))
-        if config_files:
-            for config_file in config_files:
-                config_file.touch()
-            log(f"App '{self.name}' restart triggered.", level=2, fg="green")
-        else:
-            # No config files but state says running - inconsistent state
-            log(
-                f"App '{self.name}' has no config files, starting fresh.",
-                level=2,
-                fg="yellow",
-            )
-            self.run_state = AppStateEnum.STOPPED
-            self.start()
+        The vassal's `.ini` and its worker environment file are written at
+        spawn, from the app's current settings. Touching the `.ini` relaunched
+        the vassal with the values it had at its last spawn, so a variable
+        changed by `hop3 env set` never reached the app, while `env set`
+        itself said a restart would apply it.
+        """
+        # Before the stop: a reclaimed Nix closure must refuse the restart while
+        # the app is still running, not after it has been taken down.
+        verify_nix_closure(self)
+        self.stop()
+        self.start()
 
     def get_logs(self, lines: int = 100, since: str | None = None) -> list[str]:
         """

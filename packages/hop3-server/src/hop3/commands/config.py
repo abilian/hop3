@@ -431,7 +431,7 @@ class SetCmd(Command):
                 )
             )
         else:
-            result.append(hint("app restart", "\nNote: Run {cmd} to apply changes."))
+            result.append(_apply_hint(app, "\nNote: Run {cmd} to apply changes."))
 
         # Summary line per ADR 036 D19c: one-line state-change report.
         keys_set = ", ".join(sorted(key_values.keys()))
@@ -503,10 +503,7 @@ class UnsetCmd(Command):
 
         if removed:
             result.append(
-                hint(
-                    "app restart",
-                    "\nNote: Run {cmd} to apply changes to running app.",
-                )
+                _apply_hint(app, "\nNote: Run {cmd} to apply changes to running app.")
             )
             result.append(summary(f"unset {', '.join(removed)} on {app_name}."))
 
@@ -679,3 +676,15 @@ class MigrateCmd(Command):
             lines.append("")
 
         return "\n".join(lines)
+
+
+def _apply_hint(app: App, message: str) -> dict:
+    """
+    Point at the command that brings an environment change to the running app.
+
+    A uWSGI app takes its environment at spawn, which `app restart` redoes. A
+    Docker app's environment is written into its compose file at deploy, and
+    `docker compose restart` keeps it, so only a deploy applies the change.
+    """
+    command = "deploy" if app.runtime == "docker-compose" else "app restart"
+    return hint(command, message)

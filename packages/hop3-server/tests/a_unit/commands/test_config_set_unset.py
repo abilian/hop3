@@ -270,3 +270,32 @@ def test_config_unset_restart_reminder(db_session: Session, test_app: App):
     ).lower()
     assert "restart" in result_text
     assert "apply changes" in result_text
+
+
+@pytest.mark.parametrize(
+    ("cmd_class", "arg"), [(SetCmd, "VAR=value"), (UnsetCmd, "EXISTING_VAR")]
+)
+def test_a_docker_app_is_told_to_deploy(
+    db_session: Session, test_app: App, cmd_class, arg
+):
+    """`docker compose restart` keeps the environment of the last deploy."""
+    test_app.runtime = "docker-compose"
+    db_session.commit()
+
+    result = cmd_class(db_session=db_session).call("--app", "testapp", arg)
+
+    hints = [r["command"] for r in result if r.get("t") == "hint"]
+    assert hints == ["deploy"]
+
+
+@pytest.mark.parametrize(
+    ("cmd_class", "arg"), [(SetCmd, "VAR=value"), (UnsetCmd, "EXISTING_VAR")]
+)
+def test_a_uwsgi_app_is_told_to_restart(
+    db_session: Session, test_app: App, cmd_class, arg
+):
+    """A uWSGI app's restart spawns it again, from the current environment."""
+    result = cmd_class(db_session=db_session).call("--app", "testapp", arg)
+
+    hints = [r["command"] for r in result if r.get("t") == "hint"]
+    assert hints == ["app restart"]

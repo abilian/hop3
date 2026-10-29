@@ -173,28 +173,14 @@ class UWSGIDeployer:
         return reap_app_processes(self.app.name, timeout)
 
     def restart(self) -> None:
-        """For uWSGI, touching the .ini files is the most efficient way to restart."""
+        """Stop the app and deploy it again, from its current settings."""
         log(f"Restarting '{self.app.name}'...", level=2, fg="blue")
 
-        # Same reason as App._restart_uwsgi: a touch-restart bypasses spawn_app,
-        # so the closure guard has to be invoked here too. Two touch-restart
-        # implementations means two ways to bypass it.
+        # Same reason as App._restart_uwsgi: refuse a reclaimed Nix closure
+        # while the app is still running.
         verify_nix_closure(self.app)
-
-        config_files = list(UWSGI_ENABLED.glob(vassal_glob(self.app.name)))
-        if not config_files:
-            log(
-                f"App '{self.app.name}' not running, cannot restart. Starting instead.",
-                level=3,
-            )
-            self.start()
-            return
-
-        for config_file in config_files:
-            # The uWSGI emperor will see the file modification and restart the vassal.
-            config_file.touch()
-
-        log(f"App '{self.app.name}' restart triggered.", level=2, fg="green")
+        self.stop()
+        self.start()
 
     def destroy(self) -> None:
         """Destruction is a superset of stop."""
