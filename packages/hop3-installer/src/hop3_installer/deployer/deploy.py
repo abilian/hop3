@@ -86,6 +86,10 @@ _VERSION_PROBE = (
 # codebase keeps paying for.
 CLI_CONTEXT_NAME = "hop3-docker"
 
+_PIP = f"{VENV_DIR}/bin/pip"
+# The editable checkout of the git-update path, in hop3's home.
+_GIT_CHECKOUT = "/home/hop3/hop3"
+
 
 def _as_hop3(command: str) -> str:
     """
@@ -942,7 +946,9 @@ class Deployer:
 
         # Capture the current commit BEFORE `reset --hard`, so a broken upgrade
         # can point the operator at the exact release to revert to.
-        head = self.backend.run("cd /home/hop3/hop3 && git rev-parse HEAD", check=False)
+        head = self.backend.run(
+            _as_hop3(f"git -C {_GIT_CHECKOUT} rev-parse HEAD"), check=False
+        )
         # Intentional double .strip(): degrade the hint to "" when HEAD is empty
         # or whitespace, not only when the command itself fails.
         old_ref = head.stdout.strip() if head.success and head.stdout.strip() else ""
@@ -950,15 +956,20 @@ class Deployer:
         # Install the new code before running migrations and restarting.
         # Migrations run between install and restart so a schema mismatch
         # aborts the deploy with the OLD server still running.
+        # All as hop3: the checkout and the venv are hop3's, and root running
+        # git (hooks, `core.fsmonitor`) or pip in them runs hop3-writable code.
         update_commands = [
-            "cd /home/hop3/hop3 && git fetch origin",
-            f"cd /home/hop3/hop3 && git checkout {safe_branch}",
-            f"cd /home/hop3/hop3 && git reset --hard origin/{safe_branch}",
-            # [waf] extra: install the LeWAF engine by default (ADR 050). No-op on
-            # <3.12 (marker-gated); without it, WAF-enabled apps abort the deploy.
-            "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]'",
-            # The daemon and the client ride along at the same commit.
-            "cd /home/hop3/hop3 && /home/hop3/venv/bin/pip install -e packages/hop3-rootd -e packages/hop3-cli",
+            _as_hop3(f"cd {_GIT_CHECKOUT} && {step}")
+            for step in (
+                "git fetch origin",
+                f"git checkout {safe_branch}",
+                f"git reset --hard origin/{safe_branch}",
+                # [waf] extra: the LeWAF engine (ADR 050). No-op on <3.12
+                # (marker-gated); without it, WAF-enabled apps abort the deploy.
+                f"{_PIP} install -e 'packages/hop3-server[waf]'",
+                # The daemon and the client ride along at the same commit.
+                f"{_PIP} install -e packages/hop3-rootd -e packages/hop3-cli",
+            )
         ]
 
         for cmd in update_commands:
@@ -971,7 +982,9 @@ class Deployer:
                 return False
 
         declared = self.backend.run(
-            "grep -m1 '^version' /home/hop3/hop3/packages/hop3-server/pyproject.toml",
+            _as_hop3(
+                f"grep -m1 '^version' {_GIT_CHECKOUT}/packages/hop3-server/pyproject.toml"
+            ),
             check=False,
         )
         found = re.search(r'"([^"]+)"', declared.stdout or "")
@@ -984,18 +997,19 @@ class Deployer:
         ref = old_ref or "<previous commit>"
         restart = self.backend.service_restart_command("hop3-server")
         revert = (
-            f"cd /home/hop3/hop3 && git reset --hard {ref} && "
-            "/home/hop3/venv/bin/pip install -e 'packages/hop3-server[waf]' "
-            f"-e packages/hop3-rootd -e packages/hop3-cli && {restart}"
+            _as_hop3(
+                f"cd {_GIT_CHECKOUT} && git reset --hard {ref} && "
+                f"{_PIP} install -e 'packages/hop3-server[waf]' "
+                "-e packages/hop3-rootd -e packages/hop3-cli"
+            )
+            + f" && {restart}"
         )
         return self._finish_upgrade(revert, "Update complete")
 
     def _update_from_pypi(self) -> bool:
         """Update existing installation from PyPI."""
-        pip = "/home/hop3/venv/bin/pip"
-
         # Capture the installed version BEFORE upgrading, for the revert hint.
-        show = self.backend.run(f"{pip} show hop3-server", check=False)
+        show = self.backend.run(_as_hop3(f"{_PIP} show hop3-server"), check=False)
         old_version = ""
         if show.success:
             for line in show.stdout.splitlines():
@@ -1019,8 +1033,8 @@ class Deployer:
         pre_flag = (
             "--pre " if self.config.pypi_pre and not self.config.pypi_version else ""
         )
-        pip_cmd = (
-            f"{pip} install --upgrade --upgrade-strategy=eager {pre_flag}{package_spec}"
+        pip_cmd = _as_hop3(
+            f"{_PIP} install --upgrade --upgrade-strategy=eager {pre_flag}{package_spec}"
         )
 
         result = self.backend.run(pip_cmd, check=False)
@@ -1037,10 +1051,9 @@ class Deployer:
 
         version = old_version or "<previous-version>"
         restart = self.backend.service_restart_command("hop3-server")
+        pins = " ".join(f"{p}=={version}" for p in _VERSIONED_PACKAGES)
         revert = (
-            f"{pip} install "
-            + " ".join(f"{p}=={version}" for p in _VERSIONED_PACKAGES)
-            + f" && {restart} "
+            _as_hop3(f"{_PIP} install {pins}") + f" && {restart} "
             "(the upgrade bumped dependencies eagerly; if the old server still "
             "fails, reinstall into a fresh venv)"
         )
@@ -1159,10 +1172,7 @@ class Deployer:
         # `pip uninstall` only removes the named package, never its deps,
         # so this is fast.
         self.log("Removing stale metadata")
-        self.backend.run(
-            "/home/hop3/venv/bin/pip uninstall -y hop3-server",
-            check=False,
-        )
+        self.backend.run(_as_hop3(f"{_PIP} uninstall -y hop3-server"), check=False)
 
         # Install from uploaded code. --upgrade-strategy=eager bumps
         # transitive deps (e.g. litestar) when the new package uses APIs
@@ -1171,9 +1181,11 @@ class Deployer:
         # and the import fails at runtime.
         self.log("Installing from uploaded code")
         result = self.backend.run(
-            "/home/hop3/venv/bin/pip install "
-            # [waf] extra: LeWAF engine (ADR 050), marker-gated to py3.12+.
-            f"--upgrade --upgrade-strategy=eager '{remote_path}[waf]'",
+            _as_hop3(
+                f"{_PIP} install "
+                # [waf] extra: LeWAF engine (ADR 050), marker-gated to py3.12+.
+                f"--upgrade --upgrade-strategy=eager '{remote_path}[waf]'"
+            ),
             check=False,
         )
         if not result.success:
@@ -1183,8 +1195,10 @@ class Deployer:
 
         self.log("Installing hop3-rootd and hop3-cli from uploaded code")
         result = self.backend.run(
-            "/home/hop3/venv/bin/pip install --upgrade --upgrade-strategy=eager "
-            "/tmp/hop3-rootd /tmp/hop3-cli",
+            _as_hop3(
+                f"{_PIP} install --upgrade --upgrade-strategy=eager "
+                "/tmp/hop3-rootd /tmp/hop3-cli"
+            ),
             check=False,
         )
         if not result.success:
@@ -1875,8 +1889,10 @@ class Deployer:
         """Resolve the deployed git commit from the server (git deploys)."""
         # pip records the commit for ``git+...`` installs (PEP 610).
         result = self.backend.run(
-            "cat /home/hop3/venv/lib/python*/site-packages/"
-            "hop3_server-*.dist-info/direct_url.json 2>/dev/null",
+            _as_hop3(
+                f"cat {VENV_DIR}/lib/python*/site-packages/"
+                "hop3_server-*.dist-info/direct_url.json 2>/dev/null"
+            ),
             check=False,
         )
         if result.success and result.stdout.strip():
@@ -1888,7 +1904,8 @@ class Deployer:
                 pass
         # Fallback: the editable checkout used by the git-update path.
         result = self.backend.run(
-            "git -C /home/hop3/hop3 rev-parse HEAD 2>/dev/null", check=False
+            _as_hop3(f"git -C {_GIT_CHECKOUT} rev-parse HEAD 2>/dev/null"),
+            check=False,
         )
         if result.success and result.stdout.strip():
             return result.stdout.strip()

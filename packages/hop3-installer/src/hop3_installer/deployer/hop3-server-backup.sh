@@ -82,6 +82,10 @@ HOP3_SERVER="$VENV/bin/hop3-server"
 
 [ -d "$HOP3_ROOT" ] || fail "no Hop3 root at $HOP3_ROOT (set HOP3_ROOT if it lives elsewhere)"
 [ -x "$PY" ] || fail "no server venv at $VENV"
+# hop3's venv is hop3-writable: its programs run as hop3, never as root. SQLite
+# is read with the system's python3 (stdlib sqlite3), which root may run.
+as_hop3() { runuser -u hop3 -- "$@"; }
+SYS_PY="$(command -v python3)" || fail "python3 is not installed; it reads the SQLite database"
 
 HOST="$(hostname -s 2>/dev/null || hostname)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -100,14 +104,14 @@ echo "[1/6] versions and state"
     echo "database_uri: ${DB_URI:-sqlite:///$HOP3_ROOT/hop3.db (default)}"
     for pkg in hop3_server hop3_rootd hop3_cli; do
         printf '%s: ' "$pkg"
-        "$PY" -c "import importlib.metadata as m; print(m.version('$pkg'))" 2>/dev/null || echo "not installed"
+        as_hop3 "$PY" -c "import importlib.metadata as m; print(m.version('$pkg'))" 2>/dev/null || echo "not installed"
     done
     printf 'schema: '
-    runuser -u hop3 -- "$HOP3_SERVER" db:current 2>/dev/null | tail -1 || echo "unknown"
+    as_hop3 "$HOP3_SERVER" db:current 2>/dev/null | tail -1 || echo "unknown"
     echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
-    echo "python: $("$PY" --version 2>&1)"
+    echo "python: $(as_hop3 "$PY" --version 2>&1)"
 } > "$DEST/versions.txt"
-"$VENV/bin/pip" freeze > "$DEST/pip-freeze.txt" 2>/dev/null || true
+as_hop3 "$VENV/bin/pip" freeze > "$DEST/pip-freeze.txt" 2>/dev/null || true
 if command -v dpkg-query >/dev/null; then
     dpkg-query -W -f '${Package} ${Version}\n' 2>/dev/null | grep -E '^(nginx|uwsgi|postgresql|mariadb-server|mysql-server|redis-server|docker\.io|nix)' > "$DEST/system-packages.txt" || true
 elif command -v rpm >/dev/null; then
@@ -118,7 +122,7 @@ if command -v systemctl >/dev/null && [ -d /run/systemd/system ]; then
 else
     echo "no systemd on this host" > "$DEST/services.txt"
 fi
-"$PY" - "$HOP3_ROOT" "$DEST/apps.txt" <<'EOF' 2>/dev/null || echo "app list unavailable (non-SQLite database or old schema)" > "$DEST/apps.txt"
+"$SYS_PY" - "$HOP3_ROOT" "$DEST/apps.txt" <<'EOF' 2>/dev/null || echo "app list unavailable (non-SQLite database or old schema)" > "$DEST/apps.txt"
 import sqlite3, sys
 root, out = sys.argv[1], sys.argv[2]
 con = sqlite3.connect(f"file:{root}/hop3.db?mode=ro", uri=True)
@@ -137,7 +141,7 @@ case "${DB_URI:-sqlite}" in
         case "$DB_URI" in sqlite:////*) SQLITE_PATH="${DB_URI#sqlite:///}" ;; esac
         [ -f "$SQLITE_PATH" ] || fail "SQLite database not found at $SQLITE_PATH"
         # The backup API copies a consistent image while the server keeps running.
-        "$PY" - "$SQLITE_PATH" "$DEST/hop3.db" <<'EOF'
+        "$SYS_PY" - "$SQLITE_PATH" "$DEST/hop3.db" <<'EOF'
 import sqlite3, sys
 src = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
 dst = sqlite3.connect(sys.argv[2])

@@ -53,7 +53,8 @@ HOP3_ROOT="${HOP3_ROOT:-${SNAP_ROOT:-/home/hop3}}"
 VENV="$HOP3_ROOT/venv"
 PY="$VENV/bin/python"
 [ -x "$PY" ] || fail "no Hop3 installed at $HOP3_ROOT; install it first, then restore"
-INSTALLED="$("$PY" -c 'import importlib.metadata as m; print(m.version("hop3_server"))' 2>/dev/null || true)"
+# hop3's venv is hop3-writable: run its python as hop3, never as root.
+INSTALLED="$(runuser -u hop3 -- "$PY" -c 'import importlib.metadata as m; print(m.version("hop3_server"))' 2>/dev/null || true)"
 [ -n "$INSTALLED" ] || fail "cannot read the installed hop3-server version from $VENV"
 NEWEST="$(printf '%s\n%s\n' "$SNAP_VERSION" "$INSTALLED" | sort -V | tail -1)"
 if [ "$SNAP_VERSION" != "$INSTALLED" ] && [ "$NEWEST" = "$SNAP_VERSION" ]; then

@@ -158,9 +158,14 @@ class DatabaseProvider(Provider):
     @provide
     async def session(self, config: TestlabConfig) -> AsyncIterator[Session]:
         session = _open_request_session(config)
-        _REQUEST_SESSION.set(session)
-        handler_error = yield session
-        await anyio.to_thread.run_sync(_close_request_session, session, handler_error)
+        token = _REQUEST_SESSION.set(session)
+        try:
+            handler_error = yield session
+            await anyio.to_thread.run_sync(
+                _close_request_session, session, handler_error
+            )
+        finally:
+            _REQUEST_SESSION.reset(token)
 
 
 class RepositoryProvider(Provider):

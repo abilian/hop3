@@ -56,6 +56,16 @@ async def test_a_committed_write_survives_the_scope():
     assert _stored_servers() == ["kept"]
 
 
+async def test_the_scope_forgets_its_session_when_it_ends():
+    """A closed session must not stay the context's "current request session"."""
+    container = create_async_container()
+    async with container() as request:
+        session = await request.get(Session)
+        assert di_providers.current_request_session() is session
+    await container.close()
+    assert di_providers.current_request_session() is None
+
+
 _WRITES = {
     "pending": lambda s: s.add(_server("forgotten")),
     "flushed": lambda s: (s.add(_server("forgotten")), s.flush()),

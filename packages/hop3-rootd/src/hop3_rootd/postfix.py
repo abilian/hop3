@@ -29,7 +29,13 @@ from collections.abc import Iterator
 from pathlib import Path
 from typing import Any, Final
 
-from hop3_rootd.exec import DEFAULT_EXEC, Exec, InvalidBinaryError, first_success
+from hop3_rootd.exec import (
+    DEFAULT_EXEC,
+    CommandTimeoutError,
+    Exec,
+    InvalidBinaryError,
+    first_success,
+)
 
 # Postfix config directory (test override via this attribute).
 POSTFIX_DIR: Path = Path("/etc/postfix")
@@ -190,7 +196,9 @@ def _reload_methods(
     try:
         status = exec.run([postfix, "status"], timeout=_RELOAD_TIMEOUT_SECONDS)
         verb = "reload" if status.success else "start"
-    except InvalidBinaryError:
+    except (InvalidBinaryError, CommandTimeoutError):
+        # A status that cannot answer says nothing either way: try `start`,
+        # whose own failure joins systemctl's in the report.
         verb = "start"
     yield [postfix, verb], f"postfix {verb}"
 

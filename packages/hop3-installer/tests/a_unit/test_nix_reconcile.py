@@ -46,7 +46,9 @@ class LocalShell:
         return result
 
 
-def _configure(tmp_path, *, daemon_mode: bool, shell=None) -> Recorder:
+def _configure(
+    tmp_path, *, daemon_mode: bool, shell=None, systemd: bool = True
+) -> Recorder:
     run = Recorder()
     nix._configure_hop3_nix_access(
         daemon_mode=daemon_mode,
@@ -54,7 +56,7 @@ def _configure(tmp_path, *, daemon_mode: bool, shell=None) -> Recorder:
         etc_conf=tmp_path / "etc" / "nix" / "nix.conf",
         run=run,
         as_hop3_shell=shell or LocalShell(),
-        systemd=True,
+        systemd=systemd,
     )
     return run
 
@@ -129,6 +131,20 @@ def test_root_never_touches_a_path_under_hop3s_home(tmp_path):
     assert any("nix.conf" in script for script in shell.scripts)
     # And a redeploy adds nothing a second time.
     assert (home / ".bashrc").read_text().count("# Nix package manager") == 1
+
+
+def test_no_systemctl_call_without_systemd(tmp_path):
+    (tmp_path / "home").mkdir()
+    run = _configure(tmp_path, daemon_mode=False, systemd=False)
+
+    assert [c for c in run.calls if c[0] == "systemctl"] == []
+
+
+def test_the_gc_timer_is_disabled_under_systemd(tmp_path):
+    (tmp_path / "home").mkdir()
+    run = _configure(tmp_path, daemon_mode=False)
+
+    assert ["systemctl", "disable", "--now", "nix-gc.timer"] in run.calls
 
 
 def test_reconciled_nix_conf_is_a_fixed_point():

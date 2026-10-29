@@ -391,8 +391,8 @@ def has_systemd() -> bool:
     """
     try:
         comm = Path("/proc/1/comm").read_text().strip()
-    except OSError:
-        return False
+    except FileNotFoundError:
+        return False  # no procfs (not Linux): no systemd either
     return comm == "systemd"
 
 

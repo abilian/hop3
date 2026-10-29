@@ -19,6 +19,7 @@ import ssl
 import tempfile
 import urllib.error
 import urllib.request
+from collections.abc import Callable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import NoReturn
@@ -61,7 +62,7 @@ def install_nix() -> None:
     """
     print_info("Installing Nix package manager...")
 
-    use_daemon_mode = _has_systemd()
+    use_daemon_mode = has_systemd()
     if _is_nix_installed():
         print_success("Nix already installed")
     else:
@@ -125,11 +126,6 @@ def _is_nix_installed() -> bool:
 
     # Check for single-user installation
     return NIX_SINGLE_USER_PROFILE.exists()
-
-
-# _has_systemd lives in common.has_systemd — kept here as a thin alias
-# so existing call sites in this module read clearly.
-_has_systemd = has_systemd
 
 
 def _download_nix_installer() -> Path | None:
@@ -313,31 +309,37 @@ def _configure_hop3_nix_access(
     profile_script = NIX_DAEMON_PROFILE if daemon_mode else NIX_SINGLE_USER_PROFILE
     _ensure_bashrc_sources(home / ".bashrc", profile_script, as_hop3_shell)
 
+    if systemd is None:
+        systemd = has_systemd()
     if daemon_mode:
-        etc_conf.parent.mkdir(parents=True, exist_ok=True)
-        _reconcile_nix_conf_file(etc_conf)
+
+        def write_etc(content: str) -> None:
+            etc_conf.parent.mkdir(parents=True, exist_ok=True)
+            etc_conf.write_text(content)
+
+        etc_existing = etc_conf.read_text() if etc_conf.exists() else ""
+        _reconcile_nix_conf(etc_conf, etc_existing, write_etc)
         # The daemon reads nix.conf at start: a failed restart leaves the
         # sandbox setting unapplied and every __noChroot build failing later.
         control_service("enable", "nix-daemon", run=run, systemd=systemd)
         control_service("restart", "nix-daemon", run=run, systemd=systemd)
     else:
         user_conf = home / ".config" / "nix" / "nix.conf"
-        existing = _read_as_hop3(user_conf, as_hop3_shell)
-        wanted = reconciled_nix_conf(existing)
-        if wanted == existing:
-            print_detail(f"Nix settings up to date in {user_conf}")
-        else:
+
+        def write_user(content: str) -> None:
             as_hop3_shell(
                 f"mkdir -p -- {shlex.quote(str(user_conf.parent))}", check=True
             )
-            _write_as_hop3(user_conf, wanted, as_hop3_shell)
-            print_detail(f"Wrote nix settings to {user_conf}")
+            _write_as_hop3(user_conf, content, as_hop3_shell)
+
+        user_existing = _read_as_hop3(user_conf, as_hop3_shell)
+        _reconcile_nix_conf(user_conf, user_existing, write_user)
 
     # Belt-and-suspenders with min-free=0: also stop any periodic GC timer a
     # host/channel image may ship, so a scheduled `nix-collect-garbage` can't
     # reclaim a running app's closure between deploys. Absent on most hosts,
-    # hence check=False.
-    with contextlib.suppress(Exception):
+    # hence check=False; without systemd there is no timer to stop.
+    if systemd:
         run(["systemctl", "disable", "--now", "nix-gc.timer"], check=False)
 
     # No nixpkgs channel is configured. Every Hop3 build expression pins its own
@@ -378,16 +380,16 @@ def _write_as_hop3(path: Path, content: str, shell: Runner) -> None:
     shell(f"cat > {shlex.quote(str(path))}", check=True, stdin_text=content)
 
 
-def _reconcile_nix_conf_file(path: Path) -> bool:
-    """Write Hop3's settings into the nix.conf at ``path``; True if it changed."""
-    existing = path.read_text() if path.exists() else ""
+def _reconcile_nix_conf(
+    path: Path, existing: str, write: Callable[[str], None]
+) -> None:
+    """Bring the nix.conf at ``path`` to Hop3's settings, writing only a change."""
     wanted = reconciled_nix_conf(existing)
     if wanted == existing:
         print_detail(f"Nix settings up to date in {path}")
-        return False
-    path.write_text(wanted)
+        return
+    write(wanted)
     print_detail(f"Wrote nix settings to {path}")
-    return True
 
 
 def _verify_nix_installation() -> bool:

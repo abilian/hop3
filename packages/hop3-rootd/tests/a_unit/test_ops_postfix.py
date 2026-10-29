@@ -9,6 +9,7 @@ import stat
 
 import pytest
 from hop3_rootd import PROTOCOL_VERSION, dkim, postfix as pf
+from hop3_rootd.exec import CommandResult, CommandTimeoutError
 from hop3_rootd.ops import get_handler
 from hop3_rootd.ops._base import OpContext, OpHandler
 from hop3_rootd.postfix import PostfixError, PostfixUnavailableError
@@ -141,6 +142,25 @@ def test_reload_failure_reports_every_method(postfix_dir):
     msg = str(exc.value)
     assert "systemctl: rc=1 stderr='no systemd'" in msg
     assert "postfix start: rc=2 stderr='fatal: bad main.cf'" in msg
+
+
+def test_a_hung_status_probe_still_reports_systemctls_failure(postfix_dir):
+    """A `postfix status` timeout must not escape and hide systemctl's failure."""
+
+    class HungStatus(FakeExec):
+        def run(self, argv: list[str], **kwargs: object) -> CommandResult:
+            if "status" in argv:
+                raise CommandTimeoutError(list(argv), 1)
+            return super().run(argv, **kwargs)
+
+    ex = HungStatus()
+    ex.on(lambda a: bool(a) and a[0].endswith("systemctl"), fail("no systemd"))
+    ex.on(lambda a: bool(a) and "start" in a, fail("already running", returncode=1))
+    with pytest.raises(PostfixError) as exc:
+        pf.configure("127.0.0.1", 1025, use_tls=False, exec=ex)
+    msg = str(exc.value)
+    assert "systemctl: rc=1 stderr='no systemd'" in msg
+    assert "postfix start: rc=1" in msg
 
 
 # --- op: postfix.configure -----------------------------------------------

@@ -201,16 +201,16 @@ def _reclaim_script() -> str:
     raise AssertionError(msg)
 
 
-def test_nginx_is_reloaded_after_the_wipe_not_before() -> None:
+def test_clean_leaves_nginx_to_the_install_that_follows() -> None:
     """
-    nginx.conf includes /home/hop3/nginx/*.conf. Reloading before the wipe
+    nginx.conf includes /home/hop3/nginx/*.conf. A reload before the wipe
     re-validated the vhosts being cleaned, so one broken app vhost (what
-    `--clean` recovers from) failed the reload and aborted the clean.
+    `--clean` recovers from) aborted the clean; a reload after it checked only
+    its exit code. The install that follows runs `nginx -t` and restarts
+    nginx, which unloads the removed vhosts.
     """
     backend = _Backend(installed=True)
 
     backend.clean()
 
-    wipe_at = next(i for i, c in enumerate(backend.commands) if c == WIPE)
-    reload_at = next(i for i, c in enumerate(backend.commands) if "reload nginx" in c)
-    assert reload_at > wipe_at
+    assert [c for c in backend.commands if "nginx" in c and "reload" in c] == []

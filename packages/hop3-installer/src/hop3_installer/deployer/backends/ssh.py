@@ -344,15 +344,10 @@ class SSHDeployBackend(DeployBackend):
             "mkdir -p /home/hop3 && chown hop3:hop3 /home/hop3 2>/dev/null || true",
         ):
             self.run(cmd, check=False)
-        # Unload the removed vhosts, after /home/hop3 is gone: nginx.conf
-        # includes /home/hop3/nginx/*.conf, so reloading first re-validated the
-        # very vhosts being cleaned, and one broken app vhost (what `--clean`
-        # is used to recover from) aborted the clean. The install that follows
-        # reloads through hop3-rootd, which verifies the reload took.
-        self.run(
-            "if systemctl is-active --quiet nginx; then systemctl reload nginx; fi",
-            check=True,
-        )
+        # No nginx reload here: the install that follows `--clean` validates
+        # the config (`nginx -t`) and restarts nginx (`setup_nginx`), which
+        # unloads the removed vhosts. A reload here only checked its exit
+        # code, which says nothing about whether nginx applied it.
 
     def _reclaim_addon_storage(self) -> None:
         """
