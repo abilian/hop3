@@ -344,7 +344,7 @@ def _grant_schema_create(admin: PostgresAdmin, *, db_name: str, db_user: str) ->
     Rails migration (see BookWyrm migration 0224 for the canonical case).
     """
     # GRANT on database must be issued while connected to *any* database;
-    # the existing admin connection (template1) is fine. But we connect
+    # the existing admin connection is fine. But we connect
     # to the target database anyway so both grants are in one place.
     conn = psycopg2.connect(**admin.get_connection_params(dbname=db_name))
     conn.set_isolation_level(ISOLATION_LEVEL_AUTOCOMMIT)

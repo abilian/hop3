@@ -37,7 +37,7 @@ def test_postgres_admin_get_connection_params():
     assert params["host"] == "testhost"
     assert params["port"] == 5433
     assert params["user"] == "testuser"
-    assert params["dbname"] == "template1"
+    assert params["dbname"] == "postgres"
     assert params["password"] == "testpass"
 
 

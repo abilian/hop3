@@ -307,7 +307,7 @@ def _verify_superuser_tcp(password: str) -> subprocess.CompletedProcess:
     postgres app failing later with an opaque auth error.
     """
     argv = ["psql", "-h", "127.0.0.1", "-p", "5432", "-U", "postgres",
-            "-d", "template1", "-tAc", "SELECT 1"]  # fmt: skip
+            "-d", "postgres", "-tAc", "SELECT 1"]  # fmt: skip
     return run_cmd(argv, check=False, env={"PGPASSWORD": password})
 
 

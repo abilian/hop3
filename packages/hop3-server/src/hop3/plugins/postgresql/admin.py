@@ -19,6 +19,11 @@ from urllib.parse import urlparse
 
 from hop3.lib.config import Config
 
+#: The database admin connections open. Never ``template1``: ``CREATE
+#: DATABASE`` copies it and is refused while any other session is connected
+#: to it, so two addons created at once (parallel builds) failed at random.
+MAINTENANCE_DB = "postgres"
+
 
 def _get_hop3_config() -> Config:
     """
@@ -160,12 +165,13 @@ class PostgresAdmin:
             superuser_password=parsed.password,
         )
 
-    def get_connection_params(self, dbname: str = "template1") -> dict[str, Any]:
+    def get_connection_params(self, dbname: str = MAINTENANCE_DB) -> dict[str, Any]:
         """
         Get connection parameters for psycopg2.
 
         Args:
-            dbname: Database name to connect to (defaults to template1)
+            dbname: Database name to connect to (defaults to the maintenance
+                database, ``postgres``)
 
         Returns:
             Dictionary with connection parameters for psycopg2.connect()
@@ -183,7 +189,7 @@ class PostgresAdmin:
         return params
 
     def get_dsn(
-        self, dbname: str = "template1", *, include_password: bool = False
+        self, dbname: str = MAINTENANCE_DB, *, include_password: bool = False
     ) -> str:
         """
         Get Data Source Name (DSN) connection string.
