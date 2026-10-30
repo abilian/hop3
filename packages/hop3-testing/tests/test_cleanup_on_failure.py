@@ -104,3 +104,20 @@ def test_a_clean_teardown_keeps_the_result():
     result = _runner()._torn_down(_passed(), MagicMock(), session)
     assert result.passed
     assert result.error is None
+
+
+def test_a_cleanup_that_raises_fails_the_test():
+    session = MagicMock(cleanup=MagicMock(side_effect=OSError("disk gone")))
+    result = _runner()._torn_down(_passed(), MagicMock(), session)
+    assert not result.passed
+    assert result.error is not None
+    assert "disk gone" in result.error
+
+
+def test_a_teardown_problem_follows_the_earlier_error():
+    """The expects-failure PASS carries the deploy error; the teardown's comes after."""
+    session = MagicMock(cleanup=MagicMock(return_value="leftover: src/"))
+    earlier = TestResult(test=MagicMock(), passed=True, error="build rejected")
+    result = _runner()._torn_down(earlier, MagicMock(), session)
+    assert not result.passed
+    assert result.error == "build rejected; teardown: leftover: src/"

@@ -913,10 +913,9 @@ class DeploymentTestRunner:
         the report shows the inversion explicitly). A deploy success →
         FAIL (unexpected pass: the app should have been rejected).
 
-        Cleanup runs in both cases but is isolated in its own
-        try/except: a CleanupError here must NOT flip the test
-        result back to failed (mirrors the happy-path cleanup in
-        `run()`, which also ignores cleanup errors).
+        Cleanup runs in both cases, through ``_torn_down`` like every
+        other path: a teardown that left anything fails the test, with
+        the deploy's own error kept ahead of the teardown's.
         """
         if deploy_error is not None:
             # Visible trace for debugging: this line shows up in the

@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import io
 import re
+import shlex
 import subprocess
 import tarfile
 from pathlib import Path
@@ -114,3 +115,17 @@ def test_a_target_can_still_name_its_own_port():
     argv = ssh_argv("root@203.0.113.7:2201", "true")
     assert argv[argv.index("-p") + 1] == "2201"
     assert "root@203.0.113.7" in argv
+
+
+def test_a_remote_scratch_dir_is_one_shell_word(tmp_path, monkeypatch):
+    """An app directory named with a space or `;` cannot widen `rm -rf`."""
+    app_dir = tmp_path / "a b;rm -rf ~"
+    app_dir.mkdir()
+    (app_dir / "hop3.toml").write_text("")
+    lines: list[str] = []
+    monkeypatch.setattr(cli, "_ssh", lambda host, line, **kw: lines.append(line))
+
+    cli._copy_dir(app_dir, "box", cli._remote_dir("verify", app_dir))
+
+    words = shlex.split(lines[0])
+    assert words[:3] == ["rm", "-rf", f"/tmp/verify/{app_dir.name}"]
