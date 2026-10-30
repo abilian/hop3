@@ -74,3 +74,11 @@ A review found reserved app names (`admin`, `api`, `www` and five more) refused 
 
 - [`deployment-diagnostics.md`](./deployment-diagnostics.md): the `Diagnosis` record that the entry-point rule protects.
 - [`e2e-test-infrastructure.md`](./e2e-test-infrastructure.md): why a skipped test is a hole.
+
+## A faked command runner passes a path nothing creates
+
+The deployer's git update path ran `cd /home/hop3/hop3 && git fetch ...` in a checkout no part of the workspace ever creates: the installer's git mode installs with `pip install ... @ git+URL`. Its new test faked the command runner and asserted the commands it sent, so it passed while the path could only fail. A test that fakes the runner checks what is sent, not whether it can work; compare the commands with what the installing side actually creates.
+
+## `git stash` in a shared working tree reverts everyone's edits
+
+Two agents fixing disjoint files in one working tree each ran `git stash` / `git stash pop` to compare a result with the committed code. For the length of the check, the other agent's files reverted to HEAD under it; one saw its own file "back in its committed state". Nothing was lost, by luck. To compare with the committed version, read it with `git show HEAD:<path>` into a scratch file, or use a separate worktree.

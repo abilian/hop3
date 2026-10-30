@@ -244,3 +244,11 @@ Moving WSGI discovery out of core raised a question for the "no web worker" diag
 ## A "Live" badge must be bound to the stream
 
 The dashboard's log page said "Live" from the day it shipped, while its stream had never delivered a line: `App.log_path` is a directory and the stream opened it as a file, so every connection ended with an SSE error event. htmx dropped the event, and the page's status was a hard-coded word. A status shown to the operator is bound to the state it names (connected, paused, disconnected), and an error event from the server is shown where the operator looks.
+
+## An `exists()` answers from presence
+
+The email and Redis addons answered `exists()` by parsing their secrets file, so a corrupt file raised `JSONDecodeError` and `addon destroy`, which asks `exists()` first, could never remove the broken addon; its hint pointed at the service. Presence is the question; parsing belongs to the operations that need the content. Redis still parses the file when the addon is built, because destroy needs the database number to flush, so a corrupt Redis file still blocks its destroy, loudly.
+
+## A retry handler re-calls the function it was given, with the arguments it was given
+
+`robust_rmtree`'s error handler fixed permissions and called `func(filepath)` again. When rmtree cannot open a directory, `func` is `os.open`, which needs its flags: the retry raised `TypeError`, which the retry loop (catching `OSError`) let escape. The first fix was tested on a 0555 tree, which rmtree can open; a 000 directory, which it cannot, still failed. Test the modes the handler cannot open, and in the handler, handle the operations whose call it cannot replay.
