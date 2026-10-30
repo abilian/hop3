@@ -9,8 +9,10 @@ import json
 import os
 import pwd
 import shutil
+import stat
 import sys
 import tempfile
+from collections.abc import Callable
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -21,6 +23,7 @@ from hop3_installer.common import (
     print_info,
     print_success,
     print_warning,
+    run_cmd,
 )
 from hop3_installer.constants import (
     BUILD_INFO_PATH,
@@ -31,13 +34,14 @@ from hop3_installer.constants import (
     HOP3_USER,
     ROOTD_PACKAGE_NAME,
     ROOTD_PACKAGE_SUBDIR,
+    ROOTD_VENV_DIR,
     SERVER_PACKAGE_NAME,
     SERVER_PACKAGE_SUBDIR,
     VENV_DIR,
 )
 
 from .config import ServerInstallerConfig
-from .user import run_as_hop3
+from .user import run_as_hop3, write_as_hop3
 
 #: Where app build hooks find the download helper (see publish_fetch_helper).
 FETCH_HELPER_LINK = Path("/usr/local/bin/hop3-fetch")
@@ -122,7 +126,7 @@ def install_package(config: ServerInstallerConfig) -> None:
             source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-server from {source_desc}..."):
-        _pip_install_own(pip, package_spec, *pre_flag)
+        _pip_install_own(pip, package_spec, *pre_flag, run=run_as_hop3)
 
     print_success("hop3-server installed successfully")
 
@@ -210,29 +214,37 @@ def write_build_info(config: ServerInstallerConfig) -> None:
             git_commit=_git_commit_from_direct_url() if config.use_git else None,
             git_branch=config.branch if config.use_git else None,
         )
-        BUILD_INFO_PATH.write_text(json.dumps(info, indent=2) + "\n")
-        _chown_hop3(BUILD_INFO_PATH)
+        write_as_hop3(BUILD_INFO_PATH, json.dumps(info, indent=2) + "\n", mode=0o644)
         print_info(f"Recorded build info to {BUILD_INFO_PATH}")
     except Exception as e:
         # Provenance is non-critical: never fail an otherwise-good install.
         print_warning(f"Could not write build info: {e}")
 
 
+#: The ``pip.conf`` that holds a venv to the cooldown.
+PIP_COOLDOWN_CONF = f"[install]\nuploaded-prior-to = {DEPENDENCY_COOLDOWN}\n"
+
+
 def write_pip_cooldown() -> None:
     """
-    Write the cooldown into the venv's own ``pip.conf``.
+    Write the cooldown into the server venv's own ``pip.conf``, as hop3.
 
     Per-venv, so it reaches every pip call on this venv (the installer's and
     the developer deployer's) and none of the apps' builds, which have venvs
     of their own. Rewritten on every install: a server installed before the
     cooldown existed gets it on its next upgrade.
     """
-    conf = VENV_DIR / "pip.conf"
-    conf.write_text(f"[install]\nuploaded-prior-to = {DEPENDENCY_COOLDOWN}\n")
-    _chown_hop3(conf)
+    write_as_hop3(VENV_DIR / "pip.conf", PIP_COOLDOWN_CONF, mode=0o644)
 
 
-def _pip_install_own(pip: str, spec: str, *flags: str) -> None:
+def _run_as_root(argv: list[str], *, check: bool) -> object:
+    """``run_as_hop3``'s signature, for the venv root owns."""
+    return run_cmd(argv, check=check)
+
+
+def _pip_install_own(
+    pip: str, spec: str, *flags: str, run: Callable[..., object]
+) -> None:
     """
     Install one of Hop3's own packages, with its dependencies under the cooldown.
 
@@ -241,10 +253,11 @@ def _pip_install_own(pip: str, spec: str, *flags: str) -> None:
     uploaded at least zero days ago); the second call finds it installed and
     resolves only its dependencies, under the venv's cutoff. Both calls fail
     loudly: a swallowed pip failure used to end in "installed successfully".
+    ``run`` is who runs pip: hop3 for its venv, root for hop3-rootd's.
     """
     lifted = [*flags, "--no-deps", "--uploaded-prior-to=P0D", spec]
-    run_as_hop3([pip, "install", *lifted], check=True)
-    run_as_hop3([pip, "install", *flags, spec], check=True)
+    run([pip, "install", *lifted], check=True)
+    run([pip, "install", *flags, spec], check=True)
 
 
 def _installed_version() -> str | None:
@@ -269,26 +282,20 @@ def _git_commit_from_direct_url() -> str | None:
     return None
 
 
-def _chown_hop3(path: Path) -> None:
-    """Give a file to the hop3 user/group so the server can read it."""
-    uid = pwd.getpwnam(HOP3_USER).pw_uid
-    gid = grp.getgrnam(HOP3_GROUP).gr_gid
-    os.chown(path, uid, gid)
-
-
 def install_rootd_package(config: ServerInstallerConfig) -> None:
     """
-    Install the hop3-rootd daemon into the server venv.
+    Install the hop3-rootd daemon, as root, into the venv root owns.
 
-    hop3-rootd (ADR 041) is a separate package the deploy path depends on for
-    privileged operations (nginx reload). hop3-server does not declare it as a
-    dependency, so we install it explicitly alongside, from the same source as
-    the server: a sibling local dir, the git subdirectory, or PyPI.
+    hop3-rootd (ADR 041) runs as root. In the server venv, which hop3 can
+    write, an app (it runs as hop3) could replace its code and root would run
+    it at the next restart. So it has a venv of its own under ``/opt``, made
+    from a root-owned interpreter, and is installed from a source only root can
+    change: PyPI or git, or a local tree checked for it. Installed from the
+    same source as the server: a sibling local dir, the git subdirectory, or
+    PyPI. hop3-server does not import it; it speaks to the daemon's socket.
     """
-    pip = f"{VENV_DIR}/bin/pip"
-
     if config.local_path:
-        # Sibling of the server source (the demo uploads /tmp/hop3-rootd
+        # Sibling of the server source (the deployer uploads /tmp/hop3-rootd
         # next to /tmp/hop3-server).
         rootd_path = Path(config.local_path).parent / "hop3-rootd"
         if not rootd_path.exists():
@@ -300,6 +307,7 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
                 f"server source and re-run."
             )
             raise InstallStepError(msg)
+        check_root_controlled(rootd_path)
         package_spec = str(rootd_path)
         source_desc = f"local path ({rootd_path})"
     elif config.use_git:
@@ -313,11 +321,104 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
     else:
         package_spec = ROOTD_PACKAGE_NAME
         source_desc = "PyPI (latest stable)"
+    # The server's rule (``install_package``): --pre reaches only an unpinned
+    # PyPI install, so the daemon lands at the server's version.
+    pre_flag: list[str] = []
+    if package_spec == ROOTD_PACKAGE_NAME and config.pre_release:
+        pre_flag = ["--pre"]
+        source_desc = "PyPI (latest including pre-releases)"
 
+    create_rootd_venv()
     with Spinner(f"Installing hop3-rootd from {source_desc}..."):
-        _pip_install_own(pip, package_spec)
+        _pip_install_own(
+            str(ROOTD_VENV_DIR / "bin" / "pip"),
+            package_spec,
+            *pre_flag,
+            run=_run_as_root,
+        )
 
-    print_success("hop3-rootd installed successfully")
+    # The server venv held the daemon before 0.8.1. Nothing runs that copy
+    # now; removed so there is one hop3-rootd on the box to find.
+    run_as_hop3(
+        [f"{VENV_DIR}/bin/pip", "uninstall", "-y", ROOTD_PACKAGE_NAME], check=True
+    )
+
+    print_success(f"hop3-rootd installed into {ROOTD_VENV_DIR}")
+
+
+#: The owners ``check_root_controlled`` accepts.
+ROOT_ONLY = frozenset({0})
+
+
+def create_rootd_venv() -> None:
+    """
+    Make the root-owned venv hop3-rootd runs from, or check the one there.
+
+    Created from the interpreter running this installer, resolved to the real
+    binary: never the server venv's, whose ``pyvenv.cfg`` hop3 can write.
+    Every file of an existing venv is checked, so a venv another user could
+    change is refused rather than run as root.
+    """
+    if not (ROOTD_VENV_DIR / "bin" / "python").exists():
+        base = getattr(sys, "_base_executable", sys.executable)
+        python = Path(os.path.realpath(base))
+        check_root_controlled(python)
+        with Spinner(f"Creating {ROOTD_VENV_DIR} (using {python})..."):
+            run_cmd([str(python), "-m", "venv", str(ROOTD_VENV_DIR)], check=True)
+        print_success(f"Virtual environment created at {ROOTD_VENV_DIR}")
+    # Checked after creating too: a directory of that name that was already
+    # there (another user's) would have received the venv.
+    check_root_controlled(ROOTD_VENV_DIR)
+    # The server venv's rule (``install_package``): the distribution's pip may
+    # predate the cooldown option, so upgrade it before pip reads the option.
+    with Spinner("Upgrading hop3-rootd's pip..."):
+        run_cmd(
+            [str(ROOTD_VENV_DIR / "bin" / "pip"), "install", "--upgrade", "pip"],
+            check=True,
+        )
+    (ROOTD_VENV_DIR / "pip.conf").write_text(PIP_COOLDOWN_CONF)
+
+
+def check_root_controlled(path: Path, owners: frozenset[int] = ROOT_ONLY) -> None:
+    """
+    Raise unless only root can change ``path``: what it holds, and above it.
+
+    Root installs or runs what is here. Every entry (``path`` itself, and all
+    it holds when it is a directory) must be root's and not writable by group
+    or others; a symlink must be root's, its mode means nothing. Each directory
+    above it must be root's and not writable by others, or sticky (``/tmp``),
+    where no one can replace an entry they do not own. ``owners`` is the uids
+    taken as root: only tests widen it.
+    """
+    problems: list[str] = []
+    absolute = Path(os.path.abspath(path))
+    for parent in absolute.parents:
+        st = parent.lstat()
+        sticky = bool(st.st_mode & stat.S_ISVTX)
+        if st.st_uid not in owners or (st.st_mode & 0o022 and not sticky):
+            problems.append(f"{parent} (directory above it)")
+    entries = [absolute]
+    if absolute.is_dir() and not absolute.is_symlink():
+        for root, dirs, files in os.walk(absolute):
+            entries.extend(Path(root, name) for name in [*dirs, *files])
+    for entry in entries:
+        st = entry.lstat()
+        if st.st_uid not in owners:
+            problems.append(f"{entry} (owned by uid {st.st_uid})")
+        elif not stat.S_ISLNK(st.st_mode) and st.st_mode & 0o022:
+            problems.append(f"{entry} (mode {stat.filemode(st.st_mode)})")
+    if not problems:
+        return
+    shown = "\n  ".join(problems[:10])
+    more = f"\n  ... and {len(problems) - 10} more" if len(problems) > 10 else ""
+    msg = (
+        f"Installer can't install hop3-rootd from {path}: another user could "
+        f"change what root would run.\n  {shown}{more}\n"
+        "Only root may own and write it (and the directories above it). "
+        "Upload it again (hop3-deploy-server uploads it root-owned and "
+        "group/world read-only), then re-run."
+    )
+    raise InstallStepError(msg)
 
 
 def install_cli_package(config: ServerInstallerConfig) -> None:
@@ -357,7 +458,7 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
         source_desc = "PyPI (latest stable)"
 
     with Spinner(f"Installing hop3-cli from {source_desc}..."):
-        _pip_install_own(pip, package_spec)
+        _pip_install_own(pip, package_spec, run=run_as_hop3)
 
     print_success("hop3-cli installed successfully")
 

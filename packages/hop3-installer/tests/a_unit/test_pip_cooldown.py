@@ -27,9 +27,10 @@ def calls(monkeypatch) -> list[tuple[list[str], bool]]:
     return recorded
 
 
-def test_the_venv_config_carries_the_cooldown(tmp_path, monkeypatch):
+def test_the_venv_config_carries_the_cooldown(
+    tmp_path, monkeypatch, hop3_shell_is_local
+):
     monkeypatch.setattr(mod, "VENV_DIR", tmp_path)
-    monkeypatch.setattr(mod, "_chown_hop3", lambda path: None)
 
     mod.write_pip_cooldown()
 
@@ -39,7 +40,7 @@ def test_the_venv_config_carries_the_cooldown(tmp_path, monkeypatch):
 
 
 def test_our_own_package_goes_in_uncooled_and_alone(calls):
-    mod._pip_install_own("pip", "hop3-server[waf]==0.7.5", "--pre")
+    mod._pip_install_own("pip", "hop3-server[waf]==0.7.5", "--pre", run=mod.run_as_hop3)
 
     (first, first_checked), (second, second_checked) = calls
     assert first == [

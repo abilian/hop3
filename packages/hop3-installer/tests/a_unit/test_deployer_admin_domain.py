@@ -12,6 +12,7 @@ https://<domain>/auth/magic/....
 
 from __future__ import annotations
 
+import shlex
 from types import SimpleNamespace
 
 from hop3_installer.deployer.config import DeployConfig
@@ -43,18 +44,25 @@ def _persist_commands(
     return backend.commands
 
 
+def _write_script() -> str:
+    """The edit of hop3-server.toml, unwrapped from its `su - hop3 -c`."""
+    write = next(c for c in _persist_commands() if "hop3-server.toml" in c)
+    argv = shlex.split(write)
+    assert argv[:4] == ["su", "-", "hop3", "-c"]  # hop3's file: edited as hop3
+    return argv[4]
+
+
 def test_writes_admin_domain_to_server_toml():
-    cmds = _persist_commands()
-    write = next(c for c in cmds if "hop3-server.toml" in c)
-    assert 'ADMIN_DOMAIN = "hop3.abilian.com"' in write
-    assert "chown hop3:hop3" in write
+    script = _write_script()
+    assert 'ADMIN_DOMAIN = "hop3.abilian.com"' in script
+    assert "chown" not in script
 
 
 def test_update_or_append_is_idempotent():
     """The write both updates an existing line and appends a new one."""
-    write = next(c for c in _persist_commands() if "hop3-server.toml" in c)
-    assert "grep -q '^ADMIN_DOMAIN'" in write  # update branch
-    assert "printf" in write  # append branch
+    script = _write_script()
+    assert "grep -q '^ADMIN_DOMAIN'" in script  # update branch
+    assert "printf" in script  # append branch
 
 
 def test_restarts_server_after_writing():

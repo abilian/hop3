@@ -8,6 +8,9 @@ import os
 from typing import TYPE_CHECKING
 
 import pytest
+from hop3_installer.common import run_cmd
+from hop3_installer.deployer.deploy import Deployer
+from hop3_installer.server_installer import user
 
 if TYPE_CHECKING:
     from collections.abc import Generator, MutableMapping
@@ -87,3 +90,42 @@ PLATFORM_ID="platform:f40"
     os_release = tmp_path / "os-release"
     os_release.write_text(content)
     return os_release
+
+
+@pytest.fixture
+def hop3_shell_is_local(monkeypatch: pytest.MonkeyPatch) -> None:
+    """
+    Run the installer's as-hop3 shell scripts in a local shell.
+
+    The scripts themselves run (``read_as_hop3``'s absence test, the
+    ``cat > file && chmod``); only the ``su - hop3`` around them is gone,
+    since the test host has no hop3 user.
+    """
+
+    def run(script, *, check=False, timeout=None, stdin_text=None):
+        return run_cmd(
+            ["sh", "-c", script], check=check, timeout=timeout, stdin_text=stdin_text
+        )
+
+    monkeypatch.setattr(user, "run_as_hop3_shell", run)
+
+
+@pytest.fixture
+def installer_runs_recorded(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+    """
+    Record each run of the bundled installer instead of uploading it.
+
+    The arguments are appended to the fake backend's ``commands`` too, when it
+    keeps that list, so a test reads the order of everything the deployer did.
+    """
+    runs: list[str] = []
+
+    def run_installer(self, args: str) -> bool:
+        runs.append(args)
+        commands = getattr(self.backend, "commands", None)
+        if commands is not None:
+            commands.append(f"install-server.py{args}")
+        return True
+
+    monkeypatch.setattr(Deployer, "_run_installer", run_installer)
+    return runs

@@ -91,3 +91,32 @@ class TestARedeployReconcilesThem:
         calls = self._redeploy(monkeypatch, tmp_path / "hop3-http.conf", pending=True)
 
         assert calls == [["nginx", "-t"]]
+
+
+class TestTheSiteReachesARunningNginx:
+    """
+    Under a process manager the install wrote the site and stopped there, so a
+    running nginx kept the old one: after `--clean`, the removed vhosts.
+    """
+
+    @staticmethod
+    def _start(monkeypatch, *, systemd: bool, pending: bool = False) -> list:
+        monkeypatch.setattr(nginx, "process_manager_pending", lambda: pending)
+        calls: list[list[str]] = []
+        monkeypatch.setattr(nginx, "run_cmd", lambda cmd, **_kw: calls.append(cmd))
+        nginx._start_nginx(systemd=systemd)
+        return calls
+
+    def test_a_running_nginx_under_a_process_manager_is_reloaded(self, monkeypatch):
+        assert self._start(monkeypatch, systemd=False) == [["nginx", "-s", "reload"]]
+
+    def test_an_nginx_the_process_manager_has_not_started_is_left_to_it(
+        self, monkeypatch
+    ):
+        assert self._start(monkeypatch, systemd=False, pending=True) == []
+
+    def test_systemd_restarts_it(self, monkeypatch):
+        assert self._start(monkeypatch, systemd=True) == [
+            ["systemctl", "enable", "nginx"],
+            ["systemctl", "restart", "nginx"],
+        ]

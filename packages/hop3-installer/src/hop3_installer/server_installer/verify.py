@@ -4,11 +4,6 @@
 
 from __future__ import annotations
 
-import grp
-import os
-import pwd
-from pathlib import Path
-
 from hop3_installer.common import (
     Colors,
     has_systemd,
@@ -22,7 +17,6 @@ from hop3_installer.common import (
 from hop3_installer.constants import (
     DEFAULT_ADMIN_EMAIL,
     HOME_DIR,
-    HOP3_GROUP,
     HOP3_USER,
     SYSTEM_SSL_CERT,
     SYSTEM_SSL_KEY,
@@ -30,6 +24,7 @@ from hop3_installer.constants import (
 )
 
 from .config import ServerInstallerConfig
+from .user import read_as_hop3, write_as_hop3
 
 # Keys this installer owns. Everything else in an existing hop3-server.toml is
 # an operator addition (e.g. ACME_ENGINE / ACME_EMAIL, custom POSTGRES_PORT) and
@@ -55,12 +50,10 @@ def read_existing_server_config_value(key: str) -> str | None:
     stored credential and breaks every client. Flat line parse (the file is flat
     key=value) — no TOML dependency, matching ``verify_mysql_config`` below.
     """
-    config_file = HOME_DIR / "hop3-server.toml"
     # Only absence means "first install"; an unreadable file propagates rather
-    # than rotating the secrets it holds.
-    try:
-        content = config_file.read_text()
-    except FileNotFoundError:
+    # than rotating the secrets it holds. Read as hop3: the file is hop3's.
+    content = read_as_hop3(HOME_DIR / "hop3-server.toml")
+    if content is None:
         return None
     for line in content.splitlines():
         key_part, sep, value_part = line.partition("=")
@@ -77,11 +70,9 @@ def _preserved_operator_lines() -> list[str]:
     redeploy. Comments are dropped (values are what matter); blank lines and
     managed keys are skipped.
     """
-    config_file = HOME_DIR / "hop3-server.toml"
     # An unreadable file propagates: dropping operator lines silently is data loss.
-    try:
-        content = config_file.read_text()
-    except FileNotFoundError:
+    content = read_as_hop3(HOME_DIR / "hop3-server.toml")
+    if content is None:
         return []
     preserved: list[str] = []
     for line in content.splitlines():
@@ -192,12 +183,9 @@ def write_server_config(
             "",
         ])
 
-    config_file.write_text("\n".join(lines))
-
-    hop3_uid = pwd.getpwnam(HOP3_USER).pw_uid
-    hop3_gid = grp.getgrnam(HOP3_GROUP).gr_gid
-    os.chown(config_file, hop3_uid, hop3_gid)
-    Path(config_file).chmod(0o600)
+    # As hop3: root writing it follows a symlink hop3 planted, and the chown
+    # that came after handed the target to hop3.
+    write_as_hop3(config_file, "\n".join(lines), mode=0o600)
 
     print_success(f"Server configuration written to {config_file}")
 
@@ -212,14 +200,12 @@ def verify_mysql_config() -> bool:
     Returns:
         True if MySQL is properly configured, False otherwise.
     """
-    config_file = HOME_DIR / "hop3-server.toml"
-
     # Check that config file has MySQL password
-    if not config_file.exists():
+    config_content = read_as_hop3(HOME_DIR / "hop3-server.toml")
+    if config_content is None:
         print_error("Config file not found")
         return False
 
-    config_content = config_file.read_text()
     if "MYSQL_SUPERUSER_PASSWORD" not in config_content:
         print_error("MySQL password not in config file")
         return False
@@ -405,10 +391,11 @@ def verify_installation(config: ServerInstallerConfig) -> bool:
     # The databases are checked against the config file, so a missing file
     # used to skip those checks and pass.
     config_file = HOME_DIR / "hop3-server.toml"
-    if not config_file.exists():
+    config_content = read_as_hop3(config_file)
+    if config_content is None:
         print_error(f"{config_file} not found")
         return False
-    return _verify_database_services(config_file.read_text()) and all_ok
+    return _verify_database_services(config_content) and all_ok
 
 
 def print_final_message(config: ServerInstallerConfig) -> None:

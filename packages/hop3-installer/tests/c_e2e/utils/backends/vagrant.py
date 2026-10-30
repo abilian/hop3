@@ -225,8 +225,7 @@ class VagrantBackend(Backend):
             if result.success:
                 # Copy from shared folder to target location
                 self.run(f"cp -r /vagrant/{rel_path} {remote_path}", sudo=True)
-                self.run(f"chmod -R a+rX {remote_path}", sudo=True)
-                return True
+                return self.run(f"chmod -R a+rX,go-w {remote_path}", sudo=True).success
         except ValueError:
             pass  # Directory is outside project root
 
@@ -245,12 +244,14 @@ class VagrantBackend(Backend):
             self.run(f"mkdir -p {remote_path}", sudo=True)
             parent_dir = str(Path(remote_path).parent)
             result = self.run(
-                f"echo '{encoded}' | base64 -d | tar -xzf - -C {parent_dir}",
+                # --no-same-owner: root's, not this machine's uid; root installs
+                # hop3-rootd from it.
+                f"echo '{encoded}' | base64 -d | tar --no-same-owner -xzf - -C {parent_dir}",
                 sudo=True,
             )
-            if result.success:
-                self.run(f"chmod -R a+rX {remote_path}", sudo=True)
-            return result.success
+            if not result.success:
+                return False
+            return self.run(f"chmod -R a+rX,go-w {remote_path}", sudo=True).success
         except Exception as e:
             log_debug(f"Failed to upload directory {local_path}: {e}")
             return False

@@ -196,19 +196,21 @@ RUN rm -rf /opt/hop3-server/src/hop3/__pycache__ && \
     chown -R hop3:hop3 /opt/hop3-server/src
 
 # hop3-rootd: privileged-operations daemon (nginx reloads, etc.). The deploy
-# path reloads nginx through it -- proxy setup aborts if its socket is absent --
-# so the e2e image must install it into the same venv for supervisor to run.
-COPY packages/hop3-rootd/pyproject.toml /opt/hop3-rootd/pyproject.toml
-COPY packages/hop3-rootd/README.md /opt/hop3-rootd/README.md
-COPY packages/hop3-rootd/src /opt/hop3-rootd/src
-RUN chown -R hop3:hop3 /opt/hop3-rootd && \
-    su - hop3 -c "~/venv/bin/pip install --no-cache-dir -e /opt/hop3-rootd"
+# path reloads nginx through it -- proxy setup aborts if its socket is absent.
+# It runs as root, so as on a real server it lives in a venv root owns
+# (/opt/hop3-rootd), installed by root from a root-owned copy of its source;
+# never in hop3's venv, which hop3 can write.
+COPY packages/hop3-rootd/pyproject.toml /usr/src/hop3-rootd/pyproject.toml
+COPY packages/hop3-rootd/README.md /usr/src/hop3-rootd/README.md
+COPY packages/hop3-rootd/src /usr/src/hop3-rootd/src
+RUN python3 -m venv /opt/hop3-rootd && \
+    /opt/hop3-rootd/bin/pip install --no-cache-dir /usr/src/hop3-rootd
 
 # rootd refuses to start without its state file (a safety guard). The installer
 # creates it on a real box; the lean e2e image must too, or rootd crash-loops
 # with "state file not found" and every proxy reload fails.
 RUN mkdir -p /var/lib/hop3-rootd && chmod 0700 /var/lib/hop3-rootd && \
-    /home/hop3/venv/bin/hop3-rootd --init-state --state-path /var/lib/hop3-rootd/state.json && \
+    /opt/hop3-rootd/bin/hop3-rootd --init-state --state-path /var/lib/hop3-rootd/state.json && \
     chmod 0600 /var/lib/hop3-rootd/state.json
 
 # =============================================================================

@@ -110,6 +110,15 @@ Optional Features (--with):
         ),
     )
     parser.add_argument(
+        "--rootd",
+        dest="rootd_only",
+        action="store_true",
+        help=(
+            "Install or upgrade only hop3-rootd, into its root-owned venv, from "
+            "the given source, and restart it"
+        ),
+    )
+    parser.add_argument(
         "--skip-nginx",
         action="store_true",
         default=env_config.skip_nginx,
@@ -206,6 +215,7 @@ def config_from_args(args: argparse.Namespace) -> ServerInstallerConfig:
         skip_package_install=args.skip_package_install,
         skip_migrations=args.skip_migrations,
         reconcile_only=args.reconcile_only,
+        rootd_only=args.rootd_only,
         domain=args.domain,
         acme_email=args.acme_email,
         operator_email=args.operator_email,

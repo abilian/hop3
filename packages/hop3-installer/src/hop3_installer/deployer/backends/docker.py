@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult, ServiceStartError
+from hop3_installer.constants import ROOTD_BIN
 from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 
 from .base import DeployBackend
@@ -81,11 +82,11 @@ SUPERVISOR_CONFIG = f"""\
 # privileged ops) through this daemon, NOT passwordless sudo -- proxy setup
 # aborts loudly if its socket is absent. In production a hardened systemd unit
 # runs it; under Docker (no systemd as PID 1) supervisor is the process manager.
-# Runs as root and creates /run/hop3-rootd/socket with group hop3 so the
-# hop3-user server can reach it. Started first (low priority) so it's up before
-# the first deploy.
+# Runs as root, from the venv root owns, and creates /run/hop3-rootd/socket
+# with group hop3 so the hop3-user server can reach it. Started first (low
+# priority) so it's up before the first deploy.
 [program:hop3-rootd]
-command=/home/hop3/venv/bin/hop3-rootd --socket-path /run/hop3-rootd/socket
+command={ROOTD_BIN} --socket-path /run/hop3-rootd/socket
 autostart=true
 autorestart=true
 priority=1
@@ -107,8 +108,9 @@ stdout_logfile=/var/log/supervisor/nginx.log
 stderr_logfile=/var/log/supervisor/nginx_err.log
 
 [program:uwsgi-hop3]
-command=/home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled --uid hop3 --gid hop3
+command=/home/hop3/venv/bin/uwsgi --emperor /home/hop3/uwsgi-enabled
 directory=/home/hop3
+user=hop3
 autostart=true
 autorestart=true
 stdout_logfile=/var/log/supervisor/uwsgi.log
@@ -616,7 +618,7 @@ class DockerDeployBackend(DeployBackend):
         if result.returncode != 0:
             print(f"  ✗ docker cp failed: {(result.stderr or result.stdout).strip()}")
             return False
-        return self.make_world_readable(remote_path)
+        return self.make_root_controlled(remote_path)
 
     def clean(self) -> None:
         """

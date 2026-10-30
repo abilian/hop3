@@ -20,7 +20,7 @@ from hop3_installer.deployer.deploy import Deployer
 
 
 @pytest.fixture(autouse=True)
-def _no_sleep(monkeypatch):
+def _no_sleep(monkeypatch, installer_runs_recorded):
     monkeypatch.setattr("time.sleep", lambda *_a: None)
 
 
@@ -69,7 +69,12 @@ def test_local_update_installs_all_three_and_checks_them(tmp_path):
     assert _deployer(box, tmp_path, use_local_code=True)._update_local_code() is True
     installs = [c for c in box.commands if "pip install" in c]
     assert any("/tmp/hop3-server" in c for c in installs)
-    assert any("/tmp/hop3-rootd /tmp/hop3-cli" in c for c in installs)
+    assert any("/tmp/hop3-cli" in c for c in installs)
+    # The daemon goes into its own venv, as root, through the installer.
+    assert not any("hop3-rootd" in c for c in installs)
+    assert "install-server.py --rootd --path /tmp/hop3-server --verbose" in (
+        box.commands
+    )
     probe = next(i for i, c in enumerate(box.commands) if "importlib.metadata" in c)
     migrate = next(i for i, c in enumerate(box.commands) if "db:upgrade" in c)
     assert probe < migrate, "the version check runs before the migration"
@@ -79,8 +84,9 @@ def test_pinned_pypi_update_pins_all_three(tmp_path):
     box = _Box(ONE_VERSION)
     assert _deployer(box, tmp_path, pypi_version="0.7.3")._update_from_pypi() is True
     install = next(c for c in box.commands if "pip install --upgrade" in c)
-    for pkg in ("hop3-server==0.7.3", "hop3-rootd==0.7.3", "hop3-cli==0.7.3"):
+    for pkg in ("hop3-server==0.7.3", "hop3-cli==0.7.3"):
         assert pkg in install
+    assert "install-server.py --rootd --version 0.7.3 --verbose" in box.commands
 
 
 def test_a_daemon_left_behind_fails_before_the_migration(tmp_path, capsys):

@@ -57,6 +57,7 @@ from .postgres import setup_postgres
 from .python import (
     create_virtual_environment,
     install_package,
+    install_rootd_package,
     migrate_database,
     run_hop3_setup,
     setup_ssh_keys,
@@ -307,6 +308,23 @@ def _reconcile() -> int:
     return 0
 
 
+def _install_rootd(config: ServerInstallerConfig) -> int:
+    """
+    Install or upgrade hop3-rootd alone, then (re)write its unit and restart it.
+
+    What every update path of `hop3-deploy-server` runs: the daemon goes into
+    the venv root owns, from the update's own source, and a server whose unit
+    still runs the daemon from the server venv (before 0.8.1) is moved over.
+    """
+    try:
+        install_rootd_package(config)
+        setup_rootd()
+    except (CommandError, ServiceStartError, OSError, InstallStepError) as e:
+        _report_failure(e)
+        return 1
+    return 0
+
+
 #: What a root-run system installer creates files with: 0644 and 0755.
 INSTALL_UMASK = 0o022
 
@@ -356,6 +374,8 @@ def main() -> int:
 
     if config.reconcile_only:
         return _reconcile()
+    if config.rootd_only:
+        return _install_rootd(config)
     return _install(distro, config)
 
 

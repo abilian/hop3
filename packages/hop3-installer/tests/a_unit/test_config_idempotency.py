@@ -21,25 +21,19 @@ from hop3_installer.server_installer import (
     mysql,
     postgres,
     services,
+    user as verify_user,
     verify,
 )
 from hop3_installer.server_installer.config import ServerInstallerConfig
 
 
 @pytest.fixture
-def home(tmp_path, monkeypatch):
+def home(tmp_path, monkeypatch, hop3_shell_is_local):
     """
-    Point the installer at a throwaway HOME_DIR and stub the ownership calls
-    (the real hop3 user / root aren't present in unit tests).
+    Point the installer at a throwaway HOME_DIR; the file is read and written
+    by the as-hop3 scripts, run in a local shell.
     """
     monkeypatch.setattr(verify, "HOME_DIR", tmp_path)
-    monkeypatch.setattr(verify.os, "chown", lambda *a, **k: None)
-    monkeypatch.setattr(
-        verify.pwd, "getpwnam", lambda _n: types.SimpleNamespace(pw_uid=0)
-    )
-    monkeypatch.setattr(
-        verify.grp, "getgrnam", lambda _n: types.SimpleNamespace(gr_gid=0)
-    )
     return tmp_path
 
 
@@ -366,3 +360,24 @@ def test_no_restart_is_attempted_before_a_process_manager_exists(monkeypatch, ca
 
     assert issued == []
     assert "will load this config" in capsys.readouterr().out
+
+
+def test_the_config_is_read_and_written_as_hop3(tmp_path, monkeypatch):
+    """Root following a symlink hop3 planted there would leak or clobber a file."""
+    monkeypatch.setattr(verify, "HOME_DIR", tmp_path)
+    scripts: list[tuple[str, str | None]] = []
+
+    def as_hop3(script, *, check=False, timeout=None, stdin_text=None):
+        scripts.append((script, stdin_text))
+        absent = verify_user.READ_ABSENT_STATUS if "test -e" in script else 0
+        return types.SimpleNamespace(returncode=absent, stdout="", stderr="")
+
+    monkeypatch.setattr(verify_user, "run_as_hop3_shell", as_hop3)
+
+    verify.write_server_config("pg", None, None, secret_key="k")
+
+    assert not (tmp_path / "hop3-server.toml").exists(), "root wrote it itself"
+    written = [stdin for script, stdin in scripts if script.startswith("umask 077")]
+    assert len(written) == 1
+    assert 'HOP3_SECRET_KEY = "k"' in written[0]
+    assert all("chown" not in script for script, _ in scripts)

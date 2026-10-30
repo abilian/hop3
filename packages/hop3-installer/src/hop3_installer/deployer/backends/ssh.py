@@ -258,6 +258,10 @@ class SSHDeployBackend(DeployBackend):
         rsync_cmd = [
             "rsync",
             "-avz",
+            # Owned by the user receiving it (root), not by the uid the files
+            # have on this machine: root installs hop3-rootd from this tree.
+            "--no-owner",
+            "--no-group",
             "--delete",
             "--exclude=*.pyc",
             "--exclude=__pycache__",
@@ -280,7 +284,7 @@ class SSHDeployBackend(DeployBackend):
         if result.returncode != 0:
             print(f"  ✗ rsync failed: {(result.stderr or result.stdout).strip()}")
             return False
-        return self.make_world_readable(remote_path)
+        return self.make_root_controlled(remote_path)
 
     def download_dir(self, remote_path: str, local_path: Path) -> bool:
         """

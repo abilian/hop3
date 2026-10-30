@@ -34,7 +34,7 @@ from hop3_installer.common import (
     print_warning,
     run_cmd,
 )
-from hop3_installer.constants import VENV_DIR
+from hop3_installer.constants import ROOTD_BIN
 
 # --- Paths and content ---------------------------------------------------
 
@@ -55,34 +55,22 @@ CGROUP_CONTROLLERS = Path("/sys/fs/cgroup/cgroup.controllers")
 
 def _resolve_daemon_command() -> str:
     """
-    Find the hop3-rootd executable. Returns an absolute path, or raises.
+    The hop3-rootd executable in its root-owned venv, or raise.
 
-    We deliberately do NOT fall back to a guessed path. Writing a systemd
-    unit whose ``ExecStart`` points at a non-existent binary produces a
-    silent, relentless ``status=203/EXEC`` crash loop (observed in the wild:
-    1600+ restarts over 9h) and leaves every deploy unable to reload nginx —
-    apps stay unreachable behind the default vhost. A missing daemon is a
-    deploy-blocker (ADR 041 §14), so we fail the install loudly here instead.
-    The operator must install hop3-rootd into the server venv first (see
-    ``install_rootd_package``), then re-run.
+    Only that one. The server venv held it before 0.8.1, and hop3 can write
+    that venv: a unit pointing there runs, as root, whatever hop3 put in it.
+    A missing binary is not guessed around either: a unit whose ``ExecStart``
+    does not exist crash-loops with ``status=203/EXEC`` (1600+ restarts over
+    9h, once) and every deploy fails to reload nginx. ``install_rootd_package``
+    installs it; run that, then re-run.
     """
-    # Common installation locations to probe in order.
-    candidates = [
-        VENV_DIR / "bin" / "hop3-rootd",  # the server venv (where we install it)
-        Path("/usr/local/bin/hop3-rootd"),
-        Path("/opt/hop3/.venv/bin/hop3-rootd"),  # production venv
-        Path("/home/hop3/.venv/bin/hop3-rootd"),  # legacy
-    ]
-    for c in candidates:
-        if c.exists() and c.is_file():
-            return str(c)
-    searched = ", ".join(str(c) for c in candidates)
+    if ROOTD_BIN.is_file():
+        return str(ROOTD_BIN)
     msg = (
-        f"hop3-rootd binary not found (looked in: {searched}). The daemon "
-        "package was not installed. Refusing to write a systemd unit with a "
-        "non-existent ExecStart — it would crash-loop with status=203/EXEC "
-        "and break every deploy. Install hop3-rootd into the server venv "
-        "(see install_rootd_package) and re-run."
+        f"hop3-rootd binary not found at {ROOTD_BIN}: the daemon package was "
+        "not installed. Refusing to write a unit with a non-existent ExecStart "
+        "(it would crash-loop with status=203/EXEC and break every deploy). "
+        "Install it with install_rootd_package and re-run."
     )
     raise ServiceStartError(msg)
 
@@ -95,15 +83,20 @@ def _resolve_daemon_command() -> str:
 # THREE external tools — nft, nginx (`-t` / `-s reload`), and systemctl. Each
 # layer broke a different tool, and because the daemon never even started under
 # it (203/EXEC), none of it was ever exercised:
-#   - ProtectHome=true        -> 203/EXEC: the venv interpreter under /home is
-#                                hidden from the unit's namespace at execve.
+#   - ProtectHome=            -> any value puts the unit in a mount namespace
+#                                of its own. rootd's bind and tmpfs mounts land
+#                                under /home/hop3/apps and must be seen by the
+#                                apps, and `nginx -t` reads the app vhosts in
+#                                /home/hop3/nginx. (It also gave 203/EXEC while
+#                                the daemon lived in /home/hop3/venv.)
 #   - ProtectSystem=strict    -> nginx -t can't write /var/log/nginx, /run.
 #   - CapabilityBoundingSet=  -> drops CAP_DAC_OVERRIDE, so `nginx -t` (run as
 #       CAP_NET_ADMIN only      root) gets EACCES on nginx's www-data error log.
-# Re-introduce hardening in v0.6, designed and tested against ALL three tools,
-# and relocate the daemon out of the hop3-writable /home venv (the open
-# hop3->root escalation). Until then this matches the proven-working container
-# model (rootd as a plain root daemon under supervisor). Defence-in-depth is
+# Re-introduce hardening, designed and tested against ALL three tools and the
+# mount ops. The daemon itself now runs from a venv root owns (ROOTD_VENV_DIR),
+# not from hop3's, which hop3 can write. Until then this matches the
+# proven-working container model (rootd as a plain root daemon under
+# supervisor). Defence-in-depth is
 # still provided at the application layer by the exec wrapper's absolute-path
 # binary allow-list.
 SERVICE_TEMPLATE = """\

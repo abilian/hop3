@@ -354,9 +354,10 @@ class DockerSystemdBackend(Backend):
             BackendError: If the underlying ``upload`` fails.
         """
         self.upload(local_path, remote_path)
-        # Fix permissions so all users can read
-        self.run(f"chmod -R a+rX {remote_path}")
-        return True
+        # docker cp keeps this machine's uid; root installs hop3-rootd from it.
+        return self.run(
+            f"chown -R -h root:root {remote_path} && chmod -R a+rX,go-w {remote_path}"
+        ).success
 
     def cleanup_cli(self) -> None:
         """Remove the CLI installation artifacts from the container."""

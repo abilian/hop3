@@ -118,7 +118,15 @@ class SSHDemoBackend(DemoBackend):
         ]
 
         result = subprocess.run(rsync_cmd, capture_output=True, check=False)
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+        # Root's, readable by all: the installer installs hop3-rootd, as root,
+        # from this tree and refuses one another user owns or can change. rsync
+        # leaves the files it did not change with the owner they already had.
+        return self.run(
+            f"chown -R -h root:root {remote_path} && chmod -R a+rX,go-w {remote_path}",
+            check=False,
+        ).success
 
     def is_hop3_installed(self) -> bool:
         """Check if Hop3 is installed on the server."""

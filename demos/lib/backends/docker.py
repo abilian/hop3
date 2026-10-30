@@ -497,10 +497,15 @@ class DockerDemoBackend(DemoBackend):
             capture_output=True,
             check=False,
         )
-        if result.returncode == 0:
-            # Fix permissions
-            self.run(f"chmod -R a+rX {remote_path}", check=False)
-        return result.returncode == 0
+        if result.returncode != 0:
+            return False
+        # Root's, readable by all: docker cp keeps this machine's uid, and the
+        # installer refuses to install hop3-rootd, as root, from a tree another
+        # user owns or can change.
+        return self.run(
+            f"chown -R -h root:root {remote_path} && chmod -R a+rX,go-w {remote_path}",
+            check=False,
+        ).success
 
     def is_hop3_installed(self) -> bool:
         """Check if Hop3 is installed."""
@@ -611,11 +616,13 @@ stdout_logfile=/var/log/supervisor/nginx.out.log
 """
         elif service_name == "hop3-rootd":
             # Privileged-operations daemon (ADR 041). Runs as root (no user=)
-            # so it can reload nginx; hop3-server connects to its socket as the
-            # hop3 user (SO_PEERCRED admits hop3 + root). The container has no
-            # systemd, so the installer only did host prep — we activate here.
+            # so it can reload nginx, from the venv root owns (the installer
+            # puts it there; hop3's venv is hop3-writable); hop3-server connects
+            # to its socket as the hop3 user (SO_PEERCRED admits hop3 + root).
+            # The container has no systemd, so the installer only did host
+            # prep — we activate here.
             config = """[program:hop3-rootd]
-command=/home/hop3/venv/bin/hop3-rootd --socket-path /run/hop3-rootd/socket
+command=/opt/hop3-rootd/bin/hop3-rootd --socket-path /run/hop3-rootd/socket
 autostart=true
 autorestart=true
 stderr_logfile=/var/log/supervisor/hop3-rootd.err.log

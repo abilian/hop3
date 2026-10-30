@@ -18,6 +18,9 @@ from hop3_installer.deployer.backends.base import DeployBackend
 from hop3_installer.deployer.config import DeployConfig
 from hop3_installer.deployer.deploy import Deployer
 
+#: The installer itself is not uploaded; its runs are recorded.
+pytestmark = pytest.mark.usefixtures("installer_runs_recorded")
+
 
 @pytest.fixture(autouse=True)
 def _no_sleep(monkeypatch):

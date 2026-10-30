@@ -16,6 +16,7 @@ Regression focus:
 
 from __future__ import annotations
 
+import types
 from typing import TYPE_CHECKING
 
 import pytest
@@ -28,38 +29,100 @@ if TYPE_CHECKING:
 # ---- _resolve_daemon_command ---------------------------------------------
 
 
-def test_resolve_daemon_command_returns_existing_binary(
+def test_resolve_daemon_command_returns_the_root_owned_binary(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
-    fake_venv = tmp_path / "venv"
-    binary = fake_venv / "bin" / "hop3-rootd"
+    binary = tmp_path / "opt" / "bin" / "hop3-rootd"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/usr/bin/env python3\n")
-    monkeypatch.setattr(rootd, "VENV_DIR", fake_venv)
+    monkeypatch.setattr(rootd, "ROOTD_BIN", binary)
 
     assert rootd._resolve_daemon_command() == str(binary)
 
 
-def test_resolve_daemon_command_raises_when_missing(
+def test_resolve_daemon_command_never_falls_back_to_the_server_venv(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     """
-    No binary anywhere -> raise, never return a phantom path. Writing a unit
-    with a non-existent ExecStart is what caused the 203/EXEC crash loop.
+    No binary in the root-owned venv -> raise, never a phantom path (the
+    203/EXEC crash loop) and never the server venv's copy, which hop3 can write.
     """
-    # Point VENV_DIR at an empty dir; the hard-coded fallbacks (/usr/local/bin,
-    # /opt/..., /home/hop3/.venv) do not exist in the test environment.
-    monkeypatch.setattr(rootd, "VENV_DIR", tmp_path / "empty-venv")
+    monkeypatch.setattr(rootd, "ROOTD_BIN", tmp_path / "opt" / "bin" / "hop3-rootd")
+    old = tmp_path / "home" / "hop3" / "venv" / "bin" / "hop3-rootd"
+    old.parent.mkdir(parents=True)
+    old.write_text("#!/usr/bin/env python3\n")
     with pytest.raises(ServiceStartError) as exc:
         rootd._resolve_daemon_command()
     assert "not found" in str(exc.value)
+    assert str(old) not in str(exc.value)
+
+
+def test_the_daemon_runs_from_the_root_owned_venv() -> None:
+    """The unit, the Docker program and the installer agree on one path."""
+    from hop3_installer.constants import ROOTD_BIN  # ruff:ignore[import-outside-top-level]
+    from hop3_installer.deployer.backends.docker import (  # ruff:ignore[import-outside-top-level]
+        SUPERVISOR_CONFIG,
+    )
+
+    assert str(ROOTD_BIN) == "/opt/hop3-rootd/bin/hop3-rootd"
+    assert f"command={ROOTD_BIN} --socket-path" in SUPERVISOR_CONFIG
+    assert "/home/hop3/venv/bin/hop3-rootd" not in SUPERVISOR_CONFIG
+
+
+def test_an_existing_unit_is_moved_to_the_root_owned_venv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A server installed before 0.8.1 has a unit running the daemon from hop3's
+    venv. setup_rootd rewrites it on every run, then reloads and restarts.
+    """
+    binary = tmp_path / "opt" / "bin" / "hop3-rootd"
+    binary.parent.mkdir(parents=True)
+    binary.write_text("#!/usr/bin/env python3\n")
+    unit = tmp_path / "hop3-rootd.service"
+    unit.write_text("[Service]\nExecStart=/home/hop3/venv/bin/hop3-rootd\n")
+    state = tmp_path / "state"
+    for name, value in {
+        "ROOTD_BIN": binary,
+        "SERVICE_PATH": unit,
+        "SOCKET_PATH": tmp_path / "hop3-rootd.socket",
+        "LOGROTATE_PATH": tmp_path / "logrotate",
+        "STATE_DIR": state,
+        "STATE_FILE": state / "state.json",
+        "LOG_DIR": tmp_path / "log",
+        "RUNTIME_DIR": tmp_path / "run",
+        "BIND_ALLOWLIST_FILE": state / "bind-allowlist",
+        "CGROUP_CONTROLLERS": tmp_path / "cgroup.controllers",
+        "SUDOERS_FRAGMENT": tmp_path / "sudoers",
+    }.items():
+        monkeypatch.setattr(rootd, name, value)
+    (state).mkdir()
+    (state / "state.json").write_text("{}")
+    commands: list[list[str]] = []
+
+    def run_cmd(cmd, **_kw):
+        commands.append(cmd)
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(rootd, "run_cmd", run_cmd)
+    monkeypatch.setattr(rootd, "has_systemd", lambda: True)
+    monkeypatch.setattr(rootd, "cmd_exists", lambda _name: False)
+    monkeypatch.setattr(rootd, "_verify_rootd_running", lambda: None)
+
+    rootd.setup_rootd()
+
+    assert f"ExecStart={binary}" in unit.read_text()
+    assert "/home/hop3/venv" not in unit.read_text()
+    reload_at = commands.index(["systemctl", "daemon-reload"])
+    restart = ["systemctl", "restart", "hop3-rootd.socket", "hop3-rootd.service"]
+    assert reload_at < commands.index(restart)
 
 
 # ---- SERVICE_TEMPLATE rendering ------------------------------------------
 
 
 def test_service_template_renders_with_daemon_command() -> None:
-    cmd = "/home/hop3/venv/bin/hop3-rootd"
+    cmd = "/opt/hop3-rootd/bin/hop3-rootd"
     rendered = rootd.SERVICE_TEMPLATE.format(daemon_command=cmd)
     assert f"ExecStart={cmd}" in rendered
     assert "Type=notify" in rendered

@@ -45,3 +45,8 @@ def test_upload_dir_removes_the_destination_before_copying():
     assert copied
     assert copied[0][:2] == ["docker", "cp"]
     assert copied[0][-1].endswith(":/tmp/hop3-server")
+    # docker cp keeps the uploader's uid, and the installer refuses to run, as
+    # root, a hop3-rootd tree another user owns (2026-10-30, every --local e2e).
+    assert issued[-1] == (
+        "chown -R -h root:root /tmp/hop3-server && chmod -R a+rX,go-w /tmp/hop3-server"
+    )

@@ -91,6 +91,7 @@ class TestRunMigrations:
         backend.run.assert_not_called()
 
 
+@pytest.mark.usefixtures("installer_runs_recorded")
 class TestUpdatePathsRunMigrationsBeforeRestart:
     """
     Each update path must run migrations before the systemctl restart.
@@ -132,42 +133,6 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         )
         assert migrate_idx < restart_idx, (
             f"migration must precede restart; got {ordered!r}"
-        )
-
-    def test_features_install_does_not_reinstall_hop3_server(self, config, backend):
-        """
-        Regression: features step must not reinstall hop3-server from PyPI.
-
-        Without --skip-package-install, every deploy that triggers
-        _reconcile_installation (which is every update) overwrites whatever the preceding
-        _update_local_code/_update_from_git/_update_from_pypi step
-        installed. The symptom is `hop3 system info` reporting PyPI's
-        latest stable version (e.g. 0.4.0) even after a successful
-        --local deploy of newer code (e.g. 0.5.0.dev3).
-        """
-        config.with_features = ["docker"]
-        d = _make_deployer(config, backend)
-
-        # Stub out the upload + version-check shell-outs in _reconcile_installation
-        setattr(d.backend, "upload_file", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
-        setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # ruff:ignore[set-attr-with-constant]
-        setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # ruff:ignore[set-attr-with-constant]
-        # The installer_path property triggers bundle regeneration if stale;
-        # short-circuit it to avoid running the real bundler in unit tests.
-        from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
-
-        type(config).installer_path = property(
-            lambda self: _Path("/dev/null").parent / "fake-installer.py"
-        )
-        # `not installer_path.exists()` is the abort condition; satisfy it
-        with patch("pathlib.Path.exists", return_value=True):
-            assert d._reconcile_installation() is True
-
-        install_cmd = next(c.args[0] for c in backend.run_streaming.call_args_list)
-        assert "--skip-package-install" in install_cmd, (
-            "features re-run must pass --skip-package-install; otherwise "
-            f"the installer's step 4 reinstalls hop3-server from PyPI. "
-            f"Got: {install_cmd!r}"
         )
 
     def test_update_local_code_uninstalls_before_install(self, config, backend):
@@ -240,3 +205,40 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
             i for i, (m, _a) in enumerate(ordered) if m == "restart_service"
         )
         assert migrate_idx < restart_idx
+
+
+def test_features_install_does_not_reinstall_hop3_server(config, backend):
+    """
+    Regression: features step must not reinstall hop3-server from PyPI.
+
+    Without --skip-package-install, every deploy that triggers
+    _reconcile_installation (which is every update) overwrites whatever the preceding
+    _update_local_code/_update_from_git/_update_from_pypi step
+    installed. The symptom is `hop3 system info` reporting PyPI's
+    latest stable version (e.g. 0.4.0) even after a successful
+    --local deploy of newer code (e.g. 0.5.0.dev3).
+    """
+    config.with_features = ["docker"]
+    d = _make_deployer(config, backend)
+
+    # Stub out the upload + version-check shell-outs in _reconcile_installation
+    setattr(d.backend, "upload_file", MagicMock(return_value=True))  # ruff:ignore[set-attr-with-constant]
+    setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # ruff:ignore[set-attr-with-constant]
+    setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # ruff:ignore[set-attr-with-constant]
+    # The installer_path property triggers bundle regeneration if stale;
+    # short-circuit it to avoid running the real bundler in unit tests.
+    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
+
+    type(config).installer_path = property(
+        lambda self: _Path("/dev/null").parent / "fake-installer.py"
+    )
+    # `not installer_path.exists()` is the abort condition; satisfy it
+    with patch("pathlib.Path.exists", return_value=True):
+        assert d._reconcile_installation() is True
+
+    install_cmd = next(c.args[0] for c in backend.run_streaming.call_args_list)
+    assert "--skip-package-install" in install_cmd, (
+        "features re-run must pass --skip-package-install; otherwise "
+        f"the installer's step 4 reinstalls hop3-server from PyPI. "
+        f"Got: {install_cmd!r}"
+    )

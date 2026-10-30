@@ -89,7 +89,7 @@ hop3-deploy-server --host server.example.com --from local            # this chec
 /home/hop3/venv/bin/pip list | grep hop3
 ```
 
-Each upgrade runs the same sequence: install `hop3-server`, `hop3-rootd` and `hop3-cli` at one version → check the venv holds exactly that version → `hop3-server db:upgrade` (migrations) → restart `hop3-rootd`, then `hop3-server` → verify the server answers. Running apps are not touched: the uWSGI emperor, its vassals and nginx keep serving throughout. Never pass `--clean` for an upgrade; it wipes the installation and its addon databases.
+Each upgrade runs the same sequence: install `hop3-server` and `hop3-cli` into the server venv, as `hop3`, and `hop3-rootd` into its own venv in `/opt/hop3-rootd`, as root, all at one version → check they hold exactly that version → `hop3-server db:upgrade` (migrations) → restart `hop3-rootd`, then `hop3-server` → verify the server answers. Running apps are not touched: the uWSGI emperor, its vassals and nginx keep serving throughout. Never pass `--clean` for an upgrade; it wipes the installation and its addon databases.
 
 **Do not upgrade by re-running the single-file installer** (`install-server.py`). On an existing server it skips the migrations, upgrades the code only when a version is pinned, and restarts the uWSGI emperor, which restarts the apps, whenever its unit file changed. The single-file installer exists for a first install only.
 

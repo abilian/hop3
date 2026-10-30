@@ -96,11 +96,14 @@ DOCKER_CONTAINER_NAME = "hop3-dev"
 SERVER_PACKAGE_NAME = "hop3-server"
 SERVER_PACKAGE_SUBDIR = "packages/hop3-server"
 
-# Privileged-operations daemon (ADR 041). Installed into the same venv as
-# the server; the deploy path requires it for nginx reloads.
+# Privileged-operations daemon (ADR 041); the deploy path requires it for
+# nginx reloads. It runs as root, so it lives in a venv of its own that root
+# owns: hop3 can write the server venv, and root would run whatever hop3 put
+# there at the next restart.
 ROOTD_PACKAGE_NAME = "hop3-rootd"
 ROOTD_PACKAGE_SUBDIR = "packages/hop3-rootd"
-ROOTD_BIN = VENV_DIR / "bin" / "hop3-rootd"
+ROOTD_VENV_DIR = Path("/opt/hop3-rootd")
+ROOTD_BIN = ROOTD_VENV_DIR / "bin" / "hop3-rootd"
 
 # CLI package
 CLI_PACKAGE_NAME = "hop3-cli"

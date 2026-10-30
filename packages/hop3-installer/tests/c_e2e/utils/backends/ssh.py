@@ -148,9 +148,11 @@ class SSHBackend(Backend):
         if result.returncode != 0:
             return False
 
-        # Fix permissions so all users can read (needed for pip to build wheels)
-        self.run(f"chmod -R a+rX {remote_path}")
-        return True
+        # Root's, readable by all: root installs hop3-rootd from it.
+        return self.run(
+            f"chown -R -h root:root {remote_path} && chmod -R a+rX,go-w {remote_path}",
+            sudo=True,
+        ).success
 
     def cleanup_cli(self) -> None:
         """Remove CLI installation from remote host."""

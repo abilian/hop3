@@ -19,7 +19,7 @@ from hop3_installer.deployer.deploy import Deployer
 def _cmd(**cfg) -> str:
     # The helper only reads self.config; the backend is unused here.
     deployer = Deployer(DeployConfig(**cfg), backend=object())  # type: ignore[arg-type]
-    return deployer._installer_update_command("python3")
+    return deployer._installer_update_args()
 
 
 def test_feature_install_forwards_acme_email():

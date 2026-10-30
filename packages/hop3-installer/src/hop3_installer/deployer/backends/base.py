@@ -155,11 +155,23 @@ class DeployBackend(ABC):
 
         return result.returncode
 
-    def make_world_readable(self, remote_path: str) -> bool:
-        """``chmod -R a+rX`` an uploaded tree; False, with the reason printed."""
-        result = self.run(f"chmod -R a+rX {shlex.quote(remote_path)}", check=False)
+    def make_root_controlled(self, remote_path: str) -> bool:
+        """
+        Make an uploaded tree root-owned, readable by all, writable by root only.
+
+        hop3 installs the server and the client from it; root installs
+        hop3-rootd from it, and the installer refuses a tree another user
+        could change (``check_root_controlled``). ``docker cp`` keeps the
+        uid the files have on this machine, and rsync leaves files it did
+        not change with the owner they already had. False, with the reason
+        printed.
+        """
+        path = shlex.quote(remote_path)
+        mode = "a+rX,go-w"
+        command = f"chown -R -h root:root {path} && chmod -R {mode} {path}"
+        result = self.run(command, check=False)
         if not result.success:
-            print(f"  ✗ chmod -R a+rX {remote_path} failed: {result.stderr.strip()}")
+            print(f"  ✗ {command} failed: {result.stderr.strip()}")
         return result.success
 
     @abstractmethod

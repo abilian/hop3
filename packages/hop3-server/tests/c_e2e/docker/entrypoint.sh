@@ -58,7 +58,7 @@ serverurl=unix:///var/run/supervisor.sock
 supervisor.rpcinterface_factory = supervisor.rpcinterface:make_main_rpcinterface
 
 [program:hop3-rootd]
-command=/home/hop3/venv/bin/hop3-rootd --socket-path /run/hop3-rootd/socket
+command=/opt/hop3-rootd/bin/hop3-rootd --socket-path /run/hop3-rootd/socket
 autostart=true
 autorestart=true
 priority=1

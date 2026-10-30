@@ -77,14 +77,19 @@ def test_an_unreadable_secret_aborts_instead_of_regenerating(
         verify._preserved_operator_lines,
     ],
 )
-def test_an_unreadable_server_config_aborts(tmp_path, monkeypatch, read):
+def test_an_unreadable_server_config_aborts(
+    tmp_path, monkeypatch, read, hop3_shell_is_local
+):
+    # A directory: `cat` fails, which is not absence.
     (tmp_path / "hop3-server.toml").mkdir()
     monkeypatch.setattr(verify, "HOME_DIR", tmp_path)
-    with pytest.raises(OSError):
+    with pytest.raises(CommandError):
         read()
 
 
-def test_a_missing_file_still_means_first_install(tmp_path, monkeypatch):
+def test_a_missing_file_still_means_first_install(
+    tmp_path, monkeypatch, hop3_shell_is_local
+):
     monkeypatch.setattr(services, "SECRET_KEY_FILE", tmp_path / "absent")
     monkeypatch.setattr(s3, "GARAGE_CONFIG_FILE", tmp_path / "absent")
     monkeypatch.setattr(verify, "HOME_DIR", tmp_path)

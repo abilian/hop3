@@ -38,6 +38,8 @@ class ServerInstallerConfig:
     skip_migrations: bool = False
     # Apply only the platform's own configuration to an existing install.
     reconcile_only: bool = False
+    # Install or upgrade hop3-rootd only (the deployer's update paths).
+    rootd_only: bool = False
     domain: str | None = None
     acme_email: str | None = None  # Email for Let's Encrypt registration
     # Operator contact written as OPERATOR_EMAIL; resolves recipes'

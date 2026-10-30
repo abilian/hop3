@@ -436,13 +436,6 @@ def bundle_installer(installer_type: str) -> str:
         all_imports.update(imports)
 
         for name in _top_level_names(code):
-            if name.startswith("_") and not name.startswith("__"):
-                # Single-leading-underscore names are conventional
-                # private helpers; collisions on those still bite,
-                # but accept aliases like ``_has_systemd = has_systemd``
-                # which intentionally re-export the shared helper.
-                if code.find(f"{name} = ") != -1:
-                    continue
             if name in seen_names:
                 msg = (
                     f"Bundler name collision: '{name}' defined in both "

@@ -131,13 +131,15 @@ Optional toolchains (Rust, Node global packages, Leiningen, Elixir, Nix) and ext
 
 ```
 /home/hop3/
-├── venv/               # Python virtual environment (hop3-server, uwsgi, hop3-rootd)
+├── venv/               # Python virtual environment (hop3-server, uwsgi, hop3-cli)
 ├── apps/               # Per-app deployment trees
 ├── nginx/              # Per-app nginx config fragments
 ├── uwsgi-available/    # uWSGI app configs
 ├── uwsgi-enabled/      # Active uWSGI configs (symlinks watched by the emperor)
 ├── ssl/                # Per-domain SSL certificates
 └── hop3.db             # SQLite database (only when SQLite is used)
+
+/opt/hop3-rootd/        # hop3-rootd's venv, root's: the daemon runs as root
 
 /etc/hop3/ssl/          # Self-signed cert/key for initial nginx setup
 

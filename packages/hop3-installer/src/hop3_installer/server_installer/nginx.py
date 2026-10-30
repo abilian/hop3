@@ -151,6 +151,11 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     run_cmd(["nginx", "-t"])
     print_success("Nginx configuration is valid")
 
+    _start_nginx(systemd=has_systemd())
+
+
+def _start_nginx(*, systemd: bool) -> None:
+    """Make the running nginx serve the configuration just written."""
     # Enable and start nginx — but only where systemd is what runs it.
     #
     # Not a fallback to the init script, deliberately: on a non-systemd target
@@ -159,8 +164,15 @@ def setup_nginx(config: ServerInstallerConfig) -> None:
     # who has it instead. This previously printed "Failed to restart nginx" with
     # advice to read `journalctl` — on a box with neither systemd nor a journal,
     # for a step that was never this installer's to do.
-    if not has_systemd():
-        print_info("systemd not detected; the process manager will start nginx")
+    if not systemd:
+        # A running nginx still holds the old site (and, after `--clean`, the
+        # vhosts that were removed): reload it, as `reconcile_http_settings`
+        # does; the config was validated above.
+        if process_manager_pending():
+            print_info("systemd not detected; the process manager will start nginx")
+            return
+        run_cmd(["nginx", "-s", "reload"])
+        print_success("Nginx reloaded")
         return
 
     run_cmd(["systemctl", "enable", "nginx"])

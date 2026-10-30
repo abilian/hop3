@@ -58,32 +58,30 @@ to start, the hardening broke the nginx role on three independent axes:
   it. Verification now goes through the vhost hostname, and a green deploy also
   requires the app's own authenticated check to pass.
 
-## The escalation this leaves open (HIGH)
+## The escalation this left open (closed in 0.8.1)
 
-rootd executes its interpreter and code from `/home/hop3/venv`, which is
-owned and writable by the unprivileged `hop3` user. A compromised `hop3`
-can overwrite that code and trigger a restart, giving root RCE with
-`CAP_NET_ADMIN`. This is what ADR 041 §10 exists to eliminate; its
-reference unit installs to a root-owned `/opt`. `BindReadOnlyPaths` protects
-only the namespace *view*; it does **not** protect the host source or fix the
-escalation.
+rootd executed its interpreter and code from `/home/hop3/venv`, owned and
+writable by the unprivileged `hop3` user: a compromised `hop3` could overwrite
+that code and trigger a restart, giving root RCE with `CAP_NET_ADMIN`.
+`BindReadOnlyPaths` protects only the namespace *view*; it never protected the
+host source.
 
-Still true as of 0.7: `constants.py` sets `VENV_DIR = /home/hop3/venv`, and
-`_resolve_daemon_command` probes that path first. `/opt/hop3/.venv` is listed
-as a candidate but is not where the installer puts the daemon.
+rootd now runs from `/opt/hop3-rootd`, a venv `root:root` that `hop3` cannot
+write, made from a root-owned interpreter. The installer installs it there as
+root, from PyPI or git, or from a local tree it first checks is root's and
+writable by root only (`check_root_controlled`); the deployer's update paths
+call the installer's `--rootd` mode for it, which also moves an older server's
+unit over. Nothing installs hop3-rootd into hop3's venv any more, and the copy
+older installers left there is removed.
 
 ## The work
 
-### 1. Relocate rootd out of `/home` into a root-owned tree
+### 1. Relocate rootd out of `/home` into a root-owned tree (done)
 
-Fixes the escalation **and** lets `ProtectHome=true` work as written.
-
-The target is `/opt/hop3-rootd` with its own venv, `root:root`, not writable
-by `hop3`. The change touches `install_rootd_package` (install as root into the
-new venv rather than via `su - hop3`), the `_resolve_daemon_command` candidate
-order, `constants.py`, and the demo/supervisor path
-(`demos/lib/backends/docker.py` runs `/home/hop3/venv/bin/hop3-rootd`).
-Re-validate on systemd **and** in a container.
+Done as described above. It does **not** let `ProtectHome=` be set, which
+this note used to expect: any value gives the unit a mount namespace of its
+own, and rootd's bind and tmpfs mounts under `/home/hop3/apps` must land in
+the host's. The nginx configs in `/home/hop3/nginx` are the second reason.
 
 ### 2. Redesign the sandbox, tested against all three tools
 

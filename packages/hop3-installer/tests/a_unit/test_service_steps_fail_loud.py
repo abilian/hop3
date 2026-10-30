@@ -94,7 +94,9 @@ def test_a_failed_step_ends_the_install_with_its_output(monkeypatch, capsys):
 
 
 @pytest.mark.parametrize("missing", ["service", "toml"])
-def test_verification_fails_what_is_broken(monkeypatch, tmp_path, missing):
+def test_verification_fails_what_is_broken(
+    monkeypatch, tmp_path, missing, hop3_shell_is_local
+):
     monkeypatch.setattr(verify, "VENV_DIR", tmp_path)
     (tmp_path / "bin").mkdir()
     (tmp_path / "bin" / "hop3-server").touch()

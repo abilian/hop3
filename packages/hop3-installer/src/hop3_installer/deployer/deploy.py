@@ -24,9 +24,17 @@ from hop3_installer.common import (
 )
 from hop3_installer.constants import (
     BUILD_INFO_PATH,
+    CLI_PACKAGE_NAME,
+    CLI_PACKAGE_SUBDIR,
     DEFAULT_ADMIN_EMAIL,
+    GIT_REPO,
     HOP3_SERVER_BIN,
     HOP3_SERVER_BIND,
+    ROOTD_PACKAGE_NAME,
+    ROOTD_PACKAGE_SUBDIR,
+    ROOTD_VENV_DIR,
+    SERVER_PACKAGE_NAME,
+    SERVER_PACKAGE_SUBDIR,
     VENV_DIR,
 )
 from hop3_installer.nginx_templates import (
@@ -53,6 +61,10 @@ _HEALTH_PROBE_TIMEOUT_S = 3
 #: reinstalled the old server under a green message.
 _VERSIONED_PACKAGES = ("hop3-server", "hop3-rootd", "hop3-cli")
 
+#: The two of them hop3's venv holds. hop3-rootd runs as root, from a venv root
+#: owns, and is installed there by the installer's ``--rootd`` mode.
+_SERVER_VENV_PACKAGES = ("hop3-server", "hop3-cli")
+
 #: Run by the server venv's python on the target: the verified nginx reload.
 _ROOTD_NGINX_RELOAD = (
     "from hop3.lib.rootd import LocalRootdClient\n"
@@ -60,14 +72,19 @@ _ROOTD_NGINX_RELOAD = (
     "    client.call('nginx.reload', {})\n"
 )
 
-_VERSION_PROBE = (
-    "import importlib.metadata as m\n"
-    "for p in ('hop3_server', 'hop3_rootd', 'hop3_cli'):\n"
-    "    try:\n"
-    "        print(p, m.version(p))\n"
-    "    except m.PackageNotFoundError:\n"
-    "        print(p, '')\n"
-)
+
+def _version_probe(python: str, packages: tuple[str, ...]) -> str:
+    """The command that prints ``<distribution> <version>`` for each package."""
+    names = ", ".join(repr(p.replace("-", "_")) for p in packages)
+    code = (
+        "import importlib.metadata as m\n"
+        f"for p in ({names},):\n"
+        "    try:\n"
+        "        print(p, m.version(p))\n"
+        "    except m.PackageNotFoundError:\n"
+        "        print(p, '')\n"
+    )
+    return f"{python} -c {shlex.quote(code)}"
 
 
 # The context a `--docker` deploy writes for the container it just set up.
@@ -87,8 +104,7 @@ _VERSION_PROBE = (
 CLI_CONTEXT_NAME = "hop3-docker"
 
 _PIP = f"{VENV_DIR}/bin/pip"
-# The editable checkout of the git-update path, in hop3's home.
-_GIT_CHECKOUT = "/home/hop3/hop3"
+_ROOTD_PIP = f"{ROOTD_VENV_DIR}/bin/pip"
 
 
 def _as_hop3(command: str) -> str:
@@ -448,7 +464,8 @@ class Deployer:
         Without it the server doesn't know its public URL, so ``auth:magic-link``
         returns a bare token and the CLI falls back to ``http://<host>:8000`` —
         even though TLS fronts the dashboard at the domain. Idempotent
-        (update-or-append); preserves file ownership.
+        (update-or-append). Edited as hop3: the file is in hop3's home, where
+        an app could plant a symlink for root to write through.
         """
         cfg = "/home/hop3/hop3-server.toml"
         # ``domain`` already passed RFC-1035 validation in _setup_admin_nginx, so
@@ -459,10 +476,9 @@ class Deployer:
             f"if grep -q '^ADMIN_DOMAIN' \"$f\"; then "
             f"sed -i 's|^ADMIN_DOMAIN.*|{line}|' \"$f\"; "
             f"else printf '\\n# Admin UI domain (set by hop3-deploy)\\n%s\\n' "
-            f"'{line}' >> \"$f\"; fi; "
-            f'chown hop3:hop3 "$f"'
+            f"'{line}' >> \"$f\"; fi"
         )
-        result = self.backend.run(script, check=False)
+        result = self.backend.run(_as_hop3(script), check=False)
         if not result.success:
             self.log("Failed to record ADMIN_DOMAIN in server config", "error")
             self.log_output(result, always=True)
@@ -604,55 +620,25 @@ class Deployer:
         Args:
             local_path: Path on the server where local code was uploaded (if any)
         """
-        python_cmd = self._ensure_python310_plus()
-        if python_cmd is None:
-            return False
-
-        # Upload installer script
-        installer_path = self.config.installer_path
-        if not installer_path.exists():
-            self.log(f"Installer not found: {installer_path}", "error")
-            return False
-
-        self.log("Uploading installer script")
-        if not self.backend.upload_file(installer_path, "/tmp/install-server.py"):
-            self.log("Failed to upload installer", "error")
-            return False
-
         # Build install command
-        install_cmd = f"{python_cmd} -u /tmp/install-server.py"
-        install_cmd += self._build_source_args(local_path)
+        args = self._build_source_args(local_path)
 
         if self.config.install_features:
-            install_cmd += f" --with {','.join(self.config.install_features)}"
+            args += f" --with {','.join(self.config.install_features)}"
 
         if self.config.acme_email:
-            install_cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
+            args += f" --acme-email {shlex.quote(self.config.acme_email)}"
 
         # OPERATOR_EMAIL resolves recipes' `[admin].email = "operator"` (ADR 056);
         # forward the admin email so admin-bootstrap apps can deploy.
         if self.config.admin_email:
-            install_cmd += f" --operator-email {shlex.quote(self.config.admin_email)}"
+            args += f" --operator-email {shlex.quote(self.config.admin_email)}"
 
         if self.config.skip_migrations:
-            install_cmd += " --skip-migrations"
-        install_cmd += " --verbose"
+            args += " --skip-migrations"
+        args += " --verbose"
 
-        self.log(f"Running: {install_cmd}")
-        if not self.quiet:
-            print()
-
-        exit_code = self.backend.run_streaming(
-            install_cmd, quiet=self.quiet, log_file=self.log_file
-        )
-
-        if not self.quiet:
-            print()
-        else:
-            print("done" if exit_code == 0 else "FAILED")
-
-        if exit_code != 0:
-            self.log(f"Installation failed (exit code {exit_code})", "error")
+        if not self._run_installer(args):
             return False
 
         self.log("Installation complete", "success")
@@ -660,6 +646,9 @@ class Deployer:
 
     def _update(self) -> bool:
         """Update existing Hop3 installation."""
+        if not self._reclaim_venv():
+            return False
+
         # If using local code, use that instead of PyPI
         if self.config.use_local_code:
             return self._update_local_code()
@@ -671,9 +660,9 @@ class Deployer:
         # Default: update from PyPI
         return self._update_from_pypi()
 
-    def _installer_update_command(self, python_cmd: str) -> str:
+    def _installer_update_args(self) -> str:
         """
-        Build the installer command for the feature/redeploy path.
+        The installer's arguments for the feature/redeploy path.
 
         Forwards ``--acme-email`` so the cert *engine* is configured in
         ``/etc/default/hop3`` (the default is self-signed — it is NOT
@@ -682,23 +671,26 @@ class Deployer:
         stays on the explicit ``hop3 cert renew`` path rather than running
         certbot on every redeploy (which would hammer Let's Encrypt limits).
         """
-        cmd = f"{python_cmd} -u /tmp/install-server.py"
         if not (self.config.install_features or self.config.acme_email):
             # A code update: the platform's own settings, and no restart of
             # what runs the apps. The full installer below restarts Redis and
             # Mailpit, and uwsgi-hop3 when its unit changed.
-            return f"{cmd} --reconcile --verbose"
+            return " --reconcile --verbose"
+        args = ""
         if self.config.install_features:
-            cmd += f" --with {','.join(self.config.install_features)}"
-        cmd += " --skip-nginx --skip-acme --skip-package-install"
+            args += f" --with {','.join(self.config.install_features)}"
+        # --skip-package-install is critical: without it, this step
+        # reinstalls hop3-server from PyPI, clobbering whatever the
+        # preceding _update() just installed (local code, specific git
+        # branch, or specific PyPI version).
+        args += " --skip-nginx --skip-acme --skip-package-install"
         if self.config.skip_migrations:
-            cmd += " --skip-migrations"
+            args += " --skip-migrations"
         if self.config.acme_email:
-            cmd += f" --acme-email {shlex.quote(self.config.acme_email)}"
+            args += f" --acme-email {shlex.quote(self.config.acme_email)}"
         if self.config.admin_email:
-            cmd += f" --operator-email {shlex.quote(self.config.admin_email)}"
-        cmd += " --verbose"
-        return cmd
+            args += f" --operator-email {shlex.quote(self.config.admin_email)}"
+        return args + " --verbose"
 
     def _reconcile_installation(self) -> bool:
         """
@@ -710,32 +702,44 @@ class Deployer:
         `server_names_hash_bucket_size` fix never reached the server it was
         written for. Without `--with` it runs the installer's `--reconcile`
         mode only: the full installer restarts uwsgi-hop3, which bounces every
-        app on the box (see `_installer_update_command`).
+        app on the box (see `_installer_update_args`).
         """
         features = ", ".join(self.config.install_features) or "none requested"
         self.log(f"Reconciling the installation (features: {features})")
+        if not self._run_installer(self._installer_update_args()):
+            return False
+        self.log("Installation reconciled", "success")
+        return True
 
+    def _install_rootd(self, local_path: str | None) -> bool:
+        """
+        Install or upgrade hop3-rootd, as root, into the venv root owns.
+
+        The installer's ``--rootd`` mode, from the update's own source: the
+        daemon runs as root, so it never goes into hop3's venv, and a server
+        whose unit still runs it from there (before 0.8.1) is moved over.
+        """
+        self.log("Installing hop3-rootd into its root-owned venv")
+        args = f" --rootd{self._build_source_args(local_path)} --verbose"
+        return self._run_installer(args)
+
+    def _run_installer(self, args: str) -> bool:
+        """Upload the bundled installer and run it with ``args``; False (loud) on failure."""
         python_cmd = self._ensure_python310_plus()
         if python_cmd is None:
             return False
 
-        # Upload installer script
         installer_path = self.config.installer_path
         if not installer_path.exists():
             self.log(f"Installer not found: {installer_path}", "error")
             return False
 
+        self.log("Uploading installer script")
         if not self.backend.upload_file(installer_path, "/tmp/install-server.py"):
             self.log("Failed to upload installer", "error")
             return False
 
-        # Run installer with feature flags, skipping unrelated steps.
-        # --skip-package-install is critical: without it, this step
-        # reinstalls hop3-server from PyPI, clobbering whatever the
-        # preceding _update() just installed (local code, specific git
-        # branch, or specific PyPI version).
-        install_cmd = self._installer_update_command(python_cmd)
-
+        install_cmd = f"{python_cmd} -u /tmp/install-server.py{args}"
         self.log(f"Running: {install_cmd}")
         if not self.quiet:
             print()
@@ -752,8 +756,6 @@ class Deployer:
         if exit_code != 0:
             self.log(f"Installer failed (exit code {exit_code})", "error")
             return False
-
-        self.log("Installation reconciled", "success")
         return True
 
     def _run_migrations(self) -> bool:
@@ -873,16 +875,23 @@ class Deployer:
         return False
 
     def _installed_versions(self) -> dict[str, str]:
-        """The version of each Hop3 package in the server venv, "" when absent."""
-        # As hop3: the interpreter is in hop3's venv (see `_reload_nginx`).
-        probe = _as_hop3(f"{VENV_DIR}/bin/python -c {shlex.quote(_VERSION_PROBE)}")
-        result = self.backend.run(probe, check=False)
+        """The version of each Hop3 package where it lives, "" when absent."""
         versions = dict.fromkeys(_VERSIONED_PACKAGES, "")
-        for line in (result.stdout or "").splitlines():
-            name, _, version = line.strip().partition(" ")
-            name = name.replace("_", "-")
-            if name in versions:
-                versions[name] = version.strip()
+        # hop3's venv as hop3 (see `_reload_nginx`); rootd's venv, root's own,
+        # as root.
+        probes = (
+            (_as_hop3, f"{VENV_DIR}/bin/python", _SERVER_VENV_PACKAGES),
+            (str, f"{ROOTD_VENV_DIR}/bin/python", (ROOTD_PACKAGE_NAME,)),
+        )
+        for as_user, python, packages in probes:
+            result = self.backend.run(
+                as_user(_version_probe(python, packages)), check=False
+            )
+            for line in (result.stdout or "").splitlines():
+                name, _, version = line.strip().partition(" ")
+                name = name.replace("_", "-")
+                if name in packages:
+                    versions[name] = version.strip()
         return versions
 
     def _check_one_version(self, expected: str | None) -> bool:
@@ -901,7 +910,7 @@ class Deployer:
                 f"hop3-server, hop3-rootd and hop3-cli at {found.pop()}", "success"
             )
             return True
-        self.log("The server venv does not hold one version of Hop3:", "error")
+        self.log("The server does not hold one version of Hop3:", "error")
         for name, version in versions.items():
             self.log(f"  {name}: {version or 'not installed'}", "error")
         if expected:
@@ -937,74 +946,97 @@ class Deployer:
             time.sleep(delay)
         return False
 
+    def _reclaim_venv(self) -> bool:
+        """
+        Give the server venv back to hop3 before hop3 runs pip in it.
+
+        Deployers before 0.8.1 ran pip there as root, so on a server upgraded
+        that way the venv holds root-owned files, and the first upgrade run as
+        hop3 fails on them. ``-P -h``: a symlink in the venv (the venv itself
+        included) is chowned itself, never followed, since hop3 could have
+        pointed one at a system file.
+        """
+        result = self.backend.run(f"chown -R -P -h hop3:hop3 {VENV_DIR}", check=False)
+        if result.success:
+            return True
+        self.log(f"Could not give {VENV_DIR} back to the hop3 user", "error")
+        self.log_output(result, always=True)
+        return False
+
     def _update_from_git(self) -> bool:
-        """Update existing installation from git."""
-        self.log("Pulling latest code from git")
+        """
+        Update an existing installation from a git branch.
 
-        # Quote branch name to prevent command injection
-        safe_branch = shlex.quote(self.config.branch)
+        The same specs the installer's ``--git`` mode installs: pip fetches
+        each package from the repository's subdirectory. There is no checkout
+        on the server to pull.
+        """
+        self.log(f"Installing branch '{self.config.branch}' from git")
+        old_commit = self._server_git_commit()
 
-        # Capture the current commit BEFORE `reset --hard`, so a broken upgrade
-        # can point the operator at the exact release to revert to.
-        head = self.backend.run(
-            _as_hop3(f"git -C {_GIT_CHECKOUT} rev-parse HEAD"), check=False
+        # [waf] extra: the LeWAF engine (ADR 050), marker-gated to py3.12+;
+        # without it, WAF-enabled apps abort the deploy. The client rides along
+        # at the same commit; the daemon goes into its own venv, as root.
+        specs = " ".join(
+            shlex.quote(spec) for spec in self._git_specs(self.config.branch)
         )
-        # Intentional double .strip(): degrade the hint to "" when HEAD is empty
-        # or whitespace, not only when the command itself fails.
-        old_ref = head.stdout.strip() if head.success and head.stdout.strip() else ""
-
-        # Install the new code before running migrations and restarting.
-        # Migrations run between install and restart so a schema mismatch
-        # aborts the deploy with the OLD server still running.
-        # All as hop3: the checkout and the venv are hop3's, and root running
-        # git (hooks, `core.fsmonitor`) or pip in them runs hop3-writable code.
-        update_commands = [
-            _as_hop3(f"cd {_GIT_CHECKOUT} && {step}")
-            for step in (
-                "git fetch origin",
-                f"git checkout {safe_branch}",
-                f"git reset --hard origin/{safe_branch}",
-                # [waf] extra: the LeWAF engine (ADR 050). No-op on <3.12
-                # (marker-gated); without it, WAF-enabled apps abort the deploy.
-                f"{_PIP} install -e 'packages/hop3-server[waf]'",
-                # The daemon and the client ride along at the same commit.
-                f"{_PIP} install -e packages/hop3-rootd -e packages/hop3-cli",
-            )
-        ]
-
-        for cmd in update_commands:
-            if self.verbose:
-                self.log(f"Running: {cmd}")
-            result = self.backend.run(cmd, check=False)
-            if not result.success:
-                self.log(f"Update command failed: {cmd}", "error")
-                self.log_output(result)
-                return False
-
-        declared = self.backend.run(
+        result = self.backend.run(
             _as_hop3(
-                f"grep -m1 '^version' {_GIT_CHECKOUT}/packages/hop3-server/pyproject.toml"
+                # The packages at the branch's head even when their version is
+                # unchanged, then whatever dependencies they now need.
+                f"{_PIP} install --force-reinstall --no-deps {specs} && "
+                f"{_PIP} install {specs}"
             ),
             check=False,
         )
-        found = re.search(r'"([^"]+)"', declared.stdout or "")
-        if not self._check_one_version(found.group(1) if found else None):
+        if not result.success:
+            self.log("Failed to install from git", "error")
+            self.log_output(result)
+            return False
+
+        if not self._install_rootd(None):
+            return False
+
+        if not self._check_one_version(None):
             return False
 
         if not self._run_migrations():
             return False
 
-        ref = old_ref or "<previous commit>"
         restart = self.backend.service_restart_command("hop3-server")
-        revert = (
-            _as_hop3(
-                f"cd {_GIT_CHECKOUT} && git reset --hard {ref} && "
-                f"{_PIP} install -e 'packages/hop3-server[waf]' "
-                "-e packages/hop3-rootd -e packages/hop3-cli"
+        if old_commit:
+            old_specs = " ".join(
+                shlex.quote(spec) for spec in self._git_specs(old_commit)
             )
-            + f" && {restart}"
-        )
+            old_rootd = shlex.quote(self._git_rootd_spec(old_commit))
+            revert = (
+                _as_hop3(f"{_PIP} install --force-reinstall {old_specs}")
+                + f" && {_ROOTD_PIP} install --force-reinstall {old_rootd}"
+                + f" && {restart}"
+            )
+        else:
+            revert = (
+                "reinstall the previous release (the old commit was not "
+                f"recorded), then {restart}"
+            )
         return self._finish_upgrade(revert, "Update complete")
+
+    @staticmethod
+    def _git_specs(ref: str) -> tuple[str, str]:
+        """The pip specs of hop3's venv packages at ``ref`` of the repository."""
+        base = f"git+{GIT_REPO}@{ref}#subdirectory="
+        return (
+            f"{SERVER_PACKAGE_NAME}[waf] @ {base}{SERVER_PACKAGE_SUBDIR}",
+            f"{CLI_PACKAGE_NAME} @ {base}{CLI_PACKAGE_SUBDIR}",
+        )
+
+    @staticmethod
+    def _git_rootd_spec(ref: str) -> str:
+        """The pip spec of hop3-rootd at ``ref`` of the repository."""
+        return (
+            f"{ROOTD_PACKAGE_NAME} @ "
+            f"git+{GIT_REPO}@{ref}#subdirectory={ROOTD_PACKAGE_SUBDIR}"
+        )
 
     def _update_from_pypi(self) -> bool:
         """Update existing installation from PyPI."""
@@ -1020,10 +1052,10 @@ class Deployer:
         # Build package spec
         if self.config.pypi_version:
             pinned = shlex.quote(self.config.pypi_version)
-            package_spec = " ".join(f"{p}=={pinned}" for p in _VERSIONED_PACKAGES)
+            package_spec = " ".join(f"{p}=={pinned}" for p in _SERVER_VENV_PACKAGES)
             self.log(f"Upgrading to version {self.config.pypi_version} from PyPI")
         else:
-            package_spec = " ".join(_VERSIONED_PACKAGES)
+            package_spec = " ".join(_SERVER_VENV_PACKAGES)
             if self.config.pypi_pre:
                 self.log("Upgrading to latest (including pre-releases) from PyPI")
             else:
@@ -1043,6 +1075,9 @@ class Deployer:
             self.log_output(result)
             return False
 
+        if not self._install_rootd(None):
+            return False
+
         if not self._check_one_version(self.config.pypi_version):
             return False
 
@@ -1051,9 +1086,11 @@ class Deployer:
 
         version = old_version or "<previous-version>"
         restart = self.backend.service_restart_command("hop3-server")
-        pins = " ".join(f"{p}=={version}" for p in _VERSIONED_PACKAGES)
+        pins = " ".join(f"{p}=={version}" for p in _SERVER_VENV_PACKAGES)
         revert = (
-            _as_hop3(f"{_PIP} install {pins}") + f" && {restart} "
+            _as_hop3(f"{_PIP} install {pins}")
+            + f" && {_ROOTD_PIP} install {ROOTD_PACKAGE_NAME}=={version}"
+            + f" && {restart} "
             "(the upgrade bumped dependencies eagerly; if the old server still "
             "fails, reinstall into a fresh venv)"
         )
@@ -1172,7 +1209,15 @@ class Deployer:
         # `pip uninstall` only removes the named package, never its deps,
         # so this is fast.
         self.log("Removing stale metadata")
-        self.backend.run(_as_hop3(f"{_PIP} uninstall -y hop3-server"), check=False)
+        # Uninstalling an absent package exits 0, so a failure here is real (a
+        # file pip cannot remove) and would bring the stale metadata back.
+        result = self.backend.run(
+            _as_hop3(f"{_PIP} uninstall -y hop3-server"), check=False
+        )
+        if not result.success:
+            self.log("Could not remove the installed hop3-server", "error")
+            self.log_output(result, always=True)
+            return False
 
         # Install from uploaded code. --upgrade-strategy=eager bumps
         # transitive deps (e.g. litestar) when the new package uses APIs
@@ -1193,17 +1238,19 @@ class Deployer:
             self.log_output(result)
             return False
 
-        self.log("Installing hop3-rootd and hop3-cli from uploaded code")
+        self.log("Installing hop3-cli from uploaded code")
         result = self.backend.run(
             _as_hop3(
-                f"{_PIP} install --upgrade --upgrade-strategy=eager "
-                "/tmp/hop3-rootd /tmp/hop3-cli"
+                f"{_PIP} install --upgrade --upgrade-strategy=eager /tmp/hop3-cli"
             ),
             check=False,
         )
         if not result.success:
-            self.log("Failed to install hop3-rootd and hop3-cli", "error")
+            self.log("Failed to install hop3-cli", "error")
             self.log_output(result)
+            return False
+
+        if not self._install_rootd(remote_path):
             return False
 
         expected = self._package_version(server_pkg / "pyproject.toml")
@@ -1242,11 +1289,16 @@ class Deployer:
         self.log(f"Configuring nginx for {domain}")
 
         # First, check if there's a conflicting app config for this domain
+        # As hop3: the directory is hop3's, and root would follow a symlink to it.
         app_config = f"/home/hop3/nginx/{domain}.conf"
-        result = self.backend.run(f"test -f {shlex.quote(app_config)}", check=False)
+        result = self.backend.run(
+            _as_hop3(f"test -f {shlex.quote(app_config)}"), check=False
+        )
         if result.success:
             self.log(f"Replacing the app config that claims {domain}: {app_config}")
-            removed = self.backend.run(f"rm -f {shlex.quote(app_config)}", check=False)
+            removed = self.backend.run(
+                _as_hop3(f"rm -f {shlex.quote(app_config)}"), check=False
+            )
             if not removed.success:
                 self.log(f"Could not remove {app_config}", "error")
                 self.log_output(removed, always=True)
@@ -1427,12 +1479,18 @@ class Deployer:
         # Ensure the ACME challenge directory exists and is writable by hop3
         acme_webroot = "/var/www/html"
         acme_challenge_dir = f"{acme_webroot}/.well-known/acme-challenge"
+        # Root creates `.well-known` (in root's webroot) and hands it to hop3;
+        # everything below it is hop3's, so hop3 makes it: root's `chmod` there
+        # would follow a symlink hop3 could plant.
+        well_known = f"{acme_webroot}/.well-known"
         if not self._run_all(
             "prepare the ACME challenge directory",
-            f"mkdir -p {acme_challenge_dir}",
-            f"chown -R hop3:hop3 {acme_webroot}/.well-known",
-            f"chmod 755 {acme_webroot}/.well-known",
-            f"chmod 755 {acme_challenge_dir}",
+            f"mkdir -p {well_known}",
+            f"chown hop3:hop3 {well_known}",
+            _as_hop3(
+                f"chmod 755 {well_known} && mkdir -p {acme_challenge_dir} && "
+                f"chmod 755 {acme_challenge_dir}"
+            ),
         ):
             return False
 
@@ -1459,16 +1517,16 @@ class Deployer:
         self.log(f"Generating self-signed certificate for {domain}")
 
         if not self._run_all(
-            "create the certificate directory",
-            f"mkdir -p {safe_cert_dir}",
-            "chown -R hop3:hop3 /home/hop3/ssl",
+            "create the certificate directory", _as_hop3(f"mkdir -p {safe_cert_dir}")
         ):
             return False
 
-        # Generate self-signed certificate valid for 365 days
+        # Generated by hop3, as acme.sh's certificates are: the directory is in
+        # hop3's home, where root's openssl and chmod would follow a symlink an
+        # app planted. nginx's master runs as root and reads the 0600 key anyway.
         # Note: domain is used in -subj which is already quoted by the shell
-        openssl_cmd = (
-            f"openssl req -x509 -nodes -days 365 -newkey rsa:2048 "
+        openssl_cmd = _as_hop3(
+            f"umask 077 && openssl req -x509 -nodes -days 365 -newkey rsa:2048 "
             f"-keyout {safe_cert_dir}/key.pem "
             f"-out {safe_cert_dir}/fullchain.pem "
             f"-subj '/CN={domain}/O=Hop3/C=US'"
@@ -1482,9 +1540,10 @@ class Deployer:
         # A private key left world-readable is a failed deploy, not a detail.
         if not self._run_all(
             "set the certificate permissions",
-            f"chmod 600 {safe_cert_dir}/key.pem",
-            f"chmod 644 {safe_cert_dir}/fullchain.pem",
-            f"chown -R hop3:hop3 {safe_cert_dir}",
+            _as_hop3(
+                f"chmod 600 {safe_cert_dir}/key.pem && "
+                f"chmod 644 {safe_cert_dir}/fullchain.pem"
+            ),
         ):
             return False
 
@@ -1507,8 +1566,7 @@ class Deployer:
 
         if not self._run_all(
             "create the certificate directory",
-            f"mkdir -p {shlex.quote(cert_dir)}",
-            "chown -R hop3:hop3 /home/hop3/ssl",
+            _as_hop3(f"mkdir -p {shlex.quote(cert_dir)}"),
         ):
             return False
 
@@ -1831,8 +1889,7 @@ class Deployer:
 
         Authoritative per method: for ``--local`` the commit comes from the
         dev machine's checkout (the server has no ``.git``); for ``git`` it's
-        read back from the server (pip's ``direct_url.json`` or the
-        ``/home/hop3/hop3`` checkout).
+        read back from the server (pip's ``direct_url.json``).
         """
         method = self._deploy_method()
         prov: GitProvenance
@@ -1856,16 +1913,11 @@ class Deployer:
             git_dirty=prov["git_dirty"],
         )
 
-        path = str(BUILD_INFO_PATH)
-        content = json.dumps(info, indent=2)
-        # Quoted heredoc: no shell expansion of the JSON payload.
-        write_cmd = (
-            f"cat > {shlex.quote(path)} << 'HOP3_BUILD_EOF'\n"
-            f"{content}\n"
-            f"HOP3_BUILD_EOF\n"
-            f"chown hop3:hop3 {shlex.quote(path)}"
-        )
-        result = self.backend.run(write_cmd, check=False)
+        # Written by hop3, content on stdin: the file is in hop3's home, where
+        # root writing (and chowning) would follow a symlink an app planted.
+        write_cmd = _as_hop3(f"cat > {shlex.quote(str(BUILD_INFO_PATH))}")
+        content = json.dumps(info, indent=2) + "\n"
+        result = self.backend.run(write_cmd, check=False, stdin=content)
         if result.success:
             self.log(
                 f"Recorded build info (commit {info['git_commit'] or 'unknown'})",
@@ -1902,13 +1954,6 @@ class Deployer:
                     return commit
             except (ValueError, AttributeError):
                 pass
-        # Fallback: the editable checkout used by the git-update path.
-        result = self.backend.run(
-            _as_hop3(f"git -C {_GIT_CHECKOUT} rev-parse HEAD 2>/dev/null"),
-            check=False,
-        )
-        if result.success and result.stdout.strip():
-            return result.stdout.strip()
         return None
 
 
