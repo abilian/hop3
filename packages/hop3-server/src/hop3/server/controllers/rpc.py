@@ -93,7 +93,7 @@ class ServerBusyError(Exception):
         #: None between one command's release and the next one's start: the
         #: slot is taken but its holder is not named yet, so no duration.
         self.holder = holder
-        self.held_for = None if held_for is None else round(held_for)
+        self.held_for: int | None = None if held_for is None else round(held_for)
         super().__init__(f"server busy: {self.running}")
 
     @property

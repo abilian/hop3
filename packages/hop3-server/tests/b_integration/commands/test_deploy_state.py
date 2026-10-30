@@ -116,13 +116,16 @@ class FullQueue:
 @pytest.mark.parametrize(
     ("before", "after"),
     [
-        # No deploy started, so the running instance was never stopped.
+        # No deploy started, so a live instance was never touched.
         (AppStateEnum.RUNNING, AppStateEnum.RUNNING),
-        # Nothing is running (a staged app, or one whose source was replaced).
+        (AppStateEnum.STARTING, AppStateEnum.STARTING),
+        (AppStateEnum.STOPPING, AppStateEnum.STOPPING),
+        # Nothing is live (a staged app, or one the request stopped to replace
+        # its source): the refusal is the reason it is down.
         (AppStateEnum.STOPPED, AppStateEnum.FAILED),
     ],
 )
-def test_a_refused_deploy_fails_only_an_app_that_is_not_serving(
+def test_a_refused_deploy_fails_only_an_app_with_nothing_live(
     file_db, monkeypatch, before, after
 ):
     app = App(name="myapp", run_state=before)

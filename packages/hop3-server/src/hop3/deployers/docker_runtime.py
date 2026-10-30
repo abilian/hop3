@@ -17,7 +17,6 @@ state machine through ``App.transition_state``.
 
 from __future__ import annotations
 
-import contextlib
 import os
 import shutil
 import subprocess
@@ -154,6 +153,7 @@ def stop_docker_compose(app: App) -> None:
     # published port is released, then confirm before reporting STOPPED — a
     # slow/failed 'compose stop' must NOT be reported as a clean STOPPED.
     running = app_container_ids(app, running_only=True)
+    kill_said = ""
     if running:
         log(
             f"Force-killing {len(running)} container(s) still running for '{app.name}'",
@@ -163,15 +163,23 @@ def stop_docker_compose(app: App) -> None:
         # Not `_docker`: a container that exits between the `ps` and the kill
         # makes `docker kill` fail, and that is the outcome we wanted. A kill
         # that hangs is no verdict either. The re-check below decides, and
-        # raises if Docker cannot answer it.
-        with contextlib.suppress(subprocess.TimeoutExpired):
-            run_docker(["docker", "kill", *running], 30)
+        # raises if Docker cannot answer it; what the kill said goes with it.
+        try:
+            killed = run_docker(["docker", "kill", *running], 30)
+        except subprocess.TimeoutExpired:
+            kill_said = "`docker kill` did not answer within 30s"
+        else:
+            if killed.returncode != 0:
+                output = (killed.stderr or killed.stdout or "").strip() or "no output"
+                kill_said = f"`docker kill` exited {killed.returncode}: {output}"
         running = app_container_ids(app, running_only=True)
     if running:
         msg = (
             f"Docker app '{app.name}' has {len(running)} container(s) still "
             f"running after stop+kill; they still hold their ports."
         )
+        if kill_said:
+            msg += f" {kill_said}"
         raise RuntimeError(msg)
     app.mark_stopped()
     log(f"Docker Compose app '{app.name}' stopped.", level=2, fg="green")

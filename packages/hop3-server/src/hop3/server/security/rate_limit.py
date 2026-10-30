@@ -73,9 +73,17 @@ class RateLimiter:
 
     max_requests: int = 5
     window_seconds: float = 60.0
-    _buckets: dict[str, deque[float]] = field(default_factory=dict)
-    _lock: threading.Lock = field(default_factory=threading.Lock)
-    _last_sweep: float = float("-inf")
+    # Internal state: not constructor arguments, and not part of the limiter's
+    # identity.
+    _buckets: dict[str, deque[float]] = field(
+        default_factory=dict, init=False, repr=False, compare=False
+    )
+    _lock: threading.Lock = field(
+        default_factory=threading.Lock, init=False, repr=False, compare=False
+    )
+    _last_sweep: float = field(
+        default=float("-inf"), init=False, repr=False, compare=False
+    )
 
     def check(self, key: str) -> None:
         """

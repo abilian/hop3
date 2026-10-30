@@ -299,3 +299,15 @@ def test_a_restore_without_the_addon_names_the_command(email_root, monkeypatch):
 
     with pytest.raises(RuntimeError, match="hop3 addon email create other"):
         EmailAddon(addon_name="other").restore(record)
+
+
+def test_a_corrupt_transport_still_exists_and_destroys(email_root):
+    """`exists()` answers from the file's presence: destroy must reach it."""
+    path = secrets_module._get_secrets_file("email", "mail")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text("{not json")
+    addon = EmailAddon(addon_name="mail")
+
+    assert addon.exists()
+    addon.destroy()
+    assert not addon.exists()

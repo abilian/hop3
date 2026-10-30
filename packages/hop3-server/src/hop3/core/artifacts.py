@@ -42,6 +42,7 @@ Example usage:
 from __future__ import annotations
 
 import json
+import os
 from dataclasses import asdict, dataclass, field
 from typing import TYPE_CHECKING, Any, Literal
 
@@ -220,8 +221,15 @@ class BuildArtifact:
         return json.dumps(self.to_dict(), indent=indent)
 
     def save(self, path: Path) -> None:
-        """Save artifact to JSON file."""
-        path.write_text(self.to_json())
+        """
+        Save artifact to JSON file, atomically.
+
+        Readers run while a rebuild writes it (status probes, the proxy setup)
+        and refuse a torn file, so they see the old artifact or the new one.
+        """
+        tmp = path.with_name(f".{path.name}.tmp")
+        tmp.write_text(self.to_json())
+        os.replace(tmp, path)
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> BuildArtifact:
@@ -234,7 +242,11 @@ class BuildArtifact:
     @classmethod
     def from_json(cls, text: str) -> BuildArtifact:
         """Deserialize from JSON string."""
-        return cls.from_dict(json.loads(text))
+        data = json.loads(text)
+        if not isinstance(data, dict):
+            msg = f"expected a JSON object, got {type(data).__name__}"
+            raise TypeError(msg)
+        return cls.from_dict(data)
 
     @classmethod
     def load(cls, path: Path) -> BuildArtifact | None:

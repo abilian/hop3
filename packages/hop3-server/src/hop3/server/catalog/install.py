@@ -27,7 +27,7 @@ from hop3.commands._helpers import find_hostname_conflict, parse_hostname_string
 from hop3.config import config
 from hop3.core.identifiers import (
     InvalidIdentifierError,
-    validate_app_name,
+    app_name_errors,
     validate_hostname,
 )
 from hop3.deployers import make_way_for_new_source
@@ -101,11 +101,7 @@ def stage_catalog_app(
             f"Catalog app '{app_id}' has no recipe on disk to install"
         ])
 
-    errors: list[str] = []
-    try:
-        validate_app_name(app_name)
-    except InvalidIdentifierError as e:
-        errors.append(str(e) if app_name else "App name is required")
+    errors = app_name_errors(app_name)
     existing = _existing_app(app_name, db_session)
     if not errors and existing is not None and existing.last_deployed_at is not None:
         # A real name clash: this app deployed successfully at least once, so it

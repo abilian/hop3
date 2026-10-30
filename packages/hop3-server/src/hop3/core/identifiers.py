@@ -25,6 +25,7 @@ __all__ = [
     "HOSTNAME_RE",
     "REPO_URL_SCHEMES",
     "InvalidIdentifierError",
+    "app_name_errors",
     "validate_app_name",
     "validate_env_var_key",
     "validate_hostname",
@@ -109,6 +110,22 @@ def _validate_identifier(name: object, kind: str) -> str:
 def validate_app_name(name: object) -> str:
     """Return ``name`` if it is a valid app identifier, else raise."""
     return _validate_identifier(name, "app")
+
+
+def app_name_errors(name: str) -> list[str]:
+    """
+    What is wrong with ``name`` as a form-entered app name; empty if nothing.
+
+    For the forms that collect several errors before answering (the dashboard,
+    the catalog install). An empty field says so, rather than quoting the rule.
+    """
+    if not name:
+        return ["App name is required"]
+    try:
+        validate_app_name(name)
+    except InvalidIdentifierError as e:
+        return [str(e)]
+    return []
 
 
 def validate_service_name(name: object) -> str:

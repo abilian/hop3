@@ -437,6 +437,12 @@ def robust_rmtree(path: Path | str) -> None:
         os.chmod(parent, os.stat(parent).st_mode | stat.S_IRWXU)
         if os.path.isdir(filepath) and not os.path.islink(filepath):
             os.chmod(filepath, os.stat(filepath).st_mode | stat.S_IRWXU)
+        if func in {os.open, os.scandir}:
+            # A directory rmtree could not open: it skips it and moves on, so
+            # remove it here, now that it is traversable. Calling `func` again
+            # would be `os.open` without its flags.
+            shutil.rmtree(filepath, onexc=handle_remove_readonly)
+            return
         func(filepath)
 
     last_error = None

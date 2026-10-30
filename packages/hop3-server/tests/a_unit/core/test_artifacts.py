@@ -6,6 +6,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import TYPE_CHECKING
 
 import pytest
@@ -351,6 +352,36 @@ class TestBuildArtifactFileIO:
         artifact_path.write_text("not valid json {{{")
         with pytest.raises(UnreadableArtifactError, match=r"invalid\.json"):
             BuildArtifact.load(artifact_path)
+
+    @pytest.mark.parametrize("payload", ["[]", "null", '"text"'])
+    def test_load_json_that_is_not_an_object(self, tmp_path: Path, payload: str):
+        """Valid JSON of the wrong shape is refused like any unreadable file."""
+        artifact_path = tmp_path / "shape.json"
+        artifact_path.write_text(payload)
+        with pytest.raises(UnreadableArtifactError, match="JSON object"):
+            BuildArtifact.load(artifact_path)
+
+    def test_save_replaces_the_file_whole(self, tmp_path: Path, monkeypatch):
+        """A reader never sees a half-written artifact: the write goes aside."""
+        artifact_path = tmp_path / "BUILD_ARTIFACT.json"
+        BuildArtifact(kind="python", builder="local").save(artifact_path)
+        replaced: list[tuple[str, str]] = []
+        real_replace = os.replace
+        monkeypatch.setattr(
+            os,
+            "replace",
+            lambda a, b: (replaced.append((str(a), str(b))), real_replace(a, b)),
+        )
+
+        BuildArtifact(kind="node", builder="local").save(artifact_path)
+
+        assert replaced == [
+            (str(tmp_path / ".BUILD_ARTIFACT.json.tmp"), str(artifact_path))
+        ]
+        loaded = BuildArtifact.load(artifact_path)
+        assert loaded is not None
+        assert loaded.kind == "node"
+        assert list(tmp_path.iterdir()) == [artifact_path]
 
     @pytest.mark.parametrize(
         "payload",

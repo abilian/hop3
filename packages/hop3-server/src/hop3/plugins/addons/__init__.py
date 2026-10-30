@@ -8,12 +8,14 @@ from __future__ import annotations
 
 from .cli import display_credentials
 from .secrets import (
+    addon_secrets_exist,
     delete_addon_secrets,
     load_addon_secrets,
     save_addon_secrets,
 )
 
 __all__ = [
+    "addon_secrets_exist",
     "delete_addon_secrets",
     "display_credentials",
     "load_addon_secrets",

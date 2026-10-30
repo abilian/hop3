@@ -39,6 +39,9 @@ if TYPE_CHECKING:
 
     from hop3.orm import App
 
+#: States in which an app has no instance a refused deploy could misreport.
+_NOTHING_LIVE = frozenset({AppStateEnum.STOPPED, AppStateEnum.FAILED})
+
 
 def deploy_app_streaming(app: App, request_session: Session) -> dict:
     """
@@ -86,11 +89,13 @@ def deploy_app_streaming(app: App, request_session: Session) -> dict:
         # Refused, and said so where the operator is already looking: the
         # stream they are about to connect to. `subscribe()` replays a
         # finished stream, so a client that connects late still gets this.
-        # Recorded on the app as well, unless it is still serving: the stream
+        # Recorded on the app as well when nothing of it is live: the stream
         # expires, and a browser that never opened it would otherwise see a
-        # staged app that says nothing. A RUNNING app was never touched (the
-        # deploy stops it, and no deploy started), so FAILED would be a lie.
-        if app.run_state != AppStateEnum.RUNNING:
+        # stopped app that says nothing. That covers a staged app and one the
+        # request already stopped to replace its source. An app running,
+        # starting or stopping was not touched by a deploy that never started,
+        # so FAILED would be a lie about it.
+        if app.run_state in _NOTHING_LIVE:
             record_deploy_failure(request_session, app_id, e)
         log_stream.finish(success=False, error_message=str(e))
     else:

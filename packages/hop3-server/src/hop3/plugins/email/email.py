@@ -24,6 +24,7 @@ from urllib.parse import quote
 from hop3 import config as c
 from hop3.lib import log
 from hop3.plugins.addons.secrets import (
+    addon_secrets_exist,
     delete_addon_secrets,
     load_addon_secrets,
     save_addon_secrets,
@@ -223,7 +224,7 @@ class EmailAddon:
 
     def exists(self) -> bool:
         """True if a transport (own or inherited) is stored for this addon."""
-        return load_addon_secrets(_TYPE, self.addon_name) is not None
+        return addon_secrets_exist(_TYPE, self.addon_name)
 
     def destroy(self) -> None:
         """Remove the stored transport. Idempotent."""

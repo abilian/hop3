@@ -31,6 +31,7 @@ from hop3 import config as c
 from hop3.core.backup import resolve_backup_file
 from hop3.core.identifiers import validate_service_name
 from hop3.plugins.addons import (
+    addon_secrets_exist,
     delete_addon_secrets,
     load_addon_secrets,
     save_addon_secrets,
@@ -256,7 +257,7 @@ class RedisAddon:
 
     def exists(self) -> bool:
         """True if this addon holds a db-number claim (its secrets file)."""
-        return load_addon_secrets(ADDON_TYPE, self.addon_name) is not None
+        return addon_secrets_exist(ADDON_TYPE, self.addon_name)
 
     def destroy(self) -> None:
         """

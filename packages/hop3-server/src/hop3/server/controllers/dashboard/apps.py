@@ -24,7 +24,9 @@ from litestar.response import Redirect, Template
 from sqlalchemy.orm import Session
 
 from hop3.core.backup import BackupManager
-from hop3.core.identifiers import InvalidIdentifierError, validate_app_name
+from hop3.core.identifiers import (
+    app_name_errors,
+)
 from hop3.core.roles import Role
 from hop3.deployers.admin_bootstrap import read_admin_credential
 from hop3.lib.logging import server_log
@@ -175,11 +177,7 @@ class AppsController(Controller):
         git_url = data.get("git_url", "").strip()
         env_vars_text = data.get("env_vars", "").strip()
 
-        errors: list[str] = []
-        try:
-            validate_app_name(app_name)
-        except InvalidIdentifierError as e:
-            errors.append(str(e) if app_name else "App name is required")
+        errors = app_name_errors(app_name)
         if not errors and AppRepository(session=db_session).get_by_name(app_name):
             errors.append(f"App '{app_name}' already exists")
         env_vars = _parse_env_vars(env_vars_text)

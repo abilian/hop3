@@ -64,6 +64,16 @@ def _get_secrets_file(addon_type: str, addon_name: str) -> Path:
     return _get_secrets_dir(addon_type) / f"{addon_name}.json"
 
 
+def addon_secrets_exist(addon_type: str, addon_name: str) -> bool:
+    """
+    True if the addon's secrets file is present, readable or not.
+
+    "Does this addon exist" must not depend on the file parsing: a corrupt
+    file is still an addon that destroy has to remove.
+    """
+    return _get_secrets_file(addon_type, addon_name).exists()
+
+
 def load_addon_secrets(addon_type: str, addon_name: str) -> dict[str, Any] | None:
     """
     Load stored secrets for an addon.

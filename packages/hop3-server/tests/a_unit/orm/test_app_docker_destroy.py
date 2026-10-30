@@ -227,6 +227,22 @@ def test_stop_reverifies_when_the_kill_fails(monkeypatch, no_compose):
     assert app.run_state == AppStateEnum.STOPPED
 
 
+def test_a_survivor_is_reported_with_what_the_kill_said(monkeypatch, no_compose):
+    app = _app()
+    app.run_state = AppStateEnum.STOPPING
+    docker = FakeDocker(containers={"c1"})
+
+    def kill_refused(cmd, timeout):
+        if cmd[1] == "kill":
+            return SimpleNamespace(returncode=1, stdout="", stderr="permission denied")
+        return docker(cmd, timeout)
+
+    monkeypatch.setattr(docker_runtime, "run_docker", kill_refused)
+
+    with pytest.raises(RuntimeError, match="exited 1: permission denied"):
+        docker_runtime.stop_docker_compose(app)
+
+
 def test_force_cleanup_docker_image_targets_only_the_app_image(monkeypatch):
     app = App(name="myapp", runtime="docker-compose", image_tag="hop3/myapp:latest")
     docker = FakeDocker(images={"hop3/myapp:latest", "debian:bookworm-slim"})

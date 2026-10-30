@@ -268,3 +268,17 @@ class TestRobustRmtree:
         robust_rmtree(tmp_path / "home")
 
         assert not (tmp_path / "home").exists()
+
+    @pytest.mark.parametrize("mode", [0o000, 0o200], ids=["none", "write-only"])
+    def test_removes_directories_it_cannot_open(self, tmp_path, mode):
+        """A directory rmtree cannot list, nested in another."""
+        outer = tmp_path / "tree" / "locked"
+        inner = outer / "inner"
+        inner.mkdir(parents=True)
+        (inner / "f").write_text("x")
+        os.chmod(inner, mode)
+        os.chmod(outer, mode)
+
+        robust_rmtree(tmp_path / "tree")
+
+        assert not (tmp_path / "tree").exists()
