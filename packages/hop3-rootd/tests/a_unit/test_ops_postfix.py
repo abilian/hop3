@@ -160,7 +160,8 @@ def test_a_hung_status_probe_still_reports_systemctls_failure(postfix_dir):
         pf.configure("127.0.0.1", 1025, use_tls=False, exec=ex)
     msg = str(exc.value)
     assert "systemctl: rc=1 stderr='no systemd'" in msg
-    assert "postfix start: rc=1" in msg
+    # The guess says why it was made: the status probe hung.
+    assert "postfix start (status failed: " in msg
 
 
 # --- op: postfix.configure -----------------------------------------------

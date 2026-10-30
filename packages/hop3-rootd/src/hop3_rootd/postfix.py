@@ -195,11 +195,13 @@ def _reload_methods(
         return
     try:
         status = exec.run([postfix, "status"], timeout=_RELOAD_TIMEOUT_SECONDS)
-        verb = "reload" if status.success else "start"
-    except (InvalidBinaryError, CommandTimeoutError):
+    except (InvalidBinaryError, CommandTimeoutError) as e:
         # A status that cannot answer says nothing either way: try `start`,
-        # whose own failure joins systemctl's in the report.
-        verb = "start"
+        # whose own failure joins systemctl's in the report, labelled with
+        # why it was the guess.
+        yield [postfix, "start"], f"postfix start (status failed: {e})"
+        return
+    verb = "reload" if status.success else "start"
     yield [postfix, verb], f"postfix {verb}"
 
 
