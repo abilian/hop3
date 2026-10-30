@@ -721,6 +721,13 @@ class TestHandleLogin:
         assert cs.get_token(server) is None
         assert not temp_config.data.get("contexts")
 
+    def test_a_malformed_address_is_a_usage_error(self, temp_config, printer):
+        """`urlparse` raises on `http://[::1`; that must not be a traceback."""
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login(["http://[::1"], temp_config, printer)
+
+        assert exc_info.value.code == ExitCode.USAGE_ERROR
+
 
 class TestHandleVersion:
     """Tests for handle_version command."""

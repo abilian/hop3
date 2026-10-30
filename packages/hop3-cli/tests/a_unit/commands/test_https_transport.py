@@ -49,7 +49,7 @@ def server_says(monkeypatch):
 
 
 def determine(config: Config) -> tuple[str, str | None]:
-    return login_cmd._determine_save_url(None, SSH_TARGET, TOKEN, config, 0)
+    return login_cmd._determine_save_url(None, SSH_TARGET, TOKEN, config, False)
 
 
 class TestWhatGetsRecorded:

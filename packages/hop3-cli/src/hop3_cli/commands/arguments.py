@@ -218,7 +218,15 @@ def read_secret_source(source: str, *, label: str) -> str:
     why it should go: a secret on argv stays in the shell history and in `ps`.
     Raises ValueError when the source cannot be read or holds nothing.
     """
-    if source != "-" and not source.startswith("@"):
+    if not source.strip():
+        msg = f"{label}: the value is empty."
+        raise ValueError(msg)
+    # Only stdin and a real file keep the secret off argv; the `@@` and `--`
+    # escapes are literals like any other.
+    reads_elsewhere = source == "-" or (
+        source.startswith("@") and not source.startswith("@@")
+    )
+    if not reads_elsewhere:
         print(
             f"Warning: a secret on the command line is kept by the shell history "
             f"and visible in `ps`. Pass it with {label} - (stdin) or "

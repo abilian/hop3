@@ -68,7 +68,9 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
         return
 
     # The old `<url>?token=<jwt>` form put the secret on argv; it is refused.
-    if args and "token" in parse_qs(urlparse(args[0]).query):
+    # Parsed only when it can be that form: `urlparse` raises on a malformed
+    # address (`http://[::1`), which the dispatch below refuses as usage.
+    if args and "token=" in args[0] and "token" in parse_qs(urlparse(args[0]).query):
         usage_failure(
             "a token in the URL is kept by the shell history and visible in "
             "`ps`. Pass it on stdin: `hop3 login --token - --url <url>`.",

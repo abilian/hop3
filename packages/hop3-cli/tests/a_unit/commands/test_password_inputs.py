@@ -16,6 +16,7 @@ from hop3_cli.commands.arguments import (
     _resolve_env_set_values,
     _resolve_flag_value_sources,
     _resolve_password_inputs,
+    read_secret_source,
 )
 
 if TYPE_CHECKING:
@@ -371,3 +372,24 @@ def test_env_set_does_not_prompt_for_the_value_of_an_unknown_flag():
     _resolve_env_set_values(args)
 
     assert args == ["env", "set", "--app", "myapp", "--limit", "20"]
+
+
+class TestReadSecretSource:
+    """The argv warning fires for every literal, escapes included."""
+
+    @pytest.mark.parametrize("source", ["s3cret", "@@s3cret", "--"])
+    def test_a_literal_is_warned_about(self, source, capsys):
+        read_secret_source(source, label="--token")
+        assert "secret on the command line" in capsys.readouterr().err
+
+    def test_a_file_is_not_warned_about(self, tmp_path, capsys):
+        secret = tmp_path / "token"
+        secret.write_text("s3cret\n")
+        assert read_secret_source(f"@{secret}", label="--token") == "s3cret"
+        assert capsys.readouterr().err == ""
+
+    @pytest.mark.parametrize("source", ["", "   "])
+    def test_an_empty_value_is_refused_without_the_argv_warning(self, source, capsys):
+        with pytest.raises(ValueError, match="empty"):
+            read_secret_source(source, label="--token")
+        assert capsys.readouterr().err == ""
