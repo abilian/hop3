@@ -50,3 +50,4 @@ experience-reports.pdf
 notes/experience-reports/_*
 # notes/experience-reports/bundle.pdf
 notes/experience-reports/build/
+.hop3-local.toml
