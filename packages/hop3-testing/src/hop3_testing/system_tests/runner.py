@@ -547,9 +547,9 @@ class TestRunnerManager:
                 self._ssh_conn.close()
             self._ssh_conn = None
         if self._target:
-            with contextlib.suppress(Exception):
-                self._target.stop()
-            self._target = None
+            # A teardown that failed leaves the box behind: the run says so.
+            target, self._target = self._target, None
+            target.stop()
 
     def _collect_failed_test_diagnostics(self, test_name: str) -> None:
         """

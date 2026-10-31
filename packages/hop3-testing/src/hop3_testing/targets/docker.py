@@ -445,6 +445,12 @@ class DockerTarget(DeploymentTarget):
         assert self.deployment is not None  # Checked by start()
 
         start_time = time.time()
+        # The deploy creates the container unless one is already there: a start
+        # that fails removes what it created, and nothing else.
+        name = self.docker_config.container_name
+        existed = bool(
+            self._client.containers.list(all=True, filters={"name": f"^{name}$"})
+        )
 
         print("\n" + "=" * 70)
         print("Starting Hop3 Docker container via hop3-deploy")
@@ -542,7 +548,26 @@ class DockerTarget(DeploymentTarget):
                     message=f"Start failed: {e}",
                 )
             self._save_diagnostics_on_error()
+            if not existed:
+                self._remove_container_of_failed_start(name, e)
             raise
+
+    def _remove_container_of_failed_start(self, name: str, cause: Exception) -> None:
+        """Remove the container a failed start created; raise if it stays."""
+        assert self._client is not None  # Set by start()
+        try:
+            container = self._client.containers.get(name)
+        except NotFound:
+            return  # the deploy failed before creating it
+        try:
+            DockerContainerHelper(container).stop_and_remove()
+        except DockerException as e:
+            msg = (
+                f"Start failed ({cause}), and its container {name} could not be "
+                f"removed: {e}; remove it with `docker rm -f {name}`"
+            )
+            raise RuntimeError(msg) from e
+        print(f"  Removed container {name}, left by the failed start")
 
     def _build_target_info(self) -> TargetInfo:
         """Build TargetInfo from container."""
@@ -745,24 +770,27 @@ class DockerTarget(DeploymentTarget):
 
         print("\nStopping container...")
 
+        self._started = False
         try:
             if self._container_helper:
                 self._container_helper.stop_and_remove()
-
-            self.diagnostics.add_success(
-                layer="docker",
-                operation="teardown",
-                message="Container stopped and removed",
-            )
-        except Exception as e:
+        except DockerException as e:
             self.diagnostics.add_failure(
                 layer="docker",
                 operation="teardown",
                 message=f"Error stopping container: {e}",
             )
-            print(f"Warning: Error stopping container: {e}")
-
-        self._started = False
+            name = self.docker_config.container_name
+            msg = (
+                f"Teardown could not remove container {name}: {e}; "
+                f"remove it with `docker rm -f {name}`"
+            )
+            raise RuntimeError(msg) from e
+        self.diagnostics.add_success(
+            layer="docker",
+            operation="teardown",
+            message="Container stopped and removed",
+        )
         print("Container stopped.")
 
     def _exec_shell(self, command: str) -> tuple[int, str, str]:

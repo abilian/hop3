@@ -20,6 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
+from docker.errors import NotFound
 from hop3_cli.commands.local.ssh_ops import (
     SSH_TOKEN_COMMAND,
     as_hop3_user,
@@ -496,14 +497,14 @@ class DockerContainerHelper:
         return key_path
 
     def stop_and_remove(self) -> None:
-        """Safely stop and remove the container."""
+        """Stop and remove the container; one already gone is not an error."""
         try:
             self.container.reload()
             if self.container.status == "running":
                 self.container.stop(timeout=10)
             self.container.remove(force=True)
-        except Exception:
-            pass  # Container may already be stopped/removed
+        except NotFound:
+            pass
 
         # Clean up SSH key file
         if self._ssh_key_path and self._ssh_key_path.exists():

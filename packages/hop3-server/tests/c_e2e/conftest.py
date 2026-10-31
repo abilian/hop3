@@ -16,6 +16,7 @@ from typing import TYPE_CHECKING, Any, cast
 
 import httpx
 import pytest
+from docker.errors import DockerException, NotFound
 from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 from hop3_testing.bundle import collect_diagnostic_bundle
 from hop3_testing.results import ResultStore
@@ -311,17 +312,24 @@ def _stop_hop3_container(info: dict[str, Any]) -> None:
     label = info.get("label", "?")
     container = info["container"]
     print(f"\n[{label}] Stopping container...")
+    ssh_key_path = info.get("ssh_key_path")
+    if ssh_key_path is not None and ssh_key_path.exists():
+        ssh_key_path.unlink()
+
+    # A container that is already gone is clean; one that stays fails the run.
     try:
         container.reload()
         if container.status == "running":
             container.stop(timeout=10)
         container.remove(force=True)
-    except Exception as e:
-        print(f"[{label}] Warning: Error stopping container: {e}")
-
-    ssh_key_path = info.get("ssh_key_path")
-    if ssh_key_path is not None and ssh_key_path.exists():
-        ssh_key_path.unlink()
+    except NotFound:
+        pass
+    except DockerException as e:
+        msg = (
+            f"[{label}] teardown could not remove container {container.name}: {e}; "
+            f"remove it with `docker rm -f {container.name}`"
+        )
+        raise RuntimeError(msg) from e
 
     print(f"[{label}] Container stopped and removed.")
 
