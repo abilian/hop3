@@ -56,7 +56,8 @@ class TestLoadCorpus:
 
     def test_the_real_protocol_is_loadable(self):
         """The committed protocol.yaml must stay machine-readable."""
-        apps = load_corpus(Path("notes/benchmarks/protocol.yaml"))
+        repo_root = Path(__file__).resolve().parents[3]
+        apps = load_corpus(repo_root / "notes/benchmarks/protocol.yaml")
         assert len(apps) >= 10
         assert "wordpress" in apps
 
