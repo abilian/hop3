@@ -44,6 +44,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The CLI refuses what it cannot parse.** A malformed `hop3.toml` is an error naming the file, where it used to be read as empty (dropping `[build].ignore`). Unknown flags to `login` and `init` are usage errors, and `-d` and `-y` now reach them. `hop3 use` takes `--app` and exits 2 on a usage error.
 - **Nginx response caching works.** The cache configuration failed to render on every server and the failure was logged and ignored, so caching never took effect. An invalid cache setting now stops the deploy with the value it rejected.
 - **External plugins load as documented.** The plugin guide named the entry-point group `hop3.plugins` while the server loads `hop3`; a plugin following it never loaded. The guide is fixed, a distribution that declares the old group stops the server with its name, and the guide no longer recommends an import that registered a plugin twice.
+- **`hop3 login` trusts a certificate you pinned with `hop3 settings set ssl_cert`.** Its check of the server's HTTPS address used only the system certificates, so a server with its own certificate kept the SSH tunnel at every login, and a login with `--url` refused it while telling you to pin the certificate and retry. Every later command already honoured the pin. A `--url` the CLI cannot reach now stops the login instead of being saved with a warning.
+- **The CLI installer checks for `venv` and `ensurepip` before creating its environment.** The bundled one-liner always passed the check, so a Debian system without `python3-venv` failed later, with Python's own error.
 
 ### Changed
 
