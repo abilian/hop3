@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, assert_never
 
 from jsonrpcclient import Error, Ok
 
+from hop3_cli.commands.arguments import DEFAULT_SERVER_UPLOAD_LIMIT
 from hop3_cli.commands.help import (
     emit_status_line,
     inject_local_commands_into_help,
@@ -398,6 +399,16 @@ def _scraped_suggestion(code: int, message: str) -> str | None:
 #: nginx signs its own error pages; hop3-server's 413 is JSON.
 NGINX_ERROR_PAGE_MARK = "<center>nginx"
 
+#: hop3-server's upload limit, which Hop3's nginx admin vhost matches.
+_UPLOAD_LIMIT_MB = DEFAULT_SERVER_UPLOAD_LIMIT // (1024 * 1024)
+
+#: How to make a deploy archive smaller, whichever limit refused it.
+_SHRINK_ADVICE = (
+    "  - Exclude large directories via [build].ignore in hop3.toml\n"
+    "    (e.g. data/, media/, uploads/, build output, large assets).\n"
+    "  - .git/, node_modules/, .venv/ are already excluded by default.\n"
+)
+
 
 def _payload_too_large_message(detail: str) -> str:
     """
@@ -412,10 +423,12 @@ def _payload_too_large_message(detail: str) -> str:
             "Deploy archive rejected by nginx on the server, before it reached "
             "hop3-server (HTTP 413).\n"
             "\n"
-            "hop3-server accepts up to 200 MB; nginx refused the archive at its own "
-            "client_max_body_size, which defaults to 1 MB.\n"
-            "Updating the server (hop3-deploy-server, or the install one-liner) "
-            "sets the admin domain's limit to 200 MB.\n"
+            "nginx refused it at its client_max_body_size: 1 MB on a stock nginx, "
+            f"{_UPLOAD_LIMIT_MB} MB on a server Hop3 installed.\n"
+            f"If the archive is under {_UPLOAD_LIMIT_MB} MB, update the server "
+            "(hop3-deploy-server, or the install one-liner), which sets that "
+            "limit. Otherwise, shrink it:\n"
+            f"{_SHRINK_ADVICE}"
             "\n"
             "Run 'hop3 deploy --dry-run' to see the archive's size."
         )
@@ -425,10 +438,9 @@ def _payload_too_large_message(detail: str) -> str:
         "Run 'hop3 deploy --dry-run' to see exactly what's in the archive\n"
         "(total size and the largest files/directories).\n"
         "\n"
-        "The server's default upload limit is 200 MB. To shrink the archive:\n"
-        "  - Exclude large directories via [build].ignore in hop3.toml\n"
-        "    (e.g. data/, media/, uploads/, build output, large assets).\n"
-        "  - .git/, node_modules/, .venv/ are already excluded by default.\n"
+        f"The server's default upload limit is {_UPLOAD_LIMIT_MB} MB. "
+        "To shrink the archive:\n"
+        f"{_SHRINK_ADVICE}"
         "\n"
         "If the archive is legitimately large, ask your server admin to raise\n"
         "request_max_body_size (Litestar) and client_max_body_size (nginx)."

@@ -742,6 +742,29 @@ class TestHandleLogin:
         assert cs.get_token(server) is None
         assert not temp_config.data.get("contexts")
 
+    @pytest.mark.parametrize(
+        "args",
+        [
+            ["--username", "admin", "https://h?token=" + _FAKE_JWT_TEST],
+            ["--browser", "https://h?token=" + _FAKE_JWT_TEST],
+            ["--token", "-", "--url", "https://h?token=" + _FAKE_JWT_TEST],
+            ["root@h", "--url", "https://h/?a=1&token=" + _FAKE_JWT_TEST],
+            ["--url=https://h?token=" + _FAKE_JWT_TEST],
+            ["http://[::1?token=" + _FAKE_JWT_TEST],  # urlparse raises on it
+        ],
+    )
+    def test_a_url_token_anywhere_is_refused_and_never_echoed(
+        self, temp_config, printer, capsys, args
+    ):
+        """Only `args[0]` was checked; the others echoed the JWT in a refusal."""
+        with pytest.raises(SystemExit) as exc_info:
+            handle_login(args, temp_config, printer)
+
+        assert exc_info.value.code == ExitCode.USAGE_ERROR
+        out = capsys.readouterr()
+        assert "--token -" in out.err
+        assert _FAKE_JWT_TEST not in out.out + out.err
+
     def test_a_malformed_address_is_a_usage_error(self, temp_config, printer):
         """`urlparse` raises on `http://[::1`; that must not be a traceback."""
         with pytest.raises(SystemExit) as exc_info:

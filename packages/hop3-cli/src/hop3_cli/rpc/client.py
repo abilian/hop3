@@ -33,10 +33,8 @@ if TYPE_CHECKING:
     from hop3_cli.config import Config
 
 #: The /rpc contract this client speaks, sent as ``params.protocol``. The
-#: server refuses a version it does not speak, and names its own in the
-#: ``PROTOCOL_HEADER`` response header (absent from servers that predate it).
+#: server refuses a version it does not speak.
 RPC_PROTOCOL_VERSION = 1
-PROTOCOL_HEADER = "Hop3-RPC-Protocol"
 
 # SECURITY (audit M8): bound the RPC request so a malicious or unresponsive
 # server can't hang the CLI forever with the bearer token in transit. Mirrors
@@ -276,8 +274,6 @@ class Client:
                 allow_redirects=False,
             )
 
-        if PROTOCOL_HEADER not in response.headers:
-            logger.debug(f"{self.rpc_url} sent no {PROTOCOL_HEADER}: an older server")
         return self._parse_response(response, json_request)
 
     def _get_ssl_verification(self) -> bool | str:

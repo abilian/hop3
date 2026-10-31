@@ -140,7 +140,9 @@ def test_a_413_from_nginx_names_nginx_and_its_limit(capsys) -> None:
     combined = out.out + out.err
     assert "rejected by nginx" in combined
     assert "client_max_body_size" in combined
-    assert "[build].ignore" not in combined
+    # Hop3 already sets nginx to 200 MB: past that, updating cannot help.
+    assert "under 200 MB, update the server" in combined
+    assert "[build].ignore" in combined
 
 
 def test_a_refused_role_exits_5_with_the_servers_hint(capsys) -> None:

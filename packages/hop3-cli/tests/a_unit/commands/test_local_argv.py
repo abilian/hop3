@@ -71,6 +71,12 @@ class TestTheSharedParser:
             ["a", "b"],  # one positional too many
             ["--url"],  # a value flag without its value
             ["--url", "--yes"],  # ...whose next token is another flag
+            ["--url", "--tokn"],  # ...or an unknown one, never the value
+            ["--url", "a", "--url", "b"],  # a value flag given twice
+            ["--yes", "--yes"],  # a switch given twice
+            ["--token", "--token"],  # an optional-value flag given twice
+            ["--token", "t", "--token", "u"],
+            ["--token", "--tokn"],  # an unknown flag is not its value
         ],
     )
     def test_anything_undeclared_is_a_usage_error(self, args, capsys):
@@ -79,6 +85,7 @@ class TestTheSharedParser:
                 args,
                 usage="Usage: x",
                 value_flags=frozenset({"--url"}),
+                optional_value_flags=frozenset({"--token"}),
                 switches=frozenset({"--yes"}),
                 max_positionals=1,
             )
@@ -157,6 +164,26 @@ class TestTheTokenStaysOffArgv:
         monkeypatch.setenv("HOP3_NO_INPUT", "1")
         monkeypatch.setattr("sys.stdin", _Stdin(tty=True))
         assert _exit_code(lambda: _parse_token_args(["--token"])) == 2
+
+    @pytest.mark.parametrize("typed", ["", "   "])
+    def test_an_empty_prompted_token_is_refused(self, monkeypatch, capsys, typed):
+        monkeypatch.setattr("sys.stdin", _Stdin(tty=True))
+        monkeypatch.setattr("getpass.getpass", lambda prompt: typed)
+        code = _exit_code(lambda: _parse_token_args(["--token"]))
+        assert code == ExitCode.USAGE_ERROR
+        assert "empty" in capsys.readouterr().err
+
+    def test_a_prompted_token_is_stripped(self, monkeypatch):
+        monkeypatch.setattr("sys.stdin", _Stdin(tty=True))
+        monkeypatch.setattr("getpass.getpass", lambda prompt: f"  {TOKEN} ")
+        assert _parse_token_args(["--token"])[0] == TOKEN
+
+    def test_an_empty_literal_is_refused(self, capsys):
+        code = _exit_code(lambda: _parse_token_args(["--token", ""]))
+        assert code == ExitCode.USAGE_ERROR
+        err = capsys.readouterr().err
+        assert "--token: the value is empty." in err
+        assert "shell history" not in err
 
     def test_an_empty_file_is_refused(self, tmp_path):
         (tmp_path / "token").write_text("\n")

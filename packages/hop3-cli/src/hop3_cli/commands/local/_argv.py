@@ -49,19 +49,22 @@ def parse_local_args(
     Parse ``args`` against the flags a command declares; refuse anything else.
 
     ``value_flags`` need a value. ``optional_value_flags`` may stand alone (at
-    the end, or before another known flag): their value is then None, which
-    the caller reads as "prompt for it". A value is never taken from a known
-    flag, but ``-`` is a value (stdin, ADR 036 §D14).
+    the end, or before another flag): their value is then None, which the
+    caller reads as "prompt for it". A value never starts with a dash, so
+    ``--url --tokn`` is a missing value and not the URL ``--tokn``; ``-`` alone
+    is a value (stdin, ADR 036 §D14). A flag given twice is refused: the
+    last one silently won.
     """
-    known = value_flags | optional_value_flags | switches
     values: dict[str, str | None] = {}
     seen: set[str] = set()
     positionals: list[str] = []
     i = 0
     while i < len(args):
         arg = args[i]
+        if arg in values or arg in seen:
+            usage_failure(f"{arg} is given twice.", usage)
         following = args[i + 1] if i + 1 < len(args) else None
-        has_value = following is not None and following not in known
+        has_value = following is not None and not _is_flag(following)
         if arg in value_flags:
             if not has_value:
                 usage_failure(f"{arg} needs a value.", usage)
@@ -73,7 +76,7 @@ def parse_local_args(
         elif arg in switches:
             seen.add(arg)
             i += 1
-        elif arg.startswith("-") and arg != "-":
+        elif _is_flag(arg):
             usage_failure(f"unknown option {arg!r}.", usage)
         else:
             positionals.append(arg)
@@ -82,6 +85,11 @@ def parse_local_args(
         extra = " ".join(positionals[max_positionals:])
         usage_failure(f"unexpected argument(s): {extra}", usage)
     return LocalArgs(MappingProxyType(values), frozenset(seen), tuple(positionals))
+
+
+def _is_flag(token: str) -> bool:
+    """Whether ``token`` is a flag: dash-led, except ``-`` (stdin)."""
+    return token.startswith("-") and token != "-"
 
 
 def usage_failure(message: str, usage: str) -> NoReturn:

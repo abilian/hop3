@@ -15,7 +15,7 @@ from urllib.parse import parse_qs, urlparse
 
 from jsonrpcclient import Error, Ok
 
-from hop3_cli.commands.arguments import read_secret_source
+from hop3_cli.commands.arguments import read_secret_source, strip_secret
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
 from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_target_from_address
 from hop3_cli.exit_codes import ExitCode
@@ -68,10 +68,10 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
         print_login_help()
         return
 
-    # The old `<url>?token=<jwt>` form put the secret on argv; it is refused.
-    # Parsed only when it can be that form: `urlparse` raises on a malformed
-    # address (`http://[::1`), which the dispatch below refuses as usage.
-    if args and "token=" in args[0] and "token" in parse_qs(urlparse(args[0]).query):
+    # The old `<url>?token=<jwt>` form put the secret on argv; it is refused
+    # wherever it sits (a positional, `--url`'s value), and never echoed: every
+    # later refusal prints the argument it refuses.
+    if any(_has_url_token(arg) for arg in args):
         usage_failure(
             "a token in the URL is kept by the shell history and visible in "
             "`ps`. Pass it on stdin: `hop3 login --token - --url <url>`.",
@@ -90,6 +90,16 @@ def handle_login(args: list[str], config: Config, printer: RichPrinter) -> None:
     else:
         # Default: password-based authentication
         handle_login_password(args, config, printer)
+
+
+def _has_url_token(arg: str) -> bool:
+    """Whether ``arg`` is a URL carrying a ``token`` query parameter."""
+    if "token=" not in arg:
+        return False
+    try:
+        return "token" in parse_qs(urlparse(arg).query)
+    except ValueError:  # malformed (`http://[::1?token=x`): refused all the same
+        return True
 
 
 def _recorded_ssh_target(config: Config) -> str | None:
@@ -717,12 +727,9 @@ def _read_token(source: str | None) -> str:
     A literal still works, so scripts written before §D14 keep running, but
     it is no longer documented and says on stderr why it should go.
     """
-    if source is None:
-        token = _prompt_token()
-        if not token:
-            usage_failure("the token is empty.", TOKEN_USAGE)
-        return token
     try:
+        if source is None:
+            return strip_secret(_prompt_token(), label="--token")
         return read_secret_source(source, label="--token")
     except ValueError as e:
         usage_failure(str(e), TOKEN_USAGE)

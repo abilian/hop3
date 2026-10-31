@@ -216,11 +216,10 @@ def read_secret_source(source: str, *, label: str) -> str:
 
     A literal still works, for the scripts that pass one, and says on stderr
     why it should go: a secret on argv stays in the shell history and in `ps`.
-    Raises ValueError when the source cannot be read or holds nothing.
+    Raises ValueError when the source cannot be read or holds nothing; an
+    empty literal (``--token ""``) is refused before the argv warning.
     """
-    if not source.strip():
-        msg = f"{label}: the value is empty."
-        raise ValueError(msg)
+    secret = strip_secret(read_value_source(source, label=label), label=label)
     # Only stdin and a real file keep the secret off argv; the `@@` and `--`
     # escapes are literals like any other.
     reads_elsewhere = source == "-" or (
@@ -233,11 +232,15 @@ def read_secret_source(source: str, *, label: str) -> str:
             f"{label} @<path>.",
             file=sys.stderr,
         )
-    secret = read_value_source(source, label=label).strip()
-    if not secret:
+    return secret
+
+
+def strip_secret(secret: str, *, label: str) -> str:
+    """``secret`` stripped; ValueError when nothing is left (a pasted "  ")."""
+    if not (stripped := secret.strip()):
         msg = f"{label}: the value is empty."
         raise ValueError(msg)
-    return secret
+    return stripped
 
 
 # Flags whose value follows the §D14 source convention, per command prefix.
