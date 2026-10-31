@@ -203,21 +203,33 @@ def test_this_checkout_moves_rootd_and_a_checkout_without_the_constant_does_not(
     assert _rootd_in_opt(repo_root)
     old = tmp_path / "packages/hop3-installer/src/hop3_installer/constants.py"
     old.parent.mkdir(parents=True)
-    old.write_text('VENV_DIR = Path("/home/hop3/venv")\n')
+    old.write_text('from pathlib import Path\nVENV_DIR = Path("/home/hop3/venv")\n')
     assert not _rootd_in_opt(tmp_path)
+    # The value is read, not its spelling.
+    old.write_text(
+        'from pathlib import Path\nROOTD_VENV_DIR = Path("/opt") / "hop3-rootd"\n'
+    )
+    assert _rootd_in_opt(tmp_path)
 
 
-def _release_tree(tmp_path: Path, installer_cli: str) -> Path:
+def _release_tree(tmp_path: Path, *options: str) -> Path:
+    """A release whose server installer's parser takes ``options``."""
     tree = tmp_path / "0.7.5"
-    cli = tree / "packages/hop3-installer/src/hop3_installer/server_installer/cli.py"
-    cli.parent.mkdir(parents=True)
-    cli.write_text(installer_cli)
+    package = tree / "packages/hop3-installer/src/hop3_installer"
+    (package / "server_installer").mkdir(parents=True)
+    (package / "__init__.py").write_text("")
+    (package / "server_installer" / "__init__.py").write_text("")
+    adds = "".join(f"    parser.add_argument({o!r})\n" for o in options)
+    (package / "server_installer" / "cli.py").write_text(
+        "import argparse\n\ndef create_parser():\n"
+        f"    parser = argparse.ArgumentParser()\n{adds}    return parser\n"
+    )
     return tree
 
 
 def test_on_docker_this_deployer_installs_the_release_from_its_tree(tmp_path):
     repo = tmp_path / "repo"
-    tree = _release_tree(tmp_path, 'add("--path")\nadd("--operator-email")\n')
+    tree = _release_tree(tmp_path, "--path", "--operator-email")
     first, upgrade = _hop_configs(
         ["0.7.5", "local"],
         [tree, repo],
@@ -233,7 +245,7 @@ def test_on_docker_this_deployer_installs_the_release_from_its_tree(tmp_path):
 
 def test_on_docker_a_release_after_the_first_hop_is_refused(tmp_path):
     repo = tmp_path / "repo"
-    tree = _release_tree(tmp_path, 'add("--path")\nadd("--operator-email")\n')
+    tree = _release_tree(tmp_path, "--path", "--operator-email")
     with pytest.raises(RuntimeError, match=r"only the first hop.*0\.7\.5"):
         _hop_configs(
             ["local", "0.7.5", "local"],
@@ -247,7 +259,7 @@ def test_on_docker_a_release_after_the_first_hop_is_refused(tmp_path):
 
 def test_on_docker_a_release_whose_installer_predates_path_is_refused(tmp_path):
     repo = tmp_path / "repo"
-    tree = _release_tree(tmp_path, 'add("--local-path")\n')
+    tree = _release_tree(tmp_path, "--local-path")
     with pytest.raises(RuntimeError, match=r"--operator-email.*--provider hetzner"):
         _hop_configs(
             ["0.6.2", "local"],

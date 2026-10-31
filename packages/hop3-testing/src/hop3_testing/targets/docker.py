@@ -35,6 +35,7 @@ from .constants import (
     DEFAULT_READY_IMAGE_HEALTH_TIMEOUT,
 )
 from .helpers import (
+    ContainerLeftBehindError,
     DiagnosticsHelper,
     DockerCommandRunner,
     DockerContainerHelper,
@@ -448,9 +449,7 @@ class DockerTarget(DeploymentTarget):
         # The deploy creates the container unless one is already there: a start
         # that fails removes what it created, and nothing else.
         name = self.docker_config.container_name
-        existed = bool(
-            self._client.containers.list(all=True, filters={"name": f"^{name}$"})
-        )
+        existed = self._container_exists(name)
 
         print("\n" + "=" * 70)
         print("Starting Hop3 Docker container via hop3-deploy")
@@ -552,6 +551,15 @@ class DockerTarget(DeploymentTarget):
                 self._remove_container_of_failed_start(name, e)
             raise
 
+    def _container_exists(self, name: str) -> bool:
+        """Is there a container named exactly ``name``?"""
+        assert self._client is not None  # Set by start()
+        try:
+            self._client.containers.get(name)
+        except NotFound:
+            return False
+        return True
+
     def _remove_container_of_failed_start(self, name: str, cause: Exception) -> None:
         """Remove the container a failed start created; raise if it stays."""
         assert self._client is not None  # Set by start()
@@ -561,11 +569,8 @@ class DockerTarget(DeploymentTarget):
             return  # the deploy failed before creating it
         try:
             DockerContainerHelper(container).stop_and_remove()
-        except DockerException as e:
-            msg = (
-                f"Start failed ({cause}), and its container {name} could not be "
-                f"removed: {e}; remove it with `docker rm -f {name}`"
-            )
+        except ContainerLeftBehindError as e:
+            msg = f"Start failed ({cause}), and its {e}"
             raise RuntimeError(msg) from e
         print(f"  Removed container {name}, left by the failed start")
 
@@ -774,18 +779,13 @@ class DockerTarget(DeploymentTarget):
         try:
             if self._container_helper:
                 self._container_helper.stop_and_remove()
-        except DockerException as e:
+        except ContainerLeftBehindError as e:
             self.diagnostics.add_failure(
                 layer="docker",
                 operation="teardown",
                 message=f"Error stopping container: {e}",
             )
-            name = self.docker_config.container_name
-            msg = (
-                f"Teardown could not remove container {name}: {e}; "
-                f"remove it with `docker rm -f {name}`"
-            )
-            raise RuntimeError(msg) from e
+            raise
         self.diagnostics.add_success(
             layer="docker",
             operation="teardown",

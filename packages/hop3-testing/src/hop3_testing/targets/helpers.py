@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING, Any, Protocol
 
-from docker.errors import NotFound
+from docker.errors import DockerException, NotFound
 from hop3_cli.commands.local.ssh_ops import (
     SSH_TOKEN_COMMAND,
     as_hop3_user,
@@ -431,6 +431,16 @@ class DiagnosticsHelper:
             )
 
 
+class ContainerLeftBehindError(RuntimeError):
+    """A container teardown could not remove; says how to remove it by hand."""
+
+    def __init__(self, name: str, cause: Exception) -> None:
+        super().__init__(
+            f"container {name} could not be removed: {cause}; "
+            f"remove it with `docker rm -f {name}`"
+        )
+
+
 @dataclass
 class DockerContainerHelper:
     """
@@ -497,7 +507,14 @@ class DockerContainerHelper:
         return key_path
 
     def stop_and_remove(self) -> None:
-        """Stop and remove the container; one already gone is not an error."""
+        """
+        Stop and remove the container; one already gone is not an error.
+
+        Raises:
+            ContainerLeftBehindError: Docker could not remove it.
+        """
+        if self._ssh_key_path and self._ssh_key_path.exists():
+            self._ssh_key_path.unlink()
         try:
             self.container.reload()
             if self.container.status == "running":
@@ -505,10 +522,8 @@ class DockerContainerHelper:
             self.container.remove(force=True)
         except NotFound:
             pass
-
-        # Clean up SSH key file
-        if self._ssh_key_path and self._ssh_key_path.exists():
-            self._ssh_key_path.unlink()
+        except DockerException as e:
+            raise ContainerLeftBehindError(self.container.name, e) from e
 
     def exec_run(self, cmd: str | list[str], demux: bool = False) -> Any:
         """

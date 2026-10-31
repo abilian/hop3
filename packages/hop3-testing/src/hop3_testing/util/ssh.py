@@ -264,9 +264,8 @@ class SSHConnection:
         """
         self.info = info
         self._client: paramiko.SSHClient | None = None
-        self.last_error: str | None = None
 
-    def connect(self, timeout: int = 30) -> bool:
+    def connect(self, timeout: int = 30) -> SSHProbe:
         """
         Establish SSH connection.
 
@@ -274,9 +273,8 @@ class SSHConnection:
             timeout: Connection timeout in seconds.
 
         Returns:
-            True if connection succeeded; on failure ``last_error`` says why.
+            A passing probe once connected, else the reason it could not.
         """
-        self.last_error = None
         self._client = paramiko.SSHClient()
         self._client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
@@ -289,11 +287,11 @@ class SSHConnection:
                 timeout=timeout,
                 key_filename=key_filename,
             )
-            return True
         except Exception as e:
             self._client = None
-            self.last_error = f"{self.info.address}:{self.info.port}: {_describe(e)}"
-            return False
+            reason = f"{self.info.address}:{self.info.port}: {_describe(e)}"
+            return SSHProbe(ok=False, error=reason)
+        return SSHProbe(ok=True)
 
     def close(self) -> None:
         """Close SSH connection."""
@@ -321,8 +319,10 @@ class SSHConnection:
         return exit_code, stdout.read().decode(), stderr.read().decode()
 
     def __enter__(self) -> Self:
-        """Context manager entry."""
-        self.connect()
+        """Context manager entry; raises when the connection fails."""
+        if not (probe := self.connect()):
+            msg = f"SSH connection failed: {probe.error}"
+            raise ConnectionError(msg)
         return self
 
     def __exit__(self, *args) -> None:
@@ -413,8 +413,8 @@ def verify_ssh_connectivity(
     conn = SSHConnection(info)
 
     try:
-        if not conn.connect(timeout=timeout):
-            return SSHProbe(ok=False, error=conn.last_error)
+        if not (connected := conn.connect(timeout=timeout)):
+            return connected
         exit_code, _, stderr = conn.run("echo ok", timeout=10)
         if exit_code != 0:
             return SSHProbe(

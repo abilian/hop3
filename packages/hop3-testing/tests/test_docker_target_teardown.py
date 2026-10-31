@@ -21,13 +21,17 @@ from hop3_testing.targets import (
     DockerTarget,
     docker as docker_module,
 )
-from hop3_testing.targets.helpers import DockerContainerHelper
+from hop3_testing.targets.helpers import (
+    ContainerLeftBehindError,
+    DockerContainerHelper,
+)
 
 _NAME = "hop3-teardown-test"
 
 
 class _Container:
     def __init__(self, *, remove_error: Exception | None = None) -> None:
+        self.name = _NAME
         self.removed = False
         self.status = "exited"
         self._remove_error = remove_error
@@ -46,15 +50,12 @@ class _Client:
 
     def __init__(self, *, before: _Container | None, created: _Container | None):
         self._before, self._created = before, created
-        self.containers = SimpleNamespace(list=self._list, get=self._get)
-
-    def _list(self, **query) -> list[_Container]:
-        assert query == {"all": True, "filters": {"name": f"^{_NAME}$"}}
-        return [self._before] if self._before else []
+        self.deployed = False
+        self.containers = SimpleNamespace(get=self._get)
 
     def _get(self, name: str) -> _Container:
         assert name == _NAME
-        found = self._before or self._created
+        found = self._before or (self._created if self.deployed else None)
         if found is None:
             msg = "no such container"
             raise NotFound(msg)
@@ -66,7 +67,12 @@ def _failed_start(monkeypatch, client: _Client) -> DockerTarget:
         DockerConfig(container_name=_NAME), deployment=DeploymentConfig(clean=True)
     )
     target._client = client
-    monkeypatch.setattr(docker_module, "run_hop3_deploy", lambda **_k: (False, 0.0))
+
+    def deploy(**_kwargs: object) -> tuple[bool, float]:
+        client.deployed = True
+        return False, 0.0
+
+    monkeypatch.setattr(docker_module, "run_hop3_deploy", deploy)
     monkeypatch.setattr(target, "_save_diagnostics_on_error", lambda: None)
     return target
 
@@ -116,6 +122,16 @@ def test_a_teardown_that_cannot_remove_the_container_fails():
 
     with pytest.raises(RuntimeError, match=f"docker rm -f {_NAME}"):
         target.stop()
+
+
+def test_a_failed_removal_still_deletes_the_ssh_key(tmp_path):
+    helper = DockerContainerHelper(_Container(remove_error=APIError("device busy")))
+    helper._ssh_key_path = tmp_path / "id_rsa"
+    helper._ssh_key_path.write_text("key")
+
+    with pytest.raises(ContainerLeftBehindError):
+        helper.stop_and_remove()
+    assert not helper._ssh_key_path.exists()
 
 
 def test_a_container_already_gone_is_a_clean_teardown():

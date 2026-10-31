@@ -77,11 +77,13 @@ def test_a_failed_teardown_does_not_replace_the_blocks_own_error():
         patch.object(
             DeploymentSession, "_destroy_app", side_effect=CleanupError("leftover")
         ),
-        pytest.raises(AssertionError, match="the real failure"),
+        pytest.raises(AssertionError, match="the real failure") as raised,
         s,
     ):
         msg = "the real failure"
         raise AssertionError(msg)
+    # The teardown's problem travels with the error, into the test report.
+    assert any("leftover" in note for note in raised.value.__notes__)
 
 
 def _runner() -> DeploymentTestRunner:

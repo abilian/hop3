@@ -353,12 +353,12 @@ def collect_diagnostics(
     conn = SSHConnection(info)
 
     try:
-        if not conn.connect(timeout=30):
+        if not (connected := conn.connect(timeout=30)):
             return DiagnosticResult(
                 timestamp=datetime.now(tz=UTC),
                 server_ip=server_ip,
                 output_dir=output_base,
-                errors=[f"Failed to connect to server: {conn.last_error}"],
+                errors=[f"Failed to connect to server: {connected.error}"],
             )
 
         collector = DiagnosticCollector(conn, output_base, console)

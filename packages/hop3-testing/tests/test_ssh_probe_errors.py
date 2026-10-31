@@ -6,6 +6,7 @@ from __future__ import annotations
 
 import socket
 
+import pytest
 from hop3_testing.util.ssh import (
     SSHConnection,
     SSHConnectionInfo,
@@ -49,8 +50,11 @@ def test_wait_for_ssh_timeout_carries_the_last_error():
 def test_connect_failure_is_recorded_and_propagated():
     port = _closed_port()
     conn = SSHConnection(SSHConnectionInfo(host="127.0.0.1", port=port))
-    assert conn.connect(timeout=2) is False
-    assert f"root@127.0.0.1:{port}" in conn.last_error
+    connected = conn.connect(timeout=2)
+    assert not connected
+    assert f"root@127.0.0.1:{port}" in str(connected.error)
+    with pytest.raises(ConnectionError, match=f"root@127.0.0.1:{port}"), conn:
+        pass
 
     probe = verify_ssh_connectivity("127.0.0.1", port=port, timeout=2)
     assert not probe

@@ -916,9 +916,12 @@ class DeploymentSession:
         Tear the app down; a teardown that left anything fails the block.
 
         With no error in flight it raises ``CleanupError``. With one, the
-        block has failed already and the original error stays the one raised;
-        ``cleanup()`` has printed the teardown's problem beside it.
+        block has failed already and the original error stays the one raised,
+        carrying the teardown's problem as a note, so the test report shows it.
         """
         problem = self.cleanup()
-        if problem is not None and exc_val is None:
+        if problem is None:
+            return
+        if exc_val is None:
             raise CleanupError(problem)
+        exc_val.add_note(f"Teardown also failed: {problem}")

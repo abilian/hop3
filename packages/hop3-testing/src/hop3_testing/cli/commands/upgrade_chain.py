@@ -28,6 +28,7 @@ and is accepted with a warning (not a clean slate).
 
 from __future__ import annotations
 
+import runpy
 import secrets
 import shutil
 import subprocess
@@ -111,13 +112,50 @@ def _server_version(checkout: Path) -> str:
 
 def _rootd_in_opt(checkout: Path) -> bool:
     """Whether this checkout's installer runs hop3-rootd from ``_ROOTD_VENV``."""
+    # Its value, not its spelling. The module imports only pathlib, in every
+    # release; a release before the move has no ROOTD_VENV_DIR.
     constants = checkout / "packages/hop3-installer/src/hop3_installer/constants.py"
-    return f'Path("{_ROOTD_VENV}")' in constants.read_text()
+    venv = runpy.run_path(str(constants)).get("ROOTD_VENV_DIR")
+    return venv is not None and str(venv) == _ROOTD_VENV
 
 
 #: Installer flags this checkout's deployer passes on a fresh install of
 #: another release (`--source-tree`); 0.6.x's installer predates both.
-_SOURCE_TREE_INSTALL_FLAGS = ('"--path"', '"--operator-email"')
+_SOURCE_TREE_INSTALL_FLAGS = ("--path", "--operator-email")
+
+
+def _installer_options(checkout: Path) -> frozenset[str]:
+    """
+    The options this checkout's server installer accepts, from its own parser.
+
+    Read in an interpreter of its own (`-I -S`): today's `hop3_installer` must
+    not answer for the release's.
+    """
+    src = checkout / "packages/hop3-installer/src"
+    code = (
+        "from hop3_installer.server_installer.cli import create_parser; "
+        "print('\\n'.join(o for a in create_parser()._actions "
+        "for o in a.option_strings))"
+    )
+    result = subprocess.run(
+        [
+            sys.executable,
+            "-I",
+            "-S",
+            "-c",
+            f"import sys; sys.path.insert(0, {str(src)!r}); {code}",
+        ],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        msg = (
+            f"can't read the installer options of {checkout}: "
+            f"{result.stderr.strip() or f'exit {result.returncode}'}"
+        )
+        raise RuntimeError(msg)
+    return frozenset(result.stdout.split())
 
 
 def _hop_configs(
@@ -173,12 +211,8 @@ def _refuse_on_docker(refs: list[str], checkouts: list[Path], repo_root: Path) -
         raise RuntimeError(msg)
     if checkouts[0] == repo_root:
         return
-    cli = (
-        checkouts[0]
-        / "packages/hop3-installer/src/hop3_installer/server_installer/cli.py"
-    )
-    text = cli.read_text() if cli.exists() else ""
-    if missing := [f for f in _SOURCE_TREE_INSTALL_FLAGS if f not in text]:
+    options = _installer_options(checkouts[0])
+    if missing := [f for f in _SOURCE_TREE_INSTALL_FLAGS if f not in options]:
         msg = (
             f"the installer of {refs[0]} lacks {', '.join(missing)}, which this "
             f"checkout's deployer passes on a fresh install. {hint}"

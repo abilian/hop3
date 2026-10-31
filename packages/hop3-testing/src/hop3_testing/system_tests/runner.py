@@ -568,10 +568,10 @@ class TestRunnerManager:
             if not self._ssh_conn:
                 info = SSHConnectionInfo(host=self.host, user="root")
                 self._ssh_conn = SSHConnection(info)
-                if not self._ssh_conn.connect(timeout=30):
+                if not (connected := self._ssh_conn.connect(timeout=30)):
                     self.console.print(
                         "  [yellow]Could not connect for diagnostics:"
-                        f" {escape(str(self._ssh_conn.last_error))}[/yellow]"
+                        f" {escape(str(connected.error))}[/yellow]"
                     )
                     return
 

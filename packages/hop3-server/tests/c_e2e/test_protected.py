@@ -133,6 +133,10 @@ def hop3_at_a_terminal(info: dict[str, Any], *args: str, typed: str) -> tuple[in
         # The terminal holds the line until the CLI asks, after the refusal.
         os.write(master, f"{typed}\n".encode())
         output, _ = process.communicate(timeout=120)
+    except subprocess.TimeoutExpired:
+        process.kill()
+        process.wait()
+        raise
     finally:
         os.close(master)
     return process.returncode, output
