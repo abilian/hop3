@@ -5,16 +5,13 @@
 from __future__ import annotations
 
 import re
-from typing import TYPE_CHECKING
+from pathlib import Path
 from unittest.mock import DEFAULT, MagicMock, patch
 
 import pytest
 from hop3_installer.common import CommandResult
 from hop3_installer.deployer.config import DeployConfig
 from hop3_installer.deployer.deploy import Deployer
-
-if TYPE_CHECKING:
-    from pathlib import Path
 
 
 @pytest.fixture
@@ -207,7 +204,7 @@ class TestUpdatePathsRunMigrationsBeforeRestart:
         assert migrate_idx < restart_idx
 
 
-def test_features_install_does_not_reinstall_hop3_server(config, backend):
+def test_features_install_does_not_reinstall_hop3_server(config, backend, monkeypatch):
     """
     Regression: features step must not reinstall hop3-server from PyPI.
 
@@ -226,11 +223,13 @@ def test_features_install_does_not_reinstall_hop3_server(config, backend):
     setattr(d.backend, "run_streaming", MagicMock(return_value=0))  # ruff:ignore[set-attr-with-constant]
     setattr(d, "_ensure_python310_plus", MagicMock(return_value="python3"))  # ruff:ignore[set-attr-with-constant]
     # The installer_path property triggers bundle regeneration if stale;
-    # short-circuit it to avoid running the real bundler in unit tests.
-    from pathlib import Path as _Path  # ruff:ignore[import-outside-top-level]
-
-    type(config).installer_path = property(
-        lambda self: _Path("/dev/null").parent / "fake-installer.py"
+    # short-circuit it to avoid running the real bundler in unit tests. Through
+    # monkeypatch: set on the class, it outlived the test and served every later
+    # DeployConfig a fake bundle.
+    monkeypatch.setattr(
+        type(config),
+        "installer_path",
+        property(lambda self: Path("/dev/null").parent / "fake-installer.py"),
     )
     # `not installer_path.exists()` is the abort condition; satisfy it
     with patch("pathlib.Path.exists", return_value=True):
