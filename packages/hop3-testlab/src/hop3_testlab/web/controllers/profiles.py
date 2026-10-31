@@ -14,6 +14,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -165,6 +166,10 @@ class ProfilesController(Controller):
     @get("/")
     @inject
     async def index(self, profiles: FromDishka[ProfilesRepository]) -> Template:
+        return await anyio.to_thread.run_sync(self._index, profiles)
+
+    @staticmethod
+    def _index(profiles: ProfilesRepository) -> Template:
         return Template(
             template_name="profiles/index.html",
             context={
@@ -179,6 +184,10 @@ class ProfilesController(Controller):
     async def detail(
         self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._detail, profiles, profile_id)
+
+    @staticmethod
+    def _detail(profiles: ProfilesRepository, profile_id: int) -> Template:
         profile = profiles.get(profile_id)
         if profile is None:
             msg = f"No profile {profile_id}"
@@ -196,6 +205,10 @@ class ProfilesController(Controller):
     async def edit_form(
         self, profile_id: FromPath[int], profiles: FromDishka[ProfilesRepository]
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._edit_form, profiles, profile_id)
+
+    @staticmethod
+    def _edit_form(profiles: ProfilesRepository, profile_id: int) -> Template:
         profile = profiles.get(profile_id)
         if profile is None:
             msg = f"No profile {profile_id}"
@@ -218,6 +231,10 @@ class ProfilesController(Controller):
         profiles: FromDishka[ProfilesRepository],
         session: FromDishka[Session],
     ) -> Redirect:
+        return await anyio.to_thread.run_sync(self._create, data, profiles, session)
+
+    @staticmethod
+    def _create(data: dict, profiles: ProfilesRepository, session: Session) -> Redirect:
         fields = _fields_from_form(data)
         if fields is None:  # blank form
             return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
@@ -233,6 +250,14 @@ class ProfilesController(Controller):
         data: _FORM,
         profiles: FromDishka[ProfilesRepository],
         session: FromDishka[Session],
+    ) -> Redirect:
+        return await anyio.to_thread.run_sync(
+            self._update, data, profiles, session, profile_id
+        )
+
+    @staticmethod
+    def _update(
+        data: dict, profiles: ProfilesRepository, session: Session, profile_id: int
     ) -> Redirect:
         if profiles.get(profile_id) is None:
             msg = f"No profile {profile_id}"
@@ -261,6 +286,14 @@ class ProfilesController(Controller):
         session: FromDishka[Session],
     ) -> Redirect:
         """Copy a profile under a fresh name and land on its edit form."""
+        return await anyio.to_thread.run_sync(
+            self._duplicate, profiles, session, profile_id
+        )
+
+    @staticmethod
+    def _duplicate(
+        profiles: ProfilesRepository, session: Session, profile_id: int
+    ) -> Redirect:
         src = profiles.get(profile_id)
         if src is None:
             msg = f"No profile {profile_id}"
@@ -291,6 +324,17 @@ class ProfilesController(Controller):
         Start a build: **enqueue** (no target — the dispatcher picks a free
         pool server). Returns to the queue.
         """
+        return await anyio.to_thread.run_sync(
+            self._start, profiles, queue, session, profile_id
+        )
+
+    @staticmethod
+    def _start(
+        profiles: ProfilesRepository,
+        queue: BuildQueueRepository,
+        session: Session,
+        profile_id: int,
+    ) -> Redirect:
         if profiles.get(profile_id) is None:
             return Redirect(path="/profiles", status_code=HTTP_303_SEE_OTHER)
         queue.enqueue(profile_id, actor="web")
@@ -304,6 +348,14 @@ class ProfilesController(Controller):
         profile_id: FromPath[int],
         profiles: FromDishka[ProfilesRepository],
         session: FromDishka[Session],
+    ) -> Redirect:
+        return await anyio.to_thread.run_sync(
+            self._delete, profiles, session, profile_id
+        )
+
+    @staticmethod
+    def _delete(
+        profiles: ProfilesRepository, session: Session, profile_id: int
     ) -> Redirect:
         profiles.delete(profile_id)
         session.commit()

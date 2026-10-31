@@ -8,6 +8,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -37,6 +38,10 @@ class BundleController(Controller):
     async def view(
         self, bundle_run_id: FromPath[str], runs: FromDishka[RunsRepository]
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._view, runs, bundle_run_id)
+
+    @staticmethod
+    def _view(runs: RunsRepository, bundle_run_id: str) -> Template:
         record = runs.result_by_bundle(bundle_run_id)
         if record is None or not record.bundle_path:
             msg = f"No bundle {bundle_run_id!r}"

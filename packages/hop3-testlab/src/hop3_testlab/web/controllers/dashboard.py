@@ -13,6 +13,7 @@ queue), never from here.
 
 from __future__ import annotations
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -60,6 +61,10 @@ class DashboardController(Controller):
     @get("/")
     @inject
     async def index(self, runs: FromDishka[RunsRepository]) -> Template:
+        return await anyio.to_thread.run_sync(self._index, runs)
+
+    @staticmethod
+    def _index(runs: RunsRepository) -> Template:
         # Convert to plain dicts here, while the session is open, so the template
         # never touches detached ORM objects (the hop3-server dashboard pattern).
         rows = [

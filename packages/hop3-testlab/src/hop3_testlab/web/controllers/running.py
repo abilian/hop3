@@ -17,6 +17,7 @@ import time
 from datetime import timezone
 from typing import TYPE_CHECKING
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -137,6 +138,10 @@ class RunningController(Controller):
     @inject
     async def panel(self, runs: FromDishka[RunsRepository]) -> Template:
         """Render the current-run panel (idle / starting / running)."""
+        return await anyio.to_thread.run_sync(self._panel, runs)
+
+    @staticmethod
+    def _panel(runs: RunsRepository) -> Template:
         return Template(
             template_name="running/_panel.html",
             context=_build_panel_context(runs),
@@ -149,6 +154,10 @@ class RunningController(Controller):
         Stop the in-flight run: kill the engine group, mark it aborted, free
         the lease. Returns the refreshed (now idle) panel for HTMX to swap in.
         """
+        return await anyio.to_thread.run_sync(self._stop, runs)
+
+    @staticmethod
+    def _stop(runs: RunsRepository) -> Template:
         lease = runs.current_lease()
         if lease is not None:
             # Read fields before the commits below expire the ORM object.

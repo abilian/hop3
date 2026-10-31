@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -29,6 +30,10 @@ class TrendsController(Controller):
     @get("/")
     @inject
     async def index(self, runs: FromDishka[RunsRepository]) -> Template:
+        return await anyio.to_thread.run_sync(self._index, runs)
+
+    @staticmethod
+    def _index(runs: RunsRepository) -> Template:
         flaky = flakiness_ranking(runs.pass_fail_history(limit_runs=20))
         return Template(
             template_name="trends/index.html",

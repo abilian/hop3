@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from typing import Annotated
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -53,6 +54,12 @@ class ServersController(Controller):
         servers: FromDishka[ServersRepository],
         credentials: FromDishka[CredentialsRepository],
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._index, servers, credentials)
+
+    @staticmethod
+    def _index(
+        servers: ServersRepository, credentials: CredentialsRepository
+    ) -> Template:
         rows = [
             {
                 "id": s.id,
@@ -88,6 +95,10 @@ class ServersController(Controller):
         servers: FromDishka[ServersRepository],
         session: FromDishka[Session],
     ) -> Redirect:
+        return await anyio.to_thread.run_sync(self._create, data, servers, session)
+
+    @staticmethod
+    def _create(data: dict, servers: ServersRepository, session: Session) -> Redirect:
         name = (data.get("name") or "").strip()
         target_id = (data.get("target_id") or "").strip()
         if name and target_id:
@@ -105,6 +116,12 @@ class ServersController(Controller):
         servers: FromDishka[ServersRepository],
         session: FromDishka[Session],
     ) -> Redirect:
+        return await anyio.to_thread.run_sync(self._toggle, servers, session, server_id)
+
+    @staticmethod
+    def _toggle(
+        servers: ServersRepository, session: Session, server_id: int
+    ) -> Redirect:
         server = servers.get(server_id)
         if server is not None:
             servers.update(server_id, enabled=not server.enabled)
@@ -118,6 +135,12 @@ class ServersController(Controller):
         server_id: FromPath[int],
         servers: FromDishka[ServersRepository],
         session: FromDishka[Session],
+    ) -> Redirect:
+        return await anyio.to_thread.run_sync(self._delete, servers, session, server_id)
+
+    @staticmethod
+    def _delete(
+        servers: ServersRepository, session: Session, server_id: int
     ) -> Redirect:
         servers.delete(server_id)
         session.commit()
@@ -140,6 +163,14 @@ class ServersController(Controller):
         name/kind/token, non-integer server_id, malformed key) is refused (400),
         not stored.
         """
+        return await anyio.to_thread.run_sync(
+            self._create_credential, data, credentials, session
+        )
+
+    @staticmethod
+    def _create_credential(
+        data: dict, credentials: CredentialsRepository, session: Session
+    ) -> Redirect:
         name = (data.get("name") or "").strip()
         kind = (data.get("kind") or "hetzner").strip()
         token = (data.get("api_token") or "").strip()
@@ -183,6 +214,14 @@ class ServersController(Controller):
         credential_id: FromPath[int],
         credentials: FromDishka[CredentialsRepository],
         session: FromDishka[Session],
+    ) -> Redirect:
+        return await anyio.to_thread.run_sync(
+            self._delete_credential, credentials, session, credential_id
+        )
+
+    @staticmethod
+    def _delete_credential(
+        credentials: CredentialsRepository, session: Session, credential_id: int
     ) -> Redirect:
         credentials.delete(credential_id)
         session.commit()

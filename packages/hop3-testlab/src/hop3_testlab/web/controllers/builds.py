@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -35,6 +36,10 @@ class BuildController(Controller):
     async def detail(
         self, result_id: FromPath[int], runs: FromDishka[RunsRepository]
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._detail, runs, result_id)
+
+    @staticmethod
+    def _detail(runs: RunsRepository, result_id: int) -> Template:
         record = runs.get_result(result_id)
         if record is None:
             msg = f"No build {result_id}"

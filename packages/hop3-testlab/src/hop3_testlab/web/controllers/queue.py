@@ -12,6 +12,7 @@ reason — surfaced here, not buried in a log (v2 spec §3).
 
 from __future__ import annotations
 
+import anyio.to_thread
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
 )
@@ -67,6 +68,10 @@ class QueueController(Controller):
         queue: FromDishka[BuildQueueRepository],
         profiles: FromDishka[ProfilesRepository],
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._index, queue, profiles)
+
+    @staticmethod
+    def _index(queue: BuildQueueRepository, profiles: ProfilesRepository) -> Template:
         names = {p.id: p.name for p in profiles.list_all()}
         builds = [
             {
@@ -94,6 +99,10 @@ class QueueController(Controller):
         The build's engine log, fetched from disk and shown in the UI — so a
         failure is readable here instead of a 'diagnostics saved to <path>' pointer.
         """
+        return await anyio.to_thread.run_sync(self._log, queue, request_id)
+
+    @staticmethod
+    def _log(queue: BuildQueueRepository, request_id: int) -> Template:
         build = queue.get(request_id)
         return Template(
             template_name="queue/log.html",
@@ -112,6 +121,12 @@ class QueueController(Controller):
         request_id: FromPath[int],
         queue: FromDishka[BuildQueueRepository],
         session: FromDishka[Session],
+    ) -> Redirect:
+        return await anyio.to_thread.run_sync(self._cancel, queue, session, request_id)
+
+    @staticmethod
+    def _cancel(
+        queue: BuildQueueRepository, session: Session, request_id: int
     ) -> Redirect:
         queue.cancel(request_id)  # a no-op once dispatched
         session.commit()

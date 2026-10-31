@@ -6,6 +6,7 @@
 
 from __future__ import annotations
 
+import anyio.to_thread
 import markdown
 from dishka import (
     FromDishka,  # ruff:ignore[typing-only-third-party-import] -- runtime: @inject resolves the annotation
@@ -92,6 +93,10 @@ class RunsController(Controller):
     async def detail(
         self, run_uid: FromPath[str], runs: FromDishka[RunsRepository]
     ) -> Template:
+        return await anyio.to_thread.run_sync(self._detail, runs, run_uid)
+
+    @staticmethod
+    def _detail(runs: RunsRepository, run_uid: str) -> Template:
         run = runs.get(run_uid)
         if run is None:
             msg = f"No run {run_uid!r}"
@@ -130,6 +135,10 @@ class RunsController(Controller):
         self, run_uid: FromPath[str], runs: FromDishka[RunsRepository]
     ) -> str:
         """The narrative report as raw markdown — a shareable / exportable URL."""
+        return await anyio.to_thread.run_sync(self._report_markdown, runs, run_uid)
+
+    @staticmethod
+    def _report_markdown(runs: RunsRepository, run_uid: str) -> str:
         run = runs.get(run_uid)
         if run is None:
             msg = f"No run {run_uid!r}"
