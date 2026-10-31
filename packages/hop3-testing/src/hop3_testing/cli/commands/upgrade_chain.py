@@ -9,7 +9,9 @@ Each hop is a git ref (a release tag, or `local` for the current tree). The hop
 is deployed by checking that ref out into a git worktree and running THAT
 checkout's `hop3-deploy-server` (via `uv run`) with the stable `--local` flag,
 so every version is installed/upgraded by its own tooling, exactly as a real
-operator would. Hop 1 is a clean install; every later hop is a non-clean
+operator would. On Docker, this checkout's deployer carries a release's tree
+to the box instead, and that release's own installer installs it (see
+`_hop_configs`). Hop 1 is a clean install; every later hop is a non-clean
 redeploy that hits the deployer's in-place update path (db:upgrade -> restart ->
 verify). After each hop we assert the server answers (the deploy verified it)
 and the schema is readable.
@@ -49,12 +51,12 @@ from hop3_testing.targets import (
 )
 from hop3_testing.targets.constants import HOP3_SERVER_BIN, hermetic_cli_cwd
 
-# 0.6.0's rootd is broken (imports __version__ that its __init__ never defines),
-# so 0.6.2 is the first viable baseline. Extend as releases land. The last hop
-# is `local` so the chain exercises THIS checkout's deployer: a release tag as
-# the last hop tests the deployer that shipped with that tag, fixes since
-# excluded.
-DEFAULT_CHAIN = "0.6.2,local"
+# The last release, which servers upgrade from. The last hop is `local` so the
+# chain exercises THIS checkout's deployer: a release tag as the last hop tests
+# the deployer that shipped with that tag, fixes since excluded. An older
+# baseline runs over SSH only (see `_hop_configs`); 0.6.0's rootd is broken
+# (imports __version__ that its __init__ never defines), so 0.6.2 is the oldest.
+DEFAULT_CHAIN = "0.7.5,local"
 
 _CONTAINER = "hop3-upgrade-chain"
 #: The interpreter every hop's worktree runs under. A tag's worktree has no
@@ -64,6 +66,9 @@ _CONTAINER = "hop3-upgrade-chain"
 #: touching the target. Pin to the interpreter this process runs on.
 _PYTHON = f"{sys.version_info.major}.{sys.version_info.minor}"
 _HOP3_PYTHON = "/home/hop3/venv/bin/python"
+#: Where an installer that gives hop3-rootd a venv of its own puts it: root
+#: owns it, and hop3's venv no longer holds the daemon.
+_ROOTD_VENV = "/opt/hop3-rootd"
 
 #: Deployed on hop 1 and never redeployed: it must keep serving through every
 #: upgrade, since an operator upgrades under running apps.
@@ -102,6 +107,98 @@ def _server_version(checkout: Path) -> str:
     """The hop3-server version this checkout would install."""
     pyproject = checkout / "packages" / "hop3-server" / "pyproject.toml"
     return tomllib.loads(pyproject.read_text())["project"]["version"]
+
+
+def _rootd_in_opt(checkout: Path) -> bool:
+    """Whether this checkout's installer runs hop3-rootd from ``_ROOTD_VENV``."""
+    constants = checkout / "packages/hop3-installer/src/hop3_installer/constants.py"
+    return f'Path("{_ROOTD_VENV}")' in constants.read_text()
+
+
+#: Installer flags this checkout's deployer passes on a fresh install of
+#: another release (`--source-tree`); 0.6.x's installer predates both.
+_SOURCE_TREE_INSTALL_FLAGS = ('"--path"', '"--operator-email"')
+
+
+def _hop_configs(
+    refs: list[str],
+    checkouts: list[Path],
+    scripts: list[str],
+    repo_root: Path,
+    *,
+    is_docker: bool,
+    verbose: bool,
+) -> list[DeploymentConfig]:
+    """
+    One deploy config per hop: a clean install, then in-place updates.
+
+    Over SSH each release is deployed by its own deployer. On Docker this
+    checkout's deployer drives every hop: releases up to 0.7.5 bind fixed host
+    ports and check the server at `localhost:8000`, which a shared or remote
+    Docker host cannot give them. A release is then installed on hop 1 with its
+    own installer (`--source-tree`); the box's container setup is this
+    checkout's, which only stands in for systemd.
+    """
+    if not is_docker:
+        return [
+            _hop_config(cwd=c, script=s, clean=i == 0, verbose=verbose)
+            for i, (c, s) in enumerate(zip(checkouts, scripts, strict=True))
+        ]
+    _refuse_on_docker(refs, checkouts, repo_root)
+    tree = checkouts[0] if checkouts[0] != repo_root else None
+    return [
+        DeploymentConfig(
+            source="local",
+            clean=i == 0,
+            verbose=verbose,
+            command_prefix=["uv", "run", "--python", _PYTHON],
+            cwd=repo_root,
+            source_tree=tree if i == 0 else None,
+        )
+        for i in range(len(refs))
+    ]
+
+
+def _refuse_on_docker(refs: list[str], checkouts: list[Path], repo_root: Path) -> None:
+    """Refuse a Docker chain this checkout's deployer cannot drive."""
+    hint = "Use --provider hetzner, where each release runs its own deployer."
+    upgrades = [
+        r for r, c in zip(refs[1:], checkouts[1:], strict=True) if c != repo_root
+    ]
+    if upgrades:
+        msg = (
+            f"on Docker only the first hop can be a release; {', '.join(upgrades)} "
+            f"would be an upgrade this checkout's deployer cannot run. {hint}"
+        )
+        raise RuntimeError(msg)
+    if checkouts[0] == repo_root:
+        return
+    cli = (
+        checkouts[0]
+        / "packages/hop3-installer/src/hop3_installer/server_installer/cli.py"
+    )
+    text = cli.read_text() if cli.exists() else ""
+    if missing := [f for f in _SOURCE_TREE_INSTALL_FLAGS if f not in text]:
+        msg = (
+            f"the installer of {refs[0]} lacks {', '.join(missing)}, which this "
+            f"checkout's deployer passes on a fresh install. {hint}"
+        )
+        raise RuntimeError(msg)
+
+
+def _prepare_deployers(configs: list[DeploymentConfig], repo_root: Path) -> None:
+    """Make sure every deployer the hops run is installed in its checkout."""
+    for checkout in dict.fromkeys(c.cwd for c in configs):
+        assert checkout is not None  # every hop names its checkout
+        script = _deployer_script(checkout)
+        if checkout == repo_root:
+            # `local` is the developer's own environment: never sync it
+            # (uv would drop the extras they installed), only check it.
+            if not (checkout / ".venv" / "bin" / script).exists():
+                msg = f"{checkout}: .venv/bin/{script} is missing; run `uv sync`"
+                raise RuntimeError(msg)
+            continue
+        _sync_checkout(checkout, script)
 
 
 def _sync_checkout(checkout: Path, script: str) -> None:
@@ -253,46 +350,22 @@ def upgrade_chain(
         checkouts = [_checkout(ref, repo_root, tmp, worktrees) for ref in refs]
         scripts = [_deployer_script(c) for c in checkouts]
         versions = [_server_version(c) for c in checkouts]
-        for checkout, script in zip(checkouts, scripts, strict=True):
-            if checkout == repo_root:
-                # `local` is the developer's own environment: never sync it
-                # (uv would drop the extras they installed), only check it.
-                if not (checkout / ".venv" / "bin" / script).exists():
-                    msg = f"{checkout}: .venv/bin/{script} is missing; run `uv sync`"
-                    raise RuntimeError(msg)
-                continue
-            _sync_checkout(checkout, script)
+        in_opt = [_rootd_in_opt(c) for c in checkouts]
+        configs = _hop_configs(
+            refs, checkouts, scripts, repo_root, is_docker=is_docker, verbose=verbose
+        )
+        _prepare_deployers(configs, repo_root)
 
-        target = _make_target(
-            is_docker,
-            host,
-            port,
-            user,
-            ssh_key,
-            _hop_config(
-                cwd=checkouts[0], script=scripts[0], clean=True, verbose=verbose
-            ),
-        )
-        click.echo(
-            f"\n=== hop 1/{len(refs)}: fresh install {refs[0]} ({scripts[0]}) ==="
-        )
+        target = _make_target(is_docker, host, port, user, ssh_key, configs[0])
+        click.echo(f"\n=== hop 1/{len(refs)}: fresh install {refs[0]} ===")
         target.start()
-        results.append(_assert_hop(target, refs[0], versions[0]))
+        results.append(_assert_hop(target, refs[0], versions[0], in_opt[0]))
         seed = _seed(target, repo_root, refs[0])
 
         for i, ref in enumerate(refs[1:], start=2):
-            click.echo(
-                f"\n=== hop {i}/{len(refs)}: upgrade to {ref} ({scripts[i - 1]}) ==="
-            )
-            target.redeploy(
-                _hop_config(
-                    cwd=checkouts[i - 1],
-                    script=scripts[i - 1],
-                    clean=False,
-                    verbose=verbose,
-                )
-            )
-            results.append(_assert_hop(target, ref, versions[i - 1]))
+            click.echo(f"\n=== hop {i}/{len(refs)}: upgrade to {ref} ===")
+            target.redeploy(configs[i - 1])
+            results.append(_assert_hop(target, ref, versions[i - 1], in_opt[i - 1]))
             _assert_seed(seed, ref)
     except Exception as exc:  # a failed hop -> loud summary + nonzero exit
         _print_summary(results)
@@ -329,7 +402,9 @@ def _make_target(is_docker, host, port, user, ssh_key, deployment):
     )
 
 
-def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
+def _assert_hop(
+    target, ref: str, expected_version: str, rootd_in_opt: bool
+) -> dict[str, str]:
     """
     Assert the box is healthy at this hop; return {version, rootd, revision}.
 
@@ -337,8 +412,9 @@ def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
     otherwise). This adds three checks. The installed version must be the one
     this hop's checkout ships (the wrong deployer running is otherwise
     invisible). hop3-rootd must be at that same version (every update path used
-    to leave the daemon behind). The schema must be stamped and readable
-    (`db:current`).
+    to leave the daemon behind), read from where this hop's installer puts it;
+    from the hop that moves it to ``_ROOTD_VENV``, ``_assert_rootd_moved`` too.
+    The schema must be stamped and readable (`db:current`).
     """
     version = _exec(
         target,
@@ -351,9 +427,10 @@ def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
             f"{expected_version}: a different checkout's deployer ran"
         )
         raise RuntimeError(msg)
+    rootd_python = f"{_ROOTD_VENV}/bin/python" if rootd_in_opt else _HOP3_PYTHON
     rootd = _exec(
         target,
-        f'{_HOP3_PYTHON} -c "import importlib.metadata as m;'
+        f'{rootd_python} -c "import importlib.metadata as m;'
         " print(m.version('hop3_rootd'))\"",
     )
     if rootd != expected_version:
@@ -362,6 +439,8 @@ def _assert_hop(target, ref: str, expected_version: str) -> dict[str, str]:
             f"{version}: the update path left the daemon behind"
         )
         raise RuntimeError(msg)
+    if rootd_in_opt:
+        _assert_rootd_moved(target, ref)
     rc, rev_out, rev_err = target.exec_run(f"sudo -u hop3 {HOP3_SERVER_BIN} db:current")
     revision = (rev_out or "").strip()
     if rc != 0 or not revision:
@@ -524,6 +603,37 @@ def _hop3(
         )
         raise RuntimeError(msg)
     return result
+
+
+def _assert_rootd_moved(target, ref: str) -> None:
+    """
+    The daemon runs from the root-owned venv, and hop3's holds no copy of it.
+
+    The upgrade is the path that matters: a fresh install never had the daemon
+    in hop3's venv, where an app (it runs as hop3) could change what root runs.
+    """
+    daemon = f"{_ROOTD_VENV}/bin/hop3-rootd"
+    processes = _exec(target, "ps -eo args")
+    if daemon not in processes:
+        running = [p for p in processes.splitlines() if "hop3-rootd" in p]
+        msg = f"after hop {ref} no hop3-rootd runs from {daemon}; running: {running}"
+        raise RuntimeError(msg)
+    # Symlinks are 0777 by nature; their owner still counts.
+    others = _exec(
+        target,
+        f"find {_ROOTD_VENV} '(' ! -user root -o ! -type l -perm /022 ')' -print",
+    )
+    if others:
+        msg = f"after hop {ref} root does not alone control {_ROOTD_VENV}:\n{others}"
+        raise RuntimeError(msg)
+    stale = _exec(
+        target,
+        f'{_HOP3_PYTHON} -c "import importlib.util as u;'
+        " print(u.find_spec('hop3_rootd') is not None)\"",
+    )
+    if stale != "False":
+        msg = f"after hop {ref} hop3's venv still holds hop3-rootd"
+        raise RuntimeError(msg)
 
 
 def _exec(target, command: str) -> str:

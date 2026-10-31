@@ -819,6 +819,7 @@ def _build_deploy_command(
     acme_email: str | None = None,
     admin_email: str = "hop3-test@example.com",
     deployer_command: str = "hop3-deploy-server",
+    source_tree: Path | None = None,
 ) -> list[str]:
     """
     Build the hop3-deploy-server command (canonical ADR 052 flags).
@@ -851,6 +852,8 @@ def _build_deploy_command(
             cmd.extend(["--identity", ssh_key])
 
     cmd.extend(_source_flags(source, branch, version, legacy=legacy_flags))
+    if source_tree:
+        cmd.extend(["--source-tree", str(source_tree)])
     # A Docker deploy otherwise runs `hop3 login` in the developer's own CLI
     # config, which makes the throwaway container their default context: once
     # the run removed it, every plain `hop3` command went to a dead address.
@@ -900,6 +903,7 @@ def run_hop3_deploy(
     command_prefix: list[str] | None = None,
     cwd: Path | str | None = None,
     deployer_command: str = "hop3-deploy-server",
+    source_tree: Path | None = None,
     on_output: Callable[[str], None] | None = None,
     diagnostics: DiagnosticCollector | None = None,
 ) -> tuple[bool, float]:
@@ -930,6 +934,8 @@ def run_hop3_deploy(
         cwd: Working directory for the deploy subprocess (e.g. a cloned repo).
         deployer_command: The deployer's script name in that checkout (see
             ``DeploymentConfig.deployer_command``).
+        source_tree: Another release's checkout to install (see
+            ``DeploymentConfig.source_tree``).
         on_output: Called for each output line (in addition to printing), so a
             caller can capture the deploy transcript (e.g. the cloud path's
             DeploymentResult.log_output).
@@ -955,6 +961,7 @@ def run_hop3_deploy(
         domain=domain,
         acme_email=acme_email,
         deployer_command=deployer_command,
+        source_tree=source_tree,
     )
     if command_prefix:
         cmd = [*command_prefix, *cmd]

@@ -106,8 +106,8 @@ hop3-test run --docker --mode nightly        # Wider matrix (smoke | ci | nightl
 
 # Upgrade-chain: install a baseline release on a FRESH box, then upgrade
 # in-place through a version chain — each version by its OWN installer.
-hop3-test upgrade-chain --docker                    # 0.6.2 -> local tree
-hop3-test upgrade-chain --docker --chain 0.6.2,local
+hop3-test upgrade-chain --docker                    # 0.7.5 -> local tree
+hop3-test upgrade-chain --provider hetzner --chain 0.6.2,0.7.5,local
 hop3-test upgrade-chain --docker --chain local,local   # cheapest smoke (no old version)
 hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04  # fresh cloud VPS
 
@@ -118,7 +118,7 @@ hop3-test why <run-id>              # Show the diagnostic bundle for a failed ru
 
 ### Upgrade-chain testing
 
-`hop3-test upgrade-chain` verifies that a running server stays healthy through a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update. Each one has to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain.
+`hop3-test upgrade-chain` verifies that a running server stays healthy through a chain of in-place upgrades. Each hop is a git ref (a release tag, or `local` for the current tree), installed by **that version's own** `hop3-deploy-server` (checked out into a worktree and run via `uv run`) on a **fresh** box (Docker container or a rebuilt Hetzner VPS). Every hop after the first is an in-place update. Each one has to come back healthy with a readable schema (ADR 043 §10, Cross-version upgrade validation). `0.6.0` is not a viable baseline (its `hop3-rootd` can't start) and is excluded from the default chain. On Docker, this checkout's deployer drives every hop: the deployers of releases up to 0.7.5 bind fixed host ports and check the server at `localhost:8000`, which a shared or remote Docker host cannot give them. The first hop may be a release: the deployer copies that release's tree to the box (`hop3-deploy-server --source-tree`) and that release's own installer installs it, while the container setup (supervisor in place of systemd) is the current one. Later hops must be `local`, and the release's installer must accept `--path` and `--operator-email`, so 0.6.x baselines run with `--provider hetzner` only.
 
 ## Test Organization
 

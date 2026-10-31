@@ -86,11 +86,11 @@ The default `--mode` is `smoke` (the smallest sanity run). Available profiles: `
 Install a baseline release on a **fresh** box, then upgrade in-place through a chain of versions, each installed by **its own** installer (checked out into a git worktree, run via `uv run`). Each hop after the first is an in-place update, after which the test checks that the app comes back healthy with a readable schema.
 
 ```bash
-# Fresh Docker container: 0.6.2 -> current tree
+# Fresh Docker container: 0.7.5 -> current tree
 hop3-test upgrade-chain --docker
 
-# Custom chain (release tags + `local`)
-hop3-test upgrade-chain --docker --chain 0.6.2,local
+# Custom chain (release tags + `local`); on Docker only the first hop is a release
+hop3-test upgrade-chain --provider hetzner --chain 0.6.2,0.7.5,local
 
 # Cheapest smoke: whole mechanism, no old-version/worktree variable
 hop3-test upgrade-chain --docker --chain local,local

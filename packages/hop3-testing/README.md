@@ -61,15 +61,17 @@ subcommand: `hop3-test run --docker --mode ci`.
 The first hop also seeds the state an upgrade must carry: an app (`010-flask-pip-wsgi`), deployed once and never again, and a plain account. After every hop the app must still serve its page, the admin must still list the accounts, and the account must do exactly what it could on the first hop (get a token, read its app's environment, list the accounts), probed by doing each. That is how the chain checks a migration such as ADR 061's roles, which must turn every non-admin into a deployer. Before a release, run it from the last release: `--chain <last-tag>,local`.
 
 ```bash
-# Fresh Docker container: 0.6.2 → current tree
+# Fresh Docker container: 0.7.5 → current tree
 hop3-test upgrade-chain --docker
 
 # Fresh Hetzner VPS (needs HETZNER_API_TOKEN + HETZNER_SERVER_ID)
 hop3-test upgrade-chain --provider hetzner --image ubuntu-24.04
 
 # Custom chain (release tags + `local` for the current tree)
-hop3-test upgrade-chain --docker --chain 0.6.2,local
+hop3-test upgrade-chain --provider hetzner --chain 0.6.2,0.7.5,local
 ```
+
+On Docker, this checkout's deployer drives every hop: the deployers of releases up to 0.7.5 bind fixed host ports and check the server at `localhost:8000`, which a shared or remote Docker host cannot give them. The first hop may be a release: the deployer copies that release's tree to the box (`hop3-deploy-server --source-tree`) and that release's own installer installs it, while the container setup (supervisor in place of systemd) is the current one. Later hops must be `local`, and the release's installer must accept `--path` and `--operator-email`, so 0.6.x baselines run with `--provider hetzner` only.
 
 Cheapest smoke — exercises the whole mechanism (fresh install → in-place
 upgrade → assertions) with no old-version/worktree variable:

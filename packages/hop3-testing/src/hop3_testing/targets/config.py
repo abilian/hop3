@@ -65,6 +65,10 @@ class DeploymentConfig:
     #: `uv run <missing-script>` falls through to PATH without a word and runs
     #: whatever deployer the developer's own environment has.
     deployer_command: str = "hop3-deploy-server"
+    #: Another release's checkout, emitted as --source-tree: the deployer puts
+    #: that release on a fresh box with that release's own installer. The upgrade
+    #: chain's first hop on Docker, where old deployers cannot run.
+    source_tree: Path | None = None
     """Working directory for the deploy subprocess (the cloud path's cloned/local
     repo). None on the run path -> current directory."""
 

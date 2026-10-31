@@ -469,6 +469,7 @@ class DockerTarget(DeploymentTarget):
                 command_prefix=self.deployment.command_prefix,
                 cwd=self.deployment.cwd,
                 deployer_command=self.deployment.deployer_command,
+                source_tree=self.deployment.source_tree,
                 diagnostics=self.diagnostics,
             )
 

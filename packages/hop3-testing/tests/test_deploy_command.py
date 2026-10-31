@@ -11,6 +11,7 @@ back to PyPI).
 
 from __future__ import annotations
 
+from pathlib import Path
 from types import SimpleNamespace
 
 from hop3_testing.targets import helpers
@@ -126,3 +127,9 @@ def test_command_prefix_and_cwd_forwarded(monkeypatch):
     assert ok is True
     assert captured["cmd"][:3] == ["uv", "run", "hop3-deploy-server"]
     assert str(captured["cwd"]) == "/tmp/repo"
+
+
+def test_a_release_tree_reaches_the_deployer_as_source_tree():
+    cmd = _cmd(docker=True, source_tree=Path("/tmp/wt/0.7.5"))
+    assert cmd[cmd.index("--source-tree") + 1] == "/tmp/wt/0.7.5"
+    assert "--source-tree" not in _cmd(docker=True)
