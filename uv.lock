@@ -1601,7 +1601,7 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "hop3-workspace"
-version = "0.8.0"
+version = "0.8.1"
 source = { virtual = "." }
 dependencies = [
     { name = "hop3-cli" },
