@@ -195,6 +195,14 @@ COPY packages/hop3-server/src /opt/hop3-server/src
 RUN rm -rf /opt/hop3-server/src/hop3/__pycache__ && \
     chown -R hop3:hop3 /opt/hop3-server/src
 
+# hop3-cli: an install puts the `hop3` client in hop3's venv (the installer's
+# install_cli_package), so a test can run it on the server, against the
+# server's own admin domain.
+COPY packages/hop3-cli/pyproject.toml packages/hop3-cli/README.md /opt/hop3-cli/
+COPY packages/hop3-cli/src /opt/hop3-cli/src
+RUN chown -R hop3:hop3 /opt/hop3-cli && \
+    su - hop3 -c "~/venv/bin/pip install --no-cache-dir /opt/hop3-cli"
+
 # hop3-rootd: privileged-operations daemon (nginx reloads, etc.). The deploy
 # path reloads nginx through it -- proxy setup aborts if its socket is absent.
 # It runs as root, so as on a real server it lives in a venv root owns

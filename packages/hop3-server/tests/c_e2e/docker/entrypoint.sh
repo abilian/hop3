@@ -31,7 +31,6 @@ mkdir -p /var/run/postgresql && chown postgres:postgres /var/run/postgresql
 # route to hop3-server on whichever proxy runs, as the installer sets one up
 # for nginx on a real server.
 ADMIN_DOMAIN="${HOP3_E2E_ADMIN_DOMAIN:-}"
-ADMIN_ENV=""
 if [ -n "$ADMIN_DOMAIN" ]; then
     mkdir -p /home/hop3/admin-tls
     openssl req -x509 -newkey rsa:2048 -nodes -days 2 -subj "/CN=$ADMIN_DOMAIN" \
@@ -39,7 +38,12 @@ if [ -n "$ADMIN_DOMAIN" ]; then
         -keyout /home/hop3/admin-tls/admin.key \
         -out /home/hop3/admin-tls/admin.crt 2>/dev/null
     chown -R hop3:hop3 /home/hop3/admin-tls
-    ADMIN_ENV=",ADMIN_DOMAIN=\"$ADMIN_DOMAIN\""
+    # In hop3-server.toml, as an install records it: every hop3-server process
+    # reads it there, not only the one supervisor starts (`admin:server-url`,
+    # run over SSH, is how `hop3 login` learns the server's HTTPS address).
+    # First line: a key appended after a [table] would land in it.
+    runuser -u hop3 -- sed -i "1i ADMIN_DOMAIN = \"$ADMIN_DOMAIN\"" \
+        /home/hop3/hop3-server.toml
 fi
 
 cat > /etc/supervisor/supervisord.conf <<EOF
@@ -96,7 +100,7 @@ directory=/home/hop3
 user=hop3
 autostart=true
 autorestart=true
-environment=HOME="/home/hop3",HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production",HOP3_UNSAFE="true",HOP3_UNSAFE_ACK="yes-I-understand",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_PROXY_TYPE="$PROXY_TYPE"$ADMIN_ENV
+environment=HOME="/home/hop3",HOP3_SECRET_KEY="e2e-test-secret-key-do-not-use-in-production",HOP3_UNSAFE="true",HOP3_UNSAFE_ACK="yes-I-understand",HOP3_DB_URL="sqlite:////home/hop3/hop3.db",ACME_ENGINE="self-signed",HOP3_PROXY_TYPE="$PROXY_TYPE"
 stdout_logfile=/var/log/supervisor/hop3-server.log
 stderr_logfile=/var/log/supervisor/hop3-server_err.log
 

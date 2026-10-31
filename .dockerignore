@@ -10,4 +10,7 @@
 !packages/hop3-rootd/README.md
 !packages/hop3-rootd/pyproject.toml
 !packages/hop3-rootd/src
+!packages/hop3-cli/README.md
+!packages/hop3-cli/pyproject.toml
+!packages/hop3-cli/src
 **/__pycache__
