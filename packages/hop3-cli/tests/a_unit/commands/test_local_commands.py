@@ -303,6 +303,27 @@ class TestVerifyHttpsConnection:
         assert exc.value.code == ExitCode.AUTH_ERROR
         assert "Refusing to log in" in capsys.readouterr().err
 
+    def test_a_pinned_cert_is_what_the_login_trusts(self, monkeypatch, tmp_path):
+        """The refusal says to pin a certificate; the retry must use it."""
+        seen: list[object] = []
+
+        def get(url: str, **kwargs: Any) -> requests.Response:
+            seen.append(kwargs["verify"])
+            return FakeHttp(status=200)(url)
+
+        monkeypatch.setattr("requests.get", get)
+        config = Config(data={"ssl_cert": str(tmp_path / "server.crt")})
+        _verify_https_connection("https://hop3.dev", "tok", config, {})
+        assert seen == [str(tmp_path / "server.crt")]
+
+    def test_an_unreachable_url_aborts_the_login(self, monkeypatch, capsys):
+        error = requests.exceptions.ConnectionError("refused")
+        monkeypatch.setattr("requests.get", FakeHttp(error=error))
+        with pytest.raises(SystemExit) as exc:
+            _verify_https_connection("https://hop3.dev", "tok", self._config(), {})
+        assert exc.value.code == ExitCode.NETWORK_ERROR
+        assert "Nothing was saved" in capsys.readouterr().err
+
     def test_valid_cert_does_not_abort(self, monkeypatch, capsys):
         monkeypatch.setattr("requests.get", FakeHttp(status=200))
         # Must return normally (no SystemExit) for a trusted cert.

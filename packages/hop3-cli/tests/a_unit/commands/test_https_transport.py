@@ -208,3 +208,17 @@ class TestTheDashboardLinkWarns:
         captured = capsys.readouterr()
         assert "no admin domain" not in captured.err
         assert f"{PUBLIC}/auth/magic/tok" in captured.out
+
+
+def test_the_servers_address_is_probed_with_the_pinned_cert(monkeypatch):
+    """A server whose certificate the operator pinned keeps its HTTPS address."""
+    seen: list[object] = []
+
+    def get(_url: str, **kwargs: object) -> None:
+        seen.append(kwargs["verify"])
+
+    monkeypatch.setattr("requests.get", get)
+    config = Config(data={"ssl_cert": "/etc/hop3/admin.crt"})
+
+    assert login_cmd._https_unusable_because("https://admin.example", "t", config) == ""
+    assert seen == ["/etc/hop3/admin.crt"]

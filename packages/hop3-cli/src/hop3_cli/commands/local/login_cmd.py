@@ -19,6 +19,7 @@ from hop3_cli.commands.arguments import read_secret_source
 from hop3_cli.config import DEFAULT_CONTEXT_NAME, ENV_CONTEXT_NAME, Config
 from hop3_cli.core.ssh_target import is_safe_ssh_target, ssh_target_from_address
 from hop3_cli.exit_codes import ExitCode
+from hop3_cli.tls import resolve_ssl_verification
 from hop3_cli.tokens import bearer_header, extract_jwt
 from hop3_cli.ui.prompts import NoInputError, require_input_allowed
 
@@ -884,7 +885,7 @@ def _determine_save_url(
     ssh_url = _build_ssh_url(ssh_target)
     public_url, reason = server_url_and_reason(ssh_target)
     if public_url:
-        if problem := _https_unusable_because(public_url, token):
+        if problem := _https_unusable_because(public_url, token, config):
             _explain_ssh_fallback(ssh_target, f"{public_url} {problem}")
             return ssh_url, None
         if debug:
@@ -905,13 +906,14 @@ _FALLBACK_DETAIL: dict[FallbackReason, str] = {
 }
 
 
-def _https_unusable_because(api_url: str, token: str) -> str:
+def _https_unusable_because(api_url: str, token: str, config: Config) -> str:
     """``""`` when the URL answers over TLS this machine trusts, else why not.
 
     Deliberately not ``_verify_https_connection``, which aborts: there the
     operator named the URL and a broken one is their mistake to see. Here the
     *server* proposed it and a working fallback exists, so this reports and the
     caller decides. Any HTTP answer counts — a 401 still proves TLS and reach.
+    Trusted as every later call trusts it: a pinned ``ssl_cert`` included.
     """
     import requests  # ruff:ignore[import-outside-top-level]
 
@@ -920,7 +922,7 @@ def _https_unusable_because(api_url: str, token: str) -> str:
             f"{api_url.rstrip('/')}/health",
             headers={"Authorization": bearer_header(token)},
             timeout=HTTPS_PROBE_TIMEOUT,
-            verify=True,
+            verify=resolve_ssl_verification(api_url, config),
         )
     except requests.exceptions.SSLError:
         return "has a certificate this machine does not trust"
@@ -1071,7 +1073,7 @@ def _verify_https_connection(
     debug: bool = False,
 ) -> None:
     """
-    Verify HTTPS connection works with the system CA bundle.
+    Verify the HTTPS connection works, trusted as the RPC client trusts it.
 
     Aborts the login (exit AUTH_ERROR) when the certificate is untrusted, so
     we never persist an https config that would fail on every later call.
@@ -1096,7 +1098,9 @@ def _verify_https_connection(
             f"{api_url.rstrip('/')}/health",
             headers={"Authorization": bearer_header(token)},
             timeout=HTTPS_PROBE_TIMEOUT,
-            verify=True,  # Use system CA bundle
+            # As every later call verifies it: a pinned ssl_cert, or the system
+            # CA bundle. The refusal below tells the operator to pin one.
+            verify=resolve_ssl_verification(api_url, config),
         )
         if response.ok:
             print("HTTPS connection verified ✓")
@@ -1132,9 +1136,14 @@ def _verify_https_connection(
         sys.exit(ExitCode.AUTH_ERROR)
 
     except requests.exceptions.RequestException as e:
-        if debug:
-            print(f"[debug] Connection error: {e}")
-        print(f"Warning: Could not verify connection to {api_url}")
+        # The operator named this URL: one this machine cannot reach is not
+        # recorded as where every command goes.
+        print(
+            f"\nCan't reach {api_url}: {e}\nNothing was saved. Check the URL, or "
+            "leave out --url to let the server name its own address.",
+            file=sys.stderr,
+        )
+        sys.exit(ExitCode.NETWORK_ERROR)
 
 
 def _extract_host(url: str) -> str:

@@ -29,7 +29,8 @@ from hop3_cli.core.suggest import (
 )
 from hop3_cli.exceptions import DeploymentError
 from hop3_cli.exit_codes import HTTP_PAYLOAD_TOO_LARGE, ExitCode, exit_code_for
-from hop3_cli.rpc.client import RPC_PROTOCOL_VERSION, resolve_ssl_verification
+from hop3_cli.rpc.client import RPC_PROTOCOL_VERSION
+from hop3_cli.tls import resolve_ssl_verification
 from hop3_cli.ui.console import err
 
 if TYPE_CHECKING:

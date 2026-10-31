@@ -15,7 +15,7 @@ reported on a running deploy) and passing a *string* ``"false"`` to requests
 from __future__ import annotations
 
 from hop3_cli.config import Config
-from hop3_cli.rpc.client import resolve_ssl_verification
+from hop3_cli.tls import resolve_ssl_verification
 
 
 def test_http_url_needs_no_verification():
