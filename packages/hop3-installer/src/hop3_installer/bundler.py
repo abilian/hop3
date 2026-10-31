@@ -364,10 +364,11 @@ def _collect_import_statements(source: str) -> set[str]:
         elif isinstance(node, ast.ImportFrom):
             if node.level or node.module in {None, "__future__"}:
                 continue
-            names = ", ".join(
-                a.name + (f" as {a.asname}" if a.asname else "") for a in node.names
-            )
-            statements.add(f"from {node.module} import {names}")
+            # One statement per name: two modules importing overlapping names
+            # from one module then dedupe, instead of redefining each other.
+            for alias in node.names:
+                suffix = f" as {alias.asname}" if alias.asname else ""
+                statements.add(f"from {node.module} import {alias.name}{suffix}")
     return statements
 
 

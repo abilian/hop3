@@ -176,19 +176,29 @@ class TestBundleExecution:
         ``pre_stage_email``) but left out of the bundler's ``*_MODULES`` list
         becomes an *undefined name* — a runtime ``NameError`` that ``py_compile``
         and ``ast.parse`` both pass. Ruff's F821 is the guard that catches it.
+        F811 and F401 catch the hoisting going wrong: overlapping imports from
+        two modules redefining each other, and an import that only meant
+        something where it stood (``import venv`` as an availability check).
         """
         for kind in ("cli", "server"):
             script = tmp_path / f"install-{kind}.py"
             script.write_text(bundle_installer(kind))
             result = subprocess.run(
-                ["ruff", "check", "--select", "F821", "--no-cache", str(script)],
+                [
+                    "ruff",
+                    "check",
+                    "--select",
+                    "F821,F811,F401",
+                    "--no-cache",
+                    str(script),
+                ],
                 capture_output=True,
                 text=True,
                 check=False,
             )
             assert result.returncode == 0, (
-                f"{kind} bundle has undefined names — is a module missing from "
-                f"the bundler's *_MODULES list?\n{result.stdout}"
+                f"{kind} bundle has undefined, redefined or unused names — is a "
+                f"module missing from the bundler's *_MODULES list?\n{result.stdout}"
             )
 
 

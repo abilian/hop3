@@ -4,6 +4,7 @@
 
 from __future__ import annotations
 
+import importlib.util
 import sys
 
 from hop3_installer.common import (
@@ -19,13 +20,14 @@ from .config import CLIInstallerConfig
 
 
 def check_venv() -> bool:
-    """Check if venv module is available."""
-    try:
-        import venv  # ruff:ignore[unused-import, import-outside-top-level]
+    """
+    Check that ``python -m venv`` can work: ``venv``, and the ``ensurepip`` it needs.
 
-        return True
-    except ImportError:
-        return False
+    Debian ships ``venv`` without ``ensurepip`` until python3-venv is installed.
+    Looked up, not imported: the bundler hoists every import to the top of the
+    single file, which made an ``import venv`` here always succeed.
+    """
+    return all(importlib.util.find_spec(m) for m in ("venv", "ensurepip"))
 
 
 def check_git() -> bool:

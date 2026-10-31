@@ -20,6 +20,7 @@ from hop3_installer.bundler import (
     is_stdlib_module,
     validate_bundle,
 )
+from hop3_installer.cli_installer import checks
 from hop3_installer.common import MIN_PYTHON
 
 # =============================================================================
@@ -33,8 +34,20 @@ class TestImportSymbolPreservation:
     def test_collect_preserves_from_import_symbols(self):
         src = "from typing import TypedDict, overload\nimport os\n"
         stmts = _collect_import_statements(src)
-        assert "from typing import TypedDict, overload" in stmts
+        assert {"from typing import TypedDict", "from typing import overload"} <= stmts
         assert "import os" in stmts
+
+    def test_overlapping_imports_from_two_modules_are_emitted_once(self):
+        # Joined statements left `from dataclasses import dataclass` beside
+        # `from dataclasses import dataclass, field` (F811 in the bundle).
+        stmts = _collect_import_statements("from dataclasses import dataclass\n")
+        stmts |= _collect_import_statements(
+            "from dataclasses import dataclass, field\n"
+        )
+        assert stmts == {
+            "from dataclasses import dataclass",
+            "from dataclasses import field",
+        }
 
     def test_collect_skips_relative_and_future(self):
         src = "from __future__ import annotations\nfrom .common import X\n"
@@ -302,3 +315,13 @@ def test_the_package_supports_the_bundles_minimum_python():
     pyproject = Path(__file__).parents[2] / "pyproject.toml"
     floor = tomllib.loads(pyproject.read_text())["project"]["requires-python"]
     assert floor == ">={}.{}".format(*MIN_PYTHON)
+
+
+def test_check_venv_needs_ensurepip_too(monkeypatch):
+    """Debian ships venv without ensurepip until python3-venv is installed."""
+    monkeypatch.setattr(
+        checks.importlib.util,
+        "find_spec",
+        lambda name: None if name == "ensurepip" else object(),
+    )
+    assert checks.check_venv() is False
