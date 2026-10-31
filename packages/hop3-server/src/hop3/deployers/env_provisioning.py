@@ -19,9 +19,10 @@ import string
 import uuid
 from typing import TYPE_CHECKING, Any
 
-from hop3.commands._helpers import parse_hostname_string, unset_env_var
+from hop3.commands._helpers import unset_env_var
 from hop3.config import config
 from hop3.core.credentials import get_credential_encryptor
+from hop3.core.identifiers import parse_hostname_string
 from hop3.lib import log
 from hop3.lib.logging import server_log
 from hop3.orm import AddonCredentialRepository, EnvVar

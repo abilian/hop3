@@ -142,6 +142,9 @@ class LanguageToolchain(Protocol):
     """
 
     name: str
+    #: When another toolchain also accepts the project, that one serves it and
+    #: this one only contributes its build.
+    defers_runtime: ClassVar[bool]
     context: BuildContext
 
     def __init__(self, context: BuildContext) -> None:
@@ -436,10 +439,6 @@ class BaseProxy(ABC):
         """
         return load_proxy_settings(self.app_path)
 
-    def get_proxy_name(self) -> str:
-        """The proxy name (e.g., 'nginx'), prefix of its environment variables."""
-        return self.name
-
     @property
     def has_web_worker(self) -> bool:
         """Whether a worker answers HTTP on the app's port."""
@@ -457,7 +456,7 @@ class BaseProxy(ABC):
         A value that is not one aborts: replacing it with the default would
         serve a cache policy nobody configured.
         """
-        variable = f"{self.get_proxy_name().upper()}_{key}"
+        variable = f"{self.name.upper()}_{key}"
         raw = self.env.get(variable, default)
         try:
             value = int(raw)
@@ -478,7 +477,7 @@ class BaseProxy(ABC):
         malformed prefix aborts: dropping it would cache a set of paths nobody
         configured, and the value is spliced into a location regex.
         """
-        variable = f"{self.get_proxy_name().upper()}_CACHE_PREFIXES"
+        variable = f"{self.name.upper()}_CACHE_PREFIXES"
         raw = self.env.get(variable, "")
         if not raw:
             return ""
@@ -542,7 +541,7 @@ class BaseProxy(ABC):
 
     def refuse_unsupported(self) -> None:
         """Abort, before writing any config, on an app this proxy would serve wrong."""
-        proxy = self.get_proxy_name()
+        proxy = self.name
         protocol = load_backend_protocol(self.app_path)
         if protocol not in self.backend_protocols:
             self._refuse(
@@ -602,7 +601,7 @@ class BaseProxy(ABC):
     def _refuse(self, reason: str, hint: str) -> NoReturn:
         abort_with_diagnosis(
             Diagnosis(
-                component=self.get_proxy_name().capitalize(),
+                component=self.name.capitalize(),
                 action=f"route '{self.app_name}'",
                 reason=reason,
                 hint=hint,
@@ -670,7 +669,7 @@ class BaseProxy(ABC):
         Returns:
             list of tuples: Each tuple contains a URL prefix and Path object.
         """
-        proxy_name = self.get_proxy_name().upper()
+        proxy_name = self.name.upper()
         static_paths = self.env.get(f"{proxy_name}_STATIC_PATHS", "")
 
         # Prepend static worker path if present

@@ -65,6 +65,8 @@ class Command:
     # front of a reviewer.
     min_role: ClassVar[Role] = Role.ADMIN
     pass_username: ClassVar[bool] = False
+    # The request's whole token (jti, exp), for commands that act on it.
+    pass_token_info: ClassVar[bool] = False
     # Throttle this command per client IP before dispatch. Required on any
     # command that both skips authentication and verifies a credential —
     # otherwise it is an unmetered password oracle, and the rate limit on the

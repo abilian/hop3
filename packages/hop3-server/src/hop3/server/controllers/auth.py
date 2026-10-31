@@ -7,6 +7,7 @@
 from __future__ import annotations
 
 from datetime import datetime, timezone
+from enum import StrEnum
 from urllib.parse import urlencode
 
 import anyio
@@ -57,33 +58,45 @@ INSECURE_TRANSPORT_ERROR = (
 )
 
 
+class LoginError(StrEnum):
+    """The codes the login page shows an error for, as they travel in the URL."""
+
+    INSECURE_TRANSPORT = "insecure_transport"
+    RATE_LIMITED = "rate_limited"
+    MISSING_CREDENTIALS = "missing_credentials"
+    INVALID_CREDENTIALS = "invalid_credentials"
+    MAGIC_LINK_INVALID = "magic_link_invalid"
+    MAGIC_LINK_MALFORMED = "magic_link_malformed"
+    MAGIC_LINK_UNKNOWN_USER = "magic_link_unknown_user"
+    MAGIC_LINK_DISABLED = "magic_link_disabled"
+
+
 # What the login page may say, by code. The page shows only these: an `?error=`
 # carrying free text let any link print its own words on the sign-in page.
-LOGIN_ERRORS = {
-    "insecure_transport": INSECURE_TRANSPORT_ERROR,
-    "rate_limited": "Too many login attempts. Try again in {retry}.",
-    "missing_credentials": "Please enter both username and password",
-    "invalid_credentials": "Invalid username or password",
-    "magic_link_invalid": "Invalid or expired magic link. Please generate a new one.",
-    "magic_link_malformed": "Invalid magic link token.",
-    "magic_link_unknown_user": "User not found.",
-    "magic_link_disabled": "User account is disabled.",
+LOGIN_ERRORS: dict[LoginError, str] = {
+    LoginError.INSECURE_TRANSPORT: INSECURE_TRANSPORT_ERROR,
+    LoginError.RATE_LIMITED: "Too many login attempts. Try again in {retry}.",
+    LoginError.MISSING_CREDENTIALS: "Please enter both username and password",
+    LoginError.INVALID_CREDENTIALS: "Invalid username or password",
+    LoginError.MAGIC_LINK_INVALID: (
+        "Invalid or expired magic link. Please generate a new one."
+    ),
+    LoginError.MAGIC_LINK_MALFORMED: "Invalid magic link token.",
+    LoginError.MAGIC_LINK_UNKNOWN_USER: "User not found.",
+    LoginError.MAGIC_LINK_DISABLED: "User account is disabled.",
 }
 
 
 def login_page_url(
-    error: str,
+    error: LoginError,
     username: str = "",
     next_url: str = "",
     state: str = "",
     retry: int = 0,
 ) -> str:
     """The login page again, with an error code, keeping what the user typed."""
-    if error not in LOGIN_ERRORS:
-        msg = f"Unknown login error code {error!r}; add it to LOGIN_ERRORS"
-        raise ValueError(msg)
     params = {
-        "error": error,
+        "error": error.value,
         "username": username,
         "next": next_url,
         "state": state,
@@ -94,9 +107,10 @@ def login_page_url(
 
 def login_error_message(code: str | None, retry: str | None) -> str | None:
     """The message for a login error code; None for no code or an unknown one."""
-    message = LOGIN_ERRORS.get(code or "")
-    if message is None:
+    # The code comes from the query string: only a known one is shown.
+    if code is None or code not in LoginError:
         return None
+    message = LOGIN_ERRORS[LoginError(code)]
     seconds = int(retry) if retry and retry.isdigit() else 0
     return message.format(retry=f"{seconds}s" if seconds else "a moment")
 
@@ -164,13 +178,15 @@ class AuthController(Controller):
         twin, and these two are twins.
         """
         if cookie_would_be_dropped(request):
-            return Redirect(path=login_page_url("insecure_transport"))
+            return Redirect(path=login_page_url(LoginError.INSECURE_TRANSPORT))
 
         try:
             AUTH_RATE_LIMITER.check(client_ip(request))
         except RateLimitError as e:
             return Redirect(
-                path=login_page_url("rate_limited", retry=int(e.retry_after) + 1)
+                path=login_page_url(
+                    LoginError.RATE_LIMITED, retry=int(e.retry_after) + 1
+                )
             )
         return None
 
@@ -257,7 +273,9 @@ class AuthController(Controller):
     ) -> Redirect:
         if not username or not password:
             return Redirect(
-                path=login_page_url("missing_credentials", username, next_url, state)
+                path=login_page_url(
+                    LoginError.MISSING_CREDENTIALS, username, next_url, state
+                )
             )
 
         user = user_repo.get_by_username(username)
@@ -269,7 +287,9 @@ class AuthController(Controller):
         # round on the paths that skip the real one. `hop3 auth login`
         # (commands/auth.py) does the same; keep in step.
         invalid = Redirect(
-            path=login_page_url("invalid_credentials", username, next_url, state)
+            path=login_page_url(
+                LoginError.INVALID_CREDENTIALS, username, next_url, state
+            )
         )
         if not user:
             burn_password_check(password)
@@ -402,20 +422,20 @@ class AuthController(Controller):
         # Validate the magic token (also marks it as used)
         token_info = validate_magic_token(token)
         if not token_info:
-            return Redirect(path=login_page_url("magic_link_invalid"))
+            return Redirect(path=login_page_url(LoginError.MAGIC_LINK_INVALID))
 
         username = token_info.get("username")
         if not username:
-            return Redirect(path=login_page_url("magic_link_malformed"))
+            return Redirect(path=login_page_url(LoginError.MAGIC_LINK_MALFORMED))
 
         user = user_repo.get_by_username(username)
         # Both branches leave the link spent, by decision (F6, 2026-08-02):
         # neither condition is one the holder can fix inside the token's
         # 5-minute life, and a token presented once must not be replayable.
         if not user:
-            return Redirect(path=login_page_url("magic_link_unknown_user"))
+            return Redirect(path=login_page_url(LoginError.MAGIC_LINK_UNKNOWN_USER))
         if not user.active:
-            return Redirect(path=login_page_url("magic_link_disabled"))
+            return Redirect(path=login_page_url(LoginError.MAGIC_LINK_DISABLED))
 
         _record_login(user_repo, user)
         # Issue the signed auth cookie (stateless — survives restarts).

@@ -581,7 +581,7 @@ Configure the proxy for this application.
 
 #### `name: ClassVar[str]`
 
-The proxy's name, lowercase: `"nginx"`, `"caddy"`, `"traefik"`. Hop3 selects a proxy by an exact match on it, and it is the prefix of the proxy's environment variables (`NGINX_*`). The base class's `get_proxy_name()` returns it; don't override that method.
+The proxy's name, lowercase: `"nginx"`, `"caddy"`, `"traefik"`. Hop3 selects a proxy by an exact match on it, and it is the prefix of the proxy's environment variables (`NGINX_*`).
 
 **Example**:
 ```python

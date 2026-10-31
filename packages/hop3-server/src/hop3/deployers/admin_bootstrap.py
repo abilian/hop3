@@ -24,9 +24,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from hop3.commands._helpers import parse_hostname_string
 from hop3.config import config
 from hop3.core.credentials import get_credential_encryptor
+from hop3.core.identifiers import parse_hostname_string
 from hop3.lib import log
 from hop3.orm import AppAdminCredential, AppAdminCredentialRepository
 

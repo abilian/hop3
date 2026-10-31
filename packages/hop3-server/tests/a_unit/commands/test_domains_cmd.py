@@ -10,7 +10,7 @@ from typing import TYPE_CHECKING
 
 import pytest
 
-from hop3.commands._helpers import find_hostname_conflict, parse_hostname_string
+from hop3.commands._helpers import find_hostname_conflict
 from hop3.commands.domains import (
     AddCmd,
     ClearCmd,
@@ -18,6 +18,7 @@ from hop3.commands.domains import (
     RemoveCmd,
     SetCmd,
 )
+from hop3.core.identifiers import parse_hostname_string
 from hop3.orm import App, AppRepository, EnvVar
 
 if TYPE_CHECKING:

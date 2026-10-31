@@ -13,6 +13,7 @@ from typing import TYPE_CHECKING, ClassVar
 from hop3.core.roles import Role
 from hop3.lib.registry import register
 from hop3.orm import AppRepository
+from hop3.orm.app import DOCKER_COMPOSE_RUNTIME
 from hop3.project.procfile import parse_procfile
 
 from ._base import Command
@@ -34,7 +35,7 @@ def _get_instance_count(app: App) -> int | str:
     Returns:
         Instance count, or "-" if not applicable/unknown
     """
-    if app.runtime == "docker-compose":
+    if app.runtime == DOCKER_COMPOSE_RUNTIME:
         return _get_docker_container_count(app)
     return _get_uwsgi_worker_count(app)
 

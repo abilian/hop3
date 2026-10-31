@@ -20,6 +20,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import ClassVar
 
 import pytest
 
@@ -39,12 +40,11 @@ class RefusedError(Exception):
 class StubProxy(BaseProxy):
     """A proxy whose only real behaviour is writing and judging its config."""
 
+    name: ClassVar[str] = "stub"
+
     path: Path = field(default_factory=Path)
     content: str = GOOD
     fails_at: str = ""
-
-    def get_proxy_name(self) -> str:
-        return "stub"
 
     @property
     def conf_path(self) -> Path:

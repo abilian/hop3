@@ -330,7 +330,7 @@ def _combine_artifacts(
     entries and before-run commands, the serving toolchain winning a conflict.
     """
     serving = next(
-        (a for cls, a in built if not getattr(cls, "defers_runtime", False)),
+        (a for cls, a in built if not cls.defers_runtime),
         built[0][1],
     )
     others = [a for _, a in built if a is not serving]

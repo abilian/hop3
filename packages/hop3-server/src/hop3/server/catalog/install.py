@@ -23,11 +23,12 @@ from typing import TYPE_CHECKING
 
 import tomllib
 
-from hop3.commands._helpers import find_hostname_conflict, parse_hostname_string
+from hop3.commands._helpers import find_hostname_conflict
 from hop3.config import config
 from hop3.core.identifiers import (
     InvalidIdentifierError,
     app_name_errors,
+    parse_hostname_string,
     validate_hostname,
 )
 from hop3.deployers import make_way_for_new_source

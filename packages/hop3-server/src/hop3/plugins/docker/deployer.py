@@ -37,7 +37,7 @@ from hop3.lib import (
     log,
 )
 from hop3.lib.logging import server_log
-from hop3.orm.app import AppStateEnum
+from hop3.orm.app import DOCKER_COMPOSE_RUNTIME, AppStateEnum
 
 if TYPE_CHECKING:
     from pathlib import Path
@@ -83,7 +83,7 @@ class DockerComposeDeployer:
 
     context: DeploymentContext
     artifact: BuildArtifact
-    name: str = "docker-compose"
+    name: str = DOCKER_COMPOSE_RUNTIME
 
     @property
     def source_path(self) -> Path:

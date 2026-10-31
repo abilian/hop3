@@ -163,7 +163,7 @@ def register_command(
     name or alias from the earlier one, depending on import order.
     """
     # ADR 036 D1/D18: names and aliases are tuples of tokens.
-    for key in (cmd.name, *getattr(cmd, "aliases", [])):
+    for key in (cmd.name, *cmd.aliases):
         taken = table.get(key)
         if taken is not None and taken is not cmd:
             msg = (
@@ -196,7 +196,7 @@ def _build_command_table() -> dict[tuple[str, ...], type[Command]]:
     forces plugin loading, so this works regardless of import order.
     """
     contributed = get_plugin_manager().hook.cli_commands()
-    plugin_commands = [cmd for group in contributed for cmd in group or []]
+    plugin_commands = [cmd for group in contributed for cmd in group]
     return build_command_table([*lookup(Command), *plugin_commands])
 
 
@@ -274,7 +274,7 @@ def requires_authentication(command_class: type[Command]) -> bool:
     Returns:
         True if authentication is required, False otherwise
     """
-    return getattr(command_class, "requires_auth", True)
+    return command_class.requires_auth
 
 
 def is_rate_limited(command_class: type[Command]) -> bool:
@@ -289,7 +289,7 @@ def is_rate_limited(command_class: type[Command]) -> bool:
     Returns:
         True if the command is rate limited, False otherwise
     """
-    return getattr(command_class, "rate_limited", False)
+    return command_class.rate_limited
 
 
 def command_needs_username(command_class: type[Command]) -> bool:
@@ -304,7 +304,7 @@ def command_needs_username(command_class: type[Command]) -> bool:
     Returns:
         True if the command needs the username, False otherwise
     """
-    return getattr(command_class, "pass_username", False)
+    return command_class.pass_username
 
 
 def command_needs_token_info(command_class: type[Command]) -> bool:
@@ -319,7 +319,7 @@ def command_needs_token_info(command_class: type[Command]) -> bool:
     Returns:
         True if the command needs token info (jti, exp), False otherwise
     """
-    return getattr(command_class, "pass_token_info", False)
+    return command_class.pass_token_info
 
 
 def _injected_args(command_class: type, db_session: Session, display_name: str) -> dict:

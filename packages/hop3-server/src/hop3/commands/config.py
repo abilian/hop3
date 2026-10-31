@@ -17,6 +17,7 @@ from hop3.core.roles import Role
 from hop3.deployers.addon_provisioning import addon_var_names
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
+from hop3.orm.app import DOCKER_COMPOSE_RUNTIME
 from hop3.project.procfile import Procfile
 
 from ._base import Command, NamespaceCommand
@@ -254,7 +255,7 @@ class LiveCmd(Command):
         # can't: returning stored DB values mislabeled as "live" is exactly the
         # silent fallback this command exists to avoid. Use 'config show' for
         # the configured values.
-        if app.runtime == "docker-compose":
+        if app.runtime == DOCKER_COMPOSE_RUNTIME:
             live_env = self._get_docker_env(app_name)
         elif app.runtime == "uwsgi":
             live_env = self._get_uwsgi_env(app)
@@ -686,5 +687,5 @@ def _apply_hint(app: App, message: str) -> dict:
     Docker app's environment is written into its compose file at deploy, and
     `docker compose restart` keeps it, so only a deploy applies the change.
     """
-    command = "deploy" if app.runtime == "docker-compose" else "app restart"
+    command = "deploy" if app.runtime == DOCKER_COMPOSE_RUNTIME else "app restart"
     return hint(command, message)

@@ -42,6 +42,11 @@ if TYPE_CHECKING:
     from .port_claim import PortClaim
 
 
+#: ``App.runtime`` of an app the Docker Compose deployer runs (that deployer's
+#: ``name``). Defined here, not in the plugin, because the plugin imports this.
+DOCKER_COMPOSE_RUNTIME = "docker-compose"
+
+
 class AppStateEnum(Enum):
     """
     Enumeration for representing the state of an application.
@@ -512,7 +517,7 @@ class App(BigIntAuditBase):
         # STOPPED and keep holding a fixed port. Removing its files — or the DB
         # row — while it runs would strand both the process and the port. Docker
         # runtimes are torn down by _destroy_docker_compose below.
-        if self.runtime != "docker-compose":
+        if self.runtime != DOCKER_COMPOSE_RUNTIME:
             from hop3.run.reaper import (  # ruff:ignore[import-outside-top-level]
                 reap_app_processes,
             )
@@ -526,7 +531,7 @@ class App(BigIntAuditBase):
                 raise RuntimeError(msg)
 
         # First, clean up runtime resources (Docker containers, etc.)
-        if self.runtime == "docker-compose":
+        if self.runtime == DOCKER_COMPOSE_RUNTIME:
             docker_runtime.destroy_docker_compose(self)
         else:
             # Even if runtime isn't docker-compose, try to clean up any orphan
@@ -620,7 +625,7 @@ class App(BigIntAuditBase):
         self.transition_state(AppStateEnum.STARTING)
 
         try:
-            if self.runtime == "docker-compose":
+            if self.runtime == DOCKER_COMPOSE_RUNTIME:
                 docker_runtime.start_docker_compose(self)
             else:
                 # Spawn the application processes (writes config files for uWSGI emperor)
@@ -658,7 +663,7 @@ class App(BigIntAuditBase):
         if self.run_state == AppStateEnum.STOPPED:
             return
 
-        if self.runtime == "docker-compose":
+        if self.runtime == DOCKER_COMPOSE_RUNTIME:
             docker_runtime.stop_docker_compose(self)
         else:
             self._stop_uwsgi()
@@ -741,7 +746,7 @@ class App(BigIntAuditBase):
 
         # If app is running, use runtime-appropriate restart
         if self.run_state == AppStateEnum.RUNNING:
-            if self.runtime == "docker-compose":
+            if self.runtime == DOCKER_COMPOSE_RUNTIME:
                 docker_runtime.restart_docker_compose(self)
             else:
                 self._restart_uwsgi()
@@ -787,7 +792,7 @@ class App(BigIntAuditBase):
         )
 
         # For Docker Compose apps, fetch logs from Docker
-        if self.runtime == "docker-compose":
+        if self.runtime == DOCKER_COMPOSE_RUNTIME:
             return docker_runtime.get_docker_logs(self, lines, since=since)
 
         # For other runtimes, read from log files

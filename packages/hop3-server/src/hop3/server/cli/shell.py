@@ -25,6 +25,7 @@ from hop3.core.identifiers import InvalidIdentifierError, validate_app_name
 from hop3.lib.logging import server_log
 from hop3.lib.registry import register
 from hop3.orm import AppRepository, get_session_factory
+from hop3.orm.app import DOCKER_COMPOSE_RUNTIME
 from hop3.run.app_env import load_artifact, make_runtime_dirs, shell_session
 
 from ._base import Command
@@ -67,7 +68,7 @@ class AppShellExecCmd(Command):
             app = AppRepository(session=session).get_one_or_none(name=app_name)
             if app is None:
                 _refuse(f"no app named '{app_name}'.")
-            if app.runtime == "docker-compose":
+            if app.runtime == DOCKER_COMPOSE_RUNTIME:
                 _refuse(
                     f"'{app_name}' runs under docker-compose, which "
                     "`hop3 app shell` does not cover yet."

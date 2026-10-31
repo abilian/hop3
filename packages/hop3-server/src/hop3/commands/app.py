@@ -16,7 +16,7 @@ from base64 import b64decode
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, ClassVar, cast
+from typing import TYPE_CHECKING, Any, ClassVar, ParamSpec, cast
 
 from hop3.core.backup import BackupManager, UnreadableBackup
 from hop3.core.git import clone_repository
@@ -47,6 +47,7 @@ from hop3.orm import (
     BackupRepository,
     EnvVar,
 )
+from hop3.orm.app import DOCKER_COMPOSE_RUNTIME
 from hop3.project.config import AppConfig
 from hop3.server.checks.runner import run_app_check
 
@@ -991,8 +992,14 @@ class DestroyCmd(Command):
         return []
 
 
+_P = ParamSpec("_P")
+
+
 def _teardown_step(
-    label: str, step: Callable[..., list[str] | None], *args: object
+    label: str,
+    step: Callable[_P, list[str] | None],
+    *args: _P.args,
+    **kwargs: _P.kwargs,
 ) -> list[str]:
     """
     Run one destroy step; return its leftovers, never raise.
@@ -1004,7 +1011,7 @@ def _teardown_step(
     lint` rather than counting as a clean teardown.
     """
     try:
-        result = step(*args)
+        result = step(*args, **kwargs)
     except Exception as e:
         log(f"Teardown step '{label}' failed: {e}", level=1, fg="red")
         return [f"{label}: {e}"]
@@ -1146,7 +1153,7 @@ class DebugCmd(Command):
         sections.extend(self._get_status_section(app))
 
         # Section 2: Container Info (Docker only)
-        if app.runtime == "docker-compose":
+        if app.runtime == DOCKER_COMPOSE_RUNTIME:
             sections.extend(self._get_container_section(app))
 
         # Section 3: Recent Logs
@@ -1156,7 +1163,7 @@ class DebugCmd(Command):
         sections.extend(self._get_env_section(app))
 
         # Section 5: Compose File (Docker only)
-        if app.runtime == "docker-compose":
+        if app.runtime == DOCKER_COMPOSE_RUNTIME:
             sections.extend(self._get_compose_section(app))
 
         return sections

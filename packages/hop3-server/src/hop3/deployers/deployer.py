@@ -69,7 +69,7 @@ from hop3.lib import (
 )
 from hop3.lib.archives import extract_archive_to_dir
 from hop3.lib.logging import server_log
-from hop3.orm.app import AppStateEnum
+from hop3.orm.app import DOCKER_COMPOSE_RUNTIME, AppStateEnum
 from hop3.plugins.proxy._policy import ALLOW_HTTP_KEY, should_redirect_to_https
 from hop3.project.config import AppConfig
 from hop3.run.app_env import build_app_env, make_runtime_dirs
@@ -1014,7 +1014,7 @@ def _log_runtime_hints(app: App) -> None:
             f"{HopConfig.get_instance().UWSGI_ENABLED}/{app.name}_*.ini",
             level=0,
         )
-    elif app.runtime == "docker-compose":
+    elif app.runtime == DOCKER_COMPOSE_RUNTIME:
         log(
             f"  - Check Docker logs: docker compose -f "
             f"{app.src_path}/.hop3-compose.yml logs",

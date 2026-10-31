@@ -18,7 +18,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import TYPE_CHECKING, ClassVar
 
-from hop3.core.identifiers import InvalidIdentifierError, validate_hostname
+from hop3.core.identifiers import (
+    InvalidIdentifierError,
+    parse_hostname_string,
+    validate_hostname,
+)
 from hop3.core.roles import Role
 from hop3.lib.args import parse_cli_args
 from hop3.lib.registry import register
@@ -27,7 +31,6 @@ from ._base import Command, NamespaceCommand
 from ._helpers import (
     find_hostname_conflict,
     get_app,
-    parse_hostname_string,
     set_env_var,
     unset_env_var,
 )
