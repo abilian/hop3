@@ -53,10 +53,30 @@ class PeriodicService(ABC):
         log(f"{self.name} service started", level=1, fg="green")
 
     def stop(self, timeout: float = 5.0) -> None:
-        """Stop the background thread, waiting up to ``timeout`` seconds."""
+        """
+        Stop the background thread, waiting up to ``timeout`` seconds.
+
+        A thread still in its cycle after ``timeout`` is reported at error
+        level and kept, so ``is_running()`` stays true. It does not raise: the
+        server's shutdown hook stops every service in turn, and an exception
+        here would leave the others running.
+        """
         self._stop_event.set()
         if self._thread is not None:
             self._thread.join(timeout=timeout)
+            if self._thread.is_alive():
+                log(
+                    f"{self.name} service did not stop within {timeout}s:"
+                    " its cycle is still running",
+                    level=1,
+                    fg="red",
+                )
+                server_log.error(
+                    "Background service did not stop",
+                    service=self.name,
+                    timeout=timeout,
+                )
+                return
             self._thread = None
         log(f"{self.name} service stopped", level=1, fg="yellow")
 

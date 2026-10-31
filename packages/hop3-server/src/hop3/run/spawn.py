@@ -27,7 +27,6 @@ from hop3.lib import (
     get_free_port,
     log,
     log_command_stream,
-    log_diagnosis,
     shell,
 )
 from hop3.lib.logging import server_log
@@ -224,6 +223,24 @@ class AppLauncher:
         return (
             f"the app declares no worker that answers HTTP ({kinds} or static); "
             "its hostname will route to nothing"
+        )
+
+    def refuse_unrouted_host(self, host_name: str) -> None:
+        """Abort before the proxy publishes a hostname that would answer 502."""
+        if not (reason := self.unrouted_reason(host_name)):
+            return
+        abort_with_diagnosis(
+            Diagnosis(
+                component="uWSGI spawner",
+                action=f"serve '{self.app_name}' at {host_name}",
+                reason=reason,
+                hint=(
+                    "declare one in hop3.toml [run.workers] or [run].start. A "
+                    "background-only app needs no hostname: drop [domains] from "
+                    f"hop3.toml, or `hop3 env unset --app {self.app_name} "
+                    "HOST_NAME`, then redeploy"
+                ),
+            )
         )
 
     def _update_app_metadata(self, host_name: str) -> None:
@@ -778,19 +795,7 @@ class AppLauncher:
         self.verify_nix_closure_intact()
 
         host_name = self.env.get("HOST_NAME", "")
-        if reason := self.unrouted_reason(host_name):
-            log_diagnosis(
-                Diagnosis(
-                    component="uWSGI spawner",
-                    action=f"serve '{self.app_name}' at {host_name}",
-                    reason=reason,
-                    hint=(
-                        "declare one in hop3.toml [run.workers] or [run].start, "
-                        "or unset HOST_NAME for a background-only app"
-                    ),
-                ),
-                fg="yellow",
-            )
+        self.refuse_unrouted_host(host_name)
 
         self._update_app_metadata(host_name)
         self._setup_proxy(host_name)

@@ -127,3 +127,113 @@ def test_postgres_exists_does_not_answer_no_when_the_server_is_down(monkeypatch)
 
     with pytest.raises(psycopg2.OperationalError, match="connection refused"):
         PostgresAddon(addon_name="shop-db").exists()
+
+
+class _Server:
+    """A database server holding ``names`` (databases, roles, users) as state."""
+
+    def __init__(self, *names: str, refuse: str = "") -> None:
+        self.names = set(names)
+        self.refuse = refuse  # a statement prefix the server rejects
+        self.executed: list[str] = []
+        self._found = False
+
+    def connect(self, **kwargs):
+        return self
+
+    def cursor(self):
+        return self
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *exc) -> None:
+        pass
+
+    def execute(self, statement, params: tuple = ()) -> None:
+        statement = str(statement)  # psycopg2 statements are `sql.Composed`
+        self.executed.append(statement)
+        if self.refuse and statement.startswith(self.refuse):
+            raise my.mysql.connector.Error(msg="denied")
+        self._found = any(p in self.names for p in params)
+
+    def fetchone(self):
+        return (1,) if self._found else None
+
+    def set_isolation_level(self, level) -> None:
+        pass
+
+    def commit(self) -> None:
+        pass
+
+    def close(self) -> None:
+        pass
+
+
+class _Admin:
+    def get_connection_params(self, **kwargs) -> dict:
+        return {}
+
+
+@pytest.fixture
+def no_admin_config(monkeypatch):
+    monkeypatch.setattr(PostgresAddon, "_get_admin", lambda self: _Admin())
+    monkeypatch.setattr(MySQLAddon, "_get_admin", lambda self: _Admin())
+
+
+@pytest.mark.parametrize(
+    ("addon_cls", "module"),
+    [(PostgresAddon, pg.psycopg2), (MySQLAddon, my.mysql.connector)],
+)
+def test_a_user_left_by_a_half_failed_create_exists(
+    monkeypatch, no_admin_config, addon_cls, module
+):
+    """`create` makes the user first: a failure after it left one destroy skipped."""
+    server = _Server("shop_db_user")
+    monkeypatch.setattr(module, "connect", server.connect)
+
+    assert addon_cls(addon_name="shop-db").exists()
+
+
+@pytest.mark.parametrize("addon_cls", [PostgresAddon, MySQLAddon])
+def test_a_secrets_file_alone_is_an_addon(addon_cls):
+    # The autouse fixture fails any connection: the file is answer enough.
+    save_addon_secrets(addon_cls.name, "shop-db", {"password": "pw"})
+
+    assert addon_cls(addon_name="shop-db").exists()
+
+
+@pytest.mark.parametrize(
+    ("addon_cls", "module"),
+    [(PostgresAddon, pg.psycopg2), (MySQLAddon, my.mysql.connector)],
+)
+def test_nothing_left_is_no_addon(monkeypatch, no_admin_config, addon_cls, module):
+    monkeypatch.setattr(module, "connect", _Server("other_db").connect)
+
+    assert not addon_cls(addon_name="shop-db").exists()
+
+
+@pytest.mark.parametrize(
+    ("addon_cls", "module"),
+    [(PostgresAddon, pg.psycopg2), (MySQLAddon, my.mysql.connector)],
+)
+def test_destroy_drops_a_user_without_its_database(
+    monkeypatch, no_admin_config, addon_cls, module
+):
+    server = _Server("shop_db_user")
+    monkeypatch.setattr(module, "connect", server.connect)
+
+    addon_cls(addon_name="shop-db").destroy()
+
+    assert any("DROP USER IF EXISTS" in s for s in server.executed)
+
+
+def test_mysql_destroy_reports_a_user_it_could_not_drop(monkeypatch, no_admin_config):
+    save_addon_secrets("mysql", "shop-db", {"password": "pw"})
+    server = _Server(refuse="DROP USER")
+    monkeypatch.setattr(my.mysql.connector, "connect", server.connect)
+    addon = MySQLAddon(addon_name="shop-db")
+
+    with pytest.raises(RuntimeError, match="can't drop the users"):
+        addon.destroy()
+    assert addon.exists()  # the secrets are kept, so the destroy can be retried

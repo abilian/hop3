@@ -186,3 +186,38 @@ def find_identifier_clash(
         if any(a == b for a, b in zip(derive(other_name), mine, strict=True)):
             return other_name
     return None
+
+
+def refuse_identifier_clash(
+    addon_type: str,
+    addon_name: str,
+    derive: Callable[[str], tuple[str, str]],
+    *,
+    service: str,
+    user_word: str,
+    max_length: int,
+) -> None:
+    """
+    Refuse a new addon whose database or user another ``addon_type`` addon owns.
+
+    ``derive`` gives (database, user) as ``service`` stores them, ``user_word``
+    is what ``service`` calls a user ("role", "user"), and ``max_length`` is
+    where it cuts user names. Without the refusal, a second create would reset
+    the first addon's password (and, in MySQL, grant its user the second
+    database). Only a new addon (no stored secrets) is checked: refusing an
+    existing one would block every redeploy of an app whose addon already works.
+    """
+    if load_addon_secrets(addon_type, addon_name):
+        return
+    other = find_identifier_clash(addon_type, addon_name, derive)
+    if other is None:
+        return
+    db_name, db_user = derive(addon_name)
+    msg = (
+        f"addon name {addon_name!r} would give {service} the database "
+        f"{db_name!r} and {user_word} {db_user!r}, which the existing "
+        f"{addon_type} addon {other!r} already uses ('-' and '_' give the same "
+        f"identifier, and {service} keeps only the first {max_length} characters "
+        f"of a {user_word} name); choose another name."
+    )
+    raise ValueError(msg)

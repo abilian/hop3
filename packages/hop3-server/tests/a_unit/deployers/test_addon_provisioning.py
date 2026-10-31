@@ -10,14 +10,18 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import UnknownAddonTypeError
+from hop3.deployers import addon_provisioning
 from hop3.deployers.addon_provisioning import (
     _addon_failure_guidance,
+    _decrypt_credential,
     _is_db_auth_failure,
     provision_addons,
 )
 from hop3.deployers.env_provisioning import set_default_env_vars, set_env_vars
 from hop3.lib import Abort
+from hop3.orm import AddonCredential
 
 
 class TestAddonFailureClassification:
@@ -353,3 +357,37 @@ class TestProvisionAddons:
 
         # Should have called get_addon with default name: app_name-addon_type
         mock_get_addon.assert_called_with("postgres", "test-app-postgres")
+
+
+class TestDecryptCredential:
+    """An unreadable credential aborts the deploy; a bug in reading it does not hide."""
+
+    @staticmethod
+    def _credential(encrypted_data: str) -> AddonCredential:
+        return AddonCredential(
+            addon_type="postgres", addon_name="shop-db", encrypted_data=encrypted_data
+        )
+
+    def test_a_token_from_another_key_aborts(self) -> None:
+        with pytest.raises(Abort, match="cannot be decrypted"):
+            _decrypt_credential(self._credential("not-a-fernet-token"), "shop")
+
+    def test_a_token_that_is_not_json_aborts(self) -> None:
+        token = get_credential_encryptor()._fernet_v2.encrypt(b"not json")
+        credential = self._credential("v2:" + token.decode())
+
+        with pytest.raises(Abort, match="JSONDecodeError"):
+            _decrypt_credential(credential, "shop")
+
+    def test_a_programming_error_propagates(self, monkeypatch) -> None:
+        class BrokenEncryptor:
+            def decrypt(self, encrypted: str) -> dict:
+                msg = "bug"
+                raise AttributeError(msg)
+
+        monkeypatch.setattr(
+            addon_provisioning, "get_credential_encryptor", BrokenEncryptor
+        )
+
+        with pytest.raises(AttributeError, match="bug"):
+            _decrypt_credential(self._credential("v2:x"), "shop")

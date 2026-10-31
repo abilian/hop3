@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, cast
 
+from cryptography.fernet import InvalidToken
+
 from hop3.core.credentials import get_credential_encryptor
 from hop3.core.plugins import UnknownAddonTypeError, get_addon
 from hop3.deployers.env_provisioning import set_env_vars
@@ -206,7 +208,7 @@ def _decrypt_credential(credential: AddonCredential, app_name: str) -> dict[str,
     """
     try:
         return get_credential_encryptor().decrypt(credential.encrypted_data)
-    except Exception as e:
+    except (InvalidToken, ValueError) as e:  # wrong key / tampered; not JSON
         abort_with_diagnosis(
             Diagnosis(
                 component="Addon credentials",

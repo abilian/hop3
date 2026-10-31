@@ -19,7 +19,6 @@ Addon passwords are stored persistently in HOP3_ROOT/addons/mysql/
 
 from __future__ import annotations
 
-import contextlib
 import os
 import secrets
 import subprocess
@@ -35,11 +34,12 @@ from hop3 import config as c
 from hop3.core.backup import resolve_backup_file
 from hop3.core.identifiers import validate_service_name
 from hop3.plugins.addons import (
+    addon_secrets_exist,
     delete_addon_secrets,
     load_addon_secrets,
     save_addon_secrets,
 )
-from hop3.plugins.addons.secrets import find_identifier_clash
+from hop3.plugins.addons.secrets import refuse_identifier_clash
 
 from .admin import MySQLAdmin
 
@@ -169,26 +169,14 @@ class MySQLAddon:
         return None
 
     def _refuse_identifier_clash(self) -> None:
-        """
-        Refuse a new addon whose database or user another mysql addon owns.
-
-        Without it, a second create would ALTER the first addon's user to a new
-        password and GRANT it the second database. Only a new addon (no stored
-        secrets) is checked, so an existing one keeps deploying.
-        """
-        if load_addon_secrets(ADDON_TYPE, self.addon_name):
-            return
-        other = find_identifier_clash(ADDON_TYPE, self.addon_name, _derived_identifiers)
-        if other is None:
-            return
-        msg = (
-            f"addon name {self.addon_name!r} would give MySQL the database "
-            f"{self.db_name!r} and user {self.db_user!r}, which the existing "
-            f"mysql addon {other!r} already uses ('-' and '_' give the same "
-            f"identifier, and user names are cut to {MYSQL_MAX_USER} characters); "
-            f"choose another name."
+        refuse_identifier_clash(
+            ADDON_TYPE,
+            self.addon_name,
+            _derived_identifiers,
+            service="MySQL",
+            user_word="user",
+            max_length=MYSQL_MAX_USER,
         )
-        raise ValueError(msg)
 
     def create(self) -> None:
         """
@@ -295,12 +283,24 @@ class MySQLAddon:
             # Drop database
             cursor.execute(f"DROP DATABASE IF EXISTS `{self.db_name}`")
 
-            # Drop user rows for every host we created (see ensure_exists)
+            # Drop the user row of every host create() made. Each is tried; any
+            # that fails keeps the secrets, so the addon still exists and the
+            # destroy can be retried.
+            failed: list[str] = []
             for host in ADDON_USER_HOSTS:
-                with contextlib.suppress(mysql.connector.Error):
+                try:
                     cursor.execute("DROP USER IF EXISTS %s@%s", (self.db_user, host))
+                except mysql.connector.Error as err:
+                    failed.append(f"'{self.db_user}'@'{host}': {err}")
 
             connection.commit()
+            if failed:
+                msg = (
+                    f"MySQL can't drop the users of addon '{self.addon_name}': "
+                    f"{'; '.join(failed)}. Its secrets are kept; fix the cause "
+                    "and run the destroy again."
+                )
+                raise RuntimeError(msg)
 
             # Delete stored secrets
             delete_addon_secrets(ADDON_TYPE, self.addon_name)
@@ -405,15 +405,24 @@ class MySQLAddon:
         return self._exec(connection, statement)
 
     def exists(self) -> bool:
-        """Return True if this addon's database exists."""
+        """
+        True if this addon's secrets file, its database, or its user exists.
+
+        ``create`` makes the user rows before the database and writes the
+        secrets last, so a create that failed part-way leaves a user (and maybe
+        the file) that ``destroy`` must still remove. A server that cannot be
+        asked raises.
+        """
+        if addon_secrets_exist(ADDON_TYPE, self.addon_name):
+            return True
         admin = self._get_admin()
         connection = mysql.connector.connect(**admin.get_connection_params())
         try:
             cursor = connection.cursor()
             cursor.execute(
-                "SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA "
-                "WHERE SCHEMA_NAME = %s",
-                (self.db_name,),
+                "SELECT 1 FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = %s "
+                "UNION ALL SELECT 1 FROM mysql.user WHERE User = %s",
+                (self.db_name, self.db_user),
             )
             found = cursor.fetchone() is not None
             cursor.close()

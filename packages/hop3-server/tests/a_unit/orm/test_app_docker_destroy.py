@@ -29,10 +29,12 @@ from hop3.orm import App, AppStateEnum
 class FakeDocker:
     """A docker CLI holding containers, images and networks as state."""
 
-    def __init__(self, *, containers=(), images=(), networks=()) -> None:
+    def __init__(self, *, containers=(), images=(), networks=(), volumes=()) -> None:
+        # Every resource held here carries the app's Compose project label.
         self.containers = set(containers)
         self.images = set(images)
         self.networks = set(networks)
+        self.volumes = set(volumes)
         self.calls: list[list[str]] = []
         self.refuse: set[str] = set()  # subcommands that fail without effect
 
@@ -50,11 +52,17 @@ class FakeDocker:
             out = "img-id" if cmd[3] in self.images else ""
         elif sub == "rmi":
             self.images.discard(cmd[3])
+        elif cmd[1:3] == ["network", "ls"] and cmd[-1].startswith("label="):
+            out = "\n".join(sorted(self.networks))
         elif cmd[1:3] == ["network", "ls"]:
             wanted = cmd[-1].removeprefix("name=^").removesuffix("$")
             out = "net-id" if wanted in self.networks else ""
         elif cmd[1:3] == ["network", "rm"]:
-            self.networks.discard(cmd[3])
+            self.networks -= set(cmd[3:])
+        elif cmd[1:3] == ["volume", "ls"]:
+            out = "\n".join(sorted(self.volumes))
+        elif cmd[1:3] == ["volume", "rm"]:
+            self.volumes -= set(cmd[3:])
         return SimpleNamespace(returncode=0, stdout=out, stderr="")
 
 
@@ -92,6 +100,54 @@ def test_destroy_docker_compose_removes_image_network_and_containers(
     assert docker.containers == set()
     assert docker.images == set()
     assert docker.networks == set()
+
+
+def test_destroy_removes_volumes_and_non_default_networks_down_left(
+    monkeypatch, no_compose
+):
+    # `compose down --volumes` failing or timing out only logs; the safety
+    # net must still remove the app's data volumes and every project network.
+    app = _app()
+    docker = FakeDocker(
+        volumes={"bugsink-1780956657_data"},
+        networks={"bugsink-1780956657_backend"},
+    )
+    monkeypatch.setattr(docker_runtime, "run_docker", docker)
+
+    docker_runtime.destroy_docker_compose(app)
+
+    assert docker.volumes == set()
+    assert docker.networks == set()
+    filters = {c[-1] for c in docker.calls if c[1] == "volume" and c[2] == "ls"}
+    assert filters == {"label=com.docker.compose.project=bugsink-1780956657"}
+
+
+def test_destroy_names_a_surviving_volume(monkeypatch, no_compose):
+    app = _app()
+    docker = FakeDocker(volumes={"bugsink-1780956657_data"})
+
+    def rm_without_effect(cmd, timeout):
+        if cmd[1:3] == ["volume", "rm"]:
+            return SimpleNamespace(returncode=0, stdout="", stderr="")
+        return docker(cmd, timeout)
+
+    monkeypatch.setattr(docker_runtime, "run_docker", rm_without_effect)
+
+    with pytest.raises(DockerError, match="survived") as raised:
+        docker_runtime.destroy_docker_compose(app)
+    assert "bugsink-1780956657_data" in str(raised.value)
+
+
+def test_destroy_raises_when_volumes_cannot_be_listed(monkeypatch, no_compose):
+    def volume_ls_hangs(cmd, timeout):
+        if cmd[1:3] == ["volume", "ls"]:
+            raise subprocess.TimeoutExpired(cmd, timeout)
+        return FakeDocker()(cmd, timeout)
+
+    monkeypatch.setattr(docker_runtime, "run_docker", volume_ls_hangs)
+
+    with pytest.raises(DockerError, match="docker volume ls"):
+        docker_runtime.destroy_docker_compose(_app())
 
 
 def test_destroy_down_requests_image_removal(monkeypatch):

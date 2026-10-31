@@ -27,6 +27,12 @@ from hop3.server.guards import RoleGuard
 if TYPE_CHECKING:
     from collections.abc import AsyncIterator
 
+#: The most a single poll reads from one log file. A file that appears after
+#: connect, or one rotated under the stream, is otherwise read whole and sent
+#: as one SSE burst. 256 KiB is a few thousand lines, more than the page's
+#: 500-line history, and bounds what each open tab holds per file per poll.
+MAX_TAIL_BYTES = 256 * 1024
+
 
 async def _create_log_generator(log_dir: Path) -> AsyncIterator[str]:
     """
@@ -88,6 +94,8 @@ def _read_appended(
     Returns ``(worker, lines)`` pairs and the new offsets. A line still being
     written (no newline yet) is left for the next read; a file smaller than
     its offset was truncated or rotated and is read again from its start.
+    A read is capped at ``MAX_TAIL_BYTES``: a marker line says how many bytes
+    before the cap were skipped.
     """
     chunks = []
     new_offsets = {}
@@ -96,15 +104,43 @@ def _read_appended(
         size = path.stat().st_size
         if size < start:
             start = 0
-        with path.open("rb") as f:
-            f.seek(start)
-            data = f.read(size - start)
+        read_from, data = _read_tail(path, start, size)
         complete = data[: data.rfind(b"\n") + 1]
-        new_offsets[path] = start + len(complete)
+        new_offsets[path] = read_from + len(complete)
         lines = complete.decode("utf-8", errors="replace").splitlines()
+        if read_from > start:
+            lines.insert(0, _skipped_marker(read_from - start))
         if lines:
             chunks.append((path.stem, lines))
     return chunks, new_offsets
+
+
+def _read_tail(path: Path, start: int, size: int) -> tuple[int, bytes]:
+    """
+    The bytes of ``path`` from ``start`` to ``size``, at most ``MAX_TAIL_BYTES``.
+
+    Returns where the read began and what it read. When more is pending, the
+    read starts at the first line that begins in the last ``MAX_TAIL_BYTES``.
+    """
+    with path.open("rb") as f:
+        if size - start <= MAX_TAIL_BYTES:
+            f.seek(start)
+            return start, f.read(size - start)
+        # One byte before the window: a newline there means the window starts
+        # on a line boundary.
+        before = size - MAX_TAIL_BYTES - 1
+        f.seek(before)
+        data = f.read(MAX_TAIL_BYTES + 1)
+    cut = data.find(b"\n") + 1 or len(data)
+    return before + cut, data[cut:]
+
+
+def _skipped_marker(count: int) -> str:
+    """The line that stands in for ``count`` bytes the stream did not send."""
+    return (
+        f"[{count} byte(s) of log skipped: the stream sends at most the last"
+        f" {MAX_TAIL_BYTES} bytes of a file per read]"
+    )
 
 
 class LogsController(Controller):

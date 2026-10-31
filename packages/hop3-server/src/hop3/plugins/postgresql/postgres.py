@@ -38,11 +38,12 @@ from hop3.core.backup import resolve_backup_file
 from hop3.lib.logging import server_log
 from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
 from hop3.plugins.addons import (
+    addon_secrets_exist,
     delete_addon_secrets,
     load_addon_secrets,
     save_addon_secrets,
 )
-from hop3.plugins.addons.secrets import find_identifier_clash
+from hop3.plugins.addons.secrets import refuse_identifier_clash
 
 from .admin import PostgresAdmin
 
@@ -526,26 +527,14 @@ class PostgresAddon:
         return None
 
     def _refuse_identifier_clash(self) -> None:
-        """
-        Refuse a new addon whose database or role another postgres addon owns.
-
-        Only a new addon (no stored secrets) is checked: refusing an existing
-        one would block every redeploy of an app whose addon already works.
-        """
-        if load_addon_secrets(ADDON_TYPE, self.addon_name):
-            return
-        other = find_identifier_clash(ADDON_TYPE, self.addon_name, _derived_identifiers)
-        if other is None:
-            return
-        db_name, db_user = _derived_identifiers(self.addon_name)
-        msg = (
-            f"addon name {self.addon_name!r} would give PostgreSQL the database "
-            f"{db_name!r} and role {db_user!r}, which the existing postgres addon "
-            f"{other!r} already uses ('-' and '_' give the same identifier, and "
-            f"PostgreSQL keeps only the first {PG_MAX_IDENTIFIER} characters); "
-            f"choose another name."
+        refuse_identifier_clash(
+            ADDON_TYPE,
+            self.addon_name,
+            _derived_identifiers,
+            service="PostgreSQL",
+            user_word="role",
+            max_length=PG_MAX_IDENTIFIER,
         )
-        raise ValueError(msg)
 
     def create(self) -> None:
         """
@@ -740,16 +729,19 @@ class PostgresAddon:
 
     def exists(self) -> bool:
         """
-        Check if this PostgreSQL database exists.
+        True if this addon's secrets file, its database, or its role exists.
 
-        Returns:
-            True if the database exists, False otherwise.
+        ``create`` makes the role before the database and writes the secrets
+        last, so a create that failed part-way leaves a role (and maybe the
+        file) that ``destroy`` must still remove.
 
         Raises:
             psycopg2.Error: PostgreSQL could not be asked (down, refused the
                 superuser). That is not an answer: callers act on False by
                 skipping the teardown.
         """
+        if addon_secrets_exist(ADDON_TYPE, self.addon_name):
+            return True
         admin = self._get_admin()
 
         connection = None
@@ -757,8 +749,9 @@ class PostgresAddon:
             connection = psycopg2.connect(**admin.get_connection_params())
             with connection.cursor() as cursor:
                 cursor.execute(
-                    "SELECT 1 FROM pg_database WHERE datname = %s",
-                    (self.db_name,),
+                    "SELECT 1 FROM pg_database WHERE datname = %s "
+                    "UNION ALL SELECT 1 FROM pg_roles WHERE rolname = %s",
+                    (self.db_name, self.db_user),
                 )
                 return cursor.fetchone() is not None
         finally:

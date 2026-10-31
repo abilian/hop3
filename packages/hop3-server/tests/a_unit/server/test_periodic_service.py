@@ -55,3 +55,44 @@ def test_a_failed_cycle_is_logged_with_a_traceback_and_the_loop_continues(
         {"service": "flaky", "error": "rootd unreachable"},
     )
     assert not service.is_running()
+
+
+class _StuckService(PeriodicService):
+    name: ClassVar[str] = "stuck"
+
+    def __init__(self) -> None:
+        super().__init__(interval=60.0, initial_delay=0.0)
+        self.entered = threading.Event()
+        self.release = threading.Event()
+
+    def run_once(self) -> None:
+        self.entered.set()
+        self.release.wait(timeout=5.0)
+
+
+class _ErrorLog:
+    def __init__(self) -> None:
+        self.errors: list[tuple[str, dict]] = []
+
+    def error(self, message: str, **fields: object) -> None:
+        self.errors.append((message, fields))
+
+
+def test_stop_does_not_claim_a_stuck_thread_stopped(monkeypatch):
+    recorded = _ErrorLog()
+    monkeypatch.setattr(periodic_service, "server_log", recorded)
+    service = _StuckService()
+    service.start()
+    try:
+        assert service.entered.wait(timeout=2.0)
+
+        service.stop(timeout=0.05)
+
+        assert service.is_running()
+        assert recorded.errors == [
+            ("Background service did not stop", {"service": "stuck", "timeout": 0.05})
+        ]
+    finally:
+        service.release.set()
+        service.stop()
+    assert not service.is_running()

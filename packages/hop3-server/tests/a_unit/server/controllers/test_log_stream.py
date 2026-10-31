@@ -16,6 +16,7 @@ import asyncio
 
 import pytest
 
+from hop3.server.controllers.dashboard import logs
 from hop3.server.controllers.dashboard.logs import (
     _create_log_generator,
     _end_offsets,
@@ -89,3 +90,45 @@ async def test_stream_delivers_an_appended_line(tmp_path):
         )
     finally:
         await stream.aclose()
+
+
+def test_caps_a_large_new_file_at_its_tail(tmp_path, monkeypatch):
+    monkeypatch.setattr(logs, "MAX_TAIL_BYTES", 16)
+    offsets = _end_offsets(tmp_path)
+    # 36 bytes; the last 16 start on the "9\n" ending the second line.
+    (tmp_path / "web.1.log").write_text("0123456789\n" * 2 + "abcdefgh\n" + "tail\n")
+
+    chunks, new_offsets = _read_appended(tmp_path, offsets)
+
+    # The partial line opening the window is skipped with what precedes it.
+    assert chunks == [
+        (
+            "web.1",
+            [
+                logs._skipped_marker(22),
+                "abcdefgh",
+                "tail",
+            ],
+        )
+    ]
+    assert new_offsets == {tmp_path / "web.1.log": 36}
+
+
+def test_cap_keeps_a_line_that_starts_on_the_window_boundary(tmp_path, monkeypatch):
+    monkeypatch.setattr(logs, "MAX_TAIL_BYTES", 5)
+    web = tmp_path / "web.1.log"
+    web.write_text("")
+    offsets = _end_offsets(tmp_path)
+    web.write_text("old\n" * 3 + "last\n")
+
+    chunks, _ = _read_appended(tmp_path, offsets)
+
+    assert chunks == [
+        (
+            "web.1",
+            [
+                logs._skipped_marker(12),
+                "last",
+            ],
+        )
+    ]

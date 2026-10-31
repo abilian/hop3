@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 import shutil
 import subprocess
+from functools import partial
 from typing import TYPE_CHECKING, NoReturn
 
 from hop3.lib import Diagnosis, format_diagnosis, get_free_port, log
@@ -249,14 +250,16 @@ def destroy_docker_compose(app: App) -> None:
 
     # Safety nets: 'down' is best-effort (check=False, may time out). Remove
     # any container it left behind — otherwise it keeps the published host
-    # port and collides by name on the next deploy — then the network and the
-    # per-app image `down --rmi` may have missed (e.g. the compose file was
-    # already gone; base images are never tagged `hop3/...`). Every step runs,
-    # and every failure is reported: destroy must never claim a clean teardown
-    # over a leftover.
+    # port and collides by name on the next deploy — then the volumes (the
+    # app's data), the networks and the per-app image `down` may have missed
+    # (e.g. the compose file was already gone; base images are never tagged
+    # `hop3/...`). Every step runs, and every failure is reported: destroy
+    # must never claim a clean teardown over a leftover.
     failures: list[str] = []
     for step in (
         _remove_leftover_containers,
+        partial(_remove_project_resources, kind="volume"),
+        partial(_remove_project_resources, kind="network"),
         force_cleanup_docker_network,
         force_cleanup_docker_image,
     ):
@@ -289,6 +292,43 @@ def _remove_leftover_containers(app: App) -> None:
         )
 
 
+def _remove_project_resources(app: App, kind: str) -> None:
+    """
+    Remove every ``kind`` (volume or network) of the app's project, and verify it.
+
+    Selected by Compose project label, as containers are: this catches the
+    named volumes and the non-default networks a compose file declares.
+    """
+    action = f"remove its {kind}s"
+    leftover = _project_resource_ids(app, kind, action)
+    if not leftover:
+        return
+    log(
+        f"Removing {len(leftover)} leftover {kind}(s) for '{app.name}'",
+        level=2,
+        fg="yellow",
+    )
+    _docker(app, kind, "rm", *leftover, action=action)
+    still = _project_resource_ids(app, kind, action)
+    if still:
+        _fail(
+            app,
+            action,
+            f"{len(still)} {kind}(s) survived `docker {kind} rm`: {', '.join(still)}",
+        )
+
+
+def _project_resource_ids(app: App, kind: str, action: str) -> list[str]:
+    listed = _docker(
+        app, kind, "ls", "-q", "--filter", _project_label(app), action=action
+    )
+    return listed.stdout.split()
+
+
+def _project_label(app: App) -> str:
+    return f"label=com.docker.compose.project={app.name}"
+
+
 def app_container_ids(app: App, *, running_only: bool = False) -> list[str]:
     """
     IDs of this app's containers, matched by Compose project label.
@@ -305,7 +345,7 @@ def app_container_ids(app: App, *, running_only: bool = False) -> list[str]:
         "ps",
         flag,
         "--filter",
-        f"label=com.docker.compose.project={app.name}",
+        _project_label(app),
         action="list its containers",
     )
     return result.stdout.split()
