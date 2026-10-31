@@ -1152,17 +1152,17 @@ class Deployer:
         """
         Upload the hop3-cli package to /tmp/hop3-cli (sibling of server).
 
-        Returns True on success (or success-with-warning if the package dir is
-        absent — older checkouts), False only on a transfer failure.
+        Returns False when the package is missing or the transfer fails.
         """
         cli_pkg = self.config.cli_package_path
         if not cli_pkg.exists():
+            # The installer would abort at its client step, after changing the box.
             self.log(
-                f"hop3-cli package not found at {cli_pkg}; the server won't have "
-                "the `hop3` client, so on-server tutorial tests can't deploy.",
-                "warning",
+                f"hop3-cli package not found at {cli_pkg}: the server needs the "
+                "`hop3` client",
+                "error",
             )
-            return True
+            return False
         self.log(f"Uploading {cli_pkg} to /tmp/hop3-cli")
         if not self.backend.upload_dir(cli_pkg, "/tmp/hop3-cli"):
             self.log("Failed to upload hop3-cli", "error")

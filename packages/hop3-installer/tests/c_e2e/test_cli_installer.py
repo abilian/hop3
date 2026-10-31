@@ -78,8 +78,7 @@ class TestCLIInstaller:
 
         # Upload the hop3-cli package to target
         cli_package = hop3_packages_dir / "hop3-cli"
-        if not cli_package.exists():
-            pytest.skip(f"hop3-cli package not found: {cli_package}")
+        assert cli_package.exists(), f"workspace package missing: {cli_package}"
 
         remote_pkg_path = "/tmp/hop3-cli"
         assert backend.upload_dir(cli_package, remote_pkg_path), (

@@ -7,7 +7,7 @@ Each test names what was lost: a timeout reported as success, a secret rotated
 because its file was unreadable, an uninstall that printed success over failed
 steps, a private key left with the wrong mode, a transfer failure with no
 reason, a nix-daemon that never re-read its config, a missing Python replaced
-by whatever `python3` was.
+by whatever `python3` was, a server installed without its `hop3` client.
 """
 
 from __future__ import annotations
@@ -23,7 +23,15 @@ from hop3_installer.deployer.backends.docker import DockerDeployBackend
 from hop3_installer.deployer.backends.ssh import SSHDeployBackend
 from hop3_installer.deployer.config import DeployConfig
 from hop3_installer.deployer.deploy import Deployer
-from hop3_installer.server_installer import nix, rootd, s3, services, verify
+from hop3_installer.server_installer import (
+    nix,
+    python as python_step,
+    rootd,
+    s3,
+    services,
+    verify,
+)
+from hop3_installer.server_installer.config import ServerInstallerConfig
 
 
 def _ok(stdout: str = ""):
@@ -139,8 +147,8 @@ class _Backend:
         return _ok()
 
 
-def _deployer(backend) -> Deployer:
-    return Deployer(DeployConfig(), backend=backend)  # type: ignore[arg-type]
+def _deployer(backend, config: DeployConfig | None = None) -> Deployer:
+    return Deployer(config or DeployConfig(), backend=backend)  # type: ignore[arg-type]
 
 
 def test_a_private_key_left_unprotected_fails_the_deploy(capsys):
@@ -162,6 +170,33 @@ def test_no_dnf_and_no_python_is_a_failure_not_python3(capsys):
     backend = _Backend("python3 -c", "command -v")
     assert _deployer(backend)._ensure_python310_plus() is None
     assert "No Python 3.10+" in capsys.readouterr().out
+
+
+def test_a_missing_cli_package_stops_the_deploy_before_the_upload(tmp_path, capsys):
+    (tmp_path / "packages").mkdir()
+    deployer = _deployer(_Backend(), DeployConfig(project_root=tmp_path))
+    assert deployer._upload_cli_package() is False
+    assert "hop3-cli package not found" in capsys.readouterr().out
+
+
+def test_a_missing_cli_source_stops_the_install(tmp_path, monkeypatch):
+    (tmp_path / "hop3-server").mkdir()
+    ran: list[object] = []
+    monkeypatch.setattr(python_step, "run_as_hop3", lambda *a, **k: ran.append(a))
+    config = ServerInstallerConfig(local_path=str(tmp_path / "hop3-server"))
+
+    with pytest.raises(InstallStepError, match="hop3-cli source not found"):
+        python_step.install_cli_package(config)
+    assert ran == []
+
+
+def test_a_pre_release_install_takes_the_pre_release_client(monkeypatch):
+    installs: list[tuple[object, ...]] = []
+    monkeypatch.setattr(
+        python_step, "_pip_install_own", lambda *a, **_k: installs.append(a)
+    )
+    python_step.install_cli_package(ServerInstallerConfig(pre_release=True))
+    assert installs == [("/home/hop3/venv/bin/pip", "hop3-cli", "--pre")]
 
 
 # --- backends: transfers and clean ---------------------------------------------

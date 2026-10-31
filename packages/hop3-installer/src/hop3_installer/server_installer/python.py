@@ -429,20 +429,20 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
     the server and call ``hop3 deploy`` against localhost, so the ``hop3`` binary
     must be present. Installed from the same source as the server: a sibling
     local dir (``/tmp/hop3-cli`` next to ``/tmp/hop3-server``), the git
-    subdirectory, or PyPI. A missing local source is non-fatal (the server still
-    runs) but loud — on-server tutorials would have no client.
+    subdirectory, or PyPI. A missing local source aborts the install: a server
+    without its client is not what the install promised. ``hop3 login`` asks
+    the server for its HTTPS address through it.
     """
     pip = f"{VENV_DIR}/bin/pip"
 
     if config.local_path:
         cli_path = Path(config.local_path).parent / "hop3-cli"
         if not cli_path.exists():
-            print_warning(
-                f"hop3-cli source not found at {cli_path}. The server won't have "
-                "the `hop3` client; on-server tutorial tests can't deploy. Upload "
-                "it next to the server source and re-run."
+            msg = (
+                f"hop3-cli source not found at {cli_path}: the server needs the "
+                "`hop3` client. Upload it next to the server source and re-run."
             )
-            return
+            raise InstallStepError(msg)
         package_spec = str(cli_path)
         source_desc = f"local path ({cli_path})"
     elif config.use_git:
@@ -456,9 +456,15 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
     else:
         package_spec = CLI_PACKAGE_NAME
         source_desc = "PyPI (latest stable)"
+    # The server's rule (``install_package``): --pre reaches only an unpinned
+    # PyPI install, so the client lands at the server's version.
+    pre_flag: list[str] = []
+    if package_spec == CLI_PACKAGE_NAME and config.pre_release:
+        pre_flag = ["--pre"]
+        source_desc = "PyPI (latest including pre-releases)"
 
     with Spinner(f"Installing hop3-cli from {source_desc}..."):
-        _pip_install_own(pip, package_spec, run=run_as_hop3)
+        _pip_install_own(pip, package_spec, *pre_flag, run=run_as_hop3)
 
     print_success("hop3-cli installed successfully")
 
