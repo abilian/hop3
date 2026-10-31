@@ -198,6 +198,15 @@ Examples:
         "Use only if you intend to run migrations manually.",
     )
     install.add_argument(
+        "--source-tree",
+        type=Path,
+        metavar="PATH",
+        help=(
+            "Install the release checked out at PATH with that release's own "
+            "installer (a fresh install: needs --from local and --clean)"
+        ),
+    )
+    install.add_argument(
         "--clean",
         "-c",
         action="store_true",
@@ -404,6 +413,8 @@ def config_from_args(args: argparse.Namespace) -> DeployConfig:
 
     _apply_target_overrides(config, args)
     _apply_install_overrides(config, args)
+    if args.source_tree:
+        config.source_tree = config.project_root = args.source_tree.resolve()
     _apply_admin_overrides(config, args)
     _apply_output_overrides(config, args)
 

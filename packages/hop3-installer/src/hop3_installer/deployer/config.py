@@ -7,6 +7,8 @@ from __future__ import annotations
 import ipaddress
 import re
 import secrets
+import subprocess
+import sys
 from dataclasses import dataclass, field
 from pathlib import Path
 
@@ -23,6 +25,7 @@ from hop3_installer.constants import (
     DEFAULT_SSH_USER,
     DOCKER_CONTAINER_NAME,
     DOCKER_IMAGE,
+    ROOTD_BIN,
 )
 from hop3_installer.deprecation import env_bool_with_alias, env_with_alias
 from hop3_installer.nginx_templates import is_fqdn
@@ -30,6 +33,10 @@ from hop3_installer.nginx_templates import is_fqdn
 # POSIX username: lowercase start, then letters/digits/underscores/hyphens.
 # Rejects shell metacharacters, spaces, and leading hyphens.
 _USERNAME_RE = re.compile(r"^[a-z_][a-z0-9_-]*$")
+
+#: The checkout this deployer runs from. A ``--source-tree`` elsewhere holds
+#: another release, which its own installer puts on the server.
+DEPLOYER_ROOT = find_project_root(Path(__file__).parent)
 
 
 def _validate_ssh_user(username: str) -> str:
@@ -109,12 +116,15 @@ class DeployConfig:
     no_cli_setup: bool = False
 
     # Paths (auto-detected)
-    project_root: Path = field(
-        default_factory=lambda: find_project_root(Path(__file__).parent)
-    )
+    project_root: Path = field(default_factory=lambda: DEPLOYER_ROOT)
+    #: Another release's checkout (``--source-tree``), which becomes the project
+    #: root: that release's own installer puts it on a fresh box.
+    source_tree: Path | None = None
 
     def __post_init__(self) -> None:
         """Validate and set defaults after initialization."""
+        if self.source_tree is not None:
+            self.project_root = self.source_tree
         # Generate admin password if not provided
         if not self.admin_password:
             self.admin_password = secrets.token_urlsafe(16)
@@ -176,6 +186,15 @@ class DeployConfig:
         Returns the bundled installer from dist/, regenerating if source is newer.
         """
         dist_installer = self.project_root / "dist" / "install-server.py"
+        if self.installs_another_release:
+            dist_installer.parent.mkdir(parents=True, exist_ok=True)
+            dist_installer.write_text(
+                self._ask_source_tree(
+                    "from hop3_installer.bundler import bundle_installer;"
+                    "sys.stdout.write(bundle_installer('server'))"
+                )
+            )
+            return dist_installer
 
         # Check if bundle exists and is up-to-date with source files
         if dist_installer.exists():
@@ -224,6 +243,51 @@ class DeployConfig:
         source = bundle_installer("server")
         output_path.write_text(source)
         output_path.chmod(0o755)
+
+    @property
+    def installs_another_release(self) -> bool:
+        """Whether this deploy installs another release's tree (``--source-tree``)."""
+        return self.source_tree is not None
+
+    @property
+    def rootd_bin(self) -> str:
+        """Where the source tree's installer puts the hop3-rootd executable."""
+        if not self.installs_another_release:
+            return str(ROOTD_BIN)
+        return self._ask_source_tree(
+            "from hop3_installer.constants import ROOTD_BIN; print(ROOTD_BIN)"
+        ).strip()
+
+    def _ask_source_tree(self, code: str) -> str:
+        """
+        Run ``code`` against the source tree's own installer package; its stdout.
+
+        In a separate interpreter: this process has imported the deployer's own
+        ``hop3_installer``, and another release's module list, bundler and paths
+        are that release's. ``-S`` leaves out site-packages, where the editable
+        install of the deployer's own package would answer for a tree missing
+        the module; the installer is stdlib-only.
+        """
+        src = self.project_root / "packages" / "hop3-installer" / "src"
+        result = subprocess.run(
+            [
+                sys.executable,
+                "-I",
+                "-S",
+                "-c",
+                f"import sys; sys.path.insert(0, {str(src)!r}); {code}",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+        if result.returncode != 0:
+            msg = (
+                f"Deployer can't read the installer in {self.project_root}: "
+                f"{result.stderr.strip() or f'exit {result.returncode}'}"
+            )
+            raise RuntimeError(msg)
+        return result.stdout
 
     @property
     def packages_path(self) -> Path:
@@ -386,6 +450,16 @@ class DeployConfig:
 
         if not self.use_docker and not self.installer_path.exists():
             errors.append(f"Installer not found: {self.installer_path}")
+
+        if self.installs_another_release and not (
+            self.use_local_code and self.clean_before
+        ):
+            # An update runs this deployer's update steps and installer flags,
+            # which an older release's installer does not know.
+            errors.append(
+                f"--source-tree {self.project_root} installs another release: "
+                "it needs --from local and --clean (a fresh install)"
+            )
 
         if self.verbose and self.quiet:
             errors.append("Cannot use both --verbose and --quiet")

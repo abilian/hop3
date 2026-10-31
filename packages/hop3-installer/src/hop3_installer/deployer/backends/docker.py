@@ -36,6 +36,7 @@ from typing import TYPE_CHECKING
 
 from hop3_installer.common import CommandResult, ServiceStartError
 from hop3_installer.constants import ROOTD_BIN
+from hop3_installer.deployer.config import DEPLOYER_ROOT
 from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
 
 from .base import DeployBackend
@@ -183,8 +184,9 @@ class DockerDeployBackend(DeployBackend):
     def _find_dockerfile(self) -> Path | None:
         """Find the Dockerfile for building the test image."""
         # Look for Dockerfile in known locations
+        # The deployer's own image, whichever release it installs.
         possible_paths = [
-            self.config.project_root
+            DEPLOYER_ROOT
             / "packages"
             / "hop3-installer"
             / "docker"
@@ -221,7 +223,7 @@ class DockerDeployBackend(DeployBackend):
             str(self._dockerfile_path),
             "-t",
             self.TEST_IMAGE,
-            str(self.config.project_root),
+            str(DEPLOYER_ROOT),
         ]
 
         result = subprocess.run(
@@ -728,9 +730,10 @@ class DockerDeployBackend(DeployBackend):
         )
 
         # Write supervisor config
-        config_cmd = (
-            f"cat > /etc/supervisor/conf.d/hop3.conf << 'EOF'\n{SUPERVISOR_CONFIG}EOF"
-        )
+        # rootd runs from where the installed release put it: an older
+        # release (--source-tree) kept it in hop3's venv.
+        config = SUPERVISOR_CONFIG.replace(str(ROOTD_BIN), self.config.rootd_bin)
+        config_cmd = f"cat > /etc/supervisor/conf.d/hop3.conf << 'EOF'\n{config}EOF"
         result = self.run(config_cmd, check=False)
         if not result.success:
             msg = "Failed to write supervisor config"
