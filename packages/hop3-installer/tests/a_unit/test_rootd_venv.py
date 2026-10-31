@@ -107,6 +107,46 @@ def test_rootd_is_installed_by_root_into_its_own_venv(tmp_path, monkeypatch):
     assert as_root[0] == [pip, "install", "--upgrade", "pip"]
     assert [c[:2] for c in as_root[1:]] == [[pip, "install"], [pip, "install"]]
     assert as_root[-1][-1] == "hop3-rootd==0.8.1"
-    # The copy older installers put in hop3's venv is removed, as hop3.
-    assert as_hop3 == [["/home/hop3/venv/bin/pip", "uninstall", "-y", "hop3-rootd"]]
+    # The copy older installers put in hop3's venv stays: the unit still runs
+    # it until setup_rootd rewrites it (test_rootd.py).
+    assert as_hop3 == []
     assert (venv / "pip.conf").read_text() == mod.PIP_COOLDOWN_CONF
+
+
+def _link_out(tmp_path: Path, *, mode: int, directory: bool = False) -> Path:
+    """A tree whose module is a root-owned symlink to a path outside it."""
+    src = _tree(tmp_path / "upload")
+    outside = tmp_path / "elsewhere"
+    if directory:
+        outside.mkdir()
+    else:
+        outside.write_text("import os\n")
+    outside.chmod(mode)
+    module = src / "src" / "hop3_rootd" / "__init__.py"
+    module.unlink()
+    module.symlink_to(outside)
+    return src
+
+
+def test_a_symlink_to_a_file_others_can_write_is_refused(tmp_path):
+    """pip follows the link: the target is what root installs."""
+    src = _link_out(tmp_path, mode=0o666)
+    with pytest.raises(InstallStepError, match=r"__init__\.py -> .*elsewhere"):
+        mod.check_root_controlled(src, owners=ME)
+
+
+def test_a_symlink_to_a_directory_outside_the_tree_is_refused(tmp_path):
+    src = _link_out(tmp_path, mode=0o755, directory=True)
+    with pytest.raises(InstallStepError, match="not a file inside the tree"):
+        mod.check_root_controlled(src, owners=ME)
+
+
+def test_a_symlink_to_a_root_controlled_file_is_accepted(tmp_path):
+    """A venv's ``bin/python3`` leads to the system interpreter."""
+    mod.check_root_controlled(_link_out(tmp_path, mode=0o644), owners=ME)
+
+
+def test_a_symlink_inside_the_tree_is_checked_there(tmp_path):
+    src = _tree(tmp_path)
+    (src / "src" / "link").symlink_to("hop3_rootd")
+    mod.check_root_controlled(src, owners=ME)

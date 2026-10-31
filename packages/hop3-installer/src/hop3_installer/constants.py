@@ -19,6 +19,11 @@ from pathlib import Path
 GIT_REPO = "https://github.com/abilian/hop3.git"
 
 
+def git_spec(name: str, subdir: str, ref: str, extras: str = "") -> str:
+    """The pip spec of package ``name`` at ``ref`` of :data:`GIT_REPO`."""
+    return f"{name}{extras} @ git+{GIT_REPO}@{ref}#subdirectory={subdir}"
+
+
 # =============================================================================
 # User and Paths
 # =============================================================================

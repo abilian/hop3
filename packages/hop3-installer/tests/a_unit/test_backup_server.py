@@ -55,6 +55,20 @@ def test_the_server_script_ships_with_the_package():
     assert SERVER_SCRIPT.read_text().startswith("#!/bin/bash")
 
 
+def test_root_opens_nothing_of_hop3s_and_asks_rootds_own_venv():
+    """
+    Root ran sqlite on hop3's database, and asked hop3's venv for hop3-rootd,
+    which lives in /opt/hop3-rootd: versions.txt always said "not installed".
+    """
+    lines = SERVER_SCRIPT.read_text().splitlines()
+    sqlite_runs = [line for line in lines if '"$SYS_PY" -' in line]
+    assert len(sqlite_runs) == 2
+    assert all(line.lstrip().startswith("as_hop3 ") for line in sqlite_runs)
+    assert any('"$ROOTD_VENV/bin/python"' in line for line in lines)
+    assert not any("hop3_rootd" in line and "$PY" in line for line in lines)
+    assert "    $ROOTD_VENV/bin/pip install hop3-rootd==<previous>" in lines
+
+
 def test_label_is_the_version_when_given():
     assert infer_label(None, "0.7.3") == "pre-0.7.3"
     assert infer_label("weekly", "0.7.3") == "weekly"

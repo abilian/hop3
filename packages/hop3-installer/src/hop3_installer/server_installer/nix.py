@@ -35,9 +35,9 @@ from hop3_installer.common import (
     print_success,
     run_cmd,
 )
-from hop3_installer.constants import HOME_DIR, HOP3_USER
+from hop3_installer.constants import HOME_DIR
 
-from .user import READ_ABSENT_STATUS, run_as_hop3, run_as_hop3_shell
+from .user import read_as_hop3, run_as_hop3, run_as_hop3_shell, write_as_hop3
 
 # Nix official installer URL
 NIX_INSTALLER_URL = "https://nixos.org/nix/install"
@@ -321,12 +321,12 @@ def _configure_hop3_nix_access(
         control_service("restart", "nix-daemon", run=run, systemd=systemd)
     else:
         user_conf = home / ".config" / "nix" / "nix.conf"
-        user_existing = _read_as_hop3(user_conf, as_hop3_shell)
+        user_existing = read_as_hop3(user_conf, as_hop3_shell) or ""
         if (wanted := _nix_conf_change(user_conf, user_existing)) is not None:
             as_hop3_shell(
                 f"mkdir -p -- {shlex.quote(str(user_conf.parent))}", check=True
             )
-            _write_as_hop3(user_conf, wanted, as_hop3_shell)
+            write_as_hop3(user_conf, wanted, mode=0o644, shell=as_hop3_shell)
 
     # Belt-and-suspenders with min-free=0: also stop any periodic GC timer a
     # host/channel image may ship, so a scheduled `nix-collect-garbage` can't
@@ -345,28 +345,17 @@ def _configure_hop3_nix_access(
 
 def _ensure_bashrc_sources(bashrc: Path, profile_script: Path, shell: Runner) -> None:
     """Append the line sourcing ``profile_script`` to hop3's ``bashrc`` if absent."""
-    existing = _read_as_hop3(bashrc, shell)
+    existing = read_as_hop3(bashrc, shell) or ""
     if str(profile_script) in existing:
         return
     print_detail(f"Adding Nix profile ({profile_script}) to {bashrc}")
     source_line = f'[ -e "{profile_script}" ] && . "{profile_script}"'
-    _write_as_hop3(bashrc, f"{existing}\n# Nix package manager\n{source_line}\n", shell)
-
-
-def _read_as_hop3(path: Path, shell: Runner) -> str:
-    """The text of a file under hop3's home, read as hop3; ``""`` if absent."""
-    quoted = shlex.quote(str(path))
-    result = shell(f"test -e {quoted} || exit {READ_ABSENT_STATUS}; cat -- {quoted}")
-    if result.returncode == READ_ABSENT_STATUS:
-        return ""
-    if result.returncode != 0:
-        _fail(f"cannot read {path} as {HOP3_USER}: {result.stderr.strip()}")
-    return result.stdout
-
-
-def _write_as_hop3(path: Path, content: str, shell: Runner) -> None:
-    """Replace a file under hop3's home with ``content``, written as hop3."""
-    shell(f"cat > {shlex.quote(str(path))}", check=True, stdin_text=content)
+    write_as_hop3(
+        bashrc,
+        f"{existing}\n# Nix package manager\n{source_line}\n",
+        mode=0o644,
+        shell=shell,
+    )
 
 
 def _nix_conf_change(path: Path, existing: str) -> str | None:

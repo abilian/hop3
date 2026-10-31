@@ -20,7 +20,7 @@ import types
 from typing import TYPE_CHECKING
 
 import pytest
-from hop3_installer.common import ServiceStartError
+from hop3_installer.common import CommandError, ServiceStartError
 from hop3_installer.server_installer import rootd
 
 if TYPE_CHECKING:
@@ -69,13 +69,13 @@ def test_the_daemon_runs_from_the_root_owned_venv() -> None:
     assert "/home/hop3/venv/bin/hop3-rootd" not in SUPERVISOR_CONFIG
 
 
-def test_an_existing_unit_is_moved_to_the_root_owned_venv(
-    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    """
-    A server installed before 0.8.1 has a unit running the daemon from hop3's
-    venv. setup_rootd rewrites it on every run, then reloads and restarts.
-    """
+LEGACY_UNINSTALL = ["/home/hop3/venv/bin/pip", "uninstall", "-y", "hop3-rootd"]
+
+
+def _stub_host(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch, *, restart_rc: int = 0
+) -> tuple[Path, Path, list[object]]:
+    """A pre-0.8.1 host: (binary, unit, every command and check in order)."""
     binary = tmp_path / "opt" / "bin" / "hop3-rootd"
     binary.parent.mkdir(parents=True)
     binary.write_text("#!/usr/bin/env python3\n")
@@ -98,16 +98,33 @@ def test_an_existing_unit_is_moved_to_the_root_owned_venv(
         monkeypatch.setattr(rootd, name, value)
     (state).mkdir()
     (state / "state.json").write_text("{}")
-    commands: list[list[str]] = []
+    events: list[object] = []
 
     def run_cmd(cmd, **_kw):
-        commands.append(cmd)
+        events.append(cmd)
+        rc = restart_rc if cmd[:2] == ["systemctl", "restart"] else 0
+        return types.SimpleNamespace(returncode=rc, stdout="", stderr="")
+
+    def run_as_hop3(cmd, **_kw):
+        events.append(("hop3", cmd))
         return types.SimpleNamespace(returncode=0, stdout="", stderr="")
 
     monkeypatch.setattr(rootd, "run_cmd", run_cmd)
+    monkeypatch.setattr(rootd, "run_as_hop3", run_as_hop3)
     monkeypatch.setattr(rootd, "has_systemd", lambda: True)
     monkeypatch.setattr(rootd, "cmd_exists", lambda _name: False)
-    monkeypatch.setattr(rootd, "_verify_rootd_running", lambda: None)
+    monkeypatch.setattr(rootd, "_verify_rootd_running", lambda: events.append("up"))
+    return binary, unit, events
+
+
+def test_an_existing_unit_is_moved_to_the_root_owned_venv(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    A server installed before 0.8.1 has a unit running the daemon from hop3's
+    venv. setup_rootd rewrites it on every run, then reloads and restarts.
+    """
+    binary, unit, commands = _stub_host(tmp_path, monkeypatch)
 
     rootd.setup_rootd()
 
@@ -116,6 +133,51 @@ def test_an_existing_unit_is_moved_to_the_root_owned_venv(
     reload_at = commands.index(["systemctl", "daemon-reload"])
     restart = ["systemctl", "restart", "hop3-rootd.socket", "hop3-rootd.service"]
     assert reload_at < commands.index(restart)
+
+
+def test_the_old_copy_goes_only_once_the_daemon_runs_from_the_new_one(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """
+    Removing hop3's copy at the package step left a pre-0.8.1 unit pointing
+    at a deleted binary whenever a step before the rewrite failed (203/EXEC).
+    """
+    _, _, events = _stub_host(tmp_path, monkeypatch)
+
+    rootd.setup_rootd()
+
+    assert events.index(("hop3", LEGACY_UNINSTALL)) > events.index("up")
+
+
+def test_a_daemon_that_does_not_restart_keeps_the_old_copy(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    _, _, events = _stub_host(tmp_path, monkeypatch, restart_rc=1)
+
+    with pytest.raises(ServiceStartError):
+        rootd.setup_rootd()
+
+    assert ("hop3", LEGACY_UNINSTALL) not in events
+
+
+def test_a_daemon_that_cannot_write_its_state_stops_the_install(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A hand-written state.json used to stand in for a broken daemon."""
+    _stub_host(tmp_path, monkeypatch)
+    state = tmp_path / "state" / "state.json"
+    state.unlink()
+
+    def run_cmd(cmd, **_kw):
+        if "--init-state" in cmd:
+            raise CommandError(cmd=cmd, returncode=1, stderr="ImportError")
+        return types.SimpleNamespace(returncode=0, stdout="", stderr="")
+
+    monkeypatch.setattr(rootd, "run_cmd", run_cmd)
+
+    with pytest.raises(CommandError):
+        rootd.setup_rootd()
+    assert not state.exists()
 
 
 # ---- SERVICE_TEMPLATE rendering ------------------------------------------

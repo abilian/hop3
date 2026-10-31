@@ -28,7 +28,7 @@ import time
 from collections import deque
 from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any, Protocol
+from typing import TYPE_CHECKING, Any, Literal, Protocol, TypedDict
 
 from hop3_rootd.exec import DEFAULT_EXEC, Exec
 from hop3_rootd.protocol import Request
@@ -54,6 +54,19 @@ class StateConflictError(Exception):
 # --- DaemonStats: mutable runtime metrics surfaced via daemon.health ----
 
 
+#: What a subsystem's startup reconcile did.
+ReconcileStatus = Literal["ok", "skipped", "unavailable", "error"]
+
+
+class Outcome(TypedDict):
+    """One subsystem's startup-reconcile result, surfaced in ``daemon.health``."""
+
+    status: ReconcileStatus
+    detail: str
+    #: Items in state.json the subsystem services.
+    tracked: int
+
+
 #: Width of the sliding window behind ``DaemonStats.errors_last_hour``.
 ERROR_WINDOW_SECONDS = 3600.0
 
@@ -75,16 +88,15 @@ class DaemonStats:
     #: When the startup reconcile pass ran; what each subsystem actually did
     #: is in ``reconcile`` (a pass that ran is not a pass that succeeded).
     last_reconcile_at: str | None = None
-    #: Subsystem name → ``{"status", "detail", "tracked"}``; status is one of
-    #: ``ok`` / ``skipped`` / ``unavailable`` / ``error``.
-    reconcile: dict[str, dict[str, Any]] = field(default_factory=dict)
+    #: Subsystem name → what its startup reconcile did.
+    reconcile: dict[str, Outcome] = field(default_factory=dict)
     clock: Callable[[], float] = time.time
     _error_times: deque[float] = field(default_factory=deque)
 
     def mark_request(self) -> None:
         self.last_request_at = self.clock()
 
-    def mark_reconcile(self, iso: str, outcomes: dict[str, dict[str, Any]]) -> None:
+    def mark_reconcile(self, iso: str, outcomes: dict[str, Outcome]) -> None:
         self.last_reconcile_at = iso
         self.reconcile = dict(outcomes)
 
@@ -94,7 +106,7 @@ class DaemonStats:
             name
             for name, o in self.reconcile.items()
             if o["status"] == "error"
-            or (o["status"] == "unavailable" and o.get("tracked", 0) > 0)
+            or (o["status"] == "unavailable" and o["tracked"] > 0)
         )
 
     def increment_error(self) -> None:

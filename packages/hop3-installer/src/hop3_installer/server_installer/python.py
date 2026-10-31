@@ -12,11 +12,11 @@ import shutil
 import stat
 import sys
 import tempfile
-from collections.abc import Callable
 from pathlib import Path
 
 from hop3_installer.common import (
     InstallStepError,
+    Runner,
     Spinner,
     create_symlink,
     make_build_info,
@@ -29,7 +29,6 @@ from hop3_installer.constants import (
     BUILD_INFO_PATH,
     CLI_PACKAGE_NAME,
     CLI_PACKAGE_SUBDIR,
-    GIT_REPO,
     HOP3_GROUP,
     HOP3_USER,
     ROOTD_PACKAGE_NAME,
@@ -38,6 +37,7 @@ from hop3_installer.constants import (
     SERVER_PACKAGE_NAME,
     SERVER_PACKAGE_SUBDIR,
     VENV_DIR,
+    git_spec,
 )
 
 from .config import ServerInstallerConfig
@@ -99,34 +99,16 @@ def install_package(config: ServerInstallerConfig) -> None:
         run_as_hop3([pip, "install", "--upgrade", "pip"], check=True)
     write_pip_cooldown()
 
-    # Determine what to install. Values interpolated into package_spec are
-    # user-controlled; run_as_hop3 quotes every argv element at the seam.
-    pre_flag: list[str] = []
-    # Install the WAF engine by default via the hop3-server[waf] extra (ADR 050):
-    # LeWAF + uvicorn, marker-gated to py3.12+. Without it, deploying a WAF-enabled
-    # app aborts loudly ("'waf' extra not installed"), so WAF must ship out of the box.
-    if config.local_path:
-        package_spec = f"{config.local_path}[waf]"
-        source_desc = f"local path ({config.local_path})"
-    elif config.use_git:
-        package_spec = (
-            f"{SERVER_PACKAGE_NAME}[waf] @ "
-            f"git+{GIT_REPO}@{config.branch}#subdirectory={SERVER_PACKAGE_SUBDIR}"
-        )
-        source_desc = f"git ({config.branch} branch)"
-    elif config.version:
-        package_spec = f"{SERVER_PACKAGE_NAME}[waf]=={config.version}"
-        source_desc = f"PyPI (version {config.version})"
-    else:
-        package_spec = f"{SERVER_PACKAGE_NAME}[waf]"
-        if config.pre_release:
-            pre_flag = ["--pre"]
-            source_desc = "PyPI (latest including pre-releases)"
-        else:
-            source_desc = "PyPI (latest stable)"
-
+    # Values interpolated into the spec are user-controlled; run_as_hop3 quotes
+    # every argv element at the seam. Install the WAF engine by default via the
+    # hop3-server[waf] extra (ADR 050): LeWAF + uvicorn, marker-gated to
+    # py3.12+. Without it, deploying a WAF-enabled app aborts loudly ("'waf'
+    # extra not installed"), so WAF must ship out of the box.
+    spec, source_desc, flags = package_source(
+        config, SERVER_PACKAGE_NAME, SERVER_PACKAGE_SUBDIR, extras="[waf]"
+    )
     with Spinner(f"Installing hop3-server from {source_desc}..."):
-        _pip_install_own(pip, package_spec, *pre_flag, run=run_as_hop3)
+        _pip_install_own(pip, spec, *flags, run=run_as_hop3)
 
     print_success("hop3-server installed successfully")
 
@@ -136,6 +118,40 @@ def install_package(config: ServerInstallerConfig) -> None:
     install_cli_package(config)
 
     write_build_info(config)
+
+
+def package_source(
+    config: ServerInstallerConfig,
+    name: str,
+    subdir: str,
+    *,
+    extras: str = "",
+    local: Path | None = None,
+) -> tuple[str, str, list[str]]:
+    """
+    Where to install one of Hop3's packages from: (pip spec, description, flags).
+
+    The install's own source, in this order: a local tree, the repository's
+    ``subdir`` at the branch, a pinned PyPI version, or PyPI's latest. ``--pre``
+    reaches only the unpinned PyPI install, so every package lands at the
+    server's version. ``local`` is the package's tree when the source is local;
+    the default is ``config.local_path`` itself (the server's own source).
+    """
+    if config.local_path:
+        path = local or Path(config.local_path)
+        return f"{path}{extras}", f"local path ({path})", []
+    if config.use_git:
+        spec = git_spec(name, subdir, config.branch, extras)
+        return spec, f"git ({config.branch} branch)", []
+    if config.version:
+        return (
+            f"{name}{extras}=={config.version}",
+            f"PyPI (version {config.version})",
+            [],
+        )
+    if config.pre_release:
+        return f"{name}{extras}", "PyPI (latest including pre-releases)", ["--pre"]
+    return f"{name}{extras}", "PyPI (latest stable)", []
 
 
 def publish_fetch_helper() -> None:
@@ -237,14 +253,7 @@ def write_pip_cooldown() -> None:
     write_as_hop3(VENV_DIR / "pip.conf", PIP_COOLDOWN_CONF, mode=0o644)
 
 
-def _run_as_root(argv: list[str], *, check: bool) -> object:
-    """``run_as_hop3``'s signature, for the venv root owns."""
-    return run_cmd(argv, check=check)
-
-
-def _pip_install_own(
-    pip: str, spec: str, *flags: str, run: Callable[..., object]
-) -> None:
+def _pip_install_own(pip: str, spec: str, *flags: str, run: Runner) -> None:
     """
     Install one of Hop3's own packages, with its dependencies under the cooldown.
 
@@ -294,6 +303,7 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
     same source as the server: a sibling local dir, the git subdirectory, or
     PyPI. hop3-server does not import it; it speaks to the daemon's socket.
     """
+    rootd_path = None
     if config.local_path:
         # Sibling of the server source (the deployer uploads /tmp/hop3-rootd
         # next to /tmp/hop3-server).
@@ -308,40 +318,16 @@ def install_rootd_package(config: ServerInstallerConfig) -> None:
             )
             raise InstallStepError(msg)
         check_root_controlled(rootd_path)
-        package_spec = str(rootd_path)
-        source_desc = f"local path ({rootd_path})"
-    elif config.use_git:
-        package_spec = (
-            f"git+{GIT_REPO}@{config.branch}#subdirectory={ROOTD_PACKAGE_SUBDIR}"
-        )
-        source_desc = f"git ({config.branch} branch)"
-    elif config.version:
-        package_spec = f"{ROOTD_PACKAGE_NAME}=={config.version}"
-        source_desc = f"PyPI (version {config.version})"
-    else:
-        package_spec = ROOTD_PACKAGE_NAME
-        source_desc = "PyPI (latest stable)"
-    # The server's rule (``install_package``): --pre reaches only an unpinned
-    # PyPI install, so the daemon lands at the server's version.
-    pre_flag: list[str] = []
-    if package_spec == ROOTD_PACKAGE_NAME and config.pre_release:
-        pre_flag = ["--pre"]
-        source_desc = "PyPI (latest including pre-releases)"
+    spec, source_desc, flags = package_source(
+        config, ROOTD_PACKAGE_NAME, ROOTD_PACKAGE_SUBDIR, local=rootd_path
+    )
 
     create_rootd_venv()
     with Spinner(f"Installing hop3-rootd from {source_desc}..."):
-        _pip_install_own(
-            str(ROOTD_VENV_DIR / "bin" / "pip"),
-            package_spec,
-            *pre_flag,
-            run=_run_as_root,
-        )
+        _pip_install_own(str(ROOTD_VENV_DIR / "bin" / "pip"), spec, *flags, run=run_cmd)
 
-    # The server venv held the daemon before 0.8.1. Nothing runs that copy
-    # now; removed so there is one hop3-rootd on the box to find.
-    run_as_hop3(
-        [f"{VENV_DIR}/bin/pip", "uninstall", "-y", ROOTD_PACKAGE_NAME], check=True
-    )
+    # The copy hop3's venv held before 0.8.1 stays until setup_rootd has moved
+    # the daemon off it (``remove_legacy_rootd``): the unit still runs it.
 
     print_success(f"hop3-rootd installed into {ROOTD_VENV_DIR}")
 
@@ -387,26 +373,13 @@ def check_root_controlled(path: Path, owners: frozenset[int] = ROOT_ONLY) -> Non
     it holds when it is a directory) must be root's and not writable by group
     or others; a symlink must be root's, its mode means nothing. Each directory
     above it must be root's and not writable by others, or sticky (``/tmp``),
-    where no one can replace an entry they do not own. ``owners`` is the uids
-    taken as root: only tests widen it.
+    where no one can replace an entry they do not own. pip and the interpreter
+    follow a symlink, so its target passes the same rules: inside the tree, it
+    is checked there; outside, it must be a file (a venv's ``bin/python3``) and
+    is checked with the directories above it. ``owners`` is the uids taken as
+    root: only tests widen it.
     """
-    problems: list[str] = []
-    absolute = Path(os.path.abspath(path))
-    for parent in absolute.parents:
-        st = parent.lstat()
-        sticky = bool(st.st_mode & stat.S_ISVTX)
-        if st.st_uid not in owners or (st.st_mode & 0o022 and not sticky):
-            problems.append(f"{parent} (directory above it)")
-    entries = [absolute]
-    if absolute.is_dir() and not absolute.is_symlink():
-        for root, dirs, files in os.walk(absolute):
-            entries.extend(Path(root, name) for name in [*dirs, *files])
-    for entry in entries:
-        st = entry.lstat()
-        if st.st_uid not in owners:
-            problems.append(f"{entry} (owned by uid {st.st_uid})")
-        elif not stat.S_ISLNK(st.st_mode) and st.st_mode & 0o022:
-            problems.append(f"{entry} (mode {stat.filemode(st.st_mode)})")
+    problems = _control_problems(Path(os.path.abspath(path)), owners)
     if not problems:
         return
     shown = "\n  ".join(problems[:10])
@@ -419,6 +392,41 @@ def check_root_controlled(path: Path, owners: frozenset[int] = ROOT_ONLY) -> Non
         "group/world read-only), then re-run."
     )
     raise InstallStepError(msg)
+
+
+def _control_problems(absolute: Path, owners: frozenset[int]) -> list[str]:
+    """What lets a user outside ``owners`` change ``absolute`` (see the caller)."""
+    problems: list[str] = []
+    for parent in absolute.parents:
+        st = parent.lstat()
+        sticky = bool(st.st_mode & stat.S_ISVTX)
+        if st.st_uid not in owners or (st.st_mode & 0o022 and not sticky):
+            problems.append(f"{parent} (directory above it)")
+    entries = [absolute]
+    if absolute.is_dir() and not absolute.is_symlink():
+        for root, dirs, files in os.walk(absolute):
+            entries.extend(Path(root, name) for name in [*dirs, *files])
+    tree = Path(os.path.realpath(absolute))
+    for entry in entries:
+        st = entry.lstat()
+        if st.st_uid not in owners:
+            problems.append(f"{entry} (owned by uid {st.st_uid})")
+        elif not stat.S_ISLNK(st.st_mode):
+            if st.st_mode & 0o022:
+                problems.append(f"{entry} (mode {stat.filemode(st.st_mode)})")
+        else:
+            problems.extend(_link_target_problems(entry, tree, owners))
+    return problems
+
+
+def _link_target_problems(link: Path, tree: Path, owners: frozenset[int]) -> list[str]:
+    """What is wrong with where ``link`` leads, for ``_control_problems``."""
+    target = Path(os.path.realpath(link))
+    if target == tree or tree in target.parents:
+        return []  # Inside the tree: the walk checks it.
+    if not target.is_file():
+        return [f"{link} (symlink to {target}, not a file inside the tree)"]
+    return [f"{link} -> {problem}" for problem in _control_problems(target, owners)]
 
 
 def install_cli_package(config: ServerInstallerConfig) -> None:
@@ -435,6 +443,7 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
     """
     pip = f"{VENV_DIR}/bin/pip"
 
+    cli_path = None
     if config.local_path:
         cli_path = Path(config.local_path).parent / "hop3-cli"
         if not cli_path.exists():
@@ -443,28 +452,11 @@ def install_cli_package(config: ServerInstallerConfig) -> None:
                 "`hop3` client. Upload it next to the server source and re-run."
             )
             raise InstallStepError(msg)
-        package_spec = str(cli_path)
-        source_desc = f"local path ({cli_path})"
-    elif config.use_git:
-        package_spec = (
-            f"git+{GIT_REPO}@{config.branch}#subdirectory={CLI_PACKAGE_SUBDIR}"
-        )
-        source_desc = f"git ({config.branch} branch)"
-    elif config.version:
-        package_spec = f"{CLI_PACKAGE_NAME}=={config.version}"
-        source_desc = f"PyPI (version {config.version})"
-    else:
-        package_spec = CLI_PACKAGE_NAME
-        source_desc = "PyPI (latest stable)"
-    # The server's rule (``install_package``): --pre reaches only an unpinned
-    # PyPI install, so the client lands at the server's version.
-    pre_flag: list[str] = []
-    if package_spec == CLI_PACKAGE_NAME and config.pre_release:
-        pre_flag = ["--pre"]
-        source_desc = "PyPI (latest including pre-releases)"
-
+    spec, source_desc, flags = package_source(
+        config, CLI_PACKAGE_NAME, CLI_PACKAGE_SUBDIR, local=cli_path
+    )
     with Spinner(f"Installing hop3-cli from {source_desc}..."):
-        _pip_install_own(pip, package_spec, *pre_flag, run=run_as_hop3)
+        _pip_install_own(pip, spec, *flags, run=run_as_hop3)
 
     print_success("hop3-cli installed successfully")
 

@@ -301,7 +301,7 @@ def _reconcile() -> int:
     """
     try:
         reconcile_http_settings()
-    except (CommandError, OSError) as e:
+    except (CommandError, OSError, InstallStepError) as e:
         _report_failure(e)
         return 1
     print_success("Platform configuration reconciled")

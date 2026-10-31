@@ -12,7 +12,13 @@ import subprocess
 from collections.abc import Sequence
 from pathlib import Path
 
-from hop3_installer.common import CommandError, print_info, print_success, run_cmd
+from hop3_installer.common import (
+    CommandError,
+    Runner,
+    print_info,
+    print_success,
+    run_cmd,
+)
 from hop3_installer.constants import HOME_DIR, HOP3_GROUP, HOP3_USER
 
 from .redis import fix_redis_pass_ownership
@@ -117,18 +123,18 @@ def run_as_hop3_shell(
 READ_ABSENT_STATUS = 3
 
 
-def read_as_hop3(path: Path) -> str | None:
+def read_as_hop3(path: Path, shell: Runner | None = None) -> str | None:
     """
     A file under hop3's home, read as hop3; None only when it does not exist.
 
     Root reading it would follow a symlink hop3 planted there (to
     ``/etc/shadow``, say) and hand what it read back to hop3. Any other
-    failure raises ``CommandError``.
+    failure raises ``CommandError``. ``shell`` runs the script as hop3
+    (default :func:`run_as_hop3_shell`).
     """
     quoted = shlex.quote(str(path))
-    result = run_as_hop3_shell(
-        f"test -e {quoted} || exit {READ_ABSENT_STATUS}; cat {quoted}"
-    )
+    run = shell or run_as_hop3_shell
+    result = run(f"test -e {quoted} || exit {READ_ABSENT_STATUS}; cat -- {quoted}")
     if result.returncode == READ_ABSENT_STATUS:
         return None
     if result.returncode != 0:
@@ -141,15 +147,19 @@ def read_as_hop3(path: Path) -> str | None:
     return result.stdout
 
 
-def write_as_hop3(path: Path, content: str, *, mode: int = 0o600) -> None:
+def write_as_hop3(
+    path: Path, content: str, *, mode: int = 0o600, shell: Runner | None = None
+) -> None:
     """
     Replace a file under hop3's home with ``content``, written as hop3.
 
     Root writing it would follow a symlink hop3 planted there, and a ``chown``
     after would hand the target to hop3. The content travels on stdin.
+    ``shell`` runs the script as hop3 (default :func:`run_as_hop3_shell`).
     """
     quoted = shlex.quote(str(path))
-    run_as_hop3_shell(
+    run = shell or run_as_hop3_shell
+    run(
         f"umask 077 && cat > {quoted} && chmod {mode:o} {quoted}",
         check=True,
         stdin_text=content,

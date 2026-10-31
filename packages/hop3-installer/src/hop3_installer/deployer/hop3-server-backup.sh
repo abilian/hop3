@@ -82,10 +82,13 @@ HOP3_SERVER="$VENV/bin/hop3-server"
 
 [ -d "$HOP3_ROOT" ] || fail "no Hop3 root at $HOP3_ROOT (set HOP3_ROOT if it lives elsewhere)"
 [ -x "$PY" ] || fail "no server venv at $VENV"
-# hop3's venv is hop3-writable: its programs run as hop3, never as root. SQLite
-# is read with the system's python3 (stdlib sqlite3), which root may run.
+# hop3's venv is hop3-writable: its programs run as hop3, never as root. The
+# SQLite database is hop3's file too: the system's python3 (stdlib sqlite3)
+# reads it as hop3, and root only receives what it prints.
 as_hop3() { runuser -u hop3 -- "$@"; }
 SYS_PY="$(command -v python3)" || fail "python3 is not installed; it reads the SQLite database"
+# hop3-rootd runs as root from a venv root owns, so root asks that venv.
+ROOTD_VENV=/opt/hop3-rootd
 
 HOST="$(hostname -s 2>/dev/null || hostname)"
 STAMP="$(date +%Y%m%d-%H%M%S)"
@@ -102,10 +105,13 @@ echo "[1/6] versions and state"
     echo "date: $(date -Is)"
     echo "hop3_root: $HOP3_ROOT"
     echo "database_uri: ${DB_URI:-sqlite:///$HOP3_ROOT/hop3.db (default)}"
-    for pkg in hop3_server hop3_rootd hop3_cli; do
+    version_of='import importlib.metadata as m, sys; print(m.version(sys.argv[1]))'
+    for pkg in hop3_server hop3_cli; do
         printf '%s: ' "$pkg"
-        as_hop3 "$PY" -c "import importlib.metadata as m; print(m.version('$pkg'))" 2>/dev/null || echo "not installed"
+        as_hop3 "$PY" -c "$version_of" "$pkg" 2>/dev/null || echo "not installed"
     done
+    printf 'hop3_rootd: '
+    "$ROOTD_VENV/bin/python" -c "$version_of" hop3_rootd 2>/dev/null || echo "not installed"
     printf 'schema: '
     as_hop3 "$HOP3_SERVER" db:current 2>/dev/null | tail -1 || echo "unknown"
     echo "os: $(. /etc/os-release && echo "$PRETTY_NAME")"
@@ -122,14 +128,12 @@ if command -v systemctl >/dev/null && [ -d /run/systemd/system ]; then
 else
     echo "no systemd on this host" > "$DEST/services.txt"
 fi
-"$SYS_PY" - "$HOP3_ROOT" "$DEST/apps.txt" <<'EOF' 2>/dev/null || echo "app list unavailable (non-SQLite database or old schema)" > "$DEST/apps.txt"
+as_hop3 "$SYS_PY" - "$HOP3_ROOT" <<'EOF' > "$DEST/apps.txt" 2>/dev/null || echo "app list unavailable (non-SQLite database or old schema)" > "$DEST/apps.txt"
 import sqlite3, sys
-root, out = sys.argv[1], sys.argv[2]
-con = sqlite3.connect(f"file:{root}/hop3.db?mode=ro", uri=True)
+con = sqlite3.connect(f"file:{sys.argv[1]}/hop3.db?mode=ro", uri=True)
 rows = con.execute("select name, run_state, coalesce(hostname,'') from app order by name").fetchall()
-with open(out, "w") as f:
-    for name, state, host in rows:
-        f.write(f"{name}\t{state}\t{host}\n")
+for name, state, host in rows:
+    print(f"{name}\t{state}\t{host}")
 EOF
 ok "versions.txt, pip-freeze.txt, services.txt, apps.txt ($(wc -l < "$DEST/apps.txt") apps)"
 
@@ -140,14 +144,21 @@ case "${DB_URI:-sqlite}" in
         SQLITE_PATH="$HOP3_ROOT/hop3.db"
         case "$DB_URI" in sqlite:////*) SQLITE_PATH="${DB_URI#sqlite:///}" ;; esac
         [ -f "$SQLITE_PATH" ] || fail "SQLite database not found at $SQLITE_PATH"
-        # The backup API copies a consistent image while the server keeps running.
-        "$SYS_PY" - "$SQLITE_PATH" "$DEST/hop3.db" <<'EOF'
-import sqlite3, sys
+        # The backup API copies a consistent image while the server keeps
+        # running, as hop3, into a temporary file of its own; root receives the
+        # bytes on stdout and opens nothing of hop3's.
+        as_hop3 "$SYS_PY" - "$SQLITE_PATH" <<'EOF' > "$DEST/hop3.db" || fail "copying $SQLITE_PATH (as hop3)"
+import os, shutil, sqlite3, sys, tempfile
 src = sqlite3.connect(f"file:{sys.argv[1]}?mode=ro", uri=True)
-dst = sqlite3.connect(sys.argv[2])
-with dst:
-    src.backup(dst)
-dst.execute("pragma integrity_check").fetchone()[0] == "ok" or sys.exit("integrity check failed on the copy")
+with tempfile.TemporaryDirectory() as tmp:
+    copy = os.path.join(tmp, "hop3.db")
+    dst = sqlite3.connect(copy)
+    with dst:
+        src.backup(dst)
+    dst.execute("pragma integrity_check").fetchone()[0] == "ok" or sys.exit("integrity check failed on the copy")
+    dst.close()
+    with open(copy, "rb") as f:
+        shutil.copyfileobj(f, sys.stdout.buffer)
 EOF
         ok "hop3.db ($(du -h "$DEST/hop3.db" | cut -f1), integrity checked)"
         ;;
@@ -295,7 +306,8 @@ Platform rollback after a failed upgrade (apps untouched):
 
     systemctl stop hop3-server
     cp $DEST/hop3.db $HOP3_ROOT/hop3.db && chown hop3:hop3 $HOP3_ROOT/hop3.db   # SQLite; for PostgreSQL: gunzip -c hop3-db.sql.gz | psql "\$HOP3_DATABASE_URI"
-    runuser -u hop3 -- $VENV/bin/pip install hop3-server==<previous> hop3-rootd==<previous>
+    runuser -u hop3 -- $VENV/bin/pip install hop3-server==<previous> hop3-cli==<previous>
+    $ROOTD_VENV/bin/pip install hop3-rootd==<previous>
     systemctl restart hop3-rootd.socket hop3-rootd.service hop3-server
 
 Config and secrets: tar xzf config.tar.gz -C / (paths are absolute; see config-files.txt).

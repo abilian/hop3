@@ -13,6 +13,8 @@ from __future__ import annotations
 import re
 from types import SimpleNamespace
 
+import pytest
+from hop3_installer.common import InstallStepError
 from hop3_installer.server_installer import nginx
 
 #: The longest name DNS allows.
@@ -53,6 +55,85 @@ def test_the_settings_are_written_where_http_includes_them(tmp_path, monkeypatch
     assert nginx.NGINX_HTTP_SETTINGS_PATH.parent.name == "conf.d"
 
 
+#: /proc/uptime of the fake host: 1000.00 s, so ticks run from 100000.
+UPTIME_TICKS = 1000 * 100
+
+
+class Nginx:
+    """
+    ``run_cmd`` on a host whose nginx answers a reload as ``outcome`` says.
+
+    "applies" forks a worker; "rejects" logs an ``[emerg]`` and forks none, as
+    nginx does on a listen conflict; "ignores" does neither. A worker from
+    before the reload is always there.
+    """
+
+    def __init__(self, tmp_path, monkeypatch, outcome: str = "applies") -> None:
+        self.proc = tmp_path / "proc"
+        self.log = tmp_path / "error.log"
+        self.outcome = outcome
+        self.calls: list[list[str]] = []
+        self.proc.mkdir()
+        (self.proc / "uptime").write_text("1000.00 3000.00\n")
+        self._worker(1, UPTIME_TICKS - 500)
+        monkeypatch.setattr(nginx, "PROC_ROOT", self.proc)
+        monkeypatch.setattr(nginx, "NGINX_ERROR_LOG", self.log)
+        monkeypatch.setattr(nginx.os, "sysconf", lambda _name: 100)
+        monkeypatch.setattr(nginx, "run_cmd", self)
+
+    def _worker(self, pid: int, start: int) -> None:
+        entry = self.proc / str(pid)
+        entry.mkdir()
+        (entry / "cmdline").write_bytes(b"nginx: worker process\x00")
+        fields = " ".join(["S", *["0"] * 18, str(start), "0"])
+        (entry / "stat").write_text(f"{pid} (nginx) {fields}\n")
+
+    def __call__(self, cmd, **_kw) -> None:
+        self.calls.append(cmd)
+        if cmd != ["nginx", "-s", "reload"]:
+            return
+        if self.outcome == "applies":
+            self._worker(2, UPTIME_TICKS + 3)
+        elif self.outcome == "rejects":
+            self.log.write_text(
+                "[emerg] 7#7: bind() to 0.0.0.0:1935 failed (98: Address in use)\n"
+            )
+
+
+class TestAReloadIsVerified:
+    """
+    `nginx -s reload` exits 0 before nginx reads the config; on a listen
+    conflict nginx then logs `[emerg]` and keeps the old one. The installer
+    printed "Nginx reloaded" either way.
+    """
+
+    def test_a_reload_that_forks_new_workers_is_applied(self, tmp_path, monkeypatch):
+        nginx_host = Nginx(tmp_path, monkeypatch)
+        nginx.reload_nginx()
+        assert nginx_host.calls == [["nginx", "-s", "reload"]]
+
+    def test_a_rejected_reload_fails_with_nginxs_own_line(self, tmp_path, monkeypatch):
+        Nginx(tmp_path, monkeypatch, outcome="rejects")
+        with pytest.raises(InstallStepError, match=r"\[emerg\].*Address in use"):
+            nginx.reload_nginx()
+
+    def test_an_error_logged_before_the_reload_is_not_its_cause(
+        self, tmp_path, monkeypatch
+    ):
+        Nginx(tmp_path, monkeypatch, outcome="ignores")
+        (tmp_path / "error.log").write_text("[emerg] an old incident\n")
+        monkeypatch.setattr(nginx, "RELOAD_VERIFY_S", 0.0)
+        with pytest.raises(InstallStepError, match="no new worker process"):
+            nginx.reload_nginx()
+
+    def test_the_settings_reload_is_verified_too(self, tmp_path, monkeypatch):
+        Nginx(tmp_path, monkeypatch, outcome="rejects")
+        monkeypatch.setattr(nginx, "NGINX_HTTP_SETTINGS_PATH", tmp_path / "x.conf")
+        monkeypatch.setattr(nginx, "process_manager_pending", lambda: False)
+        with pytest.raises(InstallStepError, match="did not apply"):
+            nginx.reconcile_http_settings()
+
+
 class TestARedeployReconcilesThem:
     """
     A redeploy runs the installer with `--skip-nginx`. The setting first
@@ -64,10 +145,9 @@ class TestARedeployReconcilesThem:
     def _redeploy(monkeypatch, target, *, pending=False) -> list[list[str]]:
         monkeypatch.setattr(nginx, "NGINX_HTTP_SETTINGS_PATH", target)
         monkeypatch.setattr(nginx, "process_manager_pending", lambda: pending)
-        calls: list[list[str]] = []
-        monkeypatch.setattr(nginx, "run_cmd", lambda cmd, **_kw: calls.append(cmd))
+        host = Nginx(target.parent, monkeypatch)
         nginx.setup_nginx(SimpleNamespace(skip_nginx=True))
-        return calls
+        return host.calls
 
     def test_an_existing_server_gets_them_validated_and_reloaded(
         self, tmp_path, monkeypatch
@@ -100,23 +180,33 @@ class TestTheSiteReachesARunningNginx:
     """
 
     @staticmethod
-    def _start(monkeypatch, *, systemd: bool, pending: bool = False) -> list:
+    def _start(tmp_path, monkeypatch, *, systemd: bool, pending: bool = False) -> list:
         monkeypatch.setattr(nginx, "process_manager_pending", lambda: pending)
-        calls: list[list[str]] = []
-        monkeypatch.setattr(nginx, "run_cmd", lambda cmd, **_kw: calls.append(cmd))
+        host = Nginx(tmp_path, monkeypatch)
         nginx._start_nginx(systemd=systemd)
-        return calls
+        return host.calls
 
-    def test_a_running_nginx_under_a_process_manager_is_reloaded(self, monkeypatch):
-        assert self._start(monkeypatch, systemd=False) == [["nginx", "-s", "reload"]]
+    def test_a_running_nginx_under_a_process_manager_is_reloaded(
+        self, tmp_path, monkeypatch
+    ):
+        calls = self._start(tmp_path, monkeypatch, systemd=False)
+        assert calls == [["nginx", "-s", "reload"]]
+
+    def test_a_rejected_reload_under_a_process_manager_stops_the_install(
+        self, tmp_path, monkeypatch
+    ):
+        monkeypatch.setattr(nginx, "process_manager_pending", lambda: False)
+        Nginx(tmp_path, monkeypatch, outcome="rejects")
+        with pytest.raises(InstallStepError, match=r"\[emerg\]"):
+            nginx._start_nginx(systemd=False)
 
     def test_an_nginx_the_process_manager_has_not_started_is_left_to_it(
-        self, monkeypatch
+        self, tmp_path, monkeypatch
     ):
-        assert self._start(monkeypatch, systemd=False, pending=True) == []
+        assert self._start(tmp_path, monkeypatch, systemd=False, pending=True) == []
 
-    def test_systemd_restarts_it(self, monkeypatch):
-        assert self._start(monkeypatch, systemd=True) == [
+    def test_systemd_restarts_it(self, tmp_path, monkeypatch):
+        assert self._start(tmp_path, monkeypatch, systemd=True) == [
             ["systemctl", "enable", "nginx"],
             ["systemctl", "restart", "nginx"],
         ]

@@ -30,7 +30,7 @@ from collections.abc import Callable
 from datetime import datetime, timezone
 from pathlib import Path
 from types import FrameType
-from typing import Any, Final, TypeVar
+from typing import Final, TypeVar
 
 from hop3_rootd import cgroup as cg, proxy as px
 from hop3_rootd.audit import (
@@ -42,6 +42,7 @@ from hop3_rootd.audit import (
 from hop3_rootd.cgroup import CgroupError, CgroupUnavailableError
 from hop3_rootd.mount import MountError, MountUnavailableError
 from hop3_rootd.nft.rule import NftBinaryNotFoundError, NftError
+from hop3_rootd.ops._base import Outcome, ReconcileStatus
 from hop3_rootd.proxy import ProxyError, ProxyUnavailableError
 from hop3_rootd.reconcile import (
     reconcile,
@@ -68,11 +69,8 @@ EXIT_BIND_ERROR: Final[int] = 4
 #: type-check instead of falling back to ``Any``.
 T = TypeVar("T")
 
-#: One subsystem's startup-reconcile result, surfaced in ``daemon.health``.
-Outcome = dict[str, Any]
 
-
-def _outcome(status: str, detail: str, tracked: int) -> Outcome:
+def _outcome(status: ReconcileStatus, detail: str, tracked: int) -> Outcome:
     return {"status": status, "detail": detail, "tracked": tracked}
 
 
@@ -239,7 +237,7 @@ def _startup_reconcile_cgroups(state: State, state_path: Path) -> Outcome:
     )
     logger.info("cgroup reconcile: %s", detail)
     # Per-item failures are an error outcome, not "ok" with a footnote.
-    status = "error" if report.failed else "ok"
+    status: ReconcileStatus = "error" if report.failed else "ok"
     return _outcome(status, detail, len(state.cgroups))
 
 
@@ -298,7 +296,7 @@ def _startup_reconcile_proxies(state: State, state_path: Path) -> Outcome:
     )
     logger.info("proxy reconcile: %s", detail)
     # Per-item failures are an error outcome, not "ok" with a footnote.
-    status = "error" if report.failed else "ok"
+    status: ReconcileStatus = "error" if report.failed else "ok"
     return _outcome(status, detail, len(state.proxies))
 
 

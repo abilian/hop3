@@ -5,8 +5,10 @@
 from __future__ import annotations
 
 import grp
+import math
 import os
 import pwd
+import time
 from pathlib import Path
 
 from hop3_installer.common import (
@@ -171,7 +173,7 @@ def _start_nginx(*, systemd: bool) -> None:
         if process_manager_pending():
             print_info("systemd not detected; the process manager will start nginx")
             return
-        run_cmd(["nginx", "-s", "reload"])
+        reload_nginx()
         print_success("Nginx reloaded")
         return
 
@@ -209,8 +211,105 @@ def reconcile_http_settings() -> None:
     if process_manager_pending():
         print_info("nginx will load these settings when the process manager starts it")
         return
-    run_cmd(["nginx", "-s", "reload"])
+    reload_nginx()
     print_success("Nginx reloaded with the new http settings")
+
+
+#: Where nginx logs a configuration it refused, and where its workers show.
+NGINX_ERROR_LOG = Path("/var/log/nginx/error.log")
+PROC_ROOT = Path("/proc")
+
+#: How long an accepted reload may take to fork its workers: hop3-rootd's
+#: budget, since a loaded host took more than 2 s.
+RELOAD_VERIFY_S = 15.0
+RELOAD_POLL_S = 0.1
+
+
+def reload_nginx() -> None:
+    """
+    ``nginx -s reload``, then confirm nginx applied the configuration.
+
+    The command only signals the master and exits 0. nginx then loads the
+    configuration itself and, on a bind/listen conflict, logs ``[emerg]`` and
+    keeps serving the old one. Applied means a worker forked after the signal;
+    a rejection is reported with nginx's own line. hop3-rootd verifies its
+    reloads the same way (``hop3_rootd/ops/nginx.py``).
+    """
+    since = _ticks_since_boot()
+    offset = _error_log_size()
+    run_cmd(["nginx", "-s", "reload"])
+    reason = _verify_reload(since, offset)
+    if reason is not None:
+        msg = f"nginx did not apply the new configuration: {reason}"
+        raise InstallStepError(msg)
+
+
+def _verify_reload(since: int, offset: int) -> str | None:
+    """None once a worker forked at or after ``since`` (ticks), else why not."""
+    deadline = time.monotonic() + RELOAD_VERIFY_S
+    while True:
+        if any(start >= since for start in _worker_start_ticks()):
+            return None
+        error = _reload_error(offset)
+        if error is not None:
+            return error
+        if time.monotonic() >= deadline:
+            return (
+                f"no new worker process within {RELOAD_VERIFY_S:g}s and no error "
+                f"in {NGINX_ERROR_LOG}; run `nginx -t` and read nginx's own log"
+            )
+        time.sleep(RELOAD_POLL_S)
+
+
+def _ticks_since_boot() -> int:
+    """Now in clock ticks since boot, floored: the unit of a process's start."""
+    uptime = PROC_ROOT / "uptime"
+    try:
+        seconds = float(uptime.read_text().split()[0])
+    except (OSError, ValueError, IndexError) as e:
+        msg = f"Installer can't verify an nginx reload: cannot read {uptime} ({e})"
+        raise InstallStepError(msg) from e
+    return math.floor(seconds * os.sysconf("SC_CLK_TCK"))
+
+
+def _worker_start_ticks() -> list[int]:
+    """The start time (ticks since boot) of every nginx worker process."""
+    starts: list[int] = []
+    for entry in PROC_ROOT.iterdir():
+        if not entry.name.isdigit():
+            continue
+        try:
+            cmdline = (entry / "cmdline").read_bytes().replace(b"\x00", b" ")
+            if b"nginx: worker process" not in cmdline:
+                continue
+            stat = (entry / "stat").read_text()
+        except OSError:
+            continue  # The process exited while it was being read.
+        # Field 22, counted after the command name, which may hold spaces.
+        starts.append(int(stat[stat.rfind(")") + 1 :].split()[19]))
+    return starts
+
+
+def _error_log_size() -> int:
+    """The size of nginx's error log, 0 when there is none yet."""
+    try:
+        return NGINX_ERROR_LOG.stat().st_size
+    except FileNotFoundError:
+        return 0
+
+
+def _reload_error(offset: int) -> str | None:
+    """The last ``[emerg]`` or ``[alert]`` nginx logged past ``offset``."""
+    try:
+        with NGINX_ERROR_LOG.open("rb") as log:
+            log.seek(offset)
+            fresh = log.read().decode("utf-8", "replace")
+    except FileNotFoundError:
+        return None
+    for line in reversed(fresh.splitlines()):
+        if "[emerg]" in line or "[alert]" in line:
+            return line.strip()
+    return None
 
 
 def _add_hop3_nginx_include() -> None:

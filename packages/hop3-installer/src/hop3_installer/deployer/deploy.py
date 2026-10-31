@@ -27,7 +27,6 @@ from hop3_installer.constants import (
     CLI_PACKAGE_NAME,
     CLI_PACKAGE_SUBDIR,
     DEFAULT_ADMIN_EMAIL,
-    GIT_REPO,
     HOP3_SERVER_BIN,
     HOP3_SERVER_BIND,
     ROOTD_PACKAGE_NAME,
@@ -36,6 +35,7 @@ from hop3_installer.constants import (
     SERVER_PACKAGE_NAME,
     SERVER_PACKAGE_SUBDIR,
     VENV_DIR,
+    git_spec,
 )
 from hop3_installer.nginx_templates import (
     generate_full_ssl_config,
@@ -1024,19 +1024,15 @@ class Deployer:
     @staticmethod
     def _git_specs(ref: str) -> tuple[str, str]:
         """The pip specs of hop3's venv packages at ``ref`` of the repository."""
-        base = f"git+{GIT_REPO}@{ref}#subdirectory="
         return (
-            f"{SERVER_PACKAGE_NAME}[waf] @ {base}{SERVER_PACKAGE_SUBDIR}",
-            f"{CLI_PACKAGE_NAME} @ {base}{CLI_PACKAGE_SUBDIR}",
+            git_spec(SERVER_PACKAGE_NAME, SERVER_PACKAGE_SUBDIR, ref, "[waf]"),
+            git_spec(CLI_PACKAGE_NAME, CLI_PACKAGE_SUBDIR, ref),
         )
 
     @staticmethod
     def _git_rootd_spec(ref: str) -> str:
         """The pip spec of hop3-rootd at ``ref`` of the repository."""
-        return (
-            f"{ROOTD_PACKAGE_NAME} @ "
-            f"git+{GIT_REPO}@{ref}#subdirectory={ROOTD_PACKAGE_SUBDIR}"
-        )
+        return git_spec(ROOTD_PACKAGE_NAME, ROOTD_PACKAGE_SUBDIR, ref)
 
     def _update_from_pypi(self) -> bool:
         """Update existing installation from PyPI."""

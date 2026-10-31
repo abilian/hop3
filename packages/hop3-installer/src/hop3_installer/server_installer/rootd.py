@@ -23,7 +23,6 @@ from __future__ import annotations
 from pathlib import Path
 
 from hop3_installer.common import (
-    CommandError,
     InstallStepError,
     ServiceStartError,
     cmd_exists,
@@ -34,7 +33,9 @@ from hop3_installer.common import (
     print_warning,
     run_cmd,
 )
-from hop3_installer.constants import ROOTD_BIN
+from hop3_installer.constants import ROOTD_BIN, ROOTD_PACKAGE_NAME, VENV_DIR
+
+from .user import run_as_hop3
 
 # --- Paths and content ---------------------------------------------------
 
@@ -235,23 +236,15 @@ def setup_rootd() -> None:
     RUNTIME_DIR.mkdir(parents=True, exist_ok=True)
     RUNTIME_DIR.chmod(0o755)
 
-    # 4) Initial state.json (idempotent — only created if missing).
+    # 4) Initial state.json (idempotent — only created if missing). The daemon
+    # just installed writes it; one that cannot is broken, and the install
+    # stops on its output rather than hand-writing a state it would not read.
     if not STATE_FILE.exists():
-        try:
-            run_cmd(
-                [daemon_command, "--init-state", "--state-path", str(STATE_FILE)],
-                check=True,
-            )
-            print_success(f"initial state.json created at {STATE_FILE}")
-        except (CommandError, FileNotFoundError) as e:
-            # The hop3-rootd binary may not be on PATH yet; fall back to
-            # a hand-written empty state. This matches what --init-state
-            # would produce.
-            print_warning(
-                f"could not run --init-state ({e}); creating fallback state.json"
-            )
-            STATE_FILE.write_text('{"version": 1, "rules": []}\n')
-            STATE_FILE.chmod(0o600)
+        run_cmd(
+            [daemon_command, "--init-state", "--state-path", str(STATE_FILE)],
+            check=True,
+        )
+        print_success(f"initial state.json created at {STATE_FILE}")
 
     # 5) Initial nftables table. Idempotent — `nft add table` with `-c`
     # just verifies; using add and tolerating EEXIST.
@@ -271,6 +264,9 @@ def setup_rootd() -> None:
         )
         print_detail(f"{daemon_command} --socket-path {RUNTIME_DIR}/socket")
         print_detail("(the demo harness runs it under supervisor)")
+        # No unit runs the old copy here: the process manager's command is
+        # the deployer's, which names ROOTD_BIN.
+        remove_legacy_rootd()
         return
 
     # systemd resolves ordering via the unit's Requires=/After= directives,
@@ -295,9 +291,24 @@ def setup_rootd() -> None:
     _verify_rootd_running()
     print_success("hop3-rootd is running")
 
-    # 7) Migration: retire the legacy sudoers fragment if present.
+    # 7) Migration: retire the old copy and the legacy sudoers fragment.
     # Point of no return — only do this AFTER rootd has verified up.
+    remove_legacy_rootd()
     _retire_sudoers_fragment()
+
+
+def remove_legacy_rootd() -> None:
+    """
+    Uninstall the hop3-rootd copy hop3's venv held before 0.8.1, as hop3.
+
+    Only once the daemon runs from ``ROOTD_BIN``: until the unit is rewritten
+    it starts that copy, and removing it at the package step left a unit whose
+    ExecStart was gone (203/EXEC at the next restart) whenever a later step
+    failed. Uninstalling a package that is absent exits 0.
+    """
+    run_as_hop3(
+        [f"{VENV_DIR}/bin/pip", "uninstall", "-y", ROOTD_PACKAGE_NAME], check=True
+    )
 
 
 def _verify_rootd_running() -> None:
@@ -453,6 +464,10 @@ def _retire_sudoers_fragment() -> None:
     )
 
 
+#: What nft prints when the table it was asked about does not exist.
+NFT_NO_SUCH_TABLE = "No such file or directory"
+
+
 def uninstall_rootd() -> None:
     """
     Uninstall hop3-rootd. Removes units, logrotate, state, and the
@@ -491,10 +506,32 @@ def uninstall_rootd() -> None:
             failures.append(f"could not remove {path}: {e}")
     if systemd:
         run_step(["systemctl", "daemon-reload"])
-    # Drop the table — uninstall removes everything. Absent table: nothing to do.
-    if run_cmd(["nft", "list", "table", "inet", "hop3"], check=False).returncode == 0:
+    # Drop the table — uninstall removes everything.
+    if _inet_hop3_table_present(failures):
         run_step(["nft", "delete", "table", "inet", "hop3"])
     if failures:
         msg = "hop3-rootd uninstall incomplete:\n  " + "\n  ".join(failures)
         raise InstallStepError(msg)
     print_success("hop3-rootd uninstalled")
+
+
+def _inet_hop3_table_present(failures: list[str]) -> bool:
+    """
+    Whether the `inet hop3` table exists; a failure to tell goes to ``failures``.
+
+    Only nft's own "absent" answer means there is nothing to drop: any other
+    failure leaves the table's state unknown, which uninstall must not report
+    as removed. Without nft, setup_rootd created no table.
+    """
+    if not cmd_exists("nft"):
+        return False
+    listed = run_cmd(["nft", "list", "table", "inet", "hop3"], check=False)
+    if listed.returncode == 0:
+        return True
+    if NFT_NO_SUCH_TABLE not in (listed.stderr or ""):
+        output = (listed.stderr or listed.stdout or "").strip()
+        failures.append(
+            f"`nft list table inet hop3` (exit {listed.returncode}): {output} "
+            "(could not tell whether the table is still there)"
+        )
+    return False
