@@ -1,6 +1,6 @@
 # Plan: per-app users and build-time isolation (0.9)
 
-**Created:** 2026-10-09 for 0.8; moved to 0.9 on 2026-10-11, with build-time isolation added to its scope. **Parent:** [`plan-0.9-plus.md`](plan-0.9-plus.md), under Security and identity. **Design record:** [ADR 055](../adrs/055-app-runtime-uid-separation.md). **Done in 0.8:** state out of `src/`, a per-app `HOME` and `TMPDIR`, and a stopgap for the worst consequence below: rootd refuses callers that run inside the app runtime ([`plan-0.8.md`](plan-0.8.md), headline 1).
+**Created:** 2026-10-09 for 0.8; moved to 0.9 on 2026-10-11, with build-time isolation added to its scope. **Parent:** [`plan-0.9.md`](plan-0.9.md), whose headline this is; its [decisions 2 to 4](plan-0.9.md#decisions-needed-before-code) (Nix single- or multi-user, UID allocation, reading `data/`) come before the code here, and [the work the headline brings with it](plan-0.9.md#work-the-headline-brings-with-it) rides along with the steps below. **Design record:** [ADR 055](../adrs/055-app-runtime-uid-separation.md). **Done in 0.8:** state out of `src/`, a per-app `HOME` and `TMPDIR`, and a stopgap for the worst consequence below: rootd refuses callers that run inside the app runtime ([`plan-0.8.md`](plan-0.8.md), headline 1).
 
 ## Why
 
@@ -117,7 +117,7 @@ Every step that runs recipe code moves to the app's user: the toolchains' instal
 
 ## Not in this plan
 
-- **rootd's own code lives in `/home/hop3/venv`, which `hop3` can write.** That is a control-plane-to-root path, separate from app isolation ([`../todo.md`](../todo.md)).
+- **rootd's own code**, which lived in `/home/hop3/venv` where `hop3` could write it: fixed in 0.8.1, which runs it from a root-owned venv in `/opt/hop3-rootd`.
 - **Namespace isolation** (bubblewrap, nspawn) as defence in depth: the isolation ADR in [`plan-0.9-plus.md`](plan-0.9-plus.md) comes first.
 
 ## Order of work
@@ -134,7 +134,7 @@ Each step is tested before the next.
 ## Verification
 
 - **Static and unit checks:** `make lint`, `make test-fast`, and the rootd and installer suites.
-- **A fixture,** `apps/test-apps-procfile/200-flask-isolation`, deployed beside a second app. Its page reports:
+- **A fixture** deployed beside a second app. The name `200-flask-isolation` collides with the existing `200-flask-rootd-refused`: extend that fixture with the read checks, or take a free number. Its page reports:
   - its uid;
   - whether `/run/hop3-rootd/socket` accepts it;
   - whether it can read `/home/hop3/hop3.db`;

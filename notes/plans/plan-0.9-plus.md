@@ -1,17 +1,17 @@
-# Plan: 0.9 and beyond
+# Plan: the queue behind 0.9
 
-**Created:** 2026-08-01. **Owner:** SF. **Horizon:** after 0.8 ships, so late 2026 onward.
-**Siblings:** [`plan-0.7.x.md`](plan-0.7.x.md) (maintenance), [`plan-0.8.md`](plan-0.8.md), [`parked.md`](parked.md) (not scheduled at all).
+**Created:** 2026-08-01, as the queue behind 0.8. **Owner:** SF. **Horizon:** behind 0.9 since 2026-11-01. The file keeps its name because other notes link to it.
+**Siblings:** [`plan-0.8.md`](plan-0.8.md) (shipped, and its 0.8.x fixes), [`plan-0.9.md`](plan-0.9.md) (the next release), [`parked.md`](parked.md) (not scheduled at all).
 
 ## What this file is
 
-This file is the queue behind 0.8. Its work is wanted, has a design or a design record, and has no date. Unlike [`parked.md`](parked.md), nothing here is held back on purpose: these are simply next. Each will move into a release plan when it earns the slot.
+This file is the queue behind 0.9. Its work is wanted, has a design or a design record, and has no date. Unlike [`parked.md`](parked.md), nothing here is held back on purpose: these are simply next. Each will move into a release plan when it earns the slot.
 
 Ordered by how likely each is to be picked up first.
 
 ## Cut from 0.8 (2026-10-13)
 
-The second tier of [`plan-0.8.md`](plan-0.8.md), moved here by SF so 0.8 can tag on its headlines and its release checks. These are first in the queue.
+The second tier of [`plan-0.8.md`](plan-0.8.md), moved here by SF so 0.8 could tag on its headlines and its release checks. These are first in the queue. Which of them, if any, 0.9 takes is [its decision 1](plan-0.9.md#1-what-else-09-takes); until it is made they stay here.
 
 ### Email: make the built things real
 
@@ -81,7 +81,7 @@ The server shipped one Node version and no pnpm, so umami (needs ≥20) and ghos
 
 ## Security and identity
 
-**Per-app users and build-time isolation (ADR 055).** Each app runs as its own Unix user, its run-time commands and its builds included, with `src/` read-only to it. 0.8 stops app code reaching root through hop3-rootd; apps still share `hop3`, so one can read another's data and the control plane's until this lands. Work plan: [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md); every switch of user goes through hop3-rootd. The ADR's open questions (UID allocation and reuse after destroy, single-user Nix) are settled there before code.
+**Per-app users and build-time isolation (ADR 055)** are 0.9's headline: [`plan-0.9.md`](plan-0.9.md), with the work plan [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md).
 
 **Per-resource ownership (`App.owner`).** Ownership recorded on the row, dispatcher-level authorization, and a migration for existing applications. Needs its own ADR. ADR 011 notes that per-tenant encryption keys only become meaningful once the control plane distinguishes accounts, so this gates that too.
 

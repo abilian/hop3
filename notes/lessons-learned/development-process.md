@@ -82,3 +82,7 @@ The deployer's git update path ran `cd /home/hop3/hop3 && git fetch ...` in a ch
 ## `git stash` in a shared working tree reverts everyone's edits
 
 Two agents fixing disjoint files in one working tree each ran `git stash` / `git stash pop` to compare a result with the committed code. For the length of the check, the other agent's files reverted to HEAD under it; one saw its own file "back in its committed state". Nothing was lost, by luck. To compare with the committed version, read it with `git show HEAD:<path>` into a scratch file, or use a separate worktree.
+
+## Hardening a function nothing calls is a no-op
+
+A review made the installer's rootd uninstall fail loud on an nft reply it could not read, with tests, and the follow-up expected the next blank-slate install to confirm nft's wording on a real server. No install could: nothing in the product called `uninstall_rootd()`, which had been dead since rootd was integrated five months earlier. Only its own tests ran it, so they passed and proved nothing about a server. Before fixing or hardening a function, `git grep` its callers outside its tests. A function only its tests reach is deleted (as this one was), or wired to the command that needs it.

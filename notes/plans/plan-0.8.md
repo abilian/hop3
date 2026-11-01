@@ -1,13 +1,18 @@
 # Plan: 0.8: the platform underneath the apps
 
-**Created:** 2026-08-01. **Owner:** SF. **Target:** no fixed date; the release follows the checks in [Before tagging](#before-tagging) (set 2026-10-11; was the week of 2026-09-28, and September 2026 before that).
+**Created:** 2026-08-01. **Owner:** SF. **Shipped:** 0.8.0 tagged 2026-10-27; 0.8.1 tagged 2026-11-01. Fixes to 0.8 go under [0.8.x](#08x), features to [`plan-0.9.md`](plan-0.9.md).
 **Predecessor:** [`plan-0.7.x.md`](plan-0.7.x.md): fixes and polish on what 0.7 ships. Anything that repairs 0.7 belongs there; this file is for what 0.8 *adds*.
-**Successor:** [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind this release), [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md), and [`parked.md`](parked.md) (directions not scheduled).
+**Successor:** [`plan-0.9.md`](plan-0.9.md) (the next release), with its work plan [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md); [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind it) and [`parked.md`](parked.md) (directions not scheduled).
 **Sources:** the "After 0.7" list in [`../todo.md`](../todo.md), TR-03 §9 (Future Work), the draft and deferred ADRs, the per-app experience reports and their deferral records, the team's internal roadmap notes.
 
 This file reads in time order: what is left to do first, with what it takes to do it; the decisions those tasks rest on; then what is done, briefly, at the end.
 
-## Status, 2026-10-23
+## Status, 2026-11-01: shipped
+
+- **0.8.0** was tagged on 2026-10-27. The checks still open in [Before tagging](#before-tagging) on that day are marked there with what became of each; the two runs that matter most (the blank-slate catalog run and the HTTPS login on a real domain) moved to 0.9's gate.
+- **0.8.1** was tagged on 2026-11-01: [0.8.x](#08x).
+
+## Status at the tag, 2026-10-23
 
 - **Release gate:** the catalog is published under `catalog/v1/`. A run of the published catalog (2026-10-18) and the tutorial suite (2026-10-18) pass on a remote server. Left: the full catalog run on a blank-slate server, `make test-e2e` on a quiet machine, the HTTPS login path, and SF's review of the release notes.
 - **Added on 2026-10-23:** the CLI context model (ADR 042, fifth revision), [below](#the-cli-context-model-adr-042-fifth-revision). It changes the server (the protected-server mark), so the release runs come after it.
@@ -45,19 +50,19 @@ Agreed on 2026-10-23 ([decision below](#decided-the-context-model-goes-into-08-2
 - [x] **The binding**: `hop3 context use` binds the checkout inside a project and sets the global context outside one, asking first; an unbound project refuses every server-reaching command; `server` in `hop3.toml` is refused with the replacing command; a context matching none of a project's `[contexts.*]` blocks is refused.
 - [x] **Protected servers**: the mark on the server, the selection source sent with each invocation, the typed app name.
 - [x] **`CHANGES.md`**: the behaviour change for checkouts that relied on the global context, and the new commands.
-- [ ] **A run on a protected server**: set `PROTECTED = true` on a test server, then check that a binding-selected `hop3 env set` is refused, that `hop3 -c <name> env set` asks for the app's name, and that a read-only command passes. Unit and integration tests cover each half; no end-to-end run has yet.
+- [x] **A run on a protected server** (after the tag, 2026-10-31): a Docker e2e (`packages/hop3-server/tests/c_e2e/test_protected.py`) marks the server protected and checks that a binding-selected change is refused, that `-c <name>` asks for the app's name, and that a read-only command passes. No remote server has run it.
 
 ### Runs
 
-- [ ] **A full catalog run on a blank-slate remote server**: `uv run hop3-test run --provider hetzner --host <throwaway box> --with all --from local --mode full`. Finished when the catalog's golden, beta and alpha tiers pass on the rebuilt box and its empty Nix store, last done on 2026-09-21. Without `--mode`, `run` takes the `smoke` profile (fast and P0 tests only), which is the nine Procfile fixtures: the runs of 2026-10-13 (run 1244) and 2026-10-19 (run 1295) that this item once recorded as the catalog run were those nine.
+- [ ] **A full catalog run on a blank-slate remote server** (not recorded before the tag; moved to [0.9's gate](plan-0.9.md#before-tagging)): `uv run hop3-test run --provider hetzner --host <throwaway box> --with all --from local --mode full`. Finished when the catalog's golden, beta and alpha tiers pass on the rebuilt box and its empty Nix store, last done on 2026-09-21. Without `--mode`, `run` takes the `smoke` profile (fast and P0 tests only), which is the nine Procfile fixtures: the runs of 2026-10-13 (run 1244) and 2026-10-19 (run 1295) that this item once recorded as the catalog run were those nine.
 - [x] **The full tutorial suite on a remote server** (2026-10-18, run 1294): `uv run hop3-test run --host <server> --from local docs/tutorials` passed 35 of 35, the 2026-10-06 failures (rails, sinatra, jekyll, django, nestjs, nuxtjs, nix-gen-flask) included.
-- [ ] **`make test-e2e` on a quiet machine** (one e2e session per machine).
+- [x] **`make test-e2e` on a quiet machine** (one e2e session per machine): SF ran the Docker suite on the 0.8.1 tree (2026-11-01).
 - [x] **Re-record directus-nixgen's `node-deps-hash` on x86_64** (2026-10-17). Recorded from a cold build on an x86_64 Docker host. The build behind it then failed to compile `isolated-vm` 5.0.3, which uses `uint32_t` without including `<cstdint>`; the `node-pnpm-install` template now force-includes it for native addons, and the recipe passes, redeploy included. Alpha, so nothing to publish.
-- [ ] **The HTTPS login path against a real admin domain.** Owed since ADR 042's fourth revision: only the SSH fallback has run end to end. On a server with an admin domain and a trusted certificate: `hop3 login`, then a read-only command, checking that it travels over HTTPS and not the SSH tunnel; then the same with the gated fixture `180-flask-gated`, which the runner includes only on such a server.
+- [ ] **The HTTPS login path against a real admin domain** (moved to [0.9's gate](plan-0.9.md#before-tagging); a Docker e2e covers `hop3 login` over HTTPS with a pinned certificate since 2026-10-31). Owed since ADR 042's fourth revision: only the SSH fallback has run end to end. On a server with an admin domain and a trusted certificate: `hop3 login`, then a read-only command, checking that it travels over HTTPS and not the SSH tunnel; then the same with the gated fixture `180-flask-gated`, which the runner includes only on such a server.
 
 ### Release notes
 
-- [ ] **`CHANGES.md` reviewed as release notes**: it has grown by accretion over the cycle. Group by what an operator notices; every claim is something that shipped. Drafted 2026-10-18: highlights, what to do when upgrading from 0.7, then the entries by area (accounts, apps, PHP, Nix, proxies, backups, catalog, email, CLI, installation, documentation, the test harness). One claim corrected on the way: the access gate works on Caddy and Traefik, but the installer routes the admin domain on nginx only. Left (SF): the review.
+- [x] **`CHANGES.md` reviewed as release notes** (SF, before the tag; split on 2026-11-01 into a summary in `CHANGES.md` and the full notes in `docs/src/reference/release-notes/0.8.md`): it has grown by accretion over the cycle. Group by what an operator notices; every claim is something that shipped. Drafted 2026-10-18: highlights, what to do when upgrading from 0.7, then the entries by area (accounts, apps, PHP, Nix, proxies, backups, catalog, email, CLI, installation, documentation, the test harness). One claim corrected on the way: the access gate works on Caddy and Traefik, but the installer routes the admin domain on nginx only. Left (SF): the review.
 - [x] **The isolation that remains open is stated** (2026-10-18, "Upgrading from 0.7" and the rootd entry): apps share one Unix user, so one app can read another's data and the control plane's, until 0.9 ([`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md)). App code can no longer reach root through rootd.
 - [x] **The catalog change is stated** (2026-10-18, "Upgrading from 0.7" and the catalog entry): servers before 0.8 keep fetching the legacy path and are refused apps that need 0.8.
 
@@ -114,9 +119,26 @@ Absent on purpose: nothing watches a process that dies (ADR 029), and multi-proc
 
 **What makes 0.8 a good release:** an operator can be handed the platform with one stated caveat. An app that cannot reach root (reading its neighbour's data waits for 0.9). PHP served properly. A generator packages your own code. An app chooses its Node version. An operator can ask the installer for Rust, Clojure or Elixir. Roles and the sign-in gate add the other half: the operator decides who reaches each app.
 
+## 0.8.x
+
+This section holds the fixes to what 0.8 ships. The admission test is the one 0.7.x used: does it repair or complete something a 0.8 user can already see?
+
+### 0.8.1 (tagged 2026-11-01)
+
+Two audits of 0.8 (code quality, and WCAG 2.2 AA for the dashboard) and a review of the fixes that followed them. The release notes list about fifty fixes ([0.8.1 notes](../../docs/src/reference/release-notes/0.8.md#081)); the ones an operator notices first:
+
+- hop3-rootd runs from a root-owned venv in `/opt/hop3-rootd`. Nothing runs as root on files the hop3 user controls.
+- The install one-liner migrates the database; `hop3 app restart` applies a changed environment; a deploy over HTTPS accepts 200 MB.
+- Destroy, `addon destroy` and teardown report what they could not remove instead of claiming success.
+- `hop3 login --token` reads the token from stdin, a file or a prompt; the literal form warns.
+
+### Open for 0.8.x
+
+- [ ] **Publish 0.8.1.** The tag exists; PyPI's latest is still 0.8.0 (2026-11-01). Date `## [0.8.1]` in `CHANGES.md` and replace "Not released yet." in `docs/src/reference/release-notes/0.8.md` with the same date, then `make release`, which refuses until both show it. Publish the docs so the changelog's links resolve.
+
 ## After 0.8
 
-The queue behind this release is [`plan-0.9-plus.md`](plan-0.9-plus.md). It starts with what was cut from 0.8: the second tier (email, the audit log, monitoring, the command surface, catalog-core, catalog growth), then the rest of headline 4 and of the sign-in gate. Per-app users with build-time isolation come next. Then come recipe upgrades for installed catalog applications, SSO and MFA, the isolation ADR and the alternative backends behind it, the runtime-stack replacement (ADR 023), deployment strategies, backups phases 2 and 3, supply-chain attestation, and a tail of smaller items. ADR 055 moves from Proposed to Accepted once that work settles its open questions.
+The next release is [`plan-0.9.md`](plan-0.9.md); the queue behind it is [`plan-0.9-plus.md`](plan-0.9-plus.md). It starts with what was cut from 0.8: the second tier (email, the audit log, monitoring, the command surface, catalog-core, catalog growth), then the rest of headline 4 and of the sign-in gate. Per-app users with build-time isolation come next. Then come recipe upgrades for installed catalog applications, SSO and MFA, the isolation ADR and the alternative backends behind it, the runtime-stack replacement (ADR 023), deployment strategies, backups phases 2 and 3, supply-chain attestation, and a tail of smaller items. ADR 055 moves from Proposed to Accepted once that work settles its open questions.
 
 Directions *not* scheduled (the agent model, multi-component applications, the generator's second output target, the classifier extraction, and portability as a nightly property) are in [`parked.md`](parked.md), with the reason each is held back.
 

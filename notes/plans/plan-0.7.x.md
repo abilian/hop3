@@ -1,6 +1,6 @@
 # Plan: 0.7.x: maintenance, catalog polish and the loose ends of 0.7
 
-**Created:** 2026-08-01. **Owner:** SF. **Horizon:** the next days-to-weeks, ahead of 0.8 in September.
+**Created:** 2026-08-01. **Owner:** SF. **Closed:** 0.7.5 (2026-09-21) was the last 0.7 release, and 0.8.0 shipped on 2026-10-27. The open boxes below are not re-homed yet; a fix that still applies goes to [`plan-0.8.md`](plan-0.8.md) under 0.8.x, a feature to [`plan-0.9.md`](plan-0.9.md) or the queue.
 **Predecessors:** [`../ngi-2024/release-plan-0.7.md`](../ngi-2024/release-plan-0.7.md) (the annex tracker, what gated the tag), [`../security/backlog-2026-08-01.md`](../security/backlog-2026-08-01.md) (the security items left open after the 2026-07 rounds), the paper-completion plan (internal; its *Postponed past 0.7* section).
 **Successor:** [`plan-0.8.md`](plan-0.8.md): features wait for 0.8; fixes belong here.
 **Later:** [`plan-0.9-plus.md`](plan-0.9-plus.md) (the queue behind 0.8) and [`parked.md`](parked.md) (directions not scheduled).
