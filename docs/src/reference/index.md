@@ -22,4 +22,5 @@ Project policies and guidelines:
 
 ## Release History
 
-- [Changelog](changelog.md): Version history and release notes
+- [Changelog](changelog.md): Every release, with its date and a summary
+- Release notes, the full account of each release: [0.8](release-notes/0.8.md), [0.7](release-notes/0.7.md), [0.6](release-notes/0.6.md), [0.5](release-notes/0.5.md)

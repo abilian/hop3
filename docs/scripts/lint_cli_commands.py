@@ -38,7 +38,7 @@ did-you-mean):
     <!-- lint-cli-ignore: reason -->        the next code block or line
     <!-- lint-cli-ignore-file: reason -->   the whole file
 
-ADRs and the changelog are excluded wholesale: both document proposed and
+ADRs, the changelog and the release notes are excluded wholesale: both document proposed and
 removed commands as a matter of course, so linting them is a category error.
 
 Usage:
@@ -58,9 +58,13 @@ from pathlib import Path
 MAX_COMMAND_DEPTH = 4
 
 # Paths that document commands which intentionally do not exist: ADRs propose
-# and reject command surfaces, and the changelog names commands precisely
-# because they were removed.
-DEFAULT_EXCLUDES = ("developers/adrs/", "reference/changelog.md")
+# and reject command surfaces, and the changelog and release notes name
+# commands precisely because they were removed.
+DEFAULT_EXCLUDES = (
+    "developers/adrs/",
+    "reference/changelog.md",
+    "reference/release-notes/",
+)
 
 # A suppression carries its reason: `<!-- lint-cli-ignore: why -->`.
 IGNORE_BLOCK_RE = re.compile(r"^<!--\s*lint-cli-ignore\s*(?::[^>]*)?-->$")

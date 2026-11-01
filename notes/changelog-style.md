@@ -2,6 +2,10 @@
 
 The file is read by someone deciding whether to upgrade, and by someone who just did and is wondering what moved. Our own record of the work is git. Everything below follows from that.
 
+## Two levels
+
+`CHANGES.md` is the summary: per release, a handful of one-line entries, Security always listed, and a link to the full notes. The full notes live in `docs/src/reference/release-notes/<minor>.md`, one page per minor version, with the same `### <category>` headings. Each release opens with `## <version>` and, on the next line, `Released <YYYY-MM-DD>.` (or `Not released yet.`); the date sits under the heading so the anchor (`#081`) does not change at release. An entry is written in the release notes first; the changelog takes its bold headline, or one line that covers several. Link to the notes by their site URL (`https://hop3.cloud/reference/release-notes/0.8/#081`), because the changelog is also served from `docs/src/reference/` through a symlink and a relative link cannot resolve from both places.
+
 ## What an entry is
 
 **One entry per user-visible change.** Five fixes that together made one capability work are one entry.
@@ -22,17 +26,17 @@ A defect in a feature nobody could reach yet belongs to that feature. Five entri
 
 ## Housekeeping
 
-- `## [Unreleased]` at the top; rename it to the version with an ISO date at release.
+- `## [Unreleased]` at the top of `CHANGES.md`; rename it to the version with an ISO date at release. In the release-notes page, replace `Not released yet.` with `Released <YYYY-MM-DD>.`, the same date. `scripts/release.py` refuses to upload until both carry it.
 - Newest release first.
 - Write the entry in the same change that ships the code. A changelog updated later is a changelog written from a diff, which is how it turns back into a log of our work.
-- One `CHANGES.md`. A second copy under `docs/` drifts; symlink it.
+- One `CHANGES.md`. A second copy under `docs/` drifts; symlink it. The release notes are not a copy: each entry exists in full once, there.
 
 ## Prose
 
 The published changelog is prose, so it goes through the prose gate the same way code goes through `make lint`:
 
 ```sh
-proselinter CHANGES.md
+proselinter CHANGES.md docs/src/reference/release-notes/*.md
 ```
 
 The tics it catches here are the ones that creep in when an entry is written from a debugging session: em-dash incises, `X instead of Y` antithesis, comma splices bolted onto a sentence that had already finished. Run it before the commit.

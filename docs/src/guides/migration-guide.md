@@ -154,7 +154,7 @@ Coming from something not listed? The method above still applies, and [an issue]
 
 ## Migrating between Hop3 versions
 
-Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise. See [CLI Migration](cli-migration.md). For an upgrade from 0.7 to 0.8, read "Upgrading from 0.7" in the [changelog](../reference/changelog.md#upgrading-from-07).
+Moving from Hop3's pre-0.5 colon-syntax CLI (`hop3 config:set`) to the current space-separated commands is a different exercise. See [CLI Migration](cli-migration.md). For an upgrade from 0.7 to 0.8, read "Upgrading from 0.7" in the [0.8 release notes](../reference/release-notes/0.8.md#upgrading-from-07).
 
 ## Need help?
 

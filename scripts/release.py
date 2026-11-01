@@ -3,7 +3,7 @@
 
 This script:
 1. Checks that all package versions are aligned with the top-level version
-2. Checks that CHANGES.md has a dated section for that version
+2. Checks that CHANGES.md and the release notes date that version
 3. Builds all packages using uv build
 4. Uploads all packages to PyPI using twine
 """
@@ -35,6 +35,7 @@ PACKAGES = [
 
 ROOT_DIR = Path(__file__).parent.parent
 CHANGELOG = ROOT_DIR / "CHANGES.md"
+RELEASE_NOTES_DIR = ROOT_DIR / "docs" / "src" / "reference" / "release-notes"
 PACKAGES_DIR = ROOT_DIR / "packages"
 DIST_DIR = ROOT_DIR / "dist"
 
@@ -150,25 +151,40 @@ def ensure_versions_aligned(root_version: str, package_versions: dict[str, str])
     print()
 
 
-def ensure_changelog_closed(version: str, changelog: Path = CHANGELOG) -> None:
+def ensure_changelog_closed(
+    version: str, changelog: Path = CHANGELOG, notes_dir: Path = RELEASE_NOTES_DIR
+) -> None:
     """
     Refuse to release a version whose changelog section is not closed.
 
     0.7.5 went to PyPI with its changes still under `[Unreleased]`, and 0.7.2
     to 0.7.4 had been released with no section at all. A release is closed in
-    CHANGES.md as `## [<version>] - <YYYY-MM-DD>` before it is uploaded.
+    CHANGES.md as `## [<version>] - <YYYY-MM-DD>`, and in the minor version's
+    release-notes page as `## <version>` followed by `Released <YYYY-MM-DD>.`,
+    before it is uploaded.
     """
     heading = re.compile(
-        rf"^## \[{re.escape(version)}\] - \d{{4}}-\d{{2}}-\d{{2}}$", re.MULTILINE
+        rf"^## \[{re.escape(version)}\] - (\d{{4}}-\d{{2}}-\d{{2}})$", re.MULTILINE
     )
-    if not heading.search(changelog.read_text()):
+    found = heading.search(changelog.read_text())
+    if not found:
         msg = (
             f"{changelog.name} has no section for {version}. Rename "
             f"'## [Unreleased]' to '## [{version}] - <today>' (and start a new "
             f"'## [Unreleased]' above it), commit, then release."
         )
         raise ReleaseError(msg)
-    print(f"{changelog.name} has a section for {version}.")
+    date = found[1]
+    minor = ".".join(version.split(".")[:2])
+    notes = notes_dir / f"{minor}.md"
+    expected = f"## {version}\n\nReleased {date}.\n"
+    if not notes.is_file() or expected not in notes.read_text():
+        msg = (
+            f"{notes} does not date {version}: put 'Released {date}.' under its "
+            f"'## {version}' heading, commit, then release."
+        )
+        raise ReleaseError(msg)
+    print(f"{changelog.name} and {notes.name} date {version} {date}.")
 
 
 def clean_dist():

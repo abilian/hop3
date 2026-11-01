@@ -254,6 +254,12 @@ nav = [
             { "Open Source Compliance" = "reference/policies/open-source-compliance.md" },
         ]},
         { "Changelog" = "reference/changelog.md" },
+        { "Release Notes" = [
+            { "0.8" = "reference/release-notes/0.8.md" },
+            { "0.7" = "reference/release-notes/0.7.md" },
+            { "0.6" = "reference/release-notes/0.6.md" },
+            { "0.5" = "reference/release-notes/0.5.md" },
+        ]},
     ]},
 ]
 
