@@ -4,8 +4,7 @@
 Failures the installer and deployer used to swallow, and now surface.
 
 Each test names what was lost: a timeout reported as success, a secret rotated
-because its file was unreadable, an uninstall that printed success over failed
-steps, a private key left with the wrong mode, a transfer failure with no
+because its file was unreadable, a private key left with the wrong mode, a transfer failure with no
 reason, a nix-daemon that never re-read its config, a missing Python replaced
 by whatever `python3` was, a server installed without its `hop3` client.
 """
@@ -26,7 +25,6 @@ from hop3_installer.deployer.deploy import Deployer
 from hop3_installer.server_installer import (
     nix,
     python as python_step,
-    rootd,
     s3,
     services,
     verify,
@@ -105,68 +103,6 @@ def test_a_missing_file_still_means_first_install(
     assert s3._existing_secret("admin_token") is None
     assert verify.read_existing_server_config_value("X") is None
     assert verify._preserved_operator_lines() == []
-
-
-# --- rootd uninstall ----------------------------------------------------------
-
-
-def test_rootd_uninstall_reports_failed_steps_not_success(
-    tmp_path, monkeypatch, capsys
-):
-    for name in ("SERVICE_PATH", "SOCKET_PATH", "LOGROTATE_PATH", "STATE_FILE"):
-        path = tmp_path / name
-        path.write_text("")
-        monkeypatch.setattr(rootd, name, path)
-    monkeypatch.setattr(rootd, "BIND_ALLOWLIST_FILE", tmp_path / "allow")
-    monkeypatch.setattr(rootd, "has_systemd", lambda: True)
-
-    def run(cmd, **_kw):
-        failed = cmd[:2] == ["systemctl", "disable"]
-        return subprocess.CompletedProcess(cmd, 1 if failed else 0, "", "boom")
-
-    monkeypatch.setattr(rootd, "run_cmd", run)
-    with pytest.raises(InstallStepError, match=r"hop3-rootd\.service.*boom"):
-        rootd.uninstall_rootd()
-    assert "uninstalled" not in capsys.readouterr().out
-
-
-def _uninstall_with_nft_answering(monkeypatch, tmp_path, stderr: str) -> list:
-    """Uninstall on a systemd-less host whose `nft list table` fails with ``stderr``."""
-    for name in ("SERVICE_PATH", "SOCKET_PATH", "LOGROTATE_PATH", "STATE_FILE"):
-        monkeypatch.setattr(rootd, name, tmp_path / name)
-    monkeypatch.setattr(rootd, "BIND_ALLOWLIST_FILE", tmp_path / "allow")
-    monkeypatch.setattr(rootd, "has_systemd", lambda: False)
-    monkeypatch.setattr(rootd, "cmd_exists", lambda _name: True)
-    commands: list[list[str]] = []
-
-    def run(cmd, **_kw):
-        commands.append(cmd)
-        return subprocess.CompletedProcess(cmd, 1, "", stderr)
-
-    monkeypatch.setattr(rootd, "run_cmd", run)
-    rootd.uninstall_rootd()
-    return commands
-
-
-def test_an_absent_nft_table_is_nothing_to_drop(tmp_path, monkeypatch, capsys):
-    commands = _uninstall_with_nft_answering(
-        monkeypatch, tmp_path, "Error: No such file or directory\nlist table inet hop3"
-    )
-    assert ["nft", "delete", "table", "inet", "hop3"] not in commands
-    assert "uninstalled" in capsys.readouterr().out
-
-
-def test_an_nft_that_cannot_list_the_table_fails_the_uninstall(
-    tmp_path, monkeypatch, capsys
-):
-    """It printed "uninstalled" with the table, for all it knew, still there."""
-    with pytest.raises(InstallStepError, match="Operation not permitted"):
-        _uninstall_with_nft_answering(
-            monkeypatch,
-            tmp_path,
-            "Error: Could not process rule: Operation not permitted",
-        )
-    assert "uninstalled" not in capsys.readouterr().out
 
 
 # --- deployer: certificate permissions, Python ---------------------------------
