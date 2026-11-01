@@ -1,6 +1,6 @@
 [project]
 name = "hop3"
-version = "0.8.0"
+version = "0.8.1"
 description = "Hop3, a platform to deploy web apps on your own server: installs the hop3 command"
 authors = [
     {name = "Stefane Fermigier", email = "sf@abilian.com"},
