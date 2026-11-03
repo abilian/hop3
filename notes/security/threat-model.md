@@ -140,7 +140,7 @@ Distinct from the table above: these are risks the model accepts as real, with n
 
 | Exposure | State |
 |----------|-------|
-| **One app's code can read every other app's source, data and addon credentials** | All apps run as `hop3`. Fix designed in [ADR 055](../adrs/055-app-runtime-uid-separation.md) (Proposed), still unscheduled. See §Runtime isolation |
+| **One app's code can read every other app's source, data and addon credentials** | All apps run as `hop3`. Fix designed in [ADR 055](../adrs/055-app-runtime-uid-separation.md) (Proposed), the headline of 0.9 ([plan](../plans/plan-0.9.md)). See §Runtime isolation |
 | **Services bound to all interfaces are not firewalled off by default** | The nftables input chain is `policy=accept` and additive, and default-deny is left to the operator. MinIO binds `:9000`/`:9001` while the platform addresses it as loopback. Whether that pairing is intended has not been settled |
 
 ## Always reported anyway

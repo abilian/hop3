@@ -3,7 +3,7 @@
 - **Status**: Accepted
 - **Type**: Architecture
 - **Created**: 2026-04-24
-- **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [017](./017-agent-based-architecture.md) (agent-based architecture), [020](./020-pluggable-architecture.md) (pluggable architecture), [036](./036-cli-ergonomics.md) (CLI ergonomics), [040](./040-network-firewall-and-port-exposure.md) (network firewall and per-app port exposure), [045](./045-fixed-port-registry.md) (fixed-port registry: the `[[ports]]` mechanism that drives rootd's firewall ops), [046](./046-declarative-app-resources.md) (declarative app resources: the cgroup/mount ops)
+- **Related-ADRs**: [010](./010-security-and-resilience.md) (security and resilience), [017](./017-agent-based-architecture.md) (agent-based architecture), [020](./020-pluggable-architecture.md) (pluggable architecture), [036](./036-cli-ergonomics.md) (CLI ergonomics), [040](./040-network-firewall-and-port-exposure.md) (network firewall and per-app port exposure), [045](./045-fixed-port-registry.md) (fixed-port registry: the `[[ports]]` mechanism that drives rootd's firewall ops), [046](./046-declarative-app-resources.md) (declarative app resources: the cgroup/mount ops), [055](./055-app-runtime-uid-separation.md) (app-runtime UID separation: the app-user, process and command ops of §20)
 
 ## Context
 
@@ -39,7 +39,7 @@ The daemon exposes **typed intents**. Each operation has a fixed argument schema
 
 Concretely, `hop3-rootd` rejects:
 
-- arbitrary command execution (no `exec` op);
+- arbitrary command execution with privilege (no `exec` op). The one operation that starts a command the caller chose, `app_exec.spawn` (§20), runs it only after an irrevocable drop to an app's user, with no capability;
 - raw nftables / ufw / iptables strings;
 - file paths chosen by the caller (paths are derived from a small allow-list of locations rooted in `/run/hop3-rootd/`, `/var/lib/hop3-rootd/`, `/var/log/hop3-rootd/`).
 
@@ -49,7 +49,7 @@ It accepts:
 - structured queries like `firewall.list_rules()`;
 - a small set of well-defined intents that grow operation-by-operation in subsequent revisions.
 
-This bounds the attack surface to "what the daemon's API has been designed for". Each new operation is a separate threat-modelling exercise. The daemon never grows an `exec_arbitrary_command` op.
+This bounds the attack surface to "what the daemon's API has been designed for". Each new operation is a separate threat-modelling exercise. The daemon never grows an op that runs a caller's command as root or with any capability.
 
 #### No authorization layer
 
@@ -654,7 +654,7 @@ The architecture is designed so future privileged operations slot in without pro
 3. **`systemd.reload(unit)` / `systemd.restart(unit)`**: replaces the caddy / traefik sudoers fallback; clean lifecycle for systemd-managed app units if/when those become a deployer option.
 4. **`namespace.create_for_app(...)`**: only relevant if Hop3 ever introduces per-app network namespaces (a much larger change; out of scope for now, but the daemon would be the right place).
 
-Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None belong to the baseline scope. (The first such additions (`cgroup.*` and `mount.*` for [ADR 046](./046-declarative-app-resources.md)) are specified in §18; the `proxy.*` addon-exposure family for [ADR 040](./040-network-firewall-and-port-exposure.md) is specified in §19.)
+Each addition is a separate ADR revision with its own threat model and expanded error-code taxonomy. None belong to the baseline scope. (The first such additions (`cgroup.*` and `mount.*` for [ADR 046](./046-declarative-app-resources.md)) are specified in §18; the `proxy.*` addon-exposure family for [ADR 040](./040-network-firewall-and-port-exposure.md) is specified in §19; the `app_user.*`, `app_process.*` and `app_exec.*` families for [ADR 055](./055-app-runtime-uid-separation.md) in §20.)
 
 ### 17. Connection to [ADR 017](./017-agent-based-architecture.md) (agent-based architecture)
 
@@ -722,6 +722,45 @@ rootd **never `exec`s the proxy binary itself.** It writes the two unit files (a
 **Deploy coupling.** `hop3 addon expose` opens the firewall (`firewall.add_rule`) and then creates the forwarder (`proxy.add`) in one rootd session; a failure of either rolls the exposure back (the firewall grant is removed, the `PortClaim` row released): the all-or-nothing shape of §8, applied to addon exposure. Teardown drops the claim row first (so the host port is reclaimable even if rootd is down), then best-effort closes the firewall and removes the forwarder, with `reconcile_proxies` as the completeness backstop.
 
 **Unit-hardening note.** Writing `/etc/systemd/system` and running `systemctl` is a materially larger surface than `CAP_NET_ADMIN`-only: the same forward constraint §18 records for `cgroup.*` / `mount.*`. The current unit runs with minimal sandboxing precisely because rootd is the privileged executor of several external tools (`nft`, `nginx`, `systemctl`) whose needs the heavy §10 profile could not jointly satisfy; a future hardening redesign must preserve `proxy.*`'s unit-file write and `systemctl` needs alongside the §18 ones. The client surface stays `LocalRootdClient.call(op, args)`.
+
+### 20. Amendment: `app_user.*`, `app_process.*` and `app_exec.*` op families ([ADR 055](./055-app-runtime-uid-separation.md))
+
+[ADR 055](./055-app-runtime-uid-separation.md) runs every native app, and every command that runs app or recipe code, as a per-app user `hop3-app-<name>`. Creating those users, giving their trees the right owners, killing their processes and starting commands as them are privileged acts, so rootd gains three op families. They are one amendment because they share one record (which users rootd created) and one drop (the `setpriv` argument list).
+
+**Ops** (registered, dispatched and audited like the others; the `list` op is read-only, `audit=False`):
+
+```
+app_user.ensure({app_name}) -> {user, uid, gid}
+app_user.unseal({app_name}) -> {paths}
+app_user.seal({app_name, paths?}) -> {paths}
+app_user.release({app_name}) -> {removed, leftovers}
+app_process.list({app_name}) -> {pids}
+app_process.kill({app_name}) -> {killed, remaining}
+app_exec.spawn({app_name, argv, env, cwd, pty?}) -> {pid} + descriptors
+```
+
+- **`app_user.ensure`** creates the user and group (`useradd --system --user-group --no-create-home --shell /usr/sbin/nologin`) under the name rootd derives from the app name, and records them. Idempotent.
+- **`app_user.unseal` / `app_user.seal`** hand the build tree to the app's user before a build, and apply [ADR 055](./055-app-runtime-uid-separation.md) §3's layout after it, whatever the build's outcome. `paths` adds a vassal file in `uwsgi-available`, which the seal gives the app's group before the control plane renames it into `uwsgi-enabled`; that group is what the vassal wrapper reads as the app's identity ([ADR 055](./055-app-runtime-uid-separation.md) §4.1).
+- **`app_user.release`** kills the user's processes and waits until they are gone, removes what the uid owns in the world-writable directories and its System V IPC objects, returns the tree to `hop3:hop3` so hop3-server can remove it, runs `userdel` and `groupdel`, and checks that both are gone. It returns what it could not remove; teardown fails on any leftover.
+- **`app_process.list` / `app_process.kill`** match processes by uid, from `/proc/<pid>/status`. They replace the reaper's cwd matching and `os.kill`, which fail across uids, and feed `cgroup.attach_pids`.
+- **`app_exec.spawn`** starts one command as the app's user and returns at once. The response carries the command's standard streams (or a pseudo-terminal's master side) and a control socket, as `SCM_RIGHTS` descriptors on the same message. The control socket yields the exit status; closing it kills the command.
+
+**The narrowing of §1.** `app_exec.spawn` is the one op that runs a command its caller chose, which §1 otherwise forbids. It grants no authority the caller lacks. The control plane already decides what every app runs: it writes the app's code, its environment and its vassal file, which the Emperor starts as the app's user. What `hop3` cannot do is become that user; the op supplies the mechanism and nothing more. The rule §1 keeps is that rootd never runs a caller's command as root or with any capability. The containment that keeps the op inside that rule:
+
+- *Only app users.* The target identity is a user rootd recorded at `ensure`, never root, `hop3` or any other account.
+- *Drop first.* The forked child drops (`setpriv --reuid --regid --clear-groups --inh-caps=-all --ambient-caps=-all --no-new-privs`) before it touches any caller-supplied path: the working directory, which must resolve inside the app's tree, and the program, resolved from the request's `PATH`. A link planted in the tree reaches only what the app's user could reach. The same argument list, defined once in rootd, is rendered into the vassal wrapper by the installer.
+- *No secret in the record.* `env` travels in the request, never on argv. The audit log records the op, the app, the argv, the working directory and the environment's *names*; its values reach no log.
+- *The allow-list is unchanged in meaning.* The exec allow-list governs what rootd runs with privilege; it gains `useradd`, `userdel`, `groupdel` and `setpriv`. A command started through `spawn` runs as the app's user after the drop and is not on it.
+
+**rootd never waits.** The daemon handles one request at a time (§7), and a build takes minutes. `spawn` forks a monitor, which moves itself into a cgroup leaf of its own under `hop3.slice` and starts the command there; rootd reaps only the intermediate fork. The monitor waits for the command, writes its status to the control socket and removes the leaf once empty. It also watches the socket: when the caller closes it (a timeout, a dropped connection, a crashed hop3-server), the monitor kills the leaf. The command's lifetime is thus tied to its caller and independent of rootd: a restart of rootd neither kills a running build nor loses its status, and a caller whose control socket closes without a status reports the command as failed. Without systemd there are no per-service cgroups, and the command's process group stands in for the leaf; a process that starts a session of its own escapes it.
+
+**The seal treats the tree as hostile.** The app's user wrote it, and root re-owns it. The seal walks by descriptor (`os.fwalk`, no symlink followed, `chown` and `chmod` relative to the directory descriptor), refuses anything that resolves outside `apps/<app>/` or the two uWSGI directories, sets every mode explicitly, clears setuid and setgid bits and removes POSIX ACLs. It runs once the build's processes are gone, since a descriptor opened for writing before the seal stays writable after it. Its duration grows with the tree, the first op whose duration does; if a large tree blocks the queue measurably, the seal moves to a forked worker like `spawn`'s monitor.
+
+**One state discipline (as §18).** App users join `state.json` as rows `{app_name, user, uid, gid, status}`, written state-first like firewall rules: `pending` before `useradd`, `present` after, `releasing` before `userdel`. Startup reconciliation compares the rows with the user database. A recorded user that is missing makes `daemon.health` report degraded, and the next `ensure` recreates it, after which a seal re-owns its tree. A `hop3-app-*` user rootd has no row for is reported and never adopted or deleted: rootd acts only on users it created. Spawned commands are not state: their monitors, not rootd, hold them.
+
+**Unit-hardening note.** These ops need `CAP_SETUID` and `CAP_SETGID` (the drop), `CAP_CHOWN`, `CAP_FOWNER` and `CAP_DAC_READ_SEARCH` (the seal, through trees of mode `0700` owned by another uid), `CAP_KILL`, write access to `/etc/passwd`, `/etc/group`, `/etc/shadow` and `/etc/gshadow` (through `useradd`), and the `setuid` family of system calls, which §10's `~@privileged` filter denies. The future hardening redesign must preserve them alongside §18's and §19's needs.
+
+The error-code taxonomy is unchanged: malformed requests and paths outside containment are `validation_failed`, a failed `useradd` or `chown` is `kernel_error`, and an unrecorded user under an app's name is `state_conflict`. The JSON framing is unchanged; `spawn`'s response is the first to carry descriptors, and the handshake's protocol version announces it. The client surface stays `LocalRootdClient.call(op, args)`, with a variant that returns the descriptors.
 
 ## Consequences
 
