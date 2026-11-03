@@ -1,405 +1,127 @@
-# ADR 017: Distributed, Agent-Based Architecture
+# ADR 017: Agent-Based Distributed Architecture
 
 - **Status**: Draft
 - **Type**: Feature
 - **Created**: 2024-07-17
-- **Related-ADRs**: [029](./029-reconciliation-health-checks.md)
+- **Revised**: 2026-10-27, 2026-10-28, 2026-10-29 (see "Revision" below)
+- **Related-ADRs**: [010](./010-security-and-resilience.md) (failover scope, changed in Phase 3 by §7), [016](./016-backups.md) and [024](./024-backup-restore-system.md) (backups), [029](./029-reconciliation-health-checks.md) (Phase 1), [041](./041-privileged-operations-agent.md) (the privileged helper, §17 on agents), [063](./063-identity-layer.md) (the identity layer); detailed designs: [065](./065-workload-identity.md) (enrolment), [068](./068-guest-networking.md) (the private network), [069](./069-worker-servers.md) (worker servers and placement), [070](./070-fault-tolerance.md) (fault tolerance, deferred to Phase 3)
 - **Related**: Hop3 paper (Section 7.4: Agent Model)
-
-## Introduction
-
-This ADR describes the long-term vision for Hop3's evolution from a single-server PaaS to a distributed, agent-based platform. It establishes the architectural principles and the evolution path. The foundational work ([ADR 029](./029-reconciliation-health-checks.md)) must be completed first.
 
 ## Summary
 
-Hop3 will evolve through four phases:
+This ADR sets the principles and phases of Hop3's growth from one server to several, and frames the ADRs that design each phase. A server is capacity: the number of servers should not matter to an app, to the people who use it or to the operator.
 
-1. **Phase 1** ([ADR 029](./029-reconciliation-health-checks.md)): Single-server reconciliation, health checks, and restart policies
-2. **Phase 2**: Extract agent responsibilities into a separate module
-3. **Phase 3**: Multi-server support with central coordinator
-4. **Phase 4**: Full distributed scheduling and orchestration
+A platform should be one **primary**, which holds everything that has a single location, plus any number of **worker servers** that run the apps' workers and nothing else, joined by a private network. A single server is a primary with no worker servers. Hop3 gets there in four phases, each useful alone:
 
-This phased approach lets Hop3 gain production reliability immediately (Phase 1) and build toward a scalable distributed architecture over time.
+1. **Phase 1, self-healing on one server**: reconciliation, health checks and restart policies ([ADR 029](./029-reconciliation-health-checks.md)).
+2. **Phase 2, a primary with worker servers**: enrolment ([ADR 065](./065-workload-identity.md)), the private network ([ADR 068](./068-guest-networking.md)), worker servers and placement ([ADR 069](./069-worker-servers.md)). A lost worker server stops receiving requests. The operator moves its workers.
+3. **Phase 3, later**: failover of workers with leases and fencing ([ADR 070](./070-fault-tolerance.md)), then a standby primary that takes over by itself, and placement that filters, scores and picks servers, after Nomad.
+4. **Phase 4, federation and the edge**: research on several operators and sites that are often cut off, with promises replicated as CRDTs by gossip.
+
+Phase 2 is the next step, designed by ADRs 065, 068 and 069. Phases 3 and 4 build on it.
 
 ## Context and Goals
 
 ### Context
 
-Hop3 is currently a single-server PaaS optimized for simplicity. Comparing Hop3's architecture with production-grade orchestrators (like Kubernetes, Nomad, or the "Cube" pattern from container orchestration literature) reveals several gaps:
+Hop3 runs all apps on one server, on Heroku's model: a router in front, disposable workers behind it, backing services attached by URL. Adding capacity today means a second platform, managed apart. Production orchestrators spread workloads through a replicated control plane that a small organisation can neither run nor repair.
 
-| Aspect | Production Orchestrators | Hop3 Current |
-|--------|-------------------------|--------------|
-| Architecture | Distributed Manager-Worker | Single-server monolithic |
-| Reconciliation | Periodic background loop | On-demand only |
-| Health Checks | Active probing + remediation | Defined but not implemented |
-| Restart Policy | Always/OnFailure/Never | Not implemented |
-| Metrics | Worker collects CPU/Memory | Not implemented |
-| Event Log | Immutable state changes | Not implemented |
-
-Multi-server distribution is not needed for Hop3's primary use case (single-server simplicity). Even on a single server, though, the **patterns** from distributed systems (reconciliation loops, health monitoring, self-healing) improve reliability.
+The project targets twelve-factor apps: stateless processes, configuration in the environment, state in backing services, logs as streams. An app that keeps state on local disk stays on one server; distributing it would need network or block storage, which this ADR leaves aside.
 
 ### Goals
 
-1. **Incremental Evolution**: Build distributed capabilities incrementally.
-2. **Single-Server First**: Ensure single-server deployments gain full reliability benefits
-3. **Production Patterns**: Adopt patterns from production orchestrators
-4. **Minimal Complexity**: Add multi-server support only when concrete requirements justify it
-5. **Promise-Based Design**: Use the theory of promises for coordination semantics
+1. **Incremental evolution**: each phase is useful alone. One server runs the code paths of several, which the catalog's tests then exercise.
+2. **A small model**: Heroku's router, workers and backing services over a handful of servers, placed by a few rules.
+3. **Stated failure semantics**: each failure has a stated behaviour and cost, the primary's included; in Phase 2, the operator decides what moves.
+4. **Privilege stays local**: the control plane can make a worker server do nothing a local operator could not.
 
 ### Non-Goals
 
-- Competing with Kubernetes for large-scale container orchestration
-- Supporting arbitrary distributed consensus algorithms
-- Real-time sub-second state synchronization
+- Competing with Kubernetes or Nomad.
+- Consensus, or a primary that fails over by itself.
+- Distributing apps with local disk state, live migration, hosting DNS.
 
 ## Decision
 
-Hop3 will adopt an agent-based architecture where each server runs an autonomous agent that:
-
-1. Manages local application lifecycle
-2. Maintains promises about application state
-3. Reports status to a coordinator (in multi-server mode)
-4. Self-heals based on configured policies
-
-The architecture will be implemented in phases, with each phase delivering standalone value.
-
-## Detailed Design
-
-### Phase 1: Single-Server Foundations ([ADR 029](./029-reconciliation-health-checks.md))
-
-Phase 1 implements the core patterns on a single server (the detailed design lives in [ADR 029](./029-reconciliation-health-checks.md)):
-
-```
-┌─────────────────────────────────────────────────────────┐
-│                    Hop3 Server                          │
-│                                                         │
-│  ┌──────────────┐    ┌──────────────┐    ┌──────────┐   │
-│  │   Watchdog   │───▶│   Database   │◀───│   CLI    │   │
-│  │   Service    │    │   (SQLite)   │    │          │   │
-│  └──────┬───────┘    └──────────────┘    └──────────┘   │
-│         │                                               │
-│         ▼                                               │
-│  ┌──────────────┐    ┌──────────────┐                   │
-│  │   Health     │    │    uWSGI     │                   │
-│  │   Checker    │───▶│   Emperor    │                   │
-│  └──────────────┘    └──────────────┘                   │
-│                             │                           │
-│                             ▼                           │
-│                      ┌──────────────┐                   │
-│                      │ App Processes│                   │
-│                      └──────────────┘                   │
-└─────────────────────────────────────────────────────────┘
-```
-
-Key deliverables:
-
-- `WatchdogService`: Background reconciliation loop (30-60 second cycle)
-- `HealthChecker`: Command and HTTP-based health probing
-- `RestartPolicy`: NEVER, ON_FAILURE, ALWAYS with exponential backoff
-- `AppEvent`: Immutable audit log of state changes
-
-### Phase 2: Agent Module Extraction
-
-Phase 2 extracts agent responsibilities into a separate module, preparing for distribution:
-
-```python
-class LocalAgent:
-    """Agent running on a single Hop3 server."""
-
-    def __init__(self, node_id: str, coordinator: Coordinator | None = None):
-        self.node_id = node_id
-        self.watchdog = WatchdogService()
-        self.health_checker = HealthChecker()
-        self.coordinator = coordinator  # None for single-server
-
-    async def run(self) -> None:
-        """Main agent loop."""
-        while True:
-            # 1. Reconcile local state
-            await self.watchdog.reconcile()
-
-            # 2. Run health checks
-            await self.health_checker.check_all()
-
-            # 3. Process restart policies
-            await self.watchdog.process_restarts()
-
-            # 4. Report to coordinator (if multi-server)
-            if self.coordinator:
-                await self.report_status()
-
-            await asyncio.sleep(30)
-
-    async def report_status(self) -> AgentStatus:
-        """Report agent status to coordinator."""
-        return AgentStatus(
-            node_id=self.node_id,
-            timestamp=datetime.now(UTC),
-            apps=self._get_app_statuses(),
-            resources=self._get_resource_usage(),
-        )
-
-    def receive_task(self, task: Task) -> Promise:
-        """Receive a task from coordinator and return a promise."""
-        return Promise(
-            promiser=self.node_id,
-            promisee="coordinator",
-            body=f"deploy:{task.app_name}",
-            status="pending",
-        )
-```
-
-Key deliverables:
-
-- `LocalAgent`: Encapsulates all agent responsibilities
-- `AgentStatus`: Standardized status reporting format
-- `Task` / `Promise`: Data structures for task assignment
-
-### Phase 3: Multi-Server Coordinator
-
-Phase 3 adds a central coordinator for multi-server deployments:
-
-```
-┌───────────────────────────────────────────────────────┐
-│                       Coordinator                     │
-│  ┌─────────────┐   ┌─────────────┐   ┌─────────────┐  │
-│  │  Scheduler  │   │   Task      │   │   Promise   │  │
-│  │  (3-phase)  │   │   Queue     │   │   Registry  │  │
-│  └─────────────┘   └─────────────┘   └─────────────┘  │
-└────────────────────────────┬──────────────────────────┘
-                             │ HTTP/gRPC
-              ┌──────────────┼──────────────┐
-              ▼              ▼              ▼
-        ┌──────────┐   ┌──────────┐   ┌──────────┐
-        │  Agent   │   │  Agent   │   │  Agent   │
-        │  Node 1  │   │  Node 2  │   │  Node 3  │
-        └──────────┘   └──────────┘   └──────────┘
-```
-
-**Coordinator Responsibilities:**
-
-```python
-class Coordinator:
-    """Central coordinator for multi-server Hop3."""
-
-    def __init__(self):
-        self.agents: dict[str, AgentConnection] = {}
-        self.scheduler = Scheduler()
-        self.task_queue = TaskQueue()
-        self.promise_registry = PromiseRegistry()
-
-    async def deploy_app(self, app: App) -> DeploymentResult:
-        """Deploy application to best available node."""
-        # 1. Filter: Find capable nodes
-        candidates = self.scheduler.filter(
-            self.agents.values(),
-            requirements=app.resource_requirements,
-        )
-
-        # 2. Score: Rank by resource availability
-        scored = self.scheduler.score(candidates)
-
-        # 3. Pick: Select best node
-        target = self.scheduler.pick(scored)
-
-        # 4. Create task and send to agent
-        task = Task(app_name=app.name, action="deploy")
-        promise = await target.assign_task(task)
-
-        # 5. Register promise and track
-        self.promise_registry.register(promise)
-        return DeploymentResult(node=target.node_id, promise_id=promise.id)
-
-    async def reconciliation_loop(self) -> None:
-        """Periodic reconciliation with all agents."""
-        while True:
-            for agent in self.agents.values():
-                status = await agent.get_status()
-                await self._reconcile_agent(agent, status)
-            await asyncio.sleep(30)
-```
-
-**Three-Phase Scheduler:**
-
-```python
-class Scheduler:
-    """Three-phase scheduler for task placement."""
-
-    def filter(
-        self,
-        agents: Iterable[AgentConnection],
-        requirements: ResourceRequirements,
-    ) -> list[AgentConnection]:
-        """Phase 1: Filter out incapable nodes."""
-        return [
-            agent for agent in agents
-            if agent.has_capacity(requirements)
-            and agent.is_healthy()
-            and not agent.is_draining()
-        ]
-
-    def score(
-        self,
-        candidates: list[AgentConnection],
-    ) -> list[tuple[AgentConnection, float]]:
-        """Phase 2: Score remaining candidates."""
-        scored = []
-        for agent in candidates:
-            score = (
-                0.4 * agent.available_memory_ratio()
-                + 0.3 * agent.available_cpu_ratio()
-                + 0.2 * agent.app_spread_score()  # Prefer nodes with fewer apps
-                + 0.1 * agent.locality_score()    # Prefer co-located dependencies
-            )
-            scored.append((agent, score))
-        return sorted(scored, key=lambda x: x[1], reverse=True)
-
-    def pick(
-        self,
-        scored: list[tuple[AgentConnection, float]],
-    ) -> AgentConnection:
-        """Phase 3: Pick the best candidate."""
-        if not scored:
-            raise NoCapacityError("No nodes available for scheduling")
-        return scored[0][0]
-```
-
-Key deliverables:
-
-- `Coordinator`: Central management service
-- `Scheduler`: Three-phase scheduling algorithm
-- `AgentConnection`: Agent communication protocol
-- `PromiseRegistry`: Track and verify promises
-
-### Phase 4: Advanced Orchestration and Federation
-
-Phase 4 adds advanced features and explores two complementary coordination models:
-
-**Engineering track (coordinator-based):**
-
-1. **Placement Constraints**: Affinity/anti-affinity rules
-2. **Rolling Updates**: Zero-downtime deployments across nodes
-3. **Resource Quotas**: Per-tenant resource limits
-
-**Research track (fully decentralized):**
-
-For edge and fog computing scenarios where a central coordinator is unavailable or undesirable (network partitions, multi-operator federation), CRDTs and gossip-based dissemination offer an alternative coordination model:
-
-- Each node maintains a local CRDT replica of the deployment state
-- Nodes synchronise via gossip protocols rather than reporting to a coordinator
-- Scheduling emerges from local evaluation of capability promises against workload requirements
-- Conflict resolution uses CRDT merge semantics (see the Hop3 paper, Section 7.4)
-
-This decentralized model suits edge deployments where nodes must operate autonomously under partition. The coordinator-based Phase 3 is a pragmatic intermediate step that validates the agent/promise model before removing the central authority.
-
-The Hop3 paper develops the formal argument for this trajectory, grounding it in Promise Theory \[PT1\] and showing how Nix content-addressed closures enable bandwidth-efficient store-carry-forward updates between disconnected nodes.
-
-### Theory of Promises Integration
-
-The theory of promises (Mark Burgess) provides the semantic foundation:
-
-**Promise Types:**
-
-```python
-class Promise:
-    """A declaration by an agent about its behavior."""
-
-    promiser: str        # Agent making the promise
-    promisee: str        # Who can depend on it ("any" for broadcast)
-    body: str            # What is promised (e.g., "running:myapp")
-    status: PromiseStatus  # pending, kept, broken
-    timestamp: datetime
-
-class PromiseStatus(enum.Enum):
-    PENDING = "pending"    # Promise made, not yet verified
-    KEPT = "kept"          # Promise verified as fulfilled
-    BROKEN = "broken"      # Promise verified as not fulfilled
-```
-
-**Promise Verification:**
-
-```python
-async def verify_promises(self) -> list[BrokenPromise]:
-    """Verify all registered promises against actual state."""
-    broken = []
-    for promise in self.promise_registry.active():
-        agent = self.agents.get(promise.promiser)
-        if not agent:
-            broken.append(BrokenPromise(promise, reason="agent_unavailable"))
-            continue
-
-        # Parse promise body and verify
-        if promise.body.startswith("running:"):
-            app_name = promise.body.split(":")[1]
-            status = await agent.get_app_status(app_name)
-            if status.state != AppState.RUNNING:
-                broken.append(BrokenPromise(promise, reason="app_not_running"))
-
-    return broken
-```
-
-**Promise-Based Coordination:**
-
-Rather than issuing imperative commands ("deploy this app now"), the coordinator expresses desired state and agents make promises:
-
-1. Coordinator: "I need app X running on some node"
-2. Agent A: "I promise to run app X" (promise pending)
-3. Agent A deploys app X
-4. Agent A: Updates promise status to "kept"
-5. Coordinator: Verifies promise periodically
-
-This provides:
-
-- **Decentralization**: Agents decide how to fulfill promises
-- **Fault Tolerance**: Broken promises trigger re-scheduling
-- **Auditability**: Promise history gives a clear audit trail
+We propose the following principles.
+
+### 1. One primary
+
+The primary holds what has a single location:
+
+- the control plane: apps, configuration, secrets, accounts, placements, and the database Hop3 keeps them in;
+- the entry point: the proxy, the certificates and the access gate;
+- the identity layer and the sign-in issuer (ADR 063);
+- builds and the cache of build artifacts;
+- by default, the backing services (PostgreSQL, MySQL, Redis), unless the operator places them on a server of their own or uses external ones.
+
+### 2. Worker servers run workers
+
+A worker server holds no state and no users, and has no public entry point. It joins once with a key the operator enrols, which also identifies it on the private network. Enrolment refuses a server whose distribution release differs from the primary's, so a native release built on the primary runs on any worker server.
+
+The operator says how many workers of each process type an app runs. The control plane spreads them over the servers that offer what the app requires (hardware virtualisation for an app in a VM) and honours the operator's pins.
+
+### 3. Every request enters at the primary
+
+DNS points each app hostname at the primary. The proxy there forwards requests by hostname to the app's workers on any server, over a private WireGuard network. Certificates stay on the primary. Workers reach their backing services at addresses valid across that network.
+
+Identity follows the request: the gate on the primary passes it on; OpenID Connect apps check tokens against the issuer's published keys. A worker server never checks a password, so it needs no copy of the accounts.
+
+### 4. Reports, and moves the operator decides
+
+A worker server reports the state and health of its workers at a fixed interval. The proxy routes only to workers whose server reported recently and whose health check passes. A server whose reports stop is shown as lost. Nothing restarts by itself. When the operator drains a live server, or removes a lost one (which also cuts it off from the private network), its workers are placed elsewhere ([ADR 069](./069-worker-servers.md) §8). A singleton worker (a scheduler, a queue consumer) therefore never runs twice. Phase 3 replaces the operator's decision by leases and fencing ([ADR 070](./070-fault-tolerance.md)).
+
+### 5. Privilege stays on each server
+
+Agents run as the platform's user. A step that needs root goes through the privileged helper (rootd, [ADR 041](./041-privileged-operations-agent.md) §17) of the server concerned, with the allow-list it applies to a local request. An enrolled key authenticates a worker server; every operation it signs still passes the allow-list of the privileged helper on that server.
+
+### 6. Promises
+
+Promise theory (Mark Burgess) gives the semantics. The control plane states needs ("app X should run two web workers at release R"). A worker server accepts part of a need by promising about its own state ("one web worker of X runs here at release R"), pending until it reports the promise kept or broken. The history of promises is the platform's audit trail.
+
+In Phase 3, a lease is a promise with an expiry, renewed while the worker server can. Once the lease has expired, the control plane treats the promise as broken without asking the server, which has stopped the worker by then ([ADR 070](./070-fault-tolerance.md)). Because each server owns the promises it makes, Phase 4's replicated state stays possible.
+
+### 7. Failover of workers comes in Phase 3
+
+[ADR 010](./010-security-and-resilience.md) placed multi-server failover out of scope. Phase 2 keeps it out: a worker on a lost server moves when the operator says so (§4). Phase 3 brings failover of workers into scope: a worker on a lost server restarts on another by itself ([ADR 070](./070-fault-tolerance.md)). Failover of the primary and of backing services stays out in both. The primary is a stated single point of failure. In Phase 2 the operator restores it from backup on a fresh server by a documented runbook ([ADR 069](./069-worker-servers.md) §9). Phase 3 reduces the outage by continuous backup to a worker server, a tested restore command and an optional floating-address plugin.
 
 ## Consequences
 
-### Benefits
+Capacity grows by enrolling worker servers, with apps, users and DNS records unchanged. Losing a worker server costs no data; an app with workers on another server keeps serving, and the lost server's workers wait for the operator in Phase 2. There is no consensus protocol to run or repair.
 
-1. **Incremental Value**: Each phase delivers standalone improvements
-2. **Production Reliability**: Single-server deployments become self-healing
-3. **Scalability Path**: Clear evolution to multi-server when needed
-4. **Semantic Clarity**: Promise theory provides precise coordination semantics
-5. **Debugging**: Promise history and event logs enable root cause analysis
+The primary is a single point of failure: losing it costs the restore time and the data written since the last backup (ADRs 016 and 024). All requests cross the primary, which bounds the platform's bandwidth. A worker at another provider than its database pays the round trip on each query. Apps with local disk state gain nothing.
 
-### Drawbacks
+## Revision (2026-10-27)
 
-1. **Complexity**: Multi-server coordination adds complexity that must be documented and tested
-2. **Overhead**: Promise verification and reconciliation consume resources
-3. **Learning Curve**: Promise theory concepts require documentation and training
+The 2024 version planned an agent module (Phase 2), a central coordinator with a three-phase scheduler (Phase 3), then federation (Phase 4). This revision keeps agents that keep promises, phases useful alone and no consensus. It changes five things:
 
-### Trade-offs
+1. **Phase 2 is a primary with worker servers.** The coordinator becomes the control plane on the primary.
+2. **Stated failure semantics.** Each failure has a stated behaviour and cost; leases and fencing, which give promises an expiry, belong to Phase 3 (see below).
+3. **Placement is a few rules.** The scheduler moves to Phase 3.
+4. **Identity.** Worker servers are enrolled by key; accounts and sign-in stay on the primary.
+5. **Scope.** Twelve-factor apps on Heroku's model, and failover of workers (§7).
 
-| Aspect | Decision | Alternative | Why Rejected |
-|--------|----------|-------------|--------------|
-| Evolution | Phased | Big-bang | Risk too high, value delayed |
-| Coordination | Promise-based | Imperative | Less fault tolerant |
-| Scheduling | 3-phase | Simple round-robin | Insufficient for heterogeneous nodes |
-| Storage | Per-agent SQLite | Distributed consensus | Unnecessary complexity for Hop3 scale |
+The revision of 2026-10-28 moves leases, fencing and failover of workers (ADR 070) from Phase 2 to Phase 3, to keep Phase 2 simple: worker servers report and the operator decides what moves.
+
+The revision of 2026-10-29 names the sign-in issuer among what the primary holds (§1) and states how Phase 2 recovers a lost primary: a documented restore from backup on a fresh server (§7, ADR 069 §9).
+
+## Open Questions
+
+1. **Mixed distribution releases.** Worker servers on another distribution release would need native apps rebuilt per release, or only Nix-built and micro-VM apps. Decided when an operator asks for it.
+2. **When Phase 3 starts.** A standby primary needs a quorum of three servers and replicated state, as does promoting a database replica. Decided by the restore times the catalog's failure tests measure and by operators' reports.
+
+ADR 069 holds the questions on latency across providers and external backing services; ADR 070, those on lease durations.
 
 ## Prior Art
 
-- **Kubernetes**: Manager-worker architecture with reconciliation loops
-- **Nomad**: Three-phase scheduler (feasibility, ranking, selection)
-- **CFEngine**: Theory of promises for configuration management
-- **Cube Orchestrator**: Educational reference for container orchestration patterns
-- **systemd**: Local process supervision with restart policies
-
-## Related
-
-- [ADR 020: Pluggable Architecture](./020-pluggable-architecture.md) - Plugin system used by agents
-- [ADR 022: Build and Deployment Plugin System](./022-build-deploy-plugin-system.md) - Deployment strategies
-- [ADR 029: Reconciliation and Health Checks](./029-reconciliation-health-checks.md) - Phase 1 implementation details
+- **Heroku**: router, dynos, backing services.
+- **Kubernetes**: reconciliation loops, node leases.
+- **Nomad**: a three-step scheduler; a cut-off client stops its allocations after a set time.
+- **CFEngine**: promise theory.
+- **Leases** (Gray and Cheriton): a grant with an expiry.
 
 ## References
 
 - Burgess, M. "An Approach to Computer System Configuration Based on Promise Theory," *Science of Computer Programming*, vol. 71, no. 3, pp. 243–265, 2008.
-- Burgess, M. and Bergstra, J.A. *Promise Theory: Principles and Applications*. Xtaxis Press, 2014.
-- Burgess, M. "Testable System Administration," *Communications of the ACM*, vol. 54, no. 3, pp. 44–49, 2011.
-- Burgess, M. "In Search of Certainty" (2013)
-- Kubernetes Documentation: [Controllers](https://kubernetes.io/docs/concepts/architecture/controller/)
-- Nomad Documentation: [Scheduling](https://developer.hashicorp.com/nomad/docs/concepts/scheduling)
-- "Build an Orchestrator in Go (From Scratch)" by Tim Boring
-- Hop3 paper, Section 7.4: "From Single Node to Distributed Edge: The Hop3 Agent Model"
+- Gray, C. and Cheriton, D. "Leases: An Efficient Fault-Tolerant Mechanism for Distributed File Cache Consistency," *Proceedings of the 12th ACM Symposium on Operating Systems Principles*, pp. 202–210, 1989.
+- Wiggins, A. *The Twelve-Factor App*, 2011: [12factor.net](https://12factor.net).
