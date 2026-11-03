@@ -7,6 +7,7 @@
 <img
 referrerpolicy="no-referrer-when-downgrade"
 src="https://stats.abilian.com/matomo.php?idsite=15&amp;rec=1" style="border:0" alt="" />
+[![PyPI Downloads](https://static.pepy.tech/personalized-badge/terminux?period=total&units=INTERNATIONAL_SYSTEM&left_color=BLACK&right_color=GREEN&left_text=downloads)](https://pepy.tech/projects/hop3-server)
 
 Build status: [![builds.sr.ht status](https://builds.sr.ht/~sfermigier/hop3.svg)](https://builds.sr.ht/~sfermigier/hop3?)
 
