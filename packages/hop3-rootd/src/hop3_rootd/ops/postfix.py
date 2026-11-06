@@ -36,11 +36,11 @@ from hop3_rootd.validation import (
 
 
 def _validate_map_name(value: object) -> str:
-    if value not in pf.MAP_NAMES:
+    if not isinstance(value, str) or value not in pf.MAP_NAMES:
         raise ValidationError(
             "map", f"must be one of {sorted(pf.MAP_NAMES)} (got {value!r})"
         )
-    return str(value)
+    return value
 
 
 @register("postfix.map_add")

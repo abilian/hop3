@@ -492,7 +492,7 @@ class Hop3Config:
         return raw.get("_policy", "keep-existing")
 
     @property
-    def env_computed(self) -> dict[str, str]:
+    def env_computed(self) -> dict[str, Any]:
         """
         Get the [env.computed] section (computed environment variables).
 

@@ -390,13 +390,13 @@ class ResultStore:
                 # Refetch the run in this session
                 run = session.get(TestRun, self._current_run.id)
                 if run:
-                    run.total_tests = int(run.total_tests or 0) + 1
+                    run.total_tests = (run.total_tests or 0) + 1
                     # Only a TRUE failure is red; xfail/xpass (negative tests)
                     # and pass count as "not a failure".
                     if status == "fail":
-                        run.failed_tests = int(run.failed_tests or 0) + 1
+                        run.failed_tests = (run.failed_tests or 0) + 1
                     else:
-                        run.passed_tests = int(run.passed_tests or 0) + 1
+                        run.passed_tests = (run.passed_tests or 0) + 1
                     session.commit()
 
             return record_id

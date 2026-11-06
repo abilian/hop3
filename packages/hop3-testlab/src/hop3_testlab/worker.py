@@ -535,7 +535,7 @@ def _default_executor(
     # The engine subprocess must write to the SAME store the Lab reads — its
     # ResultStore() default is the local SQLite file, which diverges from a
     # Postgres / custom STORE_TARGET and makes results silently invisible (#4).
-    env["HOP3_TEST_RESULTS_DB"] = str(TestlabConfig.get_instance().STORE_TARGET)
+    env["HOP3_TEST_RESULTS_DB"] = TestlabConfig.get_instance().STORE_TARGET
     # The engine `git init && git commit`s each test app for deploy; a server's
     # runtime user has no git identity -> `git commit` exits 128. Provide one via
     # git's standard env vars so the commit never depends on global config.

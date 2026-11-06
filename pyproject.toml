@@ -69,6 +69,7 @@ dev = [
     "types-urllib3>=1.26.25.14",
     "types-pyyaml>=6.0.12.20250915",
     "types-markdown>=3.10.0.20251106",
+    "types-psycopg2>=2.9.21.20261030",
     # More tools
     "import-linter>=2.1",
     # SBOM

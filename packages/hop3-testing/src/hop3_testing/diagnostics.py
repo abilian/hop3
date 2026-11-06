@@ -395,7 +395,7 @@ class DiagnosticCollector:
                 details_html = ""
                 if entry.details:
                     details_items = "".join(
-                        f"<li><strong>{html.escape(str(k))}:</strong> {html.escape(str(v))}</li>"
+                        f"<li><strong>{html.escape(k)}:</strong> {html.escape(str(v))}</li>"
                         for k, v in entry.details.items()
                     )
                     details_html = f"<ul class='details'>{details_items}</ul>"

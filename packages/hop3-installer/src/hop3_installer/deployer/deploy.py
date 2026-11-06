@@ -879,14 +879,15 @@ class Deployer:
         versions = dict.fromkeys(_VERSIONED_PACKAGES, "")
         # hop3's venv as hop3 (see `_reload_nginx`); rootd's venv, root's own,
         # as root.
+        server_probe = _version_probe(f"{VENV_DIR}/bin/python", _SERVER_VENV_PACKAGES)
+        rootd_packages = (ROOTD_PACKAGE_NAME,)
+        rootd_probe = _version_probe(f"{ROOTD_VENV_DIR}/bin/python", rootd_packages)
         probes = (
-            (_as_hop3, f"{VENV_DIR}/bin/python", _SERVER_VENV_PACKAGES),
-            (str, f"{ROOTD_VENV_DIR}/bin/python", (ROOTD_PACKAGE_NAME,)),
+            (_as_hop3(server_probe), _SERVER_VENV_PACKAGES),
+            (rootd_probe, rootd_packages),
         )
-        for as_user, python, packages in probes:
-            result = self.backend.run(
-                as_user(_version_probe(python, packages)), check=False
-            )
+        for probe, packages in probes:
+            result = self.backend.run(probe, check=False)
             for line in (result.stdout or "").splitlines():
                 name, _, version = line.strip().partition(" ")
                 name = name.replace("_", "-")

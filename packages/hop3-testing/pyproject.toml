@@ -76,3 +76,8 @@ exclude_also = [
 ]
 skip_covered = true
 skip_empty = true
+
+[dependency-groups]
+dev = [
+    "types-docker>=7.2.0.20261006",
+]

@@ -23,8 +23,10 @@ import re
 from dataclasses import dataclass
 from typing import Any, Final
 
-# Dimensions, in a stable order for deterministic messages/output.
-_DIMS: Final[tuple[str, ...]] = ("memory", "cpu", "processes")
+# Dimensions, in a stable order for deterministic messages/output, with the type
+# each one holds once resolved. `[limits]` reaches us as raw TOML: the schema
+# accepts `processes = "256"` without rewriting it.
+_DIMS: Final[dict[str, type]] = {"memory": str, "cpu": float, "processes": int}
 
 _MEMORY_RE: Final[re.Pattern[str]] = re.compile(r"^(\d+)([KMG]?)$", re.IGNORECASE)
 _MEMORY_MULT: Final[dict[str, int]] = {"": 1, "K": 1024, "M": 1024**2, "G": 1024**3}
@@ -97,7 +99,7 @@ def resolve_limits(
     misconfigured default-over-ceiling raise ``LimitsError``.
     """
     resolved: dict[str, Any] = {}
-    for dim in _DIMS:
+    for dim, dim_type in _DIMS.items():
         if declared.get(dim) is not None:
             value, source = declared[dim], "declared"
         elif defaults.get(dim) is not None:
@@ -113,24 +115,20 @@ def resolve_limits(
                 f"the ceiling."
             )
             raise LimitsError(msg)
-        resolved[dim] = value
+        resolved[dim] = dim_type(value)
 
-    return ResolvedLimits(
-        memory=resolved.get("memory"),
-        cpu=resolved.get("cpu"),
-        processes=resolved.get("processes"),
-    )
+    return ResolvedLimits(**resolved)
 
 
 def to_cgroup_args(resolved: ResolvedLimits) -> dict[str, Any]:
     """Map resolved caps to ``cgroup.set_limits`` args (memory_max/cpu_max/pids_max)."""
     args: dict[str, Any] = {}
     if resolved.memory is not None:
-        args["memory_max"] = parse_memory_to_bytes(str(resolved.memory))
+        args["memory_max"] = parse_memory_to_bytes(resolved.memory)
     if resolved.cpu is not None:
-        args["cpu_max"] = cpu_to_cgroup_max(float(resolved.cpu))
+        args["cpu_max"] = cpu_to_cgroup_max(resolved.cpu)
     if resolved.processes is not None:
-        args["pids_max"] = int(resolved.processes)
+        args["pids_max"] = resolved.processes
     return args
 
 

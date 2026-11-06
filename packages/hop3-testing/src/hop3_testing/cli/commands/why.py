@@ -37,7 +37,7 @@ def _resolve_bundle(run_id: str) -> tuple[Path, str | None, str | None] | None:
     """
     record = ResultStore().get_result_by_run_id(run_id)
     if record is not None and record.bundle_path:
-        return Path(str(record.bundle_path)), record.headline, record.classification
+        return Path(record.bundle_path), record.headline, record.classification
 
     # No store record: fall back to the on-disk bundle and its manifest. Guard
     # against a run-id that isn't a bare basename (no path traversal).

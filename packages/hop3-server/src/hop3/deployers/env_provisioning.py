@@ -55,7 +55,7 @@ _PASSWORD_ALPHABET = string.ascii_letters + string.digits
 
 def set_default_env_vars(
     app: App,
-    env_config: dict[str, str],
+    env_config: Mapping[str, object],
     db_session: Session,
     *,
     env_policy: str = "keep-existing",
@@ -108,7 +108,7 @@ def set_default_env_vars(
 
 def set_env_vars(
     app: App,
-    env_vars: dict[str, str],
+    env_vars: Mapping[str, object],
     db_session: Session,
     *,
     defaults_only: bool = False,
@@ -118,7 +118,8 @@ def set_env_vars(
 
     Args:
         app: The application model
-        env_vars: Dict of env var name -> value
+        env_vars: Env var name -> value; a TOML scalar from [env] is stored as
+            its string form
         db_session: Database session for persistence
         defaults_only: If True, only create new vars, never overwrite existing ones
 
@@ -175,7 +176,7 @@ def set_public_url_env(app: App, db_session: Session) -> None:
 
 def set_computed_env_vars(
     app: App,
-    computed_config: dict[str, str],
+    computed_config: Mapping[str, object],
     db_session: Session,
 ) -> None:
     """
@@ -245,7 +246,6 @@ def generate_secret_value(spec: Mapping[str, Any]) -> str:
             f"Must be one of: {', '.join(sorted(GENERATE_KINDS))}."
         )
         raise ValueError(msg)
-    kind = str(kind)  # narrowed: a valid generator name past the guard
 
     length = spec.get("length") or _DEFAULT_GENERATE_LENGTHS.get(kind, 32)
 

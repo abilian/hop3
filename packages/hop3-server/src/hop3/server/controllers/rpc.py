@@ -79,7 +79,7 @@ PROTOCOL_HEADER = "Hop3-RPC-Protocol"
 COMMAND_SLOT_WAIT_SECONDS = 30.0
 
 if TYPE_CHECKING:
-    from collections.abc import AsyncIterator, Iterable
+    from collections.abc import AsyncGenerator, Iterable
 
     from sqlalchemy.orm import Session
 
@@ -122,7 +122,7 @@ class CommandSlot:
         self._held: tuple[str | None, float | None] = (None, None)
 
     @asynccontextmanager
-    async def hold(self, display_name: str) -> AsyncIterator[None]:
+    async def hold(self, display_name: str) -> AsyncGenerator[None]:
         """Hold the slot for ``display_name``, or raise `ServerBusyError`."""
         acquired = False
         with anyio.move_on_after(self.wait_seconds):
