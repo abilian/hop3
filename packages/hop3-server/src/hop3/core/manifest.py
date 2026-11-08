@@ -29,7 +29,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Literal
 
-from hop3.core.artifacts import RuntimeConfig
+from hop3.core.artifacts import WSGI_WORKER_KINDS, RuntimeConfig
+from hop3.lib.diagnostics import Diagnosis, abort_with_diagnosis
 
 if TYPE_CHECKING:
     from hop3.project.config import AppConfig
@@ -111,14 +112,16 @@ class RuntimeManifestBuilder:
         if workers:
             merged_workers.update(workers)  # Builder overrides
 
+        run_workers: dict[str, str] = {}
         if self.app_config.has_hop3_toml:
-            hop3_workers = self.app_config.hop3_config.get_workers_from_run_section()
+            run_workers = self.app_config.hop3_config.get_workers_from_run_section()
             lifecycle_hooks = {"prebuild", "postbuild", "prerun"}
-            hop3_workers = {
-                k: v for k, v in hop3_workers.items() if k not in lifecycle_hooks
+            run_workers = {
+                k: v for k, v in run_workers.items() if k not in lifecycle_hooks
             }
-            if hop3_workers:
-                merged_workers.update(hop3_workers)  # hop3.toml overrides
+            merged_workers.update(run_workers)  # hop3.toml overrides
+
+        self._refuse_two_http_servers(merged_workers, run_workers)
 
         # The protocol describes the command that actually runs, not the one
         # the toolchain proposed. A PHP recipe that keeps its own
@@ -187,6 +190,52 @@ class RuntimeManifestBuilder:
             for name, cmd in all_workers.items()
             if name not in lifecycle_hooks
         }
+
+    def _refuse_two_http_servers(
+        self, merged: dict[str, str], run_workers: dict[str, str]
+    ) -> None:
+        """
+        Refuse a `web` worker next to a uWSGI-loaded one (`wsgi`, ...).
+
+        Both are given the app's port, and only one can serve it. Overriding is by
+        key, and these are different keys: a `[run].start` does not replace a
+        Procfile `wsgi:` line, it lands beside it. The Procfile parser refuses
+        the pair within one file; this is the same rule for the merged set,
+        where the two can come from different sources.
+        """
+        loaded = sorted(WSGI_WORKER_KINDS & merged.keys())
+        if "web" not in merged or not loaded:
+            return
+        procfile = self.app_config.procfile.workers
+
+        def origin(kind: str) -> str:
+            if kind in run_workers:
+                return "hop3.toml [run]"
+            if kind in procfile:
+                return "the Procfile"
+            return "the builder"
+
+        kind = loaded[0]
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Runtime manifest",
+                action="decide which worker serves HTTP",
+                reason=(
+                    f"{origin('web')} declares a `web` worker and "
+                    f"{origin(kind)} a `{kind}` worker. Both are given the "
+                    f"app's port, and a `[run].start` does not replace a "
+                    f"`{kind}` worker: it is added beside it"
+                ),
+                hint=(
+                    f"Keep one: remove `{kind}` from {origin(kind)}, or `web` "
+                    f"from {origin('web')}"
+                ),
+                troubleshooting=[
+                    f"web: {merged['web']}",
+                    f"{kind}: {merged[kind]}",
+                ],
+            )
+        )
 
     def _get_before_run(self) -> list[str]:
         """
