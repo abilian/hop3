@@ -6,7 +6,8 @@ authors = [
     { name = "Stefane Fermigier", email = "sf@abilian.com" },
 ]
 readme = "README.md"
-requires-python = ">=3.12,<3.15"
+requires-python = ">=3.12,<3.16"
+license = "apache-2.0"
 
 dependencies = [
     # Workspace
