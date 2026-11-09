@@ -778,7 +778,7 @@ def _app_serves_http(
         return True
     try:
         return _probe_until_content(endpoint, path, timeout, healthcheck_contains)
-    except (OSError, http.client.HTTPException, ssl.SSLError):
+    except (OSError, http.client.HTTPException):
         return False
 
 
@@ -1110,7 +1110,7 @@ def _name_the_content_mismatch(app: App, path: str, contains: str) -> str:
         status, body, _ = _fetch(
             endpoint, probe_path, _DIAGNOSIS_TIMEOUT, want_body=True
         )
-    except (OSError, http.client.HTTPException, ssl.SSLError):
+    except (OSError, http.client.HTTPException):
         return ""
     served = " ".join(body.split())[:_DIAGNOSIS_BODY_CHARS]
     return (

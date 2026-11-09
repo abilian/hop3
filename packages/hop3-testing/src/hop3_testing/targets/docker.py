@@ -20,7 +20,7 @@ import subprocess
 import tarfile
 import time
 from contextlib import suppress
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any
 
 from docker.errors import BuildError, DockerException, ImageNotFound, NotFound
 from hop3_installer.deployer.docker_endpoint import pin_docker_endpoint
@@ -51,7 +51,6 @@ if TYPE_CHECKING:
     from pathlib import Path
 
     import docker
-    from docker.models.containers import Container
 
 
 class DockerTarget(DeploymentTarget):
@@ -676,12 +675,7 @@ class DockerTarget(DeploymentTarget):
         assert self._client is not None  # Set by start()
 
         try:
-            # docker-py types `containers.get` as returning the base `Model`;
-            # the collection's real element type is `Container`.
-            existing = cast(
-                "Container",
-                self._client.containers.get(self.docker_config.container_name),
-            )
+            existing = self._client.containers.get(self.docker_config.container_name)
             print(f"Removing existing container: {self.docker_config.container_name}")
             existing.remove(force=True)
         except NotFound:

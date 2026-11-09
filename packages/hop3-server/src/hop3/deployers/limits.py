@@ -115,10 +115,12 @@ def resolve_limits(
             raise LimitsError(msg)
         resolved[dim] = value
 
+    # Server defaults are untyped TOML: bare-bytes memory arrives as an int.
+    memory, processes = resolved.get("memory"), resolved.get("processes")
     return ResolvedLimits(
-        memory=resolved.get("memory"),
+        memory=None if memory is None else str(memory),
         cpu=resolved.get("cpu"),
-        processes=resolved.get("processes"),
+        processes=None if processes is None else int(processes),
     )
 
 
@@ -126,11 +128,11 @@ def to_cgroup_args(resolved: ResolvedLimits) -> dict[str, Any]:
     """Map resolved caps to ``cgroup.set_limits`` args (memory_max/cpu_max/pids_max)."""
     args: dict[str, Any] = {}
     if resolved.memory is not None:
-        args["memory_max"] = parse_memory_to_bytes(str(resolved.memory))
+        args["memory_max"] = parse_memory_to_bytes(resolved.memory)
     if resolved.cpu is not None:
         args["cpu_max"] = cpu_to_cgroup_max(float(resolved.cpu))
     if resolved.processes is not None:
-        args["pids_max"] = int(resolved.processes)
+        args["pids_max"] = resolved.processes
     return args
 
 

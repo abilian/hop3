@@ -59,7 +59,7 @@ class SshSettings:
         key = config.get("ssh_key", None)
         return cls(
             key=key if isinstance(key, str) and key else None,
-            port=int(config.get("ssh_port", DEFAULT_SSH_PORT)),
+            port=config.get("ssh_port", DEFAULT_SSH_PORT),
             options=tuple(ssh_options_from(config.get("ssh_options", ""))),
         )
 

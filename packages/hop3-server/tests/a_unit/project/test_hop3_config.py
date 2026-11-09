@@ -464,3 +464,14 @@ app = "my-app-dev"
 """
     cfg = Hop3Config.from_str(content)  # must not raise
     assert cfg.app_id == "my-app"
+
+
+def test_env_values_are_strings():
+    """TOML scalars in [env] and [env.computed] reach the app as strings."""
+    config = Hop3Config.from_str(
+        '[env]\nWORKERS = 4\nDEBUG = true\nNAME = "x"\n'
+        '[env.computed]\nURL = "http://${HOST}"\n'
+    )
+
+    assert config.env == {"WORKERS": "4", "DEBUG": "True", "NAME": "x"}
+    assert config.env_computed == {"URL": "http://${HOST}"}

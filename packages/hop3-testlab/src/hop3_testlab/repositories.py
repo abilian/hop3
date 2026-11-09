@@ -241,7 +241,7 @@ class RunsRepository:
         history: dict[str, list[bool]] = {}
         for run in reversed(recent):  # oldest first
             for result in self.results_for(run):
-                history.setdefault(result.test_name, []).append(bool(result.passed))
+                history.setdefault(result.test_name, []).append(result.passed)
         return history
 
 

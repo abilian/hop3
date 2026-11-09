@@ -59,7 +59,6 @@ Example
 from __future__ import annotations
 
 import base64
-import binascii
 import hashlib
 import json
 import os
@@ -110,7 +109,7 @@ def _decode_configured_salt(raw: str) -> bytes:
     except ValueError:
         try:
             decoded = base64.b64decode(raw, validate=True)
-        except (ValueError, binascii.Error) as e:
+        except ValueError as e:  # binascii.Error is a ValueError
             msg = (
                 f"{_V2_SALT_ENV} must be hex or base64-encoded "
                 f"(got an unparseable value)."

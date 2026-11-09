@@ -139,10 +139,10 @@ def set_env_vars(
             if defaults_only:
                 skipped.append(key)
                 continue
-            existing.value = str(value)
+            existing.value = value
             count += 1
         else:
-            new_var = EnvVar(app_id=app.id, name=key, value=str(value))
+            new_var = EnvVar(app_id=app.id, name=key, value=value)
             db_session.add(new_var)
             app.env_vars.append(new_var)
             count += 1
@@ -208,8 +208,8 @@ def set_computed_env_vars(
 
     resolved: dict[str, str] = {}
     for key, template in computed_config.items():
-        _require_resolvable(key, str(template), current_env)
-        resolved[key] = expand_vars(str(template), current_env)
+        _require_resolvable(key, template, current_env)
+        resolved[key] = expand_vars(template, current_env)
 
     # Set computed vars (always override — they're derived values)
     count, _ = set_env_vars(app, resolved, db_session, defaults_only=False)
@@ -245,7 +245,6 @@ def generate_secret_value(spec: Mapping[str, Any]) -> str:
             f"Must be one of: {', '.join(sorted(GENERATE_KINDS))}."
         )
         raise ValueError(msg)
-    kind = str(kind)  # narrowed: a valid generator name past the guard
 
     length = spec.get("length") or _DEFAULT_GENERATE_LENGTHS.get(kind, 32)
 

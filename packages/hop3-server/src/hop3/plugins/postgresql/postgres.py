@@ -36,7 +36,7 @@ from psycopg2.extensions import ISOLATION_LEVEL_AUTOCOMMIT
 from hop3 import config as c
 from hop3.core.backup import resolve_backup_file
 from hop3.lib.logging import server_log
-from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
+from hop3.lib.rootd import RootdError, reload_service
 from hop3.plugins.addons import (
     addon_secrets_exist,
     delete_addon_secrets,
@@ -244,7 +244,7 @@ def _ensure_pg_hba_docker_access() -> None:
     # from a Docker app. A rewritten config that is not live is not a success.
     try:
         method = reload_service("postgresql")
-    except (RootdError, RootdUnavailableError) as e:
+    except RootdError as e:
         msg = (
             f"pg_hba.conf was updated for Docker networks but PostgreSQL could "
             f"not be reloaded ({e}), so the change is NOT live: containers will "
@@ -316,7 +316,7 @@ def _ensure_pg_listen_addresses() -> None:
     # never applied is a silent failure that surfaces as a refused connection.
     try:
         method = reload_service("postgresql")
-    except (RootdError, RootdUnavailableError) as e:
+    except RootdError as e:
         msg = (
             f"postgresql.conf listen_addresses was updated but PostgreSQL could "
             f"not be restarted ({e}), so it is still listening on the old "

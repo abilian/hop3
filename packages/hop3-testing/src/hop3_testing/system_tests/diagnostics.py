@@ -167,7 +167,7 @@ class DiagnosticCollector:
                 content += f"\n\n=== STDERR ===\n{stderr}"
 
             output_path.write_text(content)
-            result.collected_files.append(str(output_path.name))
+            result.collected_files.append(output_path.name)
 
         except Exception as e:
             result.errors.append(f"Failed to collect {output_path.name}: {e}")

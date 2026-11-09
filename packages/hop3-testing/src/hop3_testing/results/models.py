@@ -80,13 +80,13 @@ class TestRun(Base):
     hop3_version: Mapped[str | None] = mapped_column(String(50), nullable=True)
     """Hop3 version being tested."""
 
-    total_tests: Mapped[int] = mapped_column(default=0, nullable=True)
+    total_tests: Mapped[int | None] = mapped_column(default=0, nullable=True)
     """Total number of tests run."""
 
-    passed_tests: Mapped[int] = mapped_column(default=0, nullable=True)
+    passed_tests: Mapped[int | None] = mapped_column(default=0, nullable=True)
     """Number of passing tests."""
 
-    failed_tests: Mapped[int] = mapped_column(default=0, nullable=True)
+    failed_tests: Mapped[int | None] = mapped_column(default=0, nullable=True)
     """Number of failing tests."""
 
     # --- ADR 044: provenance + budget bookkeeping (additive, nullable) --------

@@ -20,7 +20,7 @@ from hop3.lib import (
     expand_vars,
     log,
 )
-from hop3.lib.rootd import RootdError, RootdUnavailableError, reload_service
+from hop3.lib.rootd import RootdError, reload_service
 from hop3.platform.certificates import (
     CertificatesManager,
     ensure_acme_webroot,
@@ -344,7 +344,7 @@ class CaddyVirtualHost(BaseProxy):
         try:
             method = reload_service("caddy")
             log(f"caddy reloaded via {method} (hop3-rootd)", level=2)
-        except (RootdError, RootdUnavailableError) as e:
+        except RootdError as e:
             msg = (
                 f"Could not reload caddy: {e}. The new configuration / "
                 f"certificate is not live; refusing to report a successful deploy."

@@ -29,7 +29,7 @@ from sqlalchemy.exc import IntegrityError
 
 from hop3.core.plugins import get_addon
 from hop3.lib import Diagnosis, abort_with_diagnosis, log
-from hop3.lib.rootd import LocalRootdClient, RootdError, RootdUnavailableError
+from hop3.lib.rootd import LocalRootdClient, RootdError
 from hop3.orm import PortClaim, PortClaimRepository
 
 if TYPE_CHECKING:
@@ -77,20 +77,24 @@ def allocate_public_port(repo: PortClaimRepository, protocol: str = "tcp") -> in
     """
     candidates = list(range(PORT_RANGE_LOW, PORT_RANGE_HIGH + 1))
     random.SystemRandom().shuffle(candidates)
-    for port in candidates:
-        if repo.find_active(port, protocol) is not None:
-            continue
-        if _port_is_free(port):
-            return port
-    abort_with_diagnosis(
-        Diagnosis(
-            component="Addon",
-            action="allocate a public port for exposure",
-            reason=f"no free port in [{PORT_RANGE_LOW}, {PORT_RANGE_HIGH}]",
-            hint="unexpose an addon to free a port, or widen the range",
-        )
+    port = next(
+        (
+            port
+            for port in candidates
+            if repo.find_active(port, protocol) is None and _port_is_free(port)
+        ),
+        None,
     )
-    raise AssertionError  # unreachable: abort_with_diagnosis above is NoReturn
+    if port is None:
+        abort_with_diagnosis(
+            Diagnosis(
+                component="Addon",
+                action="allocate a public port for exposure",
+                reason=f"no free port in [{PORT_RANGE_LOW}, {PORT_RANGE_HIGH}]",
+                hint="unexpose an addon to free a port, or widen the range",
+            )
+        )
+    return port
 
 
 def _rewrite_url(url: str, host: str, port: int) -> str:
@@ -236,7 +240,7 @@ def expose_addon(
                 },
             )
             claim.proxy_unit = proxy.get("unit")
-    except (RootdError, RootdUnavailableError) as e:
+    except RootdError as e:
         leftover = _rollback_partial(rule_id, claim, db_session)
         rolled_back = (
             f"the rollback left a {leftover}: once rootd works, run "

@@ -23,3 +23,17 @@ def test_missing_config_file_uses_defaults(tmp_path):
     cfg = Config.from_toml_file(tmp_path / "config.toml")
 
     assert cfg.data == {}
+
+
+def test_int_setting_from_environment_is_an_int(monkeypatch):
+    """`HOP3_SSH_PORT=2222` reads as the int the caller's default promises."""
+    monkeypatch.setenv("HOP3_SSH_PORT", "2222")
+
+    assert Config().get("ssh_port", 22) == 2222
+
+
+def test_int_setting_that_is_not_a_number_is_refused(monkeypatch):
+    monkeypatch.setenv("HOP3_SSH_PORT", "twenty-two")
+
+    with pytest.raises(ConfigError, match="HOP3_SSH_PORT must be an integer"):
+        Config().get("ssh_port", 22)

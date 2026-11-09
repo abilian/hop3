@@ -276,7 +276,7 @@ class NodeToolchain(LanguageToolchain):
                     ),
                 )
             )
-        if shutil.which("npm", path=str(env.get("PATH", ""))) is None:
+        if shutil.which("npm", path=env.get("PATH", "")) is None:
             abort_with_diagnosis(
                 Diagnosis(
                     component="Node toolchain",

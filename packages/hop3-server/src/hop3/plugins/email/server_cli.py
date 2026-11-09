@@ -190,7 +190,7 @@ class ServerEmailSetCmd(Command):
                 )
             ]
         explicit_port = "--smtp-port" in args or any(
-            str(a).startswith("--smtp-port=") for a in args
+            a.startswith("--smtp-port=") for a in args
         )
         if raw_host or explicit_port:
             return [

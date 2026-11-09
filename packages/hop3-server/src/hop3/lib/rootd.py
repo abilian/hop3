@@ -114,7 +114,7 @@ class LocalRootdClient:
                 f"hop3-rootd socket not found at {self.socket_path}; "
                 "is the daemon running?"
             ) from e
-        except (OSError, ConnectionError) as e:
+        except OSError as e:
             raise RootdUnavailableError(
                 f"could not connect to hop3-rootd at {self.socket_path}: {e}"
             ) from e

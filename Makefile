@@ -95,8 +95,8 @@ lint:
 	@make typecheck
 
 typecheck:
-	uv run pyrefly check packages/hop3-*/src
-	# uv run ty check ...
+	uv run pyrefly check packages/hop3-*/src --min-severity=warn
+	# uv run ty check packages/hop3-*/src
 	uv run zuban check packages/hop3-*/src
 	uv run mypy packages/hop3-*/src
 	cd packages/hop3-server && uv run deptry src

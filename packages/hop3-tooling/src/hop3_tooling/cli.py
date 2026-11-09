@@ -547,7 +547,7 @@ def _rebuild_check(
     try:
         expression = _generated_expression(app_dir, pin)
     except click.ClickException as exc:
-        return ReproResult(app_dir.name, Outcome.EVAL_ERROR, str(exc.message))
+        return ReproResult(app_dir.name, Outcome.EVAL_ERROR, exc.message)
 
     with _materialized_nix(app_dir, expression):
         if ssh:

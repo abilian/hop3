@@ -107,6 +107,11 @@ _PIP = f"{VENV_DIR}/bin/pip"
 _ROOTD_PIP = f"{ROOTD_VENV_DIR}/bin/pip"
 
 
+def _as_root(command: str) -> str:
+    """`command` as it stands: the installer already runs as root."""
+    return command
+
+
 def _as_hop3(command: str) -> str:
     """
     `command`, run by the hop3 user with its own login environment.
@@ -881,7 +886,7 @@ class Deployer:
         # as root.
         probes = (
             (_as_hop3, f"{VENV_DIR}/bin/python", _SERVER_VENV_PACKAGES),
-            (str, f"{ROOTD_VENV_DIR}/bin/python", (ROOTD_PACKAGE_NAME,)),
+            (_as_root, f"{ROOTD_VENV_DIR}/bin/python", (ROOTD_PACKAGE_NAME,)),
         )
         for as_user, python, packages in probes:
             result = self.backend.run(

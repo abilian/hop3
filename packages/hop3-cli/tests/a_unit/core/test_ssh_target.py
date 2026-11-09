@@ -14,6 +14,7 @@ newlines outright.
 from __future__ import annotations
 
 import pytest
+from hop3_cli.config import Config
 from hop3_cli.core.ssh_target import (
     SshSettings,
     is_safe_ssh_target,
@@ -87,7 +88,9 @@ def test_settings_drop_a_key_that_is_not_a_string() -> None:
 
 
 def test_settings_read_port_and_options() -> None:
-    settings = SshSettings.from_config(_Config(ssh_port="2222", ssh_options="A=1 B=2"))
+    # The real Config: it is what turns a string port (file or env) into an int.
+    config = Config(data={"ssh_port": "2222", "ssh_options": "A=1 B=2"})
+    settings = SshSettings.from_config(config)
     assert settings.port == 2222
     assert settings.options == ("A=1", "B=2")
 

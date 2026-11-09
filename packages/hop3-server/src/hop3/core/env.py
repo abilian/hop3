@@ -43,9 +43,7 @@ class Env(MutableMapping[str, str]):
         freeze(self)
 
     def __setitem__(self, key: str, value: str) -> None:
-        # Env values are strings (MutableMapping[str, str]); str() is a defensive
-        # net for a mistyped write, not a licence to store arbitrary objects.
-        self._data[key] = str(value)
+        self._data[key] = value
 
     def __getitem__(self, key: str) -> str:
         return self._data[key]

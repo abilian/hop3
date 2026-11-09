@@ -150,7 +150,7 @@ class AddonEmailCreateCmd(Command):
         # --smtp-port counts as override intent too, so it is never silently
         # dropped on the inherit path (which uses the server transport's port).
         explicit_port = "--smtp-port" in args or any(
-            str(a).startswith("--smtp-port=") for a in args
+            a.startswith("--smtp-port=") for a in args
         )
         override = bool(host or user or password or explicit_port)
         required = [("<name>", addon_name), ("--from", mail_from)]

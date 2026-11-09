@@ -468,15 +468,16 @@ class Hop3Config:
     # =========================================================================
 
     @property
-    def env(self) -> dict[str, Any]:
+    def env(self) -> dict[str, str]:
         """
-        Get the [env] section (environment variables).
+        Get the [env] section (environment variables), as strings.
 
-        Excludes internal keys (_policy) and nested sections (computed).
+        Excludes internal keys (_policy) and nested sections (computed). TOML
+        scalars (`WORKERS = 4`, `DEBUG = true`) become their `str()` form.
         """
         raw = self._data.get("env", {})
         return {
-            k: v
+            k: str(v)
             for k, v in raw.items()
             if not k.startswith("_") and not isinstance(v, dict)
         }
@@ -500,7 +501,7 @@ class Hop3Config:
         default env vars are injected.
         """
         env_section = self._data.get("env", {})
-        return env_section.get("computed", {})
+        return {k: str(v) for k, v in env_section.get("computed", {}).items()}
 
     @property
     def env_generated(self) -> dict[str, dict[str, Any]]:

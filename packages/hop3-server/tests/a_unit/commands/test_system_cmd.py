@@ -32,6 +32,7 @@ from hop3.commands.system import (
 )
 from hop3.config import HopConfig
 from hop3.core.protocols import HealthCheckResult
+from hop3.lib.rootd import RootdUnavailableError
 
 IDENTITY = {
     "hostname": "test-host",
@@ -418,7 +419,7 @@ def test_services_are_the_ones_this_server_runs(monkeypatch):
 def test_a_state_rootd_cannot_give_is_reported_not_raised(monkeypatch):
     def unavailable(service: str) -> tuple[bool, str]:
         msg = "hop3-rootd socket not found"
-        raise sysmod.RootdUnavailableError(msg)
+        raise RootdUnavailableError(msg)
 
     monkeypatch.setattr(sysmod, "service_state", unavailable)
 

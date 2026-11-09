@@ -37,6 +37,17 @@ DEFAULT_CONTEXT_NAME = "default"
 ENV_CONTEXT_NAME = "env"
 
 
+def _as_type_of(default: object, name: str, value: object) -> object:
+    """`value`, read as an int when the caller's default is one."""
+    if not isinstance(default, int) or isinstance(default, bool):
+        return value
+    try:
+        return int(str(value))
+    except ValueError as exc:
+        msg = f"{name} must be an integer (got {value!r})"
+        raise ConfigError(msg) from exc
+
+
 @dataclasses.dataclass
 class Config:
     data: dict = dataclasses.field(default_factory=dict)
@@ -247,9 +258,6 @@ class Config:
     def get(self, key: str, default: str) -> str: ...
 
     @overload
-    def get(self, key: str, default: bool) -> bool: ...
-
-    @overload
     def get(self, key: str, default: int) -> int: ...
 
     @overload
@@ -263,15 +271,18 @@ class Config:
         2. Value from config file (e.g., api_url = "...")
         3. Provided default value for this method call.
         4. Class-level default value.
+
+        With an int default, a value from the environment or the file is read
+        as an int (`HOP3_SSH_PORT=2222`), or refused.
         """
         # 1. Check Environment Variable
         env_var_key = PREFIX + key.upper()
         if env_var_key in os.environ:
-            return os.environ[env_var_key]
+            return _as_type_of(default, env_var_key, os.environ[env_var_key])
 
         # 2. Check value from config file data
         if key in self.data:
-            return self.data[key]
+            return _as_type_of(default, key, self.data[key])
 
         # 3. Check for a default value passed to this specific `get` call
         if default is not _marker:

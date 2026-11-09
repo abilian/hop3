@@ -96,7 +96,7 @@ class RuntimeManifestBuilder:
             for key, value in hop3_env.items():
                 # Toolchain env vars take precedence (they have absolute paths)
                 if key not in merged_env:
-                    merged_env[key] = str(value)
+                    merged_env[key] = value
 
         # Determine workers with precedence:
         # 1. Procfile (base — convention/auto-detected)

@@ -124,3 +124,10 @@ def test_as_dict_round_trips_hop3_toml_form():
         "memory": "512M",
         "cpu": 1.5,
     }
+
+
+def test_resolve_reads_untyped_server_defaults():
+    # hop3-server.toml is untyped: bare-bytes memory arrives as an int.
+    r = resolve_limits({}, {"memory": 536870912, "processes": "64"}, {})
+    assert r == ResolvedLimits(memory="536870912", cpu=None, processes=64)
+    assert to_cgroup_args(r) == {"memory_max": 536870912, "pids_max": 64}

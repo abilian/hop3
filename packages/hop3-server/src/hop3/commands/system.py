@@ -45,7 +45,7 @@ from hop3.lib.args import parse_cli_args
 from hop3.lib.console import get_verbosity
 from hop3.lib.logging import server_log_file
 from hop3.lib.registry import register
-from hop3.lib.rootd import RootdError, RootdUnavailableError, service_state
+from hop3.lib.rootd import RootdError, service_state
 from hop3.plugins.redis.redis import REDIS_PASS_FILE
 from hop3.plugins.s3.backend import HOP3_S3_ENV_FILE
 from hop3.server.health import get_all_health_checks, run_health_check
@@ -94,7 +94,7 @@ def _service_item(unit: str, label: str) -> CheckItem:
     """One service's line in the report, as its process manager states it."""
     try:
         active, state = service_state(unit)
-    except (RootdError, RootdUnavailableError) as e:
+    except RootdError as e:
         return CheckItem(name=label, severity="fail", detail=f"state unknown: {e}")
     return CheckItem(
         name=label,
