@@ -34,7 +34,8 @@ class DockerClient(docker.DockerClient):
 
 class _APIClient(docker.APIClient):
     def _get_raw_response_socket(self, response: Any) -> Any:
-        sock = super()._get_raw_response_socket(response)
+        # ken: private docker-py method (api/client.py), absent from types-docker
+        sock = super()._get_raw_response_socket(response)  # type: ignore[misc]
         if not self.base_url.startswith(_SSH_BASE_URL):
             return sock
         # The path docker-py itself takes, one step short of the bare channel.

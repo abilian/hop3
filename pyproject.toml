@@ -90,6 +90,8 @@ dev = [
     "libcst>=1.8.6",
     "tach>=0.35.0",
     "tepyd>=0.7.0",
+    "types-docker>=7.2.0.20261102",
+    "types-psycopg2>=2.9.21.20261030",
 ]
 
 doc = [

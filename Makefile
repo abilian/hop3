@@ -92,18 +92,12 @@ ruff:
 lint:
 	@echo "--> Linting code"
 	@make ruff
+	@make typecheck
+
+typecheck:
 	uv run pyrefly check packages/hop3-*/src
 	# uv run ty check ...
-	uv run zuban check \
-		packages/hop3-cli/src \
-		packages/hop3-installer/src \
-		packages/hop3-marketplace/src \
-		packages/hop3-rootd/src \
-		packages/hop3-server/src \
-		packages/hop3-testing/src \
-		packages/hop3-testlab/src \
-		packages/hop3-tooling/src \
-		packages/hop3-tui/src
+	uv run zuban check packages/hop3-*/src
 	uv run mypy packages/hop3-*/src
 	cd packages/hop3-server && uv run deptry src
 	@echo ""
