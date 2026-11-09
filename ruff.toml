@@ -69,6 +69,7 @@ lint.extend-ignore = [
     "PLR0914", # too-many-locals
     "A002", #    builtin-argument-shadowing
     "RUF027", #  missing-f-string-syntax
+    "shared-clock-mock",
 ]
 
 [lint.pylint]
