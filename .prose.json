@@ -75,7 +75,8 @@
     "R39-overused/bound": "cli.md: 'bound' is the CLI's term for the context binding (a checkout bound to a context, `.hop3-local.toml`) and for hostnames bound to an app (`hop3 domain`). A term of art, not a register word.",
     "R31-runon/cli-bullet-lists": "cli.md '**Notes:**' and '**Behavior:**' are bullet lists whose items carry no full stop; the splitter reads each list as one long sentence. Rule 31 exempts lists.",
     "R39-overused/audit-terms": "developers/security-model.md: 'finding' (a reported security defect) and 'round' (one audit pass, as in the per-round audit reports) are the security-review vocabulary the page teaches; each use names that thing, so rotating synonyms would blur it.",
-    "R34-verbless/quickstart-list-item": "quickstart.md step 3: 'A bare `hop3 deploy` works too, because Hop3 reads…' has the finite verb 'works'; inside a four-space-indented list item the parser loses the head at the inline-code span. Same class as R34-verbless/inline-code+verb."
+    "R34-verbless/quickstart-list-item": "quickstart.md step 3: 'A bare `hop3 deploy` works too, because Hop3 reads…' has the finite verb 'works'; inside a four-space-indented list item the parser loses the head at the inline-code span. Same class as R34-verbless/inline-code+verb.",
+    "R39-overused/turn+declared": "ADR 072: 'TURN' is the media-relay protocol's name (RFC 8656), and 'declared' is ADR 045's term for a port an app lists in `[[ports]]` (a declared port, as opposed to the allocated $PORT). Terms of art; a synonym would blur which mechanism is meant."
   },
   "allowlist": {
     "R33-taboo": [
@@ -213,7 +214,9 @@
       "probe",
       "bound",
       "finding",
-      "round"
+      "round",
+      "turn",
+      "declared"
     ]
   }
 }

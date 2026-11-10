@@ -79,6 +79,21 @@ The server shipped one Node version and no pnpm, so umami (needs ≥20) and ghos
 - [ ] **Per-app roles**, designed into ADR 061 and not built: a deployer reaches every app on the server.
 - [ ] **Where the gate runs regularly.** `180-flask-gated` needs an admin domain, so the Docker target and a server addressed by IP leave it out. Either target the box by its hostname and include the fixtures, or give those targets an admin domain of their own ([`../todo.md`](../todo.md)).
 
+## Non-HTTP services (ADR 072)
+
+Forges, media apps and mail servers cannot be packaged today: port 22 belongs to sshd, apps cannot bind ports below 1024, `[[ports]]` takes no ranges, and certificates are installed for nginx only. [ADR 072](../adrs/072-non-http-services.md) (Proposed) designs the answer as an extension of ADR 045. In order, each step tested before the next:
+
+- [ ] **Declared ports are mandatory** (§1): an unreachable rootd fails the deploy, and each declared TCP port must accept a connection before the app is RUNNING. Proposed for 0.9 among the small items ([its decision 1](plan-0.9.md#1-what-else-09-takes)).
+- [ ] **Ranges** (§3): `last` on `[[ports]]`, overlap detection in one serialized write, one rule per range.
+- [ ] **Low ports** (§2): the `firewall.add_redirect` and `firewall.remove_redirect` operations as a new section of ADR 041, the internal port passed as `HOP3_PORT_<NAME>`. The alternatives (an ambient capability, the socket-proxy forwarder) are open in the ADR until this step starts.
+- [ ] **Docker publishing** (§4): the compose file publishes declared ports; owncast's and Matrix's Docker variants then declare theirs.
+- [ ] **Certificate export** (§5): `[tls] export`, the files under `apps/<app>/tls/`, a restart on renewal.
+- [ ] **Shared SSH** (§6), after per-app users (ADR 055): the login-name registry, the rootd account and drop-in operations with `sshd -t` and the `sshd -T` comparison, the root-owned keys helper. Gitea and Forgejo turn SSH back on. Until then, a forge recipe may serve its built-in SSH server on a declared port above 1024.
+- [ ] **TURN** (§7): coturn under `--with turn`, the `turn` addon, Galene as the first app, then Synapse's TURN settings.
+- [ ] **Mail host** (§8): the "local mail host" backend in ADR 054, the deliverability checks (MX, reverse DNS, outbound port 25), Stalwart as the first recipe. Settles `PLATFORM-BLOCKERS` #25.
+
+Each step's acceptance fixture is listed in the ADR. Jitsi Meet follows TURN once Galene passes; BigBlueButton stays out of scope.
+
 ## Security and identity
 
 **Per-app users and build-time isolation (ADR 055)** are 0.9's headline: [`plan-0.9.md`](plan-0.9.md), with the work plan [`plan-0.9-per-app-users.md`](plan-0.9-per-app-users.md).
