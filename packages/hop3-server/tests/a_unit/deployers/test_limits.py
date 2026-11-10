@@ -103,6 +103,14 @@ def test_resolve_value_at_ceiling_is_allowed():
     assert r.cpu == 4.0
 
 
+def test_resolve_converts_values_the_schema_accepts_but_leaves_raw():
+    # The schema validates `processes = "256"` and hop3.toml's raw value is what
+    # reaches us; rootd's cgroup op needs the number.
+    r = resolve_limits({"processes": "256", "cpu": "1.5"}, {}, {})
+    assert r == ResolvedLimits(cpu=1.5, processes=256)
+    assert to_cgroup_args(r) == {"cpu_max": "150000 100000", "pids_max": 256}
+
+
 # --- to_cgroup_args -------------------------------------------------------
 
 

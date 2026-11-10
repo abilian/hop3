@@ -9,7 +9,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from hop3 import config as c
-from hop3.core.artifacts import WEB_WORKER_KINDS
+from hop3.core.artifacts import WEB_WORKER_KINDS, WSGI_WORKER_KINDS
 from hop3.lib import log
 
 
@@ -78,8 +78,7 @@ class Procfile:
             return
 
         # Can't have both 'web' and 'wsgi' workers
-        wsgi_worker_types = {"wsgi", "jwsgi", "rwsgi"}
-        if wsgi_worker_types.intersection(self.workers) and "web" in self.workers:
+        if WSGI_WORKER_KINDS.intersection(self.workers) and "web" in self.workers:
             msg = "Error: found both 'wsgi' and 'web' workers"
             # Raise an error if both 'web' and 'wsgi' workers are present
             raise ValueError(msg)

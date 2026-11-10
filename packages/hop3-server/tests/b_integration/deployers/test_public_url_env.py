@@ -15,8 +15,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from hop3.commands._helpers import unset_env_var
-from hop3.deployers.env_provisioning import set_env_vars, set_public_url_env
+from hop3.deployers.env_provisioning import (
+    set_computed_env_vars,
+    set_default_env_vars,
+    set_env_vars,
+    set_public_url_env,
+)
 from hop3.orm import App
+from hop3.project.hop3_config import Hop3Config
 
 if TYPE_CHECKING:
     from sqlalchemy.orm import Session
@@ -82,3 +88,14 @@ def test_public_url_cleared_when_host_removed(db_session: Session):
     unset_env_var(app, "HOST_NAME")
     set_public_url_env(app, db_session)
     assert "HOP3_PUBLIC_URL" not in app.get_runtime_env()
+
+
+def test_toml_scalars_are_stored_as_strings(db_session: Session):
+    # `[env] WORKERS = 4` and `[env.computed] RETRIES = 3` arrive as TOML integers.
+    config = Hop3Config.from_str("[env]\nWORKERS = 4\n[env.computed]\nRETRIES = 3\n")
+    app = _app(db_session)
+    set_default_env_vars(app, config.env, db_session)
+    set_computed_env_vars(app, config.env_computed, db_session)
+    # The rows themselves: get_runtime_env() would stringify a stored int anyway.
+    stored = {var.name: var.value for var in app.env_vars}
+    assert stored == {"WORKERS": "4", "RETRIES": "3"}

@@ -11,6 +11,7 @@ from typing import TYPE_CHECKING, ClassVar
 import pytest
 
 from hop3.core.manifest import RuntimeManifestBuilder
+from hop3.lib import Abort
 from hop3.project.config import AppConfig
 
 if TYPE_CHECKING:
@@ -309,3 +310,47 @@ class TestTheBackendProtocolDescribesWhatActuallyRuns:
     def test_everything_else_is_http(self, app_config_with_procfile) -> None:
         builder = RuntimeManifestBuilder(app_config_with_procfile)
         assert builder.build().backend_protocol == "http"
+
+
+class TestOneHttpServer:
+    """
+    A `web` worker and a uWSGI-loaded one (`wsgi`, ...) are both given the
+    app's port. Overriding is by key, so a `[run].start` lands beside a
+    Procfile `wsgi:` line instead of replacing it. The Procfile parser refuses
+    the pair within one file; the merge refuses it across sources.
+    """
+
+    def test_run_start_beside_a_procfile_wsgi_line_is_refused(self, app_dir) -> None:
+        (app_dir / "src" / "Procfile").write_text("wsgi: main:app\n")
+        (app_dir / "src" / "hop3.toml").write_text(
+            '[run]\nstart = "uvicorn main:app --host 0.0.0.0 --port $PORT"\n'
+        )
+        builder = RuntimeManifestBuilder(AppConfig.from_dir(app_dir))
+
+        with pytest.raises(Abort) as excinfo:
+            builder.build()
+
+        message = str(excinfo.value)
+        assert "hop3.toml [run] declares a `web` worker" in message
+        assert "the Procfile a `wsgi` worker" in message
+        assert "wsgi: main:app" in message
+        assert "web: uvicorn main:app" in message
+
+    def test_a_builder_web_worker_beside_a_procfile_jwsgi_line_is_refused(
+        self, app_dir
+    ) -> None:
+        (app_dir / "src" / "Procfile").write_text("jwsgi: app.war\n")
+        builder = RuntimeManifestBuilder(AppConfig.from_dir(app_dir))
+
+        with pytest.raises(Abort, match="the builder declares a `web` worker"):
+            builder.build(workers={"web": "/nix/store/x-app/bin/serve"})
+
+    def test_a_wsgi_worker_beside_other_workers_is_kept(self, app_dir) -> None:
+        (app_dir / "src" / "Procfile").write_text(
+            "wsgi: main:app\nworker: celery -A tasks worker\n"
+        )
+        runtime = RuntimeManifestBuilder(AppConfig.from_dir(app_dir)).build()
+        assert runtime.workers == {
+            "wsgi": "main:app",
+            "worker": "celery -A tasks worker",
+        }

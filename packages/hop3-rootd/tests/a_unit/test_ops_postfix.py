@@ -295,6 +295,13 @@ def _req_op(op: str, **args) -> Request:
     return Request(v=PROTOCOL_VERSION, id="req-1", op=op, args=args)
 
 
+def test_map_op_rejects_an_unhashable_map_name(postfix_dir):
+    # A JSON list is refused as invalid input, not a TypeError from the set lookup.
+    handler = get_handler("postfix.map_add")
+    with pytest.raises(ValidationError, match="must be one of"):
+        handler(_req_op("postfix.map_add", map=["sender_relayhost"]), _ctx(FakeExec()))
+
+
 def test_map_add_writes_line_and_reloads(postfix_dir):
     ex = FakeExec()
     result = pf.map_add(

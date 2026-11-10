@@ -49,8 +49,12 @@ from typing import TYPE_CHECKING, Any, Literal
 if TYPE_CHECKING:
     from pathlib import Path
 
+#: Worker names uWSGI loads as an application (Python, Java, Ruby). A `web`
+#: worker is a command run as given; one of these is a module uWSGI imports.
+WSGI_WORKER_KINDS = frozenset({"wsgi", "jwsgi", "rwsgi"})
+
 #: Worker names that answer HTTP on the app's port.
-WEB_WORKER_KINDS = frozenset({"wsgi", "jwsgi", "rwsgi", "web"})
+WEB_WORKER_KINDS = WSGI_WORKER_KINDS | {"web"}
 
 
 @dataclass

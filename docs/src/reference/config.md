@@ -40,6 +40,8 @@ start = "uvicorn app:app"  # Overrides 'web' from Procfile
 # worker: celery worker (from Procfile)
 ```
 
+`[run].start` overrides the Procfile's `web` line and nothing else. A Procfile `wsgi:` (or `jwsgi:`, `rwsgi:`) line is a different worker, which uWSGI loads as an application, so a `[run].start` would land beside it, with both given the app's port. Hop3 refuses that deploy, as it refuses a Procfile holding both `web` and `wsgi`. Keep one: delete the Procfile line to serve with `[run].start`, or drop `[run].start` to serve under uWSGI.
+
 ## File Location
 
 Place `hop3.toml` in one of these locations (checked in order):
