@@ -457,4 +457,5 @@ clean:
 	rm -rf docs/site
 	rm -rf docs/.cache
 	rm -rf test-logs/
+	rm -f deploy-*.log
 	# adt clean
